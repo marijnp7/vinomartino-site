@@ -1,0 +1,192 @@
+# LAT-89 — auto-deploy pipeline voor vinomartino-site
+#
+# Twee branches, twee gedragingen:
+#   • push naar `preview` → bouwen + rsync naar /root/vinomartino-site/preview-dist
+#                           → preview.vinomartino.com (achter CF Access)
+#   • push naar `main`    → eerst Telegram-approval via Paperclip CoS bridge,
+#                           dan bouwen + atomic-swap naar /root/vinomartino-site/dist
+#                           → vinomartino.com (publiek)
+#
+# Workflow_dispatch is ook beschikbaar als handmatige trigger.
+#
+# Vereiste secrets (zie SETUP.md):
+#   DIRECTUS_URL, DIRECTUS_TOKEN, VPS_HOST, VPS_USER, VPS_SSH_PRIVATE_KEY
+#
+# Optionele secret voor productie-gate (alleen main):
+#   COS_APPROVAL_URL  (default: https://approval.vinomartino.com/approval)
+
+name: Deploy VinoMartino
+
+on:
+  push:
+    branches: [preview, main]
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Doel (preview of production)"
+        required: true
+        default: preview
+        type: choice
+        options: [preview, production]
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      # ── 1. Bepaal doel-omgeving op basis van branch / dispatch ───────────
+      - name: Determine target environment
+        id: env
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            target="${{ github.event.inputs.target }}"
+          elif [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            target="production"
+          else
+            target="preview"
+          fi
+
+          if [ "$target" = "production" ]; then
+            remote_path="/root/vinomartino-site/dist"
+            container="paperclip-vinomartino-site-1"
+          else
+            remote_path="/root/vinomartino-site/preview-dist"
+            container="paperclip-vinomartino-preview-1"
+          fi
+
+          echo "target=$target"           >> "$GITHUB_OUTPUT"
+          echo "remote_path=$remote_path" >> "$GITHUB_OUTPUT"
+          echo "container=$container"     >> "$GITHUB_OUTPUT"
+          echo "::notice::Deploying to $target → $remote_path ($container)"
+
+      # ── 2. Productie-gate: vraag Telegram-approval via CoS bridge ────────
+      - name: Request production approval (Telegram)
+        if: steps.env.outputs.target == 'production'
+        env:
+          APPROVAL_URL: ${{ secrets.COS_APPROVAL_URL || 'https://approval.vinomartino.com/approval' }}
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+          AUTHOR: ${{ github.event.head_commit.author.name }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -e
+          echo "Approval-aanvraag wordt verstuurd naar: $APPROVAL_URL"
+          payload=$(jq -n \
+            --arg title "Productie-deploy VinoMartino — ${SHA:0:7}" \
+            --arg desc  "Auteur: $AUTHOR%0ACommit: $COMMIT_MSG%0ARun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            '{
+              title:           $title,
+              description:     $desc,
+              urgency:         "normal",
+              timeout_seconds: 86400,
+              source:          "github-actions",
+              ref:             "${{ github.sha }}"
+            }')
+
+          response=$(curl -sS --max-time 86400 -X POST "$APPROVAL_URL" \
+            -H "Content-Type: application/json" \
+            -d "$payload")
+
+          echo "Antwoord van bridge: $response"
+          decision=$(echo "$response" | jq -r '.decision // "unknown"')
+          if [ "$decision" != "approved" ]; then
+            echo "::error::Productie-deploy geweigerd of getimeout (decision=$decision)"
+            exit 1
+          fi
+          echo "::notice::Productie-deploy goedgekeurd door Marijn op Telegram"
+
+      # ── 3. Code ophalen ───────────────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── 4. Node 24 installeren ────────────────────────────────────────────
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # ── 5. Astro build met Directus-content ───────────────────────────────
+      - name: Build site
+        env:
+          DIRECTUS_URL:   ${{ secrets.DIRECTUS_URL }}
+          DIRECTUS_TOKEN: ${{ secrets.DIRECTUS_TOKEN }}
+          PUBLIC_SITE_URL: ${{ steps.env.outputs.target == 'production' && 'https://vinomartino.com' || 'https://preview.vinomartino.com' }}
+        run: |
+          npm run build
+          echo "Build output:"
+          ls -la dist/
+
+      # ── 6. SSH-key in agent zetten ────────────────────────────────────────
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Add VPS to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      # ── 7. Deploy naar VPS ────────────────────────────────────────────────
+      #
+      # Preview = directe rsync (downtime ~enkele seconden, acceptabel).
+      # Productie = atomic swap via tijdelijke directory + symlink, zodat
+      #             nginx nooit halve content serveert.
+      - name: Deploy (preview)
+        if: steps.env.outputs.target == 'preview'
+        run: |
+          rsync -avz --delete \
+            ./dist/ \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:${{ steps.env.outputs.remote_path }}/"
+
+      - name: Deploy (production atomic swap)
+        if: steps.env.outputs.target == 'production'
+        env:
+          REMOTE_PATH: ${{ steps.env.outputs.remote_path }}
+        run: |
+          STAGE="${REMOTE_PATH}.new-${{ github.run_id }}"
+          BACKUP="${REMOTE_PATH}.old-$(date +%s)"
+          rsync -avz --delete ./dist/ \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:${STAGE}/"
+          ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" bash -s <<EOF
+            set -e
+            if [ -d "${REMOTE_PATH}" ]; then
+              mv "${REMOTE_PATH}" "${BACKUP}"
+            fi
+            mv "${STAGE}" "${REMOTE_PATH}"
+            # Houd alleen de laatste 3 backups
+            ls -1dt ${REMOTE_PATH}.old-* 2>/dev/null | tail -n +4 | xargs -r rm -rf
+          EOF
+
+      # ── 8. Container reload (nginx serveert nieuwe files) ─────────────────
+      - name: Reload container
+        run: |
+          ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
+            "docker exec ${{ steps.env.outputs.container }} nginx -s reload \
+             || docker restart ${{ steps.env.outputs.container }}"
+
+      # ── 9. Smoke-test ─────────────────────────────────────────────────────
+      - name: Smoke test
+        run: |
+          if [ "${{ steps.env.outputs.target }}" = "production" ]; then
+            URL="https://vinomartino.com/nl/"
+          else
+            URL="https://preview.vinomartino.com/nl/"
+            # Preview zit achter CF Access; 302 naar login is OK
+          fi
+          code=$(curl -sS -o /dev/null -w "%{http_code}" -L --max-time 15 "$URL" || echo "000")
+          echo "GET $URL → HTTP $code"
+          if [ "${{ steps.env.outputs.target }}" = "production" ]; then
+            [ "$code" = "200" ] || { echo "::error::Productie smoke-test faalde ($code)"; exit 1; }
+          fi
+
+      - name: Done
+        run: echo "::notice::Deploy naar ${{ steps.env.outputs.target }} voltooid (${{ github.sha }})"
