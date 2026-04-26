@@ -1,0 +1,111 @@
+---
+import type { Brand } from '../lib/brands';
+
+interface Props {
+  brand: Brand;
+  locale: string;
+}
+
+const { brand, locale } = Astro.props;
+const base = `/${brand.slug}/${locale}`;
+---
+
+<header class="site-header">
+  <nav class="container header-nav">
+    <a href={base} class="logo">
+      <span class="logo-icon" aria-hidden="true">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="14" cy="14" r="13" stroke="currentColor" stroke-width="1.5"/>
+          <line x1="14" y1="4" x2="14" y2="24" stroke="currentColor" stroke-width="1.5"/>
+          <line x1="10" y1="8" x2="18" y2="8" stroke="currentColor" stroke-width="1.5" transform="rotate(-12 14 8)"/>
+        </svg>
+      </span>
+      <span class="logo-text">{brand.name}</span>
+    </a>
+    <div class="nav-main">
+      <ul class="nav-links">
+        <li><a href={base}>Home</a></li>
+        <li><a href={base}>Bestemmingen</a></li>
+        <li><a href={base}>Artikelen</a></li>
+        <li><a href={base}>Reisroutes</a></li>
+      </ul>
+      <a href="#subscribe" class="btn btn-primary nav-subscribe">Abonneer</a>
+    </div>
+  </nav>
+</header>
+
+<style>
+  .site-header {
+    border-bottom: 1px solid var(--aged-gold-20);
+    padding: var(--space-4) 0;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    backdrop-filter: blur(12px);
+    background: rgba(250, 246, 239, 0.92);
+  }
+
+  .header-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    text-decoration: none;
+  }
+
+  .logo-icon {
+    color: var(--color-primary);
+    display: flex;
+    align-items: center;
+  }
+
+  .logo-text {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-style: italic;
+    font-weight: 400;
+    color: var(--color-text);
+    letter-spacing: -0.02em;
+  }
+
+  .logo:hover .logo-text { color: var(--color-primary); }
+
+  .nav-main {
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
+  }
+
+  .nav-links {
+    display: flex;
+    list-style: none;
+    gap: var(--space-8);
+    align-items: center;
+  }
+
+  .nav-links a {
+    color: var(--color-text-secondary);
+    font-family: var(--font-ui);
+    font-weight: 500;
+    font-size: 0.9375rem;
+    transition: color var(--duration-fast) var(--ease-out);
+  }
+
+  .nav-links a:hover { color: var(--color-accent); }
+
+  .nav-subscribe {
+    font-size: 0.875rem;
+    height: 2.5rem;
+    padding: 0 var(--space-5);
+  }
+
+  @media (max-width: 768px) {
+    .nav-links { gap: var(--space-4); }
+    .nav-subscribe { display: none; }
+  }
+</style>

@@ -1,18 +1,23 @@
 # LAT-89 — auto-deploy pipeline voor vinomartino-site
 #
-# Twee branches, twee gedragingen:
-#   • push naar `preview` → bouwen + rsync naar /root/vinomartino-site/preview-dist
-#                           → preview.vinomartino.com (achter CF Access)
-#   • push naar `main`    → eerst Telegram-approval via Paperclip CoS bridge,
-#                           dan bouwen + atomic-swap naar /root/vinomartino-site/dist
-#                           → vinomartino.com (publiek)
+# Architectuur: VPS-side build.
+#   1. GHA checkt code uit
+#   2. GHA rsynct src (zonder node_modules/dist) naar /srv/vino-builds/<sha>/
+#   3. VPS bouwt daar (npm ci + npm run build) — heeft direct toegang tot
+#      Directus binnen het Docker-netwerk, geen CF Access secrets in GHA nodig
+#   4. Atomic swap: nieuwe dist/ wordt verplaatst naar definitieve locatie,
+#      oude wordt bewaard als .old-<ts> (laatste 3 als rollback)
+#   5. nginx reload in de juiste container
 #
-# Workflow_dispatch is ook beschikbaar als handmatige trigger.
+# Branches:
+#   • preview → /root/vinomartino-site/preview-dist (paperclip-vinomartino-preview-1)
+#   • main    → /root/vinomartino-site/dist          (paperclip-vinomartino-site-1)
+#             → eerst Telegram-approval via Paperclip CoS bridge
 #
-# Vereiste secrets (zie SETUP.md):
-#   DIRECTUS_URL, DIRECTUS_TOKEN, VPS_HOST, VPS_USER, VPS_SSH_PRIVATE_KEY
+# Vereiste secrets (slechts 3):
+#   VPS_HOST, VPS_USER, VPS_SSH_PRIVATE_KEY
 #
-# Optionele secret voor productie-gate (alleen main):
+# Optioneel:
 #   COS_APPROVAL_URL  (default: https://approval.vinomartino.com/approval)
 
 name: Deploy VinoMartino
@@ -34,12 +39,12 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
     steps:
-      # ── 1. Bepaal doel-omgeving op basis van branch / dispatch ───────────
+      # ── 1. Bepaal doel-omgeving ──────────────────────────────────────────
       - name: Determine target environment
         id: env
         run: |
@@ -52,17 +57,17 @@ jobs:
           fi
 
           if [ "$target" = "production" ]; then
-            remote_path="/root/vinomartino-site/dist"
+            dist_dir="/root/vinomartino-site/dist"
             container="paperclip-vinomartino-site-1"
           else
-            remote_path="/root/vinomartino-site/preview-dist"
+            dist_dir="/root/vinomartino-site/preview-dist"
             container="paperclip-vinomartino-preview-1"
           fi
 
-          echo "target=$target"           >> "$GITHUB_OUTPUT"
-          echo "remote_path=$remote_path" >> "$GITHUB_OUTPUT"
-          echo "container=$container"     >> "$GITHUB_OUTPUT"
-          echo "::notice::Deploying to $target → $remote_path ($container)"
+          echo "target=$target"       >> "$GITHUB_OUTPUT"
+          echo "dist_dir=$dist_dir"   >> "$GITHUB_OUTPUT"
+          echo "container=$container" >> "$GITHUB_OUTPUT"
+          echo "::notice::Deploying to $target → $dist_dir ($container)"
 
       # ── 2. Productie-gate: vraag Telegram-approval via CoS bridge ────────
       - name: Request production approval (Telegram)
@@ -74,7 +79,6 @@ jobs:
           SHA: ${{ github.sha }}
         run: |
           set -e
-          echo "Approval-aanvraag wordt verstuurd naar: $APPROVAL_URL"
           payload=$(jq -n \
             --arg title "Productie-deploy VinoMartino — ${SHA:0:7}" \
             --arg desc  "Auteur: $AUTHOR%0ACommit: $COMMIT_MSG%0ARun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
@@ -88,10 +92,8 @@ jobs:
             }')
 
           response=$(curl -sS --max-time 86400 -X POST "$APPROVAL_URL" \
-            -H "Content-Type: application/json" \
-            -d "$payload")
+            -H "Content-Type: application/json" -d "$payload")
 
-          echo "Antwoord van bridge: $response"
           decision=$(echo "$response" | jq -r '.decision // "unknown"')
           if [ "$decision" != "approved" ]; then
             echo "::error::Productie-deploy geweigerd of getimeout (decision=$decision)"
@@ -103,28 +105,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # ── 4. Node 24 installeren ────────────────────────────────────────────
-      - name: Setup Node 24
-        uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      # ── 5. Astro build met Directus-content ───────────────────────────────
-      - name: Build site
-        env:
-          DIRECTUS_URL:   ${{ secrets.DIRECTUS_URL }}
-          DIRECTUS_TOKEN: ${{ secrets.DIRECTUS_TOKEN }}
-          PUBLIC_SITE_URL: ${{ steps.env.outputs.target == 'production' && 'https://vinomartino.com' || 'https://preview.vinomartino.com' }}
-        run: |
-          npm run build
-          echo "Build output:"
-          ls -la dist/
-
-      # ── 6. SSH-key in agent zetten ────────────────────────────────────────
+      # ── 4. SSH-key in agent ──────────────────────────────────────────────
       - name: Setup SSH agent
         uses: webfactory/ssh-agent@v0.9.0
         with:
@@ -135,52 +116,81 @@ jobs:
           mkdir -p ~/.ssh
           ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
 
-      # ── 7. Deploy naar VPS ────────────────────────────────────────────────
-      #
-      # Preview = directe rsync (downtime ~enkele seconden, acceptabel).
-      # Productie = atomic swap via tijdelijke directory + symlink, zodat
-      #             nginx nooit halve content serveert.
-      - name: Deploy (preview)
-        if: steps.env.outputs.target == 'preview'
-        run: |
-          rsync -avz --delete \
-            ./dist/ \
-            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:${{ steps.env.outputs.remote_path }}/"
-
-      - name: Deploy (production atomic swap)
-        if: steps.env.outputs.target == 'production'
+      # ── 5. Sync src naar VPS staging ─────────────────────────────────────
+      - name: Sync source to VPS staging
         env:
-          REMOTE_PATH: ${{ steps.env.outputs.remote_path }}
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          STAGE: /srv/vino-builds/${{ github.sha }}
         run: |
-          STAGE="${REMOTE_PATH}.new-${{ github.run_id }}"
-          BACKUP="${REMOTE_PATH}.old-$(date +%s)"
-          rsync -avz --delete ./dist/ \
-            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:${STAGE}/"
-          ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" bash -s <<EOF
-            set -e
-            if [ -d "${REMOTE_PATH}" ]; then
-              mv "${REMOTE_PATH}" "${BACKUP}"
+          ssh "$VPS" "mkdir -p '$STAGE'"
+          rsync -avz --delete \
+            --exclude=node_modules \
+            --exclude=dist \
+            --exclude=preview-dist \
+            --exclude=.git \
+            --exclude='*.old-*' \
+            --exclude='deploy-key-github-actions*' \
+            ./ "$VPS:$STAGE/"
+
+      # ── 6. Build op VPS ──────────────────────────────────────────────────
+      #
+      # We kopiëren .env uit de bestaande site-folder zodat DIRECTUS_URL en
+      # DIRECTUS_TOKEN beschikbaar zijn tijdens de build. Geen secrets nodig
+      # in GHA — Directus zit achter CF Access en is alleen vanaf de VPS
+      # bereikbaar via het Docker-netwerk. Script wordt via stdin verstuurd
+      # zodat we geen bash heredoc binnen YAML hoeven te jongleren.
+      - name: Build on VPS
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          STAGE: /srv/vino-builds/${{ github.sha }}
+          BUILD_SCRIPT: |
+            set -euo pipefail
+            cd "$STAGE"
+            if [ -f /root/vinomartino-site/.env ]; then
+              cp /root/vinomartino-site/.env .env
             fi
-            mv "${STAGE}" "${REMOTE_PATH}"
-            # Houd alleen de laatste 3 backups
-            ls -1dt ${REMOTE_PATH}.old-* 2>/dev/null | tail -n +4 | xargs -r rm -rf
-          EOF
-
-      # ── 8. Container reload (nginx serveert nieuwe files) ─────────────────
-      - name: Reload container
+            if command -v npm >/dev/null 2>&1; then
+              npm ci
+              npm run build
+            else
+              docker run --rm --network host \
+                -v "$STAGE":/app -w /app \
+                node:24 bash -c "npm ci && npm run build"
+            fi
+            ls -la dist/
         run: |
-          ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
-            "docker exec ${{ steps.env.outputs.container }} nginx -s reload \
-             || docker restart ${{ steps.env.outputs.container }}"
+          printf '%s\n' "$BUILD_SCRIPT" | ssh "$VPS" "STAGE='$STAGE' bash -s"
 
-      # ── 9. Smoke-test ─────────────────────────────────────────────────────
+      # ── 7. Atomic swap + container reload ────────────────────────────────
+      - name: Atomic swap + reload
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          STAGE: /srv/vino-builds/${{ github.sha }}
+          DIST: ${{ steps.env.outputs.dist_dir }}
+          CONTAINER: ${{ steps.env.outputs.container }}
+          SWAP_SCRIPT: |
+            set -euo pipefail
+            BACKUP="${DIST}.old-$(date +%s)"
+            if [ -d "$DIST" ]; then
+              mv "$DIST" "$BACKUP"
+            fi
+            mv "$STAGE/dist" "$DIST"
+            rm -rf "$STAGE"
+            ls -1dt "${DIST}".old-* 2>/dev/null | tail -n +4 | xargs -r rm -rf
+            docker exec "$CONTAINER" nginx -s reload \
+              || docker restart "$CONTAINER"
+        run: |
+          printf '%s\n' "$SWAP_SCRIPT" \
+            | ssh "$VPS" "DIST='$DIST' STAGE='$STAGE' CONTAINER='$CONTAINER' bash -s"
+
+      # ── 8. Smoke test ────────────────────────────────────────────────────
       - name: Smoke test
         run: |
           if [ "${{ steps.env.outputs.target }}" = "production" ]; then
             URL="https://vinomartino.com/nl/"
           else
             URL="https://preview.vinomartino.com/nl/"
-            # Preview zit achter CF Access; 302 naar login is OK
+            # Preview zit achter CF Access; 302 of 200 is OK
           fi
           code=$(curl -sS -o /dev/null -w "%{http_code}" -L --max-time 15 "$URL" || echo "000")
           echo "GET $URL → HTTP $code"

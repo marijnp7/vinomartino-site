@@ -1,0 +1,73 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+const datum = "24 april 2026";
+---
+
+<BaseLayout title="Privacybeleid — VinoMartino" description="Hoe VinoMartino omgaat met uw persoonsgegevens.">
+  <article class="static-page">
+    <h1>Privacybeleid</h1>
+    <p class="update-datum"><em>Laatste update: {datum}</em></p>
+
+    <p>VinoMartino respecteert uw privacy en gaat zorgvuldig om met uw persoonsgegevens. Dit privacybeleid legt uit welke gegevens we verzamelen, waarvoor we die gebruiken, en wat uw rechten zijn als bezoeker van vinomartino.com.</p>
+
+    <p>Voor privacyvragen: <a href="mailto:privacy@vinomartino.com">privacy@vinomartino.com</a>.</p>
+
+    <h2>1. Welke gegevens we verzamelen</h2>
+
+    <p><strong>Analytische gegevens</strong><br />
+    Bij elk bezoek verzamelen we geanonimiseerde bezoekersdata: bezochte pagina's, duur van het bezoek, apparaattype en globale geografische regio. Er worden geen individuele bezoekers gevolgd en er worden geen persoonlijke profielen opgebouwd.</p>
+
+    <p><strong>Cookies</strong><br />
+    We gebruiken cookies voor de technische werking van de site en — met uw toestemming — voor het bijhouden van statistieken en affiliate-attributie. Zie onze <a href="/cookies/">Cookieverklaring</a>.</p>
+
+    <p><strong>Contact via e-mail</strong><br />
+    Als u ons een bericht stuurt, bewaren we uw naam en e-mailadres om uw vraag te beantwoorden. Deze gegevens worden niet met derden gedeeld.</p>
+
+    <h2>2. Grondslag en doel</h2>
+
+    <table>
+      <thead><tr><th>Verwerking</th><th>Grondslag</th><th>Doel</th></tr></thead>
+      <tbody>
+        <tr><td>Analytische cookies</td><td>Toestemming</td><td>Inzicht in bezoekersgedrag</td></tr>
+        <tr><td>Functionele cookies</td><td>Gerechtvaardigd belang</td><td>Technisch functioneren</td></tr>
+        <tr><td>Affiliate-attributie (Awin)</td><td>Toestemming</td><td>Commissie-bijhouding</td></tr>
+        <tr><td>Contactgegevens</td><td>Gerechtvaardigd belang</td><td>Beantwoorden van uw vraag</td></tr>
+      </tbody>
+    </table>
+
+    <h2>3. Bewaartermijnen</h2>
+    <ul>
+      <li>Analytische data: maximaal 26 maanden</li>
+      <li>Contactgegevens: tot 6 maanden na het laatste contact</li>
+      <li>Cookies: zie de <a href="/cookies/">Cookieverklaring</a></li>
+    </ul>
+
+    <h2>4. Met wie we gegevens delen</h2>
+    <ul>
+      <li><strong>Cloudflare</strong> — hosting en CDN. Gecertificeerd onder het EU-US Data Privacy Framework.</li>
+      <li><strong>Awin</strong> — affiliate-netwerk. Bij het klikken op een gemarkeerde partnerlink plaatst Awin een cookie voor transactie-attributie.</li>
+    </ul>
+
+    <h2>5. Uw rechten</h2>
+    <p>Op grond van de AVG heeft u recht op inzage, rectificatie, verwijdering, beperking, bezwaar en overdraagbaarheid. Verzoeken stuurt u naar <a href="mailto:privacy@vinomartino.com">privacy@vinomartino.com</a>. We reageren binnen 30 dagen. U kunt ook een klacht indienen bij de <a href="https://autoriteitpersoonsgegevens.nl" target="_blank" rel="noopener">Autoriteit Persoonsgegevens</a>.</p>
+
+    <h2>6. Wijzigingen</h2>
+    <p>Dit beleid kan worden aangepast. De datum bovenaan dit document geeft de meest recente versie aan.</p>
+  </article>
+</BaseLayout>
+
+<style>
+  .static-page { max-width: 720px; }
+  .static-page h1 { font-size: 2.2rem; color: var(--primary); margin-bottom: 0.5rem; }
+  .static-page h2 { font-size: 1.4rem; color: var(--primary); margin: 2rem 0 0.75rem; }
+  .static-page p, .static-page ul { margin-bottom: 1.2rem; color: #444; }
+  .static-page ul { padding-left: 1.5rem; }
+  .static-page li { margin-bottom: 0.5rem; }
+  .static-page a { color: var(--primary); }
+  .update-datum { margin-bottom: 1.5rem; color: #888; font-size: 0.9rem; }
+  table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; font-size: 0.9rem; }
+  th { background: var(--primary); color: var(--secondary); padding: 0.6rem 0.8rem; text-align: left; }
+  td { padding: 0.6rem 0.8rem; border-bottom: 1px solid #E8E0D4; color: #444; }
+  tr:last-child td { border-bottom: none; }
+  tr:nth-child(even) { background: #F8F4EE; }
+</style>

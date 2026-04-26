@@ -1,0 +1,376 @@
+---
+import BrandLayout from '../../layouts/BrandLayout.astro';
+import BrandHero from '../BrandHero.astro';
+import type { Brand } from '../../lib/brands';
+import type { CollectionEntry } from 'astro:content';
+
+interface Props {
+  brand: Brand;
+  locale: string;
+  articles: CollectionEntry<'articles'>[];
+}
+
+const { brand, locale, articles } = Astro.props;
+
+const CATEGORY_LABELS: Record<string, string> = {
+  'culture-history': 'Cultuur & Geschiedenis',
+  'wine-regions': "Wijnregio's",
+  'travel-tips': 'Reistips',
+  'food-pairing': 'Spijs & Wijn',
+  'tasting-notes': 'Proefnotities',
+  'winery-portraits': 'Wijnhuizen',
+  'sustainable-travel': 'Duurzaam Reizen',
+  'digital-nomads': 'Digital Nomads',
+};
+
+const FALLBACK_IMAGES = [
+  'https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=1200&h=675&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1504279577054-acfeccf8fc52?w=1200&h=675&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1543783207-ec64e4d95325?w=1200&h=675&fit=crop&q=80',
+];
+
+const displayArticles = articles.slice(0, 6);
+
+const countries = [
+  { name: 'Italië', continent: 'Europa', image: 'https://images.unsplash.com/photo-1523906834658-6e24ef2386f9?w=600&h=400&fit=crop&q=80' },
+  { name: 'Frankrijk', continent: 'Europa', image: 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=600&h=400&fit=crop&q=80' },
+  { name: 'Spanje', continent: 'Europa', image: 'https://images.unsplash.com/photo-1543783207-ec64e4d95325?w=600&h=400&fit=crop&q=80' },
+  { name: 'Portugal', continent: 'Europa', image: 'https://images.unsplash.com/photo-1555881400-74d7acaacd8b?w=600&h=400&fit=crop&q=80' },
+  { name: 'Griekenland', continent: 'Europa', image: 'https://images.unsplash.com/photo-1533105079780-92b9be482077?w=600&h=400&fit=crop&q=80' },
+  { name: 'Argentinië', continent: 'Zuid-Amerika', image: 'https://images.unsplash.com/photo-1612294037637-ec328d0e075e?w=600&h=400&fit=crop&q=80' },
+];
+---
+
+<BrandLayout
+  brand={brand}
+  locale={locale}
+  title={`${brand.name} — Wijnreizen, proefnotities & persoonlijke verhalen`}
+  description="Wijnreizen, proefnotities en persoonlijke verhalen uit de mooiste wijnstreken ter wereld."
+>
+  <BrandHero brand={brand} />
+
+  <section class="destinations container section-lg" id="bestemmingen">
+    <div class="section-header">
+      <span class="section-label">Bestemmingen</span>
+      <h2>Ontdek wijnstreken</h2>
+      <p class="section-desc">Van Toscane tot de Douro-vallei — verken de mooiste wijnregio's ter wereld.</p>
+    </div>
+    <div class="countries-grid">
+      {countries.map((country) => (
+        <div class="country-card">
+          <div class="country-card-image">
+            <img src={country.image} alt={country.name} loading="lazy" />
+            <div class="country-card-overlay"></div>
+          </div>
+          <div class="country-card-content">
+            <span class="country-continent">{country.continent}</span>
+            <h3>{country.name}</h3>
+          </div>
+        </div>
+      ))}
+    </div>
+  </section>
+
+  <div class="section-divider container">
+    <div class="divider-line"></div>
+    <svg class="divider-icon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <path d="M8 2h8l-1 9H9L8 2z"></path>
+      <path d="M12 11v6"></path>
+      <path d="M8 21h8"></path>
+      <path d="M9 17h6"></path>
+    </svg>
+    <div class="divider-line"></div>
+  </div>
+
+  <section class="recent-posts container section" id="artikelen">
+    <div class="section-header">
+      <span class="section-label">Vers van de pers</span>
+      <h2>Laatste verhalen</h2>
+      <p class="section-desc">Nieuwe wijnreisverhalen, proefnotities en insider-tips.</p>
+    </div>
+    {displayArticles.length === 0 ? (
+      <p class="no-articles">Artikelen worden binnenkort gepubliceerd.</p>
+    ) : (
+      <div class="posts-grid">
+        {displayArticles.map((article, i) => {
+          const img = article.data.heroImage || FALLBACK_IMAGES[i % FALLBACK_IMAGES.length];
+          const catLabel = CATEGORY_LABELS[article.data.category] || article.data.category;
+          const dateStr = new Date(article.data.pubDate).toLocaleDateString('nl-NL', {
+            day: 'numeric', month: 'short', year: 'numeric'
+          });
+          return (
+            <article class="blog-card card">
+              <a href={`/${locale}/${article.id}/`} class="card-link">
+                <div class="card-image-wrapper">
+                  <img src={img} alt={article.data.title} class="card-image" loading="lazy" />
+                </div>
+                <div class="card-body">
+                  {catLabel && <span class="card-category">{catLabel}</span>}
+                  <h2 class="card-title">{article.data.title}</h2>
+                  {article.data.description && (
+                    <p class="card-excerpt">{article.data.description.slice(0, 120)}{article.data.description.length > 120 ? '…' : ''}</p>
+                  )}
+                  <div class="card-footer">
+                    <span class="card-author">{article.data.author}</span>
+                    <span class="card-sep">&middot;</span>
+                    <time datetime={article.data.pubDate}>{dateStr}</time>
+                  </div>
+                </div>
+              </a>
+            </article>
+          );
+        })}
+      </div>
+    )}
+  </section>
+
+  <section class="newsletter-section" id="subscribe">
+    <div class="newsletter-bg">
+      <img src="https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=1920&h=600&fit=crop&q=80" alt="" class="newsletter-bg-img" loading="lazy" />
+      <div class="newsletter-overlay"></div>
+    </div>
+    <div class="container newsletter-inner">
+      <span class="hero-label" style="color: var(--aged-gold);">Blijf op de hoogte</span>
+      <h2>Ontvang de nieuwste wijnreisverhalen</h2>
+      <p>Elke maand de mooiste artikelen, reistips en proefnotities in je inbox.</p>
+      <div class="newsletter-form">
+        <a href="#subscribe" class="btn btn-primary">Abonneer op de nieuwsbrief</a>
+      </div>
+    </div>
+  </section>
+</BrandLayout>
+
+<style>
+  .countries-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
+  }
+
+  .country-card {
+    position: relative;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    aspect-ratio: 3 / 4;
+    cursor: pointer;
+  }
+
+  .country-card-image {
+    position: absolute;
+    inset: 0;
+  }
+
+  .country-card-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform var(--duration-image) var(--ease-out);
+  }
+
+  .country-card:hover img {
+    transform: scale(1.05);
+  }
+
+  .country-card-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(26, 20, 16, 0.7), transparent 60%);
+  }
+
+  .country-card-content {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 1.5rem;
+    z-index: 1;
+  }
+
+  .country-continent {
+    font-family: var(--font-ui);
+    font-size: 0.625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--aged-gold);
+    display: block;
+    margin-bottom: 0.25rem;
+  }
+
+  .country-card-content h3 {
+    font-family: var(--font-heading);
+    font-size: 1.25rem;
+    color: white;
+    font-weight: 700;
+  }
+
+  .section-divider {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    padding: var(--space-8) 0;
+  }
+
+  .divider-line {
+    flex: 1;
+    height: 1px;
+    background: var(--color-border);
+  }
+
+  .divider-icon {
+    color: var(--aged-gold);
+    opacity: 0.5;
+    flex-shrink: 0;
+  }
+
+  .posts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 2rem;
+  }
+
+  .blog-card {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .card-link {
+    text-decoration: none;
+    color: inherit;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+
+  .card-image-wrapper {
+    overflow: hidden;
+    aspect-ratio: 16 / 9;
+  }
+
+  .card-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    filter: sepia(6%) saturate(105%) brightness(101%);
+    transition: transform var(--duration-image) var(--ease-out);
+  }
+
+  .blog-card:hover .card-image {
+    transform: scale(1.03);
+  }
+
+  .card-body {
+    padding: var(--space-6);
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+  }
+
+  .card-category {
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--color-accent);
+    margin-bottom: var(--space-3);
+  }
+
+  .card-title {
+    font-family: var(--font-heading);
+    font-size: clamp(1.25rem, 1.1rem + 0.6vw, 1.5rem);
+    font-weight: 700;
+    line-height: 1.3;
+    margin-bottom: var(--space-3);
+    color: var(--color-text);
+  }
+
+  .card-excerpt {
+    font-size: 0.9375rem;
+    line-height: 1.55;
+    color: var(--color-text-muted);
+    margin-bottom: var(--space-3);
+  }
+
+  .no-articles {
+    text-align: center;
+    color: var(--color-text-muted);
+    padding: var(--space-12) 0;
+  }
+
+  .card-footer {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-family: var(--font-ui);
+    font-size: 0.875rem;
+    color: var(--color-text-muted);
+    margin-top: auto;
+    padding-top: var(--space-4);
+    border-top: 1px solid var(--color-border);
+  }
+
+  .card-author { font-weight: 500; color: var(--color-text-secondary); }
+  .card-sep { opacity: 0.4; }
+
+  .newsletter-section {
+    position: relative;
+    padding: var(--space-24) 0;
+    text-align: center;
+    overflow: hidden;
+  }
+
+  .newsletter-bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+  }
+
+  .newsletter-bg-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .newsletter-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to bottom, rgba(26, 20, 16, 0.75), rgba(26, 20, 16, 0.85));
+  }
+
+  .newsletter-inner {
+    position: relative;
+    z-index: 1;
+  }
+
+  .newsletter-inner h2 {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 1.6rem + 1.5vw, 2.5rem);
+    color: var(--ivory);
+    margin: 1rem 0;
+  }
+
+  .newsletter-inner p {
+    font-size: 1.125rem;
+    color: rgba(250, 246, 239, 0.8);
+    max-width: 30rem;
+    margin: 0 auto var(--space-8);
+  }
+
+  .hero-label {
+    display: inline-block;
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    padding: 0.4rem 1rem;
+    border: 1px solid rgba(184, 149, 90, 0.4);
+    border-radius: 2px;
+  }
+
+  @media (max-width: 768px) {
+    .countries-grid { grid-template-columns: repeat(2, 1fr); }
+    .posts-grid { grid-template-columns: 1fr; }
+  }
+</style>

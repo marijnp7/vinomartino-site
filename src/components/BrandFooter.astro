@@ -1,0 +1,120 @@
+---
+import type { Brand } from '../lib/brands';
+
+interface Props {
+  brand: Brand;
+}
+
+const { brand } = Astro.props;
+---
+
+<footer class="site-footer">
+  <div class="container footer-grid">
+    <div class="footer-col footer-brand">
+      <span class="footer-logo">{brand.name}</span>
+      <p>{brand.tagline}. Persoonlijke verhalen uit de mooiste wijnstreken ter wereld.</p>
+    </div>
+    <div class="footer-col">
+      <h4>Ontdek</h4>
+      <ul>
+        <li><a href="#">Home</a></li>
+        <li><a href="#">Artikelen</a></li>
+        <li><a href="#">Reisroutes</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Juridisch</h4>
+      <ul>
+        <li><a href="#">Privacy</a></li>
+        <li><a href="#">Voorwaarden</a></li>
+      </ul>
+      <p class="affiliate-footer-note">
+        Deze site bevat affiliate-links. Bij aankoop via onze links ontvangen wij een commissie, zonder extra kosten voor jou.
+      </p>
+    </div>
+  </div>
+  <div class="footer-divider container">
+    <hr />
+  </div>
+  <div class="container footer-bottom">
+    <p>&copy; {new Date().getFullYear()} {brand.name}. Alle rechten voorbehouden.</p>
+  </div>
+</footer>
+
+<style>
+  .site-footer {
+    background: var(--deep-night);
+    color: var(--stone-light);
+    padding: var(--space-16) 0 var(--space-6);
+    margin-top: var(--space-24);
+    font-size: 0.875rem;
+  }
+
+  .footer-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    gap: var(--space-8);
+    margin-bottom: var(--space-8);
+  }
+
+  .footer-brand p {
+    margin-top: var(--space-3);
+    line-height: 1.6;
+    max-width: 32ch;
+    color: var(--stone);
+  }
+
+  .footer-logo {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-style: italic;
+    font-weight: 400;
+    color: var(--warm-cream);
+  }
+
+  .footer-col h4 {
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--aged-gold);
+    margin-bottom: var(--space-4);
+  }
+
+  .footer-col ul { list-style: none; }
+
+  .footer-col li { margin-bottom: var(--space-2); }
+
+  .footer-col a {
+    color: var(--stone);
+    font-family: var(--font-ui);
+    font-size: 0.875rem;
+    transition: color var(--duration-fast);
+  }
+  .footer-col a:hover { color: var(--warm-cream); }
+
+  .affiliate-footer-note {
+    margin-top: var(--space-4);
+    font-size: 0.75rem;
+    line-height: 1.6;
+    opacity: 0.6;
+  }
+
+  .footer-divider hr {
+    border: none;
+    border-top: 1px solid rgba(184, 149, 90, 0.2);
+  }
+
+  .footer-bottom {
+    padding-top: var(--space-6);
+    text-align: center;
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    color: var(--stone);
+  }
+
+  @media (max-width: 768px) {
+    .footer-grid { grid-template-columns: 1fr; gap: var(--space-6); }
+  }
+</style>

@@ -1,0 +1,85 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { getCollection } from 'astro:content';
+import { getActiveBrand } from '../lib/brands';
+
+const activeBrand = getActiveBrand();
+
+if (activeBrand) {
+  return Astro.redirect(`/${activeBrand.defaultLocale}/`, 302);
+}
+
+const posts = await getCollection('posts');
+const sorted = posts.sort((a, b) =>
+  new Date(b.data.date).getTime() - new Date(a.data.date).getTime()
+);
+---
+
+<BaseLayout title="Reisplatform — Dev Preview">
+  <section class="hero">
+    <h1>Reisplatform</h1>
+    <p class="tagline">Redactioneel reismediamerk met zes onderscheidende schrijver-persona's</p>
+    <p class="subtitle">Dev preview — merknaam volgt</p>
+  </section>
+
+  <section class="posts">
+    <h2>Laatste berichten</h2>
+    {sorted.map((post) => (
+      <article class="post-card">
+        <h3>{post.data.title}</h3>
+        <p class="meta">
+          {post.data.author} &mdash; {post.data.date.toLocaleDateString('nl-NL')}
+        </p>
+        <p>{post.data.summary}</p>
+      </article>
+    ))}
+  </section>
+
+  <style>
+    .hero {
+      text-align: center;
+      padding: 3rem 0 2rem;
+    }
+    .hero h1 {
+      font-size: 2.5rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+    }
+    .tagline {
+      font-size: 1.15rem;
+      color: #444;
+      margin-top: 0.5rem;
+    }
+    .subtitle {
+      font-size: 0.9rem;
+      color: #999;
+      margin-top: 0.25rem;
+      font-style: italic;
+    }
+    .posts {
+      margin-top: 3rem;
+    }
+    .posts h2 {
+      font-size: 1.3rem;
+      margin-bottom: 1rem;
+      border-bottom: 2px solid #1a1a2e;
+      padding-bottom: 0.5rem;
+    }
+    .post-card {
+      background: #fff;
+      border: 1px solid #e5e5e5;
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+    }
+    .post-card h3 {
+      font-size: 1.1rem;
+      margin-bottom: 0.25rem;
+    }
+    .meta {
+      font-size: 0.8rem;
+      color: #888;
+      margin-bottom: 0.5rem;
+    }
+  </style>
+</BaseLayout>

@@ -1,0 +1,182 @@
+---
+import type { Brand } from '../lib/brands';
+
+interface Props {
+  brand: Brand;
+}
+
+const { brand } = Astro.props;
+---
+
+<section class="hero">
+  <div class="hero-bg">
+    <img
+      src="https://images.unsplash.com/photo-1506377247377-2a5b3b417ebb?w=1920&h=1080&fit=crop&q=80"
+      alt=""
+      class="hero-bg-img"
+      loading="eager"
+    />
+    <div class="hero-overlay"></div>
+  </div>
+  <div class="hero-inner container">
+    <span class="hero-label">Wijnreizen & verhalen</span>
+    <h1>De wereld ontdekken,<br /><em>glas voor glas</em></h1>
+    <p class="hero-subtitle">
+      Persoonlijke wijnreisverhalen, proefnotities en routes
+      door de mooiste wijnstreken ter wereld.
+    </p>
+    <div class="hero-cta">
+      <a href="#artikelen" class="btn btn-primary">Lees artikelen</a>
+      <a href="#bestemmingen" class="btn btn-ghost-light">Bekijk bestemmingen</a>
+    </div>
+  </div>
+</section>
+
+<section class="featured-strip">
+  <div class="container featured-inner">
+    <div class="featured-item">
+      <span class="featured-num">7+</span>
+      <span class="featured-text">Wijnstreken</span>
+    </div>
+    <div class="featured-divider"></div>
+    <div class="featured-item">
+      <span class="featured-num">50+</span>
+      <span class="featured-text">Artikelen</span>
+    </div>
+    <div class="featured-divider"></div>
+    <div class="featured-item">
+      <span class="featured-num">12+</span>
+      <span class="featured-text">Reisroutes</span>
+    </div>
+  </div>
+</section>
+
+<style>
+  .hero {
+    position: relative;
+    min-height: 80vh;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+  }
+
+  .hero-bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+  }
+
+  .hero-bg-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    filter: sepia(6%) saturate(105%) brightness(101%);
+  }
+
+  .hero-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      to bottom,
+      rgba(26, 20, 16, 0.55) 0%,
+      rgba(26, 20, 16, 0.4) 50%,
+      rgba(26, 20, 16, 0.7) 100%
+    );
+  }
+
+  .hero-inner {
+    position: relative;
+    z-index: 1;
+    padding: 6rem 0;
+    max-width: 52rem;
+  }
+
+  .hero-label {
+    display: inline-block;
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--aged-gold);
+    margin-bottom: 1.5rem;
+    padding: 0.4rem 1rem;
+    border: 1px solid rgba(184, 149, 90, 0.4);
+    border-radius: 2px;
+  }
+
+  h1 {
+    font-family: var(--font-display);
+    font-size: clamp(2.5rem, 2rem + 2vw, 3.25rem);
+    font-weight: 400;
+    line-height: 1.1;
+    color: var(--ivory);
+    letter-spacing: -0.02em;
+  }
+
+  h1 em {
+    color: var(--warm-cream);
+  }
+
+  .hero-subtitle {
+    font-family: var(--font-body);
+    font-size: 1.25rem;
+    color: rgba(250, 246, 239, 0.85);
+    max-width: 32rem;
+    margin-top: 1.5rem;
+    line-height: 1.6;
+  }
+
+  .hero-cta {
+    display: flex;
+    gap: 1rem;
+    margin-top: 2.5rem;
+    flex-wrap: wrap;
+  }
+
+  .featured-strip {
+    background: var(--deep-night);
+    padding: 2rem 0;
+  }
+
+  .featured-inner {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 3rem;
+  }
+
+  .featured-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  .featured-num {
+    font-family: var(--font-display);
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--aged-gold);
+  }
+
+  .featured-text {
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--stone-light);
+  }
+
+  .featured-divider {
+    width: 1px;
+    height: 2.5rem;
+    background: rgba(184, 149, 90, 0.3);
+  }
+
+  @media (max-width: 768px) {
+    .hero { min-height: 60vh; }
+    .hero-inner { padding: 4rem 0; }
+    .featured-inner { gap: 1.5rem; }
+  }
+</style>

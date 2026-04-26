@@ -1,0 +1,157 @@
+---
+import BrandLayout from '../../layouts/BrandLayout.astro';
+import type { Brand } from '../../lib/brands';
+
+interface Props {
+  brand: Brand;
+  locale: string;
+}
+
+const { brand, locale } = Astro.props;
+---
+
+<BrandLayout
+  brand={brand}
+  locale={locale}
+  title="Weekend Piemonte: Barolo en Barbaresco in drie dagen"
+  description="Een lang weekend door de Langhe-heuvels — van Barolo's kracht naar Barbaresco's elegantie, met tussenstops bij familiehuizen waar de wijnmaker zelf inschenkt."
+>
+  <article class="article">
+    <header class="article-header">
+      <span class="article-pillar">Wijnregio-gidsen</span>
+      <h1>Weekend Piemonte: Barolo en Barbaresco in drie dagen</h1>
+      <p class="article-meta">
+        Door Martin &mdash; 18 april 2026 &mdash; Leestijd: 8 min
+      </p>
+    </header>
+
+    <div class="article-body">
+      <p class="intro-text">
+        De Langhe in het voorjaar: mist die om acht uur oplost, wijngaarden die net uitlopen,
+        en overal die geur van vochtige aarde en houtsnippers. Sophie en ik reden drie dagen
+        door de heuvels rond Alba — van Barolo's kracht naar Barbaresco's elegantie, met
+        tussenstops bij familiehuizen waar de wijnmaker zelf inschenkt.
+      </p>
+
+      <h2>Dag 1 — Barolo: de koning van de Nebbiolo</h2>
+      <p>
+        We begonnen in het dorp Barolo zelf, waar de straten smaller zijn dan je verwacht
+        en elke tweede deur een cantina is. Bij Marchesi di Barolo proefden we de 2019-vintage —
+        nog jong en tanninisch, maar met die typische teerrozen en kersen die Nebbiolo zo
+        onmiskenbaar maken.
+      </p>
+      <p>
+        Het hoogtepunt was een bezoek aan een klein familiebedrijf in Serralunga d'Alba.
+        Geen online reserveringssysteem, alleen een belletje bij de deur. De wijnmaker, derde
+        generatie, schonk vijf wijnen in terwijl zijn moeder taralli bracht. Sophie noteerde
+        later dat dit het moment was waarop ze begreep waarom ik altijd wil terugkomen.
+      </p>
+
+      <h2>Dag 2 — Barbaresco: elegantie boven kracht</h2>
+      <p>
+        Barbaresco ligt een kwartiertje rijden van Barolo, maar het voelt als een andere wereld.
+        De wijnen zijn lichter, eleganter — ze verleiden waar Barolo overweldigt. Bij Produttori
+        del Barbaresco, de coöperatie die het appellation op de kaart zette, proefden we negen
+        cru-wijnen naast elkaar. De Montestefano 2018 was een openbaring: aards, complex,
+        met een afdronk die bleef hangen tot aan het avondeten.
+      </p>
+
+      <h2>Dag 3 — Roero en vertrek</h2>
+      <p>
+        De laatste ochtend reden we naar de Roero, de minder bekende linkeroever van de Tanaro.
+        Hier groeit Arneis — een witte druif die in de jaren tachtig bijna uitgestorven was.
+        De Roero Arneis van Malvirà was fris, mineraal en precies wat je wilt op een terras
+        om elf uur 's ochtends met uitzicht op de heuvels.
+      </p>
+
+      <div class="practical-info">
+        <h3>Praktisch</h3>
+        <ul>
+          <li><strong>Beste periode:</strong> april–juni of september–oktober</li>
+          <li><strong>Verblijf:</strong> agriturismo tussen de wijngaarden, vanaf &euro;90/nacht</li>
+          <li><strong>Budget proeverijen:</strong> &euro;15–25 per persoon, vaak inclusief 5–7 wijnen</li>
+          <li><strong>Rijden:</strong> huurauto verplicht — openbaar vervoer is beperkt</li>
+        </ul>
+      </div>
+    </div>
+  </article>
+</BrandLayout>
+
+<style>
+  .article-header {
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 2px solid var(--color-secondary);
+  }
+
+  .article-pillar {
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-accent);
+    margin-bottom: 0.75rem;
+  }
+
+  .article-header h1 {
+    font-size: 2.2rem;
+    line-height: 1.15;
+    color: var(--color-primary);
+    margin-bottom: 0.5rem;
+  }
+
+  .article-meta {
+    font-size: 0.85rem;
+    color: #888;
+  }
+
+  .article-body {
+    max-width: 720px;
+  }
+
+  .article-body h2 {
+    font-size: 1.4rem;
+    color: var(--color-primary);
+    margin: 2rem 0 0.75rem;
+  }
+
+  .article-body p {
+    margin-bottom: 1rem;
+  }
+
+  .intro-text {
+    font-size: 1.1rem;
+    color: #444;
+    line-height: 1.8;
+  }
+
+  .practical-info {
+    background: var(--color-secondary);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-top: 2rem;
+  }
+
+  .practical-info h3 {
+    font-size: 1.1rem;
+    color: var(--color-primary);
+    margin-bottom: 0.75rem;
+  }
+
+  .practical-info ul {
+    list-style: none;
+    padding: 0;
+  }
+
+  .practical-info li {
+    padding: 0.3rem 0;
+    font-size: 0.95rem;
+  }
+
+  @media (max-width: 768px) {
+    .article-header h1 {
+      font-size: 1.6rem;
+    }
+  }
+</style>

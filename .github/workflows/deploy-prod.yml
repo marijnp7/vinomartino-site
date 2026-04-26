@@ -1,0 +1,33 @@
+name: Deploy to Production (Gated)
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  trigger-deploy-gate:
+    name: Trigger Paperclip prod deploy gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fire Paperclip webhook
+        run: |
+          TIMESTAMP=$(date +%s)
+          BODY=$(printf '{"sha":"%s","ref":"%s","run_id":"%s","actor":"%s"}' \
+            "$GITHUB_SHA" \
+            "$GITHUB_REF_NAME" \
+            "$GITHUB_RUN_ID" \
+            "$GITHUB_ACTOR")
+          # HMAC-SHA256: sign "{timestamp}.{body}" with the webhook secret
+          SIGNATURE=$(printf '%s.%s' "$TIMESTAMP" "$BODY" \
+            | openssl dgst -sha256 -hmac "$PAPERCLIP_WEBHOOK_SECRET" \
+            | sed 's/.* //')
+          curl -sf -X POST \
+            -H "Content-Type: application/json" \
+            -H "X-Paperclip-Timestamp: $TIMESTAMP" \
+            -H "X-Paperclip-Signature: sha256=$SIGNATURE" \
+            -d "$BODY" \
+            "$PAPERCLIP_WEBHOOK_URL"
+        env:
+          PAPERCLIP_WEBHOOK_URL: ${{ secrets.PAPERCLIP_WEBHOOK_URL }}
+          PAPERCLIP_WEBHOOK_SECRET: ${{ secrets.PAPERCLIP_WEBHOOK_SECRET }}

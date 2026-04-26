@@ -1,0 +1,29 @@
+# Merge into existing VPS stack:
+#   docker compose -f docker-compose.yml -f site/docker-compose.site.yml up -d
+#
+# Or run standalone from /paperclip/site/:
+#   docker compose -f docker-compose.site.yml up -d
+
+services:
+  site:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: paperclip-site:latest
+    container_name: paperclip-site-1
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3101:4321"
+    volumes:
+      - ./src:/app/src
+      - ./public:/app/public
+      - ./astro.config.mjs:/app/astro.config.mjs
+    user: "node"
+    mem_limit: 256m
+    networks:
+      - paperclip
+
+networks:
+  paperclip:
+    external: true
+    name: paperclip_default

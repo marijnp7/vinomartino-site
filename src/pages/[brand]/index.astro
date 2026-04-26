@@ -1,0 +1,16 @@
+---
+import { getLiveBrands, isSingleBrandMode } from '../../lib/brands';
+
+export function getStaticPaths() {
+  if (isSingleBrandMode()) return [];
+  return getLiveBrands().map((brand) => ({
+    params: { brand: brand.slug },
+    props: { defaultLocale: brand.defaultLocale },
+  }));
+}
+
+const { defaultLocale } = Astro.props;
+const { brand } = Astro.params;
+
+return Astro.redirect(`/${brand}/${defaultLocale}/`, 302);
+---

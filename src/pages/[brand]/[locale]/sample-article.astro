@@ -1,0 +1,20 @@
+---
+import SampleArticleContent from '../../../components/pages/SampleArticleContent.astro';
+import { getLiveBrands, isSingleBrandMode, type Brand } from '../../../lib/brands';
+
+export function getStaticPaths() {
+  if (isSingleBrandMode()) return [];
+  const brands = getLiveBrands();
+  return brands.flatMap((brand) =>
+    brand.locales.map((locale) => ({
+      params: { brand: brand.slug, locale },
+      props: { brand },
+    }))
+  );
+}
+
+const { brand } = Astro.props;
+const { locale } = Astro.params;
+---
+
+<SampleArticleContent brand={brand} locale={locale!} />
