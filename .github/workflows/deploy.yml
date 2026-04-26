@@ -147,8 +147,16 @@ jobs:
         run: |
           printf '%s\n' "$BUILD_SCRIPT" | ssh "$VPS" "STAGE='$STAGE' bash -s"
 
-      # ── 7. Atomic swap + container reload ────────────────────────────────
-      - name: Atomic swap + reload
+      # ── 7. Sync inhoud naar DIST + container reload ──────────────────────
+      #
+      # BELANGRIJK: we mogen DIST zelf niet hernoemen of vervangen, want de
+      # nginx-container heeft hem via bind-mount aan een vaste inode hangen.
+      # `mv` zou de container losrukken van zijn mount → 500.
+      #
+      # Daarom: rsync overschrijft de inhoud van DIST in-place. De inode
+      # blijft gelijk, de mount blijft geldig. Als rollback maken we eerst
+      # een hardlink-snapshot (kost ~0 schijfruimte).
+      - name: Sync to DIST + reload
         env:
           VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
           STAGE: /srv/vino-builds/${{ github.run_id }}
@@ -156,13 +164,22 @@ jobs:
           CONTAINER: ${{ steps.env.outputs.container }}
           SWAP_SCRIPT: |
             set -euo pipefail
+            mkdir -p "$DIST"
+
+            # Hardlink-snapshot voor rollback (cp -al, geen disk-overhead)
             BACKUP="${DIST}.old-$(date +%s)"
-            if [ -d "$DIST" ]; then
-              mv "$DIST" "$BACKUP"
-            fi
-            mv "$STAGE/dist" "$DIST"
+            cp -al "$DIST" "$BACKUP" 2>/dev/null || cp -a "$DIST" "$BACKUP"
+
+            # Inhoud overschrijven, DIST-directory zelf raken we niet aan
+            rsync -a --delete "$STAGE/dist/" "$DIST/"
+
+            # Stage opruimen
             rm -rf "$STAGE"
+
+            # Houd alleen de laatste 3 backups
             ls -1dt "${DIST}".old-* 2>/dev/null | tail -n +4 | xargs -r rm -rf
+
+            # nginx hot reload — container bind-mount blijft geldig
             docker exec "$CONTAINER" nginx -s reload \
               || docker restart "$CONTAINER"
         run: |
