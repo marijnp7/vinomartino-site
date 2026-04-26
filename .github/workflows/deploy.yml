@@ -170,6 +170,8 @@ jobs:
             | ssh "$VPS" "DIST='$DIST' STAGE='$STAGE' CONTAINER='$CONTAINER' bash -s"
 
       # ── 8. Smoke test ────────────────────────────────────────────────────
+      # Retry-loop omdat nginx een paar seconden nodig heeft om warm te zijn
+      # na de reload. Eerste request kan transient 500/502 geven.
       - name: Smoke test
         run: |
           if [ "${{ steps.env.outputs.target }}" = "production" ]; then
@@ -178,10 +180,17 @@ jobs:
             URL="https://preview.vinomartino.com/nl/"
             # Preview zit achter CF Access; 302 of 200 is OK
           fi
-          code=$(curl -sS -o /dev/null -w "%{http_code}" -L --max-time 15 "$URL" || echo "000")
-          echo "GET $URL → HTTP $code"
+
+          code="000"
+          for attempt in 1 2 3 4 5; do
+            code=$(curl -sS -o /dev/null -w "%{http_code}" -L --max-time 15 "$URL" || echo "000")
+            echo "Attempt $attempt: GET $URL → HTTP $code"
+            if [ "$code" = "200" ]; then break; fi
+            sleep 4
+          done
+
           if [ "${{ steps.env.outputs.target }}" = "production" ]; then
-            [ "$code" = "200" ] || { echo "::error::Productie smoke-test faalde ($code)"; exit 1; }
+            [ "$code" = "200" ] || { echo "::error::Productie smoke-test faalde na 5 pogingen ($code)"; exit 1; }
           fi
 
       - name: Done
