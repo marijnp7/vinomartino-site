@@ -2,7 +2,7 @@
 #
 # Architectuur: VPS-side build.
 #   1. GHA checkt code uit
-#   2. GHA rsynct src (zonder node_modules/dist) naar /srv/vino-builds/<sha>/
+#   2. GHA rsynct src (zonder node_modules/dist) naar /srv/vino-builds/<run_id>/
 #   3. VPS bouwt daar (npm ci + npm run build) — heeft direct toegang tot
 #      Directus binnen het Docker-netwerk, geen CF Access secrets in GHA nodig
 #   4. Atomic swap: nieuwe dist/ wordt verplaatst naar definitieve locatie,
@@ -106,7 +106,7 @@ jobs:
       - name: Sync source to VPS staging
         env:
           VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
-          STAGE: /srv/vino-builds/${{ github.sha }}
+          STAGE: /srv/vino-builds/${{ github.run_id }}
         run: |
           ssh "$VPS" "mkdir -p '$STAGE'"
           rsync -avz --delete \
@@ -128,7 +128,7 @@ jobs:
       - name: Build on VPS
         env:
           VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
-          STAGE: /srv/vino-builds/${{ github.sha }}
+          STAGE: /srv/vino-builds/${{ github.run_id }}
           BUILD_SCRIPT: |
             set -euo pipefail
             cd "$STAGE"
@@ -151,7 +151,7 @@ jobs:
       - name: Atomic swap + reload
         env:
           VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
-          STAGE: /srv/vino-builds/${{ github.sha }}
+          STAGE: /srv/vino-builds/${{ github.run_id }}
           DIST: ${{ steps.env.outputs.dist_dir }}
           CONTAINER: ${{ steps.env.outputs.container }}
           SWAP_SCRIPT: |
