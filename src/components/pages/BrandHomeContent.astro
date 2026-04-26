@@ -29,7 +29,7 @@ const FALLBACK_IMAGES = [
   'https://images.unsplash.com/photo-1543783207-ec64e4d95325?w=1200&h=675&fit=crop&q=80',
 ];
 
-const displayArticles = articles.slice(0, 6);
+const displayArticles = (articles ?? []).slice(0, 6);
 
 const countries = [
   { name: 'Italië', continent: 'Europa', image: 'https://images.unsplash.com/photo-1523906834658-6e24ef2386f9?w=600&h=400&fit=crop&q=80' },
@@ -108,7 +108,7 @@ const countries = [
                   {catLabel && <span class="card-category">{catLabel}</span>}
                   <h2 class="card-title">{article.data.title}</h2>
                   {article.data.description && (
-                    <p class="card-excerpt">{article.data.description.slice(0, 120)}{article.data.description.length > 120 ? '…' : ''}</p>
+                    <p class="card-excerpt">{(article.data?.description ?? "").slice(0, 120)}{(article.data?.description?.length ?? 0) > 120 ? '…' : ''}</p>
                   )}
                   <div class="card-footer">
                     <span class="card-author">{article.data.author}</span>
