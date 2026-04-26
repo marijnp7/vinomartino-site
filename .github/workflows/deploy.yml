@@ -11,7 +11,7 @@
 #
 # Branches:
 #   • preview → /root/vinomartino-site/preview-dist (paperclip-vinomartino-preview-1)
-#   • main    → /root/vinomartino-site/dist          (paperclip-vinomartino-site-1)
+#   • main    → /root/vinomartino-site/dist          (paperclip-vinomartino-prod-1)
 #             → eerst Telegram-approval via Paperclip CoS bridge
 #
 # Vereiste secrets (slechts 3):
@@ -64,7 +64,7 @@ jobs:
 
           if [ "$target" = "production" ]; then
             dist_dir="/root/vinomartino-site/dist"
-            container="paperclip-vinomartino-site-1"
+            container="paperclip-vinomartino-prod-1"
           else
             dist_dir="/root/vinomartino-site/preview-dist"
             container="paperclip-vinomartino-preview-1"
