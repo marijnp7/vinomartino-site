@@ -51,8 +51,8 @@ export const brands: Brand[] = [
   },
 ];
 
-const DIRECTUS_URL = import.meta.env.DIRECTUS_URL;
-const DIRECTUS_TOKEN = import.meta.env.DIRECTUS_TOKEN;
+const DIRECTUS_URL = process.env['DIRECTUS_URL'] || '';
+const DIRECTUS_TOKEN = process.env['DIRECTUS_TOKEN'] || '';
 
 function mapDirectusBrand(d: Record<string, unknown>): Brand {
   return {
@@ -81,16 +81,23 @@ function mapDirectusBrand(d: Record<string, unknown>): Brand {
 }
 
 async function fetchBrandsFromDirectus(): Promise<Brand[] | null> {
-  if (!DIRECTUS_URL || !DIRECTUS_TOKEN) return null;
+  if (!DIRECTUS_URL || !DIRECTUS_TOKEN) {
+    console.warn(`[fetchBrands] skipped: ${!DIRECTUS_URL ? 'DIRECTUS_URL' : 'DIRECTUS_TOKEN'} is not set`);
+    return null;
+  }
   try {
     const res = await fetch(
       `${DIRECTUS_URL}/items/brands?filter[status][_neq]=archived&sort=name`,
       { headers: { Authorization: `Bearer ${DIRECTUS_TOKEN}` } },
     );
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.warn(`[fetchBrands] Directus responded ${res.status} ${res.statusText}`);
+      return null;
+    }
     const json = await res.json();
     return (json.data as Record<string, unknown>[]).map(mapDirectusBrand);
-  } catch {
+  } catch (err) {
+    console.warn(`[fetchBrands] fetch failed: ${err instanceof Error ? err.message : err}`);
     return null;
   }
 }

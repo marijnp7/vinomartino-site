@@ -1,6 +1,7 @@
 ---
 import BrandHomeContent from '../../../components/pages/BrandHomeContent.astro';
 import { getLiveBrands, isSingleBrandMode, type Brand } from '../../../lib/brands';
+import { loadArticles } from '../../../lib/articles';
 
 export function getStaticPaths() {
   if (isSingleBrandMode()) return [];
@@ -15,6 +16,7 @@ export function getStaticPaths() {
 
 const { brand } = Astro.props;
 const { locale } = Astro.params;
+const articles = await loadArticles();
 ---
 
-<BrandHomeContent brand={brand} locale={locale!} />
+<BrandHomeContent brand={brand} locale={locale!} articles={articles} />

@@ -1,20 +1,21 @@
 ---
-import { getActiveBrand } from '../../lib/brands';
-import { loadArticles } from '../../lib/articles';
-import type { Article } from '../../lib/articles';
-import BrandLayout from '../../layouts/BrandLayout.astro';
-import type { Brand } from '../../lib/brands';
+import { getLiveBrands, isSingleBrandMode, type Brand } from '../../../lib/brands';
+import { loadArticles } from '../../../lib/articles';
+import type { Article } from '../../../lib/articles';
+import BrandLayout from '../../../layouts/BrandLayout.astro';
 
 export async function getStaticPaths() {
-  const brand = getActiveBrand();
-  if (!brand) return [];
+  if (isSingleBrandMode()) return [];
+  const brands = getLiveBrands();
   const articles = await loadArticles();
 
-  return brand.locales.flatMap((locale) =>
-    articles.map((article) => ({
-      params: { locale, slug: article.slug },
-      props: { article, brand },
-    })),
+  return brands.flatMap((brand) =>
+    brand.locales.flatMap((locale) =>
+      articles.map((article) => ({
+        params: { brand: brand.slug, locale, slug: article.slug },
+        props: { article, brand },
+      })),
+    ),
   );
 }
 
@@ -147,7 +148,6 @@ const pubDateFormatted = new Date(article.pubDate).toLocaleDateString('nl-NL', {
     margin: 0 auto;
   }
 
-  /* Prose styles */
   .prose :global(h1) { display: none; }
   .prose :global(h2) {
     font-family: var(--font-heading);

@@ -2,6 +2,7 @@
 import type { Brand } from '../lib/brands';
 import BrandHeader from '../components/BrandHeader.astro';
 import BrandFooter from '../components/BrandFooter.astro';
+import '../styles/tokens.css';
 
 interface Props {
   brand: Brand;
@@ -35,7 +36,7 @@ const canonical = canonicalUrl ?? new URL(Astro.url.pathname, Astro.site ?? 'htt
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@400;500;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
       rel="stylesheet"
     />
   </head>
@@ -49,57 +50,6 @@ const canonical = canonicalUrl ?? new URL(Astro.url.pathname, Astro.site ?? 'htt
 </html>
 
 <style is:global>
-  :root {
-    --burgundy: #5E1A1D;
-    --burgundy-80: #7A2B2F;
-    --burgundy-10: #F2E8E9;
-    --ivory: #E8DCC4;
-    --charcoal: #2A2622;
-    --terracotta: #6E7F5E;
-    --terracotta-80: #7E9070;
-    --terracotta-10: #EBF1ED;
-    --aged-gold: #8A7E74;
-    --aged-gold-20: #D8CEB8;
-    --warm-cream: #F0E6D2;
-    --stone: #8A7E74;
-    --stone-light: #A89E94;
-    --deep-night: #1A1410;
-
-    --color-bg: var(--ivory);
-    --color-text: var(--charcoal);
-    --color-text-secondary: var(--stone);
-    --color-text-muted: var(--stone-light);
-    --color-primary: var(--burgundy);
-    --color-primary-hover: var(--burgundy-80);
-    --color-accent: var(--terracotta);
-    --color-border: var(--aged-gold-20);
-
-    --font-display: 'Cormorant Garamond', 'EB Garamond', Georgia, serif;
-    --font-heading: 'Cormorant Garamond', 'EB Garamond', Georgia, serif;
-    --font-body: 'Inter', 'Helvetica Neue', Arial, sans-serif;
-    --font-ui: 'Inter', system-ui, sans-serif;
-
-    --max-width: 80rem;
-    --gutter: 1.5rem;
-    --space-2: 0.5rem;
-    --space-3: 0.75rem;
-    --space-4: 1rem;
-    --space-5: 1.25rem;
-    --space-6: 1.5rem;
-    --space-8: 2rem;
-    --space-10: 2.5rem;
-    --space-12: 3rem;
-    --space-16: 4rem;
-    --space-24: 6rem;
-
-    --radius-sm: 0.125rem;
-    --shadow-md: 0 4px 12px rgba(44, 40, 37, 0.08);
-    --shadow-card-hover: 0 8px 32px rgba(44, 40, 37, 0.12);
-    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-    --duration-fast: 150ms;
-    --duration-image: 600ms;
-  }
-
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   body {
@@ -138,15 +88,16 @@ const canonical = canonicalUrl ?? new URL(Astro.url.pathname, Astro.site ?? 'htt
     cursor: pointer;
     text-decoration: none;
     transition: all var(--duration-fast) var(--ease-out);
+    letter-spacing: 0.01em;
   }
 
   .btn-primary {
     background: var(--color-primary);
-    color: var(--ivory);
+    color: var(--paper);
   }
   .btn-primary:hover {
     background: var(--color-primary-hover);
-    color: var(--ivory);
+    color: var(--paper);
   }
 
   .btn-secondary {
@@ -156,17 +107,17 @@ const canonical = canonicalUrl ?? new URL(Astro.url.pathname, Astro.site ?? 'htt
   }
   .btn-secondary:hover {
     background: var(--color-primary);
-    color: var(--ivory);
+    color: var(--paper);
   }
 
   .btn-ghost-light {
-    background: rgba(255,255,255,0.15);
-    color: var(--ivory);
-    border: 1px solid rgba(255,255,255,0.3);
+    background: rgba(250, 245, 233, 0.15);
+    color: var(--paper);
+    border: 1px solid rgba(250, 245, 233, 0.3);
     backdrop-filter: blur(4px);
   }
   .btn-ghost-light:hover {
-    background: rgba(255,255,255,0.25);
+    background: rgba(250, 245, 233, 0.25);
     color: white;
   }
 
@@ -180,32 +131,36 @@ const canonical = canonicalUrl ?? new URL(Astro.url.pathname, Astro.site ?? 'htt
 
   .section-label {
     display: block;
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 600;
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    font-weight: 500;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.15em;
     color: var(--color-accent);
     margin-bottom: var(--space-3);
   }
 
   .section-header h2 {
-    font-family: var(--font-heading);
-    font-size: clamp(2rem, 1.6rem + 1.5vw, 2.5rem);
-    font-weight: 700;
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 1.6rem + 1.5vw, 2.75rem);
+    font-weight: 400;
+    font-style: italic;
     color: var(--color-text);
+    line-height: 1.15;
   }
 
   .section-desc {
-    font-size: 1.125rem;
+    font-family: var(--font-ui);
+    font-size: 1rem;
     color: var(--color-text-secondary);
     max-width: 36rem;
     margin: var(--space-4) auto 0;
+    line-height: 1.6;
   }
 
   .card {
-    background: white;
-    border: 1px solid var(--color-border);
+    background: var(--paper);
+    border: 1px solid var(--color-border-light);
     border-radius: var(--radius-sm);
     overflow: hidden;
     transition: box-shadow var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out);
@@ -213,9 +168,5 @@ const canonical = canonicalUrl ?? new URL(Astro.url.pathname, Astro.site ?? 'htt
   .card:hover {
     box-shadow: var(--shadow-card-hover);
     transform: translateY(-2px);
-  }
-
-  @media (max-width: 768px) {
-    :root { --gutter: 1rem; }
   }
 </style>

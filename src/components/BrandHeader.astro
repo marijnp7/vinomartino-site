@@ -8,73 +8,181 @@ interface Props {
 
 const { brand, locale } = Astro.props;
 const base = `/${brand.slug}/${locale}`;
+
+const megaRegions: Record<string, { name: string; slug: string }[]> = {
+  'Italië': [
+    { name: 'Piemonte', slug: 'piemonte' },
+    { name: 'Toscane', slug: 'toscane' },
+    { name: 'Etna / Sicilië', slug: 'sicilie' },
+    { name: 'Veneto', slug: 'veneto' },
+  ],
+  'Frankrijk': [
+    { name: 'Bourgogne', slug: 'bourgogne' },
+    { name: 'Champagne (grower)', slug: 'champagne' },
+    { name: 'Languedoc', slug: 'languedoc' },
+    { name: 'Loire', slug: 'loire' },
+  ],
+  'Spanje': [
+    { name: 'Priorat & Montsant', slug: 'priorat' },
+    { name: 'Rioja', slug: 'rioja' },
+    { name: 'Ribera del Duero', slug: 'ribera-del-duero' },
+    { name: 'Sherry', slug: 'sherry' },
+  ],
+  'Duitsland & Oostenrijk': [
+    { name: 'Mosel', slug: 'mosel' },
+    { name: 'Pfalz', slug: 'pfalz' },
+    { name: 'Wachau', slug: 'wachau' },
+    { name: 'Burgenland', slug: 'burgenland' },
+  ],
+  'Opkomend': [
+    { name: 'Georgië', slug: 'georgie' },
+    { name: 'Slovenië / Brda', slug: 'slovenie' },
+    { name: 'Engeland', slug: 'engeland' },
+    { name: 'Portugal', slug: 'portugal' },
+  ],
+};
 ---
 
-<header class="site-header">
-  <nav class="container header-nav">
-    <a href={base} class="logo">
-      <span class="logo-icon" aria-hidden="true">
-        <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="14" cy="14" r="13" stroke="currentColor" stroke-width="1.5"/>
-          <line x1="14" y1="4" x2="14" y2="24" stroke="currentColor" stroke-width="1.5"/>
-          <line x1="10" y1="8" x2="18" y2="8" stroke="currentColor" stroke-width="1.5" transform="rotate(-12 14 8)"/>
-        </svg>
-      </span>
+<header class="site-header" id="site-header">
+  <nav class="container header-nav" aria-label="Hoofdnavigatie">
+    <a href={base} class="logo" aria-label={brand.name}>
+      <svg class="logo-mark" width="22" height="28" viewBox="0 0 22 28" fill="none" aria-hidden="true">
+        <path d="M11 1C11 1 2 8 2 16a9 9 0 0 0 18 0C20 8 11 1 11 1Z" stroke="currentColor" stroke-width="1.5" fill="none"/>
+        <line x1="11" y1="25" x2="11" y2="20" stroke="currentColor" stroke-width="1.5"/>
+        <line x1="7" y1="27" x2="15" y2="27" stroke="currentColor" stroke-width="1.5"/>
+      </svg>
       <span class="logo-text">{brand.name}</span>
     </a>
-    <div class="nav-main">
-      <ul class="nav-links">
-        <li><a href={base}>Home</a></li>
-        <li><a href={base}>Bestemmingen</a></li>
-        <li><a href={base}>Artikelen</a></li>
-        <li><a href={base}>Reisroutes</a></li>
+
+    <div class="nav-main" id="nav-main">
+      <ul class="nav-links" role="list">
+        <!-- Streken met mega-menu -->
+        <li class="nav-item has-mega" id="nav-streken">
+          <button class="nav-link nav-trigger" aria-expanded="false" aria-controls="mega-streken">
+            Streken
+            <svg class="nav-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </button>
+          <div class="mega-menu" id="mega-streken" role="region" aria-label="Wijnstreken">
+            <div class="mega-inner container">
+              {Object.entries(megaRegions).map(([country, regions]) => (
+                <div class="mega-col">
+                  <span class="mega-country">{country}</span>
+                  <ul role="list">
+                    {regions.map((r) => (
+                      <li>
+                        <a href={`${base}/streken/${r.slug}/`} class="mega-link">{r.name}</a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </div>
+        </li>
+
+        <li class="nav-item">
+          <a href={`${base}/verhalen/`} class="nav-link">Verhalen</a>
+        </li>
+        <li class="nav-item">
+          <a href={`${base}/routes/`} class="nav-link">Routes</a>
+        </li>
+        <li class="nav-item">
+          <a href={`${base}/proefnotities/`} class="nav-link">Proefnotities</a>
+        </li>
       </ul>
-      <a href="#subscribe" class="btn btn-primary nav-subscribe">Abonneer</a>
+
+      <a href="#nieuwsbrief" class="btn btn-primary nav-cta">Nieuwsbrief</a>
     </div>
+
+    <!-- Mobiel hamburger -->
+    <button class="nav-hamburger" id="nav-hamburger" aria-label="Menu openen" aria-expanded="false" aria-controls="nav-main">
+      <span></span><span></span><span></span>
+    </button>
   </nav>
 </header>
 
+<script>
+  const header = document.getElementById('site-header')!;
+  const hamburger = document.getElementById('nav-hamburger')!;
+  const navMain = document.getElementById('nav-main')!;
+
+  // Hamburger toggle
+  hamburger.addEventListener('click', () => {
+    const open = hamburger.getAttribute('aria-expanded') === 'true';
+    hamburger.setAttribute('aria-expanded', String(!open));
+    navMain.classList.toggle('nav-open', !open);
+  });
+
+  // Mega-menu hover (desktop) + click (mobile)
+  const navStreken = document.getElementById('nav-streken')!;
+  const trigger = navStreken.querySelector<HTMLButtonElement>('.nav-trigger')!;
+  const mega = document.getElementById('mega-streken')!;
+
+  function openMega() {
+    trigger.setAttribute('aria-expanded', 'true');
+    mega.classList.add('mega-visible');
+  }
+  function closeMega() {
+    trigger.setAttribute('aria-expanded', 'false');
+    mega.classList.remove('mega-visible');
+  }
+
+  // Hover (only on non-touch)
+  navStreken.addEventListener('mouseenter', openMega);
+  navStreken.addEventListener('mouseleave', closeMega);
+
+  // Click toggle (works on touch too)
+  trigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const expanded = trigger.getAttribute('aria-expanded') === 'true';
+    expanded ? closeMega() : openMega();
+  });
+
+  document.addEventListener('click', closeMega);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMega(); });
+</script>
+
 <style>
   .site-header {
-    border-bottom: 1px solid var(--aged-gold-20);
+    border-bottom: 1px solid var(--rule-20);
     padding: var(--space-4) 0;
     position: sticky;
     top: 0;
-    z-index: 50;
+    z-index: 100;
     backdrop-filter: blur(12px);
-    background: rgba(250, 246, 239, 0.92);
+    background: rgba(250, 245, 233, 0.94);
   }
 
   .header-nav {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: var(--space-8);
   }
 
+  /* Logo */
   .logo {
     display: flex;
     align-items: center;
     gap: var(--space-3);
     text-decoration: none;
+    flex-shrink: 0;
   }
-
-  .logo-icon {
-    color: var(--color-primary);
-    display: flex;
-    align-items: center;
-  }
-
+  .logo-mark { color: var(--burgundy); flex-shrink: 0; }
   .logo-text {
     font-family: var(--font-display);
-    font-size: 1.5rem;
+    font-size: 1.4375rem;
     font-style: italic;
     font-weight: 400;
-    color: var(--color-text);
-    letter-spacing: -0.02em;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+    transition: color var(--duration-fast) var(--ease-out);
   }
+  .logo:hover .logo-text { color: var(--burgundy); }
 
-  .logo:hover .logo-text { color: var(--color-primary); }
-
+  /* Main nav */
   .nav-main {
     display: flex;
     align-items: center;
@@ -84,28 +192,179 @@ const base = `/${brand.slug}/${locale}`;
   .nav-links {
     display: flex;
     list-style: none;
-    gap: var(--space-8);
     align-items: center;
+    gap: var(--space-1);
   }
 
-  .nav-links a {
-    color: var(--color-text-secondary);
+  .nav-link {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    padding: var(--space-2) var(--space-3);
     font-family: var(--font-ui);
-    font-weight: 500;
     font-size: 0.9375rem;
+    font-weight: 500;
+    color: var(--inkSoft);
+    background: none;
+    border: none;
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    transition: color var(--duration-fast) var(--ease-out),
+                background var(--duration-fast) var(--ease-out);
+    white-space: nowrap;
+    text-decoration: none;
+  }
+  .nav-link:hover,
+  .nav-trigger[aria-expanded="true"] {
+    color: var(--ink);
+    background: var(--paperDeep);
+  }
+
+  .nav-chevron {
+    transition: transform var(--duration-fast) var(--ease-out);
+  }
+  .nav-trigger[aria-expanded="true"] .nav-chevron {
+    transform: rotate(180deg);
+  }
+
+  .nav-cta { font-size: 0.875rem; height: 2.375rem; padding: 0 var(--space-5); }
+
+  /* ── Mega-menu ───────────────────────────────────────── */
+  .has-mega { position: static; }
+
+  .mega-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--paper);
+    border-top: 1px solid var(--rule-20);
+    border-bottom: 2px solid var(--rule-20);
+    padding: var(--space-8) 0 var(--space-10);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-6px);
+    transition: opacity var(--duration-base) var(--ease-out),
+                transform var(--duration-base) var(--ease-out),
+                visibility 0s var(--duration-base);
+    pointer-events: none;
+  }
+
+  .mega-menu.mega-visible {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+    transition: opacity var(--duration-base) var(--ease-out),
+                transform var(--duration-base) var(--ease-out),
+                visibility 0s 0s;
+    pointer-events: auto;
+  }
+
+  .mega-inner {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: var(--space-8);
+  }
+
+  .mega-country {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--rust);
+    margin-bottom: var(--space-4);
+    padding-bottom: var(--space-3);
+    border-bottom: 1px solid var(--rule-20);
+  }
+
+  .mega-col ul { list-style: none; display: flex; flex-direction: column; gap: var(--space-2); }
+
+  .mega-link {
+    font-family: var(--font-ui);
+    font-size: 0.9375rem;
+    color: var(--inkSoft);
+    text-decoration: none;
     transition: color var(--duration-fast) var(--ease-out);
+    display: block;
+    padding: var(--space-1) 0;
+  }
+  .mega-link:hover { color: var(--burgundy); }
+
+  /* ── Hamburger ───────────────────────────────────────── */
+  .nav-hamburger {
+    display: none;
+    flex-direction: column;
+    gap: 5px;
+    padding: var(--space-2);
+    background: none;
+    border: none;
+    cursor: pointer;
+  }
+  .nav-hamburger span {
+    display: block;
+    width: 22px;
+    height: 1.5px;
+    background: var(--ink);
+    transition: transform var(--duration-fast) var(--ease-out),
+                opacity var(--duration-fast) var(--ease-out);
+    border-radius: 1px;
+  }
+  .nav-hamburger[aria-expanded="true"] span:nth-child(1) {
+    transform: translateY(6.5px) rotate(45deg);
+  }
+  .nav-hamburger[aria-expanded="true"] span:nth-child(2) { opacity: 0; }
+  .nav-hamburger[aria-expanded="true"] span:nth-child(3) {
+    transform: translateY(-6.5px) rotate(-45deg);
   }
 
-  .nav-links a:hover { color: var(--color-accent); }
+  /* ── Mobile ──────────────────────────────────────────── */
+  @media (max-width: 900px) {
+    .nav-hamburger { display: flex; }
 
-  .nav-subscribe {
-    font-size: 0.875rem;
-    height: 2.5rem;
-    padding: 0 var(--space-5);
-  }
+    .nav-main {
+      display: none;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      flex-direction: column;
+      align-items: stretch;
+      background: var(--paper);
+      border-bottom: 2px solid var(--rule-20);
+      padding: var(--space-4) var(--gutter) var(--space-6);
+      gap: var(--space-2);
+    }
+    .nav-main.nav-open { display: flex; }
 
-  @media (max-width: 768px) {
-    .nav-links { gap: var(--space-4); }
-    .nav-subscribe { display: none; }
+    .nav-links {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0;
+    }
+
+    .nav-link { padding: var(--space-3) var(--space-2); font-size: 1rem; }
+
+    .mega-menu {
+      position: static;
+      border: none;
+      border-top: 1px solid var(--rule-20);
+      padding: var(--space-4) 0 0;
+      opacity: 1;
+      visibility: visible;
+      transform: none;
+      pointer-events: auto;
+      display: none;
+    }
+    .mega-menu.mega-visible { display: block; }
+
+    .mega-inner {
+      grid-template-columns: repeat(2, 1fr);
+      gap: var(--space-6);
+      padding: 0;
+    }
+
+    .nav-cta { align-self: flex-start; margin-top: var(--space-4); }
   }
 </style>

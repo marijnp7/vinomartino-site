@@ -1,0 +1,408 @@
+---
+import BrandLayout from './BrandLayout.astro';
+import type { Brand } from '../lib/brands';
+
+interface TocEntry {
+  id: string;
+  label: string;
+  level?: 2 | 3;
+}
+
+interface Props {
+  brand: Brand;
+  locale: string;
+  title: string;
+  description?: string;
+  pillar?: string;
+  author?: string;
+  pubDate?: string;
+  heroImage?: string;
+  readTime?: number;
+  toc?: TocEntry[];
+  canonicalUrl?: string;
+}
+
+const {
+  brand,
+  locale,
+  title,
+  description,
+  pillar,
+  author = 'Martin',
+  pubDate,
+  heroImage,
+  readTime,
+  toc = [],
+  canonicalUrl,
+} = Astro.props;
+
+const dateStr = pubDate
+  ? new Date(pubDate).toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' })
+  : null;
+---
+
+<BrandLayout
+  brand={brand}
+  locale={locale}
+  title={title}
+  description={description}
+  canonicalUrl={canonicalUrl}
+>
+  <!-- Hero image -->
+  {heroImage && (
+    <div class="article-hero">
+      <img src={heroImage} alt={title} loading="eager" />
+    </div>
+  )}
+
+  <!-- 3-col grid -->
+  <div class="article-grid container">
+    <!-- Left: Sticky TOC -->
+    <aside class="article-toc" aria-label="Inhoudsopgave">
+      {toc.length > 0 && (
+        <div class="toc-inner" id="toc-inner">
+          <span class="toc-label">In dit artikel</span>
+          <nav aria-label="Inhoudsopgave">
+            <ul class="toc-list" role="list">
+              {toc.map((entry) => (
+                <li class={`toc-item ${entry.level === 3 ? 'toc-item--sub' : ''}`}>
+                  <a href={`#${entry.id}`} class="toc-link">{entry.label}</a>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        </div>
+      )}
+    </aside>
+
+    <!-- Center: Article body -->
+    <article class="article-body" aria-labelledby="article-title">
+      <header class="article-header">
+        {pillar && <span class="article-pillar">{pillar}</span>}
+        <h1 id="article-title">{title}</h1>
+        <p class="article-byline">
+          Door {author}
+          {dateStr && <><span class="byline-sep">—</span><time datetime={pubDate}>{dateStr}</time></>}
+          {readTime && <><span class="byline-sep">—</span><span>{readTime} min lezen</span></>}
+        </p>
+      </header>
+
+      <div class="article-content">
+        <slot />
+      </div>
+    </article>
+
+    <!-- Right: Margin notes slot -->
+    <aside class="article-aside" aria-label="Kanttekeningen">
+      <slot name="aside" />
+    </aside>
+  </div>
+</BrandLayout>
+
+<style>
+  /* ── Hero image ──────────────────────────────────── */
+  .article-hero {
+    width: 100%;
+    max-height: 520px;
+    overflow: hidden;
+  }
+  .article-hero img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    max-height: 520px;
+  }
+
+  /* ── 3-col grid ──────────────────────────────────── */
+  .article-grid {
+    display: grid;
+    grid-template-columns: var(--article-toc-width) var(--article-body-max) var(--article-aside-width);
+    grid-template-areas: 'toc body aside';
+    gap: var(--space-12);
+    align-items: start;
+    padding-top: var(--space-10);
+    padding-bottom: var(--space-24);
+  }
+
+  /* ── TOC ─────────────────────────────────────────── */
+  .article-toc {
+    grid-area: toc;
+    position: sticky;
+    top: calc(var(--space-16) + var(--space-4));
+  }
+
+  .toc-inner {
+    padding: var(--space-5);
+    border: 1px solid var(--rule-20);
+    background: var(--paperDeep);
+  }
+
+  .toc-label {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--rust);
+    margin-bottom: var(--space-4);
+    padding-bottom: var(--space-3);
+    border-bottom: 1px solid var(--rule-20);
+  }
+
+  .toc-list { list-style: none; display: flex; flex-direction: column; gap: var(--space-1); }
+
+  .toc-item { padding: 0; }
+  .toc-item--sub .toc-link { padding-left: var(--space-4); font-size: 0.8125rem; }
+
+  .toc-link {
+    display: block;
+    font-family: var(--font-ui);
+    font-size: 0.875rem;
+    color: var(--inkSoft);
+    text-decoration: none;
+    padding: var(--space-1) 0;
+    line-height: 1.4;
+    transition: color var(--duration-fast) var(--ease-out);
+    border-left: 2px solid transparent;
+    padding-left: var(--space-3);
+  }
+  .toc-link:hover,
+  .toc-link.active {
+    color: var(--burgundy);
+    border-left-color: var(--burgundy);
+  }
+
+  /* ── Article body ────────────────────────────────── */
+  .article-body { grid-area: body; min-width: 0; }
+
+  .article-header { margin-bottom: var(--space-10); }
+
+  .article-pillar {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--rust);
+    margin-bottom: var(--space-4);
+  }
+
+  .article-header h1 {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 1.6rem + 1.5vw, 3rem);
+    font-style: italic;
+    font-weight: 400;
+    color: var(--ink);
+    line-height: 1.15;
+    margin-bottom: var(--space-5);
+  }
+
+  .article-byline {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--inkSoft);
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+  }
+  .byline-sep { opacity: 0.4; }
+
+  /* Article prose */
+  .article-content :global(p) {
+    font-family: var(--font-body);
+    font-size: 1.0625rem;
+    line-height: 1.8;
+    color: var(--ink);
+    margin-bottom: var(--space-6);
+  }
+
+  .article-content :global(h2) {
+    font-family: var(--font-display);
+    font-size: clamp(1.5rem, 1.3rem + 0.75vw, 1.875rem);
+    font-style: italic;
+    font-weight: 400;
+    color: var(--ink);
+    margin-top: var(--space-12);
+    margin-bottom: var(--space-4);
+    line-height: 1.2;
+  }
+
+  .article-content :global(h3) {
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    font-style: italic;
+    font-weight: 400;
+    color: var(--ink);
+    margin-top: var(--space-8);
+    margin-bottom: var(--space-3);
+    line-height: 1.25;
+  }
+
+  .article-content :global(ul),
+  .article-content :global(ol) {
+    font-family: var(--font-body);
+    font-size: 1rem;
+    line-height: 1.75;
+    color: var(--inkSoft);
+    padding-left: var(--space-6);
+    margin-bottom: var(--space-6);
+  }
+
+  .article-content :global(li) { margin-bottom: var(--space-2); }
+
+  .article-content :global(blockquote) {
+    border-left: 2px solid var(--rule);
+    padding: var(--space-4) var(--space-6);
+    margin: var(--space-8) 0;
+    background: var(--paperDeep);
+  }
+
+  .article-content :global(blockquote p) {
+    font-family: var(--font-display);
+    font-size: 1.1875rem;
+    font-style: italic;
+    color: var(--ink);
+    margin-bottom: 0;
+  }
+
+  .article-content :global(code) {
+    font-family: var(--font-mono);
+    font-size: 0.875em;
+    background: var(--paperDeep);
+    padding: 0.15em 0.4em;
+    border-radius: 2px;
+    color: var(--rust);
+  }
+
+  .article-content :global(strong) {
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .article-content :global(.practical-info) {
+    background: var(--paperDeep);
+    border: 1px solid var(--rule-20);
+    border-left: 3px solid var(--vine);
+    padding: var(--space-6);
+    margin: var(--space-8) 0;
+  }
+
+  .article-content :global(.practical-info h3) {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--vine);
+    margin-top: 0;
+    margin-bottom: var(--space-4);
+    font-style: normal;
+  }
+
+  /* ── Aside (margin notes) ────────────────────────── */
+  .article-aside {
+    grid-area: aside;
+    position: sticky;
+    top: calc(var(--space-16) + var(--space-4));
+    min-width: 0;
+  }
+
+  .article-aside :global(.margin-note) {
+    font-family: var(--font-body);
+    font-size: 0.875rem;
+    line-height: 1.6;
+    color: var(--inkSoft);
+    font-style: italic;
+    padding-left: var(--space-4);
+    border-left: 1px solid var(--rule-20);
+    margin-bottom: var(--space-6);
+  }
+
+  /* ── TOC active highlight ─────────────────────────── */
+  /* Driven by scroll via Intersection Observer */
+
+  /* ── Responsive ──────────────────────────────────── */
+
+  /* Tablet: 2-col (TOC + body, no aside) */
+  @media (max-width: 1200px) {
+    .article-grid {
+      grid-template-columns: var(--article-toc-width) 1fr;
+      grid-template-areas:
+        'toc body'
+        '. body';
+    }
+    .article-aside { display: none; }
+  }
+
+  /* Mobile: 1-col, TOC collapsible above body */
+  @media (max-width: 768px) {
+    .article-grid {
+      grid-template-columns: 1fr;
+      grid-template-areas:
+        'toc'
+        'body';
+      gap: var(--space-8);
+      padding-top: var(--space-6);
+    }
+
+    .article-toc {
+      position: static;
+      border-bottom: 1px solid var(--rule-20);
+      padding-bottom: var(--space-6);
+    }
+
+    .toc-inner {
+      max-height: 3rem;
+      overflow: hidden;
+      transition: max-height var(--duration-base) var(--ease-out);
+    }
+    .toc-inner.toc-expanded { max-height: 60vh; }
+
+    .toc-label {
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0;
+      padding-bottom: 0;
+      border-bottom: none;
+    }
+    .toc-inner:not(.toc-expanded) .toc-list { opacity: 0; }
+    .toc-inner.toc-expanded .toc-label { margin-bottom: var(--space-4); padding-bottom: var(--space-3); border-bottom: 1px solid var(--rule-20); }
+  }
+</style>
+
+<script>
+  // TOC active-link highlight via Intersection Observer
+  const headings = document.querySelectorAll<HTMLElement>('.article-content h2[id], .article-content h3[id]');
+  const tocLinks = document.querySelectorAll<HTMLAnchorElement>('.toc-link');
+
+  if (headings.length && tocLinks.length) {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            tocLinks.forEach((link) => link.classList.remove('active'));
+            const active = document.querySelector<HTMLAnchorElement>(`.toc-link[href="#${entry.target.id}"]`);
+            active?.classList.add('active');
+          }
+        });
+      },
+      { rootMargin: '0px 0px -70% 0px', threshold: 0 }
+    );
+    headings.forEach((h) => observer.observe(h));
+  }
+
+  // Mobile TOC toggle
+  const tocInner = document.getElementById('toc-inner') as HTMLElement | null;
+  const tocLabel = tocInner?.querySelector('.toc-label');
+  tocLabel?.addEventListener('click', () => {
+    tocInner?.classList.toggle('toc-expanded');
+  });
+</script>

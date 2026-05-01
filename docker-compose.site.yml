@@ -9,6 +9,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        BRAND: ${BRAND:-}
+        DIRECTUS_URL: ${DIRECTUS_URL:-}
+        DIRECTUS_TOKEN: ${DIRECTUS_TOKEN:-}
     image: paperclip-site:latest
     container_name: paperclip-site-1
     restart: unless-stopped

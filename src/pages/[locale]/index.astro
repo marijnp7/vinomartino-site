@@ -1,13 +1,13 @@
 ---
-import { getCollection } from 'astro:content';
+import { loadArticles } from '../../lib/articles';
 import BrandHomeContent from '../../components/pages/BrandHomeContent.astro';
 import { getActiveBrand } from '../../lib/brands';
-import type { CollectionEntry } from 'astro:content';
+import type { Article } from '../../lib/articles';
 
 export async function getStaticPaths() {
   const brand = getActiveBrand();
   if (!brand) return [];
-  const articles = await getCollection('articles');
+  const articles = await loadArticles();
 
   return brand.locales.map((locale) => ({
     params: { locale },
@@ -17,7 +17,7 @@ export async function getStaticPaths() {
 
 interface Props {
   brand: ReturnType<typeof getActiveBrand>;
-  articles: CollectionEntry<'articles'>[];
+  articles: Article[];
 }
 
 const { brand, articles } = Astro.props;

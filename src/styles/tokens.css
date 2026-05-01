@@ -1,0 +1,92 @@
+/* VinoMartino V3 Design Tokens — LAT-763 */
+
+:root {
+  /* ── Colour palette ────────────────────────────────── */
+  --ink: #1F1A16;
+  --inkSoft: #5A4F45;
+  --paper: #FAF5E9;
+  --paperDeep: #F0E6D0;
+  --burgundy: #5A1A1F;
+  --burgundyDeep: #3D1115;
+  --rust: #A14F2A;
+  --vine: #5C6B3F;
+  --rule: #C9B98F;
+
+  /* Tints */
+  --burgundy-10: #F5ECEC;
+  --burgundy-20: #EAD9DA;
+  --rust-10: #F8EDE8;
+  --vine-10: #EDF1E9;
+  --rule-20: #EDE5D2;
+
+  /* Semantic aliases */
+  --color-bg: var(--paper);
+  --color-bg-deep: var(--paperDeep);
+  --color-text: var(--ink);
+  --color-text-secondary: var(--inkSoft);
+  --color-text-muted: #8A7E74;
+  --color-primary: var(--burgundy);
+  --color-primary-hover: var(--burgundyDeep);
+  --color-accent: var(--rust);
+  --color-accent-2: var(--vine);
+  --color-border: var(--rule);
+  --color-border-light: var(--rule-20);
+
+  /* Backward-compat aliases for existing components */
+  --charcoal: var(--ink);
+  --deep-night: #1A1410;
+  --ivory: var(--paperDeep);
+  --warm-cream: var(--paperDeep);
+  --stone: var(--inkSoft);
+  --stone-light: #8A7E74;
+  --aged-gold: var(--rule);
+  --aged-gold-20: var(--rule-20);
+  --terracotta: var(--rust);
+  --terracotta-80: #B5653E;
+  --terracotta-10: var(--rust-10);
+
+  /* ── Typography ────────────────────────────────────── */
+  --font-display: 'Cormorant Garamond', 'EB Garamond', Georgia, serif;
+  --font-heading: 'Cormorant Garamond', 'EB Garamond', Georgia, serif;
+  --font-body: 'Source Serif 4', Georgia, serif;
+  --font-ui: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  /* ── Spacing ───────────────────────────────────────── */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --space-20: 5rem;
+  --space-24: 6rem;
+
+  /* ── Layout ────────────────────────────────────────── */
+  --max-width: 80rem;
+  --gutter: 1.5rem;
+  --article-body-max: 42.5rem;
+  --article-toc-width: 13.75rem;
+  --article-aside-width: 12.5rem;
+
+  /* ── Shape & shadow ────────────────────────────────── */
+  --radius-sm: 0.125rem;
+  --radius-md: 0.25rem;
+  --shadow-sm: 0 1px 4px rgba(31, 26, 22, 0.06);
+  --shadow-md: 0 4px 12px rgba(31, 26, 22, 0.08);
+  --shadow-card-hover: 0 8px 32px rgba(31, 26, 22, 0.12);
+
+  /* ── Motion ────────────────────────────────────────── */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-fast: 150ms;
+  --duration-base: 250ms;
+  --duration-image: 600ms;
+}
+
+@media (max-width: 768px) {
+  :root { --gutter: 1rem; }
+}

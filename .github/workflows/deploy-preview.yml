@@ -1,0 +1,87 @@
+name: Deploy Preview
+
+on:
+  push:
+    branches:
+      - preview
+
+jobs:
+  build-and-deploy:
+    name: Build Astro + rsync to preview-dist
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Open SSH tunnel to Directus
+        run: |
+          ssh -fN -L 8055:localhost:8055 \
+            -i ~/.ssh/deploy_key \
+            -o StrictHostKeyChecking=no \
+            "$VPS_USER@$VPS_HOST"
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+
+      - name: Build (VinoMartino)
+        run: npm run build:vinomartino
+        env:
+          DIRECTUS_URL: http://localhost:8055
+          DIRECTUS_TOKEN: ${{ secrets.DIRECTUS_TOKEN }}
+
+      - name: Set up SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "$VPS_SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+        env:
+          VPS_SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+
+      - name: Deploy to preview-dist
+        run: |
+          rsync -az --delete \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
+            dist/ \
+            "$VPS_USER@$VPS_HOST:/root/vinomartino-site/preview-dist/"
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+
+      - name: Reload preview container
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+            "$VPS_USER@$VPS_HOST" \
+            "cd /root/vinomartino-site && docker compose -f docker-compose.vinomartino-preview.yml up -d --force-recreate"
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+
+      - name: Smoke test — content check
+        run: |
+          sleep 5
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+            "$VPS_USER@$VPS_HOST" bash -s << 'SMOKEEOF'
+          HTTP=$(curl -s -o /tmp/smoke.html -w '%{http_code}' --max-time 15 http://localhost:8090/nl/)
+          echo "HTTP: $HTTP"
+          [ "$HTTP" = "200" ] || { echo "SMOKE FAIL: HTTP $HTTP on /nl/"; exit 1; }
+          grep -qi 'VinoMartino\|Wijnreizen' /tmp/smoke.html || {
+            echo "SMOKE FAIL: HTTP 200 but brand content not found (placeholder suspected)"
+            head -10 /tmp/smoke.html
+            exit 1
+          }
+          echo "SMOKE OK: HTTP 200 + brand content verified on /nl/"
+          SMOKEEOF
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
