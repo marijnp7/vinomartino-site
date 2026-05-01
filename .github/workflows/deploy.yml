@@ -147,7 +147,7 @@ jobs:
         run: |
           printf '%s\n' "$BUILD_SCRIPT" | ssh "$VPS" "STAGE='$STAGE' bash -s"
 
-      # ── 7. Sync inhoud naar DIST + container reload ──────────────────────
+      # ── 7. Sync inhoud + config naar DIST + container reload ─────────────
       #
       # BELANGRIJK: we mogen DIST zelf niet hernoemen of vervangen, want de
       # nginx-container heeft hem via bind-mount aan een vaste inode hangen.
@@ -156,7 +156,12 @@ jobs:
       # Daarom: rsync overschrijft de inhoud van DIST in-place. De inode
       # blijft gelijk, de mount blijft geldig. Als rollback maken we eerst
       # een hardlink-snapshot (kost ~0 schijfruimte).
-      - name: Sync to DIST + reload
+      #
+      # Config-files (nginx, htpasswd, docker-compose) worden ook gesynct
+      # vanuit staging naar /root/vinomartino-site/ zodat repo en VPS in
+      # sync blijven. nginx -t valideert de config vóór reload; bij falen
+      # worden config-files teruggerold.
+      - name: Sync to DIST + config + reload
         env:
           VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
           STAGE: /srv/vino-builds/${{ github.run_id }}
@@ -164,6 +169,7 @@ jobs:
           CONTAINER: ${{ steps.env.outputs.container }}
           SWAP_SCRIPT: |
             set -euo pipefail
+            SITE_ROOT="/root/vinomartino-site"
             mkdir -p "$DIST"
 
             # Hardlink-snapshot voor rollback (cp -al, geen disk-overhead)
@@ -172,6 +178,29 @@ jobs:
 
             # Inhoud overschrijven, DIST-directory zelf raken we niet aan
             rsync -a --delete "$STAGE/dist/" "$DIST/"
+
+            # Config-files syncen naar site-root (LAT-779)
+            CONFIG_FILES="nginx-prod.conf nginx-preview.conf htpasswd docker-compose.vinomartino-prod.yml docker-compose.vinomartino-preview.yml"
+            for f in $CONFIG_FILES; do
+              if [ -f "$STAGE/$f" ]; then
+                [ -f "$SITE_ROOT/$f" ] && cp "$SITE_ROOT/$f" "$SITE_ROOT/$f.bak"
+                cp "$STAGE/$f" "$SITE_ROOT/$f"
+              fi
+            done
+
+            # Valideer nginx config vóór reload
+            if ! docker exec "$CONTAINER" nginx -t 2>&1; then
+              echo "::error::nginx -t failed — config rollback"
+              for f in $CONFIG_FILES; do
+                [ -f "$SITE_ROOT/$f.bak" ] && mv "$SITE_ROOT/$f.bak" "$SITE_ROOT/$f"
+              done
+              exit 1
+            fi
+
+            # Opruimen .bak files na geslaagde validatie
+            for f in $CONFIG_FILES; do
+              rm -f "$SITE_ROOT/$f.bak"
+            done
 
             # Stage opruimen
             rm -rf "$STAGE"
