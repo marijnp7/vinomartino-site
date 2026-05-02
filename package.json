@@ -6,7 +6,11 @@
     "dev": "astro dev --host 0.0.0.0",
     "build": "astro build",
     "build:vinomartino": "astro build",
-    "preview": "astro preview --host 0.0.0.0"
+    "preview": "astro preview --host 0.0.0.0",
+    "directus:bootstrap": "node directus/scripts/bootstrap-schema.mjs",
+    "directus:seed": "node directus/scripts/seed-countries.mjs",
+    "directus:migrate": "node directus/scripts/migrate-blog-posts.mjs",
+    "directus:setup": "npm run directus:bootstrap && npm run directus:seed && npm run directus:migrate"
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.7.2",

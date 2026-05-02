@@ -1,0 +1,112 @@
+---
+interface Props {
+  type: 'accommodation' | 'activity' | 'flight' | 'insurance' | 'sidebar';
+  context?: string;
+}
+
+const { type, context } = Astro.props;
+
+const labels: Record<string, { title: string; description: string; icon: string }> = {
+  accommodation: {
+    title: 'Waar slapen',
+    description: 'Vind de beste accommodaties',
+    icon: '🏨',
+  },
+  activity: {
+    title: 'Activiteiten & tours',
+    description: 'Boek tours en excursies',
+    icon: '🎯',
+  },
+  flight: {
+    title: 'Vluchten vergelijken',
+    description: 'Vind de goedkoopste vluchten',
+    icon: '✈️',
+  },
+  insurance: {
+    title: 'Reisverzekering',
+    description: 'Reis verzekerd op pad',
+    icon: '🛡️',
+  },
+  sidebar: {
+    title: 'Boek je reis',
+    description: 'Alles wat je nodig hebt',
+    icon: '🧳',
+  },
+};
+
+const label = labels[type] || labels.sidebar;
+---
+
+<aside class={`affiliate-placeholder affiliate-${type}`} data-affiliate-type={type} data-context={context}>
+  <div class="affiliate-inner">
+    <span class="affiliate-icon" aria-hidden="true">{label.icon}</span>
+    <div class="affiliate-text">
+      <strong class="affiliate-title">{label.title}</strong>
+      <p class="affiliate-desc">{label.description}</p>
+    </div>
+    <span class="affiliate-badge">Binnenkort beschikbaar</span>
+  </div>
+</aside>
+
+<style>
+  .affiliate-placeholder {
+    border: 1px dashed var(--ruleSoft, #E0D2B0);
+    border-radius: var(--radius-sm, 2px);
+    background: var(--paperDeep, #F0E6D0);
+    padding: 1.25rem 1.5rem;
+    margin: 1.5rem 0;
+  }
+
+  .affiliate-inner {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .affiliate-icon {
+    font-size: 1.5rem;
+    flex-shrink: 0;
+  }
+
+  .affiliate-text {
+    flex: 1;
+  }
+
+  .affiliate-title {
+    font-family: var(--font-ui, sans-serif);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--ink, #1F1A16);
+    display: block;
+  }
+
+  .affiliate-desc {
+    font-size: 0.8125rem;
+    color: var(--inkSoft, #5A4F45);
+    margin: 0.125rem 0 0;
+  }
+
+  .affiliate-badge {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--inkFaint, #8A7E70);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .affiliate-sidebar {
+    border-style: solid;
+  }
+
+  @media (max-width: 640px) {
+    .affiliate-inner {
+      flex-wrap: wrap;
+    }
+    .affiliate-badge {
+      width: 100%;
+      text-align: right;
+    }
+  }
+</style>
