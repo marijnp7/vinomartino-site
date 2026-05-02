@@ -10,12 +10,14 @@ interface Props {
   title: string;
   description?: string;
   canonicalUrl?: string;
+  ogImage?: string;
   schema?: Record<string, unknown> | Record<string, unknown>[];
 }
 
-const { brand, locale, title, description, canonicalUrl, schema } = Astro.props;
+const { brand, locale, title, description, canonicalUrl, ogImage, schema } = Astro.props;
 const pageTitle = title.includes(brand.name) ? title : `${title} — ${brand.name}`;
 const canonical = canonicalUrl ?? new URL(Astro.url.pathname, Astro.site ?? 'https://vinomartino.com').href;
+const ogImageUrl = ogImage || brand.ogDefaultImage || 'https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=1200&h=630&fit=crop&q=80';
 ---
 
 <!doctype html>
@@ -27,7 +29,17 @@ const canonical = canonicalUrl ?? new URL(Astro.url.pathname, Astro.site ?? 'htt
     {description && <meta name="description" content={description} />}
     <meta property="og:title" content={pageTitle} />
     <meta property="og:site_name" content={brand.name} />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogImageUrl} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:locale" content={locale === 'nl' ? 'nl_NL' : locale} />
     {description && <meta property="og:description" content={description} />}
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={pageTitle} />
+    {description && <meta name="twitter:description" content={description} />}
+    <meta name="twitter:image" content={ogImageUrl} />
     <link rel="canonical" href={canonical} />
     <link rel="icon" href="/favicon.svg" />
     {schema && (

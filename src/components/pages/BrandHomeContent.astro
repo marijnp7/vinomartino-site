@@ -90,6 +90,13 @@ const atlasRegions = [
   locale={locale}
   title={`${brand.name} — Literair reismagazine voor wijnliefhebbers`}
   description="Hand-picked wijnreizen, proefnotities en verhalen van Martin & Sophie. Alleen streken en huizen waar ze zelf geweest zijn."
+  schema={{
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: brand.name,
+    url: 'https://vinomartino.com',
+    description: 'Wijnreizen, proefnotities en persoonlijke verhalen uit de mooiste wijnstreken ter wereld.',
+  }}
 >
   <!-- Hero -->
   <BrandHero brand={brand} />

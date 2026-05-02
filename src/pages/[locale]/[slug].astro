@@ -44,6 +44,21 @@ const pubDateFormatted = new Date(article.pubDate).toLocaleDateString('nl-NL', {
   month: 'long',
   year: 'numeric',
 });
+
+const articleSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'Article',
+  headline: article.title,
+  description: article.metaDescription || article.description || '',
+  author: { '@type': 'Person', name: article.author },
+  datePublished: new Date(article.pubDate).toISOString(),
+  publisher: {
+    '@type': 'Organization',
+    name: brand.name,
+    url: `https://vinomartino.com`,
+  },
+  ...(article.heroImage ? { image: article.heroImage } : {}),
+};
 ---
 
 <BrandLayout
@@ -51,6 +66,8 @@ const pubDateFormatted = new Date(article.pubDate).toLocaleDateString('nl-NL', {
   locale={locale!}
   title={article.metaTitle}
   description={article.metaDescription}
+  ogImage={article.heroImage || undefined}
+  schema={articleSchema}
 >
   <article class="article-page">
     <header class="article-header container">
