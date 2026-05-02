@@ -74,18 +74,18 @@ const themes = [
 
 // § 7 — Region atlas (typographic)
 const atlasRegions = [
-  { name: 'Piemonte', sub: 'Barolo · Barbaresco · Roero' },
-  { name: 'Toscane', sub: 'Bolgheri · Montalcino · Carmignano' },
-  { name: 'Bourgogne', sub: 'Côte de Nuits · Côte de Beaune · Chablis' },
-  { name: 'Champagne', sub: 'Grower-producenten · Blanc de blancs' },
-  { name: 'Priorat', sub: 'Garnatxa · Cariñena · Licorella' },
-  { name: 'Mosel', sub: 'Riesling · Spätlese · GG' },
-  { name: 'Etna', sub: 'Nerello · Carricante · Contrade' },
-  { name: 'Wachau', sub: 'Grüner Veltliner · Riesling · Smaragd' },
-  { name: 'Douro', sub: 'Port · Tawny · Droge rode wijnen' },
-  { name: 'Georgië', sub: 'Qvevri · Rkatsiteli · Saperavi' },
-  { name: 'Slovenië', sub: 'Brda · Vipavska dolina · Karst' },
-  { name: 'Engeland', sub: 'Sussex · Kent · Sparkling' },
+  { name: 'Piemonte',  slug: 'piemonte',  sub: 'Barolo · Barbaresco · Roero' },
+  { name: 'Toscane',   slug: 'toscane',   sub: 'Bolgheri · Montalcino · Carmignano' },
+  { name: 'Bourgogne', slug: 'bourgogne', sub: 'Côte de Nuits · Côte de Beaune · Chablis' },
+  { name: 'Champagne', slug: 'champagne', sub: 'Grower-producenten · Blanc de blancs' },
+  { name: 'Priorat',   slug: 'priorat',   sub: 'Garnatxa · Cariñena · Licorella' },
+  { name: 'Mosel',     slug: 'mosel',     sub: 'Riesling · Spätlese · GG' },
+  { name: 'Etna',      slug: 'etna',      sub: 'Nerello · Carricante · Contrade' },
+  { name: 'Wachau',    slug: 'wachau',    sub: 'Grüner Veltliner · Riesling · Smaragd' },
+  { name: 'Douro',     slug: 'douro',     sub: 'Port · Tawny · Droge rode wijnen' },
+  { name: 'Georgië',   slug: 'georgie',   sub: 'Qvevri · Rkatsiteli · Saperavi' },
+  { name: 'Slovenië',  slug: 'slovenie',  sub: 'Brda · Vipavska dolina · Karst' },
+  { name: 'Engeland',  slug: 'engeland',  sub: 'Sussex · Kent · Sparkling' },
 ];
 ---
 
@@ -273,7 +273,7 @@ const atlasRegions = [
       </header>
       <div class="atlas-grid">
         {atlasRegions.map((r) => (
-          <a href={`${base}/streken/${r.name.toLowerCase()}/`} class="atlas-entry">
+          <a href={`${base}/streken/${r.slug}/`} class="atlas-entry">
             <span class="atlas-name">{r.name}</span>
             <span class="atlas-sub">{r.sub}</span>
           </a>
