@@ -1,0 +1,60 @@
+---
+import BrandLayout from '../../../../layouts/BrandLayout.astro';
+import RegionPageContent from '../../../../components/pages/RegionPageContent.astro';
+import { getLiveBrands, isSingleBrandMode, type Brand } from '../../../../lib/brands';
+
+export function getStaticPaths() {
+  if (isSingleBrandMode()) return [];
+
+  const brands = getLiveBrands();
+  const slugs = [
+    'piemonte', 'bourgogne', 'priorat', 'mosel', 'wachau',
+    'etna', 'toscane', 'champagne', 'douro', 'georgië',
+    'slovenië', 'engeland',
+  ];
+
+  return brands.flatMap((brand) =>
+    brand.locales.flatMap((locale) =>
+      slugs.map((slug) => ({
+        params: { brand: brand.slug, locale, slug },
+        props: { brand },
+      }))
+    )
+  );
+}
+
+interface Props {
+  brand: Brand;
+}
+
+const { brand } = Astro.props;
+const { locale, slug } = Astro.params;
+
+const regionNames: Record<string, string> = {
+  piemonte: 'Piemonte',
+  bourgogne: 'Bourgogne',
+  priorat: 'Priorat',
+  mosel: 'Mosel',
+  wachau: 'Wachau',
+  etna: 'Etna',
+  toscane: 'Toscane',
+  champagne: 'Champagne',
+  douro: 'Douro',
+  georgië: 'Georgië',
+  slovenië: 'Slovenië',
+  engeland: 'Engeland',
+};
+
+const regionName = regionNames[slug!] ?? (slug ? slug.charAt(0).toUpperCase() + slug.slice(1) : 'Wijnstreek');
+const title = `${regionName} — Wijnstreek`;
+const description = `Alles over wijnstreek ${regionName}: deelregio's, druiven, routes en de beste wijnhuizen om te bezoeken.`;
+---
+
+<BrandLayout
+  brand={brand}
+  locale={locale!}
+  title={title}
+  description={description}
+>
+  <RegionPageContent brand={brand} locale={locale!} slug={slug!} />
+</BrandLayout>
