@@ -136,7 +136,7 @@ jobs:
               npm ci
               npm run build
             else
-              docker run --rm --network host \
+              docker run --rm --network directus_directus_net \
                 -v "$STAGE":/app -w /app \
                 node:24 bash -c "npm ci && npm run build"
             fi
