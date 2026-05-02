@@ -1,0 +1,172 @@
+# Promote preview → production via CoS approval-bridge (Telegram)
+#
+# Flow:
+#   1. SSH naar VPS, maak CoS approval-request (HMAC-signed)
+#   2. Poll op Telegram-goedkeuring (max 10 min)
+#   3. Bij approve: rsync preview-dist → dist (in-place, bind-mount safe)
+#   4. nginx -t validatie, automatische rollback bij falen
+#   5. Smoke test op vinomartino.com
+#
+# Vereiste secrets: VPS_HOST, VPS_USER, VPS_SSH_PRIVATE_KEY
+# CoS HMAC secret wordt gelezen uit /opt/paperclip-cos/.env.cos op de VPS.
+
+name: Promote Preview → Production
+
+on:
+  workflow_dispatch: {}
+
+concurrency:
+  group: promote-production
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          cat >> ~/.ssh/config <<EOF
+          Host $VPS_HOST
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+          EOF
+          ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Request CoS approval and promote
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          PROMOTE_SCRIPT: |
+            set -euo pipefail
+
+            SITE_ROOT="/root/vinomartino-site"
+            PREVIEW_DIST="$SITE_ROOT/preview-dist"
+            PROD_DIST="$SITE_ROOT/dist"
+            PROD_CONTAINER="paperclip-vinomartino-prod-1"
+            COS_URL="http://paperclip-cos-bridge-1:3200"
+
+            # Controleer dat preview-dist bestaat en inhoud heeft
+            if [ ! -d "$PREVIEW_DIST" ] || [ -z "$(ls -A "$PREVIEW_DIST" 2>/dev/null)" ]; then
+              echo "::error::preview-dist bestaat niet of is leeg"
+              exit 1
+            fi
+
+            # Laad HMAC secret
+            if [ ! -f /opt/paperclip-cos/.env.cos ]; then
+              echo "::error::CoS .env.cos niet gevonden"
+              exit 1
+            fi
+            set -a; source /opt/paperclip-cos/.env.cos; set +a
+
+            # Uniek request-ID
+            REQUEST_ID="promote-$(date +%s)-$$"
+
+            # Approval payload
+            PAYLOAD=$(python3 -c "
+            import json, sys
+            print(json.dumps({
+                'request_id': '$REQUEST_ID',
+                'action': 'promote-preview-to-prod',
+                'summary': 'Promote preview build naar productie (vinomartino.com). Preview-dist wordt gekopieerd naar prod dist, nginx herlaad.',
+                'urgency': 'normal',
+                'timeout_seconds': 600
+            }))
+            ")
+
+            # HMAC-SHA256 signature
+            SIGNATURE="sha256=$(printf '%s' "$PAYLOAD" | openssl dgst -sha256 -hmac "$APPROVAL_HMAC_SECRET" | awk '{print $NF}')"
+
+            echo "Approval-request naar CoS bridge..."
+            RESPONSE=$(curl -sS -f -X POST "$COS_URL/approval" \
+              -H "Content-Type: application/json" \
+              -H "X-Signature: $SIGNATURE" \
+              -d "$PAYLOAD")
+
+            APPROVAL_ID=$(echo "$RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
+            echo "Approval ID: $APPROVAL_ID"
+            echo "Wacht op Telegram-goedkeuring (max 10 min)..."
+
+            # Poll elke 5s, max 120 pogingen (10 min)
+            DECISION="pending"
+            for i in $(seq 1 120); do
+              sleep 5
+              STATUS=$(curl -sS "$COS_URL/approval/$APPROVAL_ID" || echo '{}')
+              DECISION=$(echo "$STATUS" | python3 -c "
+            import sys,json
+            try:
+                d = json.load(sys.stdin)
+                print(d.get('decision','pending'))
+            except:
+                print('pending')
+            ")
+
+              if [ "$DECISION" = "approve" ] || [ "$DECISION" = "approved" ]; then
+                echo "Goedgekeurd! Promote start..."
+                break
+              elif [ "$DECISION" = "reject" ] || [ "$DECISION" = "rejected" ] || [ "$DECISION" = "deny" ] || [ "$DECISION" = "denied" ]; then
+                echo "::error::Afgewezen via Telegram. Promote geannuleerd."
+                exit 1
+              fi
+            done
+
+            if [ "$DECISION" != "approve" ] && [ "$DECISION" != "approved" ]; then
+              echo "::error::Timeout (10 min) zonder goedkeuring. Promote geannuleerd."
+              exit 1
+            fi
+
+            # ── Promote: preview-dist → prod dist ──────────────────────────
+
+            # Backup huidige productie (hardlink-snapshot, ~0 disk overhead)
+            BACKUP="${PROD_DIST}.old-$(date +%s)"
+            cp -al "$PROD_DIST" "$BACKUP" 2>/dev/null || cp -a "$PROD_DIST" "$BACKUP"
+
+            # In-place sync (bind-mount safe)
+            rsync -a --delete "$PREVIEW_DIST/" "$PROD_DIST/"
+
+            # Valideer nginx config
+            if ! docker exec "$PROD_CONTAINER" nginx -t 2>&1; then
+              echo "::error::nginx -t gefaald — rollback naar backup"
+              rsync -a --delete "$BACKUP/" "$PROD_DIST/"
+              docker exec "$PROD_CONTAINER" nginx -s reload 2>/dev/null || true
+              exit 1
+            fi
+
+            # Hot reload
+            docker exec "$PROD_CONTAINER" nginx -s reload \
+              || docker restart "$PROD_CONTAINER"
+
+            # Oude backups opruimen (bewaar laatste 3)
+            ls -1dt "${PROD_DIST}".old-* 2>/dev/null | tail -n +4 | xargs -r rm -rf
+
+            echo "Productie bijgewerkt vanuit preview-build"
+        run: |
+          printf '%s\n' "$PROMOTE_SCRIPT" \
+            | ssh "$VPS" "bash -s"
+
+      - name: Smoke test
+        run: |
+          echo "Wacht 5s op nginx warm-up..."
+          sleep 5
+
+          code="000"
+          for attempt in 1 2 3 4 5; do
+            code=$(curl -sS -o /dev/null -w "%{http_code}" -L --max-time 15 "https://vinomartino.com/nl/" || echo "000")
+            echo "Poging $attempt: GET https://vinomartino.com/nl/ → HTTP $code"
+            if [ "$code" = "200" ]; then break; fi
+            sleep 4
+          done
+
+          [ "$code" = "200" ] || { echo "::error::Productie smoke-test gefaald na 5 pogingen ($code)"; exit 1; }
+
+      - name: Done
+        run: echo "::notice::Preview succesvol gepromoveerd naar productie (vinomartino.com)"
