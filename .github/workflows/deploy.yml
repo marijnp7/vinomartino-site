@@ -218,9 +218,9 @@ jobs:
       - name: Smoke test
         run: |
           if [ "${{ steps.env.outputs.target }}" = "production" ]; then
-            URL="https://vinomartino.com/nl/"
+            URL="https://vinomartino.com/vinomartino/nl/"
           else
-            URL="https://preview.vinomartino.com/nl/"
+            URL="https://preview.vinomartino.com/vinomartino/nl/"
             # Preview zit achter CF Access; 302 of 200 is OK
           fi
 
