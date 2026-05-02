@@ -1,0 +1,132 @@
+---
+import type { Country } from '../lib/countries';
+
+interface Props {
+  countries?: Country[];
+}
+
+const { countries = [] } = Astro.props;
+const year = new Date().getFullYear();
+---
+
+<footer class="site-footer">
+  <div class="footer-inner">
+    <div class="footer-grid">
+      <div class="footer-col">
+        <h4 class="footer-heading">Reisgids</h4>
+        <p class="footer-desc">Jouw redactionele reisgids voor de wereld. Geschreven door reizigers, voor reizigers.</p>
+      </div>
+      <div class="footer-col">
+        <h4 class="footer-heading">Landen</h4>
+        <ul class="footer-links">
+          {countries.slice(0, 5).map(c => (
+            <li><a href={`/landen/${c.slug}/`}>{c.name}</a></li>
+          ))}
+          {countries.length > 5 && <li><a href="/landen/">Alle landen &rarr;</a></li>}
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4 class="footer-heading">Navigatie</h4>
+        <ul class="footer-links">
+          <li><a href="/artikelen/">Artikelen</a></li>
+          <li><a href="/reisroutes/">Reisroutes</a></li>
+          <li><a href="/over-ons/">Over ons</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4 class="footer-heading">Juridisch</h4>
+        <ul class="footer-links">
+          <li><a href="/privacy/">Privacy</a></li>
+          <li><a href="/cookies/">Cookies</a></li>
+          <li><a href="/affiliate-verklaring/">Affiliate-verklaring</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p class="footer-copy">&copy; {year} Reisplatform. Alle rechten voorbehouden.</p>
+      <p class="footer-affiliate-note">
+        Sommige links op deze site zijn affiliate-links. Wij ontvangen een kleine commissie als je via onze link boekt, zonder extra kosten voor jou.
+      </p>
+    </div>
+  </div>
+</footer>
+
+<style>
+  .site-footer {
+    background: var(--ink);
+    color: var(--paperDeep);
+    margin-top: var(--space-24);
+  }
+  .footer-inner {
+    max-width: var(--max-width);
+    margin: 0 auto;
+    padding: var(--space-16) var(--gutter) var(--space-8);
+  }
+  .footer-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr;
+    gap: var(--space-8);
+    margin-bottom: var(--space-12);
+  }
+  .footer-heading {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--gold);
+    margin-bottom: var(--space-4);
+  }
+  .footer-desc {
+    font-family: var(--font-body);
+    font-size: 0.875rem;
+    line-height: 1.6;
+    color: var(--inkFaint);
+    max-width: 28rem;
+  }
+  .footer-links {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .footer-links a {
+    font-family: var(--font-body);
+    font-size: 0.875rem;
+    color: var(--paperDeep);
+    text-decoration: none;
+    transition: color var(--duration-fast);
+  }
+  .footer-links a:hover { color: var(--gold); }
+  .footer-bottom {
+    border-top: 1px solid rgba(255,255,255,0.1);
+    padding-top: var(--space-6);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .footer-copy {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    color: var(--inkFaint);
+  }
+  .footer-affiliate-note {
+    font-family: var(--font-body);
+    font-size: 0.75rem;
+    color: var(--inkFaint);
+    max-width: 50rem;
+  }
+
+  @media (max-width: 768px) {
+    .footer-grid {
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-6);
+    }
+  }
+  @media (max-width: 480px) {
+    .footer-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

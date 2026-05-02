@@ -1,92 +1,357 @@
 ---
-import BaseLayout from '../layouts/BaseLayout.astro';
-import { getCollection } from 'astro:content';
-import { getActiveBrand } from '../lib/brands';
+import SiteLayout from '../layouts/SiteLayout.astro';
+import AffiliatePlaceholder from '../components/AffiliatePlaceholder.astro';
+import { loadCountries } from '../lib/countries';
+import { loadArticles } from '../lib/articles';
 
-import { getLiveBrands } from '../lib/brands';
+const countries = await loadCountries();
+const articles = await loadArticles();
+const recentArticles = articles.slice(0, 6);
 
-const activeBrand = getActiveBrand();
-
-if (activeBrand) {
-  return Astro.redirect(`/${activeBrand.defaultLocale}/`, 302);
-}
-
-const liveBrands = getLiveBrands();
-if (liveBrands.length === 1) {
-  return Astro.redirect(`/${liveBrands[0].slug}/${liveBrands[0].defaultLocale}/`, 302);
-}
-
-const posts = await getCollection('posts');
-const sorted = posts.sort((a, b) =>
-  new Date(b.data.date).getTime() - new Date(a.data.date).getTime()
-);
+const schema = {
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  name: 'Reisplatform',
+  description: 'Jouw redactionele reisgids voor de wereld',
+  url: Astro.site?.href || 'https://reisplatform.nl',
+};
 ---
 
-<BaseLayout title="Reisplatform — Dev Preview">
+<SiteLayout
+  title="Reisplatform — Jouw reisgids voor de wereld"
+  description="Ontdek bestemmingen, reisroutes en praktische reisinformatie. Geschreven door reizigers, voor reizigers."
+  schema={schema}
+>
+  <!-- Hero -->
   <section class="hero">
-    <h1>Reisplatform</h1>
-    <p class="tagline">Redactioneel reismediamerk met zes onderscheidende schrijver-persona's</p>
-    <p class="subtitle">Dev preview — merknaam volgt</p>
+    <div class="hero-overlay"></div>
+    <div class="hero-content">
+      <span class="hero-label">Redactionele reisgids</span>
+      <h1>Ontdek de wereld,<br/>bestemming voor bestemming</h1>
+      <p class="hero-subtitle">Praktische reisgidsen, eerlijke verhalen en handige routes — geschreven door reizigers met verschillende perspectieven.</p>
+      <div class="hero-actions">
+        <a href="/landen/" class="btn btn-hero-primary">Ontdek landen</a>
+        <a href="/artikelen/" class="btn btn-hero-secondary">Lees artikelen</a>
+      </div>
+    </div>
   </section>
 
-  <section class="posts">
-    <h2>Laatste berichten</h2>
-    {sorted.map((post) => (
-      <article class="post-card">
-        <h3>{post.data.title}</h3>
-        <p class="meta">
-          {post.data.author} &mdash; {post.data.date.toLocaleDateString('nl-NL')}
-        </p>
-        <p>{post.data.summary}</p>
-      </article>
-    ))}
+  <!-- Populaire bestemmingen / Landen -->
+  <section class="section container">
+    <div class="section-header">
+      <span class="section-label">Populaire bestemmingen</span>
+      <h2>Ontdek onze landengidsen</h2>
+      <p class="section-desc">Vijf landen om mee te beginnen — met praktische informatie, bestemmingen en reisroutes.</p>
+    </div>
+    <div class="country-grid">
+      {countries.map(country => (
+        <a href={`/landen/${country.slug}/`} class="country-card card">
+          <div class="country-img-wrap">
+            <img
+              src={country.heroImage}
+              alt={country.name}
+              loading="lazy"
+              width="400"
+              height="240"
+            />
+            <span class="country-continent">{country.continent}</span>
+          </div>
+          <div class="country-info">
+            <h3 class="country-name">{country.name}</h3>
+            <p class="country-capital">{country.capital}</p>
+          </div>
+        </a>
+      ))}
+    </div>
   </section>
 
-  <style>
-    .hero {
-      text-align: center;
-      padding: 3rem 0 2rem;
-    }
-    .hero h1 {
-      font-size: 2.5rem;
-      font-weight: 800;
-      letter-spacing: -0.03em;
-    }
-    .tagline {
-      font-size: 1.15rem;
-      color: #444;
-      margin-top: 0.5rem;
-    }
-    .subtitle {
-      font-size: 0.9rem;
-      color: #999;
-      margin-top: 0.25rem;
-      font-style: italic;
-    }
-    .posts {
-      margin-top: 3rem;
-    }
-    .posts h2 {
-      font-size: 1.3rem;
-      margin-bottom: 1rem;
-      border-bottom: 2px solid #1a1a2e;
-      padding-bottom: 0.5rem;
-    }
-    .post-card {
-      background: #fff;
-      border: 1px solid #e5e5e5;
-      border-radius: 8px;
-      padding: 1.5rem;
-      margin-bottom: 1rem;
-    }
-    .post-card h3 {
-      font-size: 1.1rem;
-      margin-bottom: 0.25rem;
-    }
-    .meta {
-      font-size: 0.8rem;
-      color: #888;
-      margin-bottom: 0.5rem;
-    }
-  </style>
-</BaseLayout>
+  <!-- Placeholder wereldkaart -->
+  <section class="section map-section">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-label">Interactief</span>
+        <h2>Waar wil je heen?</h2>
+        <p class="section-desc">Klik op een bestemming op de kaart om te beginnen met plannen.</p>
+      </div>
+      <div class="map-placeholder">
+        <div class="map-placeholder-inner">
+          <span class="map-icon" aria-hidden="true">🗺️</span>
+          <p>Interactieve wereldkaart — binnenkort beschikbaar</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Vers van de pers -->
+  {recentArticles.length > 0 && (
+    <section class="section container">
+      <div class="section-header">
+        <span class="section-label">Vers van de pers</span>
+        <h2>Laatste artikelen</h2>
+      </div>
+      <div class="article-grid">
+        {recentArticles.map(article => (
+          <a href={`/artikelen/${article.slug}/`} class="article-card card">
+            {article.heroImage && (
+              <img
+                src={article.heroImage}
+                alt={article.title}
+                loading="lazy"
+                width="400"
+                height="200"
+                class="article-img"
+              />
+            )}
+            <div class="article-body">
+              {article.category && <span class="article-cat">{article.category}</span>}
+              <h3 class="article-title">{article.title}</h3>
+              <p class="article-desc">{article.description}</p>
+              <span class="article-meta">{article.author} · {new Date(article.pubDate).toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+            </div>
+          </a>
+        ))}
+      </div>
+      <div class="center-link">
+        <a href="/artikelen/" class="btn-text">Alle artikelen bekijken &rarr;</a>
+      </div>
+    </section>
+  )}
+
+  <AffiliatePlaceholder type="sidebar" context="homepage" />
+</SiteLayout>
+
+<style>
+  /* ── Hero ─────────────────────────────────────────── */
+  .hero {
+    position: relative;
+    min-height: 70vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    background: url('https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=1600&h=900&fit=crop&q=80') center/cover no-repeat;
+    color: var(--paper);
+  }
+  .hero-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(31,26,22,0.55) 0%, rgba(31,26,22,0.75) 100%);
+  }
+  .hero-content {
+    position: relative;
+    z-index: 1;
+    max-width: 48rem;
+    padding: var(--space-16) var(--gutter);
+  }
+  .hero-label {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: var(--gold);
+    margin-bottom: var(--space-4);
+    display: block;
+  }
+  .hero h1 {
+    font-family: var(--font-display);
+    font-size: clamp(2.5rem, 2rem + 3vw, 4.5rem);
+    font-weight: 400;
+    font-style: italic;
+    line-height: 1.08;
+    margin-bottom: var(--space-6);
+  }
+  .hero-subtitle {
+    font-family: var(--font-body);
+    font-size: 1.125rem;
+    line-height: 1.6;
+    opacity: 0.9;
+    max-width: 36rem;
+    margin: 0 auto var(--space-8);
+  }
+  .hero-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .btn-hero-primary {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.875rem 2rem;
+    background: var(--burgundy);
+    color: var(--paper);
+    font-family: var(--font-ui);
+    font-weight: 600;
+    font-size: 0.875rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    border-radius: var(--radius-sm);
+    text-decoration: none;
+    transition: all var(--duration-base) var(--ease-out);
+  }
+  .btn-hero-primary:hover {
+    background: var(--burgundyDeep);
+    color: var(--paper);
+    transform: translateY(-1px);
+  }
+  .btn-hero-secondary {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.875rem 2rem;
+    background: transparent;
+    color: var(--paper);
+    border: 1px solid rgba(251,247,239,0.4);
+    font-family: var(--font-ui);
+    font-weight: 600;
+    font-size: 0.875rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    border-radius: var(--radius-sm);
+    text-decoration: none;
+    transition: all var(--duration-base) var(--ease-out);
+  }
+  .btn-hero-secondary:hover {
+    background: rgba(251,247,239,0.1);
+    color: white;
+  }
+
+  /* ── Country grid ────────────────────────────────── */
+  .country-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: var(--space-6);
+  }
+  .country-card {
+    text-decoration: none;
+    color: inherit;
+    display: block;
+  }
+  .country-img-wrap {
+    position: relative;
+    aspect-ratio: 5/3;
+    overflow: hidden;
+  }
+  .country-img-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform var(--duration-slow) var(--ease-out);
+  }
+  .country-card:hover .country-img-wrap img {
+    transform: scale(1.04);
+  }
+  .country-continent {
+    position: absolute;
+    top: 0.75rem;
+    left: 0.75rem;
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    background: rgba(31,26,22,0.7);
+    color: var(--paper);
+    padding: 0.25rem 0.625rem;
+    border-radius: 1px;
+  }
+  .country-info {
+    padding: 1rem 1.25rem;
+  }
+  .country-name {
+    font-family: var(--font-display);
+    font-size: 1.375rem;
+    font-weight: 500;
+    color: var(--ink);
+  }
+  .country-capital {
+    font-family: var(--font-ui);
+    font-size: 0.8125rem;
+    color: var(--inkSoft);
+    margin-top: 0.125rem;
+  }
+
+  /* ── Map placeholder ─────────────────────────────── */
+  .map-section {
+    background: var(--paperDeep);
+  }
+  .map-placeholder {
+    border: 2px dashed var(--ruleSoft);
+    border-radius: var(--radius-sm);
+    padding: var(--space-16) var(--space-8);
+    text-align: center;
+  }
+  .map-placeholder-inner {
+    color: var(--inkFaint);
+    font-family: var(--font-ui);
+    font-size: 0.9375rem;
+  }
+  .map-icon {
+    font-size: 3rem;
+    display: block;
+    margin-bottom: var(--space-4);
+  }
+
+  /* ── Article grid ────────────────────────────────── */
+  .article-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: var(--space-6);
+  }
+  .article-card {
+    text-decoration: none;
+    color: inherit;
+    display: block;
+  }
+  .article-img {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+  }
+  .article-body {
+    padding: 1.25rem;
+  }
+  .article-cat {
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--rust);
+  }
+  .article-title {
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    font-weight: 500;
+    color: var(--ink);
+    margin: 0.375rem 0 0.5rem;
+    line-height: 1.25;
+  }
+  .article-desc {
+    font-family: var(--font-body);
+    font-size: 0.875rem;
+    color: var(--inkSoft);
+    line-height: 1.5;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .article-meta {
+    display: block;
+    margin-top: 0.75rem;
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    color: var(--inkFaint);
+  }
+
+  .center-link {
+    text-align: center;
+    margin-top: var(--space-8);
+  }
+  .btn-text {
+    font-family: var(--font-ui);
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--burgundy);
+    text-decoration: none;
+  }
+  .btn-text:hover { text-decoration: underline; }
+</style>

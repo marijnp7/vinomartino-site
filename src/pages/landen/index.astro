@@ -1,0 +1,129 @@
+---
+import SiteLayout from '../../layouts/SiteLayout.astro';
+import { loadCountries } from '../../lib/countries';
+
+const countries = await loadCountries();
+
+const grouped: Record<string, typeof countries> = {};
+for (const c of countries) {
+  const continent = c.continent || 'Overig';
+  if (!grouped[continent]) grouped[continent] = [];
+  grouped[continent].push(c);
+}
+
+const continentOrder = ['Europa', 'Azië', 'Noord-Amerika', 'Zuid-Amerika', 'Afrika', 'Oceanië'];
+const sortedContinents = Object.keys(grouped).sort(
+  (a, b) => (continentOrder.indexOf(a) === -1 ? 99 : continentOrder.indexOf(a)) -
+            (continentOrder.indexOf(b) === -1 ? 99 : continentOrder.indexOf(b))
+);
+---
+
+<SiteLayout
+  title="Landen — Alle landengidsen"
+  description="Ontdek onze landengidsen met praktische reisinformatie, bestemmingen en reisroutes per land."
+  activeNav="landen"
+>
+  <section class="hero-sm">
+    <div class="container">
+      <span class="section-label">Landengidsen</span>
+      <h1>Alle landen</h1>
+      <p class="hero-desc">Kies een land en ontdek praktische reisinformatie, bestemmingen en handige reisroutes.</p>
+    </div>
+  </section>
+
+  <section class="section container">
+    {sortedContinents.map(continent => (
+      <div class="continent-block">
+        <h2 class="continent-heading">{continent}</h2>
+        <div class="country-grid">
+          {grouped[continent].map(country => (
+            <a href={`/landen/${country.slug}/`} class="country-card card">
+              <div class="country-img-wrap">
+                <img src={country.heroImage} alt={country.name} loading="lazy" width="400" height="240" />
+              </div>
+              <div class="country-info">
+                <h3 class="country-name">{country.name}</h3>
+                <p class="country-meta">{country.capital} · {country.currency}</p>
+              </div>
+            </a>
+          ))}
+        </div>
+      </div>
+    ))}
+  </section>
+</SiteLayout>
+
+<style>
+  .hero-sm {
+    background: var(--paperDeep);
+    padding: var(--space-12) 0 var(--space-8);
+    text-align: center;
+  }
+  .hero-sm h1 {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 1.6rem + 1.5vw, 3rem);
+    font-weight: 400;
+    font-style: italic;
+    color: var(--ink);
+    margin-top: var(--space-3);
+  }
+  .hero-desc {
+    font-family: var(--font-body);
+    font-size: 1rem;
+    color: var(--inkSoft);
+    margin-top: var(--space-3);
+    max-width: 36rem;
+    margin-inline: auto;
+  }
+  .continent-block {
+    margin-bottom: var(--space-12);
+  }
+  .continent-heading {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--burgundy);
+    padding-bottom: var(--space-3);
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: var(--space-6);
+  }
+  .country-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: var(--space-6);
+  }
+  .country-card {
+    text-decoration: none;
+    color: inherit;
+    display: block;
+  }
+  .country-img-wrap {
+    aspect-ratio: 5/3;
+    overflow: hidden;
+  }
+  .country-img-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform var(--duration-slow) var(--ease-out);
+  }
+  .country-card:hover .country-img-wrap img {
+    transform: scale(1.04);
+  }
+  .country-info {
+    padding: 1rem 1.25rem;
+  }
+  .country-name {
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    font-weight: 500;
+    color: var(--ink);
+  }
+  .country-meta {
+    font-family: var(--font-ui);
+    font-size: 0.8125rem;
+    color: var(--inkSoft);
+    margin-top: 0.125rem;
+  }
+</style>
