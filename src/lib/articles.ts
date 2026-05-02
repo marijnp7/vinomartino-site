@@ -106,8 +106,8 @@ async function markdownToHtml(markdown: string): Promise<string> {
   const { toHast } = await import('mdast-util-to-hast');
   const { toHtml } = await import('hast-util-to-html');
   const mdast = fromMarkdown(markdown);
-  const hast = toHast(mdast);
-  return toHtml(hast as Parameters<typeof toHtml>[0]);
+  const hast = toHast(mdast, { allowDangerousHtml: true });
+  return toHtml(hast as Parameters<typeof toHtml>[0], { allowDangerousHtml: true });
 }
 
 function getDirectusConfig() {
@@ -149,8 +149,8 @@ export async function loadArticles(): Promise<Article[]> {
       },
     );
     if (!res.ok) {
-      console.warn(`[loadArticles] Directus responded ${res.status} ${res.statusText}`);
-      return [];
+      console.warn(`[loadArticles] Directus responded ${res.status} ${res.statusText} — falling back to local files`);
+      return loadLocalArticles();
     }
     const json = await res.json();
     const items = await Promise.all(
@@ -164,10 +164,14 @@ export async function loadArticles(): Promise<Article[]> {
         return mapArticle(a, url, bodyHtml);
       }),
     );
+    if (items.length === 0) {
+      console.warn(`[loadArticles] Directus returned 0 articles — falling back to local files`);
+      return loadLocalArticles();
+    }
     console.log(`[loadArticles] fetched ${items.length} articles from Directus`);
     return items;
   } catch (err) {
-    console.warn(`[loadArticles] fetch failed: ${err instanceof Error ? err.message : err}`);
-    return [];
+    console.warn(`[loadArticles] fetch failed: ${err instanceof Error ? err.message : err} — falling back to local files`);
+    return loadLocalArticles();
   }
 }
