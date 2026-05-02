@@ -88,6 +88,11 @@ jobs:
 
             add_if_missing "PAPERCLIP_API_URL" "http://paperclip-server-1:3100"
             add_if_missing "PAPERCLIP_COMPANY_ID" "043c137d-f917-48ed-8268-62641a891212"
+
+            # Docker --env-file passes values verbatim (no inline comment stripping).
+            # Strip trailing " # ..." from env values to prevent auth failures.
+            sed -i -E 's/^([A-Z_]+=[^ #]+)\s+#.*$/\1/' "$ENV_FILE"
+            echo "Sanitized inline comments from env values"
         run: |
           printf '%s\n' "$SETUP_SCRIPT" | ssh "$VPS" "bash -s"
 
