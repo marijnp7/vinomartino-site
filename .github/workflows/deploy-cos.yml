@@ -1,0 +1,129 @@
+# Deploy CoS bridge to VPS (LAT-781)
+#
+# Syncs the cos-bridge source (services/cos-bridge/) to /opt/paperclip-cos/
+# on the VPS, then rebuilds the cos-bridge container.
+#
+# Triggers:
+#   - push to preview when services/cos-bridge/** changes
+#   - manual workflow_dispatch
+#
+# Vereiste secrets: VPS_HOST, VPS_USER, VPS_SSH_PRIVATE_KEY
+
+name: Deploy CoS Bridge
+
+on:
+  push:
+    branches: [preview]
+    paths:
+      - 'services/cos-bridge/**'
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-cos-bridge
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          cat >> ~/.ssh/config <<EOF
+          Host $VPS_HOST
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+          EOF
+          ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Sync bridge code to VPS
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+        run: |
+          ssh "$VPS" "mkdir -p /opt/paperclip-cos/bridge/src"
+
+          rsync -avz --delete \
+            services/cos-bridge/bridge/ \
+            "$VPS:/opt/paperclip-cos/bridge/"
+
+          rsync -avz \
+            services/cos-bridge/Dockerfile.bridge \
+            "$VPS:/opt/paperclip-cos/Dockerfile.bridge"
+
+      - name: Add missing env vars
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          SETUP_SCRIPT: |
+            set -euo pipefail
+            ENV_FILE="/opt/paperclip-cos/.env.cos"
+
+            if [ ! -f "$ENV_FILE" ]; then
+              echo "::error::.env.cos not found at $ENV_FILE"
+              exit 1
+            fi
+
+            add_if_missing() {
+              local key="$1" val="$2"
+              if ! grep -q "^${key}=" "$ENV_FILE"; then
+                echo "${key}=${val}" >> "$ENV_FILE"
+                echo "Added $key"
+              else
+                echo "$key already set"
+              fi
+            }
+
+            add_if_missing "PAPERCLIP_API_URL" "http://paperclip-server-1:3100"
+            add_if_missing "PAPERCLIP_COMPANY_ID" "043c137d-f917-48ed-8268-62641a891212"
+        run: |
+          printf '%s\n' "$SETUP_SCRIPT" | ssh "$VPS" "bash -s"
+
+      - name: Rebuild cos-bridge container
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          REBUILD_SCRIPT: |
+            set -euo pipefail
+            cd /opt/paperclip-cos
+
+            docker compose -f docker-compose.cos.yml up -d --build cos-bridge
+
+            echo "Waiting 10s for container startup..."
+            sleep 10
+
+            echo "=== Container status ==="
+            docker compose -f docker-compose.cos.yml ps cos-bridge
+
+            echo "=== Recent logs ==="
+            docker compose -f docker-compose.cos.yml logs --tail=50 cos-bridge
+        run: |
+          printf '%s\n' "$REBUILD_SCRIPT" | ssh "$VPS" "bash -s"
+
+      - name: Health check
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+        run: |
+          for attempt in 1 2 3 4 5; do
+            status=$(ssh "$VPS" "curl -sS -o /dev/null -w '%{http_code}' http://localhost:3200/health" || echo "000")
+            echo "Attempt $attempt: health check → HTTP $status"
+            if [ "$status" = "200" ]; then
+              echo "::notice::CoS bridge is healthy"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::warning::Health check did not return 200 after 5 attempts"
+
+      - name: Done
+        run: echo "::notice::CoS bridge deployed successfully"

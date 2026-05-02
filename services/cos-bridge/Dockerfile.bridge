@@ -1,0 +1,33 @@
+# Chief of Staff — Telegram bridge
+# Kleine Node.js service die Telegram-berichten ontvangt, approval-flow doet,
+# en de CoS-agent (in sibling-container) aanroept via docker-exec.
+
+FROM node:20-alpine
+
+# We hebben docker-cli nodig om exec naar paperclip-cos-1 te doen
+RUN apk add --no-cache docker-cli tzdata
+
+ENV TZ=Europe/Amsterdam
+ENV NODE_ENV=production
+
+# User eerst aanmaken zodat COPY --chown werkt
+RUN addgroup -S cos && adduser -S cos -G cos
+
+WORKDIR /app
+
+COPY --chown=cos:cos bridge/package.json bridge/package-lock.json* ./
+RUN npm ci --omit=dev || npm install --omit=dev
+
+COPY --chown=cos:cos bridge/src ./src
+
+# Hard-fix voor source-files met afwijkende mode (bv. 600 vanuit rsync):
+# zorg dat alles voor de cos-user leesbaar is, en directories doorloopbaar.
+RUN chmod -R a+rX /app
+
+USER cos
+
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+    CMD wget -qO- http://127.0.0.1:3200/health || exit 1
+
+EXPOSE 3200
+CMD ["node", "src/index.js"]
