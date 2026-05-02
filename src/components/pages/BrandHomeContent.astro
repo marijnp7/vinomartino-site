@@ -25,64 +25,55 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 const FALLBACK_IMAGES = [
-  'https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=800&h=600&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1504279577054-acfeccf8fc52?w=800&h=600&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1543783207-ec64e4d95325?w=800&h=600&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1474722883778-792e7990302f?w=800&h=600&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=800&h=600&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1506377247377-2a5b3b417ebb?w=600&h=750&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=600&h=750&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1543783207-ec64e4d95325?w=600&h=750&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1504279577054-acfeccf8fc52?w=600&h=750&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=600&h=750&fit=crop&q=80',
 ];
 
 const recentArticles = articles.slice(0, 5);
 
 const spotlight = {
-  region: 'Etna',
-  country: 'Sicilië',
-  claim: 'Vulkanisch, hoogte-gedreven, onvervangbaar.',
-  body: 'Op de zuidflank van de Etna groeit Nerello Mascalese op 600–1000 meter hoogte. Geen enkel ander terroir in Italië combineert lavagrondige mineraliteit met zulke elegante tannines. Martin rijdt hier elk najaar naartoe.',
-  image: 'https://images.unsplash.com/photo-1513836279014-a89f7a76ae86?w=1400&h=900&fit=crop&q=85',
+  region: 'Piemonte',
+  label: 'Uitgelicht · Lente-editie',
+  headline: ['Piemonte: het ', 'Bourgogne', ' van Italië'],
+  body: 'Volg de mist die om acht uur oplost door Barolo\'s heuvels, drink Nebbiolo bij familiehuizen waar de wijnmaker zelf inschenkt, en eet taralli zoals de moeder ze maakt.',
+  image: 'https://images.unsplash.com/photo-1523906834658-6e24ef2386f9?w=1920&h=1080&fit=crop&q=85',
+  href: '#',
 };
 
 const favoriteRegions = [
-  { name: 'Piemonte', country: 'Italië', image: 'https://images.unsplash.com/photo-1507692049790-de58290a4334?w=600&h=800&fit=crop&q=80' },
-  { name: 'Bourgogne', country: 'Frankrijk', image: 'https://images.unsplash.com/photo-1506377247377-2a5b3b417ebb?w=600&h=800&fit=crop&q=80' },
-  { name: 'Priorat', country: 'Spanje', image: 'https://images.unsplash.com/photo-1543783207-ec64e4d95325?w=600&h=800&fit=crop&q=80' },
-  { name: 'Mosel', country: 'Duitsland', image: 'https://images.unsplash.com/photo-1474722883778-792e7990302f?w=600&h=800&fit=crop&q=80' },
-  { name: 'Wachau', country: 'Oostenrijk', image: 'https://images.unsplash.com/photo-1527838832700-5059252407fa?w=600&h=800&fit=crop&q=80' },
-  { name: 'Etna', country: 'Sicilië', image: 'https://images.unsplash.com/photo-1513836279014-a89f7a76ae86?w=600&h=800&fit=crop&q=80' },
+  { name: 'Piemonte', tag: 'Mist, Nebbiolo en familietafels', image: 'https://images.unsplash.com/photo-1506377247377-2a5b3b417ebb?w=800&h=1200&fit=crop&q=80' },
+  { name: 'Mosel', tag: 'Riesling op steile leihellingen', image: 'https://images.unsplash.com/photo-1504279577054-acfeccf8fc52?w=800&h=1200&fit=crop&q=80' },
+  { name: 'Rioja', tag: 'Tempranillo onder herfstzon', image: 'https://images.unsplash.com/photo-1543783207-ec64e4d95325?w=800&h=1200&fit=crop&q=80' },
+  { name: 'Douro', tag: 'Terraswijngaarden langs de rivier', image: 'https://images.unsplash.com/photo-1555881400-74d7acaacd8b?w=800&h=1200&fit=crop&q=80' },
+  { name: 'Etna', tag: 'Vulkanische bodem, zoute wind', image: 'https://images.unsplash.com/photo-1533105079780-92b9be482077?w=800&h=1200&fit=crop&q=80' },
+  { name: 'Mendoza', tag: 'Malbec op hoogte, in de Andes', image: 'https://images.unsplash.com/photo-1612294037637-ec328d0e075e?w=800&h=1200&fit=crop&q=80' },
 ];
 
 const routes = [
-  { title: 'Langhe in 4 dagen', days: 4, transport: 'Huurauto', region: 'Piemonte', slug: 'langhe-4-dagen' },
-  { title: 'Bourgogne per trein', days: 5, transport: 'Trein', region: 'Bourgogne', slug: 'bourgogne-trein' },
-  { title: 'Etna noord-flank', days: 3, transport: 'Huurauto', region: 'Sicilië', slug: 'etna-noord' },
-  { title: 'Mosel-vallei langzaam', days: 6, transport: 'Fiets + trein', region: 'Mosel', slug: 'mosel-fietsvakantie' },
+  { title: 'Drie dagen Langhe (Barolo & Barbaresco)', days: '3 dagen', mode: 'Auto', country: 'Piemonte, IT', image: 'https://images.unsplash.com/photo-1506377247377-2a5b3b417ebb?w=800&h=600&fit=crop&q=80' },
+  { title: 'Mosel per trein van Trier naar Koblenz', days: '5 dagen', mode: 'Trein', country: 'Mosel, DE', image: 'https://images.unsplash.com/photo-1504279577054-acfeccf8fc52?w=800&h=600&fit=crop&q=80' },
+  { title: 'Rioja oogst-ronde door de Sierra de Cantabria', days: '7 dagen', mode: 'Auto', country: 'Rioja, ES', image: 'https://images.unsplash.com/photo-1543783207-ec64e4d95325?w=800&h=600&fit=crop&q=80' },
+  { title: 'Douro stroomopwaarts: Porto naar Pinhão', days: '4 dagen', mode: 'Auto + Boot', country: 'Douro, PT', image: 'https://images.unsplash.com/photo-1555881400-74d7acaacd8b?w=800&h=600&fit=crop&q=80' },
+  { title: 'Etna-rondrit: zwarte aarde, zoute wind', days: '3 dagen', mode: 'Auto', country: 'Sicilië, IT', image: 'https://images.unsplash.com/photo-1533105079780-92b9be482077?w=800&h=600&fit=crop&q=80' },
+  { title: 'Bourgogne-route: Chablis naar Beaujolais', days: '6 dagen', mode: 'Auto', country: 'Bourgogne, FR', image: 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=800&h=600&fit=crop&q=80' },
 ];
 
 const themes = [
-  { label: 'Weekendjes proeven', icon: '§ 01', slug: 'weekends' },
-  { label: 'Per trein door Europa', icon: '§ 02', slug: 'per-trein' },
-  { label: 'Druif-deepdives', icon: '§ 03', slug: 'druiven' },
-  { label: 'Wijnhuisportretten', icon: '§ 04', slug: 'wijnhuizen' },
-  { label: 'Biodynamisch & natuur', icon: '§ 05', slug: 'natuur' },
-  { label: 'Bubbels van kleine makers', icon: '§ 06', slug: 'bubbels' },
-  { label: 'Eten & wijn samen', icon: '§ 07', slug: 'spijs-wijn' },
-  { label: "Opkomende regio's", icon: '§ 08', slug: 'opkomend' },
+  { label: 'Weekendjes proeven', desc: '2–3 dagen, één streek', count: 12 },
+  { label: 'Lange routes', desc: '5+ dagen, auto of trein', count: 9 },
+  { label: 'Wijnhuis-portretten', desc: 'Mensen achter de wijn', count: 24 },
+  { label: 'Druif-deepdives', desc: 'Eén druif, vele percelen', count: 8 },
+  { label: 'Spijs & wijn', desc: 'Combinaties die werken', count: 15 },
+  { label: 'Per trein', desc: 'Wijngebieden zonder huurauto', count: 6 },
+  { label: 'Oogst-tijd', desc: 'Wat te bezoeken in sept–okt', count: 7 },
+  { label: 'Voorbereidingen', desc: 'Praktisch: visum, valuta, taal', count: 11 },
 ];
 
-const atlasRegions = [
-  { name: 'Piemonte', sub: 'Barolo · Barbaresco · Roero' },
-  { name: 'Toscane', sub: 'Bolgheri · Montalcino · Carmignano' },
-  { name: 'Bourgogne', sub: 'Côte de Nuits · Côte de Beaune · Chablis' },
-  { name: 'Champagne', sub: 'Grower-producenten · Blanc de blancs' },
-  { name: 'Priorat', sub: 'Garnatxa · Cariñena · Licorella' },
-  { name: 'Mosel', sub: 'Riesling · Spätlese · GG' },
-  { name: 'Etna', sub: 'Nerello · Carricante · Contrade' },
-  { name: 'Wachau', sub: 'Grüner Veltliner · Riesling · Smaragd' },
-  { name: 'Douro', sub: 'Port · Tawny · Droge rode wijnen' },
-  { name: 'Georgië', sub: 'Qvevri · Rkatsiteli · Saperavi' },
-  { name: 'Slovenië', sub: 'Brda · Vipavska dolina · Karst' },
-  { name: 'Engeland', sub: 'Sussex · Kent · Sparkling' },
-];
+const atlasEuropa = ['Piemonte', 'Toscane', 'Etna', 'Bourgogne', 'Rhône', 'Champagne', 'Loire', 'Mosel', 'Rheingau', 'Rioja', 'Priorat', 'Douro', 'Wachau'];
+const atlasNieuw = ['Mendoza', 'Salta', 'Stellenbosch', 'Marlborough', 'Napa', 'Sonoma'];
 ---
 
 <BrandLayout
@@ -98,1010 +89,888 @@ const atlasRegions = [
     description: 'Wijnreizen, proefnotities en persoonlijke verhalen uit de mooiste wijnstreken ter wereld.',
   }}
 >
-  <!-- Hero -->
   <BrandHero brand={brand} />
 
-  <!-- § 1 — Recent articles -->
-  <section class="recent-strip section-lg" id="artikelen" aria-labelledby="recent-heading">
+  <!-- ── 1. Vers van de pers ──────────────────────────── -->
+  <section class="section-recent" id="artikelen">
     <div class="container">
-      <header class="section-header section-header--left">
-        <span class="section-label">Vers van de pers</span>
-        <h2 id="recent-heading">Laatste verhalen</h2>
-      </header>
-
-      {recentArticles.length === 0 ? (
-        <p class="no-articles">Artikelen worden binnenkort gepubliceerd.</p>
-      ) : (
-        <div class="strip-grid">
-          {recentArticles.map((article, i) => {
-            const img = article.heroImage || FALLBACK_IMAGES[i % FALLBACK_IMAGES.length];
-            const catLabel = CATEGORY_LABELS[article.category] || article.category;
-            const dateStr = new Date(article.pubDate).toLocaleDateString('nl-NL', {
-              day: 'numeric', month: 'short', year: 'numeric',
-            });
-            const isHero = i === 0;
-            return (
-              <article class={`strip-card ${isHero ? 'strip-card--hero' : ''}`}>
-                <a href={`${base}/${article.slug}/`} class="strip-card-link">
-                  <div class="strip-card-image">
-                    <img src={img} alt={article.title} loading={isHero ? 'eager' : 'lazy'} />
-                    <div class="strip-card-image-overlay"></div>
-                  </div>
-                  <div class="strip-card-body">
-                    {catLabel && <span class="card-kicker">{catLabel}</span>}
-                    <h3 class="strip-card-title">{article.title}</h3>
-                    {isHero && article.description && (
-                      <p class="strip-card-excerpt">
-                        {article.description.slice(0, 140)}{article.description.length > 140 ? '…' : ''}
-                      </p>
-                    )}
-                    <div class="card-meta">
-                      <time datetime={article.pubDate}>{dateStr}</time>
-                      <span class="card-meta-arrow" aria-hidden="true">→</span>
-                    </div>
-                  </div>
-                </a>
-              </article>
-            );
-          })}
+      <div class="section-top">
+        <div>
+          <div class="kicker">Nieuw</div>
+          <h2 class="section-title">Vers van de pers</h2>
         </div>
-      )}
+        <a href={`${base}/artikelen/`} class="link-more">Alle artikelen →</a>
+      </div>
 
-      <div class="strip-footer">
-        <a href={`${base}/verhalen/`} class="btn btn-secondary">Alle verhalen bekijken</a>
+      <div class="recent-grid">
+        {recentArticles.map((article, i) => {
+          const img = article.heroImage || FALLBACK_IMAGES[i % FALLBACK_IMAGES.length];
+          const tag = article.category ? (CATEGORY_LABELS[article.category] || article.category) : 'Wijnreizen';
+          return (
+            <a href={`${base}/${article.slug}/`} class="recent-card">
+              <div class="recent-img-wrap">
+                <img src={img} alt={article.title} loading={i === 0 ? 'eager' : 'lazy'} />
+                <span class="recent-tag">{tag}</span>
+              </div>
+              <h3 class="recent-title">{article.title}</h3>
+              <span class="link-read">Lees meer →</span>
+            </a>
+          );
+        })}
+        {recentArticles.length === 0 && [0,1,2,3,4].map((i) => (
+          <a href="#" class="recent-card">
+            <div class="recent-img-wrap recent-img-placeholder" style={`background: var(--paperShade)`}>
+              <span class="recent-tag">{['Piemonte','Bourgogne','Rioja','Mosel','Roero'][i]}</span>
+            </div>
+            <h3 class="recent-title">{['Drie dagen door de Langhe','Witte Bourgogne en geitenkaas','Rioja in oktober: oogst zonder drukte','Met de trein door Riesling-land','Arneis: de witte die bijna verdween'][i]}</h3>
+            <span class="link-read">Lees meer →</span>
+          </a>
+        ))}
       </div>
     </div>
   </section>
 
-  <!-- § 2 — Region spotlight -->
-  <section class="region-spotlight" id="bestemmingen" aria-labelledby="spotlight-heading">
-    <div class="spotlight-image-wrap">
-      <img src={spotlight.image} alt={spotlight.region} loading="lazy" />
+  <!-- ── 2. Spotlight ─────────────────────────────────── -->
+  <section class="section-spotlight" aria-label="Uitgelicht">
+    <div class="spotlight-bg">
+      <img src={spotlight.image} alt="" loading="lazy" />
       <div class="spotlight-overlay"></div>
     </div>
     <div class="container spotlight-content">
-      <div class="spotlight-eyebrow">
-        <span class="section-label" style="color: var(--rule); margin-bottom: 0;">
-          {spotlight.country}
-        </span>
-        <span class="spotlight-badge">Nu uitgelicht</span>
+      <div class="spotlight-inner">
+        <div class="spotlight-label">{spotlight.label}</div>
+        <h2 class="spotlight-headline">
+          {spotlight.headline[0]}<em>{spotlight.headline[1]}</em>{spotlight.headline[2]}
+        </h2>
+        <p class="spotlight-body">{spotlight.body}</p>
+        <a href={spotlight.href} class="btn-spotlight">Ontdek {spotlight.region} →</a>
       </div>
-      <h2 id="spotlight-heading" class="spotlight-region">{spotlight.region}</h2>
-      <p class="spotlight-claim">{spotlight.claim}</p>
-      <p class="spotlight-body">{spotlight.body}</p>
-      <a href={`${base}/streken/${spotlight.region.toLowerCase()}/`} class="btn btn-ghost-light">
-        Alles over {spotlight.region} →
-      </a>
     </div>
   </section>
 
-  <!-- § 3 — Favorite regions grid -->
-  <section class="fav-regions section-lg" aria-labelledby="fav-heading">
+  <!-- ── 3. Favoriete streken ─────────────────────────── -->
+  <section class="section-regions" id="streken">
     <div class="container">
-      <header class="section-header">
-        <span class="section-label">Vaste bestemmingen</span>
-        <h2 id="fav-heading">Streken die Martin steeds terugtrekt</h2>
-      </header>
-      <div class="fav-grid">
-        {favoriteRegions.map((r, i) => (
-          <a href={`${base}/streken/${r.name.toLowerCase()}/`} class="fav-card">
-            <div class="fav-card-image">
-              <img src={r.image} alt={r.name} loading="lazy" />
-              <div class="fav-card-overlay"></div>
+      <div class="section-center-header">
+        <div class="kicker">Onze favorieten</div>
+        <h2 class="section-title">Wat wordt jouw volgende streek?</h2>
+      </div>
+      <div class="regions-grid">
+        {favoriteRegions.map(region => (
+          <a href="#" class="region-card">
+            <img src={region.image} alt={region.name} loading="lazy" />
+            <div class="region-overlay"></div>
+            <div class="region-content">
+              <div class="region-tag">{region.tag}</div>
+              <h3 class="region-name">{region.name}</h3>
+              <span class="region-cta">Bekijk meer →</span>
             </div>
-            <div class="fav-card-content">
-              <span class="fav-index">{String(i + 1).padStart(2, '0')}</span>
-              <span class="fav-country">{r.country}</span>
-              <span class="fav-name">{r.name}</span>
+          </a>
+        ))}
+      </div>
+      <div class="section-center-cta">
+        <a href="#" class="btn-primary-sm">Bekijk alle 18 streken →</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 4. Over ons ──────────────────────────────────── -->
+  <section class="section-about">
+    <div class="container about-grid">
+      <div class="about-text">
+        <div class="kicker kicker--vine">De redactie</div>
+        <h2 class="about-title">Hi! Wij zijn <em>Martin &amp; Sophie</em></h2>
+        <p class="about-body">
+          Sinds 2019 reizen we per auto, trein en soms te voet door Europese wijnstreken — Martin vanuit de Rhône, Sophie vanuit Piemonte. We schrijven alleen over wijnhuizen waar we zelf binnen zijn geweest, en routes die we zelf hebben gereden.
+        </p>
+        <p class="about-body">
+          Geen affiliate-lijstjes met "10 beste wijnhuizen". Geen sponsoring. Wel: lange brieven, eerlijke proefnotities en de routebeschrijving om er heen te komen.
+        </p>
+        <div class="about-actions">
+          <a href={`${base}/over-ons/`} class="link-primary">Lees meer over ons →</a>
+          <span class="about-meta">· 47 streken bezocht · 1.842 lezers</span>
+        </div>
+      </div>
+      <div class="about-photo" aria-hidden="true">
+        <span class="photo-placeholder">foto · Martin & Sophie in Barolo</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 5. Routes ────────────────────────────────────── -->
+  <section class="section-routes" id="routes">
+    <div class="container">
+      <div class="routes-header">
+        <div>
+          <div class="kicker kicker--vine">Reisroutes</div>
+          <h2 class="section-title">Onze kant-en-klare wijnroutes</h2>
+        </div>
+        <p class="routes-intro">
+          Speciaal samengesteld op basis van onze eigen ervaring. Met dagindeling, slaapadressen en de wijnhuizen die je écht moet bezoeken — niet alleen de bekende namen.
+        </p>
+      </div>
+      <div class="routes-grid">
+        {routes.map((route, i) => (
+          <a href="#" class="route-card">
+            <div class="route-img-wrap">
+              <img src={route.image} alt={route.title} loading="lazy" />
+              <div class="route-badges">
+                <span class="route-badge route-badge--days">{route.days}</span>
+                <span class="route-badge route-badge--mode">{route.mode}</span>
+              </div>
             </div>
+            <div class="route-country">{route.country}</div>
+            <h3 class="route-title">{route.title}</h3>
           </a>
         ))}
       </div>
     </div>
   </section>
 
-  <!-- § 4 — Editor intro -->
-  <section class="editor-intro section" aria-labelledby="intro-heading">
-    <div class="container editor-inner">
-      <div class="editor-text">
-        <span class="section-label">Over ons</span>
-        <h2 id="intro-heading">Hallo, wij zijn Martin&nbsp;&amp;&nbsp;Sophie</h2>
-        <p>
-          Martin heeft een WSET Level 4 Diploma en heeft de afgelopen tien jaar elke vrije week besteed
-          aan reizen door Europese wijnregio's. Sophie heeft een scherp palat voor oranje wijnen en weet
-          precies wanneer de wijnmaker het te serieus neemt.
-        </p>
-        <p>
-          Op VinoMartino schrijven we alleen over plaatsen waar we zelf zijn geweest, en wijnen die we
-          zelf hebben gedronken — zonder sponsoring, zonder afgekochte verblijven, zonder 95-puntenscores
-          van anderen.
-        </p>
-        <a href={`${base}/over-ons/`} class="btn btn-secondary">Meer over Martin &amp; Sophie</a>
+  <!-- ── 6. Thema's ───────────────────────────────────── -->
+  <section class="section-themes">
+    <div class="container">
+      <div class="section-center-header">
+        <div class="kicker">Thema's</div>
+        <h2 class="section-title">Wat voor wijnreis zoek je?</h2>
       </div>
-      <div class="editor-aside">
-        <div class="editor-quote-wrap">
-          <span class="editor-quote-mark" aria-hidden="true">"</span>
-          <blockquote class="editor-quote">
-            <p>
-              Een wijnmaker die op woensdagmiddag haar eigen ranken snoeit vertelt meer over haar wijnen
-              dan welke website-bio dan ook.
-            </p>
-            <cite>— Martin, Occhipinti, Vittoria 2024</cite>
-          </blockquote>
+      <div class="themes-grid">
+        {themes.map((theme, i) => (
+          <a href="#" class="theme-cell">
+            <div class="theme-top">
+              <h3 class="theme-label">{theme.label}</h3>
+              <span class="theme-count">{theme.count}</span>
+            </div>
+            <p class="theme-desc">{theme.desc}</p>
+          </a>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 7. Wijnatlas ─────────────────────────────────── -->
+  <section class="section-atlas" id="bestemmingen">
+    <div class="container">
+      <div class="section-center-header">
+        <div class="kicker">De wijnatlas</div>
+        <h2 class="section-title">Naar welke streek wil je reizen?</h2>
+      </div>
+      <div class="atlas-continent">
+        <div class="atlas-continent-label">Europa</div>
+        <div class="atlas-regions">
+          {atlasEuropa.map(region => (
+            <a href="#" class="atlas-region">{region}</a>
+          ))}
+        </div>
+      </div>
+      <div class="atlas-continent">
+        <div class="atlas-continent-label">Nieuwe wereld</div>
+        <div class="atlas-regions">
+          {atlasNieuw.map(region => (
+            <a href="#" class="atlas-region">{region}</a>
+          ))}
         </div>
       </div>
     </div>
   </section>
 
-  <!-- § 5 — Routes grid -->
-  <section class="routes-section section" aria-labelledby="routes-heading">
-    <div class="container">
-      <header class="section-header">
-        <span class="section-label">Kant-en-klare routes</span>
-        <h2 id="routes-heading">Zo plan je een wijnreis</h2>
-        <p class="section-desc">
-          Dagindelingen, wijnhuizen, restaurants en logies — alles uitgedacht, jij rijdt alleen nog maar.
+  <!-- ── 8. Newsletter ────────────────────────────────── -->
+  <section class="section-newsletter">
+    <div class="container newsletter-grid">
+      <div>
+        <div class="kicker kicker--gold">De Brief</div>
+        <h2 class="newsletter-title">Eén keer per maand, op een vrijdag.</h2>
+      </div>
+      <div>
+        <p class="newsletter-body">
+          Een lange brief uit een wijnstreek, drie wijnen die we zelf hebben geopend, en de routebeschrijving om er heen te komen.
         </p>
-      </header>
-      <div class="routes-grid">
-        {routes.map((route, i) => (
-          <a href={`${base}/routes/${route.slug}/`} class="route-card">
-            <div class="route-number" aria-hidden="true">{String(i + 1).padStart(2, '0')}</div>
-            <div class="route-meta">
-              <span class="route-region">{route.region}</span>
-              <span class="route-days">{route.days} dagen</span>
-            </div>
-            <h3 class="route-title">{route.title}</h3>
-            <div class="route-footer">
-              <div class="route-transport">
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                  <circle cx="6" cy="6" r="5" stroke="currentColor" stroke-width="1.2"/>
-                  <path d="M6 3.5v2.5l1.5 1.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
-                </svg>
-                {route.transport}
-              </div>
-              <span class="route-arrow" aria-hidden="true">→</span>
-            </div>
-          </a>
-        ))}
+        <form class="newsletter-form" action="#" method="post">
+          <input type="email" name="email" placeholder="je@adres.nl" required aria-label="E-mailadres" class="newsletter-input" />
+          <button type="submit" class="newsletter-btn">Abonneer →</button>
+        </form>
+        <p class="newsletter-meta">1.842 lezers · uitschrijven met één klik</p>
       </div>
-    </div>
-  </section>
-
-  <!-- § 6 — Themes grid -->
-  <section class="themes-section section" aria-labelledby="themes-heading">
-    <div class="container">
-      <header class="section-header">
-        <span class="section-label">Thema's</span>
-        <h2 id="themes-heading">Instappen op jouw manier</h2>
-      </header>
-      <div class="themes-grid">
-        {themes.map((theme) => (
-          <a href={`${base}/themas/${theme.slug}/`} class="theme-tile">
-            <span class="theme-icon">{theme.icon}</span>
-            <span class="theme-label">{theme.label}</span>
-            <span class="theme-arrow" aria-hidden="true">→</span>
-          </a>
-        ))}
-      </div>
-    </div>
-  </section>
-
-  <!-- § 7 — Region atlas (typographic) -->
-  <section class="atlas-section section-lg" aria-labelledby="atlas-heading">
-    <div class="container">
-      <header class="section-header">
-        <span class="section-label">Streekgids</span>
-        <h2 id="atlas-heading">De atlas van Martin</h2>
-        <p class="section-desc">Alle regio's die terugkomen — van Piemonte tot Georgië.</p>
-      </header>
-      <div class="atlas-grid">
-        {atlasRegions.map((r) => (
-          <a href={`${base}/streken/${r.name.toLowerCase()}/`} class="atlas-entry">
-            <span class="atlas-name">{r.name}</span>
-            <span class="atlas-sub">{r.sub}</span>
-            <span class="atlas-arrow" aria-hidden="true">↗</span>
-          </a>
-        ))}
-      </div>
-    </div>
-  </section>
-
-  <!-- § 8 — Newsletter CTA -->
-  <section class="newsletter-section" id="nieuwsbrief" aria-labelledby="nl-heading">
-    <div class="newsletter-bg" aria-hidden="true">
-      <img
-        src="https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=1400&h=600&fit=crop&q=80"
-        alt=""
-        loading="lazy"
-      />
-      <div class="newsletter-overlay"></div>
-    </div>
-    <div class="container newsletter-inner">
-      <span class="section-label" style="color: var(--rule); justify-content: center;">Nieuwsbrief</span>
-      <h2 id="nl-heading">Wijnreisverhalen in je inbox</h2>
-      <p>
-        Eén keer per maand: nieuwe artikelen, proefnotities en de routes die Martin écht aanraadt.
-        Geen reclame, geen affiliate-lijstjes — gewoon het goede spul.
-      </p>
-      <form class="nl-form" action="#" method="post" novalidate>
-        <label for="nl-email" class="sr-only">E-mailadres</label>
-        <input
-          type="email"
-          id="nl-email"
-          name="email"
-          placeholder="jouw@email.nl"
-          required
-          autocomplete="email"
-          class="nl-input"
-        />
-        <button type="submit" class="btn btn-primary nl-submit">Aanmelden</button>
-      </form>
-      <p class="nl-note">Geen spam. Afmelden wanneer je wilt.</p>
     </div>
   </section>
 </BrandLayout>
 
 <style>
-  /* ── § 1 Recent strip ─────────────────────────────── */
-  .section-header--left { text-align: left; margin-bottom: var(--space-8); }
-  .section-header--left .section-label { justify-content: flex-start; }
-  .section-header--left .section-label::before { display: none; }
+  /* ── Shared section utilities ────────────────────── */
+  .kicker {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--rust);
+    margin-bottom: 6px;
+  }
+  .kicker--vine { color: var(--vine); }
+  .kicker--gold { color: var(--gold); }
 
-  .strip-grid {
-    display: grid;
-    grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
-    gap: 2px;
-    background: var(--rule-20);
-    border: 1px solid var(--rule-20);
+  .section-title {
+    font-family: var(--font-display);
+    font-size: clamp(1.75rem, 1.5rem + 1.25vw, 2.75rem);
+    font-weight: 500;
+    color: var(--ink);
+    margin: 0;
+    line-height: 1.05;
   }
 
-  .strip-card { background: var(--paper); overflow: hidden; }
-  .strip-card--hero { grid-row: span 2; }
-
-  .strip-card-link {
+  .section-top {
     display: flex;
-    flex-direction: column;
-    height: 100%;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-bottom: 32px;
+    gap: 1rem;
+  }
+
+  .section-center-header {
+    text-align: center;
+    margin-bottom: 40px;
+  }
+  .section-center-header .kicker { margin-bottom: 8px; }
+
+  .link-more {
+    font-family: var(--font-ui);
+    font-size: 0.8125rem;
+    color: var(--burgundy);
+    text-decoration: none;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .link-more:hover { color: var(--burgundyDeep); }
+
+  .link-read {
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    color: var(--burgundy);
+    font-weight: 500;
+    margin-top: 6px;
+    display: inline-block;
+  }
+
+  .link-primary {
+    font-family: var(--font-ui);
+    font-size: 0.875rem;
+    color: var(--burgundy);
+    text-decoration: none;
+    font-weight: 600;
+    border-bottom: 1px solid var(--burgundy);
+    padding-bottom: 2px;
+  }
+  .link-primary:hover { color: var(--burgundyDeep); border-bottom-color: var(--burgundyDeep); }
+
+  .btn-primary-sm {
+    display: inline-block;
+    background: var(--burgundy);
+    color: var(--paper);
+    padding: 14px 28px;
+    text-decoration: none;
+    font-family: var(--font-ui);
+    font-size: 0.875rem;
+    font-weight: 600;
+    border-radius: var(--radius-sm);
+    transition: background var(--duration-fast) var(--ease-out);
+  }
+  .btn-primary-sm:hover { background: var(--burgundyDeep); color: var(--paper); }
+
+  /* ── 1. Recent articles ──────────────────────────── */
+  .section-recent {
+    padding: 72px 0;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .recent-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 16px;
+  }
+
+  .recent-card {
     text-decoration: none;
     color: inherit;
   }
 
-  .strip-card-image {
+  .recent-img-wrap {
+    aspect-ratio: 4/5;
     overflow: hidden;
-    aspect-ratio: 4 / 3;
-    flex-shrink: 0;
+    margin-bottom: 12px;
     position: relative;
+    background: var(--paperShade);
   }
-  .strip-card--hero .strip-card-image { aspect-ratio: 3 / 4; }
 
-  .strip-card-image img {
+  .recent-img-placeholder {
+    min-height: 200px;
+  }
+
+  .recent-img-wrap img {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    filter: saturate(100%) brightness(100%);
-    transition: transform var(--duration-image) var(--ease-out),
-                filter var(--duration-base) var(--ease-out);
-  }
-  .strip-card:hover .strip-card-image img {
-    transform: scale(1.05);
-    filter: saturate(108%) brightness(103%);
+    transition: transform var(--duration-slow) var(--ease-out);
   }
 
-  .strip-card-image-overlay {
+  .recent-card:hover .recent-img-wrap img {
+    transform: scale(1.04);
+  }
+
+  .recent-tag {
     position: absolute;
-    inset: 0;
-    background: linear-gradient(to top, rgba(26, 20, 16, 0.3), transparent 40%);
-    opacity: 0;
-    transition: opacity var(--duration-base) var(--ease-out);
-  }
-  .strip-card:hover .strip-card-image-overlay { opacity: 1; }
-
-  .strip-card-body {
-    padding: var(--space-5) var(--space-5) var(--space-5);
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-  }
-
-  .card-kicker {
+    top: 10px;
+    left: 10px;
+    background: var(--paper);
+    padding: 4px 10px;
     font-family: var(--font-mono);
     font-size: 0.5625rem;
-    font-weight: 500;
+    letter-spacing: 0.15em;
     text-transform: uppercase;
-    letter-spacing: 0.2em;
-    color: var(--rust);
-    margin-bottom: var(--space-2);
-    display: block;
+    color: var(--burgundy);
   }
 
-  .strip-card-title {
+  .recent-title {
     font-family: var(--font-display);
-    font-size: clamp(0.9375rem, 0.85rem + 0.4vw, 1.25rem);
-    font-weight: 400;
+    font-size: 1.1875rem;
+    font-weight: 500;
     line-height: 1.2;
     color: var(--ink);
-  }
-  .strip-card--hero .strip-card-title {
-    font-size: clamp(1.375rem, 1.2rem + 0.8vw, 1.875rem);
-  }
-
-  .strip-card-excerpt {
-    font-family: var(--font-body);
-    font-size: 0.9375rem;
-    color: var(--inkSoft);
-    line-height: 1.6;
-    margin-top: var(--space-3);
-    font-weight: 300;
+    margin: 0 0 4px;
+    text-wrap: balance;
   }
 
-  .card-meta {
-    margin-top: auto;
-    padding-top: var(--space-4);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-family: var(--font-mono);
-    font-size: 0.5625rem;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--inkSoft);
-    opacity: 0.6;
-  }
-
-  .card-meta-arrow {
-    opacity: 0;
-    transform: translateX(-4px);
-    transition: opacity var(--duration-fast) var(--ease-out),
-                transform var(--duration-fast) var(--ease-out);
-    font-style: normal;
-  }
-  .strip-card:hover .card-meta-arrow {
-    opacity: 1;
-    transform: translateX(0);
-  }
-
-  .no-articles {
-    text-align: center;
-    color: var(--inkSoft);
-    padding: var(--space-12) 0;
-    font-family: var(--font-ui);
-  }
-
-  .strip-footer {
-    display: flex;
-    justify-content: center;
-    margin-top: var(--space-10);
-  }
-
-  /* ── § 2 Spotlight ───────────────────────────────── */
-  .region-spotlight {
+  /* ── 2. Spotlight ───────────────────────────────── */
+  .section-spotlight {
     position: relative;
-    min-height: 600px;
+    min-height: 480px;
     display: flex;
-    align-items: flex-end;
-    padding: var(--space-32) 0 var(--space-20);
+    align-items: center;
     overflow: hidden;
   }
 
-  .spotlight-image-wrap {
+  .spotlight-bg {
     position: absolute;
     inset: 0;
-    z-index: 0;
   }
-  .spotlight-image-wrap img {
+
+  .spotlight-bg img {
     width: 100%;
     height: 100%;
     object-fit: cover;
   }
+
   .spotlight-overlay {
     position: absolute;
     inset: 0;
     background: linear-gradient(
-      100deg,
-      rgba(13, 10, 7, 0.90) 0%,
-      rgba(13, 10, 7, 0.65) 50%,
-      rgba(13, 10, 7, 0.25) 100%
+      to right,
+      rgba(31, 26, 22, 0.85) 0%,
+      rgba(31, 26, 22, 0.5) 70%,
+      transparent 100%
     );
   }
 
   .spotlight-content {
     position: relative;
     z-index: 1;
-    max-width: 44rem;
-  }
-
-  .spotlight-eyebrow {
-    display: flex;
-    align-items: center;
-    gap: var(--space-4);
-    margin-bottom: var(--space-3);
-  }
-
-  .spotlight-badge {
-    font-family: var(--font-mono);
-    font-size: 0.5625rem;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.18em;
-    color: rgba(196, 164, 85, 0.7);
-    padding: 0.25rem 0.625rem;
-    border: 1px solid rgba(196, 164, 85, 0.3);
-    border-radius: var(--radius-sm);
-  }
-
-  .spotlight-region {
-    font-family: var(--font-display);
-    font-size: clamp(3.5rem, 2.5rem + 4vw, 6.5rem);
-    font-style: italic;
-    font-weight: 400;
+    padding: 80px 0;
     color: var(--paper);
-    line-height: 0.95;
-    margin-bottom: var(--space-5);
-    letter-spacing: -0.03em;
   }
 
-  .spotlight-claim {
-    font-family: var(--font-display);
-    font-size: clamp(1.125rem, 1rem + 0.5vw, 1.5rem);
-    font-style: italic;
-    color: var(--rule);
-    margin-bottom: var(--space-5);
-    line-height: 1.3;
+  .spotlight-inner { max-width: 560px; }
+
+  .spotlight-label {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 12px;
   }
+
+  .spotlight-headline {
+    font-family: var(--font-display);
+    font-size: clamp(2.5rem, 2rem + 2.5vw, 4rem);
+    font-weight: 500;
+    line-height: 1;
+    margin: 0 0 20px;
+    color: var(--paper);
+  }
+
+  .spotlight-headline em { font-style: italic; }
 
   .spotlight-body {
     font-family: var(--font-body);
-    font-size: 1.0625rem;
-    color: rgba(251, 247, 239, 0.75);
-    line-height: 1.72;
-    margin-bottom: var(--space-8);
-    max-width: 36rem;
-    font-weight: 300;
+    font-size: 1.125rem;
+    line-height: 1.5;
+    color: rgba(250, 245, 233, 0.85);
+    margin: 0 0 24px;
+    max-width: 46ch;
   }
 
-  /* ── § 3 Favorite regions ────────────────────────── */
-  .fav-grid {
+  .btn-spotlight {
+    display: inline-block;
+    background: var(--paper);
+    color: var(--ink);
+    padding: 14px 24px;
+    text-decoration: none;
+    font-family: var(--font-ui);
+    font-size: 0.875rem;
+    font-weight: 600;
+    border-radius: var(--radius-sm);
+    transition: background var(--duration-fast) var(--ease-out);
+  }
+  .btn-spotlight:hover { background: var(--paperDeep); color: var(--ink); }
+
+  /* ── 3. Favorite regions ─────────────────────────── */
+  .section-regions {
+    padding: 80px 0;
+    background: var(--paperDeep);
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .regions-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    grid-template-rows: repeat(2, 340px);
-    gap: 3px;
+    gap: 24px;
+    margin-bottom: 40px;
   }
 
-  .fav-card {
+  .region-card {
     position: relative;
+    aspect-ratio: 3/4;
     overflow: hidden;
     display: block;
     text-decoration: none;
   }
 
-  .fav-card-image {
-    position: absolute;
-    inset: 0;
-  }
-  .fav-card-image img {
+  .region-card img {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    transition: transform var(--duration-image) var(--ease-out);
+    transition: transform var(--duration-slow) var(--ease-out);
   }
-  .fav-card:hover .fav-card-image img { transform: scale(1.06); }
 
-  .fav-card-overlay {
+  .region-card:hover img { transform: scale(1.04); }
+
+  .region-overlay {
     position: absolute;
     inset: 0;
-    background: linear-gradient(
-      to top,
-      rgba(13, 10, 7, 0.75) 0%,
-      rgba(13, 10, 7, 0.2) 50%,
-      rgba(13, 10, 7, 0.05) 100%
-    );
-    transition: background var(--duration-base) var(--ease-out);
-  }
-  .fav-card:hover .fav-card-overlay {
-    background: linear-gradient(
-      to top,
-      rgba(13, 10, 7, 0.85) 0%,
-      rgba(13, 10, 7, 0.35) 55%,
-      rgba(13, 10, 7, 0.08) 100%
-    );
+    background: linear-gradient(to top, rgba(31, 26, 22, 0.85) 0%, transparent 50%);
   }
 
-  .fav-card-content {
+  .region-content {
     position: absolute;
     bottom: 0;
     left: 0;
     right: 0;
-    padding: var(--space-6);
-    z-index: 1;
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
-  }
-
-  .fav-index {
-    font-family: var(--font-mono);
-    font-size: 0.5rem;
-    font-weight: 500;
-    letter-spacing: 0.15em;
-    color: rgba(196, 164, 85, 0.6);
-    display: block;
-    margin-bottom: var(--space-2);
-  }
-
-  .fav-country {
-    font-family: var(--font-mono);
-    font-size: 0.5625rem;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.2em;
-    color: var(--rule);
-    display: block;
-  }
-
-  .fav-name {
-    font-family: var(--font-display);
-    font-size: 1.625rem;
-    font-style: italic;
-    font-weight: 400;
+    padding: 24px;
     color: var(--paper);
-    line-height: 1.05;
-    display: block;
-    letter-spacing: -0.01em;
   }
 
-  /* ── § 4 Editor intro ────────────────────────────── */
-  .editor-intro { background: var(--paperDeep); }
+  .region-tag {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 6px;
+  }
 
-  .editor-inner {
+  .region-name {
+    font-family: var(--font-display);
+    font-size: 2.25rem;
+    font-weight: 500;
+    margin: 0 0 12px;
+    line-height: 1;
+  }
+
+  .region-cta {
+    font-family: var(--font-ui);
+    font-size: 0.8125rem;
+    border-bottom: 1px solid var(--paper);
+    padding-bottom: 2px;
+  }
+
+  .section-center-cta { text-align: center; }
+
+  /* ── 4. About ────────────────────────────────────── */
+  .section-about {
+    padding: 80px 0;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .about-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: var(--space-20);
+    gap: 64px;
     align-items: center;
   }
 
-  .editor-text .section-label { justify-content: flex-start; }
-  .editor-text .section-label::before { display: none; }
-
-  .editor-text h2 {
+  .about-title {
     font-family: var(--font-display);
-    font-size: clamp(1.875rem, 1.5rem + 1.2vw, 2.75rem);
-    font-style: italic;
-    font-weight: 400;
-    color: var(--ink);
-    line-height: 1.15;
-    margin: var(--space-3) 0 var(--space-6);
-    letter-spacing: -0.02em;
-  }
-
-  .editor-text p {
-    font-family: var(--font-body);
-    font-size: 1rem;
-    color: var(--inkSoft);
-    line-height: 1.8;
-    margin-bottom: var(--space-4);
-    font-weight: 300;
-  }
-
-  .editor-text .btn { margin-top: var(--space-5); }
-
-  .editor-quote-wrap {
-    position: relative;
-    padding-left: var(--space-8);
-  }
-
-  .editor-quote-mark {
-    position: absolute;
-    top: -0.75rem;
-    left: -0.25rem;
-    font-family: var(--font-display);
-    font-size: 6rem;
-    font-style: italic;
-    color: var(--rule);
-    opacity: 0.35;
+    font-size: clamp(2.25rem, 1.8rem + 2vw, 3.5rem);
+    font-weight: 500;
     line-height: 1;
-    pointer-events: none;
-    user-select: none;
-  }
-
-  .editor-quote {
-    border-left: 2px solid var(--rule);
-    padding-left: var(--space-6);
-  }
-
-  .editor-quote p {
-    font-family: var(--font-display);
-    font-size: clamp(1.125rem, 1rem + 0.5vw, 1.5rem);
-    font-style: italic;
+    margin: 0 0 20px;
     color: var(--ink);
-    line-height: 1.5;
-    margin-bottom: var(--space-4);
-    font-weight: 400;
   }
 
-  .editor-quote cite {
-    font-family: var(--font-mono);
-    font-size: 0.625rem;
-    font-style: normal;
-    letter-spacing: 0.12em;
+  .about-title em { color: var(--burgundy); font-style: italic; }
+
+  .about-body {
+    font-family: var(--font-body);
+    font-size: 1.125rem;
+    line-height: 1.6;
     color: var(--inkSoft);
-    text-transform: uppercase;
-    display: block;
+    margin: 0 0 16px;
+    text-wrap: pretty;
   }
 
-  /* ── § 5 Routes ──────────────────────────────────── */
+  .about-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-top: 8px;
+  }
+
+  .about-meta {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.1em;
+    color: var(--inkSoft);
+  }
+
+  .about-photo {
+    aspect-ratio: 4/5;
+    background: var(--paperShade);
+    position: relative;
+    overflow: hidden;
+    background-image: repeating-linear-gradient(45deg, transparent, transparent 12px, rgba(0,0,0,0.04) 12px, rgba(0,0,0,0.04) 13px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .photo-placeholder {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--inkSoft);
+    background: var(--paper);
+    padding: 8px 16px;
+  }
+
+  /* ── 5. Routes ───────────────────────────────────── */
+  .section-routes {
+    padding: 80px 0;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .routes-header {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 64px;
+    margin-bottom: 48px;
+    align-items: end;
+  }
+
+  .routes-intro {
+    font-family: var(--font-body);
+    font-size: 1.125rem;
+    line-height: 1.5;
+    color: var(--inkSoft);
+    margin: 0;
+    text-wrap: pretty;
+  }
+
   .routes-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-    gap: var(--space-4);
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
   }
 
   .route-card {
-    display: flex;
-    flex-direction: column;
     text-decoration: none;
-    padding: var(--space-7, 1.75rem) var(--space-6);
-    border: 1px solid var(--rule-20);
-    background: var(--paper);
-    transition:
-      border-color var(--duration-base) var(--ease-out),
-      box-shadow var(--duration-base) var(--ease-out),
-      transform var(--duration-base) var(--ease-out);
-    position: relative;
+    color: inherit;
+    display: block;
+  }
+
+  .route-img-wrap {
+    aspect-ratio: 3/2;
     overflow: hidden;
+    margin-bottom: 12px;
+    position: relative;
+    background: var(--paperShade);
   }
-  .route-card::before {
-    content: '';
+
+  .route-img-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform var(--duration-slow) var(--ease-out);
+  }
+
+  .route-card:hover .route-img-wrap img { transform: scale(1.04); }
+
+  .route-badges {
     position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background: var(--burgundy);
-    transform: scaleX(0);
-    transition: transform var(--duration-base) var(--ease-out);
-    transform-origin: left;
-  }
-  .route-card:hover {
-    border-color: var(--rule-20);
-    box-shadow: var(--shadow-md);
-    transform: translateY(-3px);
-  }
-  .route-card:hover::before { transform: scaleX(1); }
-
-  .route-number {
-    font-family: var(--font-display);
-    font-size: 3rem;
-    font-style: italic;
-    font-weight: 300;
-    color: var(--rule-20);
-    line-height: 1;
-    margin-bottom: var(--space-4);
-    transition: color var(--duration-base) var(--ease-out);
-  }
-  .route-card:hover .route-number { color: var(--burgundy-20); }
-
-  .route-meta {
+    top: 12px;
+    left: 12px;
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: var(--space-3);
+    gap: 6px;
   }
 
-  .route-region {
+  .route-badge {
+    padding: 4px 10px;
     font-family: var(--font-mono);
-    font-size: 0.5625rem;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.18em;
-    color: var(--rust);
-  }
-
-  .route-days {
-    font-family: var(--font-mono);
-    font-size: 0.5625rem;
-    font-weight: 500;
-    text-transform: uppercase;
+    font-size: 0.625rem;
     letter-spacing: 0.12em;
-    color: var(--inkSoft);
-    opacity: 0.7;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+
+  .route-badge--days {
+    background: var(--paper);
+    color: var(--ink);
+  }
+
+  .route-badge--mode {
+    background: var(--burgundy);
+    color: var(--paper);
+  }
+
+  .route-country {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--rust);
+    margin-bottom: 6px;
   }
 
   .route-title {
     font-family: var(--font-display);
-    font-size: 1.3125rem;
-    font-style: italic;
-    font-weight: 400;
-    color: var(--ink);
+    font-size: 1.375rem;
+    font-weight: 500;
     line-height: 1.2;
-    flex: 1;
-    margin-bottom: var(--space-4);
-    letter-spacing: -0.01em;
+    margin: 0;
+    color: var(--ink);
+    text-wrap: balance;
   }
 
-  .route-footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+  /* ── 6. Themes ───────────────────────────────────── */
+  .section-themes {
+    padding: 72px 0;
+    background: var(--paperDeep);
+    border-bottom: 1px solid var(--rule);
   }
 
-  .route-transport {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    font-family: var(--font-ui);
-    font-size: 0.8125rem;
-    color: var(--inkSoft);
-  }
-
-  .route-arrow {
-    font-style: normal;
-    color: var(--burgundy);
-    opacity: 0;
-    transform: translateX(-4px);
-    transition: opacity var(--duration-fast) var(--ease-out),
-                transform var(--duration-fast) var(--ease-out);
-  }
-  .route-card:hover .route-arrow {
-    opacity: 1;
-    transform: translateX(0);
-  }
-
-  /* ── § 6 Themes ──────────────────────────────────── */
   .themes-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 3px;
+    gap: 0;
+    border: 1px solid var(--rule);
+    background: var(--paper);
   }
 
-  .theme-tile {
+  .theme-cell {
+    padding: 24px;
+    border-right: 1px solid var(--ruleSoft);
+    border-bottom: 1px solid var(--ruleSoft);
+    text-decoration: none;
+    color: inherit;
     display: flex;
     flex-direction: column;
-    gap: var(--space-3);
-    padding: var(--space-8) var(--space-6);
-    background: var(--paperDeep);
-    text-decoration: none;
-    transition:
-      background var(--duration-fast) var(--ease-out),
-      transform var(--duration-fast) var(--ease-out);
-    position: relative;
-    overflow: hidden;
+    gap: 6px;
+    transition: background var(--duration-fast) var(--ease-out);
   }
-  .theme-tile::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border: 1.5px solid var(--burgundy);
-    opacity: 0;
-    transition: opacity var(--duration-fast) var(--ease-out);
-  }
-  .theme-tile:hover {
-    background: var(--burgundy-10);
-    transform: translateY(-1px);
-  }
-  .theme-tile:hover::after { opacity: 1; }
 
-  .theme-icon {
-    font-family: var(--font-mono);
-    font-size: 0.5625rem;
-    font-weight: 500;
-    letter-spacing: 0.12em;
-    color: var(--rust);
-    text-transform: uppercase;
+  .theme-cell:nth-child(4n) { border-right: none; }
+  .theme-cell:nth-child(n+5) { border-bottom: none; }
+
+  .theme-cell:hover { background: var(--burgundy-10); }
+
+  .theme-top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem;
   }
 
   .theme-label {
     font-family: var(--font-display);
-    font-size: 1.125rem;
-    font-style: italic;
-    font-weight: 400;
-    color: var(--ink);
-    line-height: 1.3;
-    flex: 1;
-  }
-
-  .theme-arrow {
-    font-style: normal;
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    color: var(--burgundy);
-    opacity: 0;
-    align-self: flex-end;
-    transition: opacity var(--duration-fast) var(--ease-out);
-  }
-  .theme-tile:hover .theme-arrow { opacity: 1; }
-
-  /* ── § 7 Atlas ───────────────────────────────────── */
-  .atlas-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-    gap: 0;
-    border: 1px solid var(--rule-20);
-  }
-
-  .atlas-entry {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    grid-template-rows: auto auto;
-    gap: var(--space-1) var(--space-3);
-    padding: var(--space-6);
-    border: 1px solid var(--rule-20);
-    text-decoration: none;
-    transition: background var(--duration-fast) var(--ease-out);
-    position: relative;
-  }
-  .atlas-entry:hover { background: var(--paperDeep); }
-
-  .atlas-name {
-    font-family: var(--font-display);
-    font-size: 1.4375rem;
-    font-style: italic;
-    font-weight: 400;
-    color: var(--ink);
-    grid-column: 1;
-    grid-row: 1;
-    letter-spacing: -0.01em;
-    line-height: 1.1;
-  }
-
-  .atlas-sub {
-    font-family: var(--font-mono);
-    font-size: 0.5625rem;
+    font-size: 1.375rem;
     font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.14em;
+    color: var(--ink);
+    margin: 0;
+  }
+
+  .theme-count {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
     color: var(--inkSoft);
-    opacity: 0.65;
-    grid-column: 1;
-    grid-row: 2;
-    align-self: end;
+    white-space: nowrap;
   }
 
-  .atlas-arrow {
-    font-style: normal;
+  .theme-desc {
+    font-family: var(--font-body);
     font-size: 0.875rem;
-    color: var(--burgundy);
-    grid-column: 2;
-    grid-row: 1 / 3;
-    align-self: center;
-    opacity: 0;
-    transition: opacity var(--duration-fast) var(--ease-out);
-  }
-  .atlas-entry:hover .atlas-arrow { opacity: 1; }
-
-  /* ── § 8 Newsletter ──────────────────────────────── */
-  .newsletter-section {
-    position: relative;
-    padding: var(--space-32) 0;
-    text-align: center;
-    overflow: hidden;
-  }
-
-  .newsletter-bg {
-    position: absolute;
-    inset: 0;
-    z-index: 0;
-  }
-  .newsletter-bg img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-  .newsletter-overlay {
-    position: absolute;
-    inset: 0;
-    background: var(--burgundyDeep);
-    opacity: 0.94;
-  }
-
-  .newsletter-inner {
-    position: relative;
-    z-index: 1;
-    max-width: 36rem;
-    margin: 0 auto;
-  }
-
-  .newsletter-inner h2 {
-    font-family: var(--font-display);
-    font-size: clamp(2.25rem, 1.8rem + 1.5vw, 3rem);
+    line-height: 1.5;
+    color: var(--inkSoft);
+    margin: 0;
     font-style: italic;
-    font-weight: 400;
-    color: var(--paper);
-    margin: var(--space-4) 0 var(--space-6);
-    letter-spacing: -0.025em;
-    line-height: 1.1;
   }
 
-  .newsletter-inner p {
+  /* ── 7. Atlas ────────────────────────────────────── */
+  .section-atlas {
+    padding: 80px 0;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .atlas-continent {
+    margin-bottom: 40px;
+  }
+
+  .atlas-continent-label {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--burgundy);
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .atlas-regions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 24px;
+  }
+
+  .atlas-region {
+    font-family: var(--font-display);
+    font-size: 1.75rem;
+    font-weight: 500;
+    color: var(--ink);
+    text-decoration: none;
+    letter-spacing: -0.01em;
+    border-bottom: 1px solid transparent;
+    padding-bottom: 2px;
+    transition: color var(--duration-fast), border-color var(--duration-fast);
+  }
+
+  .atlas-region:hover {
+    color: var(--burgundy);
+    border-bottom-color: var(--burgundy);
+  }
+
+  /* ── 8. Newsletter ───────────────────────────────── */
+  .section-newsletter {
+    background: var(--burgundyDeep);
+    color: var(--paper);
+  }
+
+  .newsletter-grid {
+    padding-top: 64px;
+    padding-bottom: 64px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 64px;
+    align-items: center;
+  }
+
+  .newsletter-title {
+    font-family: var(--font-display);
+    font-size: clamp(1.875rem, 1.5rem + 1.5vw, 3rem);
+    font-weight: 500;
+    line-height: 1;
+    margin: 0;
+    color: var(--paper);
+  }
+
+  .newsletter-body {
     font-family: var(--font-body);
     font-size: 1.0625rem;
-    color: rgba(251, 247, 239, 0.7);
-    line-height: 1.72;
-    margin-bottom: var(--space-8);
-    font-weight: 300;
+    line-height: 1.55;
+    color: rgba(250, 245, 233, 0.85);
+    margin: 0 0 20px;
   }
 
-  .nl-form {
+  .newsletter-form {
     display: flex;
-    gap: var(--space-3);
-    max-width: 28rem;
-    margin: 0 auto;
+    gap: 0;
+    border-bottom: 1px solid var(--paper);
+    padding-bottom: 8px;
+    margin-bottom: 12px;
   }
 
-  .nl-input {
+  .newsletter-input {
     flex: 1;
-    height: 3rem;
-    padding: 0 var(--space-4);
-    border: 1px solid rgba(196, 164, 85, 0.3);
-    background: rgba(251, 247, 239, 0.06);
+    background: transparent;
+    border: none;
+    color: var(--paper);
+    font-family: var(--font-body);
+    font-size: 1.0625rem;
+    outline: none;
+    min-width: 0;
+  }
+
+  .newsletter-input::placeholder { color: rgba(250, 245, 233, 0.45); }
+
+  .newsletter-btn {
+    background: transparent;
+    border: none;
     color: var(--paper);
     font-family: var(--font-ui);
-    font-size: 0.9375rem;
-    border-radius: var(--radius-sm);
-    outline: none;
-    transition: border-color var(--duration-fast) var(--ease-out),
-                background var(--duration-fast) var(--ease-out);
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0 0 0 12px;
+    white-space: nowrap;
+    transition: opacity var(--duration-fast);
   }
-  .nl-input::placeholder { color: rgba(251, 247, 239, 0.35); }
-  .nl-input:focus {
-    border-color: var(--rule);
-    background: rgba(251, 247, 239, 0.09);
-  }
+  .newsletter-btn:hover { opacity: 0.8; }
 
-  .nl-submit { height: 3rem; padding: 0 var(--space-6); white-space: nowrap; }
-
-  .nl-note {
-    font-family: var(--font-mono) !important;
-    font-size: 0.5625rem !important;
-    letter-spacing: 0.14em;
+  .newsletter-meta {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.15em;
     text-transform: uppercase;
-    margin-top: var(--space-4) !important;
-    margin-bottom: 0 !important;
-    opacity: 0.4;
-    color: var(--paper) !important;
-  }
-
-  .sr-only {
-    position: absolute; width: 1px; height: 1px;
-    padding: 0; margin: -1px; overflow: hidden;
-    clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+    color: rgba(250, 245, 233, 0.5);
+    margin: 0;
   }
 
   /* ── Responsive ──────────────────────────────────── */
   @media (max-width: 1100px) {
-    .strip-grid {
-      grid-template-columns: 1fr 1fr;
-      grid-template-rows: auto;
-    }
-    .strip-card--hero { grid-column: span 2; }
-    .strip-card--hero .strip-card-image { aspect-ratio: 16/9; }
-
+    .recent-grid { grid-template-columns: repeat(3, 1fr); }
+    .recent-grid > *:nth-child(n+4) { display: none; }
     .themes-grid { grid-template-columns: repeat(2, 1fr); }
+    .theme-cell:nth-child(2n) { border-right: none; }
+    .theme-cell:nth-child(2n+1) { border-right: 1px solid var(--ruleSoft); }
+    .theme-cell:nth-child(n+3):nth-child(-n+4) { border-bottom: none; }
   }
 
   @media (max-width: 900px) {
-    .fav-grid { grid-template-columns: repeat(2, 1fr); grid-template-rows: auto; }
-    .fav-grid .fav-card { height: 300px; }
-
-    .editor-inner { grid-template-columns: 1fr; gap: var(--space-10); }
-    .editor-aside { order: -1; }
-    .editor-quote-wrap { padding-left: 0; }
+    .routes-header { grid-template-columns: 1fr; gap: 16px; }
+    .routes-grid { grid-template-columns: repeat(2, 1fr); }
+    .regions-grid { grid-template-columns: repeat(2, 1fr); }
+    .about-grid { grid-template-columns: 1fr; gap: 32px; }
+    .about-photo { max-height: 360px; }
+    .newsletter-grid { grid-template-columns: 1fr; gap: 32px; }
+    .spotlight-content { padding: 56px 0; }
   }
 
   @media (max-width: 640px) {
-    .strip-grid { grid-template-columns: 1fr; }
-    .strip-card--hero { grid-column: span 1; }
-
-    .fav-grid { grid-template-columns: 1fr; }
-    .fav-grid .fav-card { height: 260px; }
-
+    .recent-grid { grid-template-columns: repeat(2, 1fr); }
+    .recent-grid > *:nth-child(n+3) { display: none; }
     .routes-grid { grid-template-columns: 1fr; }
-    .themes-grid { grid-template-columns: repeat(2, 1fr); }
-
-    .nl-form { flex-direction: column; }
-    .nl-submit { width: 100%; }
-
-    .region-spotlight { min-height: 520px; padding: var(--space-16) 0; }
-    .spotlight-region { font-size: clamp(2.75rem, 2rem + 4vw, 4rem); }
+    .regions-grid { grid-template-columns: 1fr; }
+    .themes-grid { grid-template-columns: 1fr; }
+    .theme-cell:nth-child(n) { border-right: none; }
+    .atlas-region { font-size: 1.375rem; }
+    .section-top { flex-direction: column; align-items: flex-start; }
   }
 </style>

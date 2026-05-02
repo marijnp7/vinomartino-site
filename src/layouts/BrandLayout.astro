@@ -17,7 +17,7 @@ interface Props {
 const { brand, locale, title, description, canonicalUrl, ogImage, schema } = Astro.props;
 const pageTitle = title.includes(brand.name) ? title : `${title} — ${brand.name}`;
 const canonical = canonicalUrl ?? new URL(Astro.url.pathname, Astro.site ?? 'https://vinomartino.com').href;
-const ogImageUrl = ogImage || brand.ogDefaultImage || 'https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=1200&h=630&fit=crop&q=80';
+const ogImageUrl = ogImage || brand.ogDefaultImage || 'https://images.unsplash.com/photo-1506377247377-2a5b3b417ebb?w=1200&h=630&fit=crop&q=80';
 ---
 
 <!doctype html>
