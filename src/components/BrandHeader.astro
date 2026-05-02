@@ -4,424 +4,369 @@ import type { Brand } from '../lib/brands';
 interface Props {
   brand: Brand;
   locale: string;
+  activeNav?: string;
 }
 
-const { brand, locale } = Astro.props;
-const base = `/${brand.slug}/${locale}`;
+const { brand, locale, activeNav } = Astro.props;
+const nav = ['Streken', 'Routes', 'Proeven', 'Wijnhuizen', "Thema's", 'Over ons'];
 
-const megaRegions: Record<string, { name: string; slug: string }[]> = {
-  'Italië': [
-    { name: 'Piemonte', slug: 'piemonte' },
-    { name: 'Toscane', slug: 'toscane' },
-    { name: 'Etna / Sicilië', slug: 'sicilie' },
-    { name: 'Veneto', slug: 'veneto' },
-  ],
-  'Frankrijk': [
-    { name: 'Bourgogne', slug: 'bourgogne' },
-    { name: 'Champagne (grower)', slug: 'champagne' },
-    { name: 'Languedoc', slug: 'languedoc' },
-    { name: 'Loire', slug: 'loire' },
-  ],
-  'Spanje': [
-    { name: 'Priorat & Montsant', slug: 'priorat' },
-    { name: 'Rioja', slug: 'rioja' },
-    { name: 'Ribera del Duero', slug: 'ribera-del-duero' },
-    { name: 'Sherry', slug: 'sherry' },
-  ],
-  'Duitsland & Oostenrijk': [
-    { name: 'Mosel', slug: 'mosel' },
-    { name: 'Pfalz', slug: 'pfalz' },
-    { name: 'Wachau', slug: 'wachau' },
-    { name: 'Burgenland', slug: 'burgenland' },
-  ],
-  'Opkomend': [
-    { name: 'Georgië', slug: 'georgie' },
-    { name: 'Slovenië / Brda', slug: 'slovenie' },
-    { name: 'Engeland', slug: 'engeland' },
-    { name: 'Portugal', slug: 'portugal' },
-  ],
-};
+const megaMenuCols = [
+  { country: 'Italië', regions: ['Piemonte', 'Toscane', 'Etna', 'Friuli', 'Alto Adige', 'Veneto'] },
+  { country: 'Frankrijk', regions: ['Bourgogne', 'Rhône', 'Jura', 'Loire', 'Champagne', 'Beaujolais'] },
+  { country: 'Spanje & Portugal', regions: ['Rioja', 'Priorat', 'Ribera del Duero', 'Douro', 'Dão', 'Alentejo'] },
+  { country: 'Duitsland & verder', regions: ['Mosel', 'Rheingau', 'Pfalz', 'Wachau (AT)', 'Mendoza (AR)', 'Stellenbosch (ZA)'] },
+];
 ---
 
-<header class="site-header" id="site-header">
-  <nav class="container header-nav" aria-label="Hoofdnavigatie">
-    <a href={base} class="logo" aria-label={brand.name}>
-      <svg class="logo-mark" width="20" height="26" viewBox="0 0 20 26" fill="none" aria-hidden="true">
-        <path d="M10 1C10 1 1 7.5 1 15a9 9 0 0 0 18 0C19 7.5 10 1 10 1Z" stroke="currentColor" stroke-width="1.25" fill="none"/>
-        <path d="M10 24v-5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>
-        <path d="M6.5 25.5h7" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>
-        <path d="M5 13c0 0 1.5-2 5-2" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity="0.5"/>
-      </svg>
-      <span class="logo-text">{brand.name}</span>
-    </a>
-
-    <div class="nav-main" id="nav-main">
-      <ul class="nav-links" role="list">
-        <!-- Streken met mega-menu -->
-        <li class="nav-item has-mega" id="nav-streken">
-          <button class="nav-link nav-trigger" aria-expanded="false" aria-controls="mega-streken">
-            Streken
-            <svg class="nav-chevron" width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
-              <path d="M2 3.5l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </button>
-          <div class="mega-menu" id="mega-streken" role="region" aria-label="Wijnstreken">
-            <div class="mega-inner container">
-              {Object.entries(megaRegions).map(([country, regions]) => (
-                <div class="mega-col">
-                  <span class="mega-country">{country}</span>
-                  <ul role="list">
-                    {regions.map((r) => (
-                      <li>
-                        <a href={`${base}/streken/${r.slug}/`} class="mega-link">{r.name}</a>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
-          </div>
-        </li>
-
-        <li class="nav-item">
-          <a href={`${base}/verhalen/`} class="nav-link">Verhalen</a>
-        </li>
-        <li class="nav-item">
-          <a href={`${base}/routes/`} class="nav-link">Routes</a>
-        </li>
-        <li class="nav-item">
-          <a href={`${base}/proefnotities/`} class="nav-link">Proefnotities</a>
-        </li>
-      </ul>
-
-      <a href="#nieuwsbrief" class="btn btn-primary nav-cta">Nieuwsbrief</a>
+<header class="site-header">
+  <!-- Utility bar -->
+  <div class="header-utility">
+    <div class="header-utility-inner">
+      <span>Wijnreizen, hand-picked door Martin &amp; Sophie</span>
+      <span>NL · EN binnenkort</span>
     </div>
+  </div>
 
-    <!-- Mobiel hamburger -->
-    <button class="nav-hamburger" id="nav-hamburger" aria-label="Menu openen" aria-expanded="false" aria-controls="nav-main">
-      <span></span><span></span><span></span>
-    </button>
-  </nav>
+  <!-- Main bar -->
+  <div class="header-main">
+    <div class="header-inner">
+      <a href={`/${brand.slug}/nl/`} class="header-logo" aria-label={brand.name}>
+        Vino<span class="logo-dot">·</span>Martino
+      </a>
+
+      <nav class="header-nav" aria-label="Hoofdnavigatie">
+        {nav.map(item => (
+          <a
+            href={`/${brand.slug}/nl/${item.toLowerCase().replace(/'/g, '').replace(/\s+/g, '-')}/`}
+            class={`nav-link ${(activeNav === item || activeNav === item.toLowerCase()) ? 'nav-link--active' : ''}`}
+            data-menu={item === 'Streken' ? 'streken' : undefined}
+          >
+            {item}{['Streken', 'Routes'].includes(item) && <span class="nav-chevron" aria-hidden="true">▾</span>}
+          </a>
+        ))}
+      </nav>
+
+      <a href={`/${brand.slug}/nl/de-brief/`} class="header-cta">De Brief →</a>
+
+      <!-- Mobile toggle -->
+      <button class="mobile-toggle" aria-label="Menu openen" aria-expanded="false" aria-controls="mobile-menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Streken mega-menu -->
+  <div class="mega-menu" id="mega-streken" role="region" aria-label="Streken menu" hidden>
+    <div class="mega-inner">
+      <div class="mega-brand">
+        <div class="mega-brand-icon" aria-hidden="true">§</div>
+        <strong class="mega-brand-title">Hand-picked, glas voor glas</strong>
+        <p class="mega-brand-desc">Elke streek hieronder hebben we zelf afgereisd. Geen affiliate-lijstjes — alleen wijnhuizen waar we zelf binnen zijn geweest.</p>
+      </div>
+      {megaMenuCols.map(col => (
+        <div class="mega-col">
+          <h4 class="mega-col-heading">{col.country}</h4>
+          <ul class="mega-col-list" role="list">
+            {col.regions.map(region => (
+              <li><a href="#" class="mega-link">{region}</a></li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+  </div>
+
+  <!-- Mobile menu -->
+  <div class="mobile-menu" id="mobile-menu" hidden>
+    <nav>
+      {nav.map(item => (
+        <a href={`/${brand.slug}/nl/${item.toLowerCase().replace(/'/g, '').replace(/\s+/g, '-')}/`} class="mobile-nav-link">{item}</a>
+      ))}
+      <a href={`/${brand.slug}/nl/de-brief/`} class="mobile-nav-link mobile-nav-link--cta">De Brief →</a>
+    </nav>
+  </div>
 </header>
 
-<script>
-  const header = document.getElementById('site-header')!;
-  const hamburger = document.getElementById('nav-hamburger')!;
-  const navMain = document.getElementById('nav-main')!;
-
-  // Scroll-aware header shadow
-  function updateScroll() {
-    header.toggleAttribute('data-scrolled', window.scrollY > 30);
-  }
-  window.addEventListener('scroll', updateScroll, { passive: true });
-  updateScroll();
-
-  // Hamburger toggle
-  hamburger.addEventListener('click', () => {
-    const open = hamburger.getAttribute('aria-expanded') === 'true';
-    hamburger.setAttribute('aria-expanded', String(!open));
-    navMain.classList.toggle('nav-open', !open);
-    document.body.style.overflow = !open ? 'hidden' : '';
-  });
-
-  // Mega-menu hover (desktop) + click (mobile)
-  const navStreken = document.getElementById('nav-streken')!;
-  const trigger = navStreken.querySelector<HTMLButtonElement>('.nav-trigger')!;
-  const mega = document.getElementById('mega-streken')!;
-
-  function openMega() {
-    trigger.setAttribute('aria-expanded', 'true');
-    mega.classList.add('mega-visible');
-  }
-  function closeMega() {
-    trigger.setAttribute('aria-expanded', 'false');
-    mega.classList.remove('mega-visible');
-  }
-
-  navStreken.addEventListener('mouseenter', openMega);
-  navStreken.addEventListener('mouseleave', closeMega);
-
-  trigger.addEventListener('click', (e) => {
-    e.stopPropagation();
-    trigger.getAttribute('aria-expanded') === 'true' ? closeMega() : openMega();
-  });
-
-  document.addEventListener('click', closeMega);
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMega(); });
-</script>
-
 <style>
+  /* ── Utility bar ─────────────────────────────────── */
+  .header-utility {
+    background: var(--paper);
+    border-bottom: 1px solid var(--ruleSoft);
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--inkSoft);
+  }
+
+  .header-utility-inner {
+    max-width: var(--max-width);
+    margin: 0 auto;
+    padding: 8px var(--gutter);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  /* ── Main bar ─────────────────────────────────────── */
   .site-header {
-    padding: 0;
-    position: sticky;
-    top: 0;
+    background: var(--paper);
+    border-bottom: 1px solid var(--rule);
+    position: relative;
     z-index: 100;
-    backdrop-filter: blur(16px) saturate(1.4);
-    background: rgba(251, 247, 239, 0.92);
-    border-bottom: 1px solid transparent;
-    transition:
-      border-color var(--duration-base) var(--ease-out),
-      box-shadow var(--duration-base) var(--ease-out);
   }
 
-  .site-header[data-scrolled] {
-    border-bottom-color: var(--rule-20);
-    box-shadow: 0 1px 24px rgba(26, 20, 16, 0.07);
-  }
-
-  .header-nav {
+  .header-inner {
+    max-width: var(--max-width);
+    margin: 0 auto;
+    padding: 20px var(--gutter);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: var(--space-8);
-    height: var(--header-height);
+    gap: 2rem;
   }
 
   /* ── Logo ─────────────────────────────────────────── */
-  .logo {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    text-decoration: none;
-    flex-shrink: 0;
-  }
-  .logo-mark {
-    color: var(--burgundy);
-    flex-shrink: 0;
-    transition: color var(--duration-fast) var(--ease-out);
-  }
-  .logo-text {
+  .header-logo {
     font-family: var(--font-display);
-    font-size: 1.375rem;
+    font-size: 2rem;
     font-style: italic;
-    font-weight: 400;
+    font-weight: 500;
     color: var(--ink);
-    letter-spacing: -0.015em;
-    transition: color var(--duration-fast) var(--ease-out);
-  }
-  .logo:hover .logo-mark { color: var(--burgundyDeep); }
-  .logo:hover .logo-text { color: var(--burgundy); }
-
-  /* ── Main nav ─────────────────────────────────────── */
-  .nav-main {
-    display: flex;
-    align-items: center;
-    gap: var(--space-8);
+    text-decoration: none;
+    line-height: 1;
+    white-space: nowrap;
+    flex-shrink: 0;
   }
 
-  .nav-links {
+  .logo-dot { font-style: normal; }
+
+  /* ── Nav ──────────────────────────────────────────── */
+  .header-nav {
     display: flex;
-    list-style: none;
     align-items: center;
-    gap: 0;
+    gap: 1.75rem;
   }
 
   .nav-link {
+    font-family: var(--font-ui);
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: var(--ink);
+    text-decoration: none;
+    padding-bottom: 4px;
+    border-bottom: 2px solid transparent;
+    transition: color var(--duration-fast) var(--ease-out),
+                border-color var(--duration-fast) var(--ease-out);
     display: inline-flex;
     align-items: center;
-    gap: var(--space-1);
-    padding: var(--space-2) var(--space-4);
-    font-family: var(--font-ui);
-    font-size: 0.8125rem;
-    font-weight: 500;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--inkSoft);
-    background: none;
-    border: none;
-    cursor: pointer;
-    border-radius: var(--radius-sm);
-    transition: color var(--duration-fast) var(--ease-out),
-                background var(--duration-fast) var(--ease-out);
+    gap: 0.25rem;
     white-space: nowrap;
-    text-decoration: none;
-    position: relative;
   }
-  .nav-link::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: var(--space-4);
-    right: var(--space-4);
-    height: 1.5px;
-    background: var(--burgundy);
-    transform: scaleX(0);
-    transition: transform var(--duration-fast) var(--ease-out);
-    transform-origin: center;
+
+  .nav-link:hover,
+  .nav-link--active {
+    color: var(--burgundy);
+    border-bottom-color: var(--burgundy);
   }
-  .nav-link:hover { color: var(--ink); background: transparent; }
-  .nav-link:hover::after { transform: scaleX(1); }
-  .nav-trigger[aria-expanded="true"] { color: var(--ink); }
-  .nav-trigger[aria-expanded="true"]::after { transform: scaleX(1); }
 
   .nav-chevron {
-    transition: transform var(--duration-fast) var(--ease-out);
-    margin-top: 1px;
-  }
-  .nav-trigger[aria-expanded="true"] .nav-chevron {
-    transform: rotate(180deg);
+    font-size: 0.5625rem;
+    opacity: 0.6;
   }
 
-  .nav-cta {
-    font-size: 0.75rem;
-    height: 2.25rem;
-    padding: 0 var(--space-5);
-    letter-spacing: 0.06em;
+  /* ── CTA ──────────────────────────────────────────── */
+  .header-cta {
+    background: var(--burgundy);
+    color: var(--paper);
+    padding: 10px 20px;
+    text-decoration: none;
+    font-family: var(--font-ui);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    border-radius: var(--radius-sm);
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: background var(--duration-fast) var(--ease-out);
   }
 
-  /* ── Mega-menu ───────────────────────────────────────── */
-  .has-mega { position: static; }
+  .header-cta:hover {
+    background: var(--burgundyDeep);
+    color: var(--paper);
+  }
 
+  /* ── Mega-menu ────────────────────────────────────── */
   .mega-menu {
+    background: var(--paperDeep);
+    border-top: 1px solid var(--ruleSoft);
+    border-bottom: 1px solid var(--rule);
     position: absolute;
     top: 100%;
     left: 0;
     right: 0;
-    background: var(--paper);
-    border-top: 2px solid var(--burgundy);
-    border-bottom: 1px solid var(--rule-20);
-    padding: var(--space-8) 0 var(--space-10);
-    opacity: 0;
-    visibility: hidden;
-    transform: translateY(-8px);
-    transition: opacity var(--duration-base) var(--ease-out),
-                transform var(--duration-base) var(--ease-out),
-                visibility 0s var(--duration-base);
-    pointer-events: none;
-    box-shadow: 0 12px 40px rgba(26, 20, 16, 0.10);
+    z-index: 99;
+    box-shadow: var(--shadow-md);
   }
 
-  .mega-menu.mega-visible {
-    opacity: 1;
-    visibility: visible;
-    transform: translateY(0);
-    transition: opacity var(--duration-base) var(--ease-out),
-                transform var(--duration-base) var(--ease-out),
-                visibility 0s 0s;
-    pointer-events: auto;
-  }
+  .mega-menu[hidden] { display: none; }
 
   .mega-inner {
+    max-width: var(--max-width);
+    margin: 0 auto;
+    padding: 32px var(--gutter);
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: var(--space-8);
+    grid-template-columns: 240px repeat(4, 1fr);
+    gap: 32px;
   }
 
-  .mega-country {
+  .mega-brand-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--burgundy);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--paper);
+    font-family: var(--font-display);
+    font-size: 1.75rem;
+    font-style: italic;
+    margin-bottom: 12px;
+  }
+
+  .mega-brand-title {
     display: block;
+    font-family: var(--font-display);
+    font-size: 1.375rem;
+    font-weight: 500;
+    color: var(--ink);
+    margin-bottom: 8px;
+  }
+
+  .mega-brand-desc {
+    font-family: var(--font-body);
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: var(--inkSoft);
+    margin: 0;
+  }
+
+  .mega-col-heading {
     font-family: var(--font-mono);
-    font-size: 0.5625rem;
+    font-size: 0.625rem;
     font-weight: 500;
     text-transform: uppercase;
-    letter-spacing: 0.2em;
+    letter-spacing: 0.18em;
     color: var(--burgundy);
-    margin-bottom: var(--space-4);
-    padding-bottom: var(--space-3);
-    border-bottom: 1px solid var(--rule-20);
+    margin: 0 0 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--rule);
   }
 
-  .mega-col ul { list-style: none; display: flex; flex-direction: column; gap: var(--space-2); }
+  .mega-col-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
 
   .mega-link {
-    font-family: var(--font-ui);
-    font-size: 0.9375rem;
-    color: var(--inkSoft);
+    font-family: var(--font-body);
+    font-size: 0.875rem;
+    color: var(--ink);
     text-decoration: none;
-    transition: color var(--duration-fast) var(--ease-out),
-                padding-left var(--duration-fast) var(--ease-out);
-    display: block;
-    padding: var(--space-1) 0;
-  }
-  .mega-link:hover {
-    color: var(--burgundy);
-    padding-left: var(--space-2);
+    transition: color var(--duration-fast);
   }
 
-  /* ── Hamburger ───────────────────────────────────────── */
-  .nav-hamburger {
+  .mega-link:hover { color: var(--burgundy); }
+
+  /* ── Mobile ───────────────────────────────────────── */
+  .mobile-toggle {
     display: none;
     flex-direction: column;
     gap: 5px;
-    padding: var(--space-2);
     background: none;
     border: none;
     cursor: pointer;
+    padding: 4px;
   }
-  .nav-hamburger span {
+
+  .mobile-toggle span {
     display: block;
     width: 22px;
     height: 1.5px;
     background: var(--ink);
-    transition: transform var(--duration-base) var(--ease-out),
-                opacity var(--duration-fast) var(--ease-out);
     border-radius: 1px;
   }
-  .nav-hamburger[aria-expanded="true"] span:nth-child(1) {
-    transform: translateY(6.5px) rotate(45deg);
-  }
-  .nav-hamburger[aria-expanded="true"] span:nth-child(2) { opacity: 0; }
-  .nav-hamburger[aria-expanded="true"] span:nth-child(3) {
-    transform: translateY(-6.5px) rotate(-45deg);
+
+  .mobile-menu {
+    background: var(--paper);
+    border-top: 1px solid var(--rule);
+    padding: 1rem var(--gutter);
   }
 
-  /* ── Mobile ──────────────────────────────────────────── */
+  .mobile-menu[hidden] { display: none; }
+
+  .mobile-nav-link {
+    display: block;
+    padding: 0.75rem 0;
+    font-family: var(--font-ui);
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--ink);
+    text-decoration: none;
+    border-bottom: 1px solid var(--ruleSoft);
+  }
+
+  .mobile-nav-link--cta {
+    color: var(--burgundy);
+    border-bottom: none;
+    margin-top: 0.5rem;
+  }
+
   @media (max-width: 900px) {
-    .nav-hamburger { display: flex; }
+    .header-nav,
+    .header-cta,
+    .header-utility { display: none; }
 
-    .nav-main {
-      display: none;
-      position: fixed;
-      top: var(--header-height);
-      left: 0;
-      right: 0;
-      bottom: 0;
-      flex-direction: column;
-      align-items: stretch;
-      background: var(--paper);
-      border-top: 1px solid var(--rule-20);
-      padding: var(--space-6) var(--gutter) var(--space-8);
-      gap: var(--space-1);
-      overflow-y: auto;
-    }
-    .nav-main.nav-open { display: flex; }
-
-    .nav-links {
-      flex-direction: column;
-      align-items: stretch;
-      gap: 0;
-    }
-
-    .nav-link {
-      padding: var(--space-4) var(--space-2);
-      font-size: 0.875rem;
-      border-bottom: 1px solid var(--rule-20);
-    }
-    .nav-link::after { display: none; }
-
-    .mega-menu {
-      position: static;
-      border: none;
-      border-top: 1px solid var(--rule-20);
-      padding: var(--space-4) 0 0;
-      opacity: 1;
-      visibility: visible;
-      transform: none;
-      pointer-events: auto;
-      display: none;
-      box-shadow: none;
-    }
-    .mega-menu.mega-visible { display: block; }
-
-    .mega-inner {
-      grid-template-columns: repeat(2, 1fr);
-      gap: var(--space-6);
-      padding: 0;
-    }
-
-    .nav-cta { align-self: flex-start; margin-top: var(--space-6); }
+    .mobile-toggle { display: flex; }
   }
 
-  @media (max-width: 480px) {
-    .mega-inner { grid-template-columns: 1fr; }
+  @media (max-width: 640px) {
+    .header-inner { padding: 16px var(--gutter); }
+    .header-logo { font-size: 1.625rem; }
   }
 </style>
+
+<script>
+  const strekenLink = document.querySelector('[data-menu="streken"]') as HTMLElement;
+  const megaStreken = document.getElementById('mega-streken') as HTMLElement;
+  let closeTimer: ReturnType<typeof setTimeout>;
+
+  function openMega() {
+    clearTimeout(closeTimer);
+    megaStreken.hidden = false;
+  }
+
+  function closeMega() {
+    closeTimer = setTimeout(() => { megaStreken.hidden = true; }, 120);
+  }
+
+  if (strekenLink && megaStreken) {
+    strekenLink.addEventListener('mouseenter', openMega);
+    strekenLink.addEventListener('mouseleave', closeMega);
+    megaStreken.addEventListener('mouseenter', () => clearTimeout(closeTimer));
+    megaStreken.addEventListener('mouseleave', closeMega);
+  }
+
+  const mobileToggle = document.querySelector('.mobile-toggle') as HTMLButtonElement;
+  const mobileMenu = document.getElementById('mobile-menu') as HTMLElement;
+
+  mobileToggle?.addEventListener('click', () => {
+    const expanded = mobileToggle.getAttribute('aria-expanded') === 'true';
+    mobileToggle.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+    mobileMenu.hidden = expanded;
+  });
+</script>
