@@ -64,6 +64,10 @@ jobs:
             services/cos-bridge/Dockerfile.bridge \
             "$VPS:/opt/paperclip-cos/Dockerfile.bridge"
 
+          rsync -avz \
+            services/cos-bridge/docker-compose.cos.yml \
+            "$VPS:/opt/paperclip-cos/docker-compose.cos.yml"
+
       - name: Add missing env vars
         env:
           VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
@@ -126,33 +130,12 @@ jobs:
             set -euo pipefail
             cd /opt/paperclip-cos
 
-            # Bypass docker-compose (may fail parsing multi-service yml if cos
-            # service Dockerfile is absent). Use raw docker build + run instead.
-
-            echo "=== Building cos-bridge image ==="
-            docker build -t paperclip-cos-bridge:latest -f Dockerfile.bridge . 2>&1
-
-            echo "=== Stopping old container ==="
-            docker stop paperclip-cos-bridge-1 2>/dev/null || true
-            docker rm paperclip-cos-bridge-1 2>/dev/null || true
-
             echo "=== Ensuring paperclip network exists ==="
             docker network inspect paperclip_default >/dev/null 2>&1 \
               || docker network create paperclip_default 2>&1
 
-            echo "=== Starting cos-bridge container ==="
-            docker run -d \
-              --name paperclip-cos-bridge-1 \
-              --restart unless-stopped \
-              --user root \
-              --env-file .env.cos \
-              -v /var/run/docker.sock:/var/run/docker.sock \
-              --network paperclip_default \
-              --health-cmd "wget -qO- http://127.0.0.1:3200/health || exit 1" \
-              --health-interval 30s \
-              --health-timeout 5s \
-              --health-retries 3 \
-              paperclip-cos-bridge:latest 2>&1
+            echo "=== Force-recreating cos-bridge (picks up env changes) ==="
+            docker compose -f docker-compose.cos.yml up -d --build --force-recreate cos-bridge 2>&1
 
             echo "Waiting 10s for container startup..."
             sleep 10

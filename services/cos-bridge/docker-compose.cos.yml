@@ -1,0 +1,23 @@
+services:
+  cos-bridge:
+    container_name: paperclip-cos-bridge-1
+    image: paperclip-cos-bridge:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.bridge
+    restart: unless-stopped
+    user: root
+    env_file: .env.cos
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - paperclip_default
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3200/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+networks:
+  paperclip_default:
+    external: true
