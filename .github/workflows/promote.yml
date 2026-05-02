@@ -71,13 +71,14 @@ jobs:
             # Uniek request-ID
             REQUEST_ID="promote-$(date +%s)-$$"
 
-            # Approval payload
+            # Approval payload (must match CoS bridge POST /approval contract)
             PAYLOAD=$(python3 -c "
             import json, sys
             print(json.dumps({
                 'request_id': '$REQUEST_ID',
-                'action': 'promote-preview-to-prod',
-                'summary': 'Promote preview build naar productie (vinomartino.com). Preview-dist wordt gekopieerd naar prod dist, nginx herlaad.',
+                'agent': 'promote-workflow',
+                'title': 'Promote preview → productie',
+                'body': 'Preview-dist wordt gekopieerd naar prod dist (vinomartino.com), nginx herlaad. Rollback bij nginx -t falen.',
                 'urgency': 'normal',
                 'timeout_seconds': 600
             }))
@@ -92,7 +93,7 @@ jobs:
               -H "X-Signature: $SIGNATURE" \
               -d "$PAYLOAD")
 
-            APPROVAL_ID=$(echo "$RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
+            APPROVAL_ID=$(echo "$RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin)['action_id'])")
             echo "Approval ID: $APPROVAL_ID"
             echo "Wacht op Telegram-goedkeuring (max 10 min)..."
 
