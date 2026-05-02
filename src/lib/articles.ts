@@ -49,9 +49,7 @@ async function loadLocalArticles(): Promise<Article[]> {
   try {
     const { default: fs } = await import('fs');
     const { default: path } = await import('path');
-    const { fileURLToPath } = await import('url');
-    const __dirname = path.dirname(fileURLToPath(import.meta.url));
-    const postsDir = path.resolve(__dirname, '../content/posts');
+    const postsDir = path.resolve(process.cwd(), 'src/content/posts');
     if (!fs.existsSync(postsDir)) return [];
     const files = fs.readdirSync(postsDir).filter((f: string) => f.endsWith('.md'));
     const articles: Article[] = [];

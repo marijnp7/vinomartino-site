@@ -1,12 +1,15 @@
 ---
 import BrandLayout from '../../../layouts/BrandLayout.astro';
 import { getLiveBrands, isSingleBrandMode, type Brand } from '../../../lib/brands';
+import { loadArticles, type Article } from '../../../lib/articles';
 
-export function getStaticPaths() {
+export async function getStaticPaths() {
   if (isSingleBrandMode()) return [];
   const brands = getLiveBrands();
+  const articles = await loadArticles();
 
   const sectionPaths = [
+    'artikelen',
     'verhalen',
     'over-ons',
     'streken/piemonte',
@@ -39,7 +42,7 @@ export function getStaticPaths() {
     brand.locales.flatMap((locale) =>
       sectionPaths.map((p) => ({
         params: { brand: brand.slug, locale, path: p },
-        props: { brand, section: p.split('/')[0], slug: p.split('/')[1] || null },
+        props: { brand, section: p.split('/')[0], slug: p.split('/')[1] || null, articles },
       }))
     )
   );
@@ -49,12 +52,14 @@ interface Props {
   brand: Brand;
   section: string;
   slug: string | null;
+  articles: Article[];
 }
 
-const { brand, section, slug } = Astro.props;
+const { brand, section, slug, articles } = Astro.props;
 const { locale } = Astro.params;
 
 const SECTION_TITLES: Record<string, string> = {
+  artikelen: 'Alle artikelen',
   verhalen: 'Alle verhalen',
   streken: 'Wijnstreken',
   routes: 'Reisroutes',
@@ -82,7 +87,22 @@ const title = slug
         )}
       </nav>
       <h1>{title}</h1>
-      <p class="coming-soon">Deze pagina wordt binnenkort gepubliceerd.</p>
+
+      {section === 'artikelen' && articles.length > 0 ? (
+        <ul class="article-list">
+          {articles.map(a => (
+            <li>
+              <a href={`/${brand.slug}/${locale}/artikelen/${a.slug}/`} class="article-list-link">
+                <span class="article-list-title">{a.title}</span>
+                <time class="article-list-date">{new Date(a.pubDate).toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' })}</time>
+              </a>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p class="coming-soon">Deze pagina wordt binnenkort gepubliceerd.</p>
+      )}
+
       <a href={`/${brand.slug}/${locale}/`} class="btn btn-secondary">← Terug naar home</a>
     </div>
   </section>
@@ -130,5 +150,45 @@ const title = slug
     color: var(--inkSoft);
     margin-bottom: var(--space-8);
     line-height: 1.7;
+  }
+
+  .article-list {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 var(--space-8);
+    border-top: 1px solid var(--rule);
+  }
+
+  .article-list li {
+    border-bottom: 1px solid var(--ruleSoft);
+  }
+
+  .article-list-link {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: var(--space-4);
+    padding: var(--space-4) 0;
+    text-decoration: none;
+    color: var(--ink);
+    transition: color var(--duration-fast);
+  }
+
+  .article-list-link:hover { color: var(--burgundy); }
+
+  .article-list-title {
+    font-family: var(--font-display);
+    font-size: 1.125rem;
+    font-style: italic;
+    flex: 1;
+  }
+
+  .article-list-date {
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--inkFaint);
+    white-space: nowrap;
   }
 </style>
