@@ -1,5 +1,6 @@
 ---
 import BrandLayout from '../../layouts/BrandLayout.astro';
+import BrandHero from '../../components/BrandHero.astro';
 import type { Brand } from '../../lib/brands';
 import type { Article } from '../../lib/articles';
 
@@ -33,16 +34,14 @@ const FALLBACK_IMAGES = [
 
 const recentArticles = articles.slice(0, 5);
 
-// § 2 — Region spotlight (static until CMS-backed)
 const spotlight = {
   region: 'Etna',
   country: 'Sicilië',
   claim: 'Vulkanisch, hoogte-gedreven, onvervangbaar.',
-  body: 'Op de zuidflank van de Etna groeit Nerello Mascalese op 600–1000 meter hoogte. Geen enkel ander terroir in Italië combineert lavagrondig mineraliteit met zulke elegante tannines. Martin rijdt hier elk najaar naartoe.',
-  image: 'https://images.unsplash.com/photo-1513836279014-a89f7a76ae86?w=1200&h=800&fit=crop&q=80',
+  body: 'Op de zuidflank van de Etna groeit Nerello Mascalese op 600–1000 meter hoogte. Geen enkel ander terroir in Italië combineert lavagrondige mineraliteit met zulke elegante tannines. Martin rijdt hier elk najaar naartoe.',
+  image: 'https://images.unsplash.com/photo-1513836279014-a89f7a76ae86?w=1400&h=900&fit=crop&q=85',
 };
 
-// § 3 — Favorite regions
 const favoriteRegions = [
   { name: 'Piemonte', country: 'Italië', image: 'https://images.unsplash.com/photo-1507692049790-de58290a4334?w=600&h=800&fit=crop&q=80' },
   { name: 'Bourgogne', country: 'Frankrijk', image: 'https://images.unsplash.com/photo-1506377247377-2a5b3b417ebb?w=600&h=800&fit=crop&q=80' },
@@ -52,7 +51,6 @@ const favoriteRegions = [
   { name: 'Etna', country: 'Sicilië', image: 'https://images.unsplash.com/photo-1513836279014-a89f7a76ae86?w=600&h=800&fit=crop&q=80' },
 ];
 
-// § 5 — Routes
 const routes = [
   { title: 'Langhe in 4 dagen', days: 4, transport: 'Huurauto', region: 'Piemonte', slug: 'langhe-4-dagen' },
   { title: 'Bourgogne per trein', days: 5, transport: 'Trein', region: 'Bourgogne', slug: 'bourgogne-trein' },
@@ -60,7 +58,6 @@ const routes = [
   { title: 'Mosel-vallei langzaam', days: 6, transport: 'Fiets + trein', region: 'Mosel', slug: 'mosel-fietsvakantie' },
 ];
 
-// § 6 — Themes
 const themes = [
   { label: 'Weekendjes proeven', icon: '§ 01', slug: 'weekends' },
   { label: 'Per trein door Europa', icon: '§ 02', slug: 'per-trein' },
@@ -69,10 +66,9 @@ const themes = [
   { label: 'Biodynamisch & natuur', icon: '§ 05', slug: 'natuur' },
   { label: 'Bubbels van kleine makers', icon: '§ 06', slug: 'bubbels' },
   { label: 'Eten & wijn samen', icon: '§ 07', slug: 'spijs-wijn' },
-  { label: 'Opkomende regio\'s', icon: '§ 08', slug: 'opkomend' },
+  { label: "Opkomende regio's", icon: '§ 08', slug: 'opkomend' },
 ];
 
-// § 7 — Region atlas (typographic)
 const atlasRegions = [
   { name: 'Piemonte', sub: 'Barolo · Barbaresco · Roero' },
   { name: 'Toscane', sub: 'Bolgheri · Montalcino · Carmignano' },
@@ -95,8 +91,11 @@ const atlasRegions = [
   title={`${brand.name} — Literair reismagazine voor wijnliefhebbers`}
   description="Hand-picked wijnreizen, proefnotities en verhalen van Martin & Sophie. Alleen streken en huizen waar ze zelf geweest zijn."
 >
-  <!-- § 1 — Recent articles strip -->
-  <section class="recent-strip section-lg" aria-labelledby="recent-heading">
+  <!-- Hero -->
+  <BrandHero brand={brand} />
+
+  <!-- § 1 — Recent articles -->
+  <section class="recent-strip section-lg" id="artikelen" aria-labelledby="recent-heading">
     <div class="container">
       <header class="section-header section-header--left">
         <span class="section-label">Vers van de pers</span>
@@ -119,6 +118,7 @@ const atlasRegions = [
                 <a href={`${base}/${article.slug}/`} class="strip-card-link">
                   <div class="strip-card-image">
                     <img src={img} alt={article.title} loading={isHero ? 'eager' : 'lazy'} />
+                    <div class="strip-card-image-overlay"></div>
                   </div>
                   <div class="strip-card-body">
                     {catLabel && <span class="card-kicker">{catLabel}</span>}
@@ -130,6 +130,7 @@ const atlasRegions = [
                     )}
                     <div class="card-meta">
                       <time datetime={article.pubDate}>{dateStr}</time>
+                      <span class="card-meta-arrow" aria-hidden="true">→</span>
                     </div>
                   </div>
                 </a>
@@ -138,24 +139,31 @@ const atlasRegions = [
           })}
         </div>
       )}
+
+      <div class="strip-footer">
+        <a href={`${base}/verhalen/`} class="btn btn-secondary">Alle verhalen bekijken</a>
+      </div>
     </div>
   </section>
 
   <!-- § 2 — Region spotlight -->
-  <section class="region-spotlight" aria-labelledby="spotlight-heading">
+  <section class="region-spotlight" id="bestemmingen" aria-labelledby="spotlight-heading">
     <div class="spotlight-image-wrap">
       <img src={spotlight.image} alt={spotlight.region} loading="lazy" />
       <div class="spotlight-overlay"></div>
     </div>
     <div class="container spotlight-content">
-      <span class="section-label" style="color: var(--rule);">
-        {spotlight.country} · Nu uitgelicht
-      </span>
+      <div class="spotlight-eyebrow">
+        <span class="section-label" style="color: var(--rule); margin-bottom: 0;">
+          {spotlight.country}
+        </span>
+        <span class="spotlight-badge">Nu uitgelicht</span>
+      </div>
       <h2 id="spotlight-heading" class="spotlight-region">{spotlight.region}</h2>
       <p class="spotlight-claim">{spotlight.claim}</p>
       <p class="spotlight-body">{spotlight.body}</p>
       <a href={`${base}/streken/${spotlight.region.toLowerCase()}/`} class="btn btn-ghost-light">
-        Alles over {spotlight.region}
+        Alles over {spotlight.region} →
       </a>
     </div>
   </section>
@@ -168,13 +176,14 @@ const atlasRegions = [
         <h2 id="fav-heading">Streken die Martin steeds terugtrekt</h2>
       </header>
       <div class="fav-grid">
-        {favoriteRegions.map((r) => (
+        {favoriteRegions.map((r, i) => (
           <a href={`${base}/streken/${r.name.toLowerCase()}/`} class="fav-card">
             <div class="fav-card-image">
               <img src={r.image} alt={r.name} loading="lazy" />
               <div class="fav-card-overlay"></div>
             </div>
             <div class="fav-card-content">
+              <span class="fav-index">{String(i + 1).padStart(2, '0')}</span>
               <span class="fav-country">{r.country}</span>
               <span class="fav-name">{r.name}</span>
             </div>
@@ -203,13 +212,16 @@ const atlasRegions = [
         <a href={`${base}/over-ons/`} class="btn btn-secondary">Meer over Martin &amp; Sophie</a>
       </div>
       <div class="editor-aside">
-        <blockquote class="editor-quote">
-          <p>
-            "Een wijnmaker die op woensdagmiddag haar eigen ranken snoeit vertelt meer over haar wijnen
-            dan welke website-bio dan ook."
-          </p>
-          <cite>— Martin, Occhipinti, Vittoria 2024</cite>
-        </blockquote>
+        <div class="editor-quote-wrap">
+          <span class="editor-quote-mark" aria-hidden="true">"</span>
+          <blockquote class="editor-quote">
+            <p>
+              Een wijnmaker die op woensdagmiddag haar eigen ranken snoeit vertelt meer over haar wijnen
+              dan welke website-bio dan ook.
+            </p>
+            <cite>— Martin, Occhipinti, Vittoria 2024</cite>
+          </blockquote>
+        </div>
       </div>
     </div>
   </section>
@@ -225,19 +237,23 @@ const atlasRegions = [
         </p>
       </header>
       <div class="routes-grid">
-        {routes.map((route) => (
+        {routes.map((route, i) => (
           <a href={`${base}/routes/${route.slug}/`} class="route-card">
+            <div class="route-number" aria-hidden="true">{String(i + 1).padStart(2, '0')}</div>
             <div class="route-meta">
               <span class="route-region">{route.region}</span>
               <span class="route-days">{route.days} dagen</span>
             </div>
             <h3 class="route-title">{route.title}</h3>
-            <div class="route-transport">
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-                <circle cx="7" cy="7" r="6" stroke="currentColor" stroke-width="1.2"/>
-                <path d="M7 4v3l2 2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
-              </svg>
-              {route.transport}
+            <div class="route-footer">
+              <div class="route-transport">
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                  <circle cx="6" cy="6" r="5" stroke="currentColor" stroke-width="1.2"/>
+                  <path d="M6 3.5v2.5l1.5 1.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+                </svg>
+                {route.transport}
+              </div>
+              <span class="route-arrow" aria-hidden="true">→</span>
             </div>
           </a>
         ))}
@@ -257,6 +273,7 @@ const atlasRegions = [
           <a href={`${base}/themas/${theme.slug}/`} class="theme-tile">
             <span class="theme-icon">{theme.icon}</span>
             <span class="theme-label">{theme.label}</span>
+            <span class="theme-arrow" aria-hidden="true">→</span>
           </a>
         ))}
       </div>
@@ -276,6 +293,7 @@ const atlasRegions = [
           <a href={`${base}/streken/${r.name.toLowerCase()}/`} class="atlas-entry">
             <span class="atlas-name">{r.name}</span>
             <span class="atlas-sub">{r.sub}</span>
+            <span class="atlas-arrow" aria-hidden="true">↗</span>
           </a>
         ))}
       </div>
@@ -284,8 +302,16 @@ const atlasRegions = [
 
   <!-- § 8 — Newsletter CTA -->
   <section class="newsletter-section" id="nieuwsbrief" aria-labelledby="nl-heading">
+    <div class="newsletter-bg" aria-hidden="true">
+      <img
+        src="https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=1400&h=600&fit=crop&q=80"
+        alt=""
+        loading="lazy"
+      />
+      <div class="newsletter-overlay"></div>
+    </div>
     <div class="container newsletter-inner">
-      <span class="section-label" style="color: var(--rule);">Nieuwsbrief</span>
+      <span class="section-label" style="color: var(--rule); justify-content: center;">Nieuwsbrief</span>
       <h2 id="nl-heading">Wijnreisverhalen in je inbox</h2>
       <p>
         Eén keer per maand: nieuwe artikelen, proefnotities en de routes die Martin écht aanraadt.
@@ -312,14 +338,15 @@ const atlasRegions = [
 <style>
   /* ── § 1 Recent strip ─────────────────────────────── */
   .section-header--left { text-align: left; margin-bottom: var(--space-8); }
+  .section-header--left .section-label { justify-content: flex-start; }
+  .section-header--left .section-label::before { display: none; }
 
   .strip-grid {
     display: grid;
     grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
-    grid-template-rows: auto;
-    gap: 1.5px;
+    gap: 2px;
     background: var(--rule-20);
-    border: 1.5px solid var(--rule-20);
+    border: 1px solid var(--rule-20);
   }
 
   .strip-card { background: var(--paper); overflow: hidden; }
@@ -337,6 +364,7 @@ const atlasRegions = [
     overflow: hidden;
     aspect-ratio: 4 / 3;
     flex-shrink: 0;
+    position: relative;
   }
   .strip-card--hero .strip-card-image { aspect-ratio: 3 / 4; }
 
@@ -344,13 +372,26 @@ const atlasRegions = [
     width: 100%;
     height: 100%;
     object-fit: cover;
-    filter: sepia(8%) saturate(100%) brightness(100%);
-    transition: transform var(--duration-image) var(--ease-out);
+    filter: saturate(100%) brightness(100%);
+    transition: transform var(--duration-image) var(--ease-out),
+                filter var(--duration-base) var(--ease-out);
   }
-  .strip-card:hover .strip-card-image img { transform: scale(1.04); }
+  .strip-card:hover .strip-card-image img {
+    transform: scale(1.05);
+    filter: saturate(108%) brightness(103%);
+  }
+
+  .strip-card-image-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(26, 20, 16, 0.3), transparent 40%);
+    opacity: 0;
+    transition: opacity var(--duration-base) var(--ease-out);
+  }
+  .strip-card:hover .strip-card-image-overlay { opacity: 1; }
 
   .strip-card-body {
-    padding: var(--space-5) var(--space-5) var(--space-6);
+    padding: var(--space-5) var(--space-5) var(--space-5);
     display: flex;
     flex-direction: column;
     flex: 1;
@@ -358,10 +399,10 @@ const atlasRegions = [
 
   .card-kicker {
     font-family: var(--font-mono);
-    font-size: 0.625rem;
+    font-size: 0.5625rem;
     font-weight: 500;
     text-transform: uppercase;
-    letter-spacing: 0.15em;
+    letter-spacing: 0.2em;
     color: var(--rust);
     margin-bottom: var(--space-2);
     display: block;
@@ -369,9 +410,9 @@ const atlasRegions = [
 
   .strip-card-title {
     font-family: var(--font-display);
-    font-size: clamp(1rem, 0.9rem + 0.5vw, 1.375rem);
+    font-size: clamp(0.9375rem, 0.85rem + 0.4vw, 1.25rem);
     font-weight: 400;
-    line-height: 1.25;
+    line-height: 1.2;
     color: var(--ink);
   }
   .strip-card--hero .strip-card-title {
@@ -379,21 +420,38 @@ const atlasRegions = [
   }
 
   .strip-card-excerpt {
-    font-family: var(--font-ui);
+    font-family: var(--font-body);
     font-size: 0.9375rem;
     color: var(--inkSoft);
-    line-height: 1.55;
+    line-height: 1.6;
     margin-top: var(--space-3);
+    font-weight: 300;
   }
 
   .card-meta {
     margin-top: auto;
     padding-top: var(--space-4);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     font-family: var(--font-mono);
-    font-size: 0.625rem;
-    letter-spacing: 0.1em;
+    font-size: 0.5625rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
     color: var(--inkSoft);
-    opacity: 0.7;
+    opacity: 0.6;
+  }
+
+  .card-meta-arrow {
+    opacity: 0;
+    transform: translateX(-4px);
+    transition: opacity var(--duration-fast) var(--ease-out),
+                transform var(--duration-fast) var(--ease-out);
+    font-style: normal;
+  }
+  .strip-card:hover .card-meta-arrow {
+    opacity: 1;
+    transform: translateX(0);
   }
 
   .no-articles {
@@ -403,13 +461,19 @@ const atlasRegions = [
     font-family: var(--font-ui);
   }
 
+  .strip-footer {
+    display: flex;
+    justify-content: center;
+    margin-top: var(--space-10);
+  }
+
   /* ── § 2 Spotlight ───────────────────────────────── */
   .region-spotlight {
     position: relative;
-    min-height: 560px;
+    min-height: 600px;
     display: flex;
     align-items: flex-end;
-    padding: var(--space-24) 0 var(--space-16);
+    padding: var(--space-32) 0 var(--space-20);
     overflow: hidden;
   }
 
@@ -427,52 +491,73 @@ const atlasRegions = [
     position: absolute;
     inset: 0;
     background: linear-gradient(
-      to top,
-      rgba(31, 26, 22, 0.88) 0%,
-      rgba(31, 26, 22, 0.5) 50%,
-      rgba(31, 26, 22, 0.15) 100%
+      100deg,
+      rgba(13, 10, 7, 0.90) 0%,
+      rgba(13, 10, 7, 0.65) 50%,
+      rgba(13, 10, 7, 0.25) 100%
     );
   }
 
   .spotlight-content {
     position: relative;
     z-index: 1;
-    max-width: 42rem;
+    max-width: 44rem;
+  }
+
+  .spotlight-eyebrow {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    margin-bottom: var(--space-3);
+  }
+
+  .spotlight-badge {
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: rgba(196, 164, 85, 0.7);
+    padding: 0.25rem 0.625rem;
+    border: 1px solid rgba(196, 164, 85, 0.3);
+    border-radius: var(--radius-sm);
   }
 
   .spotlight-region {
     font-family: var(--font-display);
-    font-size: clamp(3rem, 2rem + 4vw, 6rem);
+    font-size: clamp(3.5rem, 2.5rem + 4vw, 6.5rem);
     font-style: italic;
     font-weight: 400;
     color: var(--paper);
-    line-height: 1;
-    margin: var(--space-3) 0 var(--space-4);
+    line-height: 0.95;
+    margin-bottom: var(--space-5);
+    letter-spacing: -0.03em;
   }
 
   .spotlight-claim {
     font-family: var(--font-display);
-    font-size: 1.375rem;
+    font-size: clamp(1.125rem, 1rem + 0.5vw, 1.5rem);
     font-style: italic;
     color: var(--rule);
-    margin-bottom: var(--space-4);
+    margin-bottom: var(--space-5);
     line-height: 1.3;
   }
 
   .spotlight-body {
     font-family: var(--font-body);
-    font-size: 1rem;
-    color: rgba(250, 245, 233, 0.8);
-    line-height: 1.7;
+    font-size: 1.0625rem;
+    color: rgba(251, 247, 239, 0.75);
+    line-height: 1.72;
     margin-bottom: var(--space-8);
     max-width: 36rem;
+    font-weight: 300;
   }
 
   /* ── § 3 Favorite regions ────────────────────────── */
   .fav-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    grid-template-rows: repeat(2, 320px);
+    grid-template-rows: repeat(2, 340px);
     gap: 3px;
   }
 
@@ -493,16 +578,26 @@ const atlasRegions = [
     object-fit: cover;
     transition: transform var(--duration-image) var(--ease-out);
   }
-  .fav-card:hover .fav-card-image img { transform: scale(1.05); }
+  .fav-card:hover .fav-card-image img { transform: scale(1.06); }
 
   .fav-card-overlay {
     position: absolute;
     inset: 0;
-    background: linear-gradient(to top, rgba(31, 26, 22, 0.65), transparent 55%);
+    background: linear-gradient(
+      to top,
+      rgba(13, 10, 7, 0.75) 0%,
+      rgba(13, 10, 7, 0.2) 50%,
+      rgba(13, 10, 7, 0.05) 100%
+    );
     transition: background var(--duration-base) var(--ease-out);
   }
   .fav-card:hover .fav-card-overlay {
-    background: linear-gradient(to top, rgba(31, 26, 22, 0.8), transparent 60%);
+    background: linear-gradient(
+      to top,
+      rgba(13, 10, 7, 0.85) 0%,
+      rgba(13, 10, 7, 0.35) 55%,
+      rgba(13, 10, 7, 0.08) 100%
+    );
   }
 
   .fav-card-content {
@@ -517,23 +612,35 @@ const atlasRegions = [
     gap: var(--space-1);
   }
 
+  .fav-index {
+    font-family: var(--font-mono);
+    font-size: 0.5rem;
+    font-weight: 500;
+    letter-spacing: 0.15em;
+    color: rgba(196, 164, 85, 0.6);
+    display: block;
+    margin-bottom: var(--space-2);
+  }
+
   .fav-country {
     font-family: var(--font-mono);
     font-size: 0.5625rem;
     font-weight: 500;
     text-transform: uppercase;
-    letter-spacing: 0.18em;
+    letter-spacing: 0.2em;
     color: var(--rule);
     display: block;
   }
 
   .fav-name {
     font-family: var(--font-display);
-    font-size: 1.5rem;
+    font-size: 1.625rem;
     font-style: italic;
+    font-weight: 400;
     color: var(--paper);
-    line-height: 1.1;
+    line-height: 1.05;
     display: block;
+    letter-spacing: -0.01em;
   }
 
   /* ── § 4 Editor intro ────────────────────────────── */
@@ -542,29 +649,53 @@ const atlasRegions = [
   .editor-inner {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: var(--space-16);
+    gap: var(--space-20);
     align-items: center;
   }
 
+  .editor-text .section-label { justify-content: flex-start; }
+  .editor-text .section-label::before { display: none; }
+
   .editor-text h2 {
     font-family: var(--font-display);
-    font-size: clamp(1.75rem, 1.4rem + 1.2vw, 2.5rem);
+    font-size: clamp(1.875rem, 1.5rem + 1.2vw, 2.75rem);
     font-style: italic;
     font-weight: 400;
     color: var(--ink);
-    line-height: 1.2;
+    line-height: 1.15;
     margin: var(--space-3) 0 var(--space-6);
+    letter-spacing: -0.02em;
   }
 
   .editor-text p {
     font-family: var(--font-body);
     font-size: 1rem;
     color: var(--inkSoft);
-    line-height: 1.75;
+    line-height: 1.8;
     margin-bottom: var(--space-4);
+    font-weight: 300;
   }
 
-  .editor-text .btn { margin-top: var(--space-4); }
+  .editor-text .btn { margin-top: var(--space-5); }
+
+  .editor-quote-wrap {
+    position: relative;
+    padding-left: var(--space-8);
+  }
+
+  .editor-quote-mark {
+    position: absolute;
+    top: -0.75rem;
+    left: -0.25rem;
+    font-family: var(--font-display);
+    font-size: 6rem;
+    font-style: italic;
+    color: var(--rule);
+    opacity: 0.35;
+    line-height: 1;
+    pointer-events: none;
+    user-select: none;
+  }
 
   .editor-quote {
     border-left: 2px solid var(--rule);
@@ -573,20 +704,22 @@ const atlasRegions = [
 
   .editor-quote p {
     font-family: var(--font-display);
-    font-size: clamp(1.125rem, 1rem + 0.5vw, 1.375rem);
+    font-size: clamp(1.125rem, 1rem + 0.5vw, 1.5rem);
     font-style: italic;
     color: var(--ink);
     line-height: 1.5;
     margin-bottom: var(--space-4);
+    font-weight: 400;
   }
 
   .editor-quote cite {
     font-family: var(--font-mono);
-    font-size: 0.6875rem;
+    font-size: 0.625rem;
     font-style: normal;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.12em;
     color: var(--inkSoft);
     text-transform: uppercase;
+    display: block;
   }
 
   /* ── § 5 Routes ──────────────────────────────────── */
@@ -597,18 +730,49 @@ const atlasRegions = [
   }
 
   .route-card {
-    display: block;
+    display: flex;
+    flex-direction: column;
     text-decoration: none;
-    padding: var(--space-6);
+    padding: var(--space-7, 1.75rem) var(--space-6);
     border: 1px solid var(--rule-20);
     background: var(--paper);
-    transition: border-color var(--duration-fast) var(--ease-out),
-                box-shadow var(--duration-fast) var(--ease-out);
+    transition:
+      border-color var(--duration-base) var(--ease-out),
+      box-shadow var(--duration-base) var(--ease-out),
+      transform var(--duration-base) var(--ease-out);
+    position: relative;
+    overflow: hidden;
+  }
+  .route-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--burgundy);
+    transform: scaleX(0);
+    transition: transform var(--duration-base) var(--ease-out);
+    transform-origin: left;
   }
   .route-card:hover {
-    border-color: var(--burgundy);
+    border-color: var(--rule-20);
     box-shadow: var(--shadow-md);
+    transform: translateY(-3px);
   }
+  .route-card:hover::before { transform: scaleX(1); }
+
+  .route-number {
+    font-family: var(--font-display);
+    font-size: 3rem;
+    font-style: italic;
+    font-weight: 300;
+    color: var(--rule-20);
+    line-height: 1;
+    margin-bottom: var(--space-4);
+    transition: color var(--duration-base) var(--ease-out);
+  }
+  .route-card:hover .route-number { color: var(--burgundy-20); }
 
   .route-meta {
     display: flex;
@@ -622,7 +786,7 @@ const atlasRegions = [
     font-size: 0.5625rem;
     font-weight: 500;
     text-transform: uppercase;
-    letter-spacing: 0.15em;
+    letter-spacing: 0.18em;
     color: var(--rust);
   }
 
@@ -633,16 +797,25 @@ const atlasRegions = [
     text-transform: uppercase;
     letter-spacing: 0.12em;
     color: var(--inkSoft);
+    opacity: 0.7;
   }
 
   .route-title {
     font-family: var(--font-display);
-    font-size: 1.25rem;
+    font-size: 1.3125rem;
     font-style: italic;
     font-weight: 400;
     color: var(--ink);
-    line-height: 1.25;
+    line-height: 1.2;
+    flex: 1;
     margin-bottom: var(--space-4);
+    letter-spacing: -0.01em;
+  }
+
+  .route-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
   }
 
   .route-transport {
@@ -654,11 +827,23 @@ const atlasRegions = [
     color: var(--inkSoft);
   }
 
+  .route-arrow {
+    font-style: normal;
+    color: var(--burgundy);
+    opacity: 0;
+    transform: translateX(-4px);
+    transition: opacity var(--duration-fast) var(--ease-out),
+                transform var(--duration-fast) var(--ease-out);
+  }
+  .route-card:hover .route-arrow {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
   /* ── § 6 Themes ──────────────────────────────────── */
   .themes-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    grid-template-rows: repeat(2, 1fr);
     gap: 3px;
   }
 
@@ -669,15 +854,31 @@ const atlasRegions = [
     padding: var(--space-8) var(--space-6);
     background: var(--paperDeep);
     text-decoration: none;
-    transition: background var(--duration-fast) var(--ease-out);
+    transition:
+      background var(--duration-fast) var(--ease-out),
+      transform var(--duration-fast) var(--ease-out);
+    position: relative;
+    overflow: hidden;
   }
-  .theme-tile:hover { background: var(--rule-20); }
+  .theme-tile::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border: 1.5px solid var(--burgundy);
+    opacity: 0;
+    transition: opacity var(--duration-fast) var(--ease-out);
+  }
+  .theme-tile:hover {
+    background: var(--burgundy-10);
+    transform: translateY(-1px);
+  }
+  .theme-tile:hover::after { opacity: 1; }
 
   .theme-icon {
     font-family: var(--font-mono);
-    font-size: 0.6875rem;
+    font-size: 0.5625rem;
     font-weight: 500;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.12em;
     color: var(--rust);
     text-transform: uppercase;
   }
@@ -686,9 +887,22 @@ const atlasRegions = [
     font-family: var(--font-display);
     font-size: 1.125rem;
     font-style: italic;
+    font-weight: 400;
     color: var(--ink);
     line-height: 1.3;
+    flex: 1;
   }
+
+  .theme-arrow {
+    font-style: normal;
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    color: var(--burgundy);
+    opacity: 0;
+    align-self: flex-end;
+    transition: opacity var(--duration-fast) var(--ease-out);
+  }
+  .theme-tile:hover .theme-arrow { opacity: 1; }
 
   /* ── § 7 Atlas ───────────────────────────────────── */
   .atlas-grid {
@@ -699,57 +913,105 @@ const atlasRegions = [
   }
 
   .atlas-entry {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto;
+    gap: var(--space-1) var(--space-3);
     padding: var(--space-6);
     border: 1px solid var(--rule-20);
     text-decoration: none;
     transition: background var(--duration-fast) var(--ease-out);
+    position: relative;
   }
   .atlas-entry:hover { background: var(--paperDeep); }
 
   .atlas-name {
     font-family: var(--font-display);
-    font-size: 1.375rem;
+    font-size: 1.4375rem;
     font-style: italic;
+    font-weight: 400;
     color: var(--ink);
+    grid-column: 1;
+    grid-row: 1;
+    letter-spacing: -0.01em;
+    line-height: 1.1;
   }
 
   .atlas-sub {
     font-family: var(--font-mono);
-    font-size: 0.625rem;
+    font-size: 0.5625rem;
     font-weight: 500;
     text-transform: uppercase;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.14em;
     color: var(--inkSoft);
-    opacity: 0.8;
+    opacity: 0.65;
+    grid-column: 1;
+    grid-row: 2;
+    align-self: end;
   }
+
+  .atlas-arrow {
+    font-style: normal;
+    font-size: 0.875rem;
+    color: var(--burgundy);
+    grid-column: 2;
+    grid-row: 1 / 3;
+    align-self: center;
+    opacity: 0;
+    transition: opacity var(--duration-fast) var(--ease-out);
+  }
+  .atlas-entry:hover .atlas-arrow { opacity: 1; }
 
   /* ── § 8 Newsletter ──────────────────────────────── */
   .newsletter-section {
-    background: var(--burgundyDeep);
-    padding: var(--space-24) 0;
+    position: relative;
+    padding: var(--space-32) 0;
     text-align: center;
+    overflow: hidden;
   }
 
-  .newsletter-inner { max-width: 36rem; margin: 0 auto; }
+  .newsletter-bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+  }
+  .newsletter-bg img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .newsletter-overlay {
+    position: absolute;
+    inset: 0;
+    background: var(--burgundyDeep);
+    opacity: 0.94;
+  }
+
+  .newsletter-inner {
+    position: relative;
+    z-index: 1;
+    max-width: 36rem;
+    margin: 0 auto;
+  }
 
   .newsletter-inner h2 {
     font-family: var(--font-display);
-    font-size: clamp(2rem, 1.6rem + 1.5vw, 2.75rem);
+    font-size: clamp(2.25rem, 1.8rem + 1.5vw, 3rem);
     font-style: italic;
     font-weight: 400;
     color: var(--paper);
-    margin: var(--space-3) 0 var(--space-6);
+    margin: var(--space-4) 0 var(--space-6);
+    letter-spacing: -0.025em;
+    line-height: 1.1;
   }
 
   .newsletter-inner p {
     font-family: var(--font-body);
-    font-size: 1rem;
-    color: rgba(250, 245, 233, 0.75);
-    line-height: 1.7;
+    font-size: 1.0625rem;
+    color: rgba(251, 247, 239, 0.7);
+    line-height: 1.72;
     margin-bottom: var(--space-8);
+    font-weight: 300;
   }
 
   .nl-form {
@@ -761,28 +1023,35 @@ const atlasRegions = [
 
   .nl-input {
     flex: 1;
-    height: 2.875rem;
+    height: 3rem;
     padding: 0 var(--space-4);
-    border: 1px solid rgba(201, 185, 143, 0.3);
-    background: rgba(250, 245, 233, 0.08);
+    border: 1px solid rgba(196, 164, 85, 0.3);
+    background: rgba(251, 247, 239, 0.06);
     color: var(--paper);
     font-family: var(--font-ui);
     font-size: 0.9375rem;
     border-radius: var(--radius-sm);
     outline: none;
-    transition: border-color var(--duration-fast) var(--ease-out);
+    transition: border-color var(--duration-fast) var(--ease-out),
+                background var(--duration-fast) var(--ease-out);
   }
-  .nl-input::placeholder { color: rgba(250, 245, 233, 0.4); }
-  .nl-input:focus { border-color: var(--rule); }
+  .nl-input::placeholder { color: rgba(251, 247, 239, 0.35); }
+  .nl-input:focus {
+    border-color: var(--rule);
+    background: rgba(251, 247, 239, 0.09);
+  }
 
-  .nl-submit { height: 2.875rem; padding: 0 var(--space-6); white-space: nowrap; }
+  .nl-submit { height: 3rem; padding: 0 var(--space-6); white-space: nowrap; }
 
   .nl-note {
-    font-family: var(--font-ui) !important;
-    font-size: 0.75rem !important;
+    font-family: var(--font-mono) !important;
+    font-size: 0.5625rem !important;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
     margin-top: var(--space-4) !important;
     margin-bottom: 0 !important;
-    opacity: 0.5;
+    opacity: 0.4;
+    color: var(--paper) !important;
   }
 
   .sr-only {
@@ -805,12 +1074,11 @@ const atlasRegions = [
 
   @media (max-width: 900px) {
     .fav-grid { grid-template-columns: repeat(2, 1fr); grid-template-rows: auto; }
-    .fav-grid .fav-card { aspect-ratio: 3/4; height: 280px; }
+    .fav-grid .fav-card { height: 300px; }
 
-    .editor-inner { grid-template-columns: 1fr; gap: var(--space-8); }
+    .editor-inner { grid-template-columns: 1fr; gap: var(--space-10); }
     .editor-aside { order: -1; }
-
-    .mega-inner { grid-template-columns: repeat(2, 1fr); }
+    .editor-quote-wrap { padding-left: 0; }
   }
 
   @media (max-width: 640px) {
@@ -818,12 +1086,15 @@ const atlasRegions = [
     .strip-card--hero { grid-column: span 1; }
 
     .fav-grid { grid-template-columns: 1fr; }
-    .fav-grid .fav-card { height: 240px; }
+    .fav-grid .fav-card { height: 260px; }
 
     .routes-grid { grid-template-columns: 1fr; }
     .themes-grid { grid-template-columns: repeat(2, 1fr); }
 
     .nl-form { flex-direction: column; }
     .nl-submit { width: 100%; }
+
+    .region-spotlight { min-height: 520px; padding: var(--space-16) 0; }
+    .spotlight-region { font-size: clamp(2.75rem, 2rem + 4vw, 4rem); }
   }
 </style>

@@ -9,35 +9,122 @@ const { brand } = Astro.props;
 ---
 
 <footer class="site-footer">
-  <div class="container footer-grid">
+  <div class="footer-top container">
+    <!-- Brand column -->
     <div class="footer-col footer-brand">
-      <span class="footer-logo">{brand.name}</span>
-      <p>{brand.tagline}. Persoonlijke verhalen uit de mooiste wijnstreken ter wereld.</p>
+      <a href="#" class="footer-logo-link" aria-label={brand.name}>
+        <svg class="footer-logo-mark" width="18" height="22" viewBox="0 0 20 26" fill="none" aria-hidden="true">
+          <path d="M10 1C10 1 1 7.5 1 15a9 9 0 0 0 18 0C19 7.5 10 1 10 1Z" stroke="currentColor" stroke-width="1.25" fill="none"/>
+          <path d="M10 24v-5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>
+          <path d="M6.5 25.5h7" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>
+        </svg>
+        <span class="footer-logo">{brand.name}</span>
+      </a>
+      <p class="footer-tagline">{brand.tagline}. Persoonlijke verhalen uit de mooiste wijnstreken ter wereld.</p>
+      <div class="footer-social">
+        {brand.socialInstagram && (
+          <a
+            href={`https://instagram.com/${brand.socialInstagram}`}
+            class="social-link"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Instagram"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <rect x="2" y="2" width="20" height="20" rx="5" stroke="currentColor" stroke-width="1.5"/>
+              <circle cx="12" cy="12" r="4.5" stroke="currentColor" stroke-width="1.5"/>
+              <circle cx="17.5" cy="6.5" r="1" fill="currentColor"/>
+            </svg>
+          </a>
+        )}
+        {brand.socialPinterest && (
+          <a
+            href={`https://pinterest.com/${brand.socialPinterest}`}
+            class="social-link"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Pinterest"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/>
+              <path d="M9.5 15.5c.5-1.5 1-3 1.5-4.5-.3-.6-.5-1.3-.3-1.9.3-1 1.5-1 1.8-.1.2.7-.3 1.7-.6 2.5.4.8 1.4.9 2.1.4 1.3-.9 1.5-2.8.7-4-1-1.5-3-1.8-4.5-.9-1.7 1-2 3.2-.9 4.8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </a>
+        )}
+      </div>
     </div>
+
+    <!-- Ontdek column -->
     <div class="footer-col">
       <h4>Ontdek</h4>
       <ul>
         <li><a href="#">Home</a></li>
         <li><a href="#">Artikelen</a></li>
         <li><a href="#">Reisroutes</a></li>
+        <li><a href="#">Proefnotities</a></li>
+        <li><a href="#">Wijnstreken</a></li>
       </ul>
     </div>
+
+    <!-- Streken column -->
+    <div class="footer-col">
+      <h4>Streken</h4>
+      <ul>
+        <li><a href="#">Italië</a></li>
+        <li><a href="#">Frankrijk</a></li>
+        <li><a href="#">Spanje</a></li>
+        <li><a href="#">Duitsland</a></li>
+        <li><a href="#">Opkomend</a></li>
+      </ul>
+    </div>
+
+    <!-- Juridisch column -->
     <div class="footer-col">
       <h4>Juridisch</h4>
       <ul>
-        <li><a href="#">Privacy</a></li>
-        <li><a href="#">Voorwaarden</a></li>
+        <li><a href="/privacy/">Privacy</a></li>
+        <li><a href="#">Algemene voorwaarden</a></li>
+        <li><a href="/cookies/">Cookies</a></li>
+        <li><a href="/affiliate-verklaring/">Affiliate</a></li>
       </ul>
       <p class="affiliate-footer-note">
-        Deze site bevat affiliate-links. Bij aankoop via onze links ontvangen wij een commissie, zonder extra kosten voor jou.
+        Deze site bevat affiliate-links. Bij aankoop via onze links ontvangen wij een kleine commissie, zonder extra kosten voor jou.
       </p>
     </div>
   </div>
+
+  <!-- Newsletter micro-bar -->
+  <div class="footer-newsletter">
+    <div class="container footer-newsletter-inner">
+      <p class="footer-nl-text">
+        <span class="footer-nl-label">Nieuwsbrief</span>
+        Maandelijks de beste verhalen in je inbox.
+      </p>
+      <form class="footer-nl-form" action="#nieuwsbrief" method="get">
+        <label for="footer-email" class="sr-only">E-mailadres</label>
+        <input
+          type="email"
+          id="footer-email"
+          name="email"
+          placeholder="jouw@email.nl"
+          autocomplete="email"
+          class="footer-nl-input"
+        />
+        <button type="submit" class="btn btn-primary footer-nl-btn">Aanmelden</button>
+      </form>
+    </div>
+  </div>
+
   <div class="footer-divider container">
     <hr />
   </div>
+
   <div class="container footer-bottom">
-    <p>&copy; {new Date().getFullYear()} {brand.name}. Alle rechten voorbehouden.</p>
+    <p>&copy; {new Date().getFullYear()} {brand.name}</p>
+    <p class="footer-bottom-separator">·</p>
+    <p>Alle rechten voorbehouden</p>
+    <p class="footer-bottom-separator">·</p>
+    <p>Gemaakt met passie voor wijn en reizen</p>
   </div>
 </footer>
 
@@ -45,45 +132,83 @@ const { brand } = Astro.props;
   .site-footer {
     background: var(--deep-night);
     color: var(--stone-light);
-    padding: var(--space-16) 0 var(--space-6);
-    margin-top: var(--space-24);
+    padding-top: var(--space-16);
+    margin-top: var(--space-32);
     font-size: 0.875rem;
   }
 
-  .footer-grid {
+  /* ── Top grid ─────────────────────────────────────── */
+  .footer-top {
     display: grid;
-    grid-template-columns: 2fr 1fr 1fr;
-    gap: var(--space-8);
-    margin-bottom: var(--space-8);
+    grid-template-columns: 2fr 1fr 1fr 1.5fr;
+    gap: var(--space-10);
+    padding-bottom: var(--space-12);
   }
 
-  .footer-brand p {
-    margin-top: var(--space-3);
-    line-height: 1.6;
-    max-width: 32ch;
-    color: var(--stone);
-  }
-
-  .footer-logo {
-    font-family: var(--font-display);
-    font-size: 1.5rem;
-    font-style: italic;
-    font-weight: 400;
-    color: var(--warm-cream);
-  }
-
-  .footer-col h4 {
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--aged-gold);
+  /* ── Brand column ─────────────────────────────────── */
+  .footer-logo-link {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-3);
+    text-decoration: none;
     margin-bottom: var(--space-4);
   }
 
-  .footer-col ul { list-style: none; }
+  .footer-logo-mark { color: var(--rule); }
 
+  .footer-logo {
+    font-family: var(--font-display);
+    font-size: 1.375rem;
+    font-style: italic;
+    font-weight: 400;
+    color: var(--warm-cream);
+    letter-spacing: -0.01em;
+  }
+
+  .footer-tagline {
+    font-family: var(--font-body);
+    line-height: 1.65;
+    max-width: 26ch;
+    color: var(--stone);
+    font-size: 0.9375rem;
+    margin-bottom: var(--space-6);
+  }
+
+  .footer-social {
+    display: flex;
+    gap: var(--space-3);
+  }
+
+  .social-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border: 1px solid rgba(196, 164, 85, 0.2);
+    border-radius: 50%;
+    color: var(--stone-light);
+    text-decoration: none;
+    transition: all var(--duration-fast) var(--ease-out);
+  }
+  .social-link:hover {
+    border-color: var(--rule);
+    color: var(--rule);
+    background: rgba(196, 164, 85, 0.08);
+  }
+
+  /* ── Nav columns ──────────────────────────────────── */
+  .footer-col h4 {
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: var(--rule);
+    margin-bottom: var(--space-5);
+  }
+
+  .footer-col ul { list-style: none; }
   .footer-col li { margin-bottom: var(--space-2); }
 
   .footer-col a {
@@ -91,30 +216,126 @@ const { brand } = Astro.props;
     font-family: var(--font-ui);
     font-size: 0.875rem;
     transition: color var(--duration-fast);
+    text-decoration: none;
   }
   .footer-col a:hover { color: var(--warm-cream); }
 
   .affiliate-footer-note {
-    margin-top: var(--space-4);
-    font-size: 0.75rem;
-    line-height: 1.6;
-    opacity: 0.6;
+    margin-top: var(--space-5);
+    font-size: 0.6875rem;
+    line-height: 1.65;
+    opacity: 0.55;
+    font-family: var(--font-ui);
+  }
+
+  /* ── Newsletter bar ───────────────────────────────── */
+  .footer-newsletter {
+    border-top: 1px solid rgba(196, 164, 85, 0.12);
+    border-bottom: 1px solid rgba(196, 164, 85, 0.12);
+    padding: var(--space-5) 0;
+    background: rgba(196, 164, 85, 0.04);
+  }
+
+  .footer-newsletter-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-6);
+  }
+
+  .footer-nl-text {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-3);
+    font-family: var(--font-body);
+    font-size: 0.9375rem;
+    color: rgba(251, 247, 239, 0.65);
+    white-space: nowrap;
+  }
+
+  .footer-nl-label {
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--rule);
+  }
+
+  .footer-nl-form {
+    display: flex;
+    gap: var(--space-3);
+    flex-shrink: 0;
+  }
+
+  .footer-nl-input {
+    height: 2.5rem;
+    padding: 0 var(--space-4);
+    border: 1px solid rgba(196, 164, 85, 0.25);
+    background: rgba(251, 247, 239, 0.05);
+    color: var(--paper);
+    font-family: var(--font-ui);
+    font-size: 0.875rem;
+    border-radius: var(--radius-sm);
+    outline: none;
+    min-width: 220px;
+    transition: border-color var(--duration-fast) var(--ease-out);
+  }
+  .footer-nl-input::placeholder { color: rgba(251, 247, 239, 0.3); }
+  .footer-nl-input:focus { border-color: var(--rule); }
+
+  .footer-nl-btn {
+    height: 2.5rem;
+    padding: 0 var(--space-5);
+    font-size: 0.6875rem;
+    letter-spacing: 0.08em;
+  }
+
+  /* ── Bottom bar ───────────────────────────────────── */
+  .footer-divider {
+    padding-top: var(--space-6);
   }
 
   .footer-divider hr {
     border: none;
-    border-top: 1px solid rgba(184, 149, 90, 0.2);
+    border-top: 1px solid rgba(196, 164, 85, 0.12);
   }
 
   .footer-bottom {
-    padding-top: var(--space-6);
-    text-align: center;
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    color: var(--stone);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-3);
+    padding: var(--space-5) 0 var(--space-8);
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: rgba(138, 122, 108, 0.6);
   }
 
-  @media (max-width: 768px) {
-    .footer-grid { grid-template-columns: 1fr; gap: var(--space-6); }
+  .footer-bottom-separator { opacity: 0.4; }
+
+  .sr-only {
+    position: absolute; width: 1px; height: 1px;
+    padding: 0; margin: -1px; overflow: hidden;
+    clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+  }
+
+  /* ── Responsive ──────────────────────────────────── */
+  @media (max-width: 1024px) {
+    .footer-top { grid-template-columns: 1fr 1fr; row-gap: var(--space-8); }
+    .footer-brand { grid-column: span 2; }
+
+    .footer-newsletter-inner { flex-direction: column; align-items: flex-start; }
+    .footer-nl-form { width: 100%; }
+    .footer-nl-input { flex: 1; min-width: 0; }
+  }
+
+  @media (max-width: 640px) {
+    .footer-top { grid-template-columns: 1fr; }
+    .footer-brand { grid-column: span 1; }
+    .footer-bottom { flex-direction: column; gap: var(--space-2); text-align: center; }
+    .footer-bottom-separator { display: none; }
   }
 </style>

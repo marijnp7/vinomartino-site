@@ -48,10 +48,16 @@ const dateStr = pubDate
   description={description}
   canonicalUrl={canonicalUrl}
 >
+  <!-- Reading progress bar -->
+  <div class="reading-progress" id="reading-progress" aria-hidden="true">
+    <div class="reading-progress-bar" id="reading-progress-bar"></div>
+  </div>
+
   <!-- Hero image -->
   {heroImage && (
     <div class="article-hero">
-      <img src={heroImage} alt={title} loading="eager" />
+      <img src={heroImage} alt={title} loading="eager" fetchpriority="high" />
+      <div class="article-hero-overlay"></div>
     </div>
   )}
 
@@ -61,7 +67,12 @@ const dateStr = pubDate
     <aside class="article-toc" aria-label="Inhoudsopgave">
       {toc.length > 0 && (
         <div class="toc-inner" id="toc-inner">
-          <span class="toc-label">In dit artikel</span>
+          <button class="toc-label" aria-expanded="true">
+            In dit artikel
+            <svg class="toc-chevron" width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
+              <path d="M2 3.5l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </button>
           <nav aria-label="Inhoudsopgave">
             <ul class="toc-list" role="list">
               {toc.map((entry) => (
@@ -81,10 +92,11 @@ const dateStr = pubDate
         {pillar && <span class="article-pillar">{pillar}</span>}
         <h1 id="article-title">{title}</h1>
         <p class="article-byline">
-          Door {author}
-          {dateStr && <><span class="byline-sep">—</span><time datetime={pubDate}>{dateStr}</time></>}
-          {readTime && <><span class="byline-sep">—</span><span>{readTime} min lezen</span></>}
+          <span class="byline-author">Door {author}</span>
+          {dateStr && <><span class="byline-sep" aria-hidden="true">·</span><time datetime={pubDate}>{dateStr}</time></>}
+          {readTime && <><span class="byline-sep" aria-hidden="true">·</span><span>{readTime}&thinsp;min lezen</span></>}
         </p>
+        <div class="article-header-rule" aria-hidden="true"></div>
       </header>
 
       <div class="article-content">
@@ -100,17 +112,45 @@ const dateStr = pubDate
 </BrandLayout>
 
 <style>
+  /* ── Reading progress ────────────────────────────── */
+  .reading-progress {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    z-index: 200;
+    background: transparent;
+  }
+
+  .reading-progress-bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--burgundy), var(--rule));
+    transition: width 100ms linear;
+  }
+
   /* ── Hero image ──────────────────────────────────── */
   .article-hero {
     width: 100%;
-    max-height: 520px;
+    max-height: 560px;
     overflow: hidden;
+    position: relative;
   }
   .article-hero img {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    max-height: 520px;
+    max-height: 560px;
+    filter: saturate(105%) brightness(99%);
+  }
+  .article-hero-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 30%;
+    background: linear-gradient(to top, var(--paper), transparent);
   }
 
   /* ── 3-col grid ──────────────────────────────────── */
@@ -120,7 +160,7 @@ const dateStr = pubDate
     grid-template-areas: 'toc body aside';
     gap: var(--space-12);
     align-items: start;
-    padding-top: var(--space-10);
+    padding-top: var(--space-12);
     padding-bottom: var(--space-24);
   }
 
@@ -128,32 +168,53 @@ const dateStr = pubDate
   .article-toc {
     grid-area: toc;
     position: sticky;
-    top: calc(var(--space-16) + var(--space-4));
+    top: calc(var(--header-height) + var(--space-6));
   }
 
   .toc-inner {
-    padding: var(--space-5);
     border: 1px solid var(--rule-20);
     background: var(--paperDeep);
+    overflow: hidden;
   }
 
   .toc-label {
-    display: block;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    padding: var(--space-4) var(--space-5);
     font-family: var(--font-mono);
     font-size: 0.5625rem;
     font-weight: 500;
     text-transform: uppercase;
-    letter-spacing: 0.18em;
+    letter-spacing: 0.2em;
     color: var(--rust);
-    margin-bottom: var(--space-4);
-    padding-bottom: var(--space-3);
+    background: none;
+    border: none;
     border-bottom: 1px solid var(--rule-20);
+    cursor: pointer;
+    transition: color var(--duration-fast) var(--ease-out);
+  }
+  .toc-label:hover { color: var(--burgundy); }
+
+  .toc-chevron {
+    transition: transform var(--duration-fast) var(--ease-out);
+    flex-shrink: 0;
+  }
+  .toc-inner[data-collapsed] .toc-chevron { transform: rotate(-90deg); }
+
+  .toc-list {
+    list-style: none;
+    padding: var(--space-3) var(--space-3) var(--space-4);
+    display: flex;
+    flex-direction: column;
+    gap: 0;
   }
 
-  .toc-list { list-style: none; display: flex; flex-direction: column; gap: var(--space-1); }
+  .toc-inner[data-collapsed] .toc-list { display: none; }
 
   .toc-item { padding: 0; }
-  .toc-item--sub .toc-link { padding-left: var(--space-4); font-size: 0.8125rem; }
+  .toc-item--sub .toc-link { padding-left: var(--space-5); font-size: 0.8125rem; }
 
   .toc-link {
     display: block;
@@ -161,42 +222,50 @@ const dateStr = pubDate
     font-size: 0.875rem;
     color: var(--inkSoft);
     text-decoration: none;
-    padding: var(--space-1) 0;
+    padding: var(--space-2) var(--space-3);
     line-height: 1.4;
-    transition: color var(--duration-fast) var(--ease-out);
+    transition:
+      color var(--duration-fast) var(--ease-out),
+      background var(--duration-fast) var(--ease-out);
     border-left: 2px solid transparent;
-    padding-left: var(--space-3);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
   }
-  .toc-link:hover,
+  .toc-link:hover { color: var(--burgundy); background: var(--burgundy-10); }
   .toc-link.active {
     color: var(--burgundy);
     border-left-color: var(--burgundy);
+    background: var(--burgundy-10);
+    font-weight: 500;
   }
 
-  /* ── Article body ────────────────────────────────── */
+  /* ── Article header ──────────────────────────────── */
   .article-body { grid-area: body; min-width: 0; }
 
   .article-header { margin-bottom: var(--space-10); }
 
   .article-pillar {
-    display: block;
+    display: inline-block;
     font-family: var(--font-mono);
-    font-size: 0.625rem;
+    font-size: 0.5625rem;
     font-weight: 500;
     text-transform: uppercase;
-    letter-spacing: 0.18em;
+    letter-spacing: 0.2em;
     color: var(--rust);
-    margin-bottom: var(--space-4);
+    margin-bottom: var(--space-5);
+    padding: var(--space-1) var(--space-3);
+    background: var(--rust-10);
+    border-radius: var(--radius-sm);
   }
 
   .article-header h1 {
     font-family: var(--font-display);
-    font-size: clamp(2rem, 1.6rem + 1.5vw, 3rem);
+    font-size: clamp(2.125rem, 1.7rem + 1.5vw, 3.25rem);
     font-style: italic;
     font-weight: 400;
     color: var(--ink);
-    line-height: 1.15;
+    line-height: 1.1;
     margin-bottom: var(--space-5);
+    letter-spacing: -0.025em;
   }
 
   .article-byline {
@@ -210,16 +279,26 @@ const dateStr = pubDate
     align-items: center;
     gap: var(--space-3);
     flex-wrap: wrap;
+    opacity: 0.75;
   }
+
+  .byline-author { color: var(--inkSoft); }
   .byline-sep { opacity: 0.4; }
 
-  /* Article prose */
+  .article-header-rule {
+    margin-top: var(--space-6);
+    height: 1px;
+    background: linear-gradient(to right, var(--rule), transparent);
+  }
+
+  /* ── Article prose ───────────────────────────────── */
   .article-content :global(p) {
     font-family: var(--font-body);
     font-size: 1.0625rem;
-    line-height: 1.8;
+    line-height: 1.82;
     color: var(--ink);
     margin-bottom: var(--space-6);
+    font-weight: 300;
   }
 
   .article-content :global(h2) {
@@ -229,55 +308,64 @@ const dateStr = pubDate
     font-weight: 400;
     color: var(--ink);
     margin-top: var(--space-12);
-    margin-bottom: var(--space-4);
-    line-height: 1.2;
+    margin-bottom: var(--space-5);
+    line-height: 1.15;
+    letter-spacing: -0.015em;
+    padding-bottom: var(--space-4);
+    border-bottom: 1px solid var(--rule-20);
   }
 
   .article-content :global(h3) {
     font-family: var(--font-display);
-    font-size: 1.25rem;
+    font-size: 1.3125rem;
     font-style: italic;
     font-weight: 400;
     color: var(--ink);
     margin-top: var(--space-8);
     margin-bottom: var(--space-3);
     line-height: 1.25;
+    letter-spacing: -0.01em;
   }
 
   .article-content :global(ul),
   .article-content :global(ol) {
     font-family: var(--font-body);
     font-size: 1rem;
-    line-height: 1.75;
+    line-height: 1.78;
     color: var(--inkSoft);
     padding-left: var(--space-6);
     margin-bottom: var(--space-6);
+    font-weight: 300;
   }
 
   .article-content :global(li) { margin-bottom: var(--space-2); }
 
   .article-content :global(blockquote) {
-    border-left: 2px solid var(--rule);
-    padding: var(--space-4) var(--space-6);
-    margin: var(--space-8) 0;
+    border-left: 3px solid var(--rule);
+    padding: var(--space-5) var(--space-8);
+    margin: var(--space-10) 0;
     background: var(--paperDeep);
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+    position: relative;
   }
 
   .article-content :global(blockquote p) {
     font-family: var(--font-display);
-    font-size: 1.1875rem;
+    font-size: 1.25rem;
     font-style: italic;
     color: var(--ink);
     margin-bottom: 0;
+    line-height: 1.55;
   }
 
   .article-content :global(code) {
     font-family: var(--font-mono);
     font-size: 0.875em;
     background: var(--paperDeep);
-    padding: 0.15em 0.4em;
-    border-radius: 2px;
+    padding: 0.15em 0.45em;
+    border-radius: var(--radius-sm);
     color: var(--rust);
+    border: 1px solid var(--rule-20);
   }
 
   .article-content :global(strong) {
@@ -285,20 +373,32 @@ const dateStr = pubDate
     color: var(--ink);
   }
 
+  .article-content :global(a) {
+    color: var(--burgundy);
+    text-decoration: underline;
+    text-decoration-color: var(--burgundy-20);
+    text-underline-offset: 3px;
+    transition: text-decoration-color var(--duration-fast);
+  }
+  .article-content :global(a:hover) {
+    text-decoration-color: var(--burgundy);
+  }
+
   .article-content :global(.practical-info) {
     background: var(--paperDeep);
     border: 1px solid var(--rule-20);
     border-left: 3px solid var(--vine);
-    padding: var(--space-6);
+    padding: var(--space-6) var(--space-7, 1.75rem);
     margin: var(--space-8) 0;
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
   }
 
   .article-content :global(.practical-info h3) {
     font-family: var(--font-mono);
-    font-size: 0.6875rem;
+    font-size: 0.5625rem;
     font-weight: 500;
     text-transform: uppercase;
-    letter-spacing: 0.15em;
+    letter-spacing: 0.2em;
     color: var(--vine);
     margin-top: 0;
     margin-bottom: var(--space-4);
@@ -309,27 +409,23 @@ const dateStr = pubDate
   .article-aside {
     grid-area: aside;
     position: sticky;
-    top: calc(var(--space-16) + var(--space-4));
+    top: calc(var(--header-height) + var(--space-6));
     min-width: 0;
   }
 
   .article-aside :global(.margin-note) {
     font-family: var(--font-body);
     font-size: 0.875rem;
-    line-height: 1.6;
+    line-height: 1.65;
     color: var(--inkSoft);
     font-style: italic;
     padding-left: var(--space-4);
     border-left: 1px solid var(--rule-20);
     margin-bottom: var(--space-6);
+    font-weight: 300;
   }
 
-  /* ── TOC active highlight ─────────────────────────── */
-  /* Driven by scroll via Intersection Observer */
-
   /* ── Responsive ──────────────────────────────────── */
-
-  /* Tablet: 2-col (TOC + body, no aside) */
   @media (max-width: 1200px) {
     .article-grid {
       grid-template-columns: var(--article-toc-width) 1fr;
@@ -340,7 +436,6 @@ const dateStr = pubDate
     .article-aside { display: none; }
   }
 
-  /* Mobile: 1-col, TOC collapsible above body */
   @media (max-width: 768px) {
     .article-grid {
       grid-template-columns: 1fr;
@@ -356,29 +451,23 @@ const dateStr = pubDate
       border-bottom: 1px solid var(--rule-20);
       padding-bottom: var(--space-6);
     }
-
-    .toc-inner {
-      max-height: 3rem;
-      overflow: hidden;
-      transition: max-height var(--duration-base) var(--ease-out);
-    }
-    .toc-inner.toc-expanded { max-height: 60vh; }
-
-    .toc-label {
-      cursor: pointer;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 0;
-      padding-bottom: 0;
-      border-bottom: none;
-    }
-    .toc-inner:not(.toc-expanded) .toc-list { opacity: 0; }
-    .toc-inner.toc-expanded .toc-label { margin-bottom: var(--space-4); padding-bottom: var(--space-3); border-bottom: 1px solid var(--rule-20); }
   }
 </style>
 
 <script>
+  // Reading progress bar
+  const bar = document.getElementById('reading-progress-bar');
+  const article = document.querySelector('.article-body');
+  if (bar && article) {
+    window.addEventListener('scroll', () => {
+      const rect = article.getBoundingClientRect();
+      const articleHeight = (article as HTMLElement).offsetHeight;
+      const scrolled = Math.max(0, -rect.top);
+      const pct = Math.min(100, (scrolled / articleHeight) * 100);
+      bar.style.width = `${pct}%`;
+    }, { passive: true });
+  }
+
   // TOC active-link highlight via Intersection Observer
   const headings = document.querySelectorAll<HTMLElement>('.article-content h2[id], .article-content h3[id]');
   const tocLinks = document.querySelectorAll<HTMLAnchorElement>('.toc-link');
@@ -394,15 +483,17 @@ const dateStr = pubDate
           }
         });
       },
-      { rootMargin: '0px 0px -70% 0px', threshold: 0 }
+      { rootMargin: '0px 0px -65% 0px', threshold: 0 }
     );
     headings.forEach((h) => observer.observe(h));
   }
 
-  // Mobile TOC toggle
-  const tocInner = document.getElementById('toc-inner') as HTMLElement | null;
+  // TOC collapse toggle (desktop)
+  const tocInner = document.getElementById('toc-inner');
   const tocLabel = tocInner?.querySelector('.toc-label');
   tocLabel?.addEventListener('click', () => {
-    tocInner?.classList.toggle('toc-expanded');
+    const collapsed = tocInner?.hasAttribute('data-collapsed');
+    collapsed ? tocInner?.removeAttribute('data-collapsed') : tocInner?.setAttribute('data-collapsed', '');
+    tocLabel.setAttribute('aria-expanded', collapsed ? 'true' : 'false');
   });
 </script>

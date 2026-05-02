@@ -46,10 +46,11 @@ const megaRegions: Record<string, { name: string; slug: string }[]> = {
 <header class="site-header" id="site-header">
   <nav class="container header-nav" aria-label="Hoofdnavigatie">
     <a href={base} class="logo" aria-label={brand.name}>
-      <svg class="logo-mark" width="22" height="28" viewBox="0 0 22 28" fill="none" aria-hidden="true">
-        <path d="M11 1C11 1 2 8 2 16a9 9 0 0 0 18 0C20 8 11 1 11 1Z" stroke="currentColor" stroke-width="1.5" fill="none"/>
-        <line x1="11" y1="25" x2="11" y2="20" stroke="currentColor" stroke-width="1.5"/>
-        <line x1="7" y1="27" x2="15" y2="27" stroke="currentColor" stroke-width="1.5"/>
+      <svg class="logo-mark" width="20" height="26" viewBox="0 0 20 26" fill="none" aria-hidden="true">
+        <path d="M10 1C10 1 1 7.5 1 15a9 9 0 0 0 18 0C19 7.5 10 1 10 1Z" stroke="currentColor" stroke-width="1.25" fill="none"/>
+        <path d="M10 24v-5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>
+        <path d="M6.5 25.5h7" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>
+        <path d="M5 13c0 0 1.5-2 5-2" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity="0.5"/>
       </svg>
       <span class="logo-text">{brand.name}</span>
     </a>
@@ -60,8 +61,8 @@ const megaRegions: Record<string, { name: string; slug: string }[]> = {
         <li class="nav-item has-mega" id="nav-streken">
           <button class="nav-link nav-trigger" aria-expanded="false" aria-controls="mega-streken">
             Streken
-            <svg class="nav-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-              <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <svg class="nav-chevron" width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
+              <path d="M2 3.5l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </button>
           <div class="mega-menu" id="mega-streken" role="region" aria-label="Wijnstreken">
@@ -108,11 +109,19 @@ const megaRegions: Record<string, { name: string; slug: string }[]> = {
   const hamburger = document.getElementById('nav-hamburger')!;
   const navMain = document.getElementById('nav-main')!;
 
+  // Scroll-aware header shadow
+  function updateScroll() {
+    header.toggleAttribute('data-scrolled', window.scrollY > 30);
+  }
+  window.addEventListener('scroll', updateScroll, { passive: true });
+  updateScroll();
+
   // Hamburger toggle
   hamburger.addEventListener('click', () => {
     const open = hamburger.getAttribute('aria-expanded') === 'true';
     hamburger.setAttribute('aria-expanded', String(!open));
     navMain.classList.toggle('nav-open', !open);
+    document.body.style.overflow = !open ? 'hidden' : '';
   });
 
   // Mega-menu hover (desktop) + click (mobile)
@@ -129,15 +138,12 @@ const megaRegions: Record<string, { name: string; slug: string }[]> = {
     mega.classList.remove('mega-visible');
   }
 
-  // Hover (only on non-touch)
   navStreken.addEventListener('mouseenter', openMega);
   navStreken.addEventListener('mouseleave', closeMega);
 
-  // Click toggle (works on touch too)
   trigger.addEventListener('click', (e) => {
     e.stopPropagation();
-    const expanded = trigger.getAttribute('aria-expanded') === 'true';
-    expanded ? closeMega() : openMega();
+    trigger.getAttribute('aria-expanded') === 'true' ? closeMega() : openMega();
   });
 
   document.addEventListener('click', closeMega);
@@ -146,13 +152,21 @@ const megaRegions: Record<string, { name: string; slug: string }[]> = {
 
 <style>
   .site-header {
-    border-bottom: 1px solid var(--rule-20);
-    padding: var(--space-4) 0;
+    padding: 0;
     position: sticky;
     top: 0;
     z-index: 100;
-    backdrop-filter: blur(12px);
-    background: rgba(250, 245, 233, 0.94);
+    backdrop-filter: blur(16px) saturate(1.4);
+    background: rgba(251, 247, 239, 0.92);
+    border-bottom: 1px solid transparent;
+    transition:
+      border-color var(--duration-base) var(--ease-out),
+      box-shadow var(--duration-base) var(--ease-out);
+  }
+
+  .site-header[data-scrolled] {
+    border-bottom-color: var(--rule-20);
+    box-shadow: 0 1px 24px rgba(26, 20, 16, 0.07);
   }
 
   .header-nav {
@@ -160,9 +174,10 @@ const megaRegions: Record<string, { name: string; slug: string }[]> = {
     align-items: center;
     justify-content: space-between;
     gap: var(--space-8);
+    height: var(--header-height);
   }
 
-  /* Logo */
+  /* ── Logo ─────────────────────────────────────────── */
   .logo {
     display: flex;
     align-items: center;
@@ -170,19 +185,24 @@ const megaRegions: Record<string, { name: string; slug: string }[]> = {
     text-decoration: none;
     flex-shrink: 0;
   }
-  .logo-mark { color: var(--burgundy); flex-shrink: 0; }
+  .logo-mark {
+    color: var(--burgundy);
+    flex-shrink: 0;
+    transition: color var(--duration-fast) var(--ease-out);
+  }
   .logo-text {
     font-family: var(--font-display);
-    font-size: 1.4375rem;
+    font-size: 1.375rem;
     font-style: italic;
     font-weight: 400;
     color: var(--ink);
-    letter-spacing: -0.01em;
+    letter-spacing: -0.015em;
     transition: color var(--duration-fast) var(--ease-out);
   }
+  .logo:hover .logo-mark { color: var(--burgundyDeep); }
   .logo:hover .logo-text { color: var(--burgundy); }
 
-  /* Main nav */
+  /* ── Main nav ─────────────────────────────────────── */
   .nav-main {
     display: flex;
     align-items: center;
@@ -193,17 +213,19 @@ const megaRegions: Record<string, { name: string; slug: string }[]> = {
     display: flex;
     list-style: none;
     align-items: center;
-    gap: var(--space-1);
+    gap: 0;
   }
 
   .nav-link {
     display: inline-flex;
     align-items: center;
     gap: var(--space-1);
-    padding: var(--space-2) var(--space-3);
+    padding: var(--space-2) var(--space-4);
     font-family: var(--font-ui);
-    font-size: 0.9375rem;
+    font-size: 0.8125rem;
     font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
     color: var(--inkSoft);
     background: none;
     border: none;
@@ -213,21 +235,39 @@ const megaRegions: Record<string, { name: string; slug: string }[]> = {
                 background var(--duration-fast) var(--ease-out);
     white-space: nowrap;
     text-decoration: none;
+    position: relative;
   }
-  .nav-link:hover,
-  .nav-trigger[aria-expanded="true"] {
-    color: var(--ink);
-    background: var(--paperDeep);
+  .nav-link::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: var(--space-4);
+    right: var(--space-4);
+    height: 1.5px;
+    background: var(--burgundy);
+    transform: scaleX(0);
+    transition: transform var(--duration-fast) var(--ease-out);
+    transform-origin: center;
   }
+  .nav-link:hover { color: var(--ink); background: transparent; }
+  .nav-link:hover::after { transform: scaleX(1); }
+  .nav-trigger[aria-expanded="true"] { color: var(--ink); }
+  .nav-trigger[aria-expanded="true"]::after { transform: scaleX(1); }
 
   .nav-chevron {
     transition: transform var(--duration-fast) var(--ease-out);
+    margin-top: 1px;
   }
   .nav-trigger[aria-expanded="true"] .nav-chevron {
     transform: rotate(180deg);
   }
 
-  .nav-cta { font-size: 0.875rem; height: 2.375rem; padding: 0 var(--space-5); }
+  .nav-cta {
+    font-size: 0.75rem;
+    height: 2.25rem;
+    padding: 0 var(--space-5);
+    letter-spacing: 0.06em;
+  }
 
   /* ── Mega-menu ───────────────────────────────────────── */
   .has-mega { position: static; }
@@ -238,16 +278,17 @@ const megaRegions: Record<string, { name: string; slug: string }[]> = {
     left: 0;
     right: 0;
     background: var(--paper);
-    border-top: 1px solid var(--rule-20);
-    border-bottom: 2px solid var(--rule-20);
+    border-top: 2px solid var(--burgundy);
+    border-bottom: 1px solid var(--rule-20);
     padding: var(--space-8) 0 var(--space-10);
     opacity: 0;
     visibility: hidden;
-    transform: translateY(-6px);
+    transform: translateY(-8px);
     transition: opacity var(--duration-base) var(--ease-out),
                 transform var(--duration-base) var(--ease-out),
                 visibility 0s var(--duration-base);
     pointer-events: none;
+    box-shadow: 0 12px 40px rgba(26, 20, 16, 0.10);
   }
 
   .mega-menu.mega-visible {
@@ -269,11 +310,11 @@ const megaRegions: Record<string, { name: string; slug: string }[]> = {
   .mega-country {
     display: block;
     font-family: var(--font-mono);
-    font-size: 0.625rem;
+    font-size: 0.5625rem;
     font-weight: 500;
     text-transform: uppercase;
-    letter-spacing: 0.15em;
-    color: var(--rust);
+    letter-spacing: 0.2em;
+    color: var(--burgundy);
     margin-bottom: var(--space-4);
     padding-bottom: var(--space-3);
     border-bottom: 1px solid var(--rule-20);
@@ -286,11 +327,15 @@ const megaRegions: Record<string, { name: string; slug: string }[]> = {
     font-size: 0.9375rem;
     color: var(--inkSoft);
     text-decoration: none;
-    transition: color var(--duration-fast) var(--ease-out);
+    transition: color var(--duration-fast) var(--ease-out),
+                padding-left var(--duration-fast) var(--ease-out);
     display: block;
     padding: var(--space-1) 0;
   }
-  .mega-link:hover { color: var(--burgundy); }
+  .mega-link:hover {
+    color: var(--burgundy);
+    padding-left: var(--space-2);
+  }
 
   /* ── Hamburger ───────────────────────────────────────── */
   .nav-hamburger {
@@ -307,7 +352,7 @@ const megaRegions: Record<string, { name: string; slug: string }[]> = {
     width: 22px;
     height: 1.5px;
     background: var(--ink);
-    transition: transform var(--duration-fast) var(--ease-out),
+    transition: transform var(--duration-base) var(--ease-out),
                 opacity var(--duration-fast) var(--ease-out);
     border-radius: 1px;
   }
@@ -325,16 +370,18 @@ const megaRegions: Record<string, { name: string; slug: string }[]> = {
 
     .nav-main {
       display: none;
-      position: absolute;
-      top: 100%;
+      position: fixed;
+      top: var(--header-height);
       left: 0;
       right: 0;
+      bottom: 0;
       flex-direction: column;
       align-items: stretch;
       background: var(--paper);
-      border-bottom: 2px solid var(--rule-20);
-      padding: var(--space-4) var(--gutter) var(--space-6);
-      gap: var(--space-2);
+      border-top: 1px solid var(--rule-20);
+      padding: var(--space-6) var(--gutter) var(--space-8);
+      gap: var(--space-1);
+      overflow-y: auto;
     }
     .nav-main.nav-open { display: flex; }
 
@@ -344,7 +391,12 @@ const megaRegions: Record<string, { name: string; slug: string }[]> = {
       gap: 0;
     }
 
-    .nav-link { padding: var(--space-3) var(--space-2); font-size: 1rem; }
+    .nav-link {
+      padding: var(--space-4) var(--space-2);
+      font-size: 0.875rem;
+      border-bottom: 1px solid var(--rule-20);
+    }
+    .nav-link::after { display: none; }
 
     .mega-menu {
       position: static;
@@ -356,6 +408,7 @@ const megaRegions: Record<string, { name: string; slug: string }[]> = {
       transform: none;
       pointer-events: auto;
       display: none;
+      box-shadow: none;
     }
     .mega-menu.mega-visible { display: block; }
 
@@ -365,6 +418,10 @@ const megaRegions: Record<string, { name: string; slug: string }[]> = {
       padding: 0;
     }
 
-    .nav-cta { align-self: flex-start; margin-top: var(--space-4); }
+    .nav-cta { align-self: flex-start; margin-top: var(--space-6); }
+  }
+
+  @media (max-width: 480px) {
+    .mega-inner { grid-template-columns: 1fr; }
   }
 </style>
