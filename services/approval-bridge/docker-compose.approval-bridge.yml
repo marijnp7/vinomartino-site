@@ -1,0 +1,26 @@
+version: "3.8"
+services:
+  approval-bridge:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: paperclip-approval-bridge-1
+    restart: unless-stopped
+    ports:
+      - "3201:3201"
+    environment:
+      - PAPERCLIP_API_URL=${PAPERCLIP_API_URL:-http://paperclip:3100}
+      - PAPERCLIP_API_KEY=${PAPERCLIP_API_KEY}
+      - PAPERCLIP_COMPANY_ID=${PAPERCLIP_COMPANY_ID}
+      - APPROVAL_BRIDGE_URL=http://paperclip-cos-bridge-1:3200/approval
+      - APPROVAL_HMAC_SECRET=${APPROVAL_HMAC_SECRET}
+      - CALLBACK_PORT=3201
+      - CALLBACK_PUBLIC_URL=http://paperclip-approval-bridge-1:3201
+      - POLL_INTERVAL_MS=30000
+      - LOG_LEVEL=info
+    networks:
+      - paperclip_default
+
+networks:
+  paperclip_default:
+    external: true
