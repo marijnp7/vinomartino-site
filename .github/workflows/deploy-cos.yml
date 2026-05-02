@@ -16,6 +16,7 @@ on:
     branches: [preview]
     paths:
       - 'services/cos-bridge/**'
+      - '.github/workflows/deploy-cos.yml'
   workflow_dispatch: {}
 
 concurrency:
@@ -90,6 +91,29 @@ jobs:
         run: |
           printf '%s\n' "$SETUP_SCRIPT" | ssh "$VPS" "bash -s"
 
+      - name: Diagnose VPS state
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          DIAG_SCRIPT: |
+            set -euo pipefail
+            echo "=== /opt/paperclip-cos/ contents ==="
+            ls -la /opt/paperclip-cos/ || echo "Directory not found"
+            echo ""
+            echo "=== bridge/ contents ==="
+            ls -la /opt/paperclip-cos/bridge/src/ 2>/dev/null || echo "bridge/src not found"
+            echo ""
+            echo "=== Docker version ==="
+            docker --version || echo "docker not found"
+            docker compose version 2>/dev/null || docker-compose --version 2>/dev/null || echo "compose not found"
+            echo ""
+            echo "=== Existing cos containers ==="
+            docker ps -a --filter "name=cos" --format "table {{.Names}}\t{{.Status}}\t{{.Image}}" 2>/dev/null || true
+            echo ""
+            echo "=== Docker networks ==="
+            docker network ls --filter "name=paperclip" --format "table {{.Name}}\t{{.Driver}}" 2>/dev/null || true
+        run: |
+          printf '%s\n' "$DIAG_SCRIPT" | ssh "$VPS" "bash -s"
+
       - name: Rebuild cos-bridge container
         env:
           VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
@@ -97,16 +121,27 @@ jobs:
             set -euo pipefail
             cd /opt/paperclip-cos
 
-            docker compose -f docker-compose.cos.yml up -d --build cos-bridge
+            # Use --no-deps to avoid pulling in the cos service (may not be buildable).
+            # The cos container should already be running from initial setup.
+            COMPOSE="docker compose"
+            if ! $COMPOSE version >/dev/null 2>&1; then
+              COMPOSE="docker-compose"
+            fi
+
+            echo "=== Building cos-bridge image ==="
+            $COMPOSE -f docker-compose.cos.yml build cos-bridge 2>&1
+
+            echo "=== Starting cos-bridge (--no-deps) ==="
+            $COMPOSE -f docker-compose.cos.yml up -d --no-deps cos-bridge 2>&1
 
             echo "Waiting 10s for container startup..."
             sleep 10
 
             echo "=== Container status ==="
-            docker compose -f docker-compose.cos.yml ps cos-bridge
+            $COMPOSE -f docker-compose.cos.yml ps cos-bridge 2>&1 || true
 
             echo "=== Recent logs ==="
-            docker compose -f docker-compose.cos.yml logs --tail=50 cos-bridge
+            $COMPOSE -f docker-compose.cos.yml logs --tail=50 cos-bridge 2>&1 || true
         run: |
           printf '%s\n' "$REBUILD_SCRIPT" | ssh "$VPS" "bash -s"
 
