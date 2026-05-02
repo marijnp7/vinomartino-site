@@ -86,7 +86,7 @@ jobs:
               fi
             }
 
-            add_if_missing "PAPERCLIP_API_URL" "http://paperclip-server-1:3100"
+            add_if_missing "PAPERCLIP_API_URL" "http://paperclip:3100"
             add_if_missing "PAPERCLIP_COMPANY_ID" "043c137d-f917-48ed-8268-62641a891212"
 
             # Docker --env-file passes values verbatim (no inline comment stripping).
