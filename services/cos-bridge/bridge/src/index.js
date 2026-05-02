@@ -393,7 +393,9 @@ async function classifyIntent(message, topicSlug) {
     }
     const data = await res.json();
     const rawText = data.content?.[0]?.text?.trim() ?? '{"intent":"read"}';
-    const parsed = JSON.parse(rawText);
+    // Strip markdown code fences that some models add despite "answer ONLY with JSON".
+    const jsonText = rawText.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '');
+    const parsed = JSON.parse(jsonText);
     const intent = parsed.intent === "write" ? "write" : "read";
     log.info({ intent, topicSlug, msgPreview: message.slice(0, 80) }, "classifyIntent");
     return { intent };
@@ -635,8 +637,15 @@ bot.on(message("text"), async (ctx) => {
   const rawMentionSlug = mention ? mention.slug : null;
   const targetAgent = resolveTargetAgent(topicSlug, rawMentionSlug);
 
-  // Classify intent via Haiku: 'write' → create issue for target agent, 'read' → answer in Telegram.
-  const { intent } = await classifyIntent(msgText, topicSlug);
+  // Explicit @<slug> to a non-CoS agent always creates a task (write), bypassing the classifier.
+  // This avoids a failure mode where classifier error → default "read" → falls back to CoS,
+  // which is confusing when the user explicitly targeted a specific agent.
+  const explicitAgentMention = targetAgent && rawMentionSlug && rawMentionSlug !== "cos";
+
+  // Classify intent via Haiku only when routing is topic-based (no explicit @-mention).
+  const { intent } = explicitAgentMention
+    ? { intent: "write" }
+    : await classifyIntent(msgText, topicSlug);
 
   await ctx.sendChatAction("typing");
 
