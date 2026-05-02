@@ -3,10 +3,17 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import { getCollection } from 'astro:content';
 import { getActiveBrand } from '../lib/brands';
 
+import { getLiveBrands } from '../lib/brands';
+
 const activeBrand = getActiveBrand();
 
 if (activeBrand) {
   return Astro.redirect(`/${activeBrand.defaultLocale}/`, 302);
+}
+
+const liveBrands = getLiveBrands();
+if (liveBrands.length === 1) {
+  return Astro.redirect(`/${liveBrands[0].slug}/${liveBrands[0].defaultLocale}/`, 302);
 }
 
 const posts = await getCollection('posts');
