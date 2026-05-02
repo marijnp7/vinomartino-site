@@ -15,6 +15,77 @@ export interface Article {
 
 const META_DESC_RE = /^\s*\*{0,2}Meta-description:?\*{0,2}\s*/i;
 
+// ── Local file fallback ────────────────────────────────────────────────────
+
+function parseFrontmatterValue(raw: string): unknown {
+  const v = raw.trim();
+  if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+    return v.slice(1, -1);
+  }
+  if (v.startsWith('[') && v.endsWith(']')) {
+    return v.slice(1, -1)
+      .split(',')
+      .map((s) => s.trim().replace(/^["']|["']$/g, ''))
+      .filter(Boolean);
+  }
+  return v;
+}
+
+function parseLocalFrontmatter(content: string): { data: Record<string, unknown>; body: string } {
+  const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
+  if (!match) return { data: {}, body: content };
+  const data: Record<string, unknown> = {};
+  for (const line of match[1].split('\n')) {
+    const colonIdx = line.indexOf(':');
+    if (colonIdx === -1) continue;
+    const key = line.slice(0, colonIdx).trim();
+    if (!key) continue;
+    data[key] = parseFrontmatterValue(line.slice(colonIdx + 1));
+  }
+  return { data, body: match[2] };
+}
+
+async function loadLocalArticles(): Promise<Article[]> {
+  try {
+    const { default: fs } = await import('fs');
+    const { default: path } = await import('path');
+    const { fileURLToPath } = await import('url');
+    const __dirname = path.dirname(fileURLToPath(import.meta.url));
+    const postsDir = path.resolve(__dirname, '../content/posts');
+    if (!fs.existsSync(postsDir)) return [];
+    const files = fs.readdirSync(postsDir).filter((f: string) => f.endsWith('.md'));
+    const articles: Article[] = [];
+    for (const file of files) {
+      const raw = fs.readFileSync(path.join(postsDir, file), 'utf-8');
+      const { data, body } = parseLocalFrontmatter(raw);
+      const slug = String(data['slug'] || file.replace(/\.md$/, ''));
+      const { body: cleanBody } = stripMetaDescriptionFromBody(body);
+      const bodyHtml = cleanBody ? await markdownToHtml(cleanBody) : '';
+      const description = String(data['description'] || data['summary'] || '');
+      articles.push({
+        slug,
+        title: String(data['title'] || ''),
+        description,
+        author: String(data['author'] || 'Martin'),
+        pubDate: String(data['date'] || new Date().toISOString().slice(0, 10)),
+        category: String(data['category'] || ''),
+        tags: (data['tags'] as string[]) || [],
+        heroImage: data['heroImage'] ? String(data['heroImage']) : null,
+        status: 'published',
+        metaTitle: String(data['metaTitle'] || data['title'] || ''),
+        metaDescription: String(data['metaDescription'] || description),
+        bodyHtml,
+      });
+    }
+    articles.sort((a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime());
+    console.log(`[loadArticles] loaded ${articles.length} articles from local files`);
+    return articles;
+  } catch (err) {
+    console.warn(`[loadArticles] local fallback failed: ${err instanceof Error ? err.message : err}`);
+    return [];
+  }
+}
+
 function stripMetaDescriptionFromBody(markdown: string): { body: string; extracted: string } {
   const lines = markdown.split('\n');
   const limit = Math.min(lines.length, 10);
@@ -68,8 +139,8 @@ function mapArticle(a: Record<string, unknown>, directusUrl: string, bodyHtml: s
 export async function loadArticles(): Promise<Article[]> {
   const { url, token } = getDirectusConfig();
   if (!url || !token) {
-    console.warn(`[loadArticles] skipped: ${!url ? 'DIRECTUS_URL' : 'DIRECTUS_TOKEN'} is not set`);
-    return [];
+    console.warn(`[loadArticles] Directus not configured — loading from local files`);
+    return loadLocalArticles();
   }
   try {
     const res = await fetch(
