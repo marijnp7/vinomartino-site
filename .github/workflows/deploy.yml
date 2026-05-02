@@ -42,11 +42,8 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    # Productie-pushes pauzeren op de "production"-environment voor
-    # GitHub's required-reviewers gate (zie Settings → Environments).
-    # Preview-pushes lopen door de "preview"-environment zonder reviewer.
     environment:
-      name: ${{ github.ref == 'refs/heads/main' && 'production' || 'preview' }}
+      name: ${{ github.ref == 'refs/heads/main' && 'production-auto' || 'preview' }}
       url: ${{ github.ref == 'refs/heads/main' && 'https://vinomartino.com' || 'https://preview.vinomartino.com' }}
 
     steps:
