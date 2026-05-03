@@ -2,6 +2,7 @@
 import SiteLayout from '../../layouts/SiteLayout.astro';
 import AffiliatePlaceholder from '../../components/AffiliatePlaceholder.astro';
 import { loadArticles, type Article } from '../../lib/articles';
+import { articleSchema, breadcrumbSchema } from '../../lib/seo';
 
 export async function getStaticPaths() {
   const articles = await loadArticles();
@@ -10,15 +11,23 @@ export async function getStaticPaths() {
 
 const { article } = Astro.props as { article: Article };
 
-const schema = {
-  '@context': 'https://schema.org',
-  '@type': 'Article',
-  headline: article.title,
-  description: article.description,
-  author: { '@type': 'Person', name: article.author },
-  datePublished: article.pubDate,
-  image: article.heroImage || undefined,
-};
+const pageUrl = new URL(`/artikelen/${article.slug}/`, Astro.site ?? 'https://vinomartino.com').href;
+
+const schema = [
+  articleSchema({
+    title: article.title,
+    description: article.description,
+    author: article.author,
+    datePublished: article.pubDate,
+    image: article.heroImage,
+    url: pageUrl,
+  }),
+  breadcrumbSchema([
+    { name: 'Home', url: '/' },
+    { name: 'Artikelen', url: '/artikelen/' },
+    { name: article.title, url: pageUrl },
+  ]),
+];
 ---
 
 <SiteLayout

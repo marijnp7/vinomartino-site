@@ -68,22 +68,25 @@ export function articleSchema(data: ArticleSchemaData) {
 export interface WijnhuisSchemaData {
   name: string;
   description?: string;
-  websiteUrl?: string;
+  website?: string;
   image?: string | null;
   address?: string;
   region?: string;
   country?: string;
+  grapes?: string[];
+  established?: number;
   pageUrl: string;
 }
 
 export function wijnhuisSchema(data: WijnhuisSchemaData) {
+  const isExternalUrl = data.website && data.website.startsWith('http');
   return {
     '@context': 'https://schema.org',
     '@type': 'Winery',
     name: data.name,
     description: data.description,
-    url: data.websiteUrl ?? data.pageUrl,
-    sameAs: data.websiteUrl ? [data.websiteUrl] : undefined,
+    url: isExternalUrl ? data.website : data.pageUrl,
+    sameAs: isExternalUrl ? [data.website] : undefined,
     image: data.image ?? undefined,
     ...(data.address
       ? { address: { '@type': 'PostalAddress', streetAddress: data.address } }
