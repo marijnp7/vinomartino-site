@@ -124,7 +124,7 @@ export function getAllBrandSlugs(): string[] {
 }
 
 export function isSingleBrandMode(): boolean {
-  return !!process.env.BRAND;
+  return true; // SINGLE-BRAND LOCK 2026-05-03 (LAT-799) — was: !!process.env.BRAND. VinoMartino is the only live brand; multi-brand routes were generating junk content on /vinomartino/nl/. Revert this when brand #2 launches and set BRAND env per-build in deploy.yml.
 }
 
 export function getActiveBrand(): Brand | undefined {
