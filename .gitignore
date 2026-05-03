@@ -6,3 +6,4 @@ Dit
 .env
 .astro/
 deploy-key-github-actions
+public/images/articles/

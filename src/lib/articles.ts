@@ -45,7 +45,32 @@ function getDirectusConfig() {
     return { url, token };
 }
 
-function mapArticle(a: Record<string, unknown>, directusUrl: string, bodyHtml: string): Article {
+async function downloadHeroImage(assetId: string, directusUrl: string, token: string): Promise<string | null> {
+    const { writeFileSync, mkdirSync, existsSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const outDir = join(process.cwd(), 'public', 'images', 'articles');
+    const outPath = join(outDir, `${assetId}.jpg`);
+    if (existsSync(outPath)) return `/images/articles/${assetId}.jpg`;
+    try {
+        const res = await fetch(`${directusUrl}/assets/${assetId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+            signal: AbortSignal.timeout(15000),
+        });
+        if (!res.ok) {
+            console.warn(`[loadArticles] could not fetch asset ${assetId}: ${res.status}`);
+            return null;
+        }
+        const buf = Buffer.from(await res.arrayBuffer());
+        mkdirSync(outDir, { recursive: true });
+        writeFileSync(outPath, buf);
+        return `/images/articles/${assetId}.jpg`;
+    } catch (err) {
+        console.warn(`[loadArticles] asset download failed for ${assetId}: ${err instanceof Error ? err.message : String(err)}`);
+        return null;
+    }
+}
+
+function mapArticle(a: Record<string, unknown>, heroImagePath: string | null, bodyHtml: string): Article {
     return {
           slug: String(a.slug),
           title: String(a.title),
@@ -54,7 +79,7 @@ function mapArticle(a: Record<string, unknown>, directusUrl: string, bodyHtml: s
           pubDate: String(a.pub_date || new Date().toISOString().slice(0, 10)),
           category: String(a.category || ''),
           tags: (a.tags as string[]) || [],
-          heroImage: a.hero_image ? `${directusUrl}/assets/${String(a.hero_image)}` : null,
+          heroImage: heroImagePath,
           status: String(a.status || 'draft'),
           metaTitle: String(a.meta_title || a.title),
           metaDescription: String(a.meta_description || a.description || ''),
@@ -99,7 +124,10 @@ async function loadFromDirectus(url: string, token: string): Promise<Article[]> 
                             a.meta_description = extracted;
                   }
                   const bodyHtml = cleanBody ? await markdownToHtml(cleanBody) : '';
-                  return mapArticle(a, url, bodyHtml);
+                  const heroImagePath = a.hero_image
+                        ? await downloadHeroImage(String(a.hero_image), url, token)
+                        : null;
+                  return mapArticle(a, heroImagePath, bodyHtml);
           }),
         );
     console.log(`[loadArticles] fetched ${items.length} articles from Directus`);
