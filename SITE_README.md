@@ -1,6 +1,6 @@
-# Reisplatform — Astro Dev Preview
+# VinoMartino — Astro Site
 
-Multi-brand reisplatform met per-brand theming, i18n-ready routing en CSS custom properties.
+Single-brand wijnreizen-site met per-brand theming via CSS custom properties.
 
 ## Lokaal starten (zonder Docker)
 
@@ -60,60 +60,32 @@ site/
   src/
     lib/
       brands.ts                 # Brand type + statische brand-data
-      i18n.ts                   # Locale-configuratie
     layouts/
-      BaseLayout.astro          # Basis-layout (umbrella homepage)
+      BaseLayout.astro          # Basis-layout
       BrandLayout.astro         # Brand-aware layout met CSS custom properties
     components/
-      BrandHeader.astro         # Per-brand header (logo, nav, kleuren)
-      BrandFooter.astro         # Per-brand footer (social, cross-brand strip)
-      BrandHero.astro           # Per-brand hero section
-      LanguageSwitcher.astro    # Taalkeuze (verborgen bij één taal)
+      BrandHeader.astro         # Header (logo, nav, kleuren)
+      BrandFooter.astro         # Footer (social links)
+      BrandHero.astro           # Hero section
     pages/
-      index.astro               # Umbrella homepage
-      [brand]/
-        index.astro             # Redirect → /{brand}/{defaultLocale}/
-        [locale]/
-          index.astro           # Brand homepage
-          sample-article.astro  # Voorbeeld-artikel voor theming-test
-    content/posts/*.md          # Blog posts (markdown, umbrella)
+      index.astro               # Homepage
+      artikelen/                # Artikelen (listing + detail)
+      bestemmingen/             # Bestemmingen
+      landen/                   # Landen
+      reisroutes/               # Reisroutes
+    content/posts/*.md          # Blog posts (markdown)
   public/                       # Statische bestanden
   Dockerfile                    # Container definitie
   docker-compose.site.yml       # Compose config
 ```
 
-## Multi-brand werking
+## Brand theming
 
-Elke brand is een record in `src/lib/brands.ts` (later Directus). Een brand definieert:
-- Slug (URL-pad), naam, tagline
-- Kleurenpalet (primary, secondary, accent, text)
-- Fonts (heading + body)
-- Content pillars
-- Actieve locales
-
-### Nieuwe brand toevoegen
-
-1. Voeg een record toe aan de `brands` array in `src/lib/brands.ts`
-2. Zet `status: 'live'` en configureer minimaal slug, naam, kleuren en fonts
-3. De route `/{slug}/{locale}/` is automatisch beschikbaar
-4. Pas eventueel de sample-article aan voor brand-specifieke content
-
-### URL-structuur
-
-```
-/                          → umbrella homepage
-/{brand-slug}/             → 302 redirect naar /{brand-slug}/{defaultLocale}/
-/{brand-slug}/{locale}/    → brand homepage
-/{brand-slug}/{locale}/sample-article/ → voorbeeld-artikel
-```
-
-### CSS custom properties
-
-BrandLayout injecteert automatisch:
+Brand-data staat in `src/lib/brands.ts`. BrandLayout injecteert CSS custom properties:
 - `--color-primary`, `--color-secondary`, `--color-accent`, `--color-text`
 - `--font-heading`, `--font-body`
 
-Alle brand-componenten gebruiken deze variabelen.
+Zie `PROJECT_BRIEF.md` voor de multi-brand strategie.
 
 ## Constraints
 
