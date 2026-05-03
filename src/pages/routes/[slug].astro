@@ -1,0 +1,56 @@
+---
+import SiteLayout from '../../layouts/SiteLayout.astro';
+import RouteDetailContent from '../../components/pages/RouteDetailContent.astro';
+import { loadRoutes } from '../../lib/routes';
+import { wijnrouteSchema, wijnrouteMetaTitle, wijnrouteMetaDescription, breadcrumbSchema } from '../../lib/seo';
+
+export async function getStaticPaths() {
+  const entries = await loadRoutes();
+  return entries.map(entry => ({
+    params: { slug: entry.slug },
+    props: { entry },
+  }));
+}
+
+const { entry } = Astro.props;
+const pageUrl = new URL(`/routes/${entry.slug}/`, Astro.site ?? 'https://vinomartino.com').href;
+
+const schema = [
+  wijnrouteSchema({
+    name: entry.title,
+    description: entry.description,
+    image: entry.heroImage,
+    duration: entry.duration,
+    region: entry.stops[0] || '',
+    country: '',
+    stops: entry.highlights,
+    pageUrl,
+  }),
+  breadcrumbSchema([
+    { name: 'Home', url: '/' },
+    { name: 'Routes', url: '/routes/' },
+    { name: entry.title, url: pageUrl },
+  ]),
+];
+---
+
+<SiteLayout
+  title={wijnrouteMetaTitle(entry.title, entry.stops[0] || '')}
+  description={wijnrouteMetaDescription({ name: entry.title, region: entry.stops[0] || '', duration: entry.duration, description: entry.description })}
+  ogImage={entry.heroImage || undefined}
+  schema={schema}
+  activeNav="Routes"
+>
+  <RouteDetailContent
+    title={entry.title}
+    country=""
+    region={entry.stops[0] || ''}
+    days={entry.duration ? parseInt(entry.duration) || 0 : 0}
+    transport={entry.transport || ''}
+    style={entry.style || ''}
+    intro={entry.description}
+    heroImage={entry.heroImage || undefined}
+  >
+    <div slot="body" set:html={entry.bodyHtml} />
+  </RouteDetailContent>
+</SiteLayout>

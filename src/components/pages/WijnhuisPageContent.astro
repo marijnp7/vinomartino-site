@@ -1,0 +1,634 @@
+---
+import SmartImg from '../SmartImg.astro';
+
+interface WijnhuisWine {
+  name: string;
+  vintage: number | string;
+  price?: string;
+  score?: string;
+  note: string;
+}
+
+interface WijnhuisVisitInfo {
+  key: string;
+  value: string;
+}
+
+interface Props {
+  name: string;
+  subtitle?: string;
+  breadcrumb?: { label: string; href: string }[];
+  region: string;
+  since?: string;
+  hectaren?: string;
+  biologisch?: string;
+  heroImage?: string;
+  storyTitle?: string;
+  storyBody?: string[];
+  wines?: WijnhuisWine[];
+  visitInfo?: WijnhuisVisitInfo[];
+  mapsUrl?: string;
+  reserveringUrl?: string;
+  relatedWijnhuizen?: { name: string; region: string; href: string }[];
+}
+
+const {
+  name,
+  subtitle,
+  breadcrumb = [],
+  region,
+  since,
+  hectaren,
+  biologisch,
+  heroImage,
+  storyTitle,
+  storyBody = [],
+  wines = [],
+  visitInfo = [],
+  mapsUrl,
+  reserveringUrl,
+  relatedWijnhuizen = [],
+} = Astro.props;
+---
+
+<!-- ── HERO ──────────────────────────────────────────── -->
+<section class="wh-hero">
+  <div class="container">
+    <nav class="wh-breadcrumb" aria-label="Breadcrumb">
+      <a href="/wijnhuizen/">Wijnhuizen</a>
+      {breadcrumb.map((crumb) => (
+        <>
+          <span class="wh-breadcrumb__sep">›</span>
+          <a href={crumb.href}>{crumb.label}</a>
+        </>
+      ))}
+      <span class="wh-breadcrumb__sep">›</span>
+      <span class="wh-breadcrumb__current">{name}</span>
+    </nav>
+
+    <div class="wh-hero__grid">
+      <div class="wh-hero__left">
+        {subtitle && <div class="wh-eyebrow">Wijnhuis-portret · §</div>}
+        <h1 class="wh-hero__title">{name}</h1>
+        {subtitle && <p class="wh-hero__subtitle">{subtitle}</p>}
+      </div>
+
+      <div class="wh-hero__meta">
+        <div class="wh-meta-item">
+          <span class="wh-meta-label">STREEK</span>
+          <span class="wh-meta-value">{region}</span>
+        </div>
+        {since && (
+          <div class="wh-meta-item">
+            <span class="wh-meta-label">SINDS</span>
+            <span class="wh-meta-value">{since}</span>
+          </div>
+        )}
+        {hectaren && (
+          <div class="wh-meta-item">
+            <span class="wh-meta-label">HECTAREN</span>
+            <span class="wh-meta-value">{hectaren}</span>
+          </div>
+        )}
+        {biologisch && (
+          <div class="wh-meta-item">
+            <span class="wh-meta-label">BIOLOGISCH</span>
+            <span class="wh-meta-value">{biologisch}</span>
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+
+  <div class="wh-hero__img-wrap">
+    <SmartImg
+      src={heroImage}
+      alt={name}
+      theme="winery"
+      class="wh-hero__img"
+      loading="eager"
+    />
+  </div>
+</section>
+
+<!-- ── STORY ─────────────────────────────────────────── -->
+<section class="wh-story">
+  <div class="wh-story__inner">
+    <div class="wh-section-label">§ Het verhaal</div>
+    {storyTitle && <h2 class="wh-story__title">{storyTitle}</h2>}
+    {Astro.slots.has('story') ? (
+      <div class="wh-story__prose"><slot name="story" /></div>
+    ) : (
+      storyBody.map((para, i) => (
+        <p class:list={['wh-story__para', i === 0 && 'wh-story__para--dropcap']}
+           set:html={para} />
+      ))
+    )}
+  </div>
+</section>
+
+<!-- ── WINES ─────────────────────────────────────────── -->
+{wines.length > 0 && (
+  <section class="wh-wines">
+    <div class="container">
+      <div class="wh-wines__header">
+        <div class="wh-eyebrow wh-eyebrow--rust">De wijnen</div>
+        <h2 class="wh-wines__title">Wat we proefden</h2>
+      </div>
+      <div class="wh-wines__grid">
+        {wines.map((wine) => (
+          <div class="wh-wine-card">
+            <div class="wh-wine-card__top">
+              <h3 class="wh-wine-card__name">{wine.name}</h3>
+              <span class="wh-wine-card__vintage">{wine.vintage}</span>
+            </div>
+            <p class="wh-wine-card__note">{wine.note}</p>
+            <div class="wh-wine-card__bottom">
+              {wine.price && <span class="wh-wine-card__price">{wine.price}</span>}
+              {wine.score && <span class="wh-wine-card__score">{wine.score}</span>}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+)}
+
+<!-- ── VISIT ─────────────────────────────────────────── -->
+{visitInfo.length > 0 && (
+  <section class="wh-visit">
+    <div class="container">
+      <div class="wh-visit__grid">
+        <div class="wh-visit__info">
+          <div class="wh-eyebrow wh-eyebrow--rust">Bezoek</div>
+          <h2 class="wh-visit__title">Voor je heen rijdt</h2>
+          <dl class="wh-visit__list">
+            {visitInfo.map((item) => (
+              <div class="wh-visit__row">
+                <dt class="wh-visit__key">{item.key}</dt>
+                <dd class="wh-visit__val">{item.value}</dd>
+              </div>
+            ))}
+          </dl>
+          <div class="wh-visit__actions">
+            {mapsUrl && (
+              <a href={mapsUrl} class="btn btn--primary" target="_blank" rel="noopener">
+                Open in Google Maps →
+              </a>
+            )}
+            {reserveringUrl && (
+              <a href={reserveringUrl} class="btn btn--outline">
+                Reservering aanvragen
+              </a>
+            )}
+          </div>
+        </div>
+
+        <div class="wh-visit__map" aria-hidden="true">
+          <svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+            <rect width="400" height="400" fill="var(--paperShade)" />
+            <path d="M 0 200 Q 100 180 200 200 T 400 220" stroke="var(--rule)" stroke-width="1" fill="none" />
+            <path d="M 50 50 L 150 100 L 250 80 L 350 120" stroke="var(--ruleSoft)" stroke-width="1" fill="none" />
+            <circle cx="200" cy="200" r="8" fill="var(--burgundy)" />
+            <circle cx="200" cy="200" r="20" fill="none" stroke="var(--burgundy)" opacity="0.3" />
+            <text x="200" y="180" font-family="var(--font-mono)" font-size="11" fill="var(--ink)" text-anchor="middle" font-weight="600">{name}</text>
+          </svg>
+        </div>
+      </div>
+    </div>
+  </section>
+)}
+
+<!-- ── RELATED ────────────────────────────────────────── -->
+{relatedWijnhuizen.length > 0 && (
+  <section class="wh-related">
+    <div class="container">
+      <div class="wh-section-label">Gerelateerd</div>
+      <h2 class="wh-related__title">Meer wijnhuizen in deze streek</h2>
+      <div class="wh-related__grid">
+        {relatedWijnhuizen.map((wh) => (
+          <a href={wh.href} class="wh-related__card">
+            <SmartImg alt={wh.name} theme="winery" class="wh-related__img" />
+            <div class="wh-related__body">
+              <div class="wh-related__region">{wh.region}</div>
+              <div class="wh-related__name">{wh.name}</div>
+            </div>
+          </a>
+        ))}
+      </div>
+    </div>
+  </section>
+)}
+
+<style>
+  /* ── Shared ── */
+  .wh-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--burgundy);
+    margin-bottom: 0.75rem;
+  }
+  .wh-eyebrow--rust { color: var(--rust); }
+
+  .wh-section-label {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--burgundy);
+    margin-bottom: 0.75rem;
+  }
+
+  /* ── Hero ── */
+  .wh-hero { background: var(--paper); padding-top: 3rem; }
+
+  .wh-breadcrumb {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--inkSoft);
+    margin-bottom: 1.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    align-items: center;
+  }
+  .wh-breadcrumb a { color: var(--inkSoft); text-decoration: none; }
+  .wh-breadcrumb a:hover { color: var(--ink); }
+  .wh-breadcrumb__sep { opacity: 0.5; }
+  .wh-breadcrumb__current { color: var(--burgundy); }
+
+  .wh-hero__grid {
+    display: grid;
+    grid-template-columns: 1.6fr 1fr;
+    gap: 3rem;
+    align-items: end;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .wh-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--rust);
+    margin-bottom: 0.75rem;
+  }
+
+  .wh-hero__title {
+    font-family: var(--font-display);
+    font-size: clamp(2.5rem, 1.5rem + 5vw, 5rem);
+    font-weight: 500;
+    line-height: 0.95;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    margin: 0;
+    text-wrap: balance;
+  }
+
+  .wh-hero__subtitle {
+    font-family: var(--font-body);
+    font-size: 1.25rem;
+    line-height: 1.5;
+    font-style: italic;
+    color: var(--inkSoft);
+    margin-top: 1.25rem;
+    max-width: 46ch;
+  }
+
+  .wh-hero__meta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.875rem;
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    color: var(--inkSoft);
+    border-left: 1px solid var(--rule);
+    padding-left: 1.5rem;
+  }
+
+  .wh-meta-label {
+    display: block;
+    font-size: 0.5625rem;
+    letter-spacing: 0.2em;
+    color: var(--burgundy);
+    margin-bottom: 0.25rem;
+  }
+
+  .wh-meta-value {
+    display: block;
+    color: var(--inkSoft);
+  }
+
+  .wh-hero__img-wrap {
+    aspect-ratio: 21 / 9;
+    margin-top: 2.5rem;
+    overflow: hidden;
+  }
+
+  .wh-hero__img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  /* ── Story ── */
+  .wh-story {
+    padding: 4.5rem 0;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .wh-story__inner {
+    max-width: var(--max-width-narrow);
+    margin: 0 auto;
+    padding: 0 var(--gutter);
+  }
+
+  .wh-story__title {
+    font-family: var(--font-display);
+    font-size: clamp(1.75rem, 1rem + 2.5vw, 2.375rem);
+    font-weight: 500;
+    color: var(--ink);
+    margin: 0 0 1.5rem;
+  }
+
+  .wh-story__para {
+    font-family: var(--font-body);
+    font-size: 1.125rem;
+    line-height: 1.7;
+    color: var(--ink);
+    margin: 0 0 1.25rem;
+  }
+
+  .wh-story__prose {
+    font-family: var(--font-body);
+    font-size: 1.125rem;
+    line-height: 1.7;
+    color: var(--ink);
+  }
+  .wh-story__prose :global(p) { margin-bottom: 1.25rem; }
+  .wh-story__prose :global(h2) {
+    font-family: var(--font-display);
+    font-size: 1.75rem;
+    font-weight: 500;
+    color: var(--ink);
+    margin: 2.5rem 0 1rem;
+  }
+  .wh-story__prose :global(h3) {
+    font-family: var(--font-ui);
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--ink);
+    margin: 2rem 0 0.75rem;
+  }
+
+  .wh-story__para--dropcap::first-letter {
+    float: left;
+    font-family: var(--font-display);
+    font-size: 5.25rem;
+    line-height: 0.85;
+    font-weight: 500;
+    color: var(--burgundy);
+    margin-right: 0.5rem;
+    margin-top: 0.375rem;
+    margin-bottom: -0.375rem;
+  }
+
+  /* ── Wines ── */
+  .wh-wines {
+    padding: 5rem 0;
+    background: var(--paperDeep);
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .wh-wines__header { margin-bottom: 2rem; }
+
+  .wh-wines__title {
+    font-family: var(--font-display);
+    font-size: clamp(1.75rem, 1rem + 2.5vw, 2.75rem);
+    font-weight: 500;
+    color: var(--ink);
+    margin: 0;
+  }
+
+  .wh-wines__grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+  }
+
+  .wh-wine-card {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    padding: 1.5rem;
+  }
+
+  .wh-wine-card__top {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 0.5rem;
+  }
+
+  .wh-wine-card__name {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-weight: 500;
+    margin: 0;
+    color: var(--ink);
+  }
+
+  .wh-wine-card__vintage {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    color: var(--inkSoft);
+  }
+
+  .wh-wine-card__note {
+    font-family: var(--font-body);
+    font-size: 0.9375rem;
+    line-height: 1.55;
+    color: var(--inkSoft);
+    font-style: italic;
+    margin: 0 0 1rem;
+  }
+
+  .wh-wine-card__bottom {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    color: var(--ink);
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--ruleSoft);
+  }
+
+  /* ── Visit ── */
+  .wh-visit {
+    padding: 5rem 0;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .wh-visit__grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3rem;
+  }
+
+  .wh-visit__title {
+    font-family: var(--font-display);
+    font-size: clamp(1.75rem, 1rem + 2.5vw, 2.75rem);
+    font-weight: 500;
+    color: var(--ink);
+    margin: 0 0 2rem;
+  }
+
+  .wh-visit__list {
+    border-top: 1px solid var(--rule);
+    margin: 0;
+    padding: 0;
+  }
+
+  .wh-visit__row {
+    display: grid;
+    grid-template-columns: 140px 1fr;
+    gap: 1.5rem;
+    padding: 0.875rem 0;
+    border-bottom: 1px solid var(--ruleSoft);
+  }
+
+  .wh-visit__key {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--burgundy);
+    padding-top: 0.125rem;
+  }
+
+  .wh-visit__val {
+    font-family: var(--font-body);
+    font-size: 1rem;
+    color: var(--ink);
+    margin: 0;
+  }
+
+  .wh-visit__actions {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    display: inline-block;
+    padding: 0.75rem 1.25rem;
+    font-family: var(--font-ui);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .btn:hover { opacity: 0.85; }
+
+  .btn--primary {
+    background: var(--burgundy);
+    color: var(--paper);
+  }
+
+  .btn--outline {
+    background: var(--paper);
+    color: var(--ink);
+    border: 1px solid var(--rule);
+  }
+
+  .wh-visit__map {
+    background: var(--paperShade);
+    min-height: 380px;
+    overflow: hidden;
+  }
+
+  .wh-visit__map svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  /* ── Related ── */
+  .wh-related {
+    padding: 5rem 0;
+    background: var(--paperDeep);
+  }
+
+  .wh-related__title {
+    font-family: var(--font-display);
+    font-size: clamp(1.5rem, 1rem + 2vw, 2.375rem);
+    font-weight: 500;
+    color: var(--ink);
+    margin: 0 0 2rem;
+  }
+
+  .wh-related__grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+  }
+
+  .wh-related__card {
+    text-decoration: none;
+    color: inherit;
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    display: block;
+    transition: box-shadow 0.15s;
+  }
+  .wh-related__card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+
+  .wh-related__img {
+    aspect-ratio: 3 / 2;
+    width: 100%;
+    overflow: hidden;
+  }
+
+  .wh-related__body { padding: 1rem; }
+
+  .wh-related__region {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--rust);
+    margin-bottom: 0.375rem;
+  }
+
+  .wh-related__name {
+    font-family: var(--font-display);
+    font-size: 1.375rem;
+    font-weight: 500;
+    color: var(--ink);
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 900px) {
+    .wh-hero__grid,
+    .wh-visit__grid { grid-template-columns: 1fr; }
+
+    .wh-hero__meta { border-left: none; padding-left: 0; border-top: 1px solid var(--rule); padding-top: 1rem; }
+
+    .wh-visit__map { display: none; }
+
+    .wh-wines__grid { grid-template-columns: 1fr; }
+
+    .wh-related__grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  @media (max-width: 640px) {
+    .wh-related__grid { grid-template-columns: 1fr; }
+    .wh-visit__row { grid-template-columns: 1fr; gap: 0.25rem; }
+  }
+</style>

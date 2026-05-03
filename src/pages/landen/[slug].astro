@@ -1,0 +1,144 @@
+---
+import SiteLayout from '../../layouts/SiteLayout.astro';
+import LandPageContent from '../../components/pages/LandPageContent.astro';
+import { loadLanden, type Land } from '../../lib/landen';
+import { breadcrumbSchema } from '../../lib/seo';
+
+export async function getStaticPaths() {
+  const entries = await loadLanden();
+  if (entries.length > 0) {
+    return entries.map(entry => ({
+      params: { slug: entry.slug },
+      props: { entry },
+    }));
+  }
+  // Showcase fallback slugs when no CMS data
+  return [
+    { params: { slug: 'italie' }, props: { entry: null } },
+    { params: { slug: 'duitsland' }, props: { entry: null } },
+    { params: { slug: 'frankrijk' }, props: { entry: null } },
+    { params: { slug: 'spanje' }, props: { entry: null } },
+    { params: { slug: 'portugal' }, props: { entry: null } },
+    { params: { slug: 'oostenrijk' }, props: { entry: null } },
+  ];
+}
+
+const { slug } = Astro.params;
+const { entry } = Astro.props as { entry: Land | null };
+
+// ── Showcase data for Italië (V3 design example) ─────────
+const showcaseData: Record<string, {
+  name: string; flagEmoji?: string; continent?: string; description: string;
+  stats?: { label: string; value: string }[];
+  streken?: { name: string; slug: string; badge: string; description: string }[];
+  topWijnhuizen?: { name: string; slug: string; region: string; badge?: string }[];
+  druiven?: { name: string; color: 'rood' | 'wit' | 'rosé'; description: string; wines?: string[] }[];
+  routes?: { title: string; slug: string; days: number; transport: string; style?: string }[];
+  practical?: { key: string; value: string }[];
+  climate?: string;
+}> = {
+  italie: {
+    name: 'Italië',
+    flagEmoji: '🇮🇹',
+    continent: 'Europa',
+    description: 'Van de nevels van de Langhe tot de vulkaanhellingen van de Etna — Italië maakt wijnen die nergens anders op aarde worden gemaakt.',
+    stats: [
+      { label: 'Wijnstreken', value: '20 officiële regio\'s' },
+      { label: 'Inheemse druiven', value: '~2.000 rassen' },
+      { label: 'Beste tijd', value: 'Sep–okt (oogstseizoen)' },
+      { label: 'Topappellations', value: 'Barolo · Brunello · Amarone' },
+    ],
+    streken: [
+      { name: 'Piemonte', slug: 'piemonte', badge: 'Barolo & Barbaresco', description: 'Nebbiolo, mist en familietafels. De streek die Italië zijn geduldige wijnen geeft.' },
+      { name: 'Toscane', slug: 'toscane', badge: 'Chianti & Brunello', description: 'Sangiovese op heuvels tussen cypressen. De bekendste wijnstreek van Italië.' },
+      { name: 'Etna', slug: 'etna', badge: 'Vulkaan · Sicilië', description: 'Nerello Mascalese op lava. Complex, uniek en nog altijd grotendeels onontdekt.' },
+    ],
+    topWijnhuizen: [
+      { name: 'Cordero di Montezemolo', slug: 'cordero-di-montezemolo', region: 'La Morra · Piemonte', badge: 'Barolo' },
+      { name: 'Bartolo Mascarello', slug: 'bartolo-mascarello-barolo', region: 'Castiglione Falletto', badge: 'Barolo' },
+      { name: 'Cornelissen', slug: 'cornelissen-etna-sicilie', region: 'Etna · Sicilië', badge: 'Etna Rosso' },
+      { name: 'Vietti', slug: 'vietti', region: 'Castiglione Falletto', badge: 'Barolo' },
+      { name: 'Produttori del Barbaresco', slug: 'produttori-del-barbaresco', region: 'Barbaresco', badge: 'Coöperatie' },
+      { name: 'Bruno Giacosa', slug: 'bruno-giacosa', region: 'Neive · Langhe', badge: 'Legendarisch' },
+    ],
+    druiven: [
+      { name: 'Nebbiolo', color: 'rood', description: 'Koningin van Piemonte. Hoge tannine, hoge zuur — transformeert na jaren tot iets transcendents.', wines: ['Barolo', 'Barbaresco', 'Gattinara'] },
+      { name: 'Sangiovese', color: 'rood', description: 'De ruggengraat van Toscane. Van lichte Chianti tot de lange Brunello di Montalcino.', wines: ['Chianti Classico', 'Brunello', 'Morellino'] },
+      { name: 'Nerello Mascalese', color: 'rood', description: 'De Nebbiolo van Sicilië. Licht van kleur, complex van geur, vulkanisch van mineraal.', wines: ['Etna Rosso', 'Faro'] },
+      { name: 'Vermentino', color: 'wit', description: 'Frisse witte wijn uit Sardinië en de Ligurische kust. Kruiden, limoen, brak zout.', wines: ['Vermentino di Gallura', 'Vermentino di Sardegna'] },
+    ],
+    routes: [
+      { title: 'Drie dagen Langhe', slug: 'drie-dagen-langhe', days: 3, transport: 'Auto', style: 'Klassiek' },
+      { title: 'Etna-rondrit', slug: 'etna-rondrit', days: 3, transport: 'Auto', style: 'Vulkaan' },
+      { title: 'Schuimwijn-tour Asti', slug: 'schuimwijn-tour-asti', days: 2, transport: 'Auto', style: 'Bubbels' },
+    ],
+    practical: [
+      { key: 'Vliegen op', value: 'Milano Malpensa (MXP), Turijn (TRN), Rome (FCO)' },
+      { key: 'Beste tijd', value: 'Sep–okt voor oogst. Apr–mei voor lente zonder drukte.' },
+      { key: 'Taal', value: 'Italiaans werkt het best bij familiebedrijven. Engels op grotere huizen.' },
+      { key: 'Reserveren', value: 'Altijd vooraf, minimaal 48 uur. Geen drop-in zoals in Frankrijk.' },
+      { key: 'Proeverij', value: '€15–40 voor 4–6 wijnen. Soms gratis bij aankoop fles.' },
+      { key: 'Vervoer', value: 'Huurauto onmisbaar buiten steden. Wegen zijn smal maar rijdbaar.' },
+    ],
+    climate: 'Van continentaal-koel in Piemonte (Alpen geven scherpe winters en hete zomers) tot mediterraan in Sicilië. Droogtes nemen toe; hoogte speelt een steeds grotere rol.',
+  },
+};
+
+// Build props from entry or showcase data
+const showcase = showcaseData[slug!];
+const pageData = entry
+  ? {
+      name: entry.name,
+      continent: entry.continent || undefined,
+      description: entry.description,
+      heroImage: entry.heroImage || undefined,
+      stats: [
+        ...(entry.bestTimeToVisit ? [{ label: 'Beste reistijd', value: entry.bestTimeToVisit }] : []),
+        ...(entry.mainGrapes.length > 0 ? [{ label: 'Druivenrassen', value: entry.mainGrapes.slice(0, 4).join(', ') }] : []),
+        ...(entry.capital ? [{ label: 'Hoofdstad', value: entry.capital }] : []),
+      ],
+      climate: entry.climate || undefined,
+      streken: [] as { name: string; slug: string; badge: string; description: string }[],
+      topWijnhuizen: [] as { name: string; slug: string; region: string; badge?: string }[],
+      druiven: [] as { name: string; color: 'rood' | 'wit' | 'rosé'; description: string; wines?: string[] }[],
+      routes: [] as { title: string; slug: string; days: number; transport: string; style?: string }[],
+      practical: [] as { key: string; value: string }[],
+    }
+  : showcase ?? {
+      name: slug ? slug.charAt(0).toUpperCase() + slug.slice(1) : 'Wijnland',
+      continent: 'Europa',
+      description: 'Dit wijnland wordt binnenkort verder uitgewerkt.',
+      streken: [], topWijnhuizen: [], druiven: [], routes: [], practical: [],
+    };
+
+const pageUrl = new URL(`/landen/${slug}/`, Astro.site ?? 'https://vinomartino.com').href;
+
+const schema = breadcrumbSchema([
+  { name: 'Home', url: '/' },
+  { name: 'Landen', url: '/landen/' },
+  { name: pageData.name, url: pageUrl },
+]);
+---
+
+<SiteLayout
+  title={`${pageData.name} — Wijnland | VinoMartino`}
+  description={pageData.description}
+  ogImage={'heroImage' in pageData ? pageData.heroImage : undefined}
+  schema={schema}
+  activeNav="Streken"
+>
+  <LandPageContent
+    name={pageData.name}
+    flagEmoji={'flagEmoji' in pageData ? pageData.flagEmoji : undefined}
+    continent={pageData.continent}
+    description={pageData.description}
+    heroImage={'heroImage' in pageData ? pageData.heroImage : undefined}
+    stats={pageData.stats}
+    streken={pageData.streken}
+    topWijnhuizen={pageData.topWijnhuizen}
+    druiven={pageData.druiven}
+    routes={pageData.routes}
+    practical={pageData.practical}
+    climate={pageData.climate}
+  />
+</SiteLayout>

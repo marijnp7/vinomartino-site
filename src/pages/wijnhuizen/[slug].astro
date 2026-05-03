@@ -1,245 +1,57 @@
 ---
 import SiteLayout from '../../layouts/SiteLayout.astro';
-import { getCollection, render } from 'astro:content';
+import WijnhuisPageContent from '../../components/pages/WijnhuisPageContent.astro';
+import { loadWijnhuizen, type Wijnhuis } from '../../lib/wijnhuizen';
 import { wijnhuisSchema, wijnhuisMetaTitle, wijnhuisMetaDescription, breadcrumbSchema } from '../../lib/seo';
 
 export async function getStaticPaths() {
-  const entries = await getCollection('wijnhuizen');
+  const entries = await loadWijnhuizen();
   return entries.map(entry => ({
-    params: { slug: entry.data.slug || entry.id.replace(/\.md$/, '') },
+    params: { slug: entry.slug },
     props: { entry },
   }));
 }
 
-const { entry } = Astro.props;
-const { Content } = await render(entry);
-const { data } = entry;
-
-const slug = data.slug || entry.id.replace(/\.md$/, '');
-const pageUrl = new URL(`/wijnhuizen/${slug}/`, Astro.site ?? 'https://vinomartino.com').href;
-const name = data.name || data.title;
+const { entry } = Astro.props as { entry: Wijnhuis };
+const pageUrl = new URL(`/wijnhuizen/${entry.slug}/`, Astro.site ?? 'https://vinomartino.com').href;
 
 const schema = [
   wijnhuisSchema({
-    name,
-    description: data.description,
-    website: data.website,
-    image: data.heroImage,
-    address: data.address,
-    region: data.region,
-    country: data.country,
-    grapes: data.grapes,
-    established: data.established,
+    name: entry.name,
+    description: entry.description,
+    website: entry.website,
+    image: entry.heroImage,
+    address: entry.address,
+    region: entry.region,
+    country: entry.country,
+    grapes: entry.grapes,
+    established: entry.established ?? undefined,
     pageUrl,
   }),
   breadcrumbSchema([
     { name: 'Home', url: '/' },
     { name: 'Wijnhuizen', url: '/wijnhuizen/' },
-    { name: name, url: pageUrl },
+    { name: entry.name, url: pageUrl },
   ]),
 ];
 ---
 
 <SiteLayout
-  title={wijnhuisMetaTitle(name, data.region)}
-  description={wijnhuisMetaDescription({ name, region: data.region, country: data.country, description: data.description })}
-  ogImage={data.heroImage}
+  title={wijnhuisMetaTitle(entry.name, entry.region)}
+  description={wijnhuisMetaDescription({ name: entry.name, region: entry.region, country: entry.country, description: entry.description })}
+  ogImage={entry.heroImage || undefined}
   schema={schema}
   activeNav="wijnhuizen"
 >
-  <article class="wijnhuis-page">
-    {data.heroImage && (
-      <div class="page-hero">
-        <img src={data.heroImage} alt={name} class="page-hero-img" />
-      </div>
-    )}
-
-    <div class="container page-layout">
-      <div class="page-main">
-        <header class="page-header">
-          <nav class="breadcrumb" aria-label="Breadcrumb">
-            <a href="/">Home</a> / <a href="/wijnhuizen/">Wijnhuizen</a> / <span>{name}</span>
-          </nav>
-          <span class="page-region">{[data.region, data.country].filter(Boolean).join(' — ')}</span>
-          <h1>{data.title}</h1>
-          <div class="page-meta">
-            {data.established && <span>Est. {data.established}</span>}
-            {data.author && <span>Door {data.author}</span>}
-          </div>
-          {data.grapes && data.grapes.length > 0 && (
-            <div class="page-tags">
-              {data.grapes.map(g => <span class="tag">{g}</span>)}
-            </div>
-          )}
-        </header>
-
-        <div class="page-prose">
-          <Content />
-        </div>
-      </div>
-
-      <aside class="page-sidebar">
-        <div class="sidebar-card">
-          <h3>Wijnhuis info</h3>
-          {data.established && <p><strong>Opgericht:</strong> {data.established}</p>}
-          {data.region && <p><strong>Regio:</strong> {data.region}</p>}
-          {data.country && <p><strong>Land:</strong> {data.country}</p>}
-          {data.address && <p><strong>Adres:</strong> {data.address}</p>}
-          {data.website && data.website.startsWith('http') && (
-            <p><a href={data.website} target="_blank" rel="noopener noreferrer">Bezoek website →</a></p>
-          )}
-          {data.grapes && data.grapes.length > 0 && (
-            <div>
-              <strong>Druivenrassen:</strong>
-              <ul class="grape-list">
-                {data.grapes.map(g => <li>{g}</li>)}
-              </ul>
-            </div>
-          )}
-        </div>
-      </aside>
-    </div>
-  </article>
+  <WijnhuisPageContent
+    name={entry.name}
+    subtitle={entry.description}
+    region={[entry.region, entry.country].filter(Boolean).join(' · ')}
+    since={entry.established ? String(entry.established) : undefined}
+    hectaren={entry.hectares || undefined}
+    biologisch={entry.biodynamisch ? 'Ja' : undefined}
+    heroImage={entry.heroImage || undefined}
+  >
+    <div slot="story" set:html={entry.bodyHtml} />
+  </WijnhuisPageContent>
 </SiteLayout>
-
-<style>
-  .page-hero {
-    height: 45vh;
-    min-height: 300px;
-    overflow: hidden;
-  }
-  .page-hero-img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-  .page-layout {
-    display: grid;
-    grid-template-columns: 1fr 280px;
-    gap: var(--space-10);
-    padding-top: var(--space-10);
-    padding-bottom: var(--space-12);
-  }
-  .breadcrumb {
-    font-family: var(--font-mono);
-    font-size: 0.6875rem;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--inkFaint);
-    margin-bottom: var(--space-4);
-  }
-  .breadcrumb a {
-    color: var(--inkSoft);
-    text-decoration: none;
-  }
-  .breadcrumb a:hover { text-decoration: underline; }
-  .page-region {
-    font-family: var(--font-mono);
-    font-size: 0.625rem;
-    text-transform: uppercase;
-    letter-spacing: 0.15em;
-    color: var(--rust);
-    display: block;
-    margin-bottom: var(--space-2);
-  }
-  .page-header h1 {
-    font-family: var(--font-display);
-    font-size: clamp(2rem, 1.6rem + 1.5vw, 3rem);
-    font-weight: 400;
-    font-style: italic;
-    color: var(--ink);
-    line-height: 1.15;
-    margin-bottom: var(--space-4);
-  }
-  .page-meta {
-    display: flex;
-    gap: 1rem;
-    font-family: var(--font-mono);
-    font-size: 0.75rem;
-    color: var(--inkSoft);
-    margin-bottom: var(--space-3);
-  }
-  .page-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.375rem;
-    margin-bottom: var(--space-8);
-  }
-  .tag {
-    font-family: var(--font-mono);
-    font-size: 0.5625rem;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    background: var(--paperDeep);
-    color: var(--inkSoft);
-    padding: 0.25rem 0.625rem;
-    border-radius: 1px;
-  }
-  .page-prose {
-    font-family: var(--font-body);
-    font-size: 1.0625rem;
-    line-height: 1.8;
-    color: var(--ink);
-    max-width: var(--article-body-max);
-  }
-  .page-prose :global(h2) {
-    font-family: var(--font-display);
-    font-size: 1.625rem;
-    font-weight: 500;
-    margin: var(--space-10) 0 var(--space-4);
-  }
-  .page-prose :global(h3) {
-    font-family: var(--font-ui);
-    font-size: 1.125rem;
-    font-weight: 600;
-    margin: var(--space-8) 0 var(--space-3);
-  }
-  .page-prose :global(p) { margin-bottom: var(--space-5); }
-  .page-prose :global(ul), .page-prose :global(ol) {
-    padding-left: 1.5rem;
-    margin-bottom: var(--space-5);
-  }
-  .page-prose :global(li) { margin-bottom: 0.375rem; }
-  .page-prose :global(blockquote) {
-    border-left: 3px solid var(--burgundy);
-    padding-left: 1.5rem;
-    margin: var(--space-6) 0;
-    font-style: italic;
-    color: var(--inkSoft);
-  }
-  .sidebar-card {
-    background: var(--paperDeep);
-    border: 1px solid var(--color-border-light);
-    border-radius: var(--radius-sm);
-    padding: 1.25rem;
-    font-family: var(--font-ui);
-    font-size: 0.875rem;
-    line-height: 1.6;
-  }
-  .sidebar-card h3 {
-    font-family: var(--font-display);
-    font-size: 1.125rem;
-    font-weight: 500;
-    font-style: italic;
-    margin-bottom: var(--space-4);
-    color: var(--ink);
-  }
-  .sidebar-card p {
-    margin-bottom: var(--space-2);
-    color: var(--inkSoft);
-  }
-  .sidebar-card a { color: var(--color-primary); }
-  .grape-list {
-    list-style: none;
-    padding: 0;
-    margin-top: var(--space-2);
-  }
-  .grape-list li {
-    font-size: 0.8125rem;
-    color: var(--inkSoft);
-    padding: 0.125rem 0;
-  }
-  @media (max-width: 900px) {
-    .page-layout { grid-template-columns: 1fr; }
-  }
-</style>

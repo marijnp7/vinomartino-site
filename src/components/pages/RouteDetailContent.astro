@@ -1,0 +1,552 @@
+---
+interface RouteStop {
+  day: number;
+  title: string;
+  description: string;
+  wijnhuis?: string;
+  overnacht?: string;
+}
+
+interface Props {
+  title: string;
+  country: string;
+  region: string;
+  days: number;
+  transport: string;
+  style: string;
+  intro: string;
+  heroImage?: string;
+  stops?: RouteStop[];
+  practicalInfo?: { key: string; value: string }[];
+  relatedRoutes?: { title: string; days: number; transport: string; href: string }[];
+}
+
+const {
+  title,
+  country,
+  region,
+  days,
+  transport,
+  style,
+  intro,
+  heroImage,
+  stops = [],
+  practicalInfo = [],
+  relatedRoutes = [],
+} = Astro.props;
+---
+
+<!-- ── HERO ──────────────────────────────────────────── -->
+<section class="rd-hero">
+  <div class="container">
+    <nav class="rd-breadcrumb" aria-label="Breadcrumb">
+      <a href="/routes/">Routes</a>
+      <span>›</span>
+      <span>{title}</span>
+    </nav>
+
+    <div class="rd-hero__meta-top">
+      <span class="rd-badge rd-badge--days">{days} dagen</span>
+      <span class="rd-badge rd-badge--transport">{transport}</span>
+      <span class="rd-badge rd-badge--style">{style}</span>
+    </div>
+
+    <h1 class="rd-hero__title">{title}</h1>
+    <p class="rd-hero__intro">{intro}</p>
+
+    <div class="rd-hero__facts">
+      <div class="rd-fact">
+        <span class="rd-fact__label">Land</span>
+        <span class="rd-fact__value">{country}</span>
+      </div>
+      <div class="rd-fact">
+        <span class="rd-fact__label">Streek</span>
+        <span class="rd-fact__value">{region}</span>
+      </div>
+      <div class="rd-fact">
+        <span class="rd-fact__label">Vervoer</span>
+        <span class="rd-fact__value">{transport}</span>
+      </div>
+      <div class="rd-fact">
+        <span class="rd-fact__label">Duur</span>
+        <span class="rd-fact__value">{days} dagen</span>
+      </div>
+    </div>
+  </div>
+
+  {heroImage ? (
+    <div class="rd-hero__img-wrap">
+      <img src={heroImage} alt={title} class="rd-hero__img" loading="eager" />
+    </div>
+  ) : (
+    <div class="rd-hero__img-wrap rd-hero__img-placeholder" aria-hidden="true">
+      <svg viewBox="0 0 1280 480" xmlns="http://www.w3.org/2000/svg">
+        <rect width="1280" height="480" fill="#E8DCC0" />
+        <path d="M 0 300 Q 200 260 400 290 Q 600 320 800 270 Q 1000 220 1280 260 L 1280 480 L 0 480 Z" fill="#5C6B3F" opacity="0.3" />
+        <path d="M 0 340 Q 300 300 640 320 Q 960 340 1280 310 L 1280 480 L 0 480 Z" fill="#C9B98F" opacity="0.3" />
+        <circle cx="640" cy="200" r="60" fill="#E5C99B" opacity="0.3" />
+        <text x="640" y="440" text-anchor="middle" font-family="var(--font-mono)" font-size="11" fill="#8A7E70" letter-spacing="0.15em">{region.toUpperCase()}</text>
+      </svg>
+    </div>
+  )}
+</section>
+
+<!-- ── ITINERARY ─────────────────────────────────────── -->
+{(stops.length > 0 || Astro.slots.has('body')) && (
+  <section class="rd-itinerary">
+    <div class="rd-itinerary__inner">
+      <div class="rd-eyebrow">§ Dagindeling</div>
+      {Astro.slots.has('body') ? (
+        <div class="rd-body-prose"><slot name="body" /></div>
+      ) : (
+        <>
+          <h2 class="rd-section-title">De route dag voor dag</h2>
+          <ol class="rd-stops" role="list">
+            {stops.map((stop) => (
+              <li class="rd-stop">
+                <div class="rd-stop__day">
+                  <span class="rd-stop__day-label">Dag</span>
+                  <span class="rd-stop__day-num">{stop.day}</span>
+                </div>
+                <div class="rd-stop__content">
+                  <h3 class="rd-stop__title">{stop.title}</h3>
+                  <p class="rd-stop__desc">{stop.description}</p>
+                  {stop.wijnhuis && (
+                    <div class="rd-stop__meta">
+                      <span class="rd-stop__meta-label">Wijnhuis</span>
+                      <span class="rd-stop__meta-value">{stop.wijnhuis}</span>
+                    </div>
+                  )}
+                  {stop.overnacht && (
+                    <div class="rd-stop__meta">
+                      <span class="rd-stop__meta-label">Overnachting</span>
+                      <span class="rd-stop__meta-value">{stop.overnacht}</span>
+                    </div>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ol>
+        </>
+      )}
+    </div>
+
+    <!-- map placeholder -->
+    <div class="rd-map" aria-hidden="true">
+      <svg viewBox="0 0 600 400" xmlns="http://www.w3.org/2000/svg">
+        <rect width="600" height="400" fill="var(--paperShade)" />
+        <path d="M 100 300 Q 200 200 300 220 Q 400 240 500 160" fill="none" stroke="var(--rule)" stroke-width="2" stroke-dasharray="6,4" />
+        {stops.map((_, i) => {
+          const x = 100 + (i * 400) / Math.max(stops.length - 1, 1);
+          const y = i % 2 === 0 ? 280 : 200;
+          return (
+            <>
+              <circle cx={x} cy={y} r="8" fill="var(--burgundy)" />
+              <text x={x} y={y - 14} text-anchor="middle" font-family="var(--font-mono)" font-size="10" fill="var(--ink)">{i + 1}</text>
+            </>
+          );
+        })}
+        <text x="300" y="380" text-anchor="middle" font-family="var(--font-mono)" font-size="10" fill="var(--inkFaint)" letter-spacing="0.12em">ROUTE KAART</text>
+      </svg>
+    </div>
+  </section>
+)}
+
+<!-- ── PRACTICAL ─────────────────────────────────────── -->
+{practicalInfo.length > 0 && (
+  <section class="rd-practical">
+    <div class="container">
+      <div class="rd-eyebrow">Praktisch</div>
+      <h2 class="rd-section-title">Voor je gaat</h2>
+      <dl class="rd-practical__list">
+        {practicalInfo.map((item) => (
+          <div class="rd-practical__row">
+            <dt class="rd-practical__key">{item.key}</dt>
+            <dd class="rd-practical__val">{item.value}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  </section>
+)}
+
+<!-- ── RELATED ────────────────────────────────────────── -->
+{relatedRoutes.length > 0 && (
+  <section class="rd-related">
+    <div class="container">
+      <div class="rd-eyebrow">Meer routes</div>
+      <h2 class="rd-section-title">Vergelijkbare reizen</h2>
+      <div class="rd-related__grid">
+        {relatedRoutes.map((route) => (
+          <a href={route.href} class="rd-related__card">
+            <div class="rd-related__img-wrap">
+              <div class="rd-related__badges">
+                <span class="rd-badge rd-badge--days rd-badge--sm">{route.days}d</span>
+                <span class="rd-badge rd-badge--transport rd-badge--sm">{route.transport}</span>
+              </div>
+            </div>
+            <div class="rd-related__body">
+              <h3 class="rd-related__title">{route.title}</h3>
+            </div>
+          </a>
+        ))}
+      </div>
+    </div>
+  </section>
+)}
+
+<style>
+  /* ── Shared ── */
+  .rd-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--burgundy);
+    margin-bottom: 0.75rem;
+  }
+
+  .rd-section-title {
+    font-family: var(--font-display);
+    font-size: clamp(1.75rem, 1rem + 2.5vw, 2.75rem);
+    font-weight: 500;
+    color: var(--ink);
+    margin: 0 0 2rem;
+  }
+
+  .rd-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+  .rd-badge--sm { font-size: 0.5625rem; padding: 0.2rem 0.5rem; }
+  .rd-badge--days { background: var(--paper); color: var(--ink); border: 1px solid var(--rule); }
+  .rd-badge--transport { background: var(--burgundy); color: var(--paper); }
+  .rd-badge--style { background: var(--rust); color: var(--paper); }
+
+  /* ── Hero ── */
+  .rd-hero { background: var(--paper); padding-top: 3rem; }
+
+  .rd-breadcrumb {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--inkSoft);
+    margin-bottom: 1.5rem;
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+  }
+  .rd-breadcrumb a { color: var(--inkSoft); text-decoration: none; }
+  .rd-breadcrumb a:hover { color: var(--ink); }
+
+  .rd-hero__meta-top {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.25rem;
+    flex-wrap: wrap;
+  }
+
+  .rd-hero__title {
+    font-family: var(--font-display);
+    font-size: clamp(2.5rem, 1.5rem + 5vw, 5rem);
+    font-weight: 500;
+    line-height: 0.95;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    margin: 0 0 1.25rem;
+    text-wrap: balance;
+  }
+
+  .rd-hero__intro {
+    font-family: var(--font-body);
+    font-size: 1.25rem;
+    line-height: 1.5;
+    font-style: italic;
+    color: var(--inkSoft);
+    max-width: 56ch;
+    margin: 0 0 2rem;
+  }
+
+  .rd-hero__facts {
+    display: flex;
+    gap: 2rem;
+    flex-wrap: wrap;
+    padding: 1.5rem 0;
+    border-top: 1px solid var(--rule);
+  }
+
+  .rd-fact {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .rd-fact__label {
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--rust);
+  }
+
+  .rd-fact__value {
+    font-family: var(--font-mono);
+    font-size: 0.875rem;
+    color: var(--ink);
+    font-weight: 500;
+  }
+
+  .rd-hero__img-wrap {
+    margin-top: 2.5rem;
+    aspect-ratio: 8 / 3;
+    overflow: hidden;
+  }
+
+  .rd-hero__img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .rd-hero__img-placeholder svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  /* ── Itinerary ── */
+  .rd-itinerary {
+    padding: 5rem 0;
+    border-bottom: 1px solid var(--rule);
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: 4rem;
+    max-width: var(--max-width);
+    margin: 0 auto;
+    padding-inline: var(--gutter);
+  }
+
+  .rd-body-prose {
+    font-family: var(--font-body);
+    font-size: 1.0625rem;
+    line-height: 1.8;
+    color: var(--ink);
+  }
+  .rd-body-prose :global(p) { margin-bottom: 1.25rem; }
+  .rd-body-prose :global(h2) {
+    font-family: var(--font-display);
+    font-size: 1.75rem;
+    font-weight: 500;
+    color: var(--ink);
+    margin: 2.5rem 0 1rem;
+  }
+  .rd-body-prose :global(h3) {
+    font-family: var(--font-ui);
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--ink);
+    margin: 2rem 0 0.75rem;
+  }
+  .rd-body-prose :global(ul), .rd-body-prose :global(ol) {
+    padding-left: 1.5rem;
+    margin-bottom: 1.25rem;
+  }
+  .rd-body-prose :global(blockquote) {
+    border-left: 3px solid var(--burgundy);
+    padding-left: 1.5rem;
+    margin: 1.5rem 0;
+    font-style: italic;
+    color: var(--inkSoft);
+  }
+
+  .rd-stops {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .rd-stop {
+    display: grid;
+    grid-template-columns: 64px 1fr;
+    gap: 1.5rem;
+    padding: 1.5rem 0;
+    border-bottom: 1px solid var(--ruleSoft);
+  }
+  .rd-stop:last-child { border-bottom: none; }
+
+  .rd-stop__day {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 0.25rem;
+  }
+
+  .rd-stop__day-label {
+    font-family: var(--font-mono);
+    font-size: 0.5rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--rust);
+  }
+
+  .rd-stop__day-num {
+    font-family: var(--font-display);
+    font-size: 2.5rem;
+    font-style: italic;
+    color: var(--burgundy);
+    line-height: 1;
+  }
+
+  .rd-stop__title {
+    font-family: var(--font-display);
+    font-size: 1.375rem;
+    font-weight: 500;
+    color: var(--ink);
+    margin: 0 0 0.5rem;
+  }
+
+  .rd-stop__desc {
+    font-family: var(--font-body);
+    font-size: 0.9375rem;
+    line-height: 1.65;
+    color: var(--inkSoft);
+    margin: 0 0 0.75rem;
+  }
+
+  .rd-stop__meta {
+    display: flex;
+    gap: 0.5rem;
+    align-items: baseline;
+    margin-bottom: 0.25rem;
+  }
+
+  .rd-stop__meta-label {
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--burgundy);
+  }
+
+  .rd-stop__meta-value {
+    font-family: var(--font-ui);
+    font-size: 0.8125rem;
+    color: var(--ink);
+  }
+
+  .rd-map {
+    position: sticky;
+    top: 5rem;
+    height: fit-content;
+    background: var(--paperShade);
+    overflow: hidden;
+  }
+  .rd-map svg { width: 100%; display: block; }
+
+  /* ── Practical ── */
+  .rd-practical {
+    padding: 5rem 0;
+    background: var(--burgundyDeep);
+    color: var(--paper);
+  }
+
+  .rd-practical .rd-eyebrow { color: var(--gold); }
+  .rd-practical .rd-section-title { color: var(--paper); }
+
+  .rd-practical__list {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2rem;
+    margin: 0;
+    padding: 0;
+  }
+
+  .rd-practical__row { display: contents; }
+
+  .rd-practical__key {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--gold);
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid rgba(250,245,233,0.2);
+    margin-bottom: 0.5rem;
+    display: block;
+  }
+
+  .rd-practical__val {
+    font-family: var(--font-body);
+    font-size: 1rem;
+    line-height: 1.5;
+    color: rgba(250,245,233,0.9);
+    margin: 0;
+  }
+
+  /* ── Related ── */
+  .rd-related {
+    padding: 5rem 0;
+    background: var(--paperDeep);
+  }
+
+  .rd-related__grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+  }
+
+  .rd-related__card {
+    text-decoration: none;
+    color: inherit;
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    display: block;
+    transition: box-shadow 0.15s;
+  }
+  .rd-related__card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+
+  .rd-related__img-wrap {
+    aspect-ratio: 3 / 2;
+    background: var(--paperShade);
+    position: relative;
+    padding: 0.75rem;
+    display: flex;
+    align-items: flex-start;
+  }
+
+  .rd-related__badges { display: flex; gap: 0.375rem; }
+
+  .rd-related__body { padding: 1rem; }
+
+  .rd-related__title {
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    font-weight: 500;
+    color: var(--ink);
+    margin: 0;
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 1024px) {
+    .rd-itinerary { grid-template-columns: 1fr; }
+    .rd-map { display: none; }
+  }
+
+  @media (max-width: 900px) {
+    .rd-practical__list { grid-template-columns: 1fr 1fr; }
+    .rd-related__grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  @media (max-width: 640px) {
+    .rd-practical__list { grid-template-columns: 1fr; }
+    .rd-related__grid { grid-template-columns: 1fr; }
+    .rd-stop { grid-template-columns: 48px 1fr; gap: 1rem; }
+  }
+</style>
