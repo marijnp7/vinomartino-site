@@ -245,3 +245,69 @@ export function streekMetaDescription(data: {
   const inCountry = data.country ? ` in ${data.country}` : '';
   return `Alles over de wijnstreek ${data.name}${inCountry}${grapes} — klimaat, terroir, wijnhuizen en wijntips van VinoMartino.`;
 }
+
+// ─── Land (Country / TouristDestination) ─────────────────────────────────────
+
+export interface LandSchemaData {
+  name: string;
+  description?: string;
+  image?: string | null;
+  continent?: string;
+  capital?: string;
+  wijnstreken?: string[];
+  grapeVarieties?: string[];
+  pageUrl: string;
+}
+
+export function landSchema(data: LandSchemaData) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Country',
+    additionalType: 'https://schema.org/TouristDestination',
+    name: data.name,
+    description: data.description,
+    image: data.image ?? undefined,
+    url: data.pageUrl,
+    ...(data.continent
+      ? { containedInPlace: { '@type': 'Place', name: data.continent } }
+      : {}),
+    ...(data.capital
+      ? { containsPlace: [{ '@type': 'City', name: data.capital }] }
+      : {}),
+    ...(data.wijnstreken && data.wijnstreken.length > 0
+      ? {
+          hasPart: data.wijnstreken.map((streek) => ({
+            '@type': 'Place',
+            additionalType: 'https://schema.org/TouristDestination',
+            name: streek,
+          })),
+        }
+      : {}),
+    mainEntityOfPage: { '@type': 'WebPage', '@id': data.pageUrl },
+    inLanguage: 'nl',
+  };
+}
+
+export function landMetaTitle(name: string, continent?: string): string {
+  return continent
+    ? `${name} — Wijnen & wijnstreken in ${continent} | VinoMartino`
+    : `${name} — Wijnen & wijnstreken | VinoMartino`;
+}
+
+export function landMetaDescription(data: {
+  name: string;
+  wijnstreken?: string[];
+  grapeVarieties?: string[];
+  description?: string;
+}): string {
+  if (data.description) return data.description.slice(0, 155);
+  const streken =
+    data.wijnstreken && data.wijnstreken.length > 0
+      ? ` — streken als ${data.wijnstreken.slice(0, 3).join(', ')}`
+      : '';
+  const grapes =
+    data.grapeVarieties && data.grapeVarieties.length > 0
+      ? `, druivenrassen als ${data.grapeVarieties.slice(0, 3).join(', ')}`
+      : '';
+  return `Ontdek de wijnen van ${data.name}${streken}${grapes}. Wijnhuizen, routes en reistips van VinoMartino.`;
+}

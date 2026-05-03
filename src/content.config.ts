@@ -69,4 +69,22 @@ const streken = defineCollection({
   }),
 });
 
-export const collections = { posts, wijnhuizen, wijnroutes, streken };
+const landen = defineCollection({
+  loader: glob({ pattern: ['**/*.md', '!README.md'], base: './src/content/landen' }),
+  schema: z.object({
+    title: z.string(),
+    name: z.string().optional(),
+    slug: z.string().optional(),
+    description: z.string().optional(),
+    capital: z.string().optional(),
+    continent: z.string().optional(),
+    wijnstreken: z.array(z.string()).optional(),
+    grapeVarieties: z.array(z.string()).optional(),
+    heroImage: z.string().optional(),
+    tags: z.array(z.string()).optional(),
+    author: z.string().optional(),
+    date: z.coerce.date().optional(),
+  }),
+});
+
+export const collections = { posts, wijnhuizen, wijnroutes, streken, landen };

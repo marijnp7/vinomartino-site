@@ -20,11 +20,15 @@ export default defineConfig({
         }
         // New content-type index pages get high priority
         if (
-          item.url.match(/\/(wijnhuizen|wijnroutes|streken)\/$/)
+          item.url.match(/\/(wijnhuizen|wijnroutes|streken|landen)\/$/)
         ) {
           return { ...item, priority: 0.9, changefreq: 'weekly' };
         }
-        // New content-type detail pages
+        // Landen detail pages rank highest after homepage (country = topical hub)
+        if (item.url.match(/\/landen\/[^/]+\/$/)) {
+          return { ...item, priority: 0.85, changefreq: 'monthly' };
+        }
+        // Other new content-type detail pages
         if (
           item.url.match(/\/(wijnhuizen|wijnroutes|streken)\/[^/]+\/$/)
         ) {
