@@ -1,0 +1,93 @@
+---
+interface RelatedItem {
+  name: string;
+  slug: string;
+  country?: string;
+}
+
+interface Props {
+  items: RelatedItem[];
+  title?: string;
+}
+
+const { items, title = 'Gerelateerde streken' } = Astro.props;
+---
+
+{items.length > 0 && (
+  <section class="related-section">
+    <div class="container">
+      <span class="related-label">Streken</span>
+      <h2 class="related-title">{title}</h2>
+      <div class="related-grid">
+        {items.map(item => (
+          <a href={`/streken/${item.slug}/`} class="related-card">
+            <div class="related-body">
+              {item.country && <span class="related-meta">{item.country}</span>}
+              <span class="related-name">{item.name}</span>
+            </div>
+          </a>
+        ))}
+      </div>
+    </div>
+  </section>
+)}
+
+<style>
+  .related-section {
+    padding: 3rem 0;
+    border-top: 1px solid var(--rule);
+  }
+  .related-label {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--burgundy);
+    display: block;
+    margin-bottom: 0.5rem;
+  }
+  .related-title {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-weight: 500;
+    color: var(--ink);
+    margin: 0 0 1.5rem;
+  }
+  .related-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+  }
+  .related-card {
+    text-decoration: none;
+    color: inherit;
+    background: var(--paperDeep);
+    padding: 1rem 1.25rem;
+    border-radius: var(--radius-sm);
+    transition: box-shadow var(--duration-fast) var(--ease-out);
+  }
+  .related-card:hover {
+    box-shadow: var(--shadow-card-hover);
+  }
+  .related-meta {
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--rust);
+    display: block;
+    margin-bottom: 0.25rem;
+  }
+  .related-name {
+    font-family: var(--font-display);
+    font-size: 1.125rem;
+    font-weight: 500;
+    color: var(--ink);
+  }
+  @media (max-width: 900px) {
+    .related-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 640px) {
+    .related-grid { grid-template-columns: 1fr; }
+  }
+</style>

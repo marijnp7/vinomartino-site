@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Bootstrap Directus schema — creates all 11 collections with fields and relations.
+ * Bootstrap Directus schema — wine-specific collections + original travel collections.
  * Run after Directus is up: DIRECTUS_URL=http://localhost:8055 DIRECTUS_TOKEN=<admin-token> node directus/scripts/bootstrap-schema.mjs
  */
 
@@ -308,7 +308,130 @@ async function run() {
   await createField('transport_routes', { field: 'destination_id', type: 'integer', meta: { interface: 'select-dropdown-m2o' }, schema: { is_nullable: true } });
   await createRelation({ collection: 'transport_routes', field: 'destination_id', related_collection: 'destinations' });
 
-  console.log('\n✅ Schema bootstrap complete — 11 collections created.\n');
+  // ══════════════════════════════════════════════════════════════════
+  // Wine-specific collections (VinoMartino)
+  // ══════════════════════════════════════════════════════════════════
+
+  // ── 12. Landen ────────────────────────────────────────
+  await createCollection('landen', { icon: 'flag', note: 'Wine countries (Italië, Frankrijk, etc.)' });
+  for (const f of [
+    textField('name', { nullable: false }),
+    slugField(),
+    statusField(),
+    textAreaField('description'),
+    richTextField('body'),
+    imageField(),
+    textField('climate', { note: 'Overall wine climate description' }),
+    jsonField('main_grapes', { note: 'Array of primary grape varieties' }),
+    richTextField('wine_history', { note: 'History of winemaking in this country' }),
+    textField('best_time_to_visit'),
+    textField('continent'),
+    textField('capital'),
+    ...seoFields(),
+    jsonField('translations', { note: i18nNote }),
+  ]) await createField('landen', f);
+
+  // ── 13. Streken ──────────────────────────────────────
+  await createCollection('streken', { icon: 'terrain', note: 'Wine regions within countries' });
+  for (const f of [
+    textField('name', { nullable: false }),
+    slugField(),
+    statusField(),
+    textAreaField('description'),
+    richTextField('body'),
+    imageField(),
+    textField('climate'),
+    textField('soil', { note: 'Dominant soil types' }),
+    jsonField('main_grapes', { note: 'Array of primary grape varieties' }),
+    jsonField('sub_regions', { note: 'Array of sub-region names' }),
+    textField('vineyard_area', { note: 'Total hectares under vine' }),
+    textField('altitude', { note: 'Typical altitude range' }),
+    jsonField('appellations', { note: 'Array of appellation names (DOC, DOCG, AOC, etc.)' }),
+    ...seoFields(),
+    jsonField('translations', { note: i18nNote }),
+  ]) await createField('streken', f);
+  await createField('streken', { field: 'land_id', type: 'integer', meta: { interface: 'select-dropdown-m2o', width: 'half' }, schema: { is_nullable: true } });
+  await createRelation({ collection: 'streken', field: 'land_id', related_collection: 'landen' });
+
+  // ── 14. Wijnhuizen ───────────────────────────────────
+  await createCollection('wijnhuizen', { icon: 'liquor', note: 'Winery portraits' });
+  for (const f of [
+    textField('name', { nullable: false }),
+    slugField(),
+    statusField(),
+    textAreaField('description'),
+    richTextField('body'),
+    imageField(),
+    textField('address'),
+    textField('website'),
+    { field: 'established', type: 'integer', meta: { interface: 'input', width: 'half', note: 'Year founded' }, schema: { is_nullable: true } },
+    textField('hectares', { note: 'Vineyard area in hectares' }),
+    { field: 'biodynamisch', type: 'boolean', meta: { interface: 'boolean', width: 'half', note: 'Biodynamic certification' }, schema: { is_nullable: true, default_value: false } },
+    textField('winemaker', { note: 'Current winemaker name' }),
+    jsonField('wines', { note: 'Array of notable wines [{name, grape, vintage, price}]' }),
+    jsonField('grapes', { note: 'Array of grape variety names' }),
+    ...seoFields(),
+    jsonField('translations', { note: i18nNote }),
+  ]) await createField('wijnhuizen', f);
+  await createField('wijnhuizen', { field: 'streek_id', type: 'integer', meta: { interface: 'select-dropdown-m2o', width: 'half' }, schema: { is_nullable: true } });
+  await createRelation({ collection: 'wijnhuizen', field: 'streek_id', related_collection: 'streken' });
+
+  // ── 15. Routes (Wijnroutes) ──────────────────────────
+  await createCollection('routes', { icon: 'route', note: 'Wine route itineraries' });
+  for (const f of [
+    textField('title', { nullable: false }),
+    slugField(),
+    statusField(),
+    textAreaField('description'),
+    richTextField('body'),
+    imageField(),
+    textField('duration', { note: 'e.g. "2 dagen", "3 uur"' }),
+    textField('transport', { note: 'auto, fiets, wandelen' }),
+    textField('style', { note: 'ontspannen, sportief, culinair' }),
+    jsonField('highlights', { note: 'Array of highlight strings' }),
+    jsonField('stops', { note: 'Array of stop descriptions' }),
+    ...seoFields(),
+    jsonField('translations', { note: i18nNote }),
+  ]) await createField('routes', f);
+
+  // ── 16. Junction tables ──────────────────────────────
+  // routes ↔ streken
+  await createCollection('routes_streken', { icon: 'link', note: 'M2M: routes ↔ streken', hidden: true });
+  await createField('routes_streken', { field: 'routes_id', type: 'integer', meta: { hidden: true }, schema: { is_nullable: true } });
+  await createField('routes_streken', { field: 'streken_id', type: 'integer', meta: { hidden: true }, schema: { is_nullable: true } });
+  await createRelation({ collection: 'routes_streken', field: 'routes_id', related_collection: 'routes' });
+  await createRelation({ collection: 'routes_streken', field: 'streken_id', related_collection: 'streken' });
+
+  // routes ↔ wijnhuizen
+  await createCollection('routes_wijnhuizen', { icon: 'link', note: 'M2M: routes ↔ wijnhuizen', hidden: true });
+  await createField('routes_wijnhuizen', { field: 'routes_id', type: 'integer', meta: { hidden: true }, schema: { is_nullable: true } });
+  await createField('routes_wijnhuizen', { field: 'wijnhuizen_id', type: 'integer', meta: { hidden: true }, schema: { is_nullable: true } });
+  await createField('routes_wijnhuizen', { field: 'sort_order', type: 'integer', meta: { interface: 'input', width: 'half' }, schema: { is_nullable: true, default_value: 0 } });
+  await createRelation({ collection: 'routes_wijnhuizen', field: 'routes_id', related_collection: 'routes' });
+  await createRelation({ collection: 'routes_wijnhuizen', field: 'wijnhuizen_id', related_collection: 'wijnhuizen' });
+
+  // articles ↔ streken
+  await createCollection('articles_streken', { icon: 'link', note: 'M2M: articles ↔ streken', hidden: true });
+  await createField('articles_streken', { field: 'articles_id', type: 'integer', meta: { hidden: true }, schema: { is_nullable: true } });
+  await createField('articles_streken', { field: 'streken_id', type: 'integer', meta: { hidden: true }, schema: { is_nullable: true } });
+  await createRelation({ collection: 'articles_streken', field: 'articles_id', related_collection: 'articles' });
+  await createRelation({ collection: 'articles_streken', field: 'streken_id', related_collection: 'streken' });
+
+  // articles ↔ wijnhuizen
+  await createCollection('articles_wijnhuizen', { icon: 'link', note: 'M2M: articles ↔ wijnhuizen', hidden: true });
+  await createField('articles_wijnhuizen', { field: 'articles_id', type: 'integer', meta: { hidden: true }, schema: { is_nullable: true } });
+  await createField('articles_wijnhuizen', { field: 'wijnhuizen_id', type: 'integer', meta: { hidden: true }, schema: { is_nullable: true } });
+  await createRelation({ collection: 'articles_wijnhuizen', field: 'articles_id', related_collection: 'articles' });
+  await createRelation({ collection: 'articles_wijnhuizen', field: 'wijnhuizen_id', related_collection: 'wijnhuizen' });
+
+  // articles ↔ routes
+  await createCollection('articles_routes', { icon: 'link', note: 'M2M: articles ↔ routes', hidden: true });
+  await createField('articles_routes', { field: 'articles_id', type: 'integer', meta: { hidden: true }, schema: { is_nullable: true } });
+  await createField('articles_routes', { field: 'routes_id', type: 'integer', meta: { hidden: true }, schema: { is_nullable: true } });
+  await createRelation({ collection: 'articles_routes', field: 'articles_id', related_collection: 'articles' });
+  await createRelation({ collection: 'articles_routes', field: 'routes_id', related_collection: 'routes' });
+
+  console.log('\n✅ Schema bootstrap complete — 17 collections + 5 junction tables created.\n');
 }
 
 run().catch((err) => {

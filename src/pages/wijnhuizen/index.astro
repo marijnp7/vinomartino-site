@@ -1,10 +1,9 @@
 ---
 import SiteLayout from '../../layouts/SiteLayout.astro';
-import { getCollection } from 'astro:content';
+import { loadWijnhuizen } from '../../lib/wijnhuizen';
 import { organizationSchema, breadcrumbSchema } from '../../lib/seo';
 
-const entries = await getCollection('wijnhuizen');
-entries.sort((a, b) => (a.data.title > b.data.title ? 1 : -1));
+const entries = await loadWijnhuizen();
 
 const schema = [
   organizationSchema(),
@@ -32,26 +31,23 @@ const schema = [
   <section class="section container">
     {entries.length > 0 ? (
       <div class="grid">
-        {entries.map(entry => {
-          const slug = entry.data.slug || entry.id.replace(/\.md$/, '');
-          return (
-            <a href={`/wijnhuizen/${slug}/`} class="card card-link">
-              {entry.data.heroImage && (
-                <img src={entry.data.heroImage} alt={entry.data.name || entry.data.title} loading="lazy" width="400" height="220" class="card-img" />
+        {entries.map(entry => (
+          <a href={`/wijnhuizen/${entry.slug}/`} class="card card-link">
+            {entry.heroImage && (
+              <img src={entry.heroImage} alt={entry.name} loading="lazy" width="400" height="220" class="card-img" />
+            )}
+            <div class="card-body">
+              <span class="card-region">{[entry.region, entry.country].filter(Boolean).join(' — ')}</span>
+              <h2 class="card-title">{entry.name}</h2>
+              {entry.description && <p class="card-desc">{entry.description}</p>}
+              {entry.grapes && entry.grapes.length > 0 && (
+                <div class="card-tags">
+                  {entry.grapes.slice(0, 3).map(g => <span class="tag">{g}</span>)}
+                </div>
               )}
-              <div class="card-body">
-                <span class="card-region">{[entry.data.region, entry.data.country].filter(Boolean).join(' — ')}</span>
-                <h2 class="card-title">{entry.data.name || entry.data.title}</h2>
-                {entry.data.description && <p class="card-desc">{entry.data.description}</p>}
-                {entry.data.grapes && entry.data.grapes.length > 0 && (
-                  <div class="card-tags">
-                    {entry.data.grapes.slice(0, 3).map(g => <span class="tag">{g}</span>)}
-                  </div>
-                )}
-              </div>
-            </a>
-          );
-        })}
+            </div>
+          </a>
+        ))}
       </div>
     ) : (
       <div class="empty-state">

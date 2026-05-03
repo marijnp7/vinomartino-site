@@ -1,53 +1,47 @@
 ---
 import SiteLayout from '../../layouts/SiteLayout.astro';
-import { getCollection, render } from 'astro:content';
+import { loadRoutes, type WijnRoute } from '../../lib/routes';
 import { wijnrouteSchema, wijnrouteMetaTitle, wijnrouteMetaDescription, breadcrumbSchema } from '../../lib/seo';
 
 export async function getStaticPaths() {
-  const entries = await getCollection('wijnroutes');
+  const entries = await loadRoutes();
   return entries.map(entry => ({
-    params: { slug: entry.data.slug || entry.id.replace(/\.md$/, '') },
+    params: { slug: entry.slug },
     props: { entry },
   }));
 }
 
-const { entry } = Astro.props;
-const { Content } = await render(entry);
-const { data } = entry;
-
-const slug = data.slug || entry.id.replace(/\.md$/, '');
-const pageUrl = new URL(`/wijnroutes/${slug}/`, Astro.site ?? 'https://vinomartino.com').href;
+const { entry } = Astro.props as { entry: WijnRoute };
+const pageUrl = new URL(`/wijnroutes/${entry.slug}/`, Astro.site ?? 'https://vinomartino.com').href;
 
 const schema = [
   wijnrouteSchema({
-    name: data.title,
-    description: data.description,
-    image: data.heroImage,
-    duration: data.duration,
-    region: data.region,
-    country: data.country,
-    stops: data.highlights || data.stops,
+    name: entry.title,
+    description: entry.description,
+    image: entry.heroImage,
+    duration: entry.duration,
+    stops: entry.highlights.length > 0 ? entry.highlights : entry.stops,
     pageUrl,
   }),
   breadcrumbSchema([
     { name: 'Home', url: '/' },
     { name: 'Wijnroutes', url: '/wijnroutes/' },
-    { name: data.title, url: pageUrl },
+    { name: entry.title, url: pageUrl },
   ]),
 ];
 ---
 
 <SiteLayout
-  title={wijnrouteMetaTitle(data.title, data.region)}
-  description={wijnrouteMetaDescription({ name: data.title, region: data.region, duration: data.duration, description: data.description })}
-  ogImage={data.heroImage}
+  title={wijnrouteMetaTitle(entry.title)}
+  description={wijnrouteMetaDescription({ name: entry.title, duration: entry.duration, description: entry.description })}
+  ogImage={entry.heroImage || undefined}
   schema={schema}
   activeNav="wijnroutes"
 >
   <article class="route-page">
-    {data.heroImage && (
+    {entry.heroImage && (
       <div class="page-hero">
-        <img src={data.heroImage} alt={data.title} class="page-hero-img" />
+        <img src={entry.heroImage} alt={entry.title} class="page-hero-img" />
       </div>
     )}
 
@@ -55,38 +49,32 @@ const schema = [
       <div class="page-main">
         <header class="page-header">
           <nav class="breadcrumb" aria-label="Breadcrumb">
-            <a href="/">Home</a> / <a href="/wijnroutes/">Wijnroutes</a> / <span>{data.title}</span>
+            <a href="/">Home</a> / <a href="/wijnroutes/">Wijnroutes</a> / <span>{entry.title}</span>
           </nav>
           <div class="page-meta-row">
-            {data.region && <span class="page-region">{data.region}</span>}
-            {data.duration && <span class="page-badge">{data.duration}</span>}
-            {data.difficulty && <span class="page-badge">{data.difficulty}</span>}
+            {entry.duration && <span class="page-badge">{entry.duration}</span>}
+            {entry.transport && <span class="page-badge">{entry.transport}</span>}
+            {entry.style && <span class="page-badge">{entry.style}</span>}
           </div>
-          <h1>{data.title}</h1>
-          {data.author && (
-            <div class="page-author">Door {data.author}</div>
-          )}
+          <h1>{entry.title}</h1>
         </header>
 
-        <div class="page-prose">
-          <Content />
-        </div>
+        <div class="page-prose" set:html={entry.bodyHtml} />
       </div>
 
       <aside class="page-sidebar">
         <div class="sidebar-card">
           <h3>Route info</h3>
-          {data.duration && <p><strong>Duur:</strong> {data.duration}</p>}
-          {data.difficulty && <p><strong>Niveau:</strong> {data.difficulty}</p>}
-          {data.region && <p><strong>Regio:</strong> {data.region}</p>}
-          {data.country && <p><strong>Land:</strong> {data.country}</p>}
+          {entry.duration && <p><strong>Duur:</strong> {entry.duration}</p>}
+          {entry.transport && <p><strong>Vervoer:</strong> {entry.transport}</p>}
+          {entry.style && <p><strong>Stijl:</strong> {entry.style}</p>}
         </div>
 
-        {data.highlights && data.highlights.length > 0 && (
+        {entry.highlights && entry.highlights.length > 0 && (
           <div class="sidebar-card sidebar-highlights">
             <h3>Highlights</h3>
             <ul>
-              {data.highlights.map(h => <li>{h}</li>)}
+              {entry.highlights.map(h => <li>{h}</li>)}
             </ul>
           </div>
         )}
@@ -133,13 +121,6 @@ const schema = [
     margin-bottom: var(--space-3);
     flex-wrap: wrap;
   }
-  .page-region {
-    font-family: var(--font-mono);
-    font-size: 0.625rem;
-    text-transform: uppercase;
-    letter-spacing: 0.15em;
-    color: var(--rust);
-  }
   .page-badge {
     font-family: var(--font-mono);
     font-size: 0.5625rem;
@@ -157,12 +138,6 @@ const schema = [
     font-style: italic;
     color: var(--ink);
     line-height: 1.15;
-    margin-bottom: var(--space-3);
-  }
-  .page-author {
-    font-family: var(--font-mono);
-    font-size: 0.75rem;
-    color: var(--inkSoft);
     margin-bottom: var(--space-8);
   }
   .page-prose {
@@ -199,7 +174,6 @@ const schema = [
   }
   .sidebar-card {
     background: var(--paperDeep);
-    border: 1px solid var(--color-border-light);
     border-radius: var(--radius-sm);
     padding: 1.25rem;
     font-family: var(--font-ui);
@@ -228,7 +202,7 @@ const schema = [
     font-size: 0.8125rem;
     color: var(--inkSoft);
     padding: 0.25rem 0;
-    border-bottom: 1px solid var(--color-border-light);
+    border-bottom: 1px solid var(--ruleSoft);
   }
   .sidebar-highlights li:last-child { border-bottom: none; }
   @media (max-width: 900px) {
