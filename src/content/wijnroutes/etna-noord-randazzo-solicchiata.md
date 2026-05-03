@@ -6,6 +6,7 @@ slug: "etna-noord-randazzo-solicchiata"
 duration: "2 dagen"
 region: "Etna Noord"
 difficulty: "gemiddeld"
+heroImage: "/images/route-etna-noord.jpg"
 highlights:
   - "Frank Cornelissen (Solicchiata)"
   - "Passopisaro (Contrada Guardiola)"

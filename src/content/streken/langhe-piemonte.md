@@ -5,6 +5,7 @@ date: 2026-05-03
 author: "Martin"
 slug: "langhe-piemonte"
 country: "Italia"
+heroImage: "/images/streek-langhe.jpg"
 mainGrapes:
   - "Nebbiolo"
   - "Dolcetto"

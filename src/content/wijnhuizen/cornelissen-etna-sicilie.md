@@ -10,6 +10,7 @@ grapes: ["Nerello Mascalese", "Nerello Cappuccio", "Carricante", "Catarratto", "
 established: 2001
 address: "Contrada Barbabecchi, Solicchiata, Castiglione di Sicilia (CT)"
 website: "frankcornelissen.it"
+heroImage: "/images/cornelissen-etna.jpg"
 description: "Frank Cornelissen verliet zijn baan als wijnhandelaar in Brussel, kocht land op de noordflank van de Etna en begon zonder sulfiet, zonder extractie, zonder compromissen. Meer dan twintig jaar later is hij een referentie voor iedereen die radicale wijnbouw begrijpt als een filosofie, niet als een marketingstrategie."
 ---
 

@@ -5,6 +5,7 @@ date: 2026-05-03
 author: "Martin"
 slug: "mosel-duitsland"
 country: "Duitsland"
+heroImage: "/images/streek-mosel.jpg"
 mainGrapes:
   - "Riesling"
   - "Müller-Thurgau"

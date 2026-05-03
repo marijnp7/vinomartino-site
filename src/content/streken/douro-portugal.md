@@ -5,6 +5,7 @@ date: 2026-05-03
 author: "Martin"
 slug: "douro-portugal"
 country: "Portugal"
+heroImage: "/images/streek-douro.jpg"
 mainGrapes:
   - "Touriga Nacional"
   - "Touriga Franca"

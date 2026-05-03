@@ -10,6 +10,7 @@ grapes: ["Touriga Nacional", "Touriga Franca", "Tinta Roriz", "Tinta Barroca", "
 established: 1842
 address: "Rua Infante D. Henrique 16, Vila Nova de Gaia, Porto"
 website: "niepoort-vinhos.com"
+heroImage: "/images/niepoort-douro.jpg"
 description: "Vijf generaties Nederlanders in de Douro. Dirk Niepoort is de man die Port uit zijn image van pensioenwijnen trok, droge Douro-wijnen serieus nam en tegelijk de meest eigenzinnige porto's blijft maken. Een portret van een huis dat beide werelden verstaat."
 ---
 
