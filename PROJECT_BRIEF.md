@@ -1,50 +1,59 @@
 # VinoMartino — Project Brief
 
-## Brand Strategy
+## Identity
 
-VinoMartino (`vinomartino.com`) is a single-brand wine-travel content site.
+vinomartino.com is a wine-niche content site — NOT a generic travel platform.
+The site focuses on wine regions, wine producers, tasting notes, and wine-travel routes.
 
-### Multi-brand decision (2026-05)
+## Brand Strategy (2026-05)
 
-The codebase originally supported multi-brand routing (`/{brand}/{locale}/`).
-This was removed in LAT-799 + LAT-806:
+### Single-brand, single-domain
 
-- **Chosen path: separate domains per brand.** If a second brand launches, it gets
-  its own domain, its own Astro build, and its own deploy pipeline.
-- Routes live at the site root (`/`, `/artikelen/`, `/bestemmingen/`, etc.) — no
-  brand or locale prefix in URLs.
-- The `Brand` interface and static brand data remain in `src/lib/brands.ts` for
-  theming (colors, fonts, content pillars). Layouts and components import the type.
-- Nginx 301 redirects for legacy `/vinomartino/*` and `/nl/*` URLs remain in
-  `nginx-prod.conf` for backwards-compat with external links and Google index.
+- **vinomartino.com** is the only live brand. All routes live at the site root.
+- No brand prefix (`/vinomartino/`) or locale prefix (`/nl/`) in URLs.
+- The original multi-brand routing (`/[brand]/[locale]/`) and the generic
+  Reisplatform architecture (countries, destinations, itineraries) have been
+  fully removed (LAT-799 + LAT-806).
 
-### What to do when brand #2 launches
+### Multi-brand future
 
-1. Fork the site repo (or create a second Astro project in a monorepo).
-2. Configure the new brand's data in `src/lib/brands.ts`.
-3. Deploy to its own domain with its own `BRAND` env var if needed.
-4. Do **not** re-introduce `[brand]/[locale]/` dynamic routing — each brand is a
-   standalone site with its own build.
+If a second brand launches:
+1. It gets its own domain, its own Astro build, and its own deploy pipeline.
+2. Do **not** re-introduce `[brand]/[locale]/` dynamic routing.
+3. A shared Reisplatform umbrella (if still desired) would be a separate repo
+   on a different domain.
+
+### Nginx backwards-compat
+
+301 redirects in `nginx-prod.conf` for legacy paths:
+- `/vinomartino/*` → `/`
+- `/nl/*` → `/`
+- `/landen/*` → `/`
+- `/bestemmingen/*` → `/`
+
+These catch Google-indexed URLs and external links. They cost nothing and should stay.
 
 ## Tech Stack
 
 - **Framework:** Astro (SSG)
-- **CMS:** Directus (articles, regions, routes)
+- **CMS:** Directus (articles via API, local file fallback)
 - **Hosting:** VPS via Docker + nginx reverse proxy
 - **CI/CD:** GitHub Actions auto-deploy on push to main
 
 ## Content Structure
 
 ```
-/                     Homepage
-/artikelen/           Article listing
-/artikelen/[slug]/    Individual articles
-/bestemmingen/        Destination listing
-/landen/              Country pages
-/reisroutes/          Route/itinerary pages
-/blog/                Blog posts
-/over-ons/            About page
-/privacy/             Privacy policy
-/cookies/             Cookie policy
-/affiliate-verklaring/ Affiliate disclosure
+/                         Homepage (wine-niche hero + recent articles)
+/artikelen/               Article listing
+/artikelen/[slug]/        Individual articles (wine regions, tasting notes, routes)
+/over-ons/                About Martin & Sophie
+/privacy/                 Privacy policy
+/cookies/                 Cookie policy
+/affiliate-verklaring/    Affiliate disclosure
 ```
+
+## Brand Theming
+
+Brand data in `src/lib/brands.ts` (interface + static array).
+Layouts inject CSS custom properties: `--color-primary`, `--color-secondary`,
+`--color-accent`, `--color-text`, `--font-heading`, `--font-body`.

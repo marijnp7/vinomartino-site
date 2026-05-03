@@ -1,7 +1,6 @@
 ---
 import SiteHeader from '../components/SiteHeader.astro';
 import SiteFooter from '../components/SiteFooter.astro';
-import { loadCountries } from '../lib/countries';
 import '../styles/tokens.css';
 
 interface Props {
@@ -15,9 +14,8 @@ interface Props {
 
 const { title, description, canonicalUrl, ogImage, schema, activeNav } = Astro.props;
 
-const countries = await loadCountries();
-const pageTitle = title.includes('Reisplatform') ? title : `${title} — Reisplatform`;
-const canonical = canonicalUrl ?? new URL(Astro.url.pathname, Astro.site ?? 'https://reisplatform.nl').href;
+const pageTitle = title.includes('VinoMartino') ? title : `${title} — VinoMartino`;
+const canonical = canonicalUrl ?? new URL(Astro.url.pathname, Astro.site ?? 'https://vinomartino.com').href;
 const ogImageUrl = ogImage || 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=1200&h=630&fit=crop&q=80';
 ---
 
@@ -29,7 +27,7 @@ const ogImageUrl = ogImage || 'https://images.unsplash.com/photo-1488646953014-8
     <title>{pageTitle}</title>
     {description && <meta name="description" content={description} />}
     <meta property="og:title" content={pageTitle} />
-    <meta property="og:site_name" content="Reisplatform" />
+    <meta property="og:site_name" content="VinoMartino" />
     <meta property="og:type" content="website" />
     <meta property="og:url" content={canonical} />
     <meta property="og:image" content={ogImageUrl} />
@@ -54,11 +52,11 @@ const ogImageUrl = ogImage || 'https://images.unsplash.com/photo-1488646953014-8
     />
   </head>
   <body>
-    <SiteHeader countries={countries} activeNav={activeNav} />
+    <SiteHeader activeNav={activeNav} />
     <main>
       <slot />
     </main>
-    <SiteFooter countries={countries} />
+    <SiteFooter />
   </body>
 </html>
 

@@ -60,20 +60,25 @@ site/
   src/
     lib/
       brands.ts                 # Brand type + statische brand-data
+      articles.ts               # Article loading (Directus + local fallback)
     layouts/
-      BaseLayout.astro          # Basis-layout
+      SiteLayout.astro          # Hoofd-layout met header/footer
+      BaseLayout.astro          # Minimal layout (juridische pagina's)
       BrandLayout.astro         # Brand-aware layout met CSS custom properties
     components/
-      BrandHeader.astro         # Header (logo, nav, kleuren)
-      BrandFooter.astro         # Footer (social links)
+      SiteHeader.astro          # Header (VinoMartino logo, nav)
+      SiteFooter.astro          # Footer (nav, juridisch, affiliate)
+      BrandHeader.astro         # Per-brand header
+      BrandFooter.astro         # Per-brand footer
       BrandHero.astro           # Hero section
     pages/
-      index.astro               # Homepage
+      index.astro               # Homepage (wijn-niche)
       artikelen/                # Artikelen (listing + detail)
-      bestemmingen/             # Bestemmingen
-      landen/                   # Landen
-      reisroutes/               # Reisroutes
-    content/posts/*.md          # Blog posts (markdown)
+      over-ons.astro            # Over VinoMartino
+      privacy.astro             # Privacybeleid
+      cookies.astro             # Cookieverklaring
+      affiliate-verklaring.astro # Affiliate-verklaring
+    content/posts/*.md          # Articles (markdown)
   public/                       # Statische bestanden
   Dockerfile                    # Container definitie
   docker-compose.site.yml       # Compose config

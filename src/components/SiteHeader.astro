@@ -1,46 +1,27 @@
 ---
-import type { Country } from '../lib/countries';
-
 interface Props {
-  countries?: Country[];
   activeNav?: string;
 }
 
-const { countries = [], activeNav } = Astro.props;
-
-const grouped: Record<string, Country[]> = {};
-for (const c of countries) {
-  const continent = c.continent || 'Overig';
-  if (!grouped[continent]) grouped[continent] = [];
-  grouped[continent].push(c);
-}
-
-const continentOrder = ['Europa', 'Azië', 'Noord-Amerika', 'Zuid-Amerika', 'Afrika', 'Oceanië', 'Overig'];
-const sortedContinents = Object.keys(grouped).sort(
-  (a, b) => (continentOrder.indexOf(a) === -1 ? 99 : continentOrder.indexOf(a)) -
-            (continentOrder.indexOf(b) === -1 ? 99 : continentOrder.indexOf(b))
-);
+const { activeNav } = Astro.props;
 
 const nav = [
-  { label: 'Landen', href: '/landen/', key: 'landen', hasMega: true },
-  { label: 'Bestemmingen', href: '/bestemmingen/', key: 'bestemmingen', hasMega: false },
-  { label: 'Reisroutes', href: '/reisroutes/', key: 'reisroutes', hasMega: false },
-  { label: 'Artikelen', href: '/artikelen/', key: 'artikelen', hasMega: false },
-  { label: 'Over ons', href: '/over-ons/', key: 'over-ons', hasMega: false },
+  { label: 'Artikelen', href: '/artikelen/', key: 'artikelen' },
+  { label: 'Over ons', href: '/over-ons/', key: 'over-ons' },
 ];
 ---
 
 <header class="site-header">
   <div class="header-utility">
     <div class="header-utility-inner">
-      <span>Jouw reisgids voor de wereld</span>
+      <span>Wijnreizen met karakter</span>
     </div>
   </div>
 
   <div class="header-main">
     <div class="header-inner">
-      <a href="/" class="header-logo" aria-label="Reisgids">
-        Reis<span class="logo-dot">·</span>platform
+      <a href="/" class="header-logo" aria-label="VinoMartino">
+        Vino<span class="logo-dot">·</span>Martino
       </a>
 
       <nav class="header-nav" aria-label="Hoofdnavigatie">
@@ -48,10 +29,8 @@ const nav = [
           <a
             href={item.href}
             class={`nav-link ${activeNav === item.key ? 'nav-link--active' : ''}`}
-            data-menu={item.hasMega ? 'landen' : undefined}
           >
             {item.label}
-            {item.hasMega && <span class="nav-chevron" aria-hidden="true">▾</span>}
           </a>
         ))}
       </nav>
@@ -62,41 +41,11 @@ const nav = [
     </div>
   </div>
 
-  {countries.length > 0 && (
-    <div class="mega-menu" id="mega-landen" role="region" aria-label="Landen menu" hidden>
-      <div class="mega-inner">
-        <div class="mega-brand">
-          <div class="mega-brand-icon" aria-hidden="true">🌍</div>
-          <strong class="mega-brand-title">Ontdek per land</strong>
-          <p class="mega-brand-desc">Kies een continent en ontdek onze landengidsen met praktische info, bestemmingen en reisroutes.</p>
-        </div>
-        {sortedContinents.map(continent => (
-          <div class="mega-col">
-            <h4 class="mega-col-heading">{continent}</h4>
-            <ul class="mega-col-list" role="list">
-              {grouped[continent].map(country => (
-                <li><a href={`/landen/${country.slug}/`} class="mega-link">{country.name}</a></li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </div>
-    </div>
-  )}
-
   <div class="mobile-menu" id="mobile-menu" hidden>
     <nav>
       {nav.map(item => (
         <a href={item.href} class="mobile-nav-link">{item.label}</a>
       ))}
-      {countries.length > 0 && (
-        <div class="mobile-countries">
-          <span class="mobile-section-label">Landen</span>
-          {countries.map(c => (
-            <a href={`/landen/${c.slug}/`} class="mobile-nav-link mobile-nav-link--sub">{c.name}</a>
-          ))}
-        </div>
-      )}
     </nav>
   </div>
 </header>
@@ -170,77 +119,6 @@ const nav = [
     color: var(--burgundy);
     border-bottom-color: var(--burgundy);
   }
-  .nav-chevron {
-    font-size: 0.5625rem;
-    opacity: 0.6;
-  }
-
-  .mega-menu {
-    background: var(--paperDeep);
-    border-top: 1px solid var(--ruleSoft);
-    border-bottom: 1px solid var(--rule);
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    z-index: 99;
-    box-shadow: var(--shadow-md);
-  }
-  .mega-menu[hidden] { display: none; }
-  .mega-inner {
-    max-width: var(--max-width);
-    margin: 0 auto;
-    padding: 32px var(--gutter);
-    display: grid;
-    grid-template-columns: 240px repeat(auto-fit, minmax(140px, 1fr));
-    gap: 32px;
-  }
-  .mega-brand-icon {
-    font-size: 2rem;
-    margin-bottom: 12px;
-  }
-  .mega-brand-title {
-    display: block;
-    font-family: var(--font-display);
-    font-size: 1.375rem;
-    font-weight: 500;
-    color: var(--ink);
-    margin-bottom: 8px;
-  }
-  .mega-brand-desc {
-    font-family: var(--font-body);
-    font-size: 0.8125rem;
-    line-height: 1.5;
-    color: var(--inkSoft);
-    margin: 0;
-  }
-  .mega-col-heading {
-    font-family: var(--font-mono);
-    font-size: 0.625rem;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.18em;
-    color: var(--burgundy);
-    margin: 0 0 12px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid var(--rule);
-  }
-  .mega-col-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-  .mega-link {
-    font-family: var(--font-body);
-    font-size: 0.875rem;
-    color: var(--ink);
-    text-decoration: none;
-    transition: color var(--duration-fast);
-  }
-  .mega-link:hover { color: var(--burgundy); }
 
   .mobile-toggle {
     display: none;
@@ -274,24 +152,6 @@ const nav = [
     text-decoration: none;
     border-bottom: 1px solid var(--ruleSoft);
   }
-  .mobile-nav-link--sub {
-    padding-left: 1rem;
-    font-weight: 400;
-    font-size: 0.9375rem;
-  }
-  .mobile-section-label {
-    display: block;
-    font-family: var(--font-mono);
-    font-size: 0.625rem;
-    text-transform: uppercase;
-    letter-spacing: 0.15em;
-    color: var(--inkFaint);
-    padding: 1rem 0 0.5rem;
-  }
-  .mobile-countries {
-    border-top: 1px solid var(--rule);
-    margin-top: 0.5rem;
-  }
 
   @media (max-width: 900px) {
     .header-nav, .header-utility { display: none; }
@@ -304,25 +164,6 @@ const nav = [
 </style>
 
 <script>
-  const landenLink = document.querySelector('[data-menu="landen"]') as HTMLElement;
-  const megaLanden = document.getElementById('mega-landen') as HTMLElement;
-  let closeTimer: ReturnType<typeof setTimeout>;
-
-  function openMega() {
-    clearTimeout(closeTimer);
-    if (megaLanden) megaLanden.hidden = false;
-  }
-  function closeMega() {
-    closeTimer = setTimeout(() => { if (megaLanden) megaLanden.hidden = true; }, 120);
-  }
-
-  if (landenLink && megaLanden) {
-    landenLink.addEventListener('mouseenter', openMega);
-    landenLink.addEventListener('mouseleave', closeMega);
-    megaLanden.addEventListener('mouseenter', () => clearTimeout(closeTimer));
-    megaLanden.addEventListener('mouseleave', closeMega);
-  }
-
   const mobileToggle = document.querySelector('.mobile-toggle') as HTMLButtonElement;
   const mobileMenu = document.getElementById('mobile-menu') as HTMLElement;
   mobileToggle?.addEventListener('click', () => {

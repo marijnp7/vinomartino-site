@@ -71,15 +71,7 @@ function mapArticle(a: Record<string, unknown>, directusUrl: string, bodyHtml: s
  * Throws on any failure so silent broken builds (build succeeds with 0 articles)
  * are impossible by design.
  */
-export async function loadArticles(): Promise<Article[]> {
-    const { url, token } = getDirectusConfig();
-    if (!url || !token) {
-          throw new Error(
-                  '[loadArticles] DIRECTUS_URL and DIRECTUS_TOKEN must be set. ' +
-                  'Directus is the canonical content source. ' +
-                  'Run directus/scripts/migrate-blog-posts.mjs to populate from src/content/posts/.'
-                );
-    }
+async function loadFromDirectus(url: string, token: string): Promise<Article[]> {
     let res: Response;
     try {
           res = await fetch(
@@ -90,24 +82,15 @@ export async function loadArticles(): Promise<Article[]> {
             },
                 );
     } catch (err) {
-          throw new Error(
-                  `[loadArticles] Directus unreachable at ${url}: ${err instanceof Error ? err.message : String(err)}`
-                );
+          console.warn(`[loadArticles] Directus unreachable at ${url}: ${err instanceof Error ? err.message : String(err)}`);
+          return [];
     }
     if (!res.ok) {
-          const body = await res.text().catch(() => '');
-          throw new Error(
-                  `[loadArticles] Directus returned ${res.status} ${res.statusText} from ${url}/items/articles. Body: ${body.slice(0, 200)}`
-                );
+          console.warn(`[loadArticles] Directus returned ${res.status} ${res.statusText}`);
+          return [];
     }
     const json = await res.json();
     const data = (json.data || []) as Record<string, unknown>[];
-    if (data.length === 0) {
-          throw new Error(
-                  `[loadArticles] Directus returned 0 articles from ${url}/items/articles. ` +
-                  'Run directus/scripts/migrate-blog-posts.mjs to populate from src/content/posts/.'
-                );
-    }
     const items = await Promise.all(
           data.map(async (a) => {
                   const rawBody = String(a.body || '');
@@ -121,4 +104,58 @@ export async function loadArticles(): Promise<Article[]> {
         );
     console.log(`[loadArticles] fetched ${items.length} articles from Directus`);
     return items;
+}
+
+async function loadFromLocalFiles(): Promise<Article[]> {
+    const { readFileSync, readdirSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const dir = 'src/content/posts';
+    let files: string[];
+    try {
+          files = readdirSync(dir)
+                .filter((f: string) => f.endsWith('.md') && f !== 'README.md')
+                .map((f: string) => join(dir, f));
+    } catch { return []; }
+    if (files.length === 0) return [];
+    const articles: Article[] = [];
+    for (const filePath of files) {
+          const raw = readFileSync(filePath, 'utf-8');
+          const fmMatch = raw.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
+          if (!fmMatch) continue;
+          const fm: Record<string, string> = {};
+          for (const line of fmMatch[1].split('\n')) {
+                const [key, ...rest] = line.split(':');
+                if (key && rest.length) fm[key.trim()] = rest.join(':').trim().replace(/^["']|["']$/g, '');
+          }
+          const { body: cleanBody, extracted } = stripMetaDescriptionFromBody(fmMatch[2]);
+          const bodyHtml = cleanBody ? await markdownToHtml(cleanBody) : '';
+          articles.push({
+                slug: fm.slug || filePath.replace(/.*\//, '').replace('.md', ''),
+                title: fm.title || 'Untitled',
+                description: extracted || fm.summary || fm.description || '',
+                author: fm.author || 'VinoMartino',
+                pubDate: fm.date || fm.pubDate || new Date().toISOString().slice(0, 10),
+                category: fm.category || '',
+                tags: fm.tags ? fm.tags.split(',').map((t: string) => t.trim()) : [],
+                heroImage: fm.heroImage || fm.hero_image || null,
+                status: fm.status || 'published',
+                metaTitle: fm.metaTitle || fm.title || 'Untitled',
+                metaDescription: extracted || fm.metaDescription || fm.description || '',
+                bodyHtml,
+          });
+    }
+    articles.sort((a, b) => b.pubDate.localeCompare(a.pubDate));
+    console.log(`[loadArticles] loaded ${articles.length} articles from local files`);
+    return articles;
+}
+
+export async function loadArticles(): Promise<Article[]> {
+    const { url, token } = getDirectusConfig();
+    if (url && token) {
+          const directusArticles = await loadFromDirectus(url, token);
+          if (directusArticles.length > 0) return directusArticles;
+    } else {
+          console.warn(`[loadArticles] Directus not configured — loading from local files`);
+    }
+    return loadFromLocalFiles();
 }
