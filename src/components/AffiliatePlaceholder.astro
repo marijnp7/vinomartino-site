@@ -2,9 +2,12 @@
 interface Props {
   type: 'accommodation' | 'activity' | 'flight' | 'insurance' | 'sidebar';
   context?: string;
+  partner?: 'booking.com' | 'getyourguide' | 'skyscanner' | 'reisverzekering';
+  region?: string;
+  placement?: 'sidebar' | 'inline-mid' | 'inline-end' | 'footer';
 }
 
-const { type, context } = Astro.props;
+const { type, context, partner, region, placement } = Astro.props;
 
 const labels: Record<string, { title: string; description: string; icon: string }> = {
   accommodation: {
@@ -37,7 +40,7 @@ const labels: Record<string, { title: string; description: string; icon: string 
 const label = labels[type] || labels.sidebar;
 ---
 
-<aside class={`affiliate-placeholder affiliate-${type}`} data-affiliate-type={type} data-context={context}>
+<aside class={`affiliate-placeholder affiliate-${type} affiliate-${placement || 'sidebar'}`} data-affiliate-type={type} data-context={context} data-partner={partner} data-region={region} data-placement={placement}>
   <div class="affiliate-inner">
     <span class="affiliate-icon" aria-hidden="true">{label.icon}</span>
     <div class="affiliate-text">

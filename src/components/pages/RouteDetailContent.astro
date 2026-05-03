@@ -1,4 +1,7 @@
 ---
+import AffiliatePlaceholder from '../AffiliatePlaceholder.astro';
+import AffiliateDisclosure from '../AffiliateDisclosure.astro';
+
 interface RouteStop {
   day: number;
   title: string;
@@ -123,6 +126,11 @@ const {
                       <span class="rd-stop__meta-value">{stop.overnacht}</span>
                     </div>
                   )}
+                  {stop.overnacht && (
+                    <div class="rd-stop__affiliate">
+                      <AffiliatePlaceholder type="accommodation" partner="booking.com" region={stop.overnacht || region} placement="inline-mid" context={`route-accommodation-day${stop.day}`} />
+                    </div>
+                  )}
                 </div>
               </li>
             ))}
@@ -152,6 +160,15 @@ const {
   </section>
 )}
 
+<!-- ── ROUTE ACTIVITIES ──────────────────────────────── -->
+{(stops.length > 0 || Astro.slots.has('body')) && (
+  <section class="rd-activities">
+    <div class="container">
+      <AffiliatePlaceholder type="activity" partner="getyourguide" region={region} placement="inline-mid" context="route-activity" />
+    </div>
+  </section>
+)}
+
 <!-- ── PRACTICAL ─────────────────────────────────────── -->
 {practicalInfo.length > 0 && (
   <section class="rd-practical">
@@ -169,6 +186,16 @@ const {
     </div>
   </section>
 )}
+
+<!-- ── ROUTE TRAVEL ──────────────────────────────────── -->
+<section class="rd-travel">
+  <div class="container">
+    <div class="rd-travel__grid">
+      <AffiliatePlaceholder type="flight" partner="skyscanner" region={region} placement="sidebar" context="route-flight" />
+      <AffiliatePlaceholder type="insurance" partner="reisverzekering" region={region} placement="sidebar" context="route-insurance" />
+    </div>
+  </div>
+</section>
 
 <!-- ── RELATED ────────────────────────────────────────── -->
 {relatedRoutes.length > 0 && (
@@ -194,6 +221,8 @@ const {
     </div>
   </section>
 )}
+
+<AffiliateDisclosure />
 
 <style>
   /* ── Shared ── */
@@ -533,6 +562,29 @@ const {
     margin: 0;
   }
 
+  /* ── Affiliate Placeholders ── */
+  .rd-stop__affiliate {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--ruleSoft);
+  }
+
+  .rd-activities {
+    padding: 3rem 0;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .rd-travel {
+    padding: 3rem 0;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .rd-travel__grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 2rem;
+  }
+
   /* ── Responsive ── */
   @media (max-width: 1024px) {
     .rd-itinerary { grid-template-columns: 1fr; }
@@ -542,6 +594,7 @@ const {
   @media (max-width: 900px) {
     .rd-practical__list { grid-template-columns: 1fr 1fr; }
     .rd-related__grid { grid-template-columns: repeat(2, 1fr); }
+    .rd-travel__grid { grid-template-columns: 1fr; }
   }
 
   @media (max-width: 640px) {

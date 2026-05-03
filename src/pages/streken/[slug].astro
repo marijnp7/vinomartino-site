@@ -1,6 +1,8 @@
 ---
 import SiteLayout from '../../layouts/SiteLayout.astro';
 import RegionPageContent from '../../components/pages/RegionPageContent.astro';
+import AffiliatePlaceholder from '../../components/AffiliatePlaceholder.astro';
+import AffiliateDisclosure from '../../components/AffiliateDisclosure.astro';
 import { loadStreken, type Streek } from '../../lib/streken';
 import { streekSchema, streekMetaTitle, streekMetaDescription, breadcrumbSchema } from '../../lib/seo';
 
@@ -124,9 +126,16 @@ const schema = [
         )}
       </section>
 
+      <section class="streek-accommodation">
+        <div class="container">
+          <AffiliatePlaceholder type="accommodation" partner="booking.com" region={name} placement="sidebar" context="streek-accommodation" />
+        </div>
+      </section>
+
       <section class="streek-body">
         <div class="streek-body__inner">
           <div class="streek-prose" set:html={entry.bodyHtml} />
+          <AffiliatePlaceholder type="activity" partner="getyourguide" region={name} placement="inline-end" context="streek-activity" />
         </div>
       </section>
 
@@ -155,6 +164,14 @@ const schema = [
           </div>
         </section>
       )}
+
+      <section class="streek-insurance">
+        <div class="container">
+          <AffiliatePlaceholder type="insurance" partner="reisverzekering" region={name} placement="footer" context="streek-insurance" />
+        </div>
+      </section>
+
+      <AffiliateDisclosure />
     </article>
   ) : (
     <RegionPageContent slug={slug!} />
@@ -272,7 +289,7 @@ const schema = [
     font-weight: 600;
     margin: 2rem 0 0.75rem;
   }
-  .streek-subregions, .streek-appellations {
+  .streek-subregions, .streek-appellations, .streek-accommodation, .streek-insurance {
     padding: 3rem 0;
     border-bottom: 1px solid var(--rule);
   }
