@@ -8,12 +8,39 @@ export default defineConfig({
   integrations: [
     sitemap({
       changefreq: 'weekly',
-      priority: 0.7,
       lastmod: new Date(),
       filter: (page) =>
         !page.includes('/go/') &&
         !page.includes('/admin/') &&
         !page.includes('/api/'),
+      serialize(item) {
+        // Homepage
+        if (item.url === 'https://vinomartino.com/') {
+          return { ...item, priority: 1.0, changefreq: 'daily' };
+        }
+        // New content-type index pages get high priority
+        if (
+          item.url.match(/\/(wijnhuizen|wijnroutes|streken)\/$/)
+        ) {
+          return { ...item, priority: 0.9, changefreq: 'weekly' };
+        }
+        // New content-type detail pages
+        if (
+          item.url.match(/\/(wijnhuizen|wijnroutes|streken)\/[^/]+\/$/)
+        ) {
+          return { ...item, priority: 0.8, changefreq: 'monthly' };
+        }
+        // Article listing
+        if (item.url === 'https://vinomartino.com/artikelen/') {
+          return { ...item, priority: 0.85, changefreq: 'weekly' };
+        }
+        // Article detail pages
+        if (item.url.includes('/artikelen/')) {
+          return { ...item, priority: 0.7, changefreq: 'monthly' };
+        }
+        // Static pages (over-ons, privacy, etc.)
+        return { ...item, priority: 0.4, changefreq: 'yearly' };
+      },
     }),
   ],
 });
