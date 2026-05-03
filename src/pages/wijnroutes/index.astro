@@ -1,0 +1,186 @@
+---
+import SiteLayout from '../../layouts/SiteLayout.astro';
+import { getCollection } from 'astro:content';
+import { organizationSchema, breadcrumbSchema } from '../../lib/seo';
+
+const entries = await getCollection('wijnroutes');
+entries.sort((a, b) => {
+  const da = a.data.date ? new Date(a.data.date).getTime() : 0;
+  const db = b.data.date ? new Date(b.data.date).getTime() : 0;
+  return db - da;
+});
+
+const schema = [
+  organizationSchema(),
+  breadcrumbSchema([
+    { name: 'Home', url: '/' },
+    { name: 'Wijnroutes', url: '/wijnroutes/' },
+  ]),
+];
+---
+
+<SiteLayout
+  title="Wijnroutes — Gids voor wijnreizen | VinoMartino"
+  description="Doorloop de mooiste wijnroutes ter wereld — van de steile Etna-noordflank tot de kronkelende Mosel. Praktische routes voor wijnliefhebbers die zelf op pad gaan."
+  schema={schema}
+  activeNav="wijnroutes"
+>
+  <section class="hero-sm">
+    <div class="container">
+      <span class="section-label">Wijnroutes</span>
+      <h1>Gids voor wijnreizen</h1>
+      <p class="hero-desc">Praktische routes langs de mooiste wijnstreken — van dagtrips tot meerdaagse tochten langs producenten en proeflokalen.</p>
+    </div>
+  </section>
+
+  <section class="section container">
+    {entries.length > 0 ? (
+      <div class="grid">
+        {entries.map(entry => {
+          const slug = entry.data.slug || entry.id.replace(/\.md$/, '');
+          return (
+            <a href={`/wijnroutes/${slug}/`} class="card card-link">
+              {entry.data.heroImage && (
+                <img src={entry.data.heroImage} alt={entry.data.title} loading="lazy" width="400" height="220" class="card-img" />
+              )}
+              <div class="card-body">
+                <div class="card-meta-row">
+                  <span class="card-region">{entry.data.region}</span>
+                  {entry.data.duration && <span class="card-duration">{entry.data.duration}</span>}
+                  {entry.data.difficulty && <span class={`card-difficulty difficulty-${entry.data.difficulty}`}>{entry.data.difficulty}</span>}
+                </div>
+                <h2 class="card-title">{entry.data.title}</h2>
+                {entry.data.description && <p class="card-desc">{entry.data.description}</p>}
+                {entry.data.highlights && entry.data.highlights.length > 0 && (
+                  <ul class="card-highlights">
+                    {entry.data.highlights.slice(0, 3).map(h => <li>{h}</li>)}
+                  </ul>
+                )}
+              </div>
+            </a>
+          );
+        })}
+      </div>
+    ) : (
+      <div class="empty-state">
+        <h2>Wijnroutes komen eraan</h2>
+        <p>We werken aan uitgebreide routegidsen. Binnenkort beschikbaar.</p>
+      </div>
+    )}
+  </section>
+</SiteLayout>
+
+<style>
+  .hero-sm {
+    background: var(--paperDeep);
+    padding: var(--space-12) 0 var(--space-8);
+    text-align: center;
+  }
+  .hero-sm h1 {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 1.6rem + 1.5vw, 3rem);
+    font-weight: 400;
+    font-style: italic;
+    color: var(--ink);
+    margin-top: var(--space-3);
+  }
+  .hero-desc {
+    font-family: var(--font-body);
+    font-size: 1rem;
+    color: var(--inkSoft);
+    margin-top: var(--space-3);
+    max-width: 36rem;
+    margin-inline: auto;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: var(--space-6);
+  }
+  .card-link {
+    text-decoration: none;
+    color: inherit;
+    display: block;
+  }
+  .card-img {
+    width: 100%;
+    height: 220px;
+    object-fit: cover;
+  }
+  .card-body { padding: 1.25rem; }
+  .card-meta-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: var(--space-2);
+    flex-wrap: wrap;
+  }
+  .card-region {
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--rust);
+  }
+  .card-duration, .card-difficulty {
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    background: var(--paperDeep);
+    color: var(--inkSoft);
+    padding: 0.2rem 0.5rem;
+    border-radius: 1px;
+  }
+  .card-title {
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    font-weight: 500;
+    color: var(--ink);
+    margin-bottom: var(--space-2);
+    line-height: 1.25;
+  }
+  .card-desc {
+    font-family: var(--font-body);
+    font-size: 0.875rem;
+    color: var(--inkSoft);
+    line-height: 1.5;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    margin-bottom: var(--space-3);
+  }
+  .card-highlights {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  .card-highlights li {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    color: var(--inkFaint);
+  }
+  .card-highlights li::before {
+    content: '— ';
+  }
+  .empty-state {
+    text-align: center;
+    padding: var(--space-16) var(--space-4);
+  }
+  .empty-state h2 {
+    font-family: var(--font-display);
+    font-size: 1.75rem;
+    font-weight: 400;
+    font-style: italic;
+    color: var(--ink);
+    margin-bottom: var(--space-3);
+  }
+  .empty-state p {
+    font-size: 1rem;
+    color: var(--inkSoft);
+  }
+</style>

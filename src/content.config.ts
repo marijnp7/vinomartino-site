@@ -46,10 +46,13 @@ const wijnroutes = defineCollection({
     region: z.string().optional(),
     country: z.string().optional(),
     duration: z.string().optional(),
+    difficulty: z.string().optional(),
+    highlights: z.array(z.string()).optional(),
     stops: z.array(z.string()).optional(),
     heroImage: z.string().optional(),
     tags: z.array(z.string()).optional(),
     relatedStreek: z.string().optional(),
+    author: z.string().optional(),
     date: z.coerce.date().optional(),
   }),
 });
