@@ -1,5 +1,8 @@
 node_modules/
 dist/
+dist-old/
+dist2/
+Dit
 .env
 .astro/
 deploy-key-github-actions
