@@ -1,7 +1,14 @@
 ---
 import { loadArticles } from '../lib/articles';
+import { loadWijnhuizen } from '../lib/wijnhuizen';
+import { loadRoutes } from '../lib/routes';
+import { loadStreken } from '../lib/streken';
+
 const articles = await loadArticles();
-const recentArticles = articles.slice(0, 6);
+const recentArticles = articles.slice(0, 3);
+const wijnhuizen = (await loadWijnhuizen()).slice(0, 3);
+const routes = (await loadRoutes()).slice(0, 3);
+const streken = (await loadStreken()).slice(0, 3);
 ---
 
 <!doctype html>
@@ -50,11 +57,12 @@ footer.site .logo{color:var(--paper);margin-bottom:.5rem}
 footer.site .tagline{font-size:.9375rem;max-width:32rem;margin:0 auto 2rem;opacity:.85}
 .foot-nav{display:flex;justify-content:center;gap:1.5rem;flex-wrap:wrap;margin-bottom:2rem;font-size:.875rem}
 .foot-nav a:hover{color:var(--paper)}
+.section-link{text-align:center;margin-top:2.5rem}
 .copy{font-size:.75rem;opacity:.6;padding-top:1.5rem;border-top:1px solid rgba(201,185,143,.2)}
 </style>
 </head>
 <body>
-<header class="site"><div class="head-inner"><a href="/" class="logo">Vino<span>·</span>Martino</a><nav><a href="/artikelen/">Artikelen</a><a href="/over-ons/">Over ons</a></nav></div></header>
+<header class="site"><div class="head-inner"><a href="/" class="logo">Vino<span>·</span>Martino</a><nav><a href="/wijnhuizen/">Wijnhuizen</a><a href="/wijnroutes/">Routes</a><a href="/streken/">Streken</a><a href="/artikelen/">Artikelen</a><a href="/over-ons/">Over ons</a></nav></div></header>
 <main>
   <section class="hero">
     <span class="eyebrow">Wijnreizen met karakter</span>
@@ -62,6 +70,69 @@ footer.site .tagline{font-size:.9375rem;max-width:32rem;margin:0 auto 2rem;opaci
     <p class="lede">Persoonlijke verhalen, proefnotities en routes door de mooiste wijnstreken ter wereld — geschreven door wijnliefhebbers die zelf op pad gaan.</p>
     <a href="/artikelen/" class="cta">Lees alle artikelen →</a>
   </section>
+  <section class="articles">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">Ontdek</span>
+        <h2>Wijnhuizen</h2>
+      </div>
+      <div class="grid">
+        {wijnhuizen.map(w => (
+          <a href={`/wijnhuizen/${w.slug}/`} class="card">
+            <div class="card-body">
+              <span class="cat">{w.region}</span>
+              <h3>{w.name}</h3>
+              <p>{w.description}</p>
+            </div>
+          </a>
+        ))}
+      </div>
+      <p class="section-link"><a href="/wijnhuizen/" class="cta">Alle wijnhuizen →</a></p>
+    </div>
+  </section>
+
+  <section class="articles">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">Op pad</span>
+        <h2>Wijnroutes</h2>
+      </div>
+      <div class="grid">
+        {routes.map(r => (
+          <a href={`/wijnroutes/${r.slug}/`} class="card">
+            <div class="card-body">
+              <span class="cat">{r.duration}</span>
+              <h3>{r.title}</h3>
+              <p>{r.description}</p>
+            </div>
+          </a>
+        ))}
+      </div>
+      <p class="section-link"><a href="/wijnroutes/" class="cta">Alle routes →</a></p>
+    </div>
+  </section>
+
+  <section class="articles">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">Terroir</span>
+        <h2>Streken</h2>
+      </div>
+      <div class="grid">
+        {streken.map(s => (
+          <a href={`/streken/${s.slug}/`} class="card">
+            <div class="card-body">
+              <span class="cat">{s.country}</span>
+              <h3>{s.name}</h3>
+              <p>{s.description}</p>
+            </div>
+          </a>
+        ))}
+      </div>
+      <p class="section-link"><a href="/streken/" class="cta">Alle streken →</a></p>
+    </div>
+  </section>
+
   <section class="articles">
     <div class="container">
       <div class="section-head">
@@ -81,6 +152,7 @@ footer.site .tagline{font-size:.9375rem;max-width:32rem;margin:0 auto 2rem;opaci
           </a>
         ))}
       </div>
+      <p class="section-link"><a href="/artikelen/" class="cta">Alle artikelen →</a></p>
     </div>
   </section>
 </main>
@@ -89,6 +161,9 @@ footer.site .tagline{font-size:.9375rem;max-width:32rem;margin:0 auto 2rem;opaci
     <p class="logo">Vino<span>·</span>Martino</p>
     <p class="tagline">Wijnreizen met karakter — persoonlijke verhalen, proefnotities en routes door de mooiste wijnstreken ter wereld.</p>
     <nav class="foot-nav">
+      <a href="/wijnhuizen/">Wijnhuizen</a>
+      <a href="/wijnroutes/">Routes</a>
+      <a href="/streken/">Streken</a>
       <a href="/artikelen/">Artikelen</a>
       <a href="/over-ons/">Over ons</a>
       <a href="/privacy/">Privacy</a>
