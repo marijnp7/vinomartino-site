@@ -29,6 +29,31 @@ function getDirectusConfig() {
     return { url, token };
 }
 
+async function downloadHeroImage(assetId: string, directusUrl: string, token: string): Promise<string | null> {
+    const { writeFileSync, mkdirSync, existsSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const outDir = join(process.cwd(), 'public', 'images', 'routes');
+    const outPath = join(outDir, `${assetId}.jpg`);
+    if (existsSync(outPath)) return `/images/routes/${assetId}.jpg`;
+    try {
+        const res = await fetch(`${directusUrl}/assets/${assetId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+            signal: AbortSignal.timeout(15000),
+        });
+        if (!res.ok) {
+            console.warn(`[loadRoutes] could not fetch asset ${assetId}: ${res.status}`);
+            return null;
+        }
+        const buf = Buffer.from(await res.arrayBuffer());
+        mkdirSync(outDir, { recursive: true });
+        writeFileSync(outPath, buf);
+        return `/images/routes/${assetId}.jpg`;
+    } catch (err) {
+        console.warn(`[loadRoutes] asset download failed for ${assetId}: ${err instanceof Error ? err.message : String(err)}`);
+        return null;
+    }
+}
+
 function parseJsonField(val: unknown): string[] {
     if (Array.isArray(val)) return val.map(String);
     if (typeof val === 'string') {
@@ -38,7 +63,7 @@ function parseJsonField(val: unknown): string[] {
     return [];
 }
 
-function mapRoute(r: Record<string, unknown>, directusUrl: string, bodyHtml: string): WijnRoute {
+function mapRoute(r: Record<string, unknown>, heroImagePath: string | null, bodyHtml: string): WijnRoute {
     return {
         slug: String(r.slug),
         title: String(r.title),
@@ -48,7 +73,7 @@ function mapRoute(r: Record<string, unknown>, directusUrl: string, bodyHtml: str
         style: String(r.style || ''),
         highlights: parseJsonField(r.highlights),
         stops: parseJsonField(r.stops),
-        heroImage: r.hero_image ? `${directusUrl}/assets/${String(r.hero_image)}` : null,
+        heroImage: heroImagePath,
         status: String(r.status || 'draft'),
         metaTitle: String(r.meta_title || r.title),
         metaDescription: String(r.meta_description || r.description || ''),
@@ -79,7 +104,10 @@ async function loadFromDirectus(url: string, token: string): Promise<WijnRoute[]
     const items = await Promise.all(
         data.map(async (r) => {
             const bodyHtml = r.body ? await markdownToHtml(String(r.body)) : '';
-            return mapRoute(r, url, bodyHtml);
+            const heroImagePath = r.hero_image
+                ? await downloadHeroImage(String(r.hero_image), url, token)
+                : null;
+            return mapRoute(r, heroImagePath, bodyHtml);
         }),
     );
     console.log(`[loadRoutes] fetched ${items.length} routes from Directus`);

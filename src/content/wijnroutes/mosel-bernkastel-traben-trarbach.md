@@ -6,7 +6,6 @@ slug: "mosel-bernkastel-traben-trarbach"
 duration: "3 dagen"
 region: "Mittelmosel"
 difficulty: "eenvoudig"
-heroImage: "/images/route-mosel.jpg"
 highlights:
   - "Wehlener Sonnenuhr (Prüm)"
   - "Ürziger Würzgarten (Loosen)"

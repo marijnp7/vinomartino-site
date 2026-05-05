@@ -7,3 +7,6 @@ Dit
 .astro/
 deploy-key-github-actions
 public/images/articles/
+public/images/wijnhuizen/
+public/images/streken/
+public/images/routes/
