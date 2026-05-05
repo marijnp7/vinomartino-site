@@ -6,7 +6,6 @@ slug: "priorat-porrera-gratallops"
 duration: "1 dag (vroeg vertrek)"
 region: "Priorat DOQ"
 difficulty: "matig"
-heroImage: "/images/route-priorat.jpg"
 highlights:
   - "Clos Mogador (René Barbier, Gratallops)"
   - "Cims de Porrera (Porrera)"

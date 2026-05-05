@@ -32,6 +32,31 @@ function getDirectusConfig() {
     return { url, token };
 }
 
+async function downloadHeroImage(assetId: string, directusUrl: string, token: string): Promise<string | null> {
+    const { writeFileSync, mkdirSync, existsSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const outDir = join(process.cwd(), 'public', 'images', 'streken');
+    const outPath = join(outDir, `${assetId}.jpg`);
+    if (existsSync(outPath)) return `/images/streken/${assetId}.jpg`;
+    try {
+        const res = await fetch(`${directusUrl}/assets/${assetId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+            signal: AbortSignal.timeout(15000),
+        });
+        if (!res.ok) {
+            console.warn(`[loadStreken] could not fetch asset ${assetId}: ${res.status}`);
+            return null;
+        }
+        const buf = Buffer.from(await res.arrayBuffer());
+        mkdirSync(outDir, { recursive: true });
+        writeFileSync(outPath, buf);
+        return `/images/streken/${assetId}.jpg`;
+    } catch (err) {
+        console.warn(`[loadStreken] asset download failed for ${assetId}: ${err instanceof Error ? err.message : String(err)}`);
+        return null;
+    }
+}
+
 function parseJsonField(val: unknown): string[] {
     if (Array.isArray(val)) return val.map(String);
     if (typeof val === 'string') {
@@ -41,7 +66,7 @@ function parseJsonField(val: unknown): string[] {
     return [];
 }
 
-function mapStreek(r: Record<string, unknown>, directusUrl: string, bodyHtml: string): Streek {
+function mapStreek(r: Record<string, unknown>, heroImagePath: string | null, bodyHtml: string): Streek {
     return {
         slug: String(r.slug),
         name: String(r.name),
@@ -54,7 +79,7 @@ function mapStreek(r: Record<string, unknown>, directusUrl: string, bodyHtml: st
         vineyardArea: String(r.vineyard_area || ''),
         altitude: String(r.altitude || ''),
         appellations: parseJsonField(r.appellations),
-        heroImage: r.hero_image ? `${directusUrl}/assets/${String(r.hero_image)}` : null,
+        heroImage: heroImagePath,
         status: String(r.status || 'draft'),
         metaTitle: String(r.meta_title || r.name),
         metaDescription: String(r.meta_description || r.description || ''),
@@ -87,7 +112,10 @@ async function loadFromDirectus(url: string, token: string): Promise<Streek[]> {
             const land = r.land_id as Record<string, unknown> | null;
             if (land && land.name) r.land_name = land.name;
             const bodyHtml = r.body ? await markdownToHtml(String(r.body)) : '';
-            return mapStreek(r, url, bodyHtml);
+            const heroImagePath = r.hero_image
+                ? await downloadHeroImage(String(r.hero_image), url, token)
+                : null;
+            return mapStreek(r, heroImagePath, bodyHtml);
         }),
     );
     console.log(`[loadStreken] fetched ${items.length} streken from Directus`);

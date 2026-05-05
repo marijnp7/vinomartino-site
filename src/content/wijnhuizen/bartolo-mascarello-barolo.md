@@ -8,7 +8,6 @@ region: "Barolo, Langhe"
 country: "Italia"
 grapes: ["Nebbiolo"]
 established: 1918
-heroImage: "/images/bartolo-mascarello.jpg"
 address: "Via Roma 15, Castiglione Falletto (CN), Piemonte"
 website: "n.v.t. — geen website"
 description: "In Castiglione Falletto maakt Maria Teresa Mascarello de meest eigenzinnige Barolo van de Langhe. Haar vader Bartolo weigerde zijn wijnen te moderniseren toen iedereen dat deed. Zij doet hetzelfde. Een portret van een wijnhuis dat zijn principes nooit heeft verkocht."

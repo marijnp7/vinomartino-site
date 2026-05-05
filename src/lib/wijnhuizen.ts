@@ -33,6 +33,31 @@ function getDirectusConfig() {
     return { url, token };
 }
 
+async function downloadHeroImage(assetId: string, directusUrl: string, token: string): Promise<string | null> {
+    const { writeFileSync, mkdirSync, existsSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const outDir = join(process.cwd(), 'public', 'images', 'wijnhuizen');
+    const outPath = join(outDir, `${assetId}.jpg`);
+    if (existsSync(outPath)) return `/images/wijnhuizen/${assetId}.jpg`;
+    try {
+        const res = await fetch(`${directusUrl}/assets/${assetId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+            signal: AbortSignal.timeout(15000),
+        });
+        if (!res.ok) {
+            console.warn(`[loadWijnhuizen] could not fetch asset ${assetId}: ${res.status}`);
+            return null;
+        }
+        const buf = Buffer.from(await res.arrayBuffer());
+        mkdirSync(outDir, { recursive: true });
+        writeFileSync(outPath, buf);
+        return `/images/wijnhuizen/${assetId}.jpg`;
+    } catch (err) {
+        console.warn(`[loadWijnhuizen] asset download failed for ${assetId}: ${err instanceof Error ? err.message : String(err)}`);
+        return null;
+    }
+}
+
 function parseJsonField(val: unknown): string[] {
     if (Array.isArray(val)) return val.map(String);
     if (typeof val === 'string') {
@@ -42,7 +67,7 @@ function parseJsonField(val: unknown): string[] {
     return [];
 }
 
-function mapWijnhuis(r: Record<string, unknown>, directusUrl: string, bodyHtml: string): Wijnhuis {
+function mapWijnhuis(r: Record<string, unknown>, heroImagePath: string | null, bodyHtml: string): Wijnhuis {
     return {
         slug: String(r.slug),
         name: String(r.name),
@@ -56,7 +81,7 @@ function mapWijnhuis(r: Record<string, unknown>, directusUrl: string, bodyHtml: 
         biodynamisch: Boolean(r.biodynamisch),
         winemaker: String(r.winemaker || ''),
         grapes: parseJsonField(r.grapes),
-        heroImage: r.hero_image ? `${directusUrl}/assets/${String(r.hero_image)}` : null,
+        heroImage: heroImagePath,
         status: String(r.status || 'draft'),
         metaTitle: String(r.meta_title || r.name),
         metaDescription: String(r.meta_description || r.description || ''),
@@ -89,7 +114,10 @@ async function loadFromDirectus(url: string, token: string): Promise<Wijnhuis[]>
             const streek = r.streek_id as Record<string, unknown> | null;
             if (streek && streek.name) r.streek_name = streek.name;
             const bodyHtml = r.body ? await markdownToHtml(String(r.body)) : '';
-            return mapWijnhuis(r, url, bodyHtml);
+            const heroImagePath = r.hero_image
+                ? await downloadHeroImage(String(r.hero_image), url, token)
+                : null;
+            return mapWijnhuis(r, heroImagePath, bodyHtml);
         }),
     );
     console.log(`[loadWijnhuizen] fetched ${items.length} wijnhuizen from Directus`);
