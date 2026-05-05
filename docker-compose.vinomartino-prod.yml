@@ -1,10 +1,23 @@
 services:
   vinomartino-prod:
-    image: nginx:alpine
+    image: paperclip-site:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+      network: paperclip_default
+      args:
+        DIRECTUS_URL: ${DIRECTUS_URL:-http://vinomartino-directus-1:8055}
+        DIRECTUS_TOKEN: ${DIRECTUS_TOKEN:-}
+        CF_ACCESS_CLIENT_ID: ${CF_ACCESS_CLIENT_ID:-}
+        CF_ACCESS_CLIENT_SECRET: ${CF_ACCESS_CLIENT_SECRET:-}
+        BOOKING_AID: ${BOOKING_AID:-}
+        GETYOURGUIDE_PARTNER: ${GETYOURGUIDE_PARTNER:-}
+        WIJNVOORDEEL_TRACKING_ID: ${WIJNVOORDEEL_TRACKING_ID:-}
+        SKYSCANNER_PARTNER: ${SKYSCANNER_PARTNER:-}
+        REISVERZEKERING_PARTNER: ${REISVERZEKERING_PARTNER:-}
     container_name: paperclip-vinomartino-prod-1
     restart: unless-stopped
     volumes:
-      - ./dist:/usr/share/nginx/html:ro
       - ./nginx-prod.conf:/etc/nginx/conf.d/default.conf:ro
     mem_limit: 128m
     labels:
@@ -20,4 +33,3 @@ networks:
   paperclip_default:
     external: true
     name: paperclip_default
-

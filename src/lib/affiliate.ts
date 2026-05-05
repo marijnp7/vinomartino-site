@@ -23,23 +23,23 @@ export function generateAffiliateUrl(params: AffiliateUrlParams): string {
     content: placement,
   };
 
-  // Partner-specific base URLs and affiliate codes
+  // Partner-specific base URLs and affiliate codes (read from env vars at build time)
   const partnerConfig: Record<string, { baseUrl: string; affId: string }> = {
     'booking.com': {
       baseUrl: 'https://booking.com/s',
-      affId: 'vinomartino-aff-001', // To be replaced with actual affiliate ID
+      affId: process.env['BOOKING_AID'] || '',
     },
     'getyourguide': {
       baseUrl: 'https://partner.getyourguide.com',
-      affId: 'vinomartino-aff-002', // To be replaced with actual affiliate ID
+      affId: process.env['GETYOURGUIDE_PARTNER'] || '',
     },
     'skyscanner': {
       baseUrl: 'https://skyscanner.com',
-      affId: 'vinomartino-aff-003', // To be replaced with actual affiliate ID
+      affId: process.env['SKYSCANNER_PARTNER'] || '',
     },
     'reisverzekering': {
       baseUrl: 'https://reisverzekering.example.com',
-      affId: 'vinomartino-aff-004', // To be replaced with actual affiliate ID
+      affId: process.env['REISVERZEKERING_PARTNER'] || '',
     },
   };
 
