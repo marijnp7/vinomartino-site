@@ -40,6 +40,7 @@ const schema = [
   title={wijnhuisMetaTitle(entry.name, entry.region)}
   description={wijnhuisMetaDescription({ name: entry.name, region: entry.region, country: entry.country, description: entry.description })}
   ogImage={entry.heroImage || undefined}
+  ogType="article"
   schema={schema}
   activeNav="wijnhuizen"
 >

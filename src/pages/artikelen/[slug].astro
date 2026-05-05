@@ -34,6 +34,9 @@ const schema = [
   title={article.metaTitle || article.title}
   description={article.metaDescription || article.description}
   ogImage={article.heroImage || undefined}
+  ogType="article"
+  articlePublishedTime={new Date(article.pubDate).toISOString()}
+  articleAuthor={article.author}
   schema={schema}
   activeNav="artikelen"
 >

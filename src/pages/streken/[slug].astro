@@ -68,6 +68,7 @@ const schema = [
   title={streekMetaTitle(name, entry?.country)}
   description={streekMetaDescription({ name, country: entry?.country, grapeVarieties: entry?.mainGrapes, description: entry?.description })}
   ogImage={entry?.heroImage || undefined}
+  ogType="article"
   schema={schema}
   activeNav="streken"
 >

@@ -8,15 +8,34 @@ interface Props {
   description?: string;
   canonicalUrl?: string;
   ogImage?: string;
+  ogType?: 'website' | 'article';
+  articlePublishedTime?: string;
+  articleAuthor?: string;
   schema?: Record<string, unknown> | Record<string, unknown>[];
   activeNav?: string;
 }
 
-const { title, description, canonicalUrl, ogImage, schema, activeNav } = Astro.props;
+const {
+  title,
+  description,
+  canonicalUrl,
+  ogImage,
+  ogType = 'website',
+  articlePublishedTime,
+  articleAuthor,
+  schema,
+  activeNav,
+} = Astro.props;
 
+const siteOrigin = Astro.site ?? new URL('https://vinomartino.com');
 const pageTitle = title.includes('VinoMartino') ? title : `${title} — VinoMartino`;
-const canonical = canonicalUrl ?? new URL(Astro.url.pathname, Astro.site ?? 'https://vinomartino.com').href;
-const ogImageUrl = ogImage || 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=1200&h=630&fit=crop&q=80';
+const canonical = canonicalUrl ?? new URL(Astro.url.pathname, siteOrigin).href;
+const fallbackOgImage = 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=1200&h=630&fit=crop&q=80';
+// LAT-880: og:image must be an absolute URL so social-card scrapers (Facebook, LinkedIn, Slack)
+// can resolve it. Relative paths from CMS heroImage values would otherwise produce broken cards.
+const ogImageUrl = ogImage
+  ? new URL(ogImage, siteOrigin).href
+  : fallbackOgImage;
 ---
 
 <!doctype html>
@@ -28,13 +47,19 @@ const ogImageUrl = ogImage || 'https://images.unsplash.com/photo-1488646953014-8
     {description && <meta name="description" content={description} />}
     <meta property="og:title" content={pageTitle} />
     <meta property="og:site_name" content="VinoMartino" />
-    <meta property="og:type" content="website" />
+    <meta property="og:type" content={ogType} />
     <meta property="og:url" content={canonical} />
     <meta property="og:image" content={ogImageUrl} />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:locale" content="nl_NL" />
     {description && <meta property="og:description" content={description} />}
+    {ogType === 'article' && articlePublishedTime && (
+      <meta property="article:published_time" content={articlePublishedTime} />
+    )}
+    {ogType === 'article' && articleAuthor && (
+      <meta property="article:author" content={articleAuthor} />
+    )}
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={pageTitle} />
     {description && <meta name="twitter:description" content={description} />}
