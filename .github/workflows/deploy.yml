@@ -115,6 +115,64 @@ jobs:
             --exclude='deploy-key-github-actions*' \
             ./ "$VPS:$STAGE/"
 
+      # ── 5b. Archive hello-world placeholder in Directus (LAT-874) ────────
+      #
+      # Idempotent: zoekt artikel met slug 'hello-world' en zet status →
+      # 'archived' indien nog 'published'. Draait op de VPS waar
+      # DIRECTUS_URL en DIRECTUS_TOKEN in /root/vinomartino-site/.env staan.
+      # No-op zodra het artikel niet langer published is — veilig om te
+      # laten staan voor elke deploy.
+      - name: Archive hello-world placeholder in Directus
+        if: steps.env.outputs.target == 'production'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          ARCHIVE_SCRIPT: |
+            set -euo pipefail
+            ENV_FILE="/root/vinomartino-site/.env"
+            if [ ! -f "$ENV_FILE" ]; then
+              echo "::warning::$ENV_FILE niet gevonden — skip Directus archive"
+              exit 0
+            fi
+            set -a; . "$ENV_FILE"; set +a
+            : "${DIRECTUS_URL:?DIRECTUS_URL ontbreekt in .env}"
+            : "${DIRECTUS_TOKEN:?DIRECTUS_TOKEN ontbreekt in .env}"
+
+            CF=()
+            if [ -n "${CF_ACCESS_CLIENT_ID:-}" ] && [ -n "${CF_ACCESS_CLIENT_SECRET:-}" ]; then
+              CF=(-H "CF-Access-Client-Id: $CF_ACCESS_CLIENT_ID" -H "CF-Access-Client-Secret: $CF_ACCESS_CLIENT_SECRET")
+            fi
+
+            LOOKUP=$(curl -fsS "${CF[@]}" \
+              -H "Authorization: Bearer $DIRECTUS_TOKEN" \
+              "${DIRECTUS_URL}/items/articles?filter[slug][_eq]=hello-world&fields=id,status,slug&limit=1")
+            ID=$(printf '%s' "$LOOKUP" | python3 -c 'import json,sys;d=json.load(sys.stdin)["data"];print(d[0]["id"] if d else "")')
+            STATUS=$(printf '%s' "$LOOKUP" | python3 -c 'import json,sys;d=json.load(sys.stdin)["data"];print(d[0]["status"] if d else "")')
+
+            if [ -z "$ID" ]; then
+              echo "hello-world artikel niet gevonden — niets te doen"
+              exit 0
+            fi
+            if [ "$STATUS" != "published" ]; then
+              echo "hello-world ($ID) reeds status=$STATUS — niets te doen"
+              exit 0
+            fi
+
+            HTTP=$(curl -s -o /tmp/directus-archive.json -w '%{http_code}' \
+              -X PATCH "${CF[@]}" \
+              -H "Authorization: Bearer $DIRECTUS_TOKEN" \
+              -H "Content-Type: application/json" \
+              "${DIRECTUS_URL}/items/articles/${ID}" \
+              -d '{"status":"archived"}')
+            if [[ "$HTTP" =~ ^2 ]]; then
+              echo "hello-world ($ID) status: published → archived (HTTP $HTTP)"
+            else
+              echo "::error::Directus PATCH failed (HTTP $HTTP)"
+              cat /tmp/directus-archive.json
+              exit 1
+            fi
+        run: |
+          printf '%s\n' "$ARCHIVE_SCRIPT" | ssh "$VPS" "bash -s"
+
       # ── 6. Build op VPS ──────────────────────────────────────────────────
       #
       # We kopiëren .env uit de bestaande site-folder zodat DIRECTUS_URL en
