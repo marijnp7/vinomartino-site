@@ -33,6 +33,17 @@ function getDirectusConfig() {
     return { url, token };
 }
 
+const HERO_IMAGE_FALLBACKS: Record<string, string> = {
+    'bartolo-mascarello-barolo': '/images/bartolo-mascarello.jpg',
+    'cornelissen-etna-sicilie': '/images/cornelissen-etna.jpg',
+    'niepoort-douro-portugal': '/images/niepoort-douro.jpg',
+};
+
+function applyHeroFallback(slug: string, current: string | null): string | null {
+    if (current) return current;
+    return HERO_IMAGE_FALLBACKS[slug] ?? null;
+}
+
 async function downloadHeroImage(assetId: string, directusUrl: string, token: string): Promise<string | null> {
     const { writeFileSync, mkdirSync, existsSync } = await import('node:fs');
     const { join } = await import('node:path');
@@ -68,8 +79,9 @@ function parseJsonField(val: unknown): string[] {
 }
 
 function mapWijnhuis(r: Record<string, unknown>, heroImagePath: string | null, bodyHtml: string): Wijnhuis {
+    const slug = String(r.slug);
     return {
-        slug: String(r.slug),
+        slug,
         name: String(r.name),
         description: String(r.description || ''),
         region: String(r.region || r.streek_name || ''),
@@ -81,7 +93,7 @@ function mapWijnhuis(r: Record<string, unknown>, heroImagePath: string | null, b
         biodynamisch: Boolean(r.biodynamisch),
         winemaker: String(r.winemaker || ''),
         grapes: parseJsonField(r.grapes),
-        heroImage: heroImagePath,
+        heroImage: applyHeroFallback(slug, heroImagePath),
         status: String(r.status || 'draft'),
         metaTitle: String(r.meta_title || r.name),
         metaDescription: String(r.meta_description || r.description || ''),
@@ -146,8 +158,9 @@ async function loadFromLocalFiles(): Promise<Wijnhuis[]> {
             if (key && rest.length) fm[key.trim()] = rest.join(':').trim().replace(/^["']|["']$/g, '');
         }
         const bodyHtml = fmMatch[2] ? await markdownToHtml(fmMatch[2]) : '';
+        const slug = fm.slug || filePath.replace(/.*\//, '').replace('.md', '');
         items.push({
-            slug: fm.slug || filePath.replace(/.*\//, '').replace('.md', ''),
+            slug,
             name: fm.name || fm.title || 'Untitled',
             description: fm.description || '',
             region: fm.region || '',
@@ -159,7 +172,7 @@ async function loadFromLocalFiles(): Promise<Wijnhuis[]> {
             biodynamisch: false,
             winemaker: '',
             grapes: fm.grapes ? fm.grapes.split(',').map((t: string) => t.trim()) : [],
-            heroImage: fm.heroImage || null,
+            heroImage: applyHeroFallback(slug, fm.heroImage || null),
             status: fm.status || 'published',
             metaTitle: fm.metaTitle || fm.name || fm.title || 'Untitled',
             metaDescription: fm.metaDescription || fm.description || '',

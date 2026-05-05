@@ -12,6 +12,9 @@ const wijnhuizen = (await loadWijnhuizen()).slice(0, 3);
 const routes = (await loadRoutes()).slice(0, 3);
 const streken = (await loadStreken()).slice(0, 3);
 
+const COUNTRY_NL: Record<string, string> = { Italia: 'Italië' };
+const toDutch = (c: string) => COUNTRY_NL[c] ?? c;
+
 const schema = [
   organizationSchema(),
   breadcrumbSchema([{ name: 'Home', url: '/' }]),
@@ -45,7 +48,7 @@ const schema = [
         {wijnhuizen.map(w => (
           <a href={`/wijnhuizen/${w.slug}/`} class="card home-card">
             {w.heroImage && (
-              <img src={w.heroImage} alt={w.name} loading="lazy" width="400" height="200" class="home-card-img" />
+              <img src={w.heroImage} alt={w.region ? `${w.name} — ${w.region}` : w.name} loading="lazy" width="400" height="220" class="home-card-img" />
             )}
             <div class="home-card-body">
               <span class="home-card-cat">{w.region}</span>
@@ -69,7 +72,7 @@ const schema = [
         {routes.map(r => (
           <a href={`/wijnroutes/${r.slug}/`} class="card home-card">
             {r.heroImage && (
-              <img src={r.heroImage} alt={r.title} loading="lazy" width="400" height="200" class="home-card-img" />
+              <img src={r.heroImage} alt={r.title} loading="lazy" width="400" height="220" class="home-card-img" />
             )}
             <div class="home-card-body">
               <span class="home-card-cat">{r.duration}</span>
@@ -93,7 +96,7 @@ const schema = [
         {streken.map(s => (
           <a href={`/streken/${s.slug}/`} class="card home-card">
             {s.heroImage && (
-              <img src={s.heroImage} alt={s.name} loading="lazy" width="400" height="200" class="home-card-img" />
+              <img src={s.heroImage} alt={s.country ? `${s.name}, ${toDutch(s.country)}` : s.name} loading="lazy" width="400" height="220" class="home-card-img" />
             )}
             <div class="home-card-body">
               <span class="home-card-cat">{s.country}</span>
@@ -117,7 +120,7 @@ const schema = [
         {recentArticles.map(article => (
           <a href={`/artikelen/${article.slug}/`} class="card home-card">
             {article.heroImage && (
-              <img src={article.heroImage} alt={article.title} loading="lazy" width="400" height="200" class="home-card-img" />
+              <img src={article.heroImage} alt={article.title} loading="lazy" width="400" height="220" class="home-card-img" />
             )}
             <div class="home-card-body">
               {article.category && <span class="home-card-cat">{article.category}</span>}
@@ -191,8 +194,10 @@ const schema = [
     display: block;
   }
   .home-card-img {
+    display: block;
     width: 100%;
-    height: 200px;
+    height: auto;
+    aspect-ratio: 400 / 220;
     object-fit: cover;
   }
   .home-card-body { padding: 1.5rem; }
