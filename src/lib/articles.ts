@@ -100,7 +100,7 @@ async function loadFromDirectus(url: string, token: string): Promise<Article[]> 
     let res: Response;
     try {
           res = await fetch(
-                  `${url}/items/articles?limit=-1&fields=id,slug,title,description,body,pub_date,author,category,tags,hero_image,status,meta_title,meta_description&filter[status][_in]=published,draft&sort=-pub_date`,
+                  `${url}/items/articles?limit=-1&fields=id,slug,title,description,body,pub_date,author,category,tags,hero_image,status,meta_title,meta_description&filter[status][_eq]=published&sort=-pub_date`,
             {
                       headers: { Authorization: `Bearer ${token}` },
                       signal: AbortSignal.timeout(15000),
