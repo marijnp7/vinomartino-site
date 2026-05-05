@@ -12,7 +12,12 @@ export default defineConfig({
       filter: (page) =>
         !page.includes('/go/') &&
         !page.includes('/admin/') &&
-        !page.includes('/api/'),
+        !page.includes('/api/') &&
+        // LAT-859: /routes/* non-canonical; canonical is /wijnroutes/*
+        !page.includes('/routes/') &&
+        // LAT-859: douro/mosel have canonical Directus entries at douro-portugal/mosel-duitsland
+        page !== 'https://vinomartino.com/streken/douro/' &&
+        page !== 'https://vinomartino.com/streken/mosel/',
       serialize(item) {
         // Homepage
         if (item.url === 'https://vinomartino.com/') {
