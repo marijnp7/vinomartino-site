@@ -30,13 +30,38 @@ function stripMetaDescriptionFromBody(markdown: string): { body: string; extract
     return { body: markdown, extracted: '' };
 }
 
-async function markdownToHtml(markdown: string): Promise<string> {
-    const { fromMarkdown } = await import('mdast-util-from-markdown');
-    const { toHast } = await import('mdast-util-to-hast');
-    const { toHtml } = await import('hast-util-to-html');
-    const mdast = fromMarkdown(markdown);
-    const hast = toHast(mdast);
-    return toHtml(hast as Parameters<typeof toHtml>[0]);
+import { markdownToHtml as renderMarkdown } from './markdown';
+
+function markdownToHtml(markdown: string): Promise<string> {
+    return renderMarkdown(substituteAffiliateTokens(markdown), { stripFirstH1: true });
+}
+
+function substituteAffiliateTokens(markdown: string): string {
+    const bookingAid = process.env['BOOKING_AID'] || '';
+    const gygPartner = process.env['GETYOURGUIDE_PARTNER'] || '';
+
+    let result = markdown;
+
+    if (bookingAid) {
+        result = result.replace(/BOOKING_PARTNER_ID/g, bookingAid);
+    } else {
+        // Degrade to plain anchor text when partner ID is not yet configured
+        result = result.replace(
+            /\[([^\]]+)\]\(https?:\/\/[^)]*BOOKING_PARTNER_ID[^)]*\)/g,
+            '$1',
+        );
+    }
+
+    if (gygPartner) {
+        result = result.replace(/partner=VINOMARTINO/g, `partner=${gygPartner}`);
+    } else {
+        result = result.replace(
+            /\[([^\]]+)\]\(https?:\/\/[^)]*partner=VINOMARTINO[^)]*\)/g,
+            '$1',
+        );
+    }
+
+    return result;
 }
 
 function getDirectusConfig() {
