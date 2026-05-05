@@ -11,6 +11,7 @@ const nav = [
   { label: 'Wijnhuizen', href: '/wijnhuizen/', key: 'wijnhuizen' },
   { label: 'Wijnroutes', href: '/wijnroutes/', key: 'wijnroutes' },
   { label: 'Artikelen', href: '/artikelen/', key: 'artikelen' },
+  { label: 'De Brief', href: '/de-brief/', key: 'de-brief' },
   { label: 'Over ons', href: '/over-ons/', key: 'over-ons' },
 ];
 ---
@@ -39,9 +40,22 @@ const nav = [
         ))}
       </nav>
 
-      <button class="mobile-toggle" aria-label="Menu openen" aria-expanded="false" aria-controls="mobile-menu">
-        <span></span><span></span><span></span>
-      </button>
+      <div class="header-actions">
+        <button
+          class="cellar-toggle"
+          type="button"
+          aria-label="Wissel Kelder-modus"
+          aria-pressed="false"
+          data-cellar-toggle
+        >
+          <span class="cellar-icon" aria-hidden="true">🌙</span>
+          <span class="cellar-label">Kelder</span>
+        </button>
+
+        <button class="mobile-toggle" aria-label="Menu openen" aria-expanded="false" aria-controls="mobile-menu">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
     </div>
   </div>
 
@@ -124,6 +138,38 @@ const nav = [
     border-bottom-color: var(--burgundy);
   }
 
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .cellar-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    background: transparent;
+    border: 1px solid var(--rule);
+    color: var(--inkSoft);
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    padding: 0.4375rem 0.625rem;
+    cursor: pointer;
+    line-height: 1;
+    transition: color var(--duration-fast) var(--ease-out),
+                border-color var(--duration-fast) var(--ease-out);
+  }
+  .cellar-toggle:hover {
+    color: var(--burgundy);
+    border-color: var(--burgundy);
+  }
+  [data-theme='cellar'] .cellar-toggle {
+    color: var(--gold);
+    border-color: var(--gold);
+  }
+  .cellar-icon { font-size: 0.75rem; }
+
   .mobile-toggle {
     display: none;
     flex-direction: column;
@@ -175,4 +221,22 @@ const nav = [
     mobileToggle.setAttribute('aria-expanded', expanded ? 'false' : 'true');
     mobileMenu.hidden = expanded;
   });
+
+  const cellarToggle = document.querySelector('[data-cellar-toggle]') as HTMLButtonElement;
+  cellarToggle?.addEventListener('click', () => {
+    const isCellar = document.documentElement.getAttribute('data-theme') === 'cellar';
+    if (isCellar) {
+      document.documentElement.removeAttribute('data-theme');
+      localStorage.setItem('vm-theme', 'paper');
+      cellarToggle.setAttribute('aria-pressed', 'false');
+    } else {
+      document.documentElement.setAttribute('data-theme', 'cellar');
+      localStorage.setItem('vm-theme', 'cellar');
+      cellarToggle.setAttribute('aria-pressed', 'true');
+    }
+  });
+
+  if (cellarToggle && document.documentElement.getAttribute('data-theme') === 'cellar') {
+    cellarToggle.setAttribute('aria-pressed', 'true');
+  }
 </script>

@@ -1,38 +1,284 @@
 ---
-import BaseLayout from '../layouts/BaseLayout.astro';
+import SiteLayout from '../layouts/SiteLayout.astro';
+import { organizationSchema, breadcrumbSchema } from '../lib/seo';
+
+const schema = [
+  organizationSchema(),
+  breadcrumbSchema([
+    { name: 'Home', url: '/' },
+    { name: 'Over ons', url: '/over-ons/' },
+  ]),
+];
+
+const rules = [
+  {
+    n: '01',
+    h: 'Geen affiliate-lijstjes',
+    d: 'We linken niet naar Booking.com voor commissie. Als we een hotel aanbevelen is het omdat we er zelf hebben geslapen.',
+  },
+  {
+    n: '02',
+    h: 'Geen sponsoring',
+    d: 'Wijnhuizen betalen ons niet voor een vermelding. Dat zou ons oordeel vertroebelen — en zou je het door hebben.',
+  },
+  {
+    n: '03',
+    h: 'Eerlijke proefnotities',
+    d: 'Niet alles wat we proeven is goed. We schrijven het op zoals we het ervaren, ook als dat negatief is.',
+  },
+];
+
+const visited = [
+  'Piemonte (2019, 2021, 2023)',
+  'Bourgogne (2019)',
+  'Mosel (2020)',
+  'Rioja (2020, 2024)',
+  'Douro (2021)',
+  'Etna (2021)',
+  'Champagne (2022)',
+  'Loire (2022)',
+  'Wachau (2023)',
+  'Priorat (2023)',
+];
 ---
 
-<BaseLayout title="Over VinoMartino" description="Martin en Sophie schrijven over wijnreizen in Europa — eerlijk, persoonlijk en ongefilterd.">
-  <article class="static-page">
-    <h1>Over VinoMartino</h1>
+<SiteLayout
+  title="Over Martin & Sophie — VinoMartino"
+  description="Martin en Sophie schrijven over wijnreizen in Europa — eerlijk, persoonlijk en ongefilterd."
+  schema={schema}
+  activeNav="over-ons"
+>
+  <section class="hero">
+    <div class="hero-grid container">
+      <div class="hero-text">
+        <span class="kicker kicker-vine">Wie zijn wij</span>
+        <h1>Hi! Wij zijn <em>Martin &amp; Sophie</em></h1>
+        <p class="lede">
+          Een Nederlander uit de Rhône en een halve Italiaanse uit Piemonte, samen sinds 2017.
+          We schrijven over wijnreizen omdat we ze zelf maken — niet omdat iemand ons betaalt.
+        </p>
+      </div>
+      <div class="hero-image" aria-hidden="true">
+        <span class="placeholder-tag">foto · Martin &amp; Sophie in de Rhône</span>
+      </div>
+    </div>
+  </section>
 
-    <p>Mijn naam is Martin. Ik heb het WSET Level 4 Diploma op zak, woon in Amsterdam, en heb de afgelopen tien jaar een groot deel van Europa's wijnregio's doorkruist — van de slaperige wijnkelders van Alba tot de grillige lava-wijngaarden op de Etna.</p>
+  <section class="rules">
+    <div class="container container-narrow">
+      <span class="kicker kicker-burgundy">§ Hoe we werken</span>
+      <h2>Drie regels</h2>
+      <ol class="rules-list">
+        {rules.map((r) => (
+          <li>
+            <span class="rule-num">{r.n}</span>
+            <div>
+              <h3>{r.h}</h3>
+              <p>{r.d}</p>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </div>
+  </section>
 
-    <p>VinoMartino is de gids die ik zelf had willen hebben voordat ik ging.</p>
+  <section class="visited">
+    <div class="container">
+      <span class="kicker kicker-rust">Bezochte streken</span>
+      <h2>{visited.length}+ streken sinds 2019</h2>
+      <div class="visited-list">
+        {visited.map((v) => (
+          <span class="visited-item">{v}</span>
+        ))}
+        <span class="visited-more">… en meer</span>
+      </div>
+    </div>
+  </section>
 
-    <h2>Voor wie schrijven we</h2>
-
-    <p>Voor wijnliefhebbers die een reis plannen rond wijn — en die meer willen dan een generieke lijst van "de beste wijnhuizen". Voor mensen die graag weten hoe een bodem smaakt. Die een afspraak willen maken bij de wijnmaker zelf, niet via een rondreisbureaubrochure. Die liever bij een kleine trattoria eten dan in een hotelrestaurant met een wijnkaart van honderd pagina's.</p>
-
-    <p>Sophie, mijn reisgenoot en kritisch smaakpanel, reist op alle trips mee. Haar smaak verschilt van de mijne — ze zit sneller bij een Grüner Veltliner of een oranje wijn dan bij de meeste Piemontese Nebbiolo's — en dat houdt mij eerlijk.</p>
-
-    <h2>Onze redactionele belofte</h2>
-
-    <p>We schrijven pas nadat we er geweest zijn. We proeven echt, overnachten er, en rijden de smalle weggetjes die op geen enkele plattegrond staan. Een aanbeveling staat hier pas als ik het zelf zou doen.</p>
-
-    <p>Betaalde gastposts, aangeleverde persreisjes, advertorialen — die passen niet bij wat we doen. Als iets tegenvalt, schrijven we dat ook. De lezer die op basis van ons verhaal een vliegticket boekt, verdient eerlijke informatie.</p>
-
-    <h2>Contact</h2>
-
-    <p>Vragen, tips, of een wijnhuis dat we écht moeten bezoeken?<br />
-    <a href="mailto:contact@vinomartino.com">contact@vinomartino.com</a></p>
-  </article>
-</BaseLayout>
+  <section class="contact">
+    <div class="container container-narrow">
+      <h2>Contact</h2>
+      <p>
+        Vragen, tips, of een wijnhuis dat we écht moeten bezoeken?<br />
+        <a href="mailto:contact@vinomartino.com">contact@vinomartino.com</a>
+      </p>
+    </div>
+  </section>
+</SiteLayout>
 
 <style>
-  .static-page { max-width: 720px; }
-  .static-page h1 { font-size: 2.2rem; color: var(--primary); margin-bottom: 1.5rem; }
-  .static-page h2 { font-size: 1.4rem; color: var(--primary); margin: 2rem 0 0.75rem; }
-  .static-page p { margin-bottom: 1.2rem; color: #444; }
-  .static-page a { color: var(--primary); }
+  .container { max-width: 1280px; margin: 0 auto; padding-inline: var(--gutter); }
+  .container-narrow { max-width: 880px; }
+
+  .kicker {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    display: inline-block;
+    margin-bottom: 1rem;
+  }
+  .kicker-vine { color: var(--color-vine, #5C6B3F); }
+  .kicker-burgundy { color: var(--color-primary); }
+  .kicker-rust { color: var(--color-rust, #A14F2A); }
+
+  .hero {
+    padding: clamp(48px, 8vw, 80px) 0;
+    border-bottom: 1px solid var(--color-rule, #C9B98F);
+  }
+  .hero-grid {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: 4rem;
+    align-items: center;
+  }
+  .hero-text h1 {
+    font-family: var(--font-display);
+    font-size: clamp(2.5rem, 5vw + 1rem, 5rem);
+    font-weight: 500;
+    line-height: 0.95;
+    letter-spacing: -0.02em;
+    color: var(--color-text);
+    margin: 0;
+  }
+  .hero-text h1 em {
+    color: var(--color-primary);
+    font-style: italic;
+  }
+  .lede {
+    font-family: var(--font-serif, var(--font-body));
+    font-size: 1.25rem;
+    line-height: 1.6;
+    color: var(--color-text-soft, var(--color-text));
+    margin-top: 1.5rem;
+    font-style: italic;
+    text-wrap: pretty;
+  }
+  .hero-image {
+    aspect-ratio: 4 / 5;
+    background: var(--color-paper-shade, #E8DCC0);
+    background-image: repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 12px,
+      rgba(0, 0, 0, 0.04) 12px,
+      rgba(0, 0, 0, 0.04) 13px
+    );
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .placeholder-tag {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--color-text-soft, var(--color-text));
+    background: var(--color-bg);
+    padding: 0.5rem 1rem;
+  }
+
+  .rules {
+    padding: clamp(48px, 8vw, 80px) 0;
+    border-bottom: 1px solid var(--color-rule, #C9B98F);
+  }
+  .rules h2 {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 3vw + 1rem, 2.75rem);
+    font-weight: 500;
+    color: var(--color-text);
+    margin: 0 0 2rem;
+  }
+  .rules-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .rules-list li {
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    gap: 1.5rem;
+    padding: 1.5rem 0;
+    border-top: 1px solid var(--color-rule-soft, #E0D2B0);
+  }
+  .rule-num {
+    font-family: var(--font-display);
+    font-size: 3rem;
+    font-style: italic;
+    color: var(--color-primary);
+    line-height: 1;
+  }
+  .rules-list h3 {
+    font-family: var(--font-display);
+    font-size: 1.75rem;
+    font-weight: 500;
+    color: var(--color-text);
+    margin: 0 0 0.5rem;
+  }
+  .rules-list p {
+    font-family: var(--font-serif, var(--font-body));
+    font-size: 1.0625rem;
+    line-height: 1.6;
+    color: var(--color-text-soft, var(--color-text));
+    margin: 0;
+  }
+
+  .visited {
+    padding: clamp(48px, 7vw, 72px) 0;
+    background: var(--color-paper-deep, #F0E6D0);
+  }
+  .visited h2 {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 3vw + 1rem, 2.75rem);
+    font-weight: 500;
+    color: var(--color-text);
+    margin: 0 0 2rem;
+  }
+  .visited-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.25rem;
+  }
+  .visited-item,
+  .visited-more {
+    font-family: var(--font-display);
+    font-size: 1.375rem;
+    font-weight: 500;
+    color: var(--color-text);
+  }
+  .visited-more {
+    font-style: italic;
+    opacity: 0.6;
+  }
+
+  .contact {
+    padding: clamp(48px, 8vw, 80px) 0;
+  }
+  .contact h2 {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 3vw + 1rem, 2.75rem);
+    font-weight: 500;
+    color: var(--color-text);
+    margin: 0 0 1rem;
+  }
+  .contact p {
+    font-family: var(--font-serif, var(--font-body));
+    font-size: 1.125rem;
+    line-height: 1.7;
+    color: var(--color-text-soft, var(--color-text));
+  }
+  .contact a { color: var(--color-primary); }
+
+  @media (max-width: 768px) {
+    .hero-grid {
+      grid-template-columns: 1fr;
+      gap: 2rem;
+    }
+    .rules-list li {
+      grid-template-columns: 60px 1fr;
+      gap: 1rem;
+    }
+    .rule-num { font-size: 2.25rem; }
+  }
 </style>
