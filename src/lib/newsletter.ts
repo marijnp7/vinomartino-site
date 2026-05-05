@@ -22,7 +22,9 @@ async function markdownToHtml(markdown: string): Promise<string> {
 function getDirectusConfig() {
     const url = process.env['DIRECTUS_URL'] || '';
     const token = process.env['DIRECTUS_TOKEN'] || '';
-    return { url, token };
+    const cfClientId = process.env['CF_ACCESS_CLIENT_ID'] || '';
+    const cfClientSecret = process.env['CF_ACCESS_CLIENT_SECRET'] || '';
+    return { url, token, cfClientId, cfClientSecret };
 }
 
 const NL_MONTHS = [
@@ -52,13 +54,18 @@ function mapIssue(r: Record<string, unknown>, directusUrl: string, bodyHtml: str
     };
 }
 
-async function loadFromDirectus(url: string, token: string): Promise<NewsletterIssue[]> {
+async function loadFromDirectus(url: string, token: string, cfClientId?: string, cfClientSecret?: string): Promise<NewsletterIssue[]> {
     let res: Response;
     try {
+        const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
+        if (cfClientId && cfClientSecret) {
+            headers['CF-Access-Client-Id'] = cfClientId;
+            headers['CF-Access-Client-Secret'] = cfClientSecret;
+        }
         res = await fetch(
             `${url}/items/newsletter_issues?limit=-1&fields=id,slug,issue_number,title,month_label,publish_date,preview,body,hero_image,status&filter[status][_in]=published,draft&sort=-publish_date`,
             {
-                headers: { Authorization: `Bearer ${token}` },
+                headers,
                 signal: AbortSignal.timeout(15000),
             },
         );
@@ -104,9 +111,9 @@ function getPlaceholderIssues(): NewsletterIssue[] {
 }
 
 export async function loadNewsletterIssues(): Promise<NewsletterIssue[]> {
-    const { url, token } = getDirectusConfig();
+    const { url, token, cfClientId, cfClientSecret } = getDirectusConfig();
     if (url && token) {
-        const items = await loadFromDirectus(url, token);
+        const items = await loadFromDirectus(url, token, cfClientId, cfClientSecret);
         if (items.length > 0) return items;
         console.warn(`[loadNewsletter] no items from Directus — falling back to placeholder content`);
     } else {

@@ -9,10 +9,13 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      network: paperclip_default
       args:
         BRAND: ${BRAND:-}
-        DIRECTUS_URL: ${DIRECTUS_URL:-}
+        DIRECTUS_URL: ${DIRECTUS_URL:-http://vinomartino-directus-1:8055}
         DIRECTUS_TOKEN: ${DIRECTUS_TOKEN:-}
+        CF_ACCESS_CLIENT_ID: ${CF_ACCESS_CLIENT_ID:-}
+        CF_ACCESS_CLIENT_SECRET: ${CF_ACCESS_CLIENT_SECRET:-}
     image: paperclip-site:latest
     container_name: paperclip-site-1
     restart: unless-stopped
