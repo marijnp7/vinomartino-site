@@ -101,3 +101,38 @@
 @media (max-width: 768px) {
   :root { --gutter: 1rem; }
 }
+
+/* ── Kelder-modus (dark variant) ───────────────────────
+   Trigger via <html data-theme="cellar"> — toggle stored
+   in localStorage by the cellar-mode toggle script. */
+[data-theme='cellar'] {
+  --ink: #F0E6D0;
+  --inkSoft: #A89E91;
+  --inkFaint: #7A6F62;
+  --paper: #0F0B09;
+  --paperDeep: #1A1411;
+  --paperShade: #1A1614;
+  --burgundy: #8B2733;
+  --burgundyDeep: #5A1A1F;
+  --rust: #C8794A;
+  --vine: #7A8B5F;
+  --gold: #E5C99B;
+  --rule: #3D2F26;
+  --ruleSoft: #2A1F18;
+
+  --color-bg: var(--paper);
+  --color-bg-deep: var(--paperDeep);
+  --color-text: var(--ink);
+  --color-text-secondary: var(--inkSoft);
+  --color-text-muted: var(--inkFaint);
+  --color-primary: var(--gold);
+  --color-primary-hover: #D4B884;
+  --color-accent: var(--rust);
+  --color-border: var(--rule);
+  --color-border-light: var(--ruleSoft);
+}
+
+[data-theme='cellar'] img {
+  filter: saturate(0.85) brightness(0.92);
+}
+

@@ -1,0 +1,203 @@
+---
+import SiteLayout from '../../layouts/SiteLayout.astro';
+import { loadNewsletterIssues } from '../../lib/newsletter';
+import { organizationSchema, breadcrumbSchema } from '../../lib/seo';
+
+const issues = await loadNewsletterIssues();
+const total = issues.length;
+
+const schema = [
+  organizationSchema(),
+  breadcrumbSchema([
+    { name: 'Home', url: '/' },
+    { name: 'De Brief', url: '/de-brief/' },
+  ]),
+];
+---
+
+<SiteLayout
+  title="De Brief — Maandelijkse wijnreis-brieven | VinoMartino"
+  description="Eén keer per maand: een lange brief uit een wijnstreek, drie wijnen die we zelf openden, en een routebeschrijving. Gratis, zonder spam."
+  schema={schema}
+  activeNav="de-brief"
+>
+  <section class="hero">
+    <div class="container container-narrow">
+      <span class="kicker">De Brief · archief</span>
+      <h1>{total} brieven, één keer per maand.</h1>
+      <p class="lede">
+        Eén vrijdag per maand. Lange brieven uit een wijnstreek, drie wijnen die we zelf openden,
+        en een routebeschrijving.
+      </p>
+      <form class="signup" action="https://buttondown.email/api/emails/embed-subscribe/vinomartino" method="post" target="popupwindow">
+        <label for="bd-email" class="visually-hidden">E-mailadres</label>
+        <input id="bd-email" type="email" name="email" placeholder="je@adres.nl" required />
+        <button type="submit">Abonneer</button>
+      </form>
+    </div>
+  </section>
+
+  <section class="archive">
+    <div class="container container-narrow">
+      {issues.map((iss, i) => (
+        <a class={`archive-row ${i === 0 ? 'is-first' : ''}`} href={`/de-brief/${iss.slug}/`}>
+          <span class="archive-num">№{iss.issueNumber}</span>
+          <div class="archive-meta">
+            <h2>{iss.title}</h2>
+            <p>{iss.preview}</p>
+          </div>
+          <span class="archive-month">{iss.monthLabel}</span>
+        </a>
+      ))}
+    </div>
+  </section>
+</SiteLayout>
+
+<style>
+  .container { max-width: 1280px; margin: 0 auto; padding-inline: var(--gutter); }
+  .container-narrow { max-width: 880px; }
+
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .hero {
+    padding: clamp(48px, 8vw, 80px) 0;
+    border-bottom: 1px solid var(--color-rule, #C9B98F);
+    text-align: center;
+  }
+  .kicker {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--color-rust, #A14F2A);
+    display: inline-block;
+    margin-bottom: 0.75rem;
+  }
+  h1 {
+    font-family: var(--font-display);
+    font-size: clamp(2.5rem, 5vw + 1rem, 5rem);
+    font-weight: 500;
+    color: var(--color-text);
+    margin: 0;
+    line-height: 0.95;
+  }
+  .lede {
+    font-family: var(--font-serif, var(--font-body));
+    font-size: 1.25rem;
+    line-height: 1.5;
+    color: var(--color-text-soft, var(--color-text));
+    margin-top: 1.25rem;
+    font-style: italic;
+  }
+  .signup {
+    margin: 1.5rem auto 0;
+    max-width: 480px;
+    display: flex;
+    gap: 0.5rem;
+  }
+  .signup input {
+    flex: 1;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--color-rule, #C9B98F);
+    background: var(--color-bg);
+    font-family: var(--font-serif, var(--font-body));
+    font-size: 1rem;
+    outline: none;
+    color: var(--color-text);
+  }
+  .signup input:focus {
+    border-color: var(--color-primary);
+  }
+  .signup button {
+    background: var(--color-primary);
+    color: var(--color-bg);
+    padding: 0.75rem 1.25rem;
+    border: none;
+    font-family: var(--font-ui);
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .signup button:hover {
+    background: var(--color-primary-hover, var(--color-primary));
+  }
+
+  .archive {
+    padding: clamp(48px, 8vw, 64px) 0;
+  }
+  .archive-row {
+    display: grid;
+    grid-template-columns: 80px 1fr 100px;
+    gap: 2rem;
+    padding: 1.75rem 0;
+    border-top: 1px solid var(--color-rule-soft, #E0D2B0);
+    text-decoration: none;
+    color: inherit;
+    align-items: baseline;
+    transition: background 200ms ease;
+  }
+  .archive-row.is-first {
+    border-top: 1px solid var(--color-rule, #C9B98F);
+  }
+  .archive-row:hover {
+    background: var(--color-paper-deep, #F0E6D0);
+  }
+  .archive-num {
+    font-family: var(--font-display);
+    font-size: 2.625rem;
+    font-style: italic;
+    color: var(--color-primary);
+    line-height: 1;
+  }
+  .archive-meta h2 {
+    font-family: var(--font-display);
+    font-size: 1.625rem;
+    font-weight: 500;
+    color: var(--color-text);
+    margin: 0 0 0.375rem;
+    line-height: 1.2;
+  }
+  .archive-meta p {
+    font-family: var(--font-serif, var(--font-body));
+    font-size: 0.9375rem;
+    line-height: 1.5;
+    color: var(--color-text-soft, var(--color-text));
+    margin: 0;
+    font-style: italic;
+  }
+  .archive-month {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--color-text-faint, var(--color-text-soft, var(--color-text)));
+    text-align: right;
+    opacity: 0.7;
+  }
+
+  @media (max-width: 640px) {
+    .archive-row {
+      grid-template-columns: 60px 1fr;
+    }
+    .archive-month {
+      grid-column: 1 / -1;
+      text-align: left;
+      margin-top: 0.5rem;
+    }
+    .signup {
+      flex-direction: column;
+    }
+  }
+</style>

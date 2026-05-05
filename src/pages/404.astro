@@ -1,0 +1,83 @@
+---
+import SiteLayout from '../layouts/SiteLayout.astro';
+import { organizationSchema } from '../lib/seo';
+
+const schema = [organizationSchema()];
+---
+
+<SiteLayout
+  title="Pagina niet gevonden — VinoMartino"
+  description="Deze pagina bestaat niet meer of is verplaatst. Bekijk onze recente verhalen, streken of wijnhuizen."
+  schema={schema}
+>
+  <section class="not-found">
+    <div class="container">
+      <div class="numeral">404</div>
+      <div class="kicker">Lege fles</div>
+      <h1>Deze pagina is uitgeschonken zonder dat we 'm gelabeld hebben.</h1>
+      <p class="lede">Of je hebt een typo in de URL, of we hebben iets verplaatst. Hoe dan ook — proef even een van deze:</p>
+      <div class="actions">
+        <a href="/" class="btn btn-primary">Naar de homepage</a>
+        <a href="/streken/" class="btn btn-secondary">Bekijk alle streken</a>
+        <a href="/artikelen/" class="btn btn-secondary">Lees recente verhalen</a>
+      </div>
+    </div>
+  </section>
+</SiteLayout>
+
+<style>
+  .not-found {
+    padding: clamp(80px, 14vw, 160px) 0;
+    text-align: center;
+    background: var(--color-bg);
+  }
+  .container {
+    max-width: 680px;
+    margin: 0 auto;
+    padding-inline: var(--gutter);
+  }
+  .numeral {
+    font-family: var(--font-display);
+    font-size: clamp(120px, 22vw, 220px);
+    font-style: italic;
+    color: var(--color-primary);
+    line-height: 1;
+    letter-spacing: -0.04em;
+    font-weight: 400;
+  }
+  .kicker {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--color-rust, #A14F2A);
+    margin-top: 8px;
+    margin-bottom: 1.25rem;
+  }
+  h1 {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 4vw + 1rem, 3.5rem);
+    font-weight: 500;
+    color: var(--color-text);
+    margin: 0;
+    line-height: 1.05;
+    text-wrap: balance;
+    font-style: italic;
+  }
+  .lede {
+    font-family: var(--font-serif, var(--font-body));
+    font-size: 1.125rem;
+    line-height: 1.5;
+    color: var(--color-text-soft, var(--color-text));
+    margin-top: 1.25rem;
+    font-style: italic;
+    opacity: 0.85;
+  }
+  .actions {
+    margin-top: 2rem;
+    display: flex;
+    gap: 0.75rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+</style>
