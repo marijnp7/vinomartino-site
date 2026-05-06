@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "scripts": {
     "dev": "astro dev --host 0.0.0.0",
-    "build": "astro build",
+    "build": "astro build && for d in wijnhuizen streken routes; do [ -d public/images/$d ] && cp -r public/images/$d dist/images/$d 2>/dev/null || true; done",
     "build:vinomartino": "astro build",
     "preview": "astro preview --host 0.0.0.0",
     "directus:bootstrap": "node directus/scripts/bootstrap-schema.mjs",
