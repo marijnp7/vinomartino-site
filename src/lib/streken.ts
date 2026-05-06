@@ -66,14 +66,14 @@ async function downloadAsset(assetId: string, directusUrl: string, token: string
     }
 }
 
-async function writeAssetDebug(): Promise<void> {
+async function writeAssetDebug(pathTaken: string): Promise<void> {
     const { writeFileSync, mkdirSync } = await import('node:fs');
     const { join } = await import('node:path');
     const dir = join(process.cwd(), 'public');
     mkdirSync(dir, { recursive: true });
     writeFileSync(
         join(dir, 'build-debug-streken.json'),
-        JSON.stringify({ asOf: new Date().toISOString(), entries: assetDebug }, null, 2),
+        JSON.stringify({ asOf: new Date().toISOString(), pathTaken, entries: assetDebug }, null, 2),
     );
 }
 
@@ -123,28 +123,40 @@ async function fetchStrekenItems(url: string, token: string): Promise<Record<str
     try {
         res = await fetch(`${url}/items/streken?limit=-1&fields=${withOg}${filterSort}`, { headers, signal });
     } catch (err) {
-        console.warn(`[loadStreken] Directus unreachable at ${url}: ${err instanceof Error ? err.message : String(err)}`);
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn(`[loadStreken] Directus unreachable at ${url}: ${msg}`);
+        assetDebug.push({ kind: 'query', url, error: msg });
         return null;
     }
     if (res.ok) {
         const json = await res.json();
+        assetDebug.push({ kind: 'query', url, status: 200, count: (json.data || []).length });
         return (json.data || []) as Record<string, unknown>[];
     }
     if (res.status === 400) {
+        const body = await res.text().catch(() => '');
         console.warn(`[loadStreken] Directus rejected fields=…,og_image (HTTP 400) — retrying without og_image. Run directus/scripts/add-og-image-fields.mjs to re-enable.`);
+        assetDebug.push({ kind: 'query', url, status: 400, body: body.slice(0, 500), retryWithoutOg: true });
         try {
             const retry = await fetch(`${url}/items/streken?limit=-1&fields=${baseFields}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
             if (retry.ok) {
                 const json = await retry.json();
+                assetDebug.push({ kind: 'query-retry', url, status: 200, count: (json.data || []).length });
                 return (json.data || []) as Record<string, unknown>[];
             }
+            const rbody = await retry.text().catch(() => '');
             console.warn(`[loadStreken] Retry without og_image also failed: ${retry.status} ${retry.statusText}`);
+            assetDebug.push({ kind: 'query-retry', url, status: retry.status, body: rbody.slice(0, 500) });
         } catch (err) {
-            console.warn(`[loadStreken] Retry without og_image threw: ${err instanceof Error ? err.message : String(err)}`);
+            const msg = err instanceof Error ? err.message : String(err);
+            console.warn(`[loadStreken] Retry without og_image threw: ${msg}`);
+            assetDebug.push({ kind: 'query-retry', url, error: msg });
         }
         return null;
     }
-    console.warn(`[loadStreken] Directus returned ${res.status} ${res.statusText}`);
+    const body = await res.text().catch(() => '');
+    console.warn(`[loadStreken] Directus returned ${res.status} ${res.statusText}: ${body.slice(0, 300)}`);
+    assetDebug.push({ kind: 'query', url, status: res.status, body: body.slice(0, 500) });
     return null;
 }
 
@@ -166,7 +178,6 @@ async function loadFromDirectus(url: string, token: string): Promise<Streek[]> {
         }),
     );
     console.log(`[loadStreken] fetched ${items.length} streken from Directus`);
-    await writeAssetDebug();
     return items;
 }
 
@@ -219,11 +230,18 @@ async function loadFromLocalFiles(): Promise<Streek[]> {
 
 export async function loadStreken(): Promise<Streek[]> {
     const { url, token } = getDirectusConfig();
+    let pathTaken: 'directus' | 'directus-empty' | 'local-fallback' | 'directus-not-configured';
+    let items: Streek[] = [];
     if (url && token) {
-        const items = await loadFromDirectus(url, token);
-        if (items.length > 0) return items;
+        items = await loadFromDirectus(url, token);
+        pathTaken = items.length > 0 ? 'directus' : 'directus-empty';
+        if (items.length === 0) items = await loadFromLocalFiles();
+        if (pathTaken === 'directus-empty' && items.length > 0) pathTaken = 'local-fallback';
     } else {
         console.warn(`[loadStreken] Directus not configured — loading from local files`);
+        pathTaken = 'directus-not-configured';
+        items = await loadFromLocalFiles();
     }
-    return loadFromLocalFiles();
+    await writeAssetDebug(pathTaken);
+    return items;
 }
