@@ -89,26 +89,44 @@ function mapRoute(
     };
 }
 
-async function loadFromDirectus(url: string, token: string): Promise<WijnRoute[]> {
+async function fetchRoutesItems(url: string, token: string): Promise<Record<string, unknown>[] | null> {
+    const baseFields = 'id,slug,title,description,body,duration,transport,style,highlights,stops,hero_image,status,meta_title,meta_description';
+    const withOg = `${baseFields},og_image`;
+    const filterSort = '&filter[status][_in]=published,draft&sort=title';
+    const headers = { Authorization: `Bearer ${token}` };
+    const signal = AbortSignal.timeout(15000);
     let res: Response;
     try {
-        res = await fetch(
-            `${url}/items/routes?limit=-1&fields=id,slug,title,description,body,duration,transport,style,highlights,stops,hero_image,og_image,status,meta_title,meta_description&filter[status][_in]=published,draft&sort=title`,
-            {
-                headers: { Authorization: `Bearer ${token}` },
-                signal: AbortSignal.timeout(15000),
-            },
-        );
+        res = await fetch(`${url}/items/routes?limit=-1&fields=${withOg}${filterSort}`, { headers, signal });
     } catch (err) {
         console.warn(`[loadRoutes] Directus unreachable at ${url}: ${err instanceof Error ? err.message : String(err)}`);
-        return [];
+        return null;
     }
-    if (!res.ok) {
-        console.warn(`[loadRoutes] Directus returned ${res.status} ${res.statusText}`);
-        return [];
+    if (res.ok) {
+        const json = await res.json();
+        return (json.data || []) as Record<string, unknown>[];
     }
-    const json = await res.json();
-    const data = (json.data || []) as Record<string, unknown>[];
+    if (res.status === 400) {
+        console.warn(`[loadRoutes] Directus rejected fields=…,og_image (HTTP 400) — retrying without og_image. Run directus/scripts/add-og-image-fields.mjs to re-enable.`);
+        try {
+            const retry = await fetch(`${url}/items/routes?limit=-1&fields=${baseFields}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
+            if (retry.ok) {
+                const json = await retry.json();
+                return (json.data || []) as Record<string, unknown>[];
+            }
+            console.warn(`[loadRoutes] Retry without og_image also failed: ${retry.status} ${retry.statusText}`);
+        } catch (err) {
+            console.warn(`[loadRoutes] Retry without og_image threw: ${err instanceof Error ? err.message : String(err)}`);
+        }
+        return null;
+    }
+    console.warn(`[loadRoutes] Directus returned ${res.status} ${res.statusText}`);
+    return null;
+}
+
+async function loadFromDirectus(url: string, token: string): Promise<WijnRoute[]> {
+    const data = await fetchRoutesItems(url, token);
+    if (!data) return [];
     const items = await Promise.all(
         data.map(async (r) => {
             const bodyHtml = r.body ? await markdownToHtml(String(r.body)) : '';
