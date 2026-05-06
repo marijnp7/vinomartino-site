@@ -434,7 +434,17 @@ async function run() {
   await createRelation({ collection: 'articles_routes', field: 'articles_id', related_collection: 'articles' });
   await createRelation({ collection: 'articles_routes', field: 'routes_id', related_collection: 'routes' });
 
-  console.log('\n✅ Schema bootstrap complete — 17 collections + 5 junction tables created.\n');
+  // ── 17. Navigation items (header menu) ──────────────────
+  await createCollection('nav_items', { icon: 'menu', note: 'Header navigatie items — beheer door redactie (LAT-907)' });
+  for (const f of [
+    textField('label', { nullable: false, note: 'Zichtbaar menu-label' }),
+    textField('href', { nullable: false, note: 'URL-pad, bijv. /landen/' }),
+    textField('key', { nullable: false, note: 'Stabiele identifier voor activeNav matching' }),
+    { field: 'order', type: 'integer', meta: { interface: 'input', width: 'half', note: 'Volgorde — laagste eerst' }, schema: { is_nullable: true, default_value: 0 } },
+    statusField(),
+  ]) await createField('nav_items', f);
+
+  console.log('\n✅ Schema bootstrap complete — 18 collections + 5 junction tables created.\n');
 }
 
 run().catch((err) => {
