@@ -126,6 +126,9 @@ jobs:
         env:
           VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
           STAGE: /srv/vino-builds/${{ github.run_id }}
+          GIT_SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_NUMBER: ${{ github.run_number }}
           BUILD_SCRIPT: |
             set -euo pipefail
             cd "$STAGE"
@@ -139,9 +142,19 @@ jobs:
             docker run --rm --network directus_directus_net \
               -v "$STAGE":/app -w /app \
               node:24 bash -c "npm ci && npm run build"
+            # LAT-910: write build-fingerprint into dist/ so smoke-test
+            # downstream can verify served bytes matchen deze run. Zonder
+            # dit kan een silently-mislukte rsync naar DIST groene runs
+            # opleveren terwijl prod oude content blijft serveren.
+            printf '{"sha":"%s","runId":"%s","runNumber":"%s","builtAt":"%s"}\n' \
+              "$GIT_SHA" "$RUN_ID" "$RUN_NUMBER" "$(date -u +%FT%TZ)" \
+              > dist/build-info.json
+            echo "dist/build-info.json:"
+            cat dist/build-info.json
             ls -la dist/
         run: |
-          printf '%s\n' "$BUILD_SCRIPT" | ssh "$VPS" "STAGE='$STAGE' bash -s"
+          printf '%s\n' "$BUILD_SCRIPT" \
+            | ssh "$VPS" "STAGE='$STAGE' GIT_SHA='$GIT_SHA' RUN_ID='$RUN_ID' RUN_NUMBER='$RUN_NUMBER' bash -s"
 
       # ── 7. Sync inhoud + config naar DIST + container reload ─────────────
       #
@@ -173,7 +186,20 @@ jobs:
             cp -al "$DIST" "$BACKUP" 2>/dev/null || cp -a "$DIST" "$BACKUP"
 
             # Inhoud overschrijven, DIST-directory zelf raken we niet aan
-            rsync -a --delete "$STAGE/dist/" "$DIST/"
+            # LAT-910: itemize-changes zodat we in de GHA-log kunnen zien
+            # dat rsync daadwerkelijk bestanden heeft gekopieerd. Stats
+            # voor explicit copy-count.
+            rsync -a --delete --stats --itemize-changes "$STAGE/dist/" "$DIST/" \
+              | tail -n 30
+            echo "DIST inhoud na rsync:"
+            ls -la "$DIST/" | head -20
+            if [ -f "$DIST/build-info.json" ]; then
+              echo "DIST/build-info.json:"
+              cat "$DIST/build-info.json"
+            else
+              echo "::error::build-info.json ontbreekt in DIST na rsync — build heeft hem niet geschreven"
+              exit 1
+            fi
 
             # Config-files syncen naar site-root (LAT-779)
             CONFIG_FILES="nginx-prod.conf nginx-preview.conf htpasswd docker-compose.vinomartino-prod.yml docker-compose.vinomartino-preview.yml"
@@ -214,18 +240,29 @@ jobs:
       # ── 8. Smoke test ────────────────────────────────────────────────────
       # Retry-loop omdat nginx een paar seconden nodig heeft om warm te zijn
       # na de reload. Eerste request kan transient 500/502 geven.
+      #
+      # LAT-910: voor productie checken we /build-info.json zodat we
+      # garanderen dat de net-gepushte SHA daadwerkelijk geserveerd wordt.
+      # Het oude `/vinomartino/nl/` smoke-pad volgde 301 → / via -L en gaf
+      # daardoor altijd 200, óók als rsync-naar-DIST silently mislukte.
       - name: Smoke test
+        env:
+          GIT_SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
         run: |
           if [ "${{ steps.env.outputs.target }}" = "production" ]; then
-            URL="https://vinomartino.com/vinomartino/nl/"
+            URL="https://vinomartino.com/?cb=${RUN_ID}"
+            INFO_URL="https://vinomartino.com/build-info.json?cb=${RUN_ID}"
           else
-            URL="https://preview.vinomartino.com/vinomartino/nl/"
+            URL="https://preview.vinomartino.com/?cb=${RUN_ID}"
+            INFO_URL="https://preview.vinomartino.com/build-info.json?cb=${RUN_ID}"
             # Preview zit achter CF Access; 302 of 200 is OK
           fi
 
           code="000"
           for attempt in 1 2 3 4 5; do
-            code=$(curl -sS -o /dev/null -w "%{http_code}" -L --max-time 15 "$URL" || echo "000")
+            code=$(curl -sS -o /dev/null -w "%{http_code}" \
+              -H 'Cache-Control: no-cache' --max-time 15 "$URL" || echo "000")
             echo "Attempt $attempt: GET $URL → HTTP $code"
             if [ "$code" = "200" ]; then break; fi
             sleep 4
@@ -233,6 +270,29 @@ jobs:
 
           if [ "${{ steps.env.outputs.target }}" = "production" ]; then
             [ "$code" = "200" ] || { echo "::error::Productie smoke-test faalde na 5 pogingen ($code)"; exit 1; }
+
+            # Verifieer dat productie de net-gebouwde SHA serveert. We doen
+            # dit via een cache-buster query + no-cache header zodat een
+            # eventuele Cloudflare-edge-cache het resultaat niet vertroebelt.
+            served_sha=""
+            for attempt in 1 2 3 4 5; do
+              served_sha=$(curl -fsS --max-time 10 \
+                -H 'Cache-Control: no-cache' \
+                "$INFO_URL" 2>/dev/null \
+                | python3 -c 'import json,sys;print(json.load(sys.stdin).get("sha",""))' 2>/dev/null \
+                || echo "")
+              echo "Attempt $attempt: build-info.sha = '$served_sha' (verwacht: $GIT_SHA)"
+              if [ "$served_sha" = "$GIT_SHA" ]; then break; fi
+              sleep 4
+            done
+
+            if [ "$served_sha" != "$GIT_SHA" ]; then
+              echo "::error::Productie serveert SHA '$served_sha' maar workflow draait '$GIT_SHA' — rsync naar DIST is mislukt of CDN cachet stale content (LAT-910)"
+              echo "INFO_URL: $INFO_URL"
+              curl -sS --max-time 10 -H 'Cache-Control: no-cache' "$INFO_URL" || true
+              exit 1
+            fi
+            echo "::notice::Smoke-test OK — productie serveert correcte build $served_sha"
           fi
 
       - name: Done
