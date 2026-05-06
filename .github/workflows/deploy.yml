@@ -132,14 +132,13 @@ jobs:
             if [ -f /root/vinomartino-site/.env ]; then
               cp /root/vinomartino-site/.env .env
             fi
-            if command -v npm >/dev/null 2>&1; then
-              npm ci
-              npm run build
-            else
-              docker run --rm --network directus_directus_net \
-                -v "$STAGE":/app -w /app \
-                node:24 bash -c "npm ci && npm run build"
-            fi
+            # Build altijd in docker met --network directus_directus_net,
+            # anders kan de host de container-DNS `vinomartino-directus-1`
+            # niet resolven en valt de build silently terug op lokale
+            # markdown-bestanden zonder hero_image (LAT-896 follow-up).
+            docker run --rm --network directus_directus_net \
+              -v "$STAGE":/app -w /app \
+              node:24 bash -c "npm ci && npm run build"
             ls -la dist/
         run: |
           printf '%s\n' "$BUILD_SCRIPT" | ssh "$VPS" "STAGE='$STAGE' bash -s"
