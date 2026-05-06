@@ -11,7 +11,7 @@ highlights:
   - "Passopisaro (Contrada Guardiola)"
   - "Contrada Calderara Sottana"
   - "Ristorante Veneziano (Randazzo)"
-description: "De noordflank van de Etna is de meest technisch interessante kant van de vulkaan. Contrade met eeuwenoude wijngaarden, wijnmakers die sulfiet nooit aanraken, en een landschap dat je herinnert dat wijn een landbouwproduct is. Een tweedaagse route voor wie de theorie al kent en de praktijk wil zien."
+description: "De noordflank van de Etna combineert basaltbodem met hoogte-wijngaarden tussen 600 en 1.000 meter en contrade die als de klimats van Bourgogne functioneren — elk een microterroir met eigen profiel. De Nerello Mascalese hier is transparent rood, hoog in tannine, met een mineraliteit die aan roet en zwavel doet denken zonder onaangenaam te zijn. Randazzo is de basis — klein dorp, goede restaurants, wegen naar Solicchiata en Passopisaro die twee keer zo lang duren als Google aangeeft. Twee dagen, vier proeverijen, één klim door lavazwarte wijngaarden die laten zien waarom dit de meest interessante kant van de vulkaan is."
 ---
 
 # De noordflank van de Etna — van Randazzo naar Solicchiata

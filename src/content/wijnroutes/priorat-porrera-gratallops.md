@@ -11,7 +11,7 @@ highlights:
   - "Cims de Porrera (Porrera)"
   - "Carrer de la Font, Gratallops"
   - "Monestir de Scala Dei (verwoeste abdij)"
-description: "De Priorat is smal en steil en ruikt in september naar brandende struiken. Een dagtrip door de kern van de DOQ — van Porrera via Gratallops terug — langs de llicorella-terrassen die Garnacha en Cariñena voortbrengen met een densiteit die je weinig andere plekken vindt."
+description: "De Priorat DOQ ruikt in september naar rozemarijn en gedroogde aarde, en de weg van Porrera naar Gratallops is zo smal dat twee auto's elkaar niet kunnen passeren. Dat is kenmerkend, niet hinderlijk. De llicorella — klei-leisteen uit het Siluur, 430 miljoen jaar geleden gevormd — laat de wijnstokwortels vier tot zes meter diep gaan op zoek naar vocht. Die diepe beworteling geeft de Garnacha en Cariñena een densiteit die je weinig andere plekken vindt. Clos Mogador van René Barbier, Cims de Porrera, de verwoeste abdij Scala Dei — één dag, precies de juiste hoeveelheid."
 ---
 
 # Door het hart van de Priorat — van Porrera naar Gratallops
