@@ -1,44 +1,90 @@
 ---
-import BaseLayout from '../layouts/BaseLayout.astro';
+import SiteLayout from '../layouts/SiteLayout.astro';
 ---
 
-<BaseLayout title="Affiliate-verklaring — VinoMartino" description="Transparantie over partnerlinks op VinoMartino: hoe u ze herkent en met wie we samenwerken.">
-  <article class="static-page">
-    <h1>Affiliate-verklaring</h1>
+<SiteLayout
+  title="Affiliate-verklaring — VinoMartino"
+  description="Transparantie over partnerlinks op VinoMartino: hoe u ze herkent en met wie we samenwerken."
+>
+  <section class="legal container">
+    <article class="legal-body">
+      <h1>Affiliate-verklaring</h1>
 
-    <p>VinoMartino bevat links naar externe websites en diensten. Sommige van die links zijn affiliate-links: als u via zo'n link boekt of koopt, ontvangen wij een kleine commissie — zonder meerkosten voor u.</p>
+      <p>VinoMartino bevat links naar externe websites en diensten. Sommige van die links zijn affiliate-links: als u via zo'n link boekt of koopt, ontvangen wij een kleine commissie — zonder meerkosten voor u.</p>
 
-    <h2>Hoe u affiliate-links herkent</h2>
+      <h2>Hoe u affiliate-links herkent</h2>
 
-    <p>Links die een commissie opleveren zijn gemarkeerd met een asterisk (*) of aangeduid als 'partnerlink'. Niet alle links op deze site zijn affiliate-links.</p>
+      <p>Links die een commissie opleveren zijn gemarkeerd met een asterisk (*) of aangeduid als 'partnerlink'. Niet alle links op deze site zijn affiliate-links.</p>
 
-    <h2>Met wie we samenwerken</h2>
+      <h2>Met wie we samenwerken</h2>
 
-    <p>Op dit moment werken we samen met:</p>
+      <p>Op dit moment werken we samen met:</p>
 
-    <ul>
-      <li><strong>Booking.com</strong> (via het Awin-netwerk) — voor hotels, agriturismi en boutique-verblijven</li>
-      <li><strong>GetYourGuide</strong> — voor wijnproeverijen en rondleidingen bij wijnhuizen</li>
-    </ul>
+      <ul>
+        <li><strong>Booking.com</strong> (via het Awin-netwerk) — voor hotels, agriturismi en boutique-verblijven</li>
+        <li><strong>GetYourGuide</strong> — voor wijnproeverijen en rondleidingen bij wijnhuizen</li>
+      </ul>
 
-    <p>We werken uitsluitend samen met partijen die passen bij de manier waarop Martin reist: kleinschalig, direct bij de bron, en zonder toeristenval-tussenkomst. Wanneer we nieuwe samenwerkingen aangaan, wordt dit hier bijgewerkt.</p>
+      <p>We werken uitsluitend samen met partijen die passen bij de manier waarop Martin reist: kleinschalig, direct bij de bron, en zonder toeristenval-tussenkomst. Wanneer we nieuwe samenwerkingen aangaan, wordt dit hier bijgewerkt.</p>
 
-    <h2>Onze belofte</h2>
+      <h2>Onze belofte</h2>
 
-    <p>Een partnerlink verschijnt pas als ik het betreffende hotel, de proeverij of het product zelf aanbevelenswaardig vind. De commissie bepaalt de aanbeveling niet. Als ik een agriturismo niet goed vond, schrijf ik dat — ook als er een partnerlink op de pagina staat. Aanbevelingen die hier verschijnen zijn aanbevelingen die ik zelf zou opvolgen.</p>
+      <p>Een partnerlink verschijnt pas als ik het betreffende hotel, de proeverij of het product zelf aanbevelenswaardig vind. De commissie bepaalt de aanbeveling niet. Als ik een agriturismo niet goed vond, schrijf ik dat — ook als er een partnerlink op de pagina staat. Aanbevelingen die hier verschijnen zijn aanbevelingen die ik zelf zou opvolgen.</p>
 
-    <p>VinoMartino handelt conform de reclamewetgeving van de Autoriteit Financiële Markten (AFM) en de publisher-richtlijnen van Awin. Affiliate-links worden altijd duidelijk kenbaar gemaakt.</p>
+      <p>VinoMartino handelt conform de reclamewetgeving van de Autoriteit Financiële Markten (AFM) en de publisher-richtlijnen van Awin. Affiliate-links worden altijd duidelijk kenbaar gemaakt.</p>
 
-    <p>Vragen over onze samenwerkingen? Stuur een mail naar <a href="mailto:contact@vinomartino.com">contact@vinomartino.com</a>.</p>
-  </article>
-</BaseLayout>
+      <p>Vragen over onze samenwerkingen? Stuur een mail naar <a href="mailto:contact@vinomartino.com">contact@vinomartino.com</a>.</p>
+    </article>
+  </section>
+</SiteLayout>
 
 <style>
-  .static-page { max-width: 720px; }
-  .static-page h1 { font-size: 2.2rem; color: var(--primary); margin-bottom: 1.5rem; }
-  .static-page h2 { font-size: 1.4rem; color: var(--primary); margin: 2rem 0 0.75rem; }
-  .static-page p, .static-page ul { margin-bottom: 1.2rem; color: #444; }
-  .static-page ul { padding-left: 1.5rem; }
-  .static-page li { margin-bottom: 0.5rem; }
-  .static-page a { color: var(--primary); }
+  .legal {
+    padding: var(--space-16) 0;
+  }
+  .legal-body {
+    max-width: 44rem;
+    margin: 0 auto;
+    font-family: var(--font-body);
+    color: var(--ink);
+  }
+  .legal-body h1 {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 1.6rem + 1.5vw, 2.875rem);
+    font-style: italic;
+    font-weight: 400;
+    color: var(--ink);
+    margin-bottom: var(--space-6);
+    line-height: 1.15;
+  }
+  .legal-body h2 {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-style: italic;
+    font-weight: 400;
+    color: var(--ink);
+    margin: var(--space-10) 0 var(--space-3);
+  }
+  .legal-body p,
+  .legal-body ul {
+    font-size: 1rem;
+    color: var(--inkSoft);
+    line-height: 1.7;
+    margin-bottom: var(--space-5);
+  }
+  .legal-body ul {
+    padding-left: 1.5rem;
+  }
+  .legal-body li {
+    margin-bottom: var(--space-2);
+  }
+  .legal-body a {
+    color: var(--burgundy);
+  }
+  .legal-body a:hover {
+    color: var(--burgundyDeep);
+  }
+  .legal-body strong {
+    color: var(--ink);
+  }
 </style>
