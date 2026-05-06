@@ -16,7 +16,7 @@ const { title, description, canonicalUrl, ogImage, schema, activeNav } = Astro.p
 
 const pageTitle = title.includes('VinoMartino') ? title : `${title} — VinoMartino`;
 const canonical = canonicalUrl ?? new URL(Astro.url.pathname, Astro.site ?? 'https://vinomartino.com').href;
-const ogImageUrl = ogImage || 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=1200&h=630&fit=crop&q=80';
+const ogImageUrl = ogImage || undefined;
 ---
 
 <!doctype html>
@@ -30,15 +30,19 @@ const ogImageUrl = ogImage || 'https://images.unsplash.com/photo-1488646953014-8
     <meta property="og:site_name" content="VinoMartino" />
     <meta property="og:type" content="website" />
     <meta property="og:url" content={canonical} />
-    <meta property="og:image" content={ogImageUrl} />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
+    {ogImageUrl && (
+      <>
+        <meta property="og:image" content={ogImageUrl} />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+      </>
+    )}
     <meta property="og:locale" content="nl_NL" />
     {description && <meta property="og:description" content={description} />}
-    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:card" content={ogImageUrl ? 'summary_large_image' : 'summary'} />
     <meta name="twitter:title" content={pageTitle} />
     {description && <meta name="twitter:description" content={description} />}
-    <meta name="twitter:image" content={ogImageUrl} />
+    {ogImageUrl && <meta name="twitter:image" content={ogImageUrl} />}
     <link rel="canonical" href={canonical} />
     <link rel="icon" href="/favicon.svg" />
     {schema && (

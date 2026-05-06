@@ -12,6 +12,7 @@ export interface Wijnhuis {
     winemaker: string;
     grapes: string[];
     heroImage: string | null;
+    ogImage: string | null;
     status: string;
     metaTitle: string;
     metaDescription: string;
@@ -33,12 +34,13 @@ function getDirectusConfig() {
     return { url, token };
 }
 
-async function downloadHeroImage(assetId: string, directusUrl: string, token: string): Promise<string | null> {
+async function downloadAsset(assetId: string, directusUrl: string, token: string, prefix = ''): Promise<string | null> {
     const { writeFileSync, mkdirSync, existsSync } = await import('node:fs');
     const { join } = await import('node:path');
     const outDir = join(process.cwd(), 'public', 'images', 'wijnhuizen');
-    const outPath = join(outDir, `${assetId}.jpg`);
-    if (existsSync(outPath)) return `/images/wijnhuizen/${assetId}.jpg`;
+    const fileName = `${prefix}${assetId}.jpg`;
+    const outPath = join(outDir, fileName);
+    if (existsSync(outPath)) return `/images/wijnhuizen/${fileName}`;
     try {
         const res = await fetch(`${directusUrl}/assets/${assetId}`, {
             headers: { Authorization: `Bearer ${token}` },
@@ -51,7 +53,7 @@ async function downloadHeroImage(assetId: string, directusUrl: string, token: st
         const buf = Buffer.from(await res.arrayBuffer());
         mkdirSync(outDir, { recursive: true });
         writeFileSync(outPath, buf);
-        return `/images/wijnhuizen/${assetId}.jpg`;
+        return `/images/wijnhuizen/${fileName}`;
     } catch (err) {
         console.warn(`[loadWijnhuizen] asset download failed for ${assetId}: ${err instanceof Error ? err.message : String(err)}`);
         return null;
@@ -67,7 +69,12 @@ function parseJsonField(val: unknown): string[] {
     return [];
 }
 
-function mapWijnhuis(r: Record<string, unknown>, heroImagePath: string | null, bodyHtml: string): Wijnhuis {
+function mapWijnhuis(
+    r: Record<string, unknown>,
+    heroImagePath: string | null,
+    ogImagePath: string | null,
+    bodyHtml: string,
+): Wijnhuis {
     return {
         slug: String(r.slug),
         name: String(r.name),
@@ -82,6 +89,7 @@ function mapWijnhuis(r: Record<string, unknown>, heroImagePath: string | null, b
         winemaker: String(r.winemaker || ''),
         grapes: parseJsonField(r.grapes),
         heroImage: heroImagePath,
+        ogImage: ogImagePath,
         status: String(r.status || 'draft'),
         metaTitle: String(r.meta_title || r.name),
         metaDescription: String(r.meta_description || r.description || ''),
@@ -93,7 +101,7 @@ async function loadFromDirectus(url: string, token: string): Promise<Wijnhuis[]>
     let res: Response;
     try {
         res = await fetch(
-            `${url}/items/wijnhuizen?limit=-1&fields=id,slug,name,description,body,address,website,established,hectares,biodynamisch,winemaker,grapes,hero_image,status,meta_title,meta_description,streek_id.name&filter[status][_in]=published,draft&sort=name`,
+            `${url}/items/wijnhuizen?limit=-1&fields=id,slug,name,description,body,address,website,established,hectares,biodynamisch,winemaker,grapes,hero_image,og_image,status,meta_title,meta_description,streek_id.name&filter[status][_in]=published,draft&sort=name`,
             {
                 headers: { Authorization: `Bearer ${token}` },
                 signal: AbortSignal.timeout(15000),
@@ -115,9 +123,12 @@ async function loadFromDirectus(url: string, token: string): Promise<Wijnhuis[]>
             if (streek && streek.name) r.streek_name = streek.name;
             const bodyHtml = r.body ? await markdownToHtml(String(r.body)) : '';
             const heroImagePath = r.hero_image
-                ? await downloadHeroImage(String(r.hero_image), url, token)
+                ? await downloadAsset(String(r.hero_image), url, token)
                 : null;
-            return mapWijnhuis(r, heroImagePath, bodyHtml);
+            const ogImagePath = r.og_image
+                ? await downloadAsset(String(r.og_image), url, token, 'og-')
+                : null;
+            return mapWijnhuis(r, heroImagePath, ogImagePath, bodyHtml);
         }),
     );
     console.log(`[loadWijnhuizen] fetched ${items.length} wijnhuizen from Directus`);
@@ -160,6 +171,7 @@ async function loadFromLocalFiles(): Promise<Wijnhuis[]> {
             winemaker: '',
             grapes: fm.grapes ? fm.grapes.split(',').map((t: string) => t.trim()) : [],
             heroImage: fm.heroImage || null,
+            ogImage: fm.ogImage || null,
             status: fm.status || 'published',
             metaTitle: fm.metaTitle || fm.name || fm.title || 'Untitled',
             metaDescription: fm.metaDescription || fm.description || '',
