@@ -95,26 +95,44 @@ function mapStreek(
     };
 }
 
-async function loadFromDirectus(url: string, token: string): Promise<Streek[]> {
+async function fetchStrekenItems(url: string, token: string): Promise<Record<string, unknown>[] | null> {
+    const baseFields = 'id,slug,name,description,body,climate,soil,main_grapes,sub_regions,vineyard_area,altitude,appellations,hero_image,status,meta_title,meta_description,land_id.name';
+    const withOg = `${baseFields},og_image`;
+    const filterSort = '&filter[status][_in]=published,draft&sort=name';
+    const headers = { Authorization: `Bearer ${token}` };
+    const signal = AbortSignal.timeout(15000);
     let res: Response;
     try {
-        res = await fetch(
-            `${url}/items/streken?limit=-1&fields=id,slug,name,description,body,climate,soil,main_grapes,sub_regions,vineyard_area,altitude,appellations,hero_image,og_image,status,meta_title,meta_description,land_id.name&filter[status][_in]=published,draft&sort=name`,
-            {
-                headers: { Authorization: `Bearer ${token}` },
-                signal: AbortSignal.timeout(15000),
-            },
-        );
+        res = await fetch(`${url}/items/streken?limit=-1&fields=${withOg}${filterSort}`, { headers, signal });
     } catch (err) {
         console.warn(`[loadStreken] Directus unreachable at ${url}: ${err instanceof Error ? err.message : String(err)}`);
-        return [];
+        return null;
     }
-    if (!res.ok) {
-        console.warn(`[loadStreken] Directus returned ${res.status} ${res.statusText}`);
-        return [];
+    if (res.ok) {
+        const json = await res.json();
+        return (json.data || []) as Record<string, unknown>[];
     }
-    const json = await res.json();
-    const data = (json.data || []) as Record<string, unknown>[];
+    if (res.status === 400) {
+        console.warn(`[loadStreken] Directus rejected fields=…,og_image (HTTP 400) — retrying without og_image. Run directus/scripts/add-og-image-fields.mjs to re-enable.`);
+        try {
+            const retry = await fetch(`${url}/items/streken?limit=-1&fields=${baseFields}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
+            if (retry.ok) {
+                const json = await retry.json();
+                return (json.data || []) as Record<string, unknown>[];
+            }
+            console.warn(`[loadStreken] Retry without og_image also failed: ${retry.status} ${retry.statusText}`);
+        } catch (err) {
+            console.warn(`[loadStreken] Retry without og_image threw: ${err instanceof Error ? err.message : String(err)}`);
+        }
+        return null;
+    }
+    console.warn(`[loadStreken] Directus returned ${res.status} ${res.statusText}`);
+    return null;
+}
+
+async function loadFromDirectus(url: string, token: string): Promise<Streek[]> {
+    const data = await fetchStrekenItems(url, token);
+    if (!data) return [];
     const items = await Promise.all(
         data.map(async (r) => {
             const land = r.land_id as Record<string, unknown> | null;
