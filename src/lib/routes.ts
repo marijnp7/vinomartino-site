@@ -8,6 +8,7 @@ export interface WijnRoute {
     highlights: string[];
     stops: string[];
     heroImage: string | null;
+    ogImage: string | null;
     status: string;
     metaTitle: string;
     metaDescription: string;
@@ -26,29 +27,48 @@ function getDirectusConfig() {
     return { url, token };
 }
 
-async function downloadHeroImage(assetId: string, directusUrl: string, token: string): Promise<string | null> {
+const assetDebug: Array<Record<string, unknown>> = [];
+
+async function downloadAsset(assetId: string, directusUrl: string, token: string, prefix = ''): Promise<string | null> {
     const { writeFileSync, mkdirSync, existsSync } = await import('node:fs');
     const { join } = await import('node:path');
     const outDir = join(process.cwd(), 'public', 'images', 'routes');
-    const outPath = join(outDir, `${assetId}.jpg`);
-    if (existsSync(outPath)) return `/images/routes/${assetId}.jpg`;
+    const fileName = `${prefix}${assetId}.jpg`;
+    const outPath = join(outDir, fileName);
+    if (existsSync(outPath)) return `/images/routes/${fileName}`;
     try {
         const res = await fetch(`${directusUrl}/assets/${assetId}`, {
             headers: { Authorization: `Bearer ${token}` },
             signal: AbortSignal.timeout(15000),
         });
         if (!res.ok) {
-            console.warn(`[loadRoutes] could not fetch asset ${assetId}: ${res.status}`);
+            const body = await res.text().catch(() => '');
+            console.warn(`[loadRoutes] could not fetch asset ${assetId}: ${res.status} body=${body.slice(0, 300)}`);
+            assetDebug.push({ assetId, prefix, status: res.status, body: body.slice(0, 500) });
             return null;
         }
         const buf = Buffer.from(await res.arrayBuffer());
         mkdirSync(outDir, { recursive: true });
         writeFileSync(outPath, buf);
-        return `/images/routes/${assetId}.jpg`;
+        assetDebug.push({ assetId, prefix, status: 200, bytes: buf.byteLength });
+        return `/images/routes/${fileName}`;
     } catch (err) {
-        console.warn(`[loadRoutes] asset download failed for ${assetId}: ${err instanceof Error ? err.message : String(err)}`);
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn(`[loadRoutes] asset download failed for ${assetId}: ${msg}`);
+        assetDebug.push({ assetId, prefix, error: msg });
         return null;
     }
+}
+
+async function writeAssetDebug(pathTaken: string): Promise<void> {
+    const { writeFileSync, mkdirSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const dir = join(process.cwd(), 'public');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+        join(dir, 'build-debug-routes.json'),
+        JSON.stringify({ asOf: new Date().toISOString(), pathTaken, entries: assetDebug }, null, 2),
+    );
 }
 
 function parseJsonField(val: unknown): string[] {
@@ -60,7 +80,12 @@ function parseJsonField(val: unknown): string[] {
     return [];
 }
 
-function mapRoute(r: Record<string, unknown>, heroImagePath: string | null, bodyHtml: string): WijnRoute {
+function mapRoute(
+    r: Record<string, unknown>,
+    heroImagePath: string | null,
+    ogImagePath: string | null,
+    bodyHtml: string,
+): WijnRoute {
     return {
         slug: String(r.slug),
         title: String(r.title),
@@ -71,6 +96,7 @@ function mapRoute(r: Record<string, unknown>, heroImagePath: string | null, body
         highlights: parseJsonField(r.highlights),
         stops: parseJsonField(r.stops),
         heroImage: heroImagePath,
+        ogImage: ogImagePath,
         status: String(r.status || 'draft'),
         metaTitle: String(r.meta_title || r.title),
         metaDescription: String(r.meta_description || r.description || ''),
@@ -78,33 +104,66 @@ function mapRoute(r: Record<string, unknown>, heroImagePath: string | null, body
     };
 }
 
-async function loadFromDirectus(url: string, token: string): Promise<WijnRoute[]> {
+async function fetchRoutesItems(url: string, token: string): Promise<Record<string, unknown>[] | null> {
+    const baseFields = 'id,slug,title,description,body,duration,transport,style,highlights,stops,hero_image,status,meta_title,meta_description';
+    const withOg = `${baseFields},og_image`;
+    const filterSort = '&filter[status][_in]=published,draft&sort=title';
+    const headers = { Authorization: `Bearer ${token}` };
+    const signal = AbortSignal.timeout(15000);
     let res: Response;
     try {
-        res = await fetch(
-            `${url}/items/routes?limit=-1&fields=id,slug,title,description,body,duration,transport,style,highlights,stops,hero_image,status,meta_title,meta_description&filter[status][_in]=published,draft&sort=title`,
-            {
-                headers: { Authorization: `Bearer ${token}` },
-                signal: AbortSignal.timeout(15000),
-            },
-        );
+        res = await fetch(`${url}/items/routes?limit=-1&fields=${withOg}${filterSort}`, { headers, signal });
     } catch (err) {
-        console.warn(`[loadRoutes] Directus unreachable at ${url}: ${err instanceof Error ? err.message : String(err)}`);
-        return [];
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn(`[loadRoutes] Directus unreachable at ${url}: ${msg}`);
+        assetDebug.push({ kind: 'query', url, error: msg });
+        return null;
     }
-    if (!res.ok) {
-        console.warn(`[loadRoutes] Directus returned ${res.status} ${res.statusText}`);
-        return [];
+    if (res.ok) {
+        const json = await res.json();
+        assetDebug.push({ kind: 'query', url, status: 200, count: (json.data || []).length });
+        return (json.data || []) as Record<string, unknown>[];
     }
-    const json = await res.json();
-    const data = (json.data || []) as Record<string, unknown>[];
+    if (res.status === 400) {
+        const body = await res.text().catch(() => '');
+        console.warn(`[loadRoutes] Directus rejected fields=…,og_image (HTTP 400) — retrying without og_image. Run directus/scripts/add-og-image-fields.mjs to re-enable.`);
+        assetDebug.push({ kind: 'query', url, status: 400, body: body.slice(0, 500), retryWithoutOg: true });
+        try {
+            const retry = await fetch(`${url}/items/routes?limit=-1&fields=${baseFields}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
+            if (retry.ok) {
+                const json = await retry.json();
+                assetDebug.push({ kind: 'query-retry', url, status: 200, count: (json.data || []).length });
+                return (json.data || []) as Record<string, unknown>[];
+            }
+            const rbody = await retry.text().catch(() => '');
+            console.warn(`[loadRoutes] Retry without og_image also failed: ${retry.status} ${retry.statusText}`);
+            assetDebug.push({ kind: 'query-retry', url, status: retry.status, body: rbody.slice(0, 500) });
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            console.warn(`[loadRoutes] Retry without og_image threw: ${msg}`);
+            assetDebug.push({ kind: 'query-retry', url, error: msg });
+        }
+        return null;
+    }
+    const body = await res.text().catch(() => '');
+    console.warn(`[loadRoutes] Directus returned ${res.status} ${res.statusText}: ${body.slice(0, 300)}`);
+    assetDebug.push({ kind: 'query', url, status: res.status, body: body.slice(0, 500) });
+    return null;
+}
+
+async function loadFromDirectus(url: string, token: string): Promise<WijnRoute[]> {
+    const data = await fetchRoutesItems(url, token);
+    if (!data) return [];
     const items = await Promise.all(
         data.map(async (r) => {
             const bodyHtml = r.body ? await markdownToHtml(String(r.body)) : '';
             const heroImagePath = r.hero_image
-                ? await downloadHeroImage(String(r.hero_image), url, token)
+                ? await downloadAsset(String(r.hero_image), url, token)
                 : null;
-            return mapRoute(r, heroImagePath, bodyHtml);
+            const ogImagePath = r.og_image
+                ? await downloadAsset(String(r.og_image), url, token, 'og-')
+                : null;
+            return mapRoute(r, heroImagePath, ogImagePath, bodyHtml);
         }),
     );
     console.log(`[loadRoutes] fetched ${items.length} routes from Directus`);
@@ -143,6 +202,7 @@ async function loadFromLocalFiles(): Promise<WijnRoute[]> {
             highlights: fm.highlights ? fm.highlights.split(',').map((t: string) => t.trim()) : [],
             stops: fm.stops ? fm.stops.split(',').map((t: string) => t.trim()) : [],
             heroImage: fm.heroImage || null,
+            ogImage: fm.ogImage || null,
             status: fm.status || 'published',
             metaTitle: fm.metaTitle || fm.title || 'Untitled',
             metaDescription: fm.metaDescription || fm.description || '',
@@ -156,11 +216,18 @@ async function loadFromLocalFiles(): Promise<WijnRoute[]> {
 
 export async function loadRoutes(): Promise<WijnRoute[]> {
     const { url, token } = getDirectusConfig();
+    let pathTaken: 'directus' | 'directus-empty' | 'local-fallback' | 'directus-not-configured';
+    let items: WijnRoute[] = [];
     if (url && token) {
-        const items = await loadFromDirectus(url, token);
-        if (items.length > 0) return items;
+        items = await loadFromDirectus(url, token);
+        pathTaken = items.length > 0 ? 'directus' : 'directus-empty';
+        if (items.length === 0) items = await loadFromLocalFiles();
+        if (pathTaken === 'directus-empty' && items.length > 0) pathTaken = 'local-fallback';
     } else {
         console.warn(`[loadRoutes] Directus not configured — loading from local files`);
+        pathTaken = 'directus-not-configured';
+        items = await loadFromLocalFiles();
     }
-    return loadFromLocalFiles();
+    await writeAssetDebug(pathTaken);
+    return items;
 }

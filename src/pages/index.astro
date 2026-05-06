@@ -1,88 +1,47 @@
 ---
+import SiteLayout from '../layouts/SiteLayout.astro';
 import { loadArticles } from '../lib/articles';
 import { loadWijnhuizen } from '../lib/wijnhuizen';
 import { loadRoutes } from '../lib/routes';
 import { loadStreken } from '../lib/streken';
+import { organizationSchema } from '../lib/seo';
 
 const articles = await loadArticles();
 const recentArticles = articles.slice(0, 3);
 const wijnhuizen = (await loadWijnhuizen()).slice(0, 3);
 const routes = (await loadRoutes()).slice(0, 3);
 const streken = (await loadStreken()).slice(0, 3);
+
+const schema = organizationSchema();
 ---
 
-<!doctype html>
-<html lang="nl">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>VinoMartino — Wijnreizen met karakter</title>
-<meta name="description" content="Persoonlijke wijnreis-verhalen, proefnotities en routes door de mooiste wijnstreken ter wereld — geschreven door wijnliefhebbers die zelf op pad gaan." />
-<link rel="icon" href="/favicon.svg" />
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
-<style>
-:root{--burgundy:#5A1A1F;--burgundyDeep:#3D1115;--paper:#FAF5E9;--paperDeep:#F0E6D0;--ink:#1F1A16;--inkSoft:#5A4F45;--inkFaint:#8A7E70;--rust:#A14F2A;--rule:#C9B98F}
-*{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--paper);color:var(--ink);font-family:'Inter',system-ui,sans-serif;line-height:1.6}
-.container{max-width:72rem;margin:0 auto;padding:0 1.5rem}
-a{color:inherit;text-decoration:none}
-header.site{border-bottom:1px solid var(--rule);background:var(--paper);position:sticky;top:0;z-index:10}
-.head-inner{max-width:72rem;margin:0 auto;padding:1.25rem 1.5rem;display:flex;justify-content:space-between;align-items:center}
-.logo{font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-size:1.75rem;color:var(--ink)}
-.logo span{color:var(--rust)}
-header.site nav{display:flex;gap:1.5rem;font-size:.875rem;font-weight:500}
-header.site nav a:hover{color:var(--burgundy)}
-.hero{padding:6rem 1.5rem 5rem;text-align:center;max-width:72rem;margin:0 auto}
-.eyebrow{font-size:.75rem;text-transform:uppercase;letter-spacing:.14em;color:var(--rust);font-weight:600}
-.hero h1{font-family:'Cormorant Garamond',Georgia,serif;font-size:clamp(2.5rem,5vw + 1rem,5rem);font-style:italic;font-weight:400;line-height:1.1;margin:1.5rem 0;letter-spacing:-.02em}
-.lede{font-size:1.25rem;max-width:38rem;margin:0 auto 2rem;color:var(--inkSoft)}
-.cta{display:inline-block;padding:.875rem 2rem;background:var(--burgundy);color:var(--paper);font-weight:500;font-size:.9375rem;transition:background .2s}
-.cta:hover{background:var(--burgundyDeep)}
-.articles{padding:5rem 0;background:var(--paperDeep)}
-.section-head{text-align:center;margin-bottom:3rem}
-.section-head h2{font-family:'Cormorant Garamond',Georgia,serif;font-size:clamp(2rem,3vw + 1rem,3rem);font-style:italic;font-weight:400;margin-top:.5rem}
-.grid{display:grid;gap:2rem;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
-.card{background:var(--paper);transition:transform .2s,box-shadow .2s;display:block}
-.card:hover{transform:translateY(-4px);box-shadow:0 8px 24px rgba(31,26,22,.12)}
-.card img{width:100%;height:200px;object-fit:cover;display:block}
-.card-body{padding:1.5rem}
-.cat{font-size:.625rem;text-transform:uppercase;letter-spacing:.1em;color:var(--rust);font-weight:600}
-.card h3{font-family:'Cormorant Garamond',Georgia,serif;font-size:1.5rem;font-style:italic;font-weight:400;margin:.5rem 0 .75rem;line-height:1.2}
-.card p{font-size:.9375rem;color:var(--inkSoft);margin-bottom:1rem}
-.meta{font-size:.75rem;color:var(--inkFaint);display:block;padding-top:1rem;border-top:1px solid var(--rule)}
-footer.site{background:var(--burgundyDeep);color:var(--paperDeep);padding:3rem 0 2rem;text-align:center}
-footer.site .logo{color:var(--paper);margin-bottom:.5rem}
-footer.site .tagline{font-size:.9375rem;max-width:32rem;margin:0 auto 2rem;opacity:.85}
-.foot-nav{display:flex;justify-content:center;gap:1.5rem;flex-wrap:wrap;margin-bottom:2rem;font-size:.875rem}
-.foot-nav a:hover{color:var(--paper)}
-.section-link{text-align:center;margin-top:2.5rem}
-.copy{font-size:.75rem;opacity:.6;padding-top:1.5rem;border-top:1px solid rgba(201,185,143,.2)}
-</style>
-</head>
-<body>
-<header class="site"><div class="head-inner"><a href="/" class="logo">Vino<span>·</span>Martino</a><nav><a href="/wijnhuizen/">Wijnhuizen</a><a href="/wijnroutes/">Routes</a><a href="/streken/">Streken</a><a href="/artikelen/">Artikelen</a><a href="/over-ons/">Over ons</a></nav></div></header>
-<main>
+<SiteLayout
+  title="VinoMartino — Wijnreizen met karakter"
+  description="Persoonlijke wijnreis-verhalen, proefnotities en routes door de mooiste wijnstreken ter wereld — geschreven door wijnliefhebbers die zelf op pad gaan."
+  schema={schema}
+>
   <section class="hero">
-    <span class="eyebrow">Wijnreizen met karakter</span>
-    <h1>De wereld ontdekken,<br/>glas voor glas</h1>
-    <p class="lede">Persoonlijke verhalen, proefnotities en routes door de mooiste wijnstreken ter wereld — geschreven door wijnliefhebbers die zelf op pad gaan.</p>
-    <a href="/artikelen/" class="cta">Lees alle artikelen →</a>
-  </section>
-  <section class="articles">
     <div class="container">
-      <div class="section-head">
-        <span class="eyebrow">Ontdek</span>
+      <span class="eyebrow">Wijnreizen met karakter</span>
+      <h1>De wereld ontdekken,<br />glas voor glas</h1>
+      <p class="lede">Persoonlijke verhalen, proefnotities en routes door de mooiste wijnstreken ter wereld — geschreven door wijnliefhebbers die zelf op pad gaan.</p>
+      <a href="/artikelen/" class="cta">Lees alle artikelen →</a>
+    </div>
+  </section>
+
+  <section class="feature">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-label">Ontdek</span>
         <h2>Wijnhuizen</h2>
       </div>
       <div class="grid">
         {wijnhuizen.map(w => (
-          <a href={`/wijnhuizen/${w.slug}/`} class="card">
+          <a href={`/wijnhuizen/${w.slug}/`} class="card card-link">
             <div class="card-body">
-              <span class="cat">{w.region}</span>
-              <h3>{w.name}</h3>
-              <p>{w.description}</p>
+              <span class="card-region">{w.region}</span>
+              <h3 class="card-title">{w.name}</h3>
+              {w.description && <p class="card-desc">{w.description}</p>}
             </div>
           </a>
         ))}
@@ -91,19 +50,19 @@ footer.site .tagline{font-size:.9375rem;max-width:32rem;margin:0 auto 2rem;opaci
     </div>
   </section>
 
-  <section class="articles">
+  <section class="feature feature--alt">
     <div class="container">
-      <div class="section-head">
-        <span class="eyebrow">Op pad</span>
+      <div class="section-header">
+        <span class="section-label">Op pad</span>
         <h2>Wijnroutes</h2>
       </div>
       <div class="grid">
         {routes.map(r => (
-          <a href={`/wijnroutes/${r.slug}/`} class="card">
+          <a href={`/wijnroutes/${r.slug}/`} class="card card-link">
             <div class="card-body">
-              <span class="cat">{r.duration}</span>
-              <h3>{r.title}</h3>
-              <p>{r.description}</p>
+              <span class="card-region">{r.duration}</span>
+              <h3 class="card-title">{r.title}</h3>
+              {r.description && <p class="card-desc">{r.description}</p>}
             </div>
           </a>
         ))}
@@ -112,19 +71,19 @@ footer.site .tagline{font-size:.9375rem;max-width:32rem;margin:0 auto 2rem;opaci
     </div>
   </section>
 
-  <section class="articles">
+  <section class="feature">
     <div class="container">
-      <div class="section-head">
-        <span class="eyebrow">Terroir</span>
+      <div class="section-header">
+        <span class="section-label">Terroir</span>
         <h2>Streken</h2>
       </div>
       <div class="grid">
         {streken.map(s => (
-          <a href={`/streken/${s.slug}/`} class="card">
+          <a href={`/streken/${s.slug}/`} class="card card-link">
             <div class="card-body">
-              <span class="cat">{s.country}</span>
-              <h3>{s.name}</h3>
-              <p>{s.description}</p>
+              <span class="card-region">{s.country}</span>
+              <h3 class="card-title">{s.name}</h3>
+              {s.description && <p class="card-desc">{s.description}</p>}
             </div>
           </a>
         ))}
@@ -133,21 +92,23 @@ footer.site .tagline{font-size:.9375rem;max-width:32rem;margin:0 auto 2rem;opaci
     </div>
   </section>
 
-  <section class="articles">
+  <section class="feature feature--alt">
     <div class="container">
-      <div class="section-head">
-        <span class="eyebrow">Vers van de pers</span>
+      <div class="section-header">
+        <span class="section-label">Vers van de pers</span>
         <h2>Laatste verhalen</h2>
       </div>
       <div class="grid">
         {recentArticles.map(article => (
-          <a href={`/artikelen/${article.slug}/`} class="card">
-            {article.heroImage && <img src={article.heroImage} alt={article.title} loading="lazy" />}
+          <a href={`/artikelen/${article.slug}/`} class="card card-link">
+            {article.heroImage && (
+              <img src={article.heroImage} alt={article.title} loading="lazy" width="400" height="200" class="card-img" />
+            )}
             <div class="card-body">
-              {article.category && <span class="cat">{article.category}</span>}
-              <h3>{article.title}</h3>
-              {article.description && <p>{article.description}</p>}
-              <span class="meta">{article.author} · {new Date(article.pubDate).toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+              {article.category && <span class="card-region">{article.category}</span>}
+              <h3 class="card-title">{article.title}</h3>
+              {article.description && <p class="card-desc">{article.description}</p>}
+              <span class="card-meta">{article.author} · {new Date(article.pubDate).toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
             </div>
           </a>
         ))}
@@ -155,23 +116,117 @@ footer.site .tagline{font-size:.9375rem;max-width:32rem;margin:0 auto 2rem;opaci
       <p class="section-link"><a href="/artikelen/" class="cta">Alle artikelen →</a></p>
     </div>
   </section>
-</main>
-<footer class="site">
-  <div class="container">
-    <p class="logo">Vino<span>·</span>Martino</p>
-    <p class="tagline">Wijnreizen met karakter — persoonlijke verhalen, proefnotities en routes door de mooiste wijnstreken ter wereld.</p>
-    <nav class="foot-nav">
-      <a href="/wijnhuizen/">Wijnhuizen</a>
-      <a href="/wijnroutes/">Routes</a>
-      <a href="/streken/">Streken</a>
-      <a href="/artikelen/">Artikelen</a>
-      <a href="/over-ons/">Over ons</a>
-      <a href="/privacy/">Privacy</a>
-      <a href="/cookies/">Cookies</a>
-      <a href="/affiliate-verklaring/">Affiliate</a>
-    </nav>
-    <p class="copy">© 2026 VinoMartino</p>
-  </div>
-</footer>
-</body>
-</html>
+</SiteLayout>
+
+<style>
+  .hero {
+    padding: var(--space-24) 0 var(--space-20);
+    text-align: center;
+  }
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--rust);
+    font-weight: 500;
+  }
+  .hero h1 {
+    font-family: var(--font-display);
+    font-size: clamp(2.5rem, 5vw + 1rem, 5rem);
+    font-style: italic;
+    font-weight: 400;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    margin: var(--space-6) 0;
+  }
+  .lede {
+    font-family: var(--font-body);
+    font-size: 1.125rem;
+    color: var(--inkSoft);
+    max-width: 38rem;
+    margin: 0 auto var(--space-8);
+    line-height: 1.6;
+  }
+  .cta {
+    display: inline-block;
+    padding: 0.875rem 2rem;
+    background: var(--burgundy);
+    color: var(--paper);
+    font-family: var(--font-ui);
+    font-weight: 500;
+    font-size: 0.9375rem;
+    text-decoration: none;
+    transition: background var(--duration-fast) var(--ease-out);
+  }
+  .cta:hover { background: var(--burgundyDeep); color: var(--paper); }
+
+  .feature {
+    padding: var(--space-20) 0;
+  }
+  .feature--alt {
+    background: var(--paperDeep);
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: var(--space-6);
+  }
+  .card-link {
+    text-decoration: none;
+    color: inherit;
+    display: block;
+  }
+  .card-img {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+  }
+  .card-body {
+    padding: 1.5rem;
+  }
+  .card-region {
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--rust);
+    display: block;
+    margin-bottom: var(--space-2);
+  }
+  .card-title {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-style: italic;
+    font-weight: 400;
+    color: var(--ink);
+    margin-bottom: var(--space-3);
+    line-height: 1.2;
+  }
+  .card-desc {
+    font-family: var(--font-body);
+    font-size: 0.9375rem;
+    color: var(--inkSoft);
+    line-height: 1.55;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    margin-bottom: var(--space-3);
+  }
+  .card-meta {
+    display: block;
+    margin-top: var(--space-3);
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--ruleSoft);
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    color: var(--inkFaint);
+  }
+  .section-link {
+    text-align: center;
+    margin-top: var(--space-10);
+  }
+</style>

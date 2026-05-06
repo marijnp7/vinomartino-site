@@ -1,67 +1,159 @@
 ---
-import BaseLayout from '../layouts/BaseLayout.astro';
+import SiteLayout from '../layouts/SiteLayout.astro';
 const datum = "24 april 2026";
 ---
 
-<BaseLayout title="Cookieverklaring — VinoMartino" description="Welke cookies VinoMartino gebruikt en hoe u uw voorkeur aanpast.">
-  <article class="static-page">
-    <h1>Cookieverklaring</h1>
-    <p class="update-datum"><em>Laatste update: {datum}</em></p>
+<SiteLayout
+  title="Cookieverklaring — VinoMartino"
+  description="Welke cookies VinoMartino gebruikt en hoe u uw voorkeur aanpast."
+>
+  <section class="legal container">
+    <article class="legal-body">
+      <h1>Cookieverklaring</h1>
+      <p class="update-datum"><em>Laatste update: {datum}</em></p>
 
-    <p>VinoMartino gebruikt cookies — kleine tekstbestanden die uw browser opslaat op het moment dat u onze site bezoekt. Hieronder leggen we uit welke cookies we plaatsen, waarvoor, en hoe u uw keuze kunt aanpassen.</p>
+      <p>VinoMartino gebruikt cookies — kleine tekstbestanden die uw browser opslaat op het moment dat u onze site bezoekt. Hieronder leggen we uit welke cookies we plaatsen, waarvoor, en hoe u uw keuze kunt aanpassen.</p>
 
-    <h2>Functionele cookies <span class="always-on">Altijd actief</span></h2>
-    <p>Deze cookies zijn nodig voor de werking van de website. Ze onthouden uw cookievoorkeur. Ze bevatten geen persoonsgegevens en worden niet gebruikt voor tracking of profilering.</p>
-    <table>
-      <thead><tr><th>Cookie</th><th>Doel</th><th>Bewaartermijn</th></tr></thead>
-      <tbody>
-        <tr><td><code>cookie_consent</code></td><td>Uw cookievoorkeur onthouden (opgeslagen in localStorage)</td><td>Onbeperkt (lokaal)</td></tr>
-      </tbody>
-    </table>
+      <h2>Functionele cookies <span class="always-on">Altijd actief</span></h2>
+      <p>Deze cookies zijn nodig voor de werking van de website. Ze onthouden uw cookievoorkeur. Ze bevatten geen persoonsgegevens en worden niet gebruikt voor tracking of profilering.</p>
+      <table>
+        <thead><tr><th>Cookie</th><th>Doel</th><th>Bewaartermijn</th></tr></thead>
+        <tbody>
+          <tr><td><code>cookie_consent</code></td><td>Uw cookievoorkeur onthouden (opgeslagen in localStorage)</td><td>Onbeperkt (lokaal)</td></tr>
+        </tbody>
+      </table>
 
-    <h2>Analytische cookies <span class="consent-req">Toestemming vereist</span></h2>
-    <p>We gebruiken analytische cookies om te begrijpen hoe bezoekers de site gebruiken. De gegevens zijn geanonimiseerd — individuele bezoekers worden niet gevolgd of geprofileerd.</p>
+      <h2>Analytische cookies <span class="consent-req">Toestemming vereist</span></h2>
+      <p>We gebruiken analytische cookies om te begrijpen hoe bezoekers de site gebruiken. De gegevens zijn geanonimiseerd — individuele bezoekers worden niet gevolgd of geprofileerd.</p>
 
-    <h2>Tracking-cookies voor affiliate-attributie <span class="consent-req">Toestemming vereist</span></h2>
-    <p>Als u klikt op een gemarkeerde partnerlink — naar Booking.com of GetYourGuide — plaatst het Awin-netwerk een cookie. Dat cookie registreert of een boeking via onze link tot stand is gekomen.</p>
-    <table>
-      <thead><tr><th>Cookie</th><th>Doel</th><th>Bewaartermijn</th></tr></thead>
-      <tbody>
-        <tr><td><code>aw=</code> (Awin)</td><td>Affiliate-transactie-attributie</td><td>30 dagen</td></tr>
-      </tbody>
-    </table>
+      <h2>Tracking-cookies voor affiliate-attributie <span class="consent-req">Toestemming vereist</span></h2>
+      <p>Als u klikt op een gemarkeerde partnerlink — naar Booking.com of GetYourGuide — plaatst het Awin-netwerk een cookie. Dat cookie registreert of een boeking via onze link tot stand is gekomen.</p>
+      <table>
+        <thead><tr><th>Cookie</th><th>Doel</th><th>Bewaartermijn</th></tr></thead>
+        <tbody>
+          <tr><td><code>aw=</code> (Awin)</td><td>Affiliate-transactie-attributie</td><td>30 dagen</td></tr>
+        </tbody>
+      </table>
 
-    <h2>Uw keuze aanpassen</h2>
-    <p>Bij uw eerste bezoek verschijnt een cookiebanner. U kunt uw keuze op elk moment herzien:</p>
-    <button id="reset-consent" class="reset-btn">Cookievoorkeuren herzien</button>
+      <h2>Uw keuze aanpassen</h2>
+      <p>Bij uw eerste bezoek verschijnt een cookiebanner. U kunt uw keuze op elk moment herzien:</p>
+      <button id="reset-consent" class="reset-btn">Cookievoorkeuren herzien</button>
 
-    <p style="margin-top:1.5rem">U kunt cookies ook rechtstreeks beheren via de instellingen van uw browser.</p>
+      <p style="margin-top:1.5rem">U kunt cookies ook rechtstreeks beheren via de instellingen van uw browser.</p>
 
-    <h2>Vragen?</h2>
-    <p>Zie ons <a href="/privacy/">Privacybeleid</a> of stuur een mail naar <a href="mailto:privacy@vinomartino.com">privacy@vinomartino.com</a>.</p>
-  </article>
-</BaseLayout>
+      <h2>Vragen?</h2>
+      <p>Zie ons <a href="/privacy/">Privacybeleid</a> of stuur een mail naar <a href="mailto:privacy@vinomartino.com">privacy@vinomartino.com</a>.</p>
+    </article>
+  </section>
+</SiteLayout>
 
 <script>
-  document.getElementById('reset-consent').addEventListener('click', function() {
+  document.getElementById('reset-consent')?.addEventListener('click', () => {
     localStorage.removeItem('cookie_consent');
     location.reload();
   });
 </script>
 
 <style>
-  .static-page { max-width: 720px; }
-  .static-page h1 { font-size: 2.2rem; color: var(--primary); margin-bottom: 0.5rem; }
-  .static-page h2 { font-size: 1.4rem; color: var(--primary); margin: 2rem 0 0.75rem; display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
-  .static-page p { margin-bottom: 1.2rem; color: #444; }
-  .static-page a { color: var(--primary); }
-  .update-datum { margin-bottom: 1.5rem; color: #888; font-size: 0.9rem; }
-  .always-on { font-size: 0.75rem; background: var(--accent); color: #fff; padding: 0.2rem 0.5rem; border-radius: 3px; font-family: 'Inter', sans-serif; font-weight: 500; }
-  .consent-req { font-size: 0.75rem; background: #b08020; color: #fff; padding: 0.2rem 0.5rem; border-radius: 3px; font-family: 'Inter', sans-serif; font-weight: 500; }
-  table { width: 100%; border-collapse: collapse; margin: 1rem 0 1.5rem; font-size: 0.9rem; }
-  th { background: var(--primary); color: var(--secondary); padding: 0.6rem 0.8rem; text-align: left; }
-  td { padding: 0.6rem 0.8rem; border-bottom: 1px solid #E8E0D4; color: #444; }
-  code { background: #f0ede8; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.85em; }
-  .reset-btn { background: transparent; border: 1px solid var(--primary); color: var(--primary); padding: 0.6rem 1.2rem; border-radius: 4px; font-size: 0.9rem; cursor: pointer; font-family: inherit; margin-top: 0.5rem; }
-  .reset-btn:hover { background: var(--secondary); }
+  .legal {
+    padding: var(--space-16) 0;
+  }
+  .legal-body {
+    max-width: 44rem;
+    margin: 0 auto;
+    font-family: var(--font-body);
+    color: var(--ink);
+  }
+  .legal-body h1 {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 1.6rem + 1.5vw, 2.875rem);
+    font-style: italic;
+    font-weight: 400;
+    color: var(--ink);
+    margin-bottom: var(--space-2);
+    line-height: 1.15;
+  }
+  .legal-body h2 {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-style: italic;
+    font-weight: 400;
+    color: var(--ink);
+    margin: var(--space-10) 0 var(--space-3);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+  .legal-body p {
+    font-size: 1rem;
+    color: var(--inkSoft);
+    line-height: 1.7;
+    margin-bottom: var(--space-5);
+  }
+  .legal-body a {
+    color: var(--burgundy);
+  }
+  .legal-body a:hover {
+    color: var(--burgundyDeep);
+  }
+  .update-datum {
+    color: var(--inkFaint);
+    font-size: 0.875rem;
+    margin-bottom: var(--space-6);
+  }
+  .always-on,
+  .consent-req {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    padding: 0.25rem 0.5rem;
+    border-radius: 2px;
+    font-style: normal;
+  }
+  .always-on { background: var(--burgundy); color: var(--paper); }
+  .consent-req { background: var(--rust); color: var(--paper); }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: var(--space-4) 0 var(--space-6);
+    font-size: 0.9375rem;
+  }
+  th {
+    background: var(--paperDeep);
+    color: var(--ink);
+    padding: 0.625rem 0.75rem;
+    text-align: left;
+    font-family: var(--font-ui);
+    font-weight: 600;
+  }
+  td {
+    padding: 0.625rem 0.75rem;
+    border-bottom: 1px solid var(--ruleSoft);
+    color: var(--inkSoft);
+  }
+  code {
+    background: var(--paperDeep);
+    padding: 0.125rem 0.375rem;
+    border-radius: 2px;
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    color: var(--ink);
+  }
+  .reset-btn {
+    background: transparent;
+    border: 1px solid var(--burgundy);
+    color: var(--burgundy);
+    padding: 0.625rem 1.25rem;
+    border-radius: 2px;
+    font-family: var(--font-ui);
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: background var(--duration-fast), color var(--duration-fast);
+  }
+  .reset-btn:hover {
+    background: var(--burgundy);
+    color: var(--paper);
+  }
 </style>

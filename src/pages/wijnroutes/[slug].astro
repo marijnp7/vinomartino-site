@@ -34,7 +34,7 @@ const schema = [
 <SiteLayout
   title={wijnrouteMetaTitle(entry.title)}
   description={wijnrouteMetaDescription({ name: entry.title, duration: entry.duration, description: entry.description })}
-  ogImage={entry.heroImage || undefined}
+  ogImage={entry.ogImage || entry.heroImage || undefined}
   schema={schema}
   activeNav="wijnroutes"
 >
@@ -59,7 +59,7 @@ const schema = [
           <h1>{entry.title}</h1>
         </header>
 
-        <div class="page-prose" set:html={entry.bodyHtml} />
+        {entry.bodyHtml && <div class="page-prose" set:html={entry.bodyHtml} />}
       </div>
 
       <aside class="page-sidebar">

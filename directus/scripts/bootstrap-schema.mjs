@@ -347,6 +347,7 @@ async function run() {
     textField('vineyard_area', { note: 'Total hectares under vine' }),
     textField('altitude', { note: 'Typical altitude range' }),
     jsonField('appellations', { note: 'Array of appellation names (DOC, DOCG, AOC, etc.)' }),
+    imageField('og_image'),
     ...seoFields(),
     jsonField('translations', { note: i18nNote }),
   ]) await createField('streken', f);
@@ -370,6 +371,7 @@ async function run() {
     textField('winemaker', { note: 'Current winemaker name' }),
     jsonField('wines', { note: 'Array of notable wines [{name, grape, vintage, price}]' }),
     jsonField('grapes', { note: 'Array of grape variety names' }),
+    imageField('og_image'),
     ...seoFields(),
     jsonField('translations', { note: i18nNote }),
   ]) await createField('wijnhuizen', f);
@@ -390,6 +392,7 @@ async function run() {
     textField('style', { note: 'ontspannen, sportief, culinair' }),
     jsonField('highlights', { note: 'Array of highlight strings' }),
     jsonField('stops', { note: 'Array of stop descriptions' }),
+    imageField('og_image'),
     ...seoFields(),
     jsonField('translations', { note: i18nNote }),
   ]) await createField('routes', f);
