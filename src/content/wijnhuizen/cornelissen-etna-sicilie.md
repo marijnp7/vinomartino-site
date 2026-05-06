@@ -10,7 +10,7 @@ grapes: ["Nerello Mascalese", "Nerello Cappuccio", "Carricante", "Catarratto", "
 established: 2001
 address: "Contrada Barbabecchi, Solicchiata, Castiglione di Sicilia (CT)"
 website: "frankcornelissen.it"
-description: "Frank Cornelissen verliet zijn baan als wijnhandelaar in Brussel, kocht land op de noordflank van de Etna en begon zonder sulfiet, zonder extractie, zonder compromissen. Meer dan twintig jaar later is hij een referentie voor iedereen die radicale wijnbouw begrijpt als een filosofie, niet als een marketingstrategie."
+description: "Frank Cornelissen kocht in 2000 zijn eerste Etna-percelen als ex-wijnhandelaar uit Brussel met één principe: geen sulfiet, geen cultivated gisten, geen filtering. De eerste jaren waren slecht; de flessen waren instabiel, de markt begreep hem niet. Hij bleef. Meer dan twintig jaar later zijn zijn contrada-selecties — Barbabecchi, Nave, Chiappemacine — referenties voor wie radicale wijnbouw begrijpt als een filosofie, niet als een posture. De Munjebel MC Rosso is zijn eerlijkste instap: Nerello Mascalese op basalt, minimale interventie, expressief op een manier die vulkanische terroir het best vertaalt."
 ---
 
 # Frank Cornelissen — radicaal op de vulkaan

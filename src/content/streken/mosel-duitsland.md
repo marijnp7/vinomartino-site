@@ -17,7 +17,7 @@ knownFor:
   - "Extreem steile wijngaarden (tot 70% helling)"
   - "Trockenbeerenauslese (TBA)"
   - "Prüm, Loosen, Willi Schaefer"
-description: "De Mosel is een rivier die van Trier naar Koblenz stroomt en onderweg de meest arctische Riesling ter wereld produceert. Steile leisteen, lage temperaturen, en families die al honderd jaar dezelfde percelen bewerken. Een streek die bewust moeilijk is."
+description: "De Mosel kronkelt van Trier naar Koblenz en geeft onderweg haar hellingen maximale zuidexpositie — de geologische list waarmee Riesling in dit klimaat überhaupt rijpt. De blauwe Devonische leisteen, 380 tot 420 miljoen jaar oud, absorbeert de zonnewarmte overdag en geeft haar 's nachts af aan de wijngaard. Daardoor kan Riesling hier tot november aan de stok blijven en complexiteit opbouwen die wijnen uit warmere klimaten niet evenaren. Willi Schaefer, de Prüm-familie, Ernst Loosen — namen die je op het etiket herkent als je even de moeite doet. Moeite die ruimschoots wordt terugbetaald."
 ---
 
 # Mosel — de rivier die Riesling uitvond

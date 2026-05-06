@@ -11,7 +11,7 @@ highlights:
   - "Ürziger Würzgarten (Loosen)"
   - "Bernkastel-Kues historisch centrum"
   - "Willi Schaefer (Graach)"
-description: "De Mittelmosel tussen Bernkastel en Traben-Trarbach is het klassieke hart van de Riesling-wereld. Steil, smal, snijdend koel. Een driedaagse route langs de rivieroevers en de familiewijnhuizen die hier al honderd jaar dezelfde aanpak handhaven."
+description: "De Mittelmosel tussen Bernkastel en Traben-Trarbach is het klassieke hart van Riesling: steile Devonische leisteenhellingen, smallere wegen dan je verwacht, en familiewijnhuizen die al een eeuw dezelfde aanpak handhaven. De route loopt langs de Wehlener Sonnenuhr van de Prüm-familie, door Graach voor Willi Schaefer, via Ürzig met zijn rode zandsteen die Riesling een pikante kruidigheid geeft die elders ontbreekt. Sophie had Duitsland als wijnland onderschat. Na een middag bij Schaefer niet meer: zijn Domprobst Spätlese stopte haar midden in een gesprek. Drie dagen, tien kelders, acht flessen mee naar huis."
 ---
 
 # Langs de Mosel — van Bernkastel naar Traben-Trarbach

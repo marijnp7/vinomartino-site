@@ -21,7 +21,7 @@ knownFor:
   - "Quinta-cultuur (historische landgoederen)"
   - "Schist-bodem (xisto)"
   - "UNESCO-status Douro-vallei"
-description: "De Douro-vallei in het noorden van Portugal is de geboorteplaats van Port — maar de regio doet steeds meer met droge tafelwijnen die internationaal worden erkend. Een streek van extreme contrasten: ondraaglijk heet in de zomer, ijzig in de winter, en altijd spectaculair om door te rijden."
+description: "De Douro-vallei snijdt van de Spaanse grens tot Porto door een landschap van xisto — schist dat de wijnstokwortels vijf tot acht meter de bodem instuurt op zoek naar water. Port is het bekendste product, maar de droge tafelwijnen zijn de reden om hier naartoe te gaan: Redoma van Niepoort, Barca Velha van Ferreira, de Quinta-producties die in twintig jaar zijn uitgegroeid tot internationale referenties. De sub-zone Cima Corgo, met Pinhão als centrum, levert de meest geconcentreerde droge wijnen. Sophie organiseerde de terugrit per trein — twee uur langs de rivier, laaghangende heuvels aan beide kanten. De beste twee uur van de trip."
 ---
 
 # Douro — de vallei die meer is dan Port

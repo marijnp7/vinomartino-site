@@ -18,7 +18,7 @@ knownFor:
   - "witte truffel (tartufo bianco d'Alba)"
   - "tajarin"
   - "Nebbiolo als archivedruif"
-description: "De Langhe-heuvels in het zuiden van Piemonte zijn het thuis van Barolo en Barbaresco — twee van Italië's meest leeftijdwaardige rode wijnen. Een streek die groter is dan zijn AOC-indeling suggereert, met een geologische complexiteit die generaties wijnmakers heeft gevormd."
+description: "De Langhe-heuvels in het zuiden van Piemonte zijn het thuis van Barolo en Barbaresco — beide van Nebbiolo, maar structureel anders door de bodem. La Morra heeft rijkere Tortoniaan-klei: Barolo's die eerder opengaan. Serralunga heeft denser Helvetiaan-kiezelkalk: Barolo's die twintig jaar gesloten kunnen blijven. De 170 officieel erkende MGA-percelen — vergelijkbaar met Bourgondische premier crus — maken die nuance tastbaar op het etiket. Sophie begon de geologie te herkennen na onze tweede trip: ze kon Serralunga-tannines proeven zonder het etiket te zien. Dat is het punt van de Langhe."
 ---
 
 # Langhe — het Piemonte dat de belofte waarmaakt
