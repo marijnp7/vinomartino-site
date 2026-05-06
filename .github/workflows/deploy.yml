@@ -129,22 +129,24 @@ jobs:
           ARCHIVE_SCRIPT: |
             set -euo pipefail
             ENV_FILE="/root/vinomartino-site/.env"
-            if [ ! -f "$ENV_FILE" ]; then
-              echo "::warning::$ENV_FILE niet gevonden — skip Directus archive"
+            if [ -f "$ENV_FILE" ]; then
+              set -a; . "$ENV_FILE"; set +a
+            fi
+            : "${DIRECTUS_TOKEN:?DIRECTUS_TOKEN ontbreekt in .env}"
+            : "${DIRECTUS_CONTAINER:=vinomartino-directus-1}"
+
+            # Run curls inside the directus container — its hostname only resolves
+            # on the paperclip_default Docker network. From inside the container,
+            # Directus is on localhost:8055 (no CF Access, no hostname games).
+            if ! docker ps --format '{{.Names}}' | grep -qx "$DIRECTUS_CONTAINER"; then
+              echo "::warning::container $DIRECTUS_CONTAINER niet draaiend — skip Directus archive"
               exit 0
             fi
-            set -a; . "$ENV_FILE"; set +a
-            : "${DIRECTUS_URL:?DIRECTUS_URL ontbreekt in .env}"
-            : "${DIRECTUS_TOKEN:?DIRECTUS_TOKEN ontbreekt in .env}"
 
-            CF=()
-            if [ -n "${CF_ACCESS_CLIENT_ID:-}" ] && [ -n "${CF_ACCESS_CLIENT_SECRET:-}" ]; then
-              CF=(-H "CF-Access-Client-Id: $CF_ACCESS_CLIENT_ID" -H "CF-Access-Client-Secret: $CF_ACCESS_CLIENT_SECRET")
-            fi
-
-            LOOKUP=$(curl -g -fsS "${CF[@]}" \
-              -H "Authorization: Bearer $DIRECTUS_TOKEN" \
-              "${DIRECTUS_URL}/items/articles?filter[slug][_eq]=hello-world&fields=id,status,slug&limit=1")
+            LOOKUP=$(docker exec -e DIRECTUS_TOKEN="$DIRECTUS_TOKEN" "$DIRECTUS_CONTAINER" \
+              curl -g -fsS \
+                -H "Authorization: Bearer $DIRECTUS_TOKEN" \
+                "http://localhost:8055/items/articles?filter[slug][_eq]=hello-world&fields=id,status,slug&limit=1")
             ID=$(printf '%s' "$LOOKUP" | python3 -c 'import json,sys;d=json.load(sys.stdin)["data"];print(d[0]["id"] if d else "")')
             STATUS=$(printf '%s' "$LOOKUP" | python3 -c 'import json,sys;d=json.load(sys.stdin)["data"];print(d[0]["status"] if d else "")')
 
@@ -157,17 +159,18 @@ jobs:
               exit 0
             fi
 
-            HTTP=$(curl -g -s -o /tmp/directus-archive.json -w '%{http_code}' \
-              -X PATCH "${CF[@]}" \
-              -H "Authorization: Bearer $DIRECTUS_TOKEN" \
-              -H "Content-Type: application/json" \
-              "${DIRECTUS_URL}/items/articles/${ID}" \
-              -d '{"status":"archived"}')
+            HTTP=$(docker exec -e DIRECTUS_TOKEN="$DIRECTUS_TOKEN" "$DIRECTUS_CONTAINER" \
+              curl -g -s -o /tmp/directus-archive.json -w '%{http_code}' \
+                -X PATCH \
+                -H "Authorization: Bearer $DIRECTUS_TOKEN" \
+                -H "Content-Type: application/json" \
+                "http://localhost:8055/items/articles/${ID}" \
+                -d '{"status":"archived"}')
             if [[ "$HTTP" =~ ^2 ]]; then
               echo "hello-world ($ID) status: published → archived (HTTP $HTTP)"
             else
               echo "::error::Directus PATCH failed (HTTP $HTTP)"
-              cat /tmp/directus-archive.json
+              docker exec "$DIRECTUS_CONTAINER" cat /tmp/directus-archive.json || true
               exit 1
             fi
         run: |
