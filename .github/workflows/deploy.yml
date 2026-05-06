@@ -237,6 +237,133 @@ jobs:
           printf '%s\n' "$SWAP_SCRIPT" \
             | ssh "$VPS" "DIST='$DIST' STAGE='$STAGE' CONTAINER='$CONTAINER' bash -s"
 
+      # ── 7b. Drift check: live container vs compose spec ──────────────────
+      #
+      # LAT-914: tijdens LAT-909 incident bleek `paperclip-vinomartino-prod-1`
+      # te draaien vanuit een self-baked image (geen bind-mounts) terwijl
+      # docker-compose.vinomartino-prod.yml bind-mounts beschrijft. De rsync+
+      # nginx-reload flow werkt dan stilletjes mis: dist/ wordt geüpdatet maar
+      # de container serveert nog uit baked content. Smoke-test (LAT-910)
+      # ving het uiteindelijk via SHA-mismatch, maar pas nadat content al uren
+      # stale was.
+      #
+      # Deze step verifieert dat de live container matcht met de spec uit
+      # docker-compose.vinomartino-prod.yml (image, mounts, network, traefik
+      # labels, restart policy). Bij drift: snapshot + auto-reconcile via
+      # `docker compose up -d --force-recreate --no-deps`. Alleen voor
+      # productie — preview heeft geen SLA en geen externe traffic.
+      #
+      # Runbook voor handmatige recovery: docs/runbooks/vinomartino-prod-recreate.md
+      - name: Verify prod container matches compose spec (LAT-914)
+        if: steps.env.outputs.target == 'production'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          CONTAINER: ${{ steps.env.outputs.container }}
+          DRIFT_SCRIPT: |
+            set -euo pipefail
+            cd /root/vinomartino-site
+
+            COMPOSE_FILE="docker-compose.vinomartino-prod.yml"
+            SERVICE="vinomartino-prod"
+            EXPECTED_IMAGE="nginx:alpine"
+            EXPECTED_NETWORK="paperclip_default"
+            EXPECTED_RESTART="unless-stopped"
+            EXPECTED_BINDS=$(cat <<EOF
+            /root/vinomartino-site/dist:/usr/share/nginx/html:ro
+            /root/vinomartino-site/nginx-prod.conf:/etc/nginx/conf.d/default.conf:ro
+            EOF
+            )
+            EXPECTED_LABELS=$(cat <<'EOF'
+            traefik.enable=true
+            traefik.http.routers.vinomartino.entrypoints=websecure
+            traefik.http.routers.vinomartino.rule=Host(`vinomartino.com`) || Host(`www.vinomartino.com`)
+            traefik.http.routers.vinomartino.tls.certresolver=letsencrypt
+            traefik.http.services.vinomartino.loadbalancer.server.port=80
+            EOF
+            )
+
+            inspect_drift() {
+              local drift=()
+              if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then
+                echo "container_missing"
+                return 0
+              fi
+
+              local actual_image
+              actual_image=$(docker inspect "$CONTAINER" --format '{{.Config.Image}}')
+              [ "$actual_image" = "$EXPECTED_IMAGE" ] || drift+=("image=$actual_image (verwacht $EXPECTED_IMAGE)")
+
+              local actual_binds
+              actual_binds=$(docker inspect "$CONTAINER" --format '{{range .Mounts}}{{if eq .Type "bind"}}{{.Source}}:{{.Destination}}:{{if .RW}}rw{{else}}ro{{end}}{{"\n"}}{{end}}{{end}}' | sed '/^$/d' | sort)
+              local expected_sorted
+              expected_sorted=$(printf '%s\n' "$EXPECTED_BINDS" | sed '/^$/d' | sort)
+              if [ "$actual_binds" != "$expected_sorted" ]; then
+                drift+=("binds mismatch")
+                drift+=("  actual:")
+                while IFS= read -r line; do [ -n "$line" ] && drift+=("    $line"); done <<<"$actual_binds"
+                drift+=("  expected:")
+                while IFS= read -r line; do [ -n "$line" ] && drift+=("    $line"); done <<<"$expected_sorted"
+              fi
+
+              if ! docker inspect "$CONTAINER" --format '{{range $k, $v := .NetworkSettings.Networks}}{{$k}}{{"\n"}}{{end}}' | grep -qx "$EXPECTED_NETWORK"; then
+                drift+=("network ontbreekt: $EXPECTED_NETWORK")
+              fi
+
+              local actual_labels
+              actual_labels=$(docker inspect "$CONTAINER" --format '{{range $k,$v := .Config.Labels}}{{$k}}={{$v}}{{"\n"}}{{end}}')
+              while IFS= read -r label; do
+                [ -z "$label" ] && continue
+                if ! grep -Fxq "$label" <<<"$actual_labels"; then
+                  drift+=("label ontbreekt: $label")
+                fi
+              done <<<"$EXPECTED_LABELS"
+
+              local rp
+              rp=$(docker inspect "$CONTAINER" --format '{{.HostConfig.RestartPolicy.Name}}')
+              [ "$rp" = "$EXPECTED_RESTART" ] || drift+=("restart=$rp (verwacht $EXPECTED_RESTART)")
+
+              if [ ${#drift[@]} -eq 0 ]; then
+                echo "ok"
+              else
+                printf '%s\n' "${drift[@]}"
+              fi
+            }
+
+            result=$(inspect_drift)
+
+            if [ "$result" = "ok" ]; then
+              echo "::notice::Container $CONTAINER in sync met $COMPOSE_FILE"
+              exit 0
+            fi
+
+            if [ "$result" = "container_missing" ]; then
+              echo "::warning::Container $CONTAINER bestaat niet — recreate via compose"
+            else
+              echo "::warning::Drift gedetecteerd voor $CONTAINER vs $COMPOSE_FILE:"
+              echo "$result" | sed 's/^/  /'
+              SNAPSHOT="/tmp/prod-rollback-$(date +%s).json"
+              docker inspect "$CONTAINER" > "$SNAPSHOT" 2>/dev/null \
+                && echo "::notice::Pre-reconcile spec snapshot → $SNAPSHOT (rollback-bewijs)"
+            fi
+
+            echo "::notice::Reconcile: docker compose -f $COMPOSE_FILE up -d --force-recreate --no-deps $SERVICE"
+            docker compose -f "$COMPOSE_FILE" up -d --force-recreate --no-deps "$SERVICE"
+
+            sleep 3
+            recheck=$(inspect_drift)
+            if [ "$recheck" = "ok" ]; then
+              echo "::notice::Drift opgelost — container nu in sync met compose"
+              exit 0
+            fi
+
+            echo "::error::Reconcile gefaald — drift na force-recreate:"
+            echo "$recheck" | sed 's/^/  /'
+            echo "::error::Volg docs/runbooks/vinomartino-prod-recreate.md voor handmatige recovery"
+            exit 1
+        run: |
+          printf '%s\n' "$DRIFT_SCRIPT" \
+            | ssh "$VPS" "CONTAINER='$CONTAINER' bash -s"
+
       # ── 8. Smoke test ────────────────────────────────────────────────────
       # Retry-loop omdat nginx een paar seconden nodig heeft om warm te zijn
       # na de reload. Eerste request kan transient 500/502 geven.
