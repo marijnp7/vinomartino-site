@@ -142,7 +142,7 @@ jobs:
               CF=(-H "CF-Access-Client-Id: $CF_ACCESS_CLIENT_ID" -H "CF-Access-Client-Secret: $CF_ACCESS_CLIENT_SECRET")
             fi
 
-            LOOKUP=$(curl -fsS "${CF[@]}" \
+            LOOKUP=$(curl -g -fsS "${CF[@]}" \
               -H "Authorization: Bearer $DIRECTUS_TOKEN" \
               "${DIRECTUS_URL}/items/articles?filter[slug][_eq]=hello-world&fields=id,status,slug&limit=1")
             ID=$(printf '%s' "$LOOKUP" | python3 -c 'import json,sys;d=json.load(sys.stdin)["data"];print(d[0]["id"] if d else "")')
@@ -157,7 +157,7 @@ jobs:
               exit 0
             fi
 
-            HTTP=$(curl -s -o /tmp/directus-archive.json -w '%{http_code}' \
+            HTTP=$(curl -g -s -o /tmp/directus-archive.json -w '%{http_code}' \
               -X PATCH "${CF[@]}" \
               -H "Authorization: Bearer $DIRECTUS_TOKEN" \
               -H "Content-Type: application/json" \
