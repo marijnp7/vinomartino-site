@@ -39,7 +39,7 @@ const schema = [
 <SiteLayout
   title={wijnhuisMetaTitle(entry.name, entry.region)}
   description={wijnhuisMetaDescription({ name: entry.name, region: entry.region, country: entry.country, description: entry.description })}
-  ogImage={entry.heroImage || undefined}
+  ogImage={entry.ogImage || entry.heroImage || undefined}
   schema={schema}
   activeNav="wijnhuizen"
 >

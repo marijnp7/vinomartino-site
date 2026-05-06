@@ -37,7 +37,7 @@ const schema = [
 <SiteLayout
   title={wijnrouteMetaTitle(entry.title, entry.stops[0] || '')}
   description={wijnrouteMetaDescription({ name: entry.title, region: entry.stops[0] || '', duration: entry.duration, description: entry.description })}
-  ogImage={entry.heroImage || undefined}
+  ogImage={entry.ogImage || entry.heroImage || undefined}
   schema={schema}
   activeNav="Routes"
 >

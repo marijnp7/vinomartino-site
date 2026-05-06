@@ -8,6 +8,7 @@ export interface WijnRoute {
     highlights: string[];
     stops: string[];
     heroImage: string | null;
+    ogImage: string | null;
     status: string;
     metaTitle: string;
     metaDescription: string;
@@ -29,12 +30,13 @@ function getDirectusConfig() {
     return { url, token };
 }
 
-async function downloadHeroImage(assetId: string, directusUrl: string, token: string): Promise<string | null> {
+async function downloadAsset(assetId: string, directusUrl: string, token: string, prefix = ''): Promise<string | null> {
     const { writeFileSync, mkdirSync, existsSync } = await import('node:fs');
     const { join } = await import('node:path');
     const outDir = join(process.cwd(), 'public', 'images', 'routes');
-    const outPath = join(outDir, `${assetId}.jpg`);
-    if (existsSync(outPath)) return `/images/routes/${assetId}.jpg`;
+    const fileName = `${prefix}${assetId}.jpg`;
+    const outPath = join(outDir, fileName);
+    if (existsSync(outPath)) return `/images/routes/${fileName}`;
     try {
         const res = await fetch(`${directusUrl}/assets/${assetId}`, {
             headers: { Authorization: `Bearer ${token}` },
@@ -47,7 +49,7 @@ async function downloadHeroImage(assetId: string, directusUrl: string, token: st
         const buf = Buffer.from(await res.arrayBuffer());
         mkdirSync(outDir, { recursive: true });
         writeFileSync(outPath, buf);
-        return `/images/routes/${assetId}.jpg`;
+        return `/images/routes/${fileName}`;
     } catch (err) {
         console.warn(`[loadRoutes] asset download failed for ${assetId}: ${err instanceof Error ? err.message : String(err)}`);
         return null;
@@ -63,7 +65,12 @@ function parseJsonField(val: unknown): string[] {
     return [];
 }
 
-function mapRoute(r: Record<string, unknown>, heroImagePath: string | null, bodyHtml: string): WijnRoute {
+function mapRoute(
+    r: Record<string, unknown>,
+    heroImagePath: string | null,
+    ogImagePath: string | null,
+    bodyHtml: string,
+): WijnRoute {
     return {
         slug: String(r.slug),
         title: String(r.title),
@@ -74,6 +81,7 @@ function mapRoute(r: Record<string, unknown>, heroImagePath: string | null, body
         highlights: parseJsonField(r.highlights),
         stops: parseJsonField(r.stops),
         heroImage: heroImagePath,
+        ogImage: ogImagePath,
         status: String(r.status || 'draft'),
         metaTitle: String(r.meta_title || r.title),
         metaDescription: String(r.meta_description || r.description || ''),
@@ -85,7 +93,7 @@ async function loadFromDirectus(url: string, token: string): Promise<WijnRoute[]
     let res: Response;
     try {
         res = await fetch(
-            `${url}/items/routes?limit=-1&fields=id,slug,title,description,body,duration,transport,style,highlights,stops,hero_image,status,meta_title,meta_description&filter[status][_in]=published,draft&sort=title`,
+            `${url}/items/routes?limit=-1&fields=id,slug,title,description,body,duration,transport,style,highlights,stops,hero_image,og_image,status,meta_title,meta_description&filter[status][_in]=published,draft&sort=title`,
             {
                 headers: { Authorization: `Bearer ${token}` },
                 signal: AbortSignal.timeout(15000),
@@ -105,9 +113,12 @@ async function loadFromDirectus(url: string, token: string): Promise<WijnRoute[]
         data.map(async (r) => {
             const bodyHtml = r.body ? await markdownToHtml(String(r.body)) : '';
             const heroImagePath = r.hero_image
-                ? await downloadHeroImage(String(r.hero_image), url, token)
+                ? await downloadAsset(String(r.hero_image), url, token)
                 : null;
-            return mapRoute(r, heroImagePath, bodyHtml);
+            const ogImagePath = r.og_image
+                ? await downloadAsset(String(r.og_image), url, token, 'og-')
+                : null;
+            return mapRoute(r, heroImagePath, ogImagePath, bodyHtml);
         }),
     );
     console.log(`[loadRoutes] fetched ${items.length} routes from Directus`);
@@ -146,6 +157,7 @@ async function loadFromLocalFiles(): Promise<WijnRoute[]> {
             highlights: fm.highlights ? fm.highlights.split(',').map((t: string) => t.trim()) : [],
             stops: fm.stops ? fm.stops.split(',').map((t: string) => t.trim()) : [],
             heroImage: fm.heroImage || null,
+            ogImage: fm.ogImage || null,
             status: fm.status || 'published',
             metaTitle: fm.metaTitle || fm.title || 'Untitled',
             metaDescription: fm.metaDescription || fm.description || '',

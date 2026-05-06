@@ -45,7 +45,7 @@ const hasStats = Boolean(
 <SiteLayout
   title={streekMetaTitle(entry.name, entry.country)}
   description={streekMetaDescription({ name: entry.name, country: entry.country, grapeVarieties: entry.mainGrapes, description: entry.description })}
-  ogImage={entry.heroImage || undefined}
+  ogImage={entry.ogImage || entry.heroImage || undefined}
   schema={schema}
   activeNav="streken"
 >

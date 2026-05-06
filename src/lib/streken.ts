@@ -11,6 +11,7 @@ export interface Streek {
     altitude: string;
     appellations: string[];
     heroImage: string | null;
+    ogImage: string | null;
     status: string;
     metaTitle: string;
     metaDescription: string;
@@ -32,12 +33,13 @@ function getDirectusConfig() {
     return { url, token };
 }
 
-async function downloadHeroImage(assetId: string, directusUrl: string, token: string): Promise<string | null> {
+async function downloadAsset(assetId: string, directusUrl: string, token: string, prefix = ''): Promise<string | null> {
     const { writeFileSync, mkdirSync, existsSync } = await import('node:fs');
     const { join } = await import('node:path');
     const outDir = join(process.cwd(), 'public', 'images', 'streken');
-    const outPath = join(outDir, `${assetId}.jpg`);
-    if (existsSync(outPath)) return `/images/streken/${assetId}.jpg`;
+    const fileName = `${prefix}${assetId}.jpg`;
+    const outPath = join(outDir, fileName);
+    if (existsSync(outPath)) return `/images/streken/${fileName}`;
     try {
         const res = await fetch(`${directusUrl}/assets/${assetId}`, {
             headers: { Authorization: `Bearer ${token}` },
@@ -50,7 +52,7 @@ async function downloadHeroImage(assetId: string, directusUrl: string, token: st
         const buf = Buffer.from(await res.arrayBuffer());
         mkdirSync(outDir, { recursive: true });
         writeFileSync(outPath, buf);
-        return `/images/streken/${assetId}.jpg`;
+        return `/images/streken/${fileName}`;
     } catch (err) {
         console.warn(`[loadStreken] asset download failed for ${assetId}: ${err instanceof Error ? err.message : String(err)}`);
         return null;
@@ -66,7 +68,12 @@ function parseJsonField(val: unknown): string[] {
     return [];
 }
 
-function mapStreek(r: Record<string, unknown>, heroImagePath: string | null, bodyHtml: string): Streek {
+function mapStreek(
+    r: Record<string, unknown>,
+    heroImagePath: string | null,
+    ogImagePath: string | null,
+    bodyHtml: string,
+): Streek {
     return {
         slug: String(r.slug),
         name: String(r.name),
@@ -80,6 +87,7 @@ function mapStreek(r: Record<string, unknown>, heroImagePath: string | null, bod
         altitude: String(r.altitude || ''),
         appellations: parseJsonField(r.appellations),
         heroImage: heroImagePath,
+        ogImage: ogImagePath,
         status: String(r.status || 'draft'),
         metaTitle: String(r.meta_title || r.name),
         metaDescription: String(r.meta_description || r.description || ''),
@@ -91,7 +99,7 @@ async function loadFromDirectus(url: string, token: string): Promise<Streek[]> {
     let res: Response;
     try {
         res = await fetch(
-            `${url}/items/streken?limit=-1&fields=id,slug,name,description,body,climate,soil,main_grapes,sub_regions,vineyard_area,altitude,appellations,hero_image,status,meta_title,meta_description,land_id.name&filter[status][_in]=published,draft&sort=name`,
+            `${url}/items/streken?limit=-1&fields=id,slug,name,description,body,climate,soil,main_grapes,sub_regions,vineyard_area,altitude,appellations,hero_image,og_image,status,meta_title,meta_description,land_id.name&filter[status][_in]=published,draft&sort=name`,
             {
                 headers: { Authorization: `Bearer ${token}` },
                 signal: AbortSignal.timeout(15000),
@@ -113,9 +121,12 @@ async function loadFromDirectus(url: string, token: string): Promise<Streek[]> {
             if (land && land.name) r.land_name = land.name;
             const bodyHtml = r.body ? await markdownToHtml(String(r.body)) : '';
             const heroImagePath = r.hero_image
-                ? await downloadHeroImage(String(r.hero_image), url, token)
+                ? await downloadAsset(String(r.hero_image), url, token)
                 : null;
-            return mapStreek(r, heroImagePath, bodyHtml);
+            const ogImagePath = r.og_image
+                ? await downloadAsset(String(r.og_image), url, token, 'og-')
+                : null;
+            return mapStreek(r, heroImagePath, ogImagePath, bodyHtml);
         }),
     );
     console.log(`[loadStreken] fetched ${items.length} streken from Directus`);
@@ -157,6 +168,7 @@ async function loadFromLocalFiles(): Promise<Streek[]> {
             altitude: '',
             appellations: [],
             heroImage: fm.heroImage || null,
+            ogImage: fm.ogImage || null,
             status: fm.status || 'published',
             metaTitle: fm.metaTitle || fm.name || fm.title || 'Untitled',
             metaDescription: fm.metaDescription || fm.description || '',
