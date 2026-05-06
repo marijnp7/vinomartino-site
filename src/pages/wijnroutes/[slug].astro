@@ -59,7 +59,7 @@ const schema = [
           <h1>{entry.title}</h1>
         </header>
 
-        <div class="page-prose" set:html={entry.bodyHtml} />
+        {entry.bodyHtml && <div class="page-prose" set:html={entry.bodyHtml} />}
       </div>
 
       <aside class="page-sidebar">

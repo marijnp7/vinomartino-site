@@ -114,21 +114,23 @@ const {
 </section>
 
 <!-- ── STORY ─────────────────────────────────────────── -->
-<section class="wh-story">
-  <div class="wh-story__inner">
-    <div class="wh-section-label">§ Het verhaal</div>
-    {storyTitle && <h2 class="wh-story__title">{storyTitle}</h2>}
-    {Astro.slots.has('story') ? (
-      <div class="wh-story__prose"><slot name="story" /></div>
-    ) : (
-      storyBody.map((para, i) => (
-        <p class:list={['wh-story__para', i === 0 && 'wh-story__para--dropcap']}
-           set:html={para} />
-      ))
-    )}
-  </div>
-  <AffiliatePlaceholder type="activity" partner="getyourguide" region={name} placement="inline-end" context="wijnhuis-proeverij" />
-</section>
+{(Astro.slots.has('story') || storyBody.length > 0) && (
+  <section class="wh-story">
+    <div class="wh-story__inner">
+      <div class="wh-section-label">§ Het verhaal</div>
+      {storyTitle && <h2 class="wh-story__title">{storyTitle}</h2>}
+      {Astro.slots.has('story') ? (
+        <div class="wh-story__prose"><slot name="story" /></div>
+      ) : (
+        storyBody.map((para, i) => (
+          <p class:list={['wh-story__para', i === 0 && 'wh-story__para--dropcap']}
+             set:html={para} />
+        ))
+      )}
+    </div>
+    <AffiliatePlaceholder type="activity" partner="getyourguide" region={name} placement="inline-end" context="wijnhuis-proeverij" />
+  </section>
+)}
 
 <!-- ── WINES ─────────────────────────────────────────── -->
 {wines.length > 0 && (

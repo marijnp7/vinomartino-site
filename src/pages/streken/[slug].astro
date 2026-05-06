@@ -1,90 +1,68 @@
 ---
 import SiteLayout from '../../layouts/SiteLayout.astro';
-import RegionPageContent from '../../components/pages/RegionPageContent.astro';
 import AffiliatePlaceholder from '../../components/AffiliatePlaceholder.astro';
 import AffiliateDisclosure from '../../components/AffiliateDisclosure.astro';
 import { loadStreken, type Streek } from '../../lib/streken';
 import { streekSchema, streekMetaTitle, streekMetaDescription, breadcrumbSchema } from '../../lib/seo';
 
-const fallbackSlugs = [
-  'piemonte', 'bourgogne', 'priorat', 'mosel', 'wachau',
-  'etna', 'toscane', 'champagne', 'douro', 'georgië',
-  'slovenië', 'engeland',
-];
-
 export async function getStaticPaths() {
   const entries = await loadStreken();
-  const paths = entries.map(entry => ({
+  return entries.map(entry => ({
     params: { slug: entry.slug },
-    props: { entry, useFallback: false },
+    props: { entry },
   }));
-  const entrySlugSet = new Set(entries.map(e => e.slug));
-  const fallbackSlugs = [
-    'piemonte', 'bourgogne', 'priorat', 'mosel', 'wachau',
-    'etna', 'toscane', 'champagne', 'douro', 'georgië',
-    'slovenië', 'engeland',
-  ];
-  for (const slug of fallbackSlugs) {
-    if (!entrySlugSet.has(slug)) {
-      paths.push({ params: { slug }, props: { entry: null, useFallback: true } });
-    }
-  }
-  return paths;
 }
 
-const { slug } = Astro.params;
-const { entry, useFallback } = Astro.props as { entry: Streek | null; useFallback: boolean };
-
-const regionNames: Record<string, string> = {
-  piemonte: 'Piemonte', bourgogne: 'Bourgogne', priorat: 'Priorat',
-  mosel: 'Mosel', wachau: 'Wachau', etna: 'Etna', toscane: 'Toscane',
-  champagne: 'Champagne', douro: 'Douro', 'georgië': 'Georgië',
-  'slovenië': 'Slovenië', engeland: 'Engeland',
-};
-
-const name = entry?.name || regionNames[slug!] || (slug ? slug.charAt(0).toUpperCase() + slug.slice(1) : 'Wijnstreek');
-const description = entry?.description || `Alles over wijnstreek ${name}: deelregio's, druiven, routes en de beste wijnhuizen om te bezoeken.`;
-const pageUrl = new URL(`/streken/${slug}/`, Astro.site ?? 'https://vinomartino.com').href;
+const { entry } = Astro.props as { entry: Streek };
+const pageUrl = new URL(`/streken/${entry.slug}/`, Astro.site ?? 'https://vinomartino.com').href;
 
 const schema = [
   streekSchema({
-    name,
-    description,
-    image: entry?.heroImage,
-    country: entry?.country,
-    subregions: entry?.subRegions,
-    grapeVarieties: entry?.mainGrapes,
+    name: entry.name,
+    description: entry.description,
+    image: entry.heroImage,
+    country: entry.country,
+    subregions: entry.subRegions,
+    grapeVarieties: entry.mainGrapes,
     pageUrl,
   }),
   breadcrumbSchema([
     { name: 'Home', url: '/' },
     { name: 'Streken', url: '/streken/' },
-    { name, url: pageUrl },
+    { name: entry.name, url: pageUrl },
   ]),
 ];
+
+const hasStats = Boolean(
+  entry.mainGrapes.length ||
+  entry.climate ||
+  entry.soil ||
+  entry.vineyardArea ||
+  entry.altitude,
+);
 ---
 
 <SiteLayout
-  title={streekMetaTitle(name, entry?.country)}
-  description={streekMetaDescription({ name, country: entry?.country, grapeVarieties: entry?.mainGrapes, description: entry?.description })}
-  ogImage={entry?.heroImage || undefined}
+  title={streekMetaTitle(entry.name, entry.country)}
+  description={streekMetaDescription({ name: entry.name, country: entry.country, grapeVarieties: entry.mainGrapes, description: entry.description })}
+  ogImage={entry.heroImage || undefined}
   schema={schema}
   activeNav="streken"
 >
-  {entry && entry.bodyHtml ? (
-    <article class="streek-page">
-      <section class="streek-hero">
-        <div class="container">
-          <nav class="breadcrumb" aria-label="Breadcrumb">
-            <a href="/">Home</a> / <a href="/streken/">Streken</a> / <span>{name}</span>
-          </nav>
-          <div class="streek-hero__grid">
-            <div>
-              <span class="section-label">Wijnstreek</span>
-              <h1>{name}</h1>
-              {entry.country && <p class="streek-country">{entry.country}</p>}
-              {entry.description && <p class="streek-subtitle">{entry.description}</p>}
-            </div>
+  <article class="streek-page">
+    <section class="streek-hero">
+      <div class="container">
+        <nav class="breadcrumb" aria-label="Breadcrumb">
+          <a href="/">Home</a> / <a href="/streken/">Streken</a> / <span>{entry.name}</span>
+        </nav>
+        <div class:list={['streek-hero__grid', !hasStats && 'streek-hero__grid--no-stats']}>
+          <div>
+            <span class="section-label">Wijnstreek</span>
+            <h1>{entry.name}</h1>
+            {entry.country && <p class="streek-country">{entry.country}</p>}
+            {entry.description && <p class="streek-subtitle">{entry.description}</p>}
+          </div>
+          {hasStats && (
             <div class="streek-stats">
               {entry.mainGrapes.length > 0 && (
                 <div class="stat">
@@ -117,65 +95,65 @@ const schema = [
                 </div>
               )}
             </div>
-          </div>
+          )}
         </div>
-        {entry.heroImage && (
-          <div class="streek-hero-img-wrap">
-            <img src={entry.heroImage} alt={name} class="streek-hero-img" loading="eager" />
-          </div>
-        )}
-      </section>
-
-      <section class="streek-accommodation">
-        <div class="container">
-          <AffiliatePlaceholder type="accommodation" partner="booking.com" region={name} placement="sidebar" context="streek-accommodation" />
+      </div>
+      {entry.heroImage && (
+        <div class="streek-hero-img-wrap">
+          <img src={entry.heroImage} alt={entry.name} class="streek-hero-img" loading="eager" />
         </div>
-      </section>
+      )}
+    </section>
 
+    <section class="streek-accommodation">
+      <div class="container">
+        <AffiliatePlaceholder type="accommodation" partner="booking.com" region={entry.name} placement="sidebar" context="streek-accommodation" />
+      </div>
+    </section>
+
+    {entry.bodyHtml && (
       <section class="streek-body">
         <div class="streek-body__inner">
           <div class="streek-prose" set:html={entry.bodyHtml} />
-          <AffiliatePlaceholder type="activity" partner="getyourguide" region={name} placement="inline-end" context="streek-activity" />
+          <AffiliatePlaceholder type="activity" partner="getyourguide" region={entry.name} placement="inline-end" context="streek-activity" />
         </div>
       </section>
+    )}
 
-      {entry.subRegions.length > 0 && (
-        <section class="streek-subregions">
-          <div class="container">
-            <span class="section-label">Deelregio's</span>
-            <div class="subregion-grid">
-              {entry.subRegions.map(sub => (
-                <div class="subregion-chip">{sub}</div>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {entry.appellations.length > 0 && (
-        <section class="streek-appellations">
-          <div class="container">
-            <span class="section-label">Appellations</span>
-            <div class="appellation-grid">
-              {entry.appellations.map(app => (
-                <div class="appellation-chip">{app}</div>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      <section class="streek-insurance">
+    {entry.subRegions.length > 0 && (
+      <section class="streek-subregions">
         <div class="container">
-          <AffiliatePlaceholder type="insurance" partner="reisverzekering" region={name} placement="footer" context="streek-insurance" />
+          <span class="section-label">Deelregio's</span>
+          <div class="subregion-grid">
+            {entry.subRegions.map(sub => (
+              <div class="subregion-chip">{sub}</div>
+            ))}
+          </div>
         </div>
       </section>
+    )}
 
-      <AffiliateDisclosure />
-    </article>
-  ) : (
-    <RegionPageContent slug={slug!} />
-  )}
+    {entry.appellations.length > 0 && (
+      <section class="streek-appellations">
+        <div class="container">
+          <span class="section-label">Appellations</span>
+          <div class="appellation-grid">
+            {entry.appellations.map(app => (
+              <div class="appellation-chip">{app}</div>
+            ))}
+          </div>
+        </div>
+      </section>
+    )}
+
+    <section class="streek-insurance">
+      <div class="container">
+        <AffiliatePlaceholder type="insurance" partner="reisverzekering" region={entry.name} placement="footer" context="streek-insurance" />
+      </div>
+    </section>
+
+    <AffiliateDisclosure />
+  </article>
 </SiteLayout>
 
 <style>
@@ -203,6 +181,9 @@ const schema = [
     align-items: end;
     padding-bottom: 2rem;
     border-bottom: 1px solid var(--rule);
+  }
+  .streek-hero__grid--no-stats {
+    grid-template-columns: 1fr;
   }
   .streek-hero__grid h1 {
     font-family: var(--font-display);
