@@ -33,6 +33,8 @@ function getDirectusConfig() {
     return { url, token };
 }
 
+const assetDebug: Array<Record<string, unknown>> = [];
+
 async function downloadAsset(assetId: string, directusUrl: string, token: string, prefix = ''): Promise<string | null> {
     const { writeFileSync, mkdirSync, existsSync } = await import('node:fs');
     const { join } = await import('node:path');
@@ -46,17 +48,33 @@ async function downloadAsset(assetId: string, directusUrl: string, token: string
             signal: AbortSignal.timeout(15000),
         });
         if (!res.ok) {
-            console.warn(`[loadStreken] could not fetch asset ${assetId}: ${res.status}`);
+            const body = await res.text().catch(() => '');
+            console.warn(`[loadStreken] could not fetch asset ${assetId}: ${res.status} body=${body.slice(0, 300)}`);
+            assetDebug.push({ assetId, prefix, status: res.status, body: body.slice(0, 500) });
             return null;
         }
         const buf = Buffer.from(await res.arrayBuffer());
         mkdirSync(outDir, { recursive: true });
         writeFileSync(outPath, buf);
+        assetDebug.push({ assetId, prefix, status: 200, bytes: buf.byteLength });
         return `/images/streken/${fileName}`;
     } catch (err) {
-        console.warn(`[loadStreken] asset download failed for ${assetId}: ${err instanceof Error ? err.message : String(err)}`);
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn(`[loadStreken] asset download failed for ${assetId}: ${msg}`);
+        assetDebug.push({ assetId, prefix, error: msg });
         return null;
     }
+}
+
+async function writeAssetDebug(): Promise<void> {
+    const { writeFileSync, mkdirSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const dir = join(process.cwd(), 'public');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+        join(dir, 'build-debug-streken.json'),
+        JSON.stringify({ asOf: new Date().toISOString(), entries: assetDebug }, null, 2),
+    );
 }
 
 function parseJsonField(val: unknown): string[] {
@@ -148,6 +166,7 @@ async function loadFromDirectus(url: string, token: string): Promise<Streek[]> {
         }),
     );
     console.log(`[loadStreken] fetched ${items.length} streken from Directus`);
+    await writeAssetDebug();
     return items;
 }
 
