@@ -30,6 +30,17 @@ function getDirectusConfig() {
     return { url, token };
 }
 
+const HERO_IMAGE_FALLBACKS: Record<string, string> = {
+    'douro-portugal': '/images/streek-douro.jpg',
+    'langhe-piemonte': '/images/streek-langhe.jpg',
+    'mosel-duitsland': '/images/streek-mosel.jpg',
+};
+
+function applyHeroFallback(slug: string, current: string | null): string | null {
+    if (current) return current;
+    return HERO_IMAGE_FALLBACKS[slug] ?? null;
+}
+
 const assetDebug: Array<Record<string, unknown>> = [];
 
 async function downloadAsset(assetId: string, directusUrl: string, token: string, prefix = ''): Promise<string | null> {
@@ -89,8 +100,9 @@ function mapStreek(
     ogImagePath: string | null,
     bodyHtml: string,
 ): Streek {
+    const slug = String(r.slug);
     return {
-        slug: String(r.slug),
+        slug,
         name: String(r.name),
         description: String(r.description || ''),
         country: String(r.country || r.land_name || ''),
@@ -101,7 +113,7 @@ function mapStreek(
         vineyardArea: String(r.vineyard_area || ''),
         altitude: String(r.altitude || ''),
         appellations: parseJsonField(r.appellations),
-        heroImage: heroImagePath,
+        heroImage: applyHeroFallback(slug, heroImagePath),
         ogImage: ogImagePath,
         status: String(r.status || 'draft'),
         metaTitle: String(r.meta_title || r.name),
@@ -200,8 +212,9 @@ async function loadFromLocalFiles(): Promise<Streek[]> {
             if (key && rest.length) fm[key.trim()] = rest.join(':').trim().replace(/^["']|["']$/g, '');
         }
         const bodyHtml = fmMatch[2] ? await markdownToHtml(fmMatch[2]) : '';
+        const slug = fm.slug || filePath.replace(/.*\//, '').replace('.md', '');
         items.push({
-            slug: fm.slug || filePath.replace(/.*\//, '').replace('.md', ''),
+            slug,
             name: fm.name || fm.title || 'Untitled',
             description: fm.description || '',
             country: fm.country || '',
@@ -212,7 +225,7 @@ async function loadFromLocalFiles(): Promise<Streek[]> {
             vineyardArea: '',
             altitude: '',
             appellations: [],
-            heroImage: fm.heroImage || null,
+            heroImage: applyHeroFallback(slug, fm.heroImage || null),
             ogImage: fm.ogImage || null,
             status: fm.status || 'published',
             metaTitle: fm.metaTitle || fm.name || fm.title || 'Untitled',

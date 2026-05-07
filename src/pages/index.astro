@@ -12,6 +12,9 @@ const wijnhuizen = (await loadWijnhuizen()).slice(0, 3);
 const routes = (await loadRoutes()).slice(0, 3);
 const streken = (await loadStreken()).slice(0, 3);
 
+const COUNTRY_NL: Record<string, string> = { Italia: 'Italië' };
+const toDutch = (c: string) => COUNTRY_NL[c] ?? c;
+
 const schema = organizationSchema();
 ---
 
@@ -39,6 +42,9 @@ const schema = organizationSchema();
       <div class="grid">
         {wijnhuizen.map(w => (
           <a href={`/wijnhuizen/${w.slug}/`} class="card card-link">
+            {w.heroImage && (
+              <img src={w.heroImage} alt={w.region ? `${w.name} — ${w.region}` : w.name} loading="lazy" width="400" height="220" class="card-img" />
+            )}
             <div class="card-body">
               <span class="card-region">{w.region}</span>
               <h3 class="card-title">{w.name}</h3>
@@ -60,6 +66,9 @@ const schema = organizationSchema();
       <div class="grid">
         {routes.map(r => (
           <a href={`/wijnroutes/${r.slug}/`} class="card card-link">
+            {r.heroImage && (
+              <img src={r.heroImage} alt={r.title} loading="lazy" width="400" height="220" class="card-img" />
+            )}
             <div class="card-body">
               <span class="card-region">{r.duration}</span>
               <h3 class="card-title">{r.title}</h3>
@@ -81,6 +90,9 @@ const schema = organizationSchema();
       <div class="grid">
         {streken.map(s => (
           <a href={`/streken/${s.slug}/`} class="card card-link">
+            {s.heroImage && (
+              <img src={s.heroImage} alt={s.country ? `${s.name}, ${toDutch(s.country)}` : s.name} loading="lazy" width="400" height="220" class="card-img" />
+            )}
             <div class="card-body">
               <span class="card-region">{s.country}</span>
               <h3 class="card-title">{s.name}</h3>
@@ -103,7 +115,7 @@ const schema = organizationSchema();
         {recentArticles.map(article => (
           <a href={`/artikelen/${article.slug}/`} class="card card-link">
             {article.heroImage && (
-              <img src={article.heroImage} alt={article.title} loading="lazy" width="400" height="200" class="card-img" />
+              <img src={article.heroImage} alt={article.title} loading="lazy" width="400" height="220" class="card-img" />
             )}
             <div class="card-body">
               {article.category && <span class="card-region">{article.category}</span>}
@@ -181,8 +193,10 @@ const schema = organizationSchema();
     display: block;
   }
   .card-img {
+    display: block;
     width: 100%;
-    height: 200px;
+    height: auto;
+    aspect-ratio: 400 / 220;
     object-fit: cover;
   }
   .card-body {
