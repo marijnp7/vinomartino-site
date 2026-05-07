@@ -18,6 +18,7 @@ const schema = organizationSchema();
 <SiteLayout
   title="VinoMartino — Wijnreizen met karakter"
   description="Persoonlijke wijnreis-verhalen, proefnotities en routes door de mooiste wijnstreken ter wereld — geschreven door wijnliefhebbers die zelf op pad gaan."
+  ogImage={recentArticles[0]?.heroImage || undefined}
   schema={schema}
 >
   <section class="hero">
