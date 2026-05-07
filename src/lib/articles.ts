@@ -148,6 +148,10 @@ async function loadFromDirectus(url: string, token: string): Promise<Article[]> 
                   if (extracted && !a.meta_description) {
                             a.meta_description = extracted;
                   }
+                  if (!a.meta_description && !a.description && cleanBody) {
+                            const firstPara = cleanBody.trim().split(/\n\n+/)[0].replace(/[#*`_~[\]()]/g, '').trim();
+                            if (firstPara.length > 30) a.description = firstPara.slice(0, 160);
+                  }
                   const bodyHtml = cleanBody ? await markdownToHtml(cleanBody) : '';
                   const heroImagePath = a.hero_image
                         ? await downloadHeroImage(String(a.hero_image), url, token)
