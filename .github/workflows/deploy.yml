@@ -35,7 +35,7 @@ on:
         options: [preview, production]
 
 concurrency:
-  group: deploy-${{ github.ref }}
+  group: vinomartino-write
   cancel-in-progress: false
 
 jobs:

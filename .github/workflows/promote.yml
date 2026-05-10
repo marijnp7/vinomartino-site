@@ -16,7 +16,7 @@ on:
   workflow_dispatch: {}
 
 concurrency:
-  group: promote-production
+  group: vinomartino-write
   cancel-in-progress: false
 
 jobs:
