@@ -141,7 +141,8 @@ async function run() {
   console.log(`\nBootstrapping Directus schema at ${DIRECTUS_URL}\n`);
 
   // ── 1. Countries ──────────────────────────────────────
-  await createCollection('countries', { icon: 'flag', note: 'Country overview pages' });
+  // Legacy travel-collection — hidden by default (LAT-962). VinoMartino uses `landen`.
+  await createCollection('countries', { icon: 'flag', note: 'Country overview pages', hidden: true });
   for (const f of [
     textField('name', { nullable: false }),
     slugField(),
@@ -162,7 +163,8 @@ async function run() {
   ]) await createField('countries', f);
 
   // ── 2. Regions ────────────────────────────────────────
-  await createCollection('regions', { icon: 'map', note: 'Geographic sub-units within countries' });
+  // Legacy travel-collection — hidden by default (LAT-962). VinoMartino uses `streken`.
+  await createCollection('regions', { icon: 'map', note: 'Geographic sub-units within countries', hidden: true });
   for (const f of [
     textField('name', { nullable: false }),
     slugField(),
@@ -176,7 +178,8 @@ async function run() {
   await createRelation({ collection: 'regions', field: 'country_id', related_collection: 'countries' });
 
   // ── 3. Destinations ───────────────────────────────────
-  await createCollection('destinations', { icon: 'place', note: 'City or place — SEO workhorse pages' });
+  // Legacy travel-collection — hidden by default (LAT-962).
+  await createCollection('destinations', { icon: 'place', note: 'City or place — SEO workhorse pages', hidden: true });
   for (const f of [
     textField('name', { nullable: false }),
     slugField(),
@@ -195,7 +198,8 @@ async function run() {
   await createRelation({ collection: 'destinations', field: 'region_id', related_collection: 'regions' });
 
   // ── 4. Itineraries ────────────────────────────────────
-  await createCollection('itineraries', { icon: 'route', note: 'Ready-to-go travel routes' });
+  // Legacy travel-collection — hidden by default (LAT-962). VinoMartino uses `routes`.
+  await createCollection('itineraries', { icon: 'route', note: 'Ready-to-go travel routes', hidden: true });
   for (const f of [
     textField('title', { nullable: false }),
     slugField(),
@@ -231,7 +235,8 @@ async function run() {
   ]) await createField('articles', f);
 
   // ── 6. Themes ─────────────────────────────────────────
-  await createCollection('themes', { icon: 'label', note: 'Thematic filters / taxonomy' });
+  // Legacy travel-collection — hidden by default (LAT-962).
+  await createCollection('themes', { icon: 'label', note: 'Thematic filters / taxonomy', hidden: true });
   for (const f of [
     textField('name', { nullable: false }),
     slugField(),
@@ -241,7 +246,8 @@ async function run() {
   ]) await createField('themes', f);
 
   // ── 7. Attractions ────────────────────────────────────
-  await createCollection('attractions', { icon: 'museum', note: 'Sights: temples, museums, parks' });
+  // Legacy travel-collection — hidden by default (LAT-962).
+  await createCollection('attractions', { icon: 'museum', note: 'Sights: temples, museums, parks', hidden: true });
   for (const f of [
     textField('name', { nullable: false }),
     slugField(),
@@ -253,7 +259,8 @@ async function run() {
   await createRelation({ collection: 'attractions', field: 'destination_id', related_collection: 'destinations' });
 
   // ── 8. Accommodations ─────────────────────────────────
-  await createCollection('accommodations', { icon: 'hotel', note: 'Hotels, hostels, resorts' });
+  // Legacy travel-collection — hidden by default (LAT-962).
+  await createCollection('accommodations', { icon: 'hotel', note: 'Hotels, hostels, resorts', hidden: true });
   for (const f of [
     textField('name', { nullable: false }),
     slugField(),
@@ -267,7 +274,8 @@ async function run() {
   await createRelation({ collection: 'accommodations', field: 'destination_id', related_collection: 'destinations' });
 
   // ── 9. Activities ─────────────────────────────────────
-  await createCollection('activities', { icon: 'directions_run', note: 'Tours, excursions, experiences' });
+  // Legacy travel-collection — hidden by default (LAT-962).
+  await createCollection('activities', { icon: 'directions_run', note: 'Tours, excursions, experiences', hidden: true });
   for (const f of [
     textField('name', { nullable: false }),
     slugField(),
@@ -281,7 +289,8 @@ async function run() {
   await createRelation({ collection: 'activities', field: 'destination_id', related_collection: 'destinations' });
 
   // ── 10. Food Spots ────────────────────────────────────
-  await createCollection('food_spots', { icon: 'restaurant', note: 'Restaurants, street food, markets' });
+  // Legacy travel-collection — hidden by default (LAT-962).
+  await createCollection('food_spots', { icon: 'restaurant', note: 'Restaurants, street food, markets', hidden: true });
   for (const f of [
     textField('name', { nullable: false }),
     slugField(),
@@ -294,7 +303,8 @@ async function run() {
   await createRelation({ collection: 'food_spots', field: 'destination_id', related_collection: 'destinations' });
 
   // ── 11. Transport Routes ──────────────────────────────
-  await createCollection('transport_routes', { icon: 'directions_bus', note: 'How to get from A to B' });
+  // Legacy travel-collection — hidden by default (LAT-962).
+  await createCollection('transport_routes', { icon: 'directions_bus', note: 'How to get from A to B', hidden: true });
   for (const f of [
     textField('name', { nullable: false }),
     slugField(),
