@@ -4,6 +4,8 @@ date: 2026-05-24
 author: "Martin"
 summary: "Jerez de la Frontera is de wijnregio die kenners al jaren bezoeken terwijl de rest van de wereld Sherry nog steeds associeert met familie-verjaardagen. Martin en Sophie over albariza-bodem, de biologische magie van flor-gist, en een glas Manzanilla aan de Atlantische kust."
 description: "Jerez de la Frontera is de wijnregio die kenners al jaren bezoeken terwijl de rest van de wereld Sherry nog steeds associeert met familie-verjaardagen. Martin en Sophie over albariza-bodem, de biologische magie van flor-gist, en een glas Manzanilla aan de Atlantische kust."
+metaTitle: "Jerez — de vergeten hoofdstad van smaak | VinoMartino"
+metaDescription: "Ontdek waarom Jerez een verborgen parel is voor Sherry-liefhebbers. Albariza-bodem, de flor-gist en een glas Manzanilla aan de zee."
 category: "wine-regions"
 tags: ["jerez", "sherry", "manzanilla", "spanje", "fino", "andalusie", "fortified"]
 slug: "jerez-sherry-wijnregio-reisverslag"
