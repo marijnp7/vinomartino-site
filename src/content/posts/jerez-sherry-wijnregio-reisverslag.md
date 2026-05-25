@@ -61,7 +61,7 @@ Cota 45 is geen openbare bezoekadres. Ze werken op uitnodiging, de productie is 
 
 ---
 
-González Byass ter vergelijking. De eigen Tio Pepe is de Fino die op Schiphol staat, in elke wijnhandel en op elke menukaart met een pretenties Sherry-aanbod. Het is een correct uitgewerkte Fino — flor-gemonitord, consistent, nooit spectaculair. Martin zegt dit zonder minachting: González Byass doet wat het belooft, op een schaal die Navazos of Cota 45 nooit kan en nooit wil bereiken. Als oriëntatiepunt is Tio Pepe volkomen functioneel. Maar het is ook precies het Jerez waarvoor we niet de vlucht hadden genomen.
+González Byass ter vergelijking. De eigen Tio Pepe is de Fino die op Schiphol staat, in elke wijnhandel en op elke menukaart met een pretenties Sherry-aanbod. Het is een correct uitgewerkte Fino — flor-gemonitord, consistent, nooit spectaculair. Ik zeg dit zonder minachting: González Byass doet wat het belooft, op een schaal die Navazos of Cota 45 nooit kan en nooit wil bereiken. Als oriëntatiepunt is Tio Pepe volkomen functioneel. Maar het is ook precies het Jerez waarvoor we niet de vlucht hadden genomen.
 
 ## Sanlúcar — Sophie's domein
 
