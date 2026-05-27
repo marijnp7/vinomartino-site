@@ -139,9 +139,27 @@ jobs:
             # anders kan de host de container-DNS `vinomartino-directus-1`
             # niet resolven en valt de build silently terug op lokale
             # markdown-bestanden zonder hero_image (LAT-896 follow-up).
+            #
+            # LAT-1014: capture full build output zodat we kunnen detecteren
+            # of Astro silently faalde op getStaticPaths. Astro exit'te 0 in
+            # LAT-1011 ondanks Directus 403 — alleen het log onthult dat.
+            set +e
             docker run --rm --network directus_directus_net \
               -v "$STAGE":/app -w /app \
-              node:24 bash -c "npm ci && npm run build"
+              node:24 bash -c "npm ci && npm run build" 2>&1 | tee build.log
+            build_rc=${PIPESTATUS[0]}
+            set -e
+            if [ "$build_rc" -ne 0 ]; then
+              echo "::error::astro build exit $build_rc"
+              exit "$build_rc"
+            fi
+            # LAT-1014: fail-fast op getStaticPaths-errors die Astro
+            # zwaluwt. Match exact de regels die LAT-1011 produceerde.
+            if grep -E '(\[ERROR\] \[build\] Failed to call getStaticPaths|Failed to call getStaticPaths)' build.log >/dev/null 2>&1; then
+              echo "::error::Astro logde een getStaticPaths-error maar exit'te 0 — pipeline faalt expliciet (LAT-1014)"
+              grep -nE '(\[ERROR\]|Failed to call getStaticPaths)' build.log | head -30
+              exit 1
+            fi
             # LAT-910: write build-fingerprint into dist/ so smoke-test
             # downstream can verify served bytes matchen deze run. Zonder
             # dit kan een silently-mislukte rsync naar DIST groene runs
@@ -152,6 +170,10 @@ jobs:
             echo "dist/build-info.json:"
             cat dist/build-info.json
             ls -la dist/
+            # LAT-1014: dist-completeness gate. Hard-fail als verplichte
+            # index-pagina's ontbreken of het HTML-aantal onder drempel
+            # ligt.
+            bash scripts/verify-build.sh dist
         run: |
           printf '%s\n' "$BUILD_SCRIPT" \
             | ssh "$VPS" "STAGE='$STAGE' GIT_SHA='$GIT_SHA' RUN_ID='$RUN_ID' RUN_NUMBER='$RUN_NUMBER' bash -s"
@@ -270,6 +292,17 @@ jobs:
 
           if [ "${{ steps.env.outputs.target }}" = "production" ]; then
             [ "$code" = "200" ] || { echo "::error::Productie smoke-test faalde na 5 pogingen ($code)"; exit 1; }
+
+            # LAT-1014: download de homepage echt en eis dat de body > 10 KB
+            # is. Een 200 met een 4 KB Astro 404-fallback is óók "groen"
+            # voor de status-code-check hierboven; pas een size-check vangt
+            # de LAT-1011 failure mode.
+            body_bytes=$(curl -fsS --max-time 15 -H 'Cache-Control: no-cache' "$URL" | wc -c | tr -d ' ')
+            echo "Homepage body size: $body_bytes bytes"
+            if [ "${body_bytes:-0}" -lt 10240 ]; then
+              echo "::error::Productie homepage is $body_bytes bytes (drempel: 10240) — waarschijnlijk een 404/SSR-stub (LAT-1014)"
+              exit 1
+            fi
 
             # Verifieer dat productie de net-gebouwde SHA serveert. We doen
             # dit via een cache-buster query + no-cache header zodat een
