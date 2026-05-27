@@ -34,6 +34,14 @@ const schema = [
   title={article.metaTitle || article.title}
   description={article.metaDescription || article.description}
   ogImage={article.heroImage || undefined}
+  ogType="article"
+  article={{
+    publishedTime: article.pubDate,
+    modifiedTime: article.pubDate,
+    author: article.author,
+    section: article.category,
+    tags: article.tags,
+  }}
   schema={schema}
   activeNav="artikelen"
 >

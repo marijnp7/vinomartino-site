@@ -15,6 +15,20 @@ export interface Article {
 
 const META_DESC_RE = /^\s*\*{0,2}Meta-description:?\*{0,2}\s*/i;
 
+function parseFrontmatterList(value: string | undefined): string[] {
+    if (!value) return [];
+    const trimmed = value.trim();
+    if (trimmed.startsWith('[')) {
+        try {
+            const parsed = JSON.parse(trimmed);
+            if (Array.isArray(parsed)) return parsed.map((v) => String(v).trim()).filter(Boolean);
+        } catch {
+            // fall through to comma split
+        }
+    }
+    return trimmed.split(',').map((t) => t.trim().replace(/^["']|["']$/g, '')).filter(Boolean);
+}
+
 function stripMetaDescriptionFromBody(markdown: string): { body: string; extracted: string } {
     const lines = markdown.split('\n');
     const limit = Math.min(lines.length, 10);
@@ -193,7 +207,7 @@ async function loadFromLocalFiles(): Promise<Article[]> {
                 author: fm.author || 'VinoMartino',
                 pubDate: fm.date || fm.pubDate || new Date().toISOString().slice(0, 10),
                 category: fm.category || '',
-                tags: fm.tags ? fm.tags.split(',').map((t: string) => t.trim()) : [],
+                tags: parseFrontmatterList(fm.tags),
                 heroImage: fm.heroImage || fm.hero_image || null,
                 status: fm.status || 'published',
                 metaTitle: fm.metaTitle || fm.title || 'Untitled',

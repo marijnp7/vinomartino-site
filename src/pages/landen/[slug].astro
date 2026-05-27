@@ -2,7 +2,7 @@
 import SiteLayout from '../../layouts/SiteLayout.astro';
 import LandPageContent from '../../components/pages/LandPageContent.astro';
 import { loadLanden, type Land } from '../../lib/landen';
-import { breadcrumbSchema } from '../../lib/seo';
+import { breadcrumbSchema, landSchema, landMetaTitle, landMetaDescription } from '../../lib/seo';
 
 export async function getStaticPaths() {
   const entries = await loadLanden();
@@ -113,19 +113,44 @@ const pageData = entry
 
 const pageUrl = new URL(`/landen/${slug}/`, Astro.site ?? 'https://vinomartino.com').href;
 
-const schema = breadcrumbSchema([
-  { name: 'Home', url: '/' },
-  { name: 'Landen', url: '/landen/' },
-  { name: pageData.name, url: pageUrl },
-]);
+const landStrekenForSchema =
+  (pageData.streken?.map((s) => s.name) ?? []).filter((n): n is string => Boolean(n));
+const landGrapesForSchema =
+  entry?.mainGrapes ?? pageData.druiven?.map((d) => d.name) ?? [];
+const landCapitalForSchema = entry?.capital && entry.capital.trim().length > 0 ? entry.capital : undefined;
+const landImageForSchema =
+  'heroImage' in pageData ? pageData.heroImage ?? null : null;
+
+const schema = [
+  landSchema({
+    name: pageData.name,
+    description: pageData.description,
+    image: landImageForSchema,
+    continent: pageData.continent,
+    capital: landCapitalForSchema,
+    wijnstreken: landStrekenForSchema,
+    grapeVarieties: landGrapesForSchema,
+    pageUrl,
+  }),
+  breadcrumbSchema([
+    { name: 'Home', url: '/' },
+    { name: 'Landen', url: '/landen/' },
+    { name: pageData.name, url: pageUrl },
+  ]),
+];
 ---
 
 <SiteLayout
-  title={`${pageData.name} — Wijnland | VinoMartino`}
-  description={pageData.description}
-  ogImage={'heroImage' in pageData ? pageData.heroImage : undefined}
+  title={landMetaTitle(pageData.name, pageData.continent)}
+  description={landMetaDescription({
+    name: pageData.name,
+    wijnstreken: landStrekenForSchema,
+    grapeVarieties: landGrapesForSchema,
+    description: pageData.description,
+  })}
+  ogImage={landImageForSchema || undefined}
   schema={schema}
-  activeNav="Streken"
+  activeNav="landen"
 >
   <LandPageContent
     name={pageData.name}
