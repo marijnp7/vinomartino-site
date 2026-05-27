@@ -9,6 +9,8 @@ export interface Land {
     wineHistory: string;
     bestTimeToVisit: string;
     heroImage: string | null;
+    ogImage: string | null;
+    wijnstreken: { name: string; slug?: string }[];
     status: string;
     metaTitle: string;
     metaDescription: string;
@@ -40,6 +42,37 @@ function parseJsonField(val: unknown): string[] {
     return [];
 }
 
+function parseFrontmatterList(value: string | undefined): string[] {
+    if (!value) return [];
+    const trimmed = value.trim();
+    if (trimmed.startsWith('[')) {
+        try {
+            const parsed = JSON.parse(trimmed);
+            if (Array.isArray(parsed)) return parsed.map((v) => String(v).trim()).filter(Boolean);
+        } catch {
+            // fall through to comma split
+        }
+    }
+    return trimmed.split(',').map((t) => t.trim().replace(/^["']|["']$/g, '')).filter(Boolean);
+}
+
+function mapWijnstreken(val: unknown): { name: string; slug?: string }[] {
+    if (!Array.isArray(val)) return [];
+    return val
+        .map((item) => {
+            if (item && typeof item === 'object') {
+                const rec = item as Record<string, unknown>;
+                const name = rec.name ? String(rec.name) : '';
+                if (!name) return null;
+                const slug = rec.slug ? String(rec.slug) : undefined;
+                return { name, slug };
+            }
+            if (typeof item === 'string' && item.trim()) return { name: item.trim() };
+            return null;
+        })
+        .filter((s): s is { name: string; slug?: string } => s !== null);
+}
+
 function mapLand(r: Record<string, unknown>, directusUrl: string, bodyHtml: string): Land {
     return {
         slug: String(r.slug),
@@ -52,6 +85,8 @@ function mapLand(r: Record<string, unknown>, directusUrl: string, bodyHtml: stri
         wineHistory: String(r.wine_history || ''),
         bestTimeToVisit: String(r.best_time_to_visit || ''),
         heroImage: r.hero_image ? `${directusUrl}/assets/${String(r.hero_image)}` : null,
+        ogImage: r.og_image ? `${directusUrl}/assets/${String(r.og_image)}` : null,
+        wijnstreken: mapWijnstreken(r.wijnstreken),
         status: String(r.status || 'draft'),
         metaTitle: String(r.meta_title || r.name),
         metaDescription: String(r.meta_description || r.description || ''),
@@ -59,25 +94,41 @@ function mapLand(r: Record<string, unknown>, directusUrl: string, bodyHtml: stri
     };
 }
 
-async function loadFromDirectus(url: string, token: string): Promise<Land[]> {
+async function fetchLandenItems(url: string, token: string): Promise<Record<string, unknown>[]> {
     const env = readDirectusEnv();
-    const query = `${url}/items/landen?limit=-1&fields=id,slug,name,description,body,continent,capital,climate,main_grapes,wine_history,best_time_to_visit,hero_image,status,meta_title,meta_description${statusFilterQuery(env)}&sort=name`;
+    const baseFields = 'id,slug,name,description,body,continent,capital,climate,main_grapes,wine_history,best_time_to_visit,hero_image,status,meta_title,meta_description';
+    const withSeoMeta = `${baseFields},og_image,wijnstreken.name,wijnstreken.slug`;
+    const filterSort = `${statusFilterQuery(env)}&sort=name`;
+    const headers = { Authorization: `Bearer ${token}` };
+    const signal = AbortSignal.timeout(15000);
     let res: Response;
     try {
-        res = await fetch(query, {
-            headers: { Authorization: `Bearer ${token}` },
-            signal: AbortSignal.timeout(15000),
-        });
+        res = await fetch(`${url}/items/landen?limit=-1&fields=${withSeoMeta}${filterSort}`, { headers, signal });
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         throw new Error(`[loadLanden] Directus unreachable at ${url}: ${msg}`);
     }
-    if (!res.ok) {
-        const body = await res.text().catch(() => '');
-        throw new Error(`[loadLanden] Directus returned ${res.status} ${res.statusText}: ${body.slice(0, 300)}`);
+    if (res.ok) {
+        const json = await res.json();
+        return (json.data || []) as Record<string, unknown>[];
     }
-    const json = await res.json();
-    const data = (json.data || []) as Record<string, unknown>[];
+    if (res.status === 400) {
+        const body = await res.text().catch(() => '');
+        console.warn(`[loadLanden] Directus rejected fields=…,og_image,wijnstreken.* (HTTP 400) — retrying without LAT-1008 fields. Run directus/scripts/add-seo-meta-fields.mjs to re-enable.`);
+        const retry = await fetch(`${url}/items/landen?limit=-1&fields=${baseFields}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
+        if (retry.ok) {
+            const json = await retry.json();
+            return (json.data || []) as Record<string, unknown>[];
+        }
+        const rbody = await retry.text().catch(() => '');
+        throw new Error(`[loadLanden] Directus retry without LAT-1008 fields failed: ${retry.status} ${retry.statusText}: ${rbody.slice(0, 300)} | original 400 body: ${body.slice(0, 200)}`);
+    }
+    const body = await res.text().catch(() => '');
+    throw new Error(`[loadLanden] Directus returned ${res.status} ${res.statusText}: ${body.slice(0, 300)}`);
+}
+
+async function loadFromDirectus(url: string, token: string): Promise<Land[]> {
+    const data = await fetchLandenItems(url, token);
     const items = await Promise.all(
         data.map(async (r) => {
             const bodyHtml = r.body ? await markdownToHtml(String(r.body)) : '';
@@ -117,10 +168,12 @@ async function loadFromLocalFiles(): Promise<Land[]> {
             continent: fm.continent || '',
             capital: fm.capital || '',
             climate: fm.climate || '',
-            mainGrapes: fm.grapeVarieties ? fm.grapeVarieties.split(',').map((t: string) => t.trim()) : [],
+            mainGrapes: parseFrontmatterList(fm.grapeVarieties),
             wineHistory: '',
             bestTimeToVisit: fm.bestTimeToVisit || '',
             heroImage: fm.heroImage || null,
+            ogImage: fm.ogImage || null,
+            wijnstreken: parseFrontmatterList(fm.wijnstreken).map((name) => ({ name })),
             status: fm.status || 'published',
             metaTitle: fm.metaTitle || fm.name || fm.title || 'Untitled',
             metaDescription: fm.metaDescription || fm.description || '',

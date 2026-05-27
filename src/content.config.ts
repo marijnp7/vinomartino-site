@@ -13,6 +13,8 @@ const posts = defineCollection({
     tags: z.array(z.string()).optional(),
     heroImage: z.string().optional(),
     slug: z.string().optional(),
+    // LAT-1008: optional editorial-update timestamp for article:modified_time
+    updatedAt: z.string().optional(),
   }),
 });
 
@@ -50,6 +52,8 @@ const wijnroutes = defineCollection({
     highlights: z.array(z.string()).optional(),
     stops: z.array(z.string()).optional(),
     heroImage: z.string().optional(),
+    // LAT-1008: optional dedicated 1200x630 social-card override
+    ogImage: z.string().optional(),
     tags: z.array(z.string()).optional(),
     relatedStreek: z.string().optional(),
     author: z.string().optional(),
@@ -84,6 +88,8 @@ const landen = defineCollection({
     wijnstreken: z.array(z.string()).optional(),
     grapeVarieties: z.array(z.string()).optional(),
     heroImage: z.string().optional(),
+    // LAT-1008: optional dedicated 1200x630 social-card override
+    ogImage: z.string().optional(),
     tags: z.array(z.string()).optional(),
     author: z.string().optional(),
     date: z.coerce.date().optional(),

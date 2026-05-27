@@ -113,13 +113,19 @@ const pageData = entry
 
 const pageUrl = new URL(`/landen/${slug}/`, Astro.site ?? 'https://vinomartino.com').href;
 
-const landStrekenForSchema =
-  (pageData.streken?.map((s) => s.name) ?? []).filter((n): n is string => Boolean(n));
+// Prefer Directus o2m join `entry.wijnstreken` (LAT-1008). Fall back to showcase-derived
+// names so JSON-LD stays populated until editors fill the relation.
+const landStrekenForSchema: Array<string | { name: string; slug?: string }> =
+  entry?.wijnstreken && entry.wijnstreken.length > 0
+    ? entry.wijnstreken
+    : (pageData.streken?.map((s) => s.name) ?? []).filter((n): n is string => Boolean(n));
 const landGrapesForSchema =
   entry?.mainGrapes ?? pageData.druiven?.map((d) => d.name) ?? [];
 const landCapitalForSchema = entry?.capital && entry.capital.trim().length > 0 ? entry.capital : undefined;
-const landImageForSchema =
-  'heroImage' in pageData ? pageData.heroImage ?? null : null;
+const landHeroImage = 'heroImage' in pageData ? pageData.heroImage ?? null : null;
+// og:image: explicit `og_image` (LAT-1008) wins, then hero_image fallback.
+const landOgImage = entry?.ogImage ?? landHeroImage;
+const landImageForSchema = landOgImage;
 
 const schema = [
   landSchema({
@@ -148,7 +154,7 @@ const schema = [
     grapeVarieties: landGrapesForSchema,
     description: pageData.description,
   })}
-  ogImage={landImageForSchema || undefined}
+  ogImage={landOgImage || undefined}
   schema={schema}
   activeNav="landen"
 >

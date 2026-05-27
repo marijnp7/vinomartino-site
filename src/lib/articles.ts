@@ -4,6 +4,7 @@ export interface Article {
     description: string;
     author: string;
     pubDate: string;
+    updatedAt: string | null;
     category: string;
     tags: string[];
     heroImage: string | null;
@@ -117,6 +118,7 @@ function mapArticle(a: Record<string, unknown>, heroImagePath: string | null, bo
           description: String(a.description || ''),
           author: String(a.author || 'VinoMartino'),
           pubDate: String(a.pub_date || new Date().toISOString().slice(0, 10)),
+          updatedAt: a.updated_at ? String(a.updated_at) : null,
           category: String(a.category || ''),
           tags: (a.tags as string[]) || [],
           heroImage: heroImagePath,
@@ -136,25 +138,41 @@ function mapArticle(a: Record<string, unknown>, heroImagePath: string | null, bo
  * Throws on any failure so silent broken builds (build succeeds with 0 articles)
  * are impossible by design.
  */
-async function loadFromDirectus(url: string, token: string): Promise<Article[]> {
+async function fetchArticlesItems(url: string, token: string): Promise<Record<string, unknown>[]> {
     const env = readDirectusEnv();
-    const query = `${url}/items/articles?limit=-1&fields=id,slug,title,description,body,pub_date,author,category,tags,hero_image,status,meta_title,meta_description${statusFilterQuery(env)}&sort=-pub_date`;
+    const baseFields = 'id,slug,title,description,body,pub_date,author,category,tags,hero_image,status,meta_title,meta_description';
+    const withUpdatedAt = `${baseFields},updated_at`;
+    const filterSort = `${statusFilterQuery(env)}&sort=-pub_date`;
+    const headers = { Authorization: `Bearer ${token}` };
+    const signal = AbortSignal.timeout(15000);
     let res: Response;
     try {
-          res = await fetch(query, {
-                      headers: { Authorization: `Bearer ${token}` },
-                      signal: AbortSignal.timeout(15000),
-            });
+          res = await fetch(`${url}/items/articles?limit=-1&fields=${withUpdatedAt}${filterSort}`, { headers, signal });
     } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           throw new Error(`[loadArticles] Directus unreachable at ${url}: ${msg}`);
     }
-    if (!res.ok) {
-          const body = await res.text().catch(() => '');
-          throw new Error(`[loadArticles] Directus returned ${res.status} ${res.statusText} for /items/articles: ${body.slice(0, 300)}`);
+    if (res.ok) {
+          const json = await res.json();
+          return (json.data || []) as Record<string, unknown>[];
     }
-    const json = await res.json();
-    const data = (json.data || []) as Record<string, unknown>[];
+    if (res.status === 400) {
+          const body = await res.text().catch(() => '');
+          console.warn(`[loadArticles] Directus rejected fields=…,updated_at (HTTP 400) — retrying without updated_at. Run directus/scripts/add-seo-meta-fields.mjs to re-enable.`);
+          const retry = await fetch(`${url}/items/articles?limit=-1&fields=${baseFields}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
+          if (retry.ok) {
+                const json = await retry.json();
+                return (json.data || []) as Record<string, unknown>[];
+          }
+          const rbody = await retry.text().catch(() => '');
+          throw new Error(`[loadArticles] Directus retry without updated_at failed: ${retry.status} ${retry.statusText}: ${rbody.slice(0, 300)} | original 400 body: ${body.slice(0, 200)}`);
+    }
+    const body = await res.text().catch(() => '');
+    throw new Error(`[loadArticles] Directus returned ${res.status} ${res.statusText} for /items/articles: ${body.slice(0, 300)}`);
+}
+
+async function loadFromDirectus(url: string, token: string): Promise<Article[]> {
+    const data = await fetchArticlesItems(url, token);
     const items = await Promise.all(
           data.map(async (a) => {
                   const rawBody = String(a.body || '');
@@ -206,6 +224,7 @@ async function loadFromLocalFiles(): Promise<Article[]> {
                 description: extracted || fm.summary || fm.description || '',
                 author: fm.author || 'VinoMartino',
                 pubDate: fm.date || fm.pubDate || new Date().toISOString().slice(0, 10),
+                updatedAt: fm.updatedAt || fm.updated_at || null,
                 category: fm.category || '',
                 tags: parseFrontmatterList(fm.tags),
                 heroImage: fm.heroImage || fm.hero_image || null,
