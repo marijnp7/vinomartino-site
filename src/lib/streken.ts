@@ -131,10 +131,10 @@ async function fetchStrekenItems(url: string, token: string): Promise<Record<str
         assetDebug.push({ kind: 'query', url, status: 200, count: (json.data || []).length });
         return (json.data || []) as Record<string, unknown>[];
     }
-    if (res.status === 400) {
+    if (res.status === 400 || res.status === 403) {
         const body = await res.text().catch(() => '');
-        console.warn(`[loadStreken] Directus rejected fields=…,og_image (HTTP 400) — retrying without og_image. Run directus/scripts/add-og-image-fields.mjs to re-enable.`);
-        assetDebug.push({ kind: 'query', url, status: 400, body: body.slice(0, 500), retryWithoutOg: true });
+        console.warn(`[loadStreken] Directus rejected fields=…,og_image (HTTP ${res.status}) — retrying without og_image. Run directus/scripts/add-og-image-fields.mjs en/of geef de build-rol read-permissie op streken.og_image.`);
+        assetDebug.push({ kind: 'query', url, status: res.status, body: body.slice(0, 500), retryWithoutOg: true });
         let retry: Response;
         try {
             retry = await fetch(`${url}/items/streken?limit=-1&fields=${baseFields}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
@@ -150,6 +150,11 @@ async function fetchStrekenItems(url: string, token: string): Promise<Record<str
         }
         const rbody = await retry.text().catch(() => '');
         assetDebug.push({ kind: 'query-retry', url, status: retry.status, body: rbody.slice(0, 500) });
+        // LAT-1011: collection-level 403/404 → degradeer naar lege lijst.
+        if (retry.status === 403 || retry.status === 404) {
+            console.error(`[loadStreken] Directus collection 'streken' ontoegankelijk voor build-rol (HTTP ${retry.status}). /streken/* pages worden NIET gebuild. Fix Directus-permissies in LAT-1012.`);
+            return [];
+        }
         throw new Error(`[loadStreken] Directus retry without og_image failed: ${retry.status} ${retry.statusText}: ${rbody.slice(0, 300)}`);
     }
     const body = await res.text().catch(() => '');
