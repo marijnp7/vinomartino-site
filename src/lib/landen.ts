@@ -112,16 +112,19 @@ async function fetchLandenItems(url: string, token: string): Promise<Record<stri
         const json = await res.json();
         return (json.data || []) as Record<string, unknown>[];
     }
-    if (res.status === 400) {
+    // 400 = veld bestaat niet in Directus (pre-migratie); 403 = veld bestaat wel
+    // maar de build-rol heeft geen read-permissie. Beide gevallen: degraderen
+    // naar baseFields zodat de build niet hard breekt op een SEO-meta-veld.
+    if (res.status === 400 || res.status === 403) {
         const body = await res.text().catch(() => '');
-        console.warn(`[loadLanden] Directus rejected fields=…,og_image,wijnstreken.* (HTTP 400) — retrying without LAT-1008 fields. Run directus/scripts/add-seo-meta-fields.mjs to re-enable.`);
+        console.warn(`[loadLanden] Directus rejected fields=…,og_image,wijnstreken.* (HTTP ${res.status}) — retrying without LAT-1008 fields. Run directus/scripts/add-seo-meta-fields.mjs en/of geef de build-rol read-permissie op landen.og_image en landen.wijnstreken.`);
         const retry = await fetch(`${url}/items/landen?limit=-1&fields=${baseFields}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
         if (retry.ok) {
             const json = await retry.json();
             return (json.data || []) as Record<string, unknown>[];
         }
         const rbody = await retry.text().catch(() => '');
-        throw new Error(`[loadLanden] Directus retry without LAT-1008 fields failed: ${retry.status} ${retry.statusText}: ${rbody.slice(0, 300)} | original 400 body: ${body.slice(0, 200)}`);
+        throw new Error(`[loadLanden] Directus retry without LAT-1008 fields failed: ${retry.status} ${retry.statusText}: ${rbody.slice(0, 300)} | original ${res.status} body: ${body.slice(0, 200)}`);
     }
     const body = await res.text().catch(() => '');
     throw new Error(`[loadLanden] Directus returned ${res.status} ${res.statusText}: ${body.slice(0, 300)}`);

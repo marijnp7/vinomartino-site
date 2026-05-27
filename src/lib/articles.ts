@@ -156,16 +156,19 @@ async function fetchArticlesItems(url: string, token: string): Promise<Record<st
           const json = await res.json();
           return (json.data || []) as Record<string, unknown>[];
     }
-    if (res.status === 400) {
+    // 400 = veld bestaat niet in Directus (pre-migratie); 403 = veld bestaat wel
+    // maar de build-rol heeft geen read-permissie. Beide gevallen: degraderen
+    // naar baseFields zodat de build niet hard breekt op een SEO-meta-veld.
+    if (res.status === 400 || res.status === 403) {
           const body = await res.text().catch(() => '');
-          console.warn(`[loadArticles] Directus rejected fields=…,updated_at (HTTP 400) — retrying without updated_at. Run directus/scripts/add-seo-meta-fields.mjs to re-enable.`);
+          console.warn(`[loadArticles] Directus rejected fields=…,updated_at (HTTP ${res.status}) — retrying without updated_at. Run directus/scripts/add-seo-meta-fields.mjs en/of geef de build-rol read-permissie op articles.updated_at.`);
           const retry = await fetch(`${url}/items/articles?limit=-1&fields=${baseFields}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
           if (retry.ok) {
                 const json = await retry.json();
                 return (json.data || []) as Record<string, unknown>[];
           }
           const rbody = await retry.text().catch(() => '');
-          throw new Error(`[loadArticles] Directus retry without updated_at failed: ${retry.status} ${retry.statusText}: ${rbody.slice(0, 300)} | original 400 body: ${body.slice(0, 200)}`);
+          throw new Error(`[loadArticles] Directus retry without updated_at failed: ${retry.status} ${retry.statusText}: ${rbody.slice(0, 300)} | original ${res.status} body: ${body.slice(0, 200)}`);
     }
     const body = await res.text().catch(() => '');
     throw new Error(`[loadArticles] Directus returned ${res.status} ${res.statusText} for /items/articles: ${body.slice(0, 300)}`);
