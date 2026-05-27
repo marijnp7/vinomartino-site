@@ -40,14 +40,25 @@ const schema = [
   <section class="archive">
     <div class="container container-narrow">
       {issues.map((iss, i) => (
-        <a class={`archive-row ${i === 0 ? 'is-first' : ''}`} href={`/de-brief/${iss.slug}/`}>
-          <span class="archive-num">№{iss.issueNumber}</span>
-          <div class="archive-meta">
-            <h2>{iss.title}</h2>
-            <p>{iss.preview}</p>
+        iss.status === 'placeholder' ? (
+          <div class={`archive-row archive-row--placeholder ${i === 0 ? 'is-first' : ''}`}>
+            <span class="archive-num">№{iss.issueNumber}</span>
+            <div class="archive-meta">
+              <h2>{iss.title}</h2>
+              <p>{iss.preview}</p>
+            </div>
+            <span class="archive-month">{iss.monthLabel}</span>
           </div>
-          <span class="archive-month">{iss.monthLabel}</span>
-        </a>
+        ) : (
+          <a class={`archive-row ${i === 0 ? 'is-first' : ''}`} href={`/de-brief/${iss.slug}/`}>
+            <span class="archive-num">№{iss.issueNumber}</span>
+            <div class="archive-meta">
+              <h2>{iss.title}</h2>
+              <p>{iss.preview}</p>
+            </div>
+            <span class="archive-month">{iss.monthLabel}</span>
+          </a>
+        )
       ))}
     </div>
   </section>
@@ -153,6 +164,13 @@ const schema = [
   }
   .archive-row:hover {
     background: var(--color-paper-deep, #F0E6D0);
+  }
+  .archive-row--placeholder {
+    opacity: 0.45;
+    cursor: default;
+  }
+  .archive-row--placeholder:hover {
+    background: transparent;
   }
   .archive-num {
     font-family: var(--font-display);
