@@ -254,7 +254,11 @@ export interface LandSchemaData {
   image?: string | null;
   continent?: string;
   capital?: string;
-  wijnstreken?: string[];
+  /**
+   * Accepts plain names (legacy showcase-derived) or `{name, slug}` objects
+   * (Directus o2m join, post-LAT-1008). Slugs yield resolvable `url` in JSON-LD.
+   */
+  wijnstreken?: Array<string | { name: string; slug?: string }>;
   grapeVarieties?: string[];
   pageUrl: string;
 }
@@ -276,11 +280,17 @@ export function landSchema(data: LandSchemaData) {
       : {}),
     ...(data.wijnstreken && data.wijnstreken.length > 0
       ? {
-          hasPart: data.wijnstreken.map((streek) => ({
-            '@type': 'Place',
-            additionalType: 'https://schema.org/TouristDestination',
-            name: streek,
-          })),
+          hasPart: data.wijnstreken.map((streek) => {
+            const name = typeof streek === 'string' ? streek : streek.name;
+            const slug = typeof streek === 'string' ? undefined : streek.slug;
+            const url = slug ? `${SITE_URL}/streken/${slug}/` : undefined;
+            return {
+              '@type': 'Place',
+              additionalType: 'https://schema.org/TouristDestination',
+              name,
+              ...(url ? { url } : {}),
+            };
+          }),
         }
       : {}),
     mainEntityOfPage: { '@type': 'WebPage', '@id': data.pageUrl },
@@ -296,15 +306,17 @@ export function landMetaTitle(name: string, continent?: string): string {
 
 export function landMetaDescription(data: {
   name: string;
-  wijnstreken?: string[];
+  wijnstreken?: Array<string | { name: string; slug?: string }>;
   grapeVarieties?: string[];
   description?: string;
 }): string {
   if (data.description) return data.description.slice(0, 155);
+  const strekenNames =
+    data.wijnstreken
+      ?.map((s) => (typeof s === 'string' ? s : s.name))
+      .filter((n): n is string => Boolean(n)) ?? [];
   const streken =
-    data.wijnstreken && data.wijnstreken.length > 0
-      ? ` — streken als ${data.wijnstreken.slice(0, 3).join(', ')}`
-      : '';
+    strekenNames.length > 0 ? ` — streken als ${strekenNames.slice(0, 3).join(', ')}` : '';
   const grapes =
     data.grapeVarieties && data.grapeVarieties.length > 0
       ? `, druivenrassen als ${data.grapeVarieties.slice(0, 3).join(', ')}`

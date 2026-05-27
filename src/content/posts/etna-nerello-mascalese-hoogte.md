@@ -1,6 +1,7 @@
 ---
 title: "Nerello Mascalese op 900 meter — waarom de Etna anders is dan alles"
 date: 2026-04-28
+updatedAt: "2026-05-27T12:00:00Z"
 author: "Martin"
 summary: "Op de noordflank van de Etna groeit één van Italië's meest spannende rode wijnen op vulkanische lava en eeuwenoude breeuwrank. Martin over contrade, hoogte en de reden waarom hij hier elk jaar terugkeert."
 description: "Op de noordflank van de Etna groeit één van Italië's meest spannende rode wijnen op vulkanische lava en eeuwenoude breeuwrank. Martin over contrade, hoogte en de reden waarom hij hier elk jaar terugkeert."

@@ -4,6 +4,7 @@ export interface Article {
     description: string;
     author: string;
     pubDate: string;
+    updatedAt: string | null;
     category: string;
     tags: string[];
     heroImage: string | null;
@@ -14,6 +15,20 @@ export interface Article {
 }
 
 const META_DESC_RE = /^\s*\*{0,2}Meta-description:?\*{0,2}\s*/i;
+
+function parseFrontmatterList(value: string | undefined): string[] {
+    if (!value) return [];
+    const trimmed = value.trim();
+    if (trimmed.startsWith('[')) {
+        try {
+            const parsed = JSON.parse(trimmed);
+            if (Array.isArray(parsed)) return parsed.map((v) => String(v).trim()).filter(Boolean);
+        } catch {
+            // fall through to comma split
+        }
+    }
+    return trimmed.split(',').map((t) => t.trim().replace(/^["']|["']$/g, '')).filter(Boolean);
+}
 
 function stripMetaDescriptionFromBody(markdown: string): { body: string; extracted: string } {
     const lines = markdown.split('\n');
@@ -64,11 +79,12 @@ function substituteAffiliateTokens(markdown: string): string {
     return result;
 }
 
-function getDirectusConfig() {
-    const url = process.env['DIRECTUS_URL'] || '';
-    const token = process.env['DIRECTUS_TOKEN'] || '';
-    return { url, token };
-}
+import {
+    readDirectusEnv,
+    statusFilterQuery,
+    filterLocalByStatus,
+    assertLocalFallbackAllowed,
+} from './directus-config';
 
 async function downloadHeroImage(assetId: string, directusUrl: string, token: string): Promise<string | null> {
     const { writeFileSync, mkdirSync, existsSync } = await import('node:fs');
@@ -102,6 +118,7 @@ function mapArticle(a: Record<string, unknown>, heroImagePath: string | null, bo
           description: String(a.description || ''),
           author: String(a.author || 'VinoMartino'),
           pubDate: String(a.pub_date || new Date().toISOString().slice(0, 10)),
+          updatedAt: a.updated_at ? String(a.updated_at) : null,
           category: String(a.category || ''),
           tags: (a.tags as string[]) || [],
           heroImage: heroImagePath,
@@ -121,26 +138,41 @@ function mapArticle(a: Record<string, unknown>, heroImagePath: string | null, bo
  * Throws on any failure so silent broken builds (build succeeds with 0 articles)
  * are impossible by design.
  */
-async function loadFromDirectus(url: string, token: string): Promise<Article[]> {
+async function fetchArticlesItems(url: string, token: string): Promise<Record<string, unknown>[]> {
+    const env = readDirectusEnv();
+    const baseFields = 'id,slug,title,description,body,pub_date,author,category,tags,hero_image,status,meta_title,meta_description';
+    const withUpdatedAt = `${baseFields},updated_at`;
+    const filterSort = `${statusFilterQuery(env)}&sort=-pub_date`;
+    const headers = { Authorization: `Bearer ${token}` };
+    const signal = AbortSignal.timeout(15000);
     let res: Response;
     try {
-          res = await fetch(
-                  `${url}/items/articles?limit=-1&fields=id,slug,title,description,body,pub_date,author,category,tags,hero_image,status,meta_title,meta_description&filter[status][_eq]=published&sort=-pub_date`,
-            {
-                      headers: { Authorization: `Bearer ${token}` },
-                      signal: AbortSignal.timeout(15000),
-            },
-                );
+          res = await fetch(`${url}/items/articles?limit=-1&fields=${withUpdatedAt}${filterSort}`, { headers, signal });
     } catch (err) {
-          console.warn(`[loadArticles] Directus unreachable at ${url}: ${err instanceof Error ? err.message : String(err)}`);
-          return [];
+          const msg = err instanceof Error ? err.message : String(err);
+          throw new Error(`[loadArticles] Directus unreachable at ${url}: ${msg}`);
     }
-    if (!res.ok) {
-          console.warn(`[loadArticles] Directus returned ${res.status} ${res.statusText}`);
-          return [];
+    if (res.ok) {
+          const json = await res.json();
+          return (json.data || []) as Record<string, unknown>[];
     }
-    const json = await res.json();
-    const data = (json.data || []) as Record<string, unknown>[];
+    if (res.status === 400) {
+          const body = await res.text().catch(() => '');
+          console.warn(`[loadArticles] Directus rejected fields=…,updated_at (HTTP 400) — retrying without updated_at. Run directus/scripts/add-seo-meta-fields.mjs to re-enable.`);
+          const retry = await fetch(`${url}/items/articles?limit=-1&fields=${baseFields}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
+          if (retry.ok) {
+                const json = await retry.json();
+                return (json.data || []) as Record<string, unknown>[];
+          }
+          const rbody = await retry.text().catch(() => '');
+          throw new Error(`[loadArticles] Directus retry without updated_at failed: ${retry.status} ${retry.statusText}: ${rbody.slice(0, 300)} | original 400 body: ${body.slice(0, 200)}`);
+    }
+    const body = await res.text().catch(() => '');
+    throw new Error(`[loadArticles] Directus returned ${res.status} ${res.statusText} for /items/articles: ${body.slice(0, 300)}`);
+}
+
+async function loadFromDirectus(url: string, token: string): Promise<Article[]> {
+    const data = await fetchArticlesItems(url, token);
     const items = await Promise.all(
           data.map(async (a) => {
                   const rawBody = String(a.body || '');
@@ -192,8 +224,9 @@ async function loadFromLocalFiles(): Promise<Article[]> {
                 description: extracted || fm.summary || fm.description || '',
                 author: fm.author || 'VinoMartino',
                 pubDate: fm.date || fm.pubDate || new Date().toISOString().slice(0, 10),
+                updatedAt: fm.updatedAt || fm.updated_at || null,
                 category: fm.category || '',
-                tags: fm.tags ? fm.tags.split(',').map((t: string) => t.trim()) : [],
+                tags: parseFrontmatterList(fm.tags),
                 heroImage: fm.heroImage || fm.hero_image || null,
                 status: fm.status || 'published',
                 metaTitle: fm.metaTitle || fm.title || 'Untitled',
@@ -207,12 +240,9 @@ async function loadFromLocalFiles(): Promise<Article[]> {
 }
 
 export async function loadArticles(): Promise<Article[]> {
-    const { url, token } = getDirectusConfig();
-    if (url && token) {
-          const directusArticles = await loadFromDirectus(url, token);
-          if (directusArticles.length > 0) return directusArticles;
-    } else {
-          console.warn(`[loadArticles] Directus not configured — loading from local files`);
-    }
-    return loadFromLocalFiles();
+    const env = readDirectusEnv();
+    if (env.configured) return loadFromDirectus(env.url, env.token);
+    assertLocalFallbackAllowed('loadArticles', env);
+    console.warn(`[loadArticles] Directus not configured — loading from local files (ALLOW_LOCAL_CONTENT_FALLBACK=1)`);
+    return filterLocalByStatus(await loadFromLocalFiles(), env);
 }

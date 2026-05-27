@@ -14,6 +14,11 @@ aantal_streken: 4
 beste_seizoen: ["april", "mei", "september", "oktober"]
 martin_bezocht: true
 tags: ["italie", "wijnland", "landen-hub", "piemonte", "etna", "sicilie"]
+heroImage: "/images/piemonte-barolo.jpg"
+ogImage: "/images/piemonte-barolo.jpg"
+wijnstreken: ["Piemonte", "Toscane", "Etna", "Sicilië"]
+name: "Italië"
+continent: "Europa"
 ---
 
 Mijn eerste serieuze Italiaanse wijn was een Barolo 2001 van Giacomo Conterno — een fles die een collega meebracht van een wijnreis die ik niet kon bijwonen. Hij zette hem op tafel, we dronken hem in een keuken in Amsterdam, en ik begreep niet precies wat er net was gebeurd. Niet op het moment zelf. Die avond vroeg Sophie waarom ik zo stil was, en ik had geen goed antwoord. Ik wist dat ik dat weer wilde voelen. Sindsdien ga ik elk jaar naar Italië, en elk jaar duikt er een regio, een druif, een producent op die ik niet had zien aankomen. Het land telt 417 officieel erkende autochtone druivenrassen — meer dan welk ander wijnland ter wereld — en 77 DOCG-appellaties bovenop 341 DOC. Dat is geen kwaliteitsgarantie. Het is een kaart van een continent dat zichzelf nauwelijks kan samenvatten. Na tien jaar begrijp ik minder dan ik dacht te begrijpen in jaar twee. Dat vind ik fijn.

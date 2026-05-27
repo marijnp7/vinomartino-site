@@ -13,12 +13,15 @@ const { article } = Astro.props as { article: Article };
 
 const pageUrl = new URL(`/artikelen/${article.slug}/`, Astro.site ?? 'https://vinomartino.com').href;
 
+const modifiedTime = article.updatedAt || article.pubDate;
+
 const schema = [
   articleSchema({
     title: article.title,
     description: article.description,
     author: article.author,
     datePublished: article.pubDate,
+    dateModified: modifiedTime,
     image: article.heroImage,
     url: pageUrl,
   }),
@@ -34,6 +37,14 @@ const schema = [
   title={article.metaTitle || article.title}
   description={article.metaDescription || article.description}
   ogImage={article.heroImage || undefined}
+  ogType="article"
+  article={{
+    publishedTime: article.pubDate,
+    modifiedTime,
+    author: article.author,
+    section: article.category,
+    tags: article.tags,
+  }}
   schema={schema}
   activeNav="artikelen"
 >

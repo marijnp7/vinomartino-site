@@ -21,11 +21,12 @@ function markdownToHtml(markdown: string): Promise<string> {
     return renderMarkdown(markdown, { stripFirstH1: true });
 }
 
-function getDirectusConfig() {
-    const url = process.env['DIRECTUS_URL'] || '';
-    const token = process.env['DIRECTUS_TOKEN'] || '';
-    return { url, token };
-}
+import {
+    readDirectusEnv,
+    statusFilterQuery,
+    filterLocalByStatus,
+    assertLocalFallbackAllowed,
+} from './directus-config';
 
 const assetDebug: Array<Record<string, unknown>> = [];
 
@@ -104,10 +105,11 @@ function mapRoute(
     };
 }
 
-async function fetchRoutesItems(url: string, token: string): Promise<Record<string, unknown>[] | null> {
+async function fetchRoutesItems(url: string, token: string): Promise<Record<string, unknown>[]> {
+    const env = readDirectusEnv();
     const baseFields = 'id,slug,title,description,body,duration,transport,style,highlights,stops,hero_image,status,meta_title,meta_description';
     const withOg = `${baseFields},og_image`;
-    const filterSort = '&filter[status][_in]=published,draft&sort=title';
+    const filterSort = `${statusFilterQuery(env)}&sort=title`;
     const headers = { Authorization: `Bearer ${token}` };
     const signal = AbortSignal.timeout(15000);
     let res: Response;
@@ -115,9 +117,8 @@ async function fetchRoutesItems(url: string, token: string): Promise<Record<stri
         res = await fetch(`${url}/items/routes?limit=-1&fields=${withOg}${filterSort}`, { headers, signal });
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        console.warn(`[loadRoutes] Directus unreachable at ${url}: ${msg}`);
         assetDebug.push({ kind: 'query', url, error: msg });
-        return null;
+        throw new Error(`[loadRoutes] Directus unreachable at ${url}: ${msg}`);
     }
     if (res.ok) {
         const json = await res.json();
@@ -128,32 +129,30 @@ async function fetchRoutesItems(url: string, token: string): Promise<Record<stri
         const body = await res.text().catch(() => '');
         console.warn(`[loadRoutes] Directus rejected fields=…,og_image (HTTP 400) — retrying without og_image. Run directus/scripts/add-og-image-fields.mjs to re-enable.`);
         assetDebug.push({ kind: 'query', url, status: 400, body: body.slice(0, 500), retryWithoutOg: true });
+        let retry: Response;
         try {
-            const retry = await fetch(`${url}/items/routes?limit=-1&fields=${baseFields}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
-            if (retry.ok) {
-                const json = await retry.json();
-                assetDebug.push({ kind: 'query-retry', url, status: 200, count: (json.data || []).length });
-                return (json.data || []) as Record<string, unknown>[];
-            }
-            const rbody = await retry.text().catch(() => '');
-            console.warn(`[loadRoutes] Retry without og_image also failed: ${retry.status} ${retry.statusText}`);
-            assetDebug.push({ kind: 'query-retry', url, status: retry.status, body: rbody.slice(0, 500) });
+            retry = await fetch(`${url}/items/routes?limit=-1&fields=${baseFields}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
         } catch (err) {
             const msg = err instanceof Error ? err.message : String(err);
-            console.warn(`[loadRoutes] Retry without og_image threw: ${msg}`);
             assetDebug.push({ kind: 'query-retry', url, error: msg });
+            throw new Error(`[loadRoutes] Directus retry without og_image threw: ${msg}`);
         }
-        return null;
+        if (retry.ok) {
+            const json = await retry.json();
+            assetDebug.push({ kind: 'query-retry', url, status: 200, count: (json.data || []).length });
+            return (json.data || []) as Record<string, unknown>[];
+        }
+        const rbody = await retry.text().catch(() => '');
+        assetDebug.push({ kind: 'query-retry', url, status: retry.status, body: rbody.slice(0, 500) });
+        throw new Error(`[loadRoutes] Directus retry without og_image failed: ${retry.status} ${retry.statusText}: ${rbody.slice(0, 300)}`);
     }
     const body = await res.text().catch(() => '');
-    console.warn(`[loadRoutes] Directus returned ${res.status} ${res.statusText}: ${body.slice(0, 300)}`);
     assetDebug.push({ kind: 'query', url, status: res.status, body: body.slice(0, 500) });
-    return null;
+    throw new Error(`[loadRoutes] Directus returned ${res.status} ${res.statusText}: ${body.slice(0, 300)}`);
 }
 
 async function loadFromDirectus(url: string, token: string): Promise<WijnRoute[]> {
     const data = await fetchRoutesItems(url, token);
-    if (!data) return [];
     const items = await Promise.all(
         data.map(async (r) => {
             const bodyHtml = r.body ? await markdownToHtml(String(r.body)) : '';
@@ -215,18 +214,17 @@ async function loadFromLocalFiles(): Promise<WijnRoute[]> {
 }
 
 export async function loadRoutes(): Promise<WijnRoute[]> {
-    const { url, token } = getDirectusConfig();
-    let pathTaken: 'directus' | 'directus-empty' | 'local-fallback' | 'directus-not-configured';
+    const env = readDirectusEnv();
+    let pathTaken: 'directus' | 'local-fallback';
     let items: WijnRoute[] = [];
-    if (url && token) {
-        items = await loadFromDirectus(url, token);
-        pathTaken = items.length > 0 ? 'directus' : 'directus-empty';
-        if (items.length === 0) items = await loadFromLocalFiles();
-        if (pathTaken === 'directus-empty' && items.length > 0) pathTaken = 'local-fallback';
+    if (env.configured) {
+        items = await loadFromDirectus(env.url, env.token);
+        pathTaken = 'directus';
     } else {
-        console.warn(`[loadRoutes] Directus not configured — loading from local files`);
-        pathTaken = 'directus-not-configured';
-        items = await loadFromLocalFiles();
+        assertLocalFallbackAllowed('loadRoutes', env);
+        console.warn(`[loadRoutes] Directus not configured — loading from local files (ALLOW_LOCAL_CONTENT_FALLBACK=1)`);
+        pathTaken = 'local-fallback';
+        items = filterLocalByStatus(await loadFromLocalFiles(), env);
     }
     await writeAssetDebug(pathTaken);
     return items;

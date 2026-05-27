@@ -1,5 +1,6 @@
 ---
 import SiteLayout from '../../layouts/SiteLayout.astro';
+import SmartImg from '../../components/SmartImg.astro';
 import { loadRoutes } from '../../lib/routes';
 import { organizationSchema, breadcrumbSchema } from '../../lib/seo';
 
@@ -24,7 +25,7 @@ const schema = [
     <div class="container">
       <span class="section-label">Wijnroutes</span>
       <h1>Gids voor wijnreizen</h1>
-      <p class="hero-desc">Praktische routes langs de mooiste wijnstreken — van dagtrips tot meerdaagse tochten langs producenten en proeflokalen.</p>
+      <p class="hero-desc">Routes die ik zelf heb gereden — met de Fiat Panda, de trein, soms met een koffer te veel. Dagindelingen, slaapadressen en de producenten die het waard zijn om twee weken vooruit voor te bellen.</p>
     </div>
   </section>
 
@@ -33,9 +34,9 @@ const schema = [
       <div class="grid">
         {entries.map(entry => (
           <a href={`/wijnroutes/${entry.slug}/`} class="card card-link">
-            {entry.heroImage && (
-              <img src={entry.heroImage} alt={entry.title} loading="lazy" width="400" height="220" class="card-img" />
-            )}
+            <div class="card-img-wrap">
+              <SmartImg src={entry.heroImage || undefined} alt={entry.title} theme="region" class="card-img" />
+            </div>
             <div class="card-body">
               <div class="card-meta-row">
                 {entry.duration && <span class="card-duration">{entry.duration}</span>}
@@ -55,8 +56,8 @@ const schema = [
       </div>
     ) : (
       <div class="empty-state">
-        <h2>Wijnroutes komen eraan</h2>
-        <p>We werken aan uitgebreide routegidsen. Binnenkort beschikbaar.</p>
+        <h2>Routes zijn onderweg</h2>
+        <p>Langhe, Etna, Mosel en Wachau staan als eerste op de planning. Intussen: de <a href="/artikelen/">reisartikelen</a> bevatten al logistieke details per regio.</p>
       </div>
     )}
   </section>
@@ -94,11 +95,19 @@ const schema = [
     color: inherit;
     display: block;
   }
-  .card-img {
-    width: 100%;
-    height: 220px;
-    object-fit: cover;
+  .card-img-wrap {
+    aspect-ratio: 16 / 11;
+    overflow: hidden;
+    background: var(--paperShade);
   }
+  .card-img-wrap :global(img),
+  .card-img-wrap :global(.smart-img-placeholder) {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform var(--duration-image) var(--ease-out);
+  }
+  .card-link:hover .card-img-wrap :global(img) { transform: scale(1.03); }
   .card-body { padding: 1.25rem; }
   .card-meta-row {
     display: flex;

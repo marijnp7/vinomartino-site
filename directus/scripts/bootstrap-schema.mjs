@@ -227,6 +227,7 @@ async function run() {
     richTextField('body'),
     textField('author'),
     { field: 'pub_date', type: 'date', meta: { interface: 'datetime', width: 'half' }, schema: { is_nullable: true } },
+    { field: 'updated_at', type: 'timestamp', meta: { interface: 'datetime', width: 'half', note: 'Last meaningful editorial update. Drives <meta property="article:modified_time"> and JSON-LD dateModified.' }, schema: { is_nullable: true } },
     textField('category'),
     jsonField('tags', { note: 'Array of tag strings' }),
     imageField(),
@@ -337,6 +338,7 @@ async function run() {
     textField('best_time_to_visit'),
     textField('continent'),
     textField('capital'),
+    imageField('og_image'),
     ...seoFields(),
     jsonField('translations', { note: i18nNote }),
   ]) await createField('landen', f);
@@ -362,7 +364,26 @@ async function run() {
     jsonField('translations', { note: i18nNote }),
   ]) await createField('streken', f);
   await createField('streken', { field: 'land_id', type: 'integer', meta: { interface: 'select-dropdown-m2o', width: 'half' }, schema: { is_nullable: true } });
-  await createRelation({ collection: 'streken', field: 'land_id', related_collection: 'landen' });
+  // landen.wijnstreken — reverse o2m alias of streken.land_id, so editors see streken under their land
+  // and the API can join `wijnstreken.name,wijnstreken.slug` for JSON-LD hasPart.
+  await createField('landen', {
+    field: 'wijnstreken',
+    type: 'alias',
+    meta: {
+      interface: 'list-o2m',
+      special: ['o2m'],
+      width: 'full',
+      note: 'Reverse relation: streken whose land_id points to this land. Drives JSON-LD hasPart.',
+      options: { template: '{{name}}' },
+    },
+    schema: null,
+  });
+  await createRelation({
+    collection: 'streken',
+    field: 'land_id',
+    related_collection: 'landen',
+    meta: { one_field: 'wijnstreken' },
+  });
 
   // ── 14. Wijnhuizen ───────────────────────────────────
   await createCollection('wijnhuizen', { icon: 'liquor', note: 'Winery portraits' });
