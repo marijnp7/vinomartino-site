@@ -1,0 +1,17 @@
+---
+// LAT-989: Regional aliases — redirect short names to canonical names
+export async function getStaticPaths() {
+  const regionAliases: Record<string, string> = {
+    'douro': 'douro-portugal',
+    'mosel': 'mosel-duitsland',
+  };
+
+  return Object.keys(regionAliases).map(alias => ({
+    params: { alias },
+    props: { canonical: regionAliases[alias] },
+  }));
+}
+
+const { canonical } = Astro.props;
+return Astro.redirect(`/streken/${canonical}/`, 301);
+---
