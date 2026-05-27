@@ -64,11 +64,12 @@ function substituteAffiliateTokens(markdown: string): string {
     return result;
 }
 
-function getDirectusConfig() {
-    const url = process.env['DIRECTUS_URL'] || '';
-    const token = process.env['DIRECTUS_TOKEN'] || '';
-    return { url, token };
-}
+import {
+    readDirectusEnv,
+    statusFilterQuery,
+    filterLocalByStatus,
+    assertLocalFallbackAllowed,
+} from './directus-config';
 
 async function downloadHeroImage(assetId: string, directusUrl: string, token: string): Promise<string | null> {
     const { writeFileSync, mkdirSync, existsSync } = await import('node:fs');
@@ -122,22 +123,21 @@ function mapArticle(a: Record<string, unknown>, heroImagePath: string | null, bo
  * are impossible by design.
  */
 async function loadFromDirectus(url: string, token: string): Promise<Article[]> {
+    const env = readDirectusEnv();
+    const query = `${url}/items/articles?limit=-1&fields=id,slug,title,description,body,pub_date,author,category,tags,hero_image,status,meta_title,meta_description${statusFilterQuery(env)}&sort=-pub_date`;
     let res: Response;
     try {
-          res = await fetch(
-                  `${url}/items/articles?limit=-1&fields=id,slug,title,description,body,pub_date,author,category,tags,hero_image,status,meta_title,meta_description&filter[status][_eq]=published&sort=-pub_date`,
-            {
+          res = await fetch(query, {
                       headers: { Authorization: `Bearer ${token}` },
                       signal: AbortSignal.timeout(15000),
-            },
-                );
+            });
     } catch (err) {
-          console.warn(`[loadArticles] Directus unreachable at ${url}: ${err instanceof Error ? err.message : String(err)}`);
-          return [];
+          const msg = err instanceof Error ? err.message : String(err);
+          throw new Error(`[loadArticles] Directus unreachable at ${url}: ${msg}`);
     }
     if (!res.ok) {
-          console.warn(`[loadArticles] Directus returned ${res.status} ${res.statusText}`);
-          return [];
+          const body = await res.text().catch(() => '');
+          throw new Error(`[loadArticles] Directus returned ${res.status} ${res.statusText} for /items/articles: ${body.slice(0, 300)}`);
     }
     const json = await res.json();
     const data = (json.data || []) as Record<string, unknown>[];
@@ -207,12 +207,9 @@ async function loadFromLocalFiles(): Promise<Article[]> {
 }
 
 export async function loadArticles(): Promise<Article[]> {
-    const { url, token } = getDirectusConfig();
-    if (url && token) {
-          const directusArticles = await loadFromDirectus(url, token);
-          if (directusArticles.length > 0) return directusArticles;
-    } else {
-          console.warn(`[loadArticles] Directus not configured — loading from local files`);
-    }
-    return loadFromLocalFiles();
+    const env = readDirectusEnv();
+    if (env.configured) return loadFromDirectus(env.url, env.token);
+    assertLocalFallbackAllowed('loadArticles', env);
+    console.warn(`[loadArticles] Directus not configured — loading from local files (ALLOW_LOCAL_CONTENT_FALLBACK=1)`);
+    return filterLocalByStatus(await loadFromLocalFiles(), env);
 }

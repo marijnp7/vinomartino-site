@@ -202,11 +202,11 @@ const {
           <div class="land-section-label land-section-label--rust">Routes</div>
           <h2 class="land-section-title">Reisroutes door {name}</h2>
         </div>
-        <a href="/routes/" class="land-all-link">Alle routes →</a>
+        <a href="/wijnroutes/" class="land-all-link">Alle routes →</a>
       </div>
       <div class="land-routes__grid">
         {routes.map(route => (
-          <a href={`/routes/${route.slug}/`} class="land-route-card">
+          <a href={`/wijnroutes/${route.slug}/`} class="land-route-card">
             <div class="land-route-card__img">
               <div class="land-route-card__badges">
                 <span class="land-badge land-badge--days">{route.days}d</span>

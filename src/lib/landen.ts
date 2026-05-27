@@ -24,11 +24,12 @@ async function markdownToHtml(markdown: string): Promise<string> {
     return toHtml(hast as Parameters<typeof toHtml>[0]);
 }
 
-function getDirectusConfig() {
-    const url = process.env['DIRECTUS_URL'] || '';
-    const token = process.env['DIRECTUS_TOKEN'] || '';
-    return { url, token };
-}
+import {
+    readDirectusEnv,
+    statusFilterQuery,
+    filterLocalByStatus,
+    assertLocalFallbackAllowed,
+} from './directus-config';
 
 function parseJsonField(val: unknown): string[] {
     if (Array.isArray(val)) return val.map(String);
@@ -59,22 +60,21 @@ function mapLand(r: Record<string, unknown>, directusUrl: string, bodyHtml: stri
 }
 
 async function loadFromDirectus(url: string, token: string): Promise<Land[]> {
+    const env = readDirectusEnv();
+    const query = `${url}/items/landen?limit=-1&fields=id,slug,name,description,body,continent,capital,climate,main_grapes,wine_history,best_time_to_visit,hero_image,status,meta_title,meta_description${statusFilterQuery(env)}&sort=name`;
     let res: Response;
     try {
-        res = await fetch(
-            `${url}/items/landen?limit=-1&fields=id,slug,name,description,body,continent,capital,climate,main_grapes,wine_history,best_time_to_visit,hero_image,status,meta_title,meta_description&filter[status][_in]=published,draft&sort=name`,
-            {
-                headers: { Authorization: `Bearer ${token}` },
-                signal: AbortSignal.timeout(15000),
-            },
-        );
+        res = await fetch(query, {
+            headers: { Authorization: `Bearer ${token}` },
+            signal: AbortSignal.timeout(15000),
+        });
     } catch (err) {
-        console.warn(`[loadLanden] Directus unreachable at ${url}: ${err instanceof Error ? err.message : String(err)}`);
-        return [];
+        const msg = err instanceof Error ? err.message : String(err);
+        throw new Error(`[loadLanden] Directus unreachable at ${url}: ${msg}`);
     }
     if (!res.ok) {
-        console.warn(`[loadLanden] Directus returned ${res.status} ${res.statusText}`);
-        return [];
+        const body = await res.text().catch(() => '');
+        throw new Error(`[loadLanden] Directus returned ${res.status} ${res.statusText}: ${body.slice(0, 300)}`);
     }
     const json = await res.json();
     const data = (json.data || []) as Record<string, unknown>[];
@@ -133,12 +133,9 @@ async function loadFromLocalFiles(): Promise<Land[]> {
 }
 
 export async function loadLanden(): Promise<Land[]> {
-    const { url, token } = getDirectusConfig();
-    if (url && token) {
-        const items = await loadFromDirectus(url, token);
-        if (items.length > 0) return items;
-    } else {
-        console.warn(`[loadLanden] Directus not configured — loading from local files`);
-    }
-    return loadFromLocalFiles();
+    const env = readDirectusEnv();
+    if (env.configured) return loadFromDirectus(env.url, env.token);
+    assertLocalFallbackAllowed('loadLanden', env);
+    console.warn(`[loadLanden] Directus not configured — loading from local files (ALLOW_LOCAL_CONTENT_FALLBACK=1)`);
+    return filterLocalByStatus(await loadFromLocalFiles(), env);
 }
