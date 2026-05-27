@@ -124,6 +124,14 @@ async function fetchLandenItems(url: string, token: string): Promise<Record<stri
             return (json.data || []) as Record<string, unknown>[];
         }
         const rbody = await retry.text().catch(() => '');
+        // LAT-1011: als de retry óók 403/404 geeft heeft de build-rol geen
+        // collection-level read op /landen. Hard throw zou de hele Astro-build
+        // halten (geen /index.html, prod 403). Degradeer naar lege lijst zodat
+        // de rest van de site bouwt. LAT-1012 fixt de Directus-permissie.
+        if (retry.status === 403 || retry.status === 404) {
+            console.error(`[loadLanden] Directus collection 'landen' ontoegankelijk voor build-rol (HTTP ${retry.status}). /landen/* pages worden NIET gebuild. Fix Directus-permissies in LAT-1012. Body: ${rbody.slice(0, 200)}`);
+            return [];
+        }
         throw new Error(`[loadLanden] Directus retry without LAT-1008 fields failed: ${retry.status} ${retry.statusText}: ${rbody.slice(0, 300)} | original ${res.status} body: ${body.slice(0, 200)}`);
     }
     const body = await res.text().catch(() => '');
