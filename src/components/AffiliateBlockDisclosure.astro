@@ -13,10 +13,17 @@ interface Props {
 }
 
 const { producent, bezoekMaand, bezoekJaar, linkBron } = Astro.props;
+
+const bronLabel: Record<typeof linkBron, string> = {
+  'Booking.com': 'Booking.com',
+  'GetYourGuide': 'GetYourGuide',
+  'directe link': 'de directe link naar het wijnhuis',
+};
 ---
 
 <p class="affiliate-block-disclosure">
-  Bezocht bij {producent} in {bezoekMaand.toLowerCase()} {bezoekJaar} — affiliate-link via {linkBron}.
+  Wij bezochten {producent} in {bezoekMaand.toLowerCase()} {bezoekJaar}.
+  Reservering via {bronLabel[linkBron]} — VinoMartino ontvangt commissie, prijs voor jou identiek.
 </p>
 
 <style>
