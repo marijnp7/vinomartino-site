@@ -13,6 +13,8 @@ export default defineConfig({
         !page.includes('/go/') &&
         !page.includes('/admin/') &&
         !page.includes('/api/') &&
+        // LAT-1019: intern-only dashboard never in sitemap
+        !page.includes('/intern/') &&
         // LAT-859: /routes/* non-canonical; canonical is /wijnroutes/*
         !page.includes('/routes/') &&
         // LAT-859: douro/mosel have canonical Directus entries at douro-portugal/mosel-duitsland

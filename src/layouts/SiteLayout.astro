@@ -119,6 +119,10 @@ const articleTags = article?.tags?.filter((tag): tag is string => Boolean(tag &&
       <slot />
     </main>
     <SiteFooter />
+    <script>
+      import { initAffiliateTracker } from '../lib/click-tracker';
+      initAffiliateTracker();
+    </script>
   </body>
 </html>
 
