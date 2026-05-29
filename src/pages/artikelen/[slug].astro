@@ -4,6 +4,7 @@ import AffiliatePlaceholder from '../../components/AffiliatePlaceholder.astro';
 import { loadArticles, type Article } from '../../lib/articles';
 import { articleSchema, breadcrumbSchema } from '../../lib/seo';
 import { getAffiliateBlock } from '../../lib/affiliates';
+import { getAuthorByByline } from '../../lib/authors';
 
 export async function getStaticPaths() {
   const articles = await loadArticles();
@@ -16,6 +17,7 @@ const activity = getAffiliateBlock(article.slug, 'activity');
 const sidebar = getAffiliateBlock(article.slug, 'sidebar');
 
 const pageUrl = new URL(`/artikelen/${article.slug}/`, Astro.site ?? 'https://vinomartino.com').href;
+const authorProfile = getAuthorByByline(article.author);
 
 const modifiedTime = article.updatedAt || article.pubDate;
 
@@ -68,7 +70,11 @@ const schema = [
           {article.category && <span class="article-cat">{article.category}</span>}
           <h1>{article.title}</h1>
           <div class="article-meta">
-            <span class="article-author">{article.author}</span>
+            {authorProfile ? (
+              <a class="article-author author-link" href={`/auteurs/${authorProfile.slug}/`} rel="author">{article.author}</a>
+            ) : (
+              <span class="article-author">{article.author}</span>
+            )}
             <span class="article-date">{new Date(article.pubDate).toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
           </div>
           {article.tags && article.tags.length > 0 && (
@@ -79,6 +85,24 @@ const schema = [
         </header>
 
         <div class="article-prose" set:html={article.bodyHtml} />
+
+        {authorProfile && (
+          <aside class="article-author-card" aria-label={`Over de auteur — ${authorProfile.name}`}>
+            {authorProfile.portrait && (
+              <a class="author-card-portrait" href={`/auteurs/${authorProfile.slug}/`}>
+                <img src={authorProfile.portrait} alt={authorProfile.portraitAlt} width="96" height="96" loading="lazy" />
+              </a>
+            )}
+            <div class="author-card-body">
+              <span class="author-card-kicker">Over de auteur</span>
+              <h2 class="author-card-name">
+                <a href={`/auteurs/${authorProfile.slug}/`} rel="author">{authorProfile.name}</a>
+              </h2>
+              <p class="author-card-bio">{authorProfile.bio}</p>
+              <a class="author-card-link" href={`/auteurs/${authorProfile.slug}/`}>Meer artikelen van {authorProfile.name} →</a>
+            </div>
+          </aside>
+        )}
 
         {accommodation && (
           <AffiliatePlaceholder
@@ -189,6 +213,79 @@ const schema = [
     font-size: 0.75rem;
     color: var(--inkSoft);
     margin-bottom: var(--space-3);
+  }
+  .author-link {
+    color: var(--inkSoft);
+    text-decoration: none;
+    border-bottom: 1px solid var(--color-border-light, rgba(0, 0, 0, 0.15));
+  }
+  .author-link:hover {
+    color: var(--burgundy);
+  }
+  .article-author-card {
+    margin-top: var(--space-12);
+    padding: var(--space-6);
+    background: var(--paperDeep);
+    border-left: 3px solid var(--burgundy);
+    border-radius: var(--radius-sm);
+    display: grid;
+    grid-template-columns: 96px 1fr;
+    gap: var(--space-5);
+    align-items: start;
+  }
+  .author-card-portrait img {
+    width: 96px;
+    height: 96px;
+    border-radius: 999px;
+    object-fit: cover;
+    display: block;
+  }
+  .author-card-kicker {
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--rust);
+    display: block;
+    margin-bottom: var(--space-1);
+  }
+  .author-card-name {
+    font-family: var(--font-display);
+    font-size: 1.375rem;
+    font-style: italic;
+    font-weight: 400;
+    color: var(--ink);
+    margin: 0 0 var(--space-2);
+  }
+  .author-card-name a {
+    color: inherit;
+    text-decoration: none;
+  }
+  .author-card-name a:hover {
+    color: var(--burgundy);
+  }
+  .author-card-bio {
+    font-family: var(--font-body);
+    font-size: 0.9375rem;
+    color: var(--ink);
+    line-height: 1.65;
+    margin: 0 0 var(--space-3);
+  }
+  .author-card-link {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--burgundy);
+  }
+  @media (max-width: 640px) {
+    .article-author-card {
+      grid-template-columns: 1fr;
+    }
+    .author-card-portrait img {
+      width: 80px;
+      height: 80px;
+    }
   }
   .article-tags {
     display: flex;
