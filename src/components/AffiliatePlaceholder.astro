@@ -1,81 +1,118 @@
 ---
+// LAT-1029 — Affiliate block.
+// Renders nothing unless a real affiliate `href` is supplied. When present, the block
+// shows the M1-Optie B layout: per-block disclosure line + CTA link, with data-attrs
+// the in-house click-tracker reads (LAT-1019). One link-bron per block — geen stapeling.
+
+import AffiliateBlockDisclosure from './AffiliateBlockDisclosure.astro';
+import type { AffiliateLinkBron } from '../lib/affiliates';
+
 interface Props {
   type: 'accommodation' | 'activity' | 'flight' | 'insurance' | 'sidebar';
   context?: string;
   partner?: 'booking.com' | 'getyourguide' | 'skyscanner' | 'reisverzekering';
   region?: string;
   placement?: 'sidebar' | 'inline-mid' | 'inline-end' | 'footer';
+  href?: string;
+  producent?: string;
+  bezoekMaand?: string;
+  bezoekJaar?: number;
+  linkBron?: AffiliateLinkBron;
+  ctaLabel?: string;
+  description?: string;
 }
 
-const { type, context, partner, region, placement } = Astro.props;
+const {
+  type,
+  context,
+  partner,
+  region,
+  placement,
+  href,
+  producent,
+  bezoekMaand,
+  bezoekJaar,
+  linkBron,
+  ctaLabel,
+  description,
+} = Astro.props;
 
-const labels: Record<string, { title: string; description: string; icon: string }> = {
-  accommodation: {
-    title: 'Waar slapen',
-    description: 'Vind de beste accommodaties',
-    icon: '🏨',
-  },
-  activity: {
-    title: 'Activiteiten & tours',
-    description: 'Boek tours en excursies',
-    icon: '🎯',
-  },
-  flight: {
-    title: 'Vluchten vergelijken',
-    description: 'Vind de goedkoopste vluchten',
-    icon: '✈️',
-  },
-  insurance: {
-    title: 'Reisverzekering',
-    description: 'Reis verzekerd op pad',
-    icon: '🛡️',
-  },
-  sidebar: {
-    title: 'Boek je reis',
-    description: 'Alles wat je nodig hebt',
-    icon: '🧳',
-  },
+const labels: Record<string, { title: string; description: string; icon: string; cta: string }> = {
+  accommodation: { title: 'Waar slapen', description: 'Boek dezelfde plek waar wij verbleven', icon: '🏨', cta: 'Bekijk beschikbaarheid' },
+  activity: { title: 'Activiteiten & tours', description: 'Boek de proeverij of tour die we zelf deden', icon: '🎯', cta: 'Boek deze ervaring' },
+  flight: { title: 'Vluchten vergelijken', description: 'Vind de goedkoopste vlucht', icon: '✈️', cta: 'Vergelijk vluchten' },
+  insurance: { title: 'Reisverzekering', description: 'Reis verzekerd op pad', icon: '🛡️', cta: 'Bekijk verzekeringen' },
+  sidebar: { title: 'Boek je reis', description: 'Plan de reis die wij maakten', icon: '🧳', cta: 'Plan je reis' },
 };
 
-const label = labels[type] || labels.sidebar;
+const label = labels[type] ?? labels.sidebar;
+
+// No href → no affiliate config → render nothing. M1-Optie B: geen "binnenkort"-placeholders.
+const hasAffiliate = Boolean(href && producent && bezoekMaand && bezoekJaar && linkBron);
+const ctaText = ctaLabel ?? label.cta;
+const descText = description ?? label.description;
 ---
 
-<aside class={`affiliate-placeholder affiliate-${type} affiliate-${placement || 'sidebar'}`} data-affiliate-type={type} data-context={context} data-partner={partner} data-region={region} data-placement={placement}>
-  <div class="affiliate-inner">
-    <span class="affiliate-icon" aria-hidden="true">{label.icon}</span>
-    <div class="affiliate-text">
-      <strong class="affiliate-title">{label.title}</strong>
-      <p class="affiliate-desc">{label.description}</p>
+{hasAffiliate && (
+  <aside
+    class={`affiliate-block affiliate-${type} affiliate-${placement ?? 'sidebar'}`}
+    data-affiliate-type={type}
+    data-context={context}
+    data-partner={partner}
+    data-region={region}
+    data-placement={placement}
+  >
+    <AffiliateBlockDisclosure
+      producent={producent!}
+      bezoekMaand={bezoekMaand!}
+      bezoekJaar={bezoekJaar!}
+      linkBron={linkBron!}
+    />
+    <div class="affiliate-block__inner">
+      <span class="affiliate-block__icon" aria-hidden="true">{label.icon}</span>
+      <div class="affiliate-block__text">
+        <strong class="affiliate-block__title">{label.title}</strong>
+        <p class="affiliate-block__desc">{descText}</p>
+      </div>
+      <a
+        class="affiliate-block__cta"
+        href={href}
+        target="_blank"
+        rel="sponsored nofollow noopener"
+        data-affiliate-track
+        data-affiliate-placement={placement ?? 'sidebar'}
+        data-affiliate-partner={partner ?? ''}
+        data-affiliate-context={context ?? ''}
+      >
+        {ctaText}
+      </a>
     </div>
-    <span class="affiliate-badge">Binnenkort beschikbaar</span>
-  </div>
-</aside>
+  </aside>
+)}
 
 <style>
-  .affiliate-placeholder {
-    border: 1px dashed var(--ruleSoft, #E0D2B0);
+  .affiliate-block {
+    border: 1px solid var(--ruleSoft, #E0D2B0);
     border-radius: var(--radius-sm, 2px);
     background: var(--paperDeep, #F0E6D0);
     padding: 1.25rem 1.5rem;
     margin: 1.5rem 0;
   }
 
-  .affiliate-inner {
+  .affiliate-block__inner {
     display: flex;
     align-items: center;
     gap: 1rem;
   }
 
-  .affiliate-icon {
+  .affiliate-block__icon {
     font-size: 1.5rem;
     flex-shrink: 0;
   }
 
-  .affiliate-text {
-    flex: 1;
-  }
+  .affiliate-block__text { flex: 1; }
 
-  .affiliate-title {
+  .affiliate-block__title {
     font-family: var(--font-ui, sans-serif);
     font-size: 0.9375rem;
     font-weight: 600;
@@ -83,33 +120,35 @@ const label = labels[type] || labels.sidebar;
     display: block;
   }
 
-  .affiliate-desc {
+  .affiliate-block__desc {
     font-size: 0.8125rem;
     color: var(--inkSoft, #5A4F45);
     margin: 0.125rem 0 0;
   }
 
-  .affiliate-badge {
-    font-family: var(--font-mono, monospace);
-    font-size: 0.625rem;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--inkFaint, #8A7E70);
+  .affiliate-block__cta {
+    font-family: var(--font-ui, sans-serif);
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--paper, #FBF7EE);
+    background: var(--burgundy, #8B4513);
+    padding: 0.625rem 1rem;
+    border-radius: var(--radius-sm, 2px);
+    text-decoration: none;
     white-space: nowrap;
     flex-shrink: 0;
+    transition: opacity 0.15s ease;
   }
 
-  .affiliate-sidebar {
-    border-style: solid;
-  }
+  .affiliate-block__cta:hover { opacity: 0.9; }
 
   @media (max-width: 640px) {
-    .affiliate-inner {
+    .affiliate-block__inner {
       flex-wrap: wrap;
     }
-    .affiliate-badge {
+    .affiliate-block__cta {
       width: 100%;
-      text-align: right;
+      text-align: center;
     }
   }
 </style>

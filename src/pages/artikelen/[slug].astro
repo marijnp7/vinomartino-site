@@ -3,6 +3,7 @@ import SiteLayout from '../../layouts/SiteLayout.astro';
 import AffiliatePlaceholder from '../../components/AffiliatePlaceholder.astro';
 import { loadArticles, type Article } from '../../lib/articles';
 import { articleSchema, breadcrumbSchema } from '../../lib/seo';
+import { getAffiliateBlock } from '../../lib/affiliates';
 
 export async function getStaticPaths() {
   const articles = await loadArticles();
@@ -10,6 +11,9 @@ export async function getStaticPaths() {
 }
 
 const { article } = Astro.props as { article: Article };
+const accommodation = getAffiliateBlock(article.slug, 'accommodation');
+const activity = getAffiliateBlock(article.slug, 'activity');
+const sidebar = getAffiliateBlock(article.slug, 'sidebar');
 
 const pageUrl = new URL(`/artikelen/${article.slug}/`, Astro.site ?? 'https://vinomartino.com').href;
 
@@ -76,12 +80,54 @@ const schema = [
 
         <div class="article-prose" set:html={article.bodyHtml} />
 
-        <AffiliatePlaceholder type="accommodation" context={article.slug} />
-        <AffiliatePlaceholder type="activity" context={article.slug} />
+        {accommodation && (
+          <AffiliatePlaceholder
+            type="accommodation"
+            context={article.slug}
+            partner={accommodation.linkBron === 'Booking.com' ? 'booking.com' : accommodation.linkBron === 'GetYourGuide' ? 'getyourguide' : undefined}
+            placement="inline-mid"
+            href={accommodation.href}
+            producent={accommodation.producent}
+            bezoekMaand={accommodation.bezoekMaand}
+            bezoekJaar={accommodation.bezoekJaar}
+            linkBron={accommodation.linkBron}
+            ctaLabel={accommodation.ctaLabel}
+            description={accommodation.description}
+          />
+        )}
+        {activity && (
+          <AffiliatePlaceholder
+            type="activity"
+            context={article.slug}
+            partner={activity.linkBron === 'Booking.com' ? 'booking.com' : activity.linkBron === 'GetYourGuide' ? 'getyourguide' : undefined}
+            placement="inline-end"
+            href={activity.href}
+            producent={activity.producent}
+            bezoekMaand={activity.bezoekMaand}
+            bezoekJaar={activity.bezoekJaar}
+            linkBron={activity.linkBron}
+            ctaLabel={activity.ctaLabel}
+            description={activity.description}
+          />
+        )}
       </div>
 
       <aside class="article-sidebar">
-        <AffiliatePlaceholder type="sidebar" context={article.slug} />
+        {sidebar && (
+          <AffiliatePlaceholder
+            type="sidebar"
+            context={article.slug}
+            partner={sidebar.linkBron === 'Booking.com' ? 'booking.com' : sidebar.linkBron === 'GetYourGuide' ? 'getyourguide' : undefined}
+            placement="sidebar"
+            href={sidebar.href}
+            producent={sidebar.producent}
+            bezoekMaand={sidebar.bezoekMaand}
+            bezoekJaar={sidebar.bezoekJaar}
+            linkBron={sidebar.linkBron}
+            ctaLabel={sidebar.ctaLabel}
+            description={sidebar.description}
+          />
+        )}
       </aside>
     </div>
   </article>
