@@ -17,44 +17,41 @@ export interface AffiliateBlockConfig {
 }
 
 export const AFFILIATE_BLOCKS: Record<string, AffiliateBlockConfig[]> = {
-  // === M1 ENTRIES — Lead Editor signoff 2026-05-29 (LAT-1028 comment eea04a89) ===
-  // ACTIVATION GATE: Content Writer (LAT-1029-cw) moet bezoekdocumentatie bevestigen
-  // per producent voordat deze entries uit comment gaan. Geen affiliate-blok zonder
+  // === M1 ENTRIES ===
+  // Activation governance: Content Writer ([LAT-1030](/LAT/issues/LAT-1030)) verifieert
+  // bezoek-doc per producent; Lead Editor maakt finale call. Geen affiliate-blok zonder
   // bevestigd bezoek-bewijs (Lead Editor regel #2 van /over-ons).
 
-  // Toscane — DEADLINE 2026-06-08
-  // BLOCKED: geen Toscane-artikel in src/content/posts/. Lead Editor stelde slug
-  // 'toscane-wijnreis-castello' voor; artikel bestaat niet. Optie A: Content Writer
-  // schrijft het artikel. Optie B: alternatief Toscane-onderwerp + matching producent.
-  // Geflagd bij Lead Editor + CEO.
+  // Toscane — Tenuta di Capezzana ✅ Lead Editor go (LAT-1030 comment 27226cc5).
+  // ON HOLD: geen Toscane-artikel in src/content/posts/ — CW heeft `LAT-36-toscane-draft.md`
+  // klaar in editorial workspace (Bolgheri+Montalcino+Carmignano-structuur). Wacht op
+  // Lead Editor eindredactie + publicatie van die draft, dan activeert CTO entry met
+  // de uiteindelijke slug. Capezzana-bezoek = Oktober 2024 (CW bevestigd).
 
-  // Etna — DEADLINE 2026-06-15 — wacht op CW bezoek-doc signoff
-  // 'etna-wijnreis-drie-dagen-vulkaan': [
-  //   {
-  //     location: 'activity',
-  //     producent: 'Benanti',
-  //     bezoekMaand: 'September',
-  //     bezoekJaar: 2025,
-  //     linkBron: 'directe link',
-  //     href: 'https://www.cantinebenanti.it',
-  //     ctaLabel: 'Plan je bezoek',
-  //   },
-  // ],
+  // Langhe — Produttori del Barbaresco (vervanger voor Cascina delle Rose per
+  // [LAT-1030](/LAT/issues/LAT-1030) comment 27226cc5). Volledig gedocumenteerd in
+  // `langhe-piemonte-4-dagen-route.md`: Sophie's Rabajà-moment + zes flessen mee
+  // genomen — Via Torino 54 Barbaresco. Trip = februari (artikel-narratief
+  // "Piemonte in februari"). Jaar genoteerd als 2026 obv pub-date 2026-04-15;
+  // Lead Editor mag corrigeren via comment-fix als nodig.
+  'langhe-piemonte-4-dagen-route': [
+    {
+      location: 'activity',
+      producent: 'Produttori del Barbaresco',
+      bezoekMaand: 'Februari',
+      bezoekJaar: 2026,
+      linkBron: 'directe link',
+      href: 'https://www.produttoridelbarbaresco.com',
+      ctaLabel: 'Plan je bezoek',
+    },
+  ],
 
-  // Langhe — DEADLINE 2026-06-15 — wacht op CW bezoek-doc signoff
-  // Lead Editor noemde slug 'langhe-barolo-barbaresco'; bestaande slug =
-  // 'langhe-piemonte-4-dagen-route'. Onderstaande key matched de échte slug.
-  // 'langhe-piemonte-4-dagen-route': [
-  //   {
-  //     location: 'activity',
-  //     producent: 'Cascina delle Rose',
-  //     bezoekMaand: 'November',
-  //     bezoekJaar: 2024,
-  //     linkBron: 'directe link',
-  //     href: 'https://www.cascinadellerose.it',
-  //     ctaLabel: 'Bezoek wijnhuis',
-  //   },
-  // ],
+  // Etna — Benanti ❌ Lead Editor: portret-link vervalt. Streekpagina-vermelding
+  // op /streken/etna/ blijft (enoteca-tasting format) MET wijnwinkel-affiliate-link
+  // (Vincourage/Grapedistrict voor Pietramarina Carricante). Dat is een aparte
+  // deliverable op de Etna streekpagina — niet via deze artikel-affiliate-lookup.
+  // Content Writer past LAT-884 Etna-draft aan. Geen affiliate-blok op
+  // `etna-wijnreis-drie-dagen-vulkaan` voor M1.
 };
 
 export function getAffiliateBlocks(slug: string): AffiliateBlockConfig[] {
