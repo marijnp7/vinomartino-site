@@ -14,6 +14,9 @@ aantal_streken: 2
 beste_seizoen: ["april", "mei", "oktober"]
 martin_bezocht: true
 tags: ["spanje", "wijnland", "landen-hub", "priorat", "catalonie", "licorella"]
+heroImage: "/images/landschap-priorat-001.jpg"
+name: "Spanje"
+continent: "Europa"
 ---
 
 Het eerste glas Priorat dat ik ooit dronk was een Cims de Porrera Solanes 2015 — een blend van Garnacha en Cariñena van heuvels in het binnenland van Catalonië die vanuit de auto nauwelijks begaanbaar lijken. Gekocht in een kleine wijnspeciaalzaak in Amsterdam, op de aanraden van iemand die er zelf geweest was. De wijn was donker, mineraal en vol zonder zwaar te zijn — een paradox die ik de dag erna nog steeds niet helemaal kon verklaren. Dat is de reden waarom ik een paar maanden later naar Priorat gereden ben: om te begrijpen hoe een druif op zwarte licorella-leisteen meer mineraliteit produceert dan warmte, ook bij 15,5 procent alcohol. Het antwoord zit in de bodem — dunne lagen zwarte schist die het regenwater niet vasthoudt, die de wijnstok dwingt diep te gaan voor water en daarvoor weinig fruit terug geeft. Soms 2 kilo per stok. Soms minder. Sophie keek naar de heuvels en zei: "Hier wil ik eigenlijk niet rijden." Ze bedoelde de steile paden. Ze heeft het toch gedaan.

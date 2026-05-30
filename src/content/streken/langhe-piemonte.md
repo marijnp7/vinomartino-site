@@ -12,6 +12,7 @@ mainGrapes:
   - "Moscato Bianco"
 climate: "continentaal met alpinistische koeling"
 bestTimeToVisit: "september tot november (oogst en truffelseizoen), februari-maart (laagseizoen, open kelders)"
+heroImage: "/images/landschap-langhe-001.jpg"
 knownFor:
   - "Barolo DOCG"
   - "Barbaresco DOCG"

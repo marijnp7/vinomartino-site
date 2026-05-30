@@ -14,8 +14,8 @@ aantal_streken: 4
 beste_seizoen: ["april", "mei", "september", "oktober"]
 martin_bezocht: true
 tags: ["italie", "wijnland", "landen-hub", "piemonte", "etna", "sicilie"]
-heroImage: "/images/piemonte-barolo.jpg"
-ogImage: "/images/piemonte-barolo.jpg"
+heroImage: "/images/landschap-piemonte-barolo-001.jpg"
+ogImage: "/images/landschap-piemonte-barolo-001.jpg"
 wijnstreken: ["Piemonte", "Toscane", "Etna", "Sicilië"]
 name: "Italië"
 continent: "Europa"

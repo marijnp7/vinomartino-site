@@ -11,6 +11,7 @@ mainGrapes:
   - "Pinot Blanc (Weißburgunder)"
 climate: "koel-continentaal, getempereerd door de rivier"
 bestTimeToVisit: "mei-juni (bloei), september-oktober (oogst)"
+heroImage: "/images/landschap-mosel-001.jpg"
 knownFor:
   - "Riesling Spätlese en Auslese"
   - "Blauwe leisteenbodem"

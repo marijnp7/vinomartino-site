@@ -15,6 +15,7 @@ mainGrapes:
   - "Gouveio"
 climate: "mediterraan-continentaal; extreme hitte in de zomer, strenge winters"
 bestTimeToVisit: "september-oktober (vindima/oogst), april-mei (amandelbloeisem, vroege zomer)"
+heroImage: "/images/landschap-douro-001.jpg"
 knownFor:
   - "Porto (Port wine)"
   - "Droge Douro-tafelwijnen (Redoma, Barca Velha)"
