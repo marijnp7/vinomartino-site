@@ -16,8 +16,8 @@ const schema = [
 ---
 
 <SiteLayout
-  title="Wijnhuizen — Producenten & wijnmakerijen | VinoMartino"
-  description="Ontdek de wijnhuizen achter de fles — van eigenzinnige Barolo-producenten tot vulkanische pioniers op de Etna. Persoonlijke portretten van wijnmakers die er echt toe doen."
+  title="Wijnhuizen, Producenten & wijnmakerijen | VinoMartino"
+  description="Ontdek de wijnhuizen achter de fles, van eigenzinnige Barolo-producenten tot vulkanische pioniers op de Etna. Persoonlijke portretten van wijnmakers die er echt toe doen."
   schema={schema}
   activeNav="wijnhuizen"
 >
@@ -25,7 +25,7 @@ const schema = [
     <div class="container">
       <span class="section-label">Wijnhuizen</span>
       <h1>Producenten & wijnmakerijen</h1>
-      <p class="hero-desc">Niet de fles, maar de mensen erachter. Wijnmakers die ik heb bezocht, met wie ik heb gesproken — van oude Piëmontese families tot radicale nieuwe-golf producenten op de Etna.</p>
+      <p class="hero-desc">Niet de fles, maar de mensen erachter. Wijnmakers die ik heb bezocht, met wie ik heb gesproken, van oude Piëmontese families tot radicale nieuwe-golf producenten op de Etna.</p>
     </div>
   </section>
 
@@ -38,7 +38,7 @@ const schema = [
               <SmartImg src={entry.heroImage || undefined} alt={entry.name} theme="winery" class="card-img" />
             </div>
             <div class="card-body">
-              <span class="card-region">{[entry.region, entry.country].filter(Boolean).join(' — ')}</span>
+              <span class="card-region">{[entry.region, entry.country].filter(Boolean).join(', ')}</span>
               <h2 class="card-title">{entry.name}</h2>
               {entry.description && <p class="card-desc">{entry.description}</p>}
               {entry.grapes && entry.grapes.length > 0 && (
@@ -53,7 +53,7 @@ const schema = [
     ) : (
       <div class="empty-state">
         <h2>De portretten zijn onderweg</h2>
-        <p>Elk wijnhuis krijgt één verhaal — geen scorekaart. De eerste portretten verschijnen zodra ik de bezoeken achter me heb. Begin ondertussen bij de <a href="/artikelen/">reisartikelen</a>.</p>
+        <p>Elk wijnhuis krijgt één verhaal, geen scorekaart. De eerste portretten verschijnen zodra ik de bezoeken achter me heb. Begin ondertussen bij de <a href="/artikelen/">reisartikelen</a>.</p>
       </div>
     )}
   </section>

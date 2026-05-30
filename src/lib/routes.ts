@@ -15,7 +15,7 @@ export interface WijnRoute {
     bodyHtml: string;
 }
 
-import { markdownToHtml as renderMarkdown } from './markdown';
+import { markdownToHtml as renderMarkdown, normalizeEmDashes } from './markdown';
 
 function markdownToHtml(markdown: string): Promise<string> {
     return renderMarkdown(markdown, { stripFirstH1: true });
@@ -89,8 +89,8 @@ function mapRoute(
 ): WijnRoute {
     return {
         slug: String(r.slug),
-        title: String(r.title),
-        description: String(r.description || ''),
+        title: normalizeEmDashes(String(r.title)),
+        description: normalizeEmDashes(String(r.description || '')),
         duration: String(r.duration || ''),
         transport: String(r.transport || ''),
         style: String(r.style || ''),
@@ -198,8 +198,8 @@ async function loadFromLocalFiles(): Promise<WijnRoute[]> {
         const bodyHtml = fmMatch[2] ? await markdownToHtml(fmMatch[2]) : '';
         items.push({
             slug: fm.slug || filePath.replace(/.*\//, '').replace('.md', ''),
-            title: fm.title || 'Untitled',
-            description: fm.description || '',
+            title: normalizeEmDashes(fm.title || 'Untitled'),
+            description: normalizeEmDashes(fm.description || ''),
             duration: fm.duration || '',
             transport: fm.transport || '',
             style: fm.style || '',

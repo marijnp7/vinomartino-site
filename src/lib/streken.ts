@@ -18,7 +18,7 @@ export interface Streek {
     bodyHtml: string;
 }
 
-import { markdownToHtml as renderMarkdown } from './markdown';
+import { markdownToHtml as renderMarkdown, normalizeEmDashes } from './markdown';
 
 function markdownToHtml(markdown: string): Promise<string> {
     return renderMarkdown(markdown, { stripFirstH1: true });
@@ -92,8 +92,8 @@ function mapStreek(
 ): Streek {
     return {
         slug: String(r.slug),
-        name: String(r.name),
-        description: String(r.description || ''),
+        name: normalizeEmDashes(String(r.name)),
+        description: normalizeEmDashes(String(r.description || '')),
         country: String(r.country || r.land_name || ''),
         climate: String(r.climate || ''),
         soil: String(r.soil || ''),
@@ -206,8 +206,8 @@ async function loadFromLocalFiles(): Promise<Streek[]> {
         const bodyHtml = fmMatch[2] ? await markdownToHtml(fmMatch[2]) : '';
         items.push({
             slug: fm.slug || filePath.replace(/.*\//, '').replace('.md', ''),
-            name: fm.name || fm.title || 'Untitled',
-            description: fm.description || '',
+            name: normalizeEmDashes(fm.name || fm.title || 'Untitled'),
+            description: normalizeEmDashes(fm.description || ''),
             country: fm.country || '',
             climate: fm.climate || '',
             soil: fm.soil || '',

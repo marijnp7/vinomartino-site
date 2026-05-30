@@ -1,3 +1,4 @@
+import { normalizeEmDashes } from './markdown';
 export interface Land {
     slug: string;
     name: string;
@@ -76,8 +77,8 @@ function mapWijnstreken(val: unknown): { name: string; slug?: string }[] {
 function mapLand(r: Record<string, unknown>, directusUrl: string, bodyHtml: string): Land {
     return {
         slug: String(r.slug),
-        name: String(r.name),
-        description: String(r.description || ''),
+        name: normalizeEmDashes(String(r.name)),
+        description: normalizeEmDashes(String(r.description || '')),
         continent: String(r.continent || ''),
         capital: String(r.capital || ''),
         climate: String(r.climate || ''),
@@ -174,8 +175,8 @@ async function loadFromLocalFiles(): Promise<Land[]> {
         const bodyHtml = fmMatch[2] ? await markdownToHtml(fmMatch[2]) : '';
         items.push({
             slug: fm.slug || filePath.replace(/.*\//, '').replace('.md', ''),
-            name: fm.name || fm.title || 'Untitled',
-            description: fm.description || '',
+            name: normalizeEmDashes(fm.name || fm.title || 'Untitled'),
+            description: normalizeEmDashes(fm.description || ''),
             continent: fm.continent || '',
             capital: fm.capital || '',
             climate: fm.climate || '',

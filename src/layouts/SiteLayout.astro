@@ -28,7 +28,7 @@ interface Props {
 const { title, description, canonicalUrl, ogImage, ogType, article, noindex, schema, activeNav } = Astro.props;
 
 const SITE_ORIGIN = (Astro.site ?? new URL('https://vinomartino.com')).origin;
-const pageTitle = title.includes('VinoMartino') ? title : `${title} — VinoMartino`;
+const pageTitle = title.includes('VinoMartino') ? title : `${title} | VinoMartino`;
 const canonical = canonicalUrl ?? new URL(Astro.url.pathname, Astro.site ?? 'https://vinomartino.com').href;
 
 function toAbsoluteUrl(value?: string | null): string | undefined {

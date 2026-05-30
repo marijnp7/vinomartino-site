@@ -1,5 +1,5 @@
 ---
-// LAT-1029 — Per-block disclosure line.
+// LAT-1029, Per-block disclosure line.
 // One italic line above (or below) an AffiliateBlock that names the producer,
 // the visit month/year, and the link source. Required by M1-Optie B disclosure rules.
 
@@ -23,7 +23,7 @@ const bronLabel: Record<typeof linkBron, string> = {
 
 <p class="affiliate-block-disclosure">
   Wij bezochten {producent} in {bezoekMaand.toLowerCase()} {bezoekJaar}.
-  Reservering via {bronLabel[linkBron]} — VinoMartino ontvangt commissie, prijs voor jou identiek.
+  Reservering via {bronLabel[linkBron]}, VinoMartino ontvangt commissie, prijs voor jou identiek.
 </p>
 
 <style>
