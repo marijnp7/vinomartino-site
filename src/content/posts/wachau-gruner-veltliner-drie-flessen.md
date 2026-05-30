@@ -7,6 +7,7 @@ description: "Drie flessen Wachau-Grüner uit drie verschillende lagen — Stein
 category: "tasting-notes"
 tags: ["grüner-veltliner", "wachau", "oostenrijk", "tasting-notes", "smaragd", "federspiel"]
 slug: "wachau-gruner-veltliner-drie-flessen"
+heroImage: "/images/landschap-wachau-001.jpg"
 ---
 
 # Grüner Veltliner uit de Wachau — drie flessen, drie lessen

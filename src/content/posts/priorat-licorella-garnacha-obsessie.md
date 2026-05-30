@@ -7,6 +7,7 @@ description: "Priorat is het wijngebied dat twintig jaar geleden uit de vergetel
 category: "wine-regions"
 tags: ["priorat", "garnacha", "cariñena", "spanje", "licorella", "terroir"]
 slug: "priorat-licorella-garnacha-obsessie"
+heroImage: "/images/landschap-priorat-001.jpg"
 ---
 
 # Priorat — hoe licorella-leisteen de sterkste rode wijnen van Spanje maakt

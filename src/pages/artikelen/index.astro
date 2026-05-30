@@ -1,5 +1,6 @@
 ---
 import SiteLayout from '../../layouts/SiteLayout.astro';
+import SmartImg from '../../components/SmartImg.astro';
 import { loadArticles } from '../../lib/articles';
 
 const articles = await loadArticles();
@@ -23,9 +24,9 @@ const articles = await loadArticles();
       <div class="article-grid">
         {articles.map(article => (
           <a href={`/artikelen/${article.slug}/`} class="article-card card">
-            {article.heroImage && (
-              <img src={article.heroImage} alt={article.title} loading="lazy" width="400" height="200" class="article-img" />
-            )}
+            <div class="article-img-wrap">
+              <SmartImg src={article.heroImage || undefined} alt={article.title} theme="vineyard" class="article-img" />
+            </div>
             <div class="article-body">
               {article.category && <span class="article-cat">{article.category}</span>}
               <h2 class="article-title">{article.title}</h2>
@@ -78,11 +79,19 @@ const articles = await loadArticles();
     color: inherit;
     display: block;
   }
-  .article-img {
-    width: 100%;
-    height: 200px;
-    object-fit: cover;
+  .article-img-wrap {
+    aspect-ratio: 16 / 10;
+    overflow: hidden;
+    background: var(--paperShade);
   }
+  .article-img-wrap :global(img),
+  .article-img-wrap :global(.smart-img-placeholder) {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform var(--duration-image) var(--ease-out);
+  }
+  .article-card:hover .article-img-wrap :global(img) { transform: scale(1.03); }
   .article-body {
     padding: 1.25rem;
   }

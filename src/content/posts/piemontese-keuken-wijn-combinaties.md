@@ -7,6 +7,7 @@ description: "Piemonte is het gebied waar wijn en keuken zo nauw verweven zijn d
 category: "food-pairing"
 tags: ["piemonte", "barolo", "spijs-en-wijn", "langhe", "italiaanse-keuken", "food-pairing"]
 slug: "piemontese-keuken-wijn-combinaties"
+heroImage: "/images/landschap-piemonte-barolo-001.jpg"
 ---
 
 # Wat Martin & Sophie eten in Piemonte — en welke wijn erbij
