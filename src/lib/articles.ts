@@ -134,7 +134,7 @@ function stripMetaDescriptionFromBody(markdown: string): { body: string; extract
     return { body, extracted };
 }
 
-import { markdownToHtml as renderMarkdown } from './markdown';
+import { markdownToHtml as renderMarkdown, normalizeEmDashes } from './markdown';
 
 function markdownToHtml(markdown: string): Promise<string> {
     return renderMarkdown(substituteAffiliateTokens(markdown), { stripFirstH1: true });
@@ -203,8 +203,8 @@ async function downloadArticleAsset(assetId: string, directusUrl: string, token:
 function mapArticle(a: Record<string, unknown>, heroImagePath: string | null, ogImagePath: string | null, bodyHtml: string): Article {
     return {
           slug: String(a.slug),
-          title: String(a.title),
-          description: String(a.description || ''),
+          title: normalizeEmDashes(String(a.title)),
+          description: normalizeEmDashes(String(a.description || '')),
           author: String(a.author || 'VinoMartino'),
           pubDate: String(a.pub_date || new Date().toISOString().slice(0, 10)),
           updatedAt: a.updated_at ? String(a.updated_at) : null,
@@ -213,8 +213,8 @@ function mapArticle(a: Record<string, unknown>, heroImagePath: string | null, og
           heroImage: heroImagePath,
           ogImage: ogImagePath,
           status: String(a.status || 'draft'),
-          metaTitle: String(a.meta_title || a.title),
-          metaDescription: String(a.meta_description || a.description || ''),
+          metaTitle: normalizeEmDashes(String(a.meta_title || a.title)),
+          metaDescription: normalizeEmDashes(String(a.meta_description || a.description || '')),
           bodyHtml,
     };
 }
@@ -319,8 +319,8 @@ async function loadFromLocalFiles(): Promise<Article[]> {
           const bodyHtml = cleanBody ? await markdownToHtml(cleanBody) : '';
           articles.push({
                 slug: fm.slug || filePath.replace(/.*\//, '').replace('.md', ''),
-                title: fm.title || 'Untitled',
-                description: extracted || fm.summary || fm.description || '',
+                title: normalizeEmDashes(fm.title || 'Untitled'),
+                description: normalizeEmDashes(extracted || fm.summary || fm.description || ''),
                 author: fm.author || 'VinoMartino',
                 pubDate: fm.date || fm.pubDate || new Date().toISOString().slice(0, 10),
                 updatedAt: fm.updatedAt || fm.updated_at || null,
@@ -329,8 +329,8 @@ async function loadFromLocalFiles(): Promise<Article[]> {
                 heroImage: fm.heroImage || fm.hero_image || null,
                 ogImage: fm.ogImage || fm.og_image || null,
                 status: fm.status || 'published',
-                metaTitle: fm.metaTitle || fm.title || 'Untitled',
-                metaDescription: extracted || fm.metaDescription || fm.description || '',
+                metaTitle: normalizeEmDashes(fm.metaTitle || fm.title || 'Untitled'),
+                metaDescription: normalizeEmDashes(extracted || fm.metaDescription || fm.description || ''),
                 bodyHtml,
           });
     }
