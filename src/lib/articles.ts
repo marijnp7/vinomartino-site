@@ -106,17 +106,30 @@ function stripLegacyMetaDescriptionLine(markdown: string): { body: string; extra
 
 function stripMetaDescriptionFromBody(markdown: string): { body: string; extracted: string } {
     const paragraphs = markdown.split(/\n\s*\n/);
-    let i = 0;
+    const kept: string[] = [];
     const stripped: string[] = [];
-    while (i < paragraphs.length) {
+    let scanning = true;
+    for (let i = 0; i < paragraphs.length; i++) {
         const p = paragraphs[i];
-        if (!p.trim()) { i++; continue; }
-        if (isEditorialParagraph(p)) { stripped.push(p); i++; continue; }
-        break;
+        const trimmed = p.trim();
+        if (!scanning) { kept.push(p); continue; }
+        if (!trimmed) continue;
+        if (isEditorialParagraph(p)) { stripped.push(p); continue; }
+        // Skip past leading title/subtitle headings — they are real content but should
+        // not stop us from finding the editorial block that often follows the title.
+        if (/^#{1,6}\s/.test(trimmed)) { kept.push(p); continue; }
+        // Thematic break (---) acts as separator: drop it only if it sits between
+        // editorial blocks we just stripped; otherwise keep.
+        if (/^-{3,}\s*$/.test(trimmed)) {
+            if (stripped.length > 0) continue;
+            kept.push(p);
+            continue;
+        }
+        scanning = false;
+        kept.push(p);
     }
     if (stripped.length === 0) return stripLegacyMetaDescriptionLine(markdown);
-    if (i < paragraphs.length && /^-{3,}\s*$/.test(paragraphs[i].trim())) i++;
-    const body = paragraphs.slice(i).join('\n\n');
+    const body = kept.join('\n\n');
     const extracted = extractMetaDescriptionFromEditorial(stripped);
     return { body, extracted };
 }
@@ -261,20 +274,7 @@ async function loadFromDirectus(url: string, token: string): Promise<Article[]> 
     const items = await Promise.all(
           data.map(async (a) => {
                   const rawBody = String(a.body || '');
-                  // LAT-1061 diagnostic: log hex-prefix + first-paragraph shape for the
-                  // Champagne-Aube article zodat we de echte body-structuur kunnen zien.
-                  if (a.slug === 'champagne-aube-grower-route') {
-                      const head = rawBody.slice(0, 400);
-                      const hex = Buffer.from(head, 'utf-8').slice(0, 60).toString('hex');
-                      const firstPara = rawBody.split(/\n\s*\n/)[0] ?? '';
-                      console.log(`[LAT-1061] aube body head hex=${hex}`);
-                      console.log(`[LAT-1061] aube first-paragraph (${firstPara.length} chars):\n${firstPara}`);
-                      console.log(`[LAT-1061] aube first-paragraph repr: ${JSON.stringify(firstPara.slice(0, 300))}`);
-                  }
                   const { body: cleanBody, extracted } = stripMetaDescriptionFromBody(rawBody);
-                  if (a.slug === 'champagne-aube-grower-route') {
-                      console.log(`[LAT-1061] aube cleanBody starts with: ${JSON.stringify(cleanBody.slice(0, 200))}`);
-                  }
                   if (extracted && !a.meta_description) {
                             a.meta_description = extracted;
                   }
