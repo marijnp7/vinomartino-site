@@ -261,7 +261,20 @@ async function loadFromDirectus(url: string, token: string): Promise<Article[]> 
     const items = await Promise.all(
           data.map(async (a) => {
                   const rawBody = String(a.body || '');
+                  // LAT-1061 diagnostic: log hex-prefix + first-paragraph shape for the
+                  // Champagne-Aube article zodat we de echte body-structuur kunnen zien.
+                  if (a.slug === 'champagne-aube-grower-route') {
+                      const head = rawBody.slice(0, 400);
+                      const hex = Buffer.from(head, 'utf-8').slice(0, 60).toString('hex');
+                      const firstPara = rawBody.split(/\n\s*\n/)[0] ?? '';
+                      console.log(`[LAT-1061] aube body head hex=${hex}`);
+                      console.log(`[LAT-1061] aube first-paragraph (${firstPara.length} chars):\n${firstPara}`);
+                      console.log(`[LAT-1061] aube first-paragraph repr: ${JSON.stringify(firstPara.slice(0, 300))}`);
+                  }
                   const { body: cleanBody, extracted } = stripMetaDescriptionFromBody(rawBody);
+                  if (a.slug === 'champagne-aube-grower-route') {
+                      console.log(`[LAT-1061] aube cleanBody starts with: ${JSON.stringify(cleanBody.slice(0, 200))}`);
+                  }
                   if (extracted && !a.meta_description) {
                             a.meta_description = extracted;
                   }
