@@ -142,7 +142,12 @@ async function fetchArticlesItems(url: string, token: string): Promise<Record<st
     const env = readDirectusEnv();
     const baseFields = 'id,slug,title,description,body,pub_date,author,category,tags,hero_image,status,meta_title,meta_description';
     const withUpdatedAt = `${baseFields},updated_at`;
-    const filterSort = `${statusFilterQuery(env)}&sort=-pub_date`;
+    // LAT-1053: scheduled publish — verberg artikelen waarvan pub_date in de toekomst
+    // ligt, ook als status=published. Directus's $NOW resolvet server-side; pub_date
+    // null wordt eveneens getoond (legacy/onbekend) zodat bestaande artikelen niet
+    // ineens verdwijnen. Drafts blijven excluded via statusFilterQuery.
+    const futureGate = '&filter[_or][0][pub_date][_lte]=$NOW&filter[_or][1][pub_date][_null]=true';
+    const filterSort = `${statusFilterQuery(env)}${futureGate}&sort=-pub_date`;
     const headers = { Authorization: `Bearer ${token}` };
     const signal = AbortSignal.timeout(15000);
     let res: Response;
@@ -242,10 +247,17 @@ async function loadFromLocalFiles(): Promise<Article[]> {
     return articles;
 }
 
+function filterLocalByPubDate(items: Article[]): Article[] {
+    // LAT-1053: mirror de Directus pub_date<=$NOW gate voor lokale fallback. Vergelijking
+    // op ISO-prefix (YYYY-MM-DD) houdt 't tijdzone-vrij; null/lege pubDate blijft zichtbaar.
+    const todayIso = new Date().toISOString().slice(0, 10);
+    return items.filter((i) => !i.pubDate || i.pubDate.slice(0, 10) <= todayIso);
+}
+
 export async function loadArticles(): Promise<Article[]> {
     const env = readDirectusEnv();
     if (env.configured) return loadFromDirectus(env.url, env.token);
     assertLocalFallbackAllowed('loadArticles', env);
     console.warn(`[loadArticles] Directus not configured — loading from local files (ALLOW_LOCAL_CONTENT_FALLBACK=1)`);
-    return filterLocalByStatus(await loadFromLocalFiles(), env);
+    return filterLocalByPubDate(filterLocalByStatus(await loadFromLocalFiles(), env));
 }
