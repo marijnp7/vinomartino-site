@@ -40,7 +40,7 @@ const schema = [
 <SiteLayout
   title={article.metaTitle || article.title}
   description={article.metaDescription || article.description}
-  ogImage={article.heroImage || undefined}
+  ogImage={article.ogImage || article.heroImage || undefined}
   ogType="article"
   article={{
     publishedTime: article.pubDate,

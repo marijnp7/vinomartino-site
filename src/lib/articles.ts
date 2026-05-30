@@ -8,6 +8,7 @@ export interface Article {
     category: string;
     tags: string[];
     heroImage: string | null;
+    ogImage: string | null;
     status: string;
     metaTitle: string;
     metaDescription: string;
@@ -86,7 +87,7 @@ import {
     assertLocalFallbackAllowed,
 } from './directus-config';
 
-async function downloadHeroImage(assetId: string, directusUrl: string, token: string): Promise<string | null> {
+async function downloadArticleAsset(assetId: string, directusUrl: string, token: string): Promise<string | null> {
     const { writeFileSync, mkdirSync, existsSync } = await import('node:fs');
     const { join } = await import('node:path');
     const outDir = join(process.cwd(), 'public', 'images', 'articles');
@@ -111,7 +112,7 @@ async function downloadHeroImage(assetId: string, directusUrl: string, token: st
     }
 }
 
-function mapArticle(a: Record<string, unknown>, heroImagePath: string | null, bodyHtml: string): Article {
+function mapArticle(a: Record<string, unknown>, heroImagePath: string | null, ogImagePath: string | null, bodyHtml: string): Article {
     return {
           slug: String(a.slug),
           title: String(a.title),
@@ -122,6 +123,7 @@ function mapArticle(a: Record<string, unknown>, heroImagePath: string | null, bo
           category: String(a.category || ''),
           tags: (a.tags as string[]) || [],
           heroImage: heroImagePath,
+          ogImage: ogImagePath,
           status: String(a.status || 'draft'),
           metaTitle: String(a.meta_title || a.title),
           metaDescription: String(a.meta_description || a.description || ''),
@@ -140,7 +142,7 @@ function mapArticle(a: Record<string, unknown>, heroImagePath: string | null, bo
  */
 async function fetchArticlesItems(url: string, token: string): Promise<Record<string, unknown>[]> {
     const env = readDirectusEnv();
-    const baseFields = 'id,slug,title,description,body,pub_date,author,category,tags,hero_image,status,meta_title,meta_description';
+    const baseFields = 'id,slug,title,description,body,pub_date,author,category,tags,hero_image,og_image,status,meta_title,meta_description';
     const withUpdatedAt = `${baseFields},updated_at`;
     // LAT-1053: scheduled publish — verberg artikelen waarvan pub_date in de toekomst
     // ligt, ook als status=published. Directus's $NOW resolvet server-side; pub_date
@@ -193,10 +195,11 @@ async function loadFromDirectus(url: string, token: string): Promise<Article[]> 
                             if (firstPara.length > 30) a.description = firstPara.slice(0, 160);
                   }
                   const bodyHtml = cleanBody ? await markdownToHtml(cleanBody) : '';
-                  const heroImagePath = a.hero_image
-                        ? await downloadHeroImage(String(a.hero_image), url, token)
-                        : null;
-                  return mapArticle(a, heroImagePath, bodyHtml);
+                  const [heroImagePath, ogImagePath] = await Promise.all([
+                        a.hero_image ? downloadArticleAsset(String(a.hero_image), url, token) : Promise.resolve(null),
+                        a.og_image ? downloadArticleAsset(String(a.og_image), url, token) : Promise.resolve(null),
+                  ]);
+                  return mapArticle(a, heroImagePath, ogImagePath, bodyHtml);
           }),
         );
     console.log(`[loadArticles] fetched ${items.length} articles from Directus`);
@@ -236,6 +239,7 @@ async function loadFromLocalFiles(): Promise<Article[]> {
                 category: fm.category || '',
                 tags: parseFrontmatterList(fm.tags),
                 heroImage: fm.heroImage || fm.hero_image || null,
+                ogImage: fm.ogImage || fm.og_image || null,
                 status: fm.status || 'published',
                 metaTitle: fm.metaTitle || fm.title || 'Untitled',
                 metaDescription: extracted || fm.metaDescription || fm.description || '',
