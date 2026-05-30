@@ -13,18 +13,18 @@ const schema = [
 const rules = [
   {
     n: '01',
-    h: 'Geen affiliate-lijstjes',
-    d: 'We linken niet naar Booking.com voor commissie. Als we een hotel aanbevelen is het omdat we er zelf hebben geslapen.',
+    h: 'Ik schrijf niet over plekken waar ik niet ben geweest',
+    d: 'Elk wijnhuis- of streekportret is gebaseerd op eigen bezoek, gedocumenteerd in mijn reisdagboeken. Dat klinkt voor de hand liggend. Is het kennelijk niet.',
   },
   {
     n: '02',
-    h: 'Geen sponsoring',
-    d: 'Wijnhuizen betalen ons niet voor een vermelding. Dat zou ons oordeel vertroebelen — en zou je het door hebben.',
+    h: 'Affiliate alleen voor wat we zelf hebben getest',
+    d: 'Als een artikel een boekingslink bevat, hebben Sophie of ik die plek bezocht. We ontvangen commissie bij een boeking — de prijs blijft gelijk. Welke wijnhuizen en accommodaties in aanmerking komen voor een link, bepaal ik op basis van bezoekdocumentatie, niet op basis van wie er om vraagt.',
   },
   {
     n: '03',
-    h: 'Eerlijke proefnotities',
-    d: 'Niet alles wat we proeven is goed. We schrijven het op zoals we het ervaren, ook als dat negatief is.',
+    h: 'Geen advertorials, geen betaalde stukken',
+    d: 'Aanbevelingen zijn onafhankelijk van externe financiering. Affiliate-inkomsten financieren nieuwe bezoeken en het voortbestaan van VinoMartino. Ze bepalen niet wat ik schrijf.',
   },
 ];
 
@@ -43,30 +43,45 @@ const visited = [
 ---
 
 <SiteLayout
-  title="Over Martin & Sophie — VinoMartino"
-  description="Martin en Sophie schrijven over wijnreizen in Europa — eerlijk, persoonlijk en ongefilterd."
+  title="Over VinoMartino — Martin & Sophie"
+  description="Martin schrijft over wijnreizen vanuit eigen bezoek. Affiliate alleen voor plekken die we zelf hebben getest. Geen advertorials."
   schema={schema}
   activeNav="over-ons"
 >
   <section class="hero">
     <div class="hero-grid container">
       <div class="hero-text">
-        <span class="kicker kicker-vine">Wie zijn wij</span>
-        <h1>Hi! Wij zijn <em>Martin &amp; Sophie</em></h1>
+        <span class="kicker kicker-vine">Over VinoMartino</span>
+        <h1>Hi! Ik ben <em>Martin</em></h1>
         <p class="lede">
-          Een Nederlander uit de Rhône en een halve Italiaanse uit Piemonte, samen sinds 2017.
-          We schrijven over wijnreizen omdat we ze zelf maken — niet omdat iemand ons betaalt.
+          Ik woon in Amsterdam, heb WSET Level 4 op zak en een wijnkoelkast die structureel te vol is voor een appartement van dit formaat.
+          Twee keer per jaar rij ik een smalle Fiat door Piemontese wijngaardpaden — of Siciliaanse, of Portugese, afhankelijk van het seizoen —
+          en de rest van het jaar schrijf ik op wat ik daar vond.
         </p>
       </div>
       <div class="hero-image" aria-hidden="true">
-        <span class="placeholder-tag">foto · Martin &amp; Sophie in de Rhône</span>
+        <span class="placeholder-tag">foto · Martin in de wijngaard</span>
       </div>
+    </div>
+  </section>
+
+  <section class="intro">
+    <div class="container container-narrow">
+      <p>
+        VinoMartino begon als een notitieboekje. Na elke reis verzamelde ik aantekeningen: de wijnmaker die ons op woensdagmiddag zijn kelderrand
+        liet proeven, het agriturismo met drie streepjes mobiel bereik waar ik toch uitstekend sliep, de Carricante die ik pas thuis begreep.
+        Op een gegeven moment was het notitieboekje zo vol dat het nuttig begon te worden voor anderen die dezelfde reizen plannen. Dat is dit.
+      </p>
+      <p>
+        Sophie reist mee op vrijwel alle reizen. Ze heeft haar eigen smaak — oranje wijnen en Grüner Veltliner — en een tolerantiedrempel
+        voor mijn terroir-monologen die ik wisselend succesvol overschrijd. Haar naam duikt op in de stukken wanneer het verhaal dat vraagt.
+      </p>
     </div>
   </section>
 
   <section class="rules">
     <div class="container container-narrow">
-      <span class="kicker kicker-burgundy">§ Hoe we werken</span>
+      <span class="kicker kicker-burgundy">§ Hoe dit werkt</span>
       <h2>Drie regels</h2>
       <ol class="rules-list">
         {rules.map((r) => (
@@ -178,6 +193,19 @@ const visited = [
     background: var(--color-bg);
     padding: 0.5rem 1rem;
   }
+
+  .intro {
+    padding: clamp(40px, 6vw, 64px) 0;
+    border-bottom: 1px solid var(--color-rule, #C9B98F);
+  }
+  .intro p {
+    font-family: var(--font-serif, var(--font-body));
+    font-size: 1.0625rem;
+    line-height: 1.75;
+    color: var(--color-text);
+    margin: 0 0 1.5rem;
+  }
+  .intro p:last-child { margin-bottom: 0; }
 
   .rules {
     padding: clamp(48px, 8vw, 80px) 0;
