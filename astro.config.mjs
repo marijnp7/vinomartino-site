@@ -47,6 +47,13 @@ export default defineConfig({
         if (item.url.includes('/artikelen/')) {
           return { ...item, priority: 0.7, changefreq: 'monthly' };
         }
+        // Auteurs index + detail pages (E-E-A-T signal)
+        if (item.url === 'https://vinomartino.com/auteurs/') {
+          return { ...item, priority: 0.6, changefreq: 'monthly' };
+        }
+        if (item.url.match(/\/auteurs\/[^/]+\/$/)) {
+          return { ...item, priority: 0.55, changefreq: 'monthly' };
+        }
         // Static pages (over-ons, privacy, etc.)
         return { ...item, priority: 0.4, changefreq: 'yearly' };
       },

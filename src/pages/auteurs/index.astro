@@ -1,0 +1,168 @@
+---
+import SiteLayout from '../../layouts/SiteLayout.astro';
+import { AUTHORS } from '../../lib/authors';
+import { breadcrumbSchema } from '../../lib/seo';
+
+const SITE_URL = 'https://vinomartino.com';
+const pageUrl = new URL('/auteurs/', Astro.site ?? SITE_URL).href;
+
+const schema = [
+  breadcrumbSchema([
+    { name: 'Home', url: '/' },
+    { name: 'Auteurs', url: pageUrl },
+  ]),
+];
+---
+
+<SiteLayout
+  title="Auteurs — VinoMartino"
+  description="Wie schrijft VinoMartino? Maak kennis met Martin en Sophie — de twee schrijvers achter onze wijnreizen en proefnotities."
+  schema={schema}
+>
+  <section class="auteurs container">
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+      <a href="/">Home</a> / <span>Auteurs</span>
+    </nav>
+
+    <header class="auteurs-header">
+      <span class="kicker">Auteurs</span>
+      <h1>Wie schrijft VinoMartino</h1>
+      <p class="lead">Twee schrijvers, één notitieboekje per reis. Hieronder vindt u wie er achter de stukken zit.</p>
+    </header>
+
+    <ul class="auteurs-grid">
+      {AUTHORS.map((author) => (
+        <li class="auteur-card">
+          <a href={`/auteurs/${author.slug}/`} class="auteur-link">
+            {author.portrait && (
+              <div class="auteur-portrait">
+                <img src={author.portrait} alt={author.portraitAlt} width="280" height="280" loading="lazy" />
+              </div>
+            )}
+            <div class="auteur-body">
+              <h2>{author.name}</h2>
+              <p>{author.bio}</p>
+              <span class="read-more">Lees artikelen van {author.name} →</span>
+            </div>
+          </a>
+        </li>
+      ))}
+    </ul>
+  </section>
+</SiteLayout>
+
+<style>
+  .auteurs {
+    padding: var(--space-12) 0 var(--space-16);
+    max-width: 60rem;
+  }
+  .breadcrumb {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--inkFaint);
+    margin-bottom: var(--space-8);
+  }
+  .breadcrumb a {
+    color: var(--inkSoft);
+    text-decoration: none;
+  }
+  .breadcrumb a:hover { text-decoration: underline; }
+
+  .auteurs-header {
+    margin-bottom: var(--space-12);
+  }
+  .kicker {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: var(--rust);
+    display: block;
+    margin-bottom: var(--space-3);
+  }
+  .auteurs-header h1 {
+    font-family: var(--font-display);
+    font-size: clamp(2.25rem, 1.8rem + 1.6vw, 3.25rem);
+    font-style: italic;
+    font-weight: 400;
+    color: var(--ink);
+    line-height: 1.1;
+    margin-bottom: var(--space-4);
+  }
+  .lead {
+    font-family: var(--font-body);
+    font-size: 1.0625rem;
+    color: var(--inkSoft);
+    line-height: 1.7;
+    max-width: 36rem;
+  }
+
+  .auteurs-grid {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-10);
+  }
+  .auteur-card {
+    border-top: 1px solid var(--color-border-light, rgba(0, 0, 0, 0.08));
+    padding-top: var(--space-10);
+  }
+  .auteur-link {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: var(--space-8);
+    align-items: start;
+    text-decoration: none;
+    color: inherit;
+  }
+  .auteur-portrait {
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+  }
+  .auteur-portrait img {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    display: block;
+  }
+  .auteur-body h2 {
+    font-family: var(--font-display);
+    font-size: 1.875rem;
+    font-style: italic;
+    font-weight: 400;
+    color: var(--ink);
+    margin: 0 0 var(--space-3);
+  }
+  .auteur-link:hover .auteur-body h2 {
+    color: var(--burgundy);
+  }
+  .auteur-body p {
+    font-family: var(--font-body);
+    font-size: 1rem;
+    color: var(--ink);
+    line-height: 1.7;
+    margin: 0 0 var(--space-4);
+  }
+  .read-more {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--burgundy);
+  }
+
+  @media (max-width: 720px) {
+    .auteur-link {
+      grid-template-columns: 1fr;
+      gap: var(--space-5);
+    }
+    .auteur-portrait {
+      max-width: 200px;
+    }
+  }
+</style>
