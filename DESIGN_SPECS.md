@@ -99,13 +99,15 @@ Pas `root` aan naar het pad dat in `Dockerfile` / compose wordt gemount.
 
 ### Asset-mapping-tabel (#5 bijlage)
 
-**Bijgewerkt na audit [LAT-1069](/LAT/issues/LAT-1069) — 2026-05-30. Nieuwe naamconventie: `portret-{slug}-{id}.jpg` voor wijnhuizen, `landschap-{streek}-{id}.jpg` voor streken/routes.**
+**Bijgewerkt na audit [LAT-1069](/LAT/issues/LAT-1069) — 2026-05-30. Bijgewerkt na refinement [LAT-1070](/LAT/issues/LAT-1070) — 2026-05-30.**
 
-| Type | Slug | Asset (nieuw) | Locatie | Bron |
+**Naamconventie:** `wijnhuis-{slug}-{id}.jpg` voor wijnhuizen (sfeerfoto's, niet-persoonsportretten), `portret-{slug}-{id}.jpg` gereserveerd voor toekomstige daadwerkelijke persoonsportretten (fotograaf-outreach v2.2), `landschap-{streek}-{id}.jpg` voor streken/routes.
+
+| Type | Slug | Asset | Locatie | Bron |
 | --- | --- | --- | --- | --- |
-| wijnhuis | bartolo-mascarello-barolo | `portret-bartolo-mascarello-001.jpg` | `public/images/` | Unsplash / Alfonso Betancourt |
-| wijnhuis | cornelissen-etna-sicilie | `portret-cornelissen-etna-001.jpg` | `public/images/` | Unsplash / Caitlyn Vermeij |
-| wijnhuis | niepoort-douro-portugal | `portret-niepoort-douro-001.jpg` | `public/images/` | Unsplash / Eduardo Lages |
+| wijnhuis | bartolo-mascarello-barolo | `wijnhuis-bartolo-mascarello-001.jpg` | `public/images/` | Unsplash / Alfonso Betancourt |
+| wijnhuis | cornelissen-etna-sicilie | `wijnhuis-cornelissen-etna-001.jpg` | `public/images/` | Unsplash / Caitlyn Vermeij |
+| wijnhuis | niepoort-douro-portugal | `wijnhuis-niepoort-douro-001.jpg` | `public/images/` | Unsplash / Eduardo Lages |
 | wijnroute | etna-noord-randazzo-solicchiata | `landschap-etna-noord-001.jpg` | `public/images/` | Unsplash / Caitlyn Vermeij |
 | wijnroute | mosel-bernkastel-traben-trarbach | `landschap-mosel-route-001.jpg` | `public/images/` | Unsplash / Chris Weiher |
 | wijnroute | priorat-porrera-gratallops | `landschap-priorat-route-001.jpg` | `public/images/` | Unsplash / Ryleigh Henschen |

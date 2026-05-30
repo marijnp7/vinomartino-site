@@ -10,7 +10,7 @@ grapes: ["Touriga Nacional", "Touriga Franca", "Tinta Roriz", "Tinta Barroca", "
 established: 1842
 address: "Rua Infante D. Henrique 16, Vila Nova de Gaia, Porto"
 website: "niepoort-vinhos.com"
-heroImage: "/images/portret-niepoort-douro-001.jpg"
+heroImage: "/images/wijnhuis-niepoort-douro-001.jpg"
 description: "Vijf generaties Nederlanders in de Douro, opgericht in 1842 in Gaia. Dirk Niepoort nam het huis over van zijn vader en besloot dat de Douro meer was dan Port. De Redoma-lijn — Branco van Rabigato en Viosinho, Tinto met voettrapwerk in granite kuipen — maakte droge Douro-wijnen voordat de wereld ze kende. Vintage ports blijven: de 1987 die ik dronk op zijn 23ste jaar was zijdezacht, pruimen en walnoten, met een neus van de vallei zelf. Dat huis beheerst beide registers, en het voelt nooit als een compromis."
 ---
 

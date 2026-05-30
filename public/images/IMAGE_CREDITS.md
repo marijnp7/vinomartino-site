@@ -7,13 +7,15 @@ Audit uitgevoerd: 2026-05-30 — [LAT-1069](/LAT/issues/LAT-1069)
 
 ---
 
-## Wijnhuizen (portret-stijl)
+## Wijnhuizen (wijnhuis-stijl)
+
+*Noot: `portret-` prefix is gereserveerd voor toekomstige assets die een daadwerkelijk persoonsportret van de wijnmaker tonen (fotograaf-outreach v2.2). Huidige wijnhuis-assets gebruiken `wijnhuis-` prefix.*
 
 | Bestand | Beschrijving | Fotograaf | Unsplash-profiel | Foto-URL | Locatie |
 |---|---|---|---|---|---|
-| `portret-bartolo-mascarello-001.jpg` | Vrouw in wijnkelder bij grote vaten | Alfonso Betancourt | @tigredemar | [unsplash.com/photos/K9VyHt8AHWk](https://unsplash.com/photos/K9VyHt8AHWk) | — |
-| `portret-cornelissen-etna-001.jpg` | Wijngaard met Etna-vulkaan op achtergrond, Castiglione di Sicilia | Caitlyn Vermeij | @caitlynvermeij | [unsplash.com/photos/DRhKeDhEdxc](https://unsplash.com/photos/DRhKeDhEdxc) | Etna, Castiglione di Sicilia, Italië |
-| `portret-niepoort-douro-001.jpg` | Douro-vallei, terraswijngaarden en rivier | Eduardo Lages | @hed | [unsplash.com/photos/VA0_KpCUnTk](https://unsplash.com/photos/VA0_KpCUnTk) | Douro, Portugal |
+| `wijnhuis-bartolo-mascarello-001.jpg` | Vrouw in wijnkelder bij grote vaten | Alfonso Betancourt | @tigredemar | [unsplash.com/photos/K9VyHt8AHWk](https://unsplash.com/photos/K9VyHt8AHWk) | — |
+| `wijnhuis-cornelissen-etna-001.jpg` | Wijngaard met Etna-vulkaan op achtergrond, Castiglione di Sicilia | Caitlyn Vermeij | @caitlynvermeij | [unsplash.com/photos/DRhKeDhEdxc](https://unsplash.com/photos/DRhKeDhEdxc) | Etna, Castiglione di Sicilia, Italië |
+| `wijnhuis-niepoort-douro-001.jpg` | Douro-vallei, terraswijngaarden en rivier | Eduardo Lages | @hed | [unsplash.com/photos/VA0_KpCUnTk](https://unsplash.com/photos/VA0_KpCUnTk) | Douro, Portugal |
 
 ---
 
@@ -67,4 +69,4 @@ Audit uitgevoerd: 2026-05-30 — [LAT-1069](/LAT/issues/LAT-1069)
 - `landschap-priorat-001.jpg` en `landschap-priorat-route-001.jpg`: zelfde bronfoto, andere crop-parameter. Prioriteit: bij beschikbaarheid van betere Priorat-specifieke foto (llicorella-leisteen, Gratallops, Porrera) vervangen. Geen gratis Unsplash-equivalent beschikbaar op 2026-05-30.
 - `landschap-pfalz-001.jpg`: bronlocatie is Kernen im Remstal (Württemberg), niet formeel Pfalz. Geografisch naburig Duits wijngebied met vergelijkbaar landschap. Bij gelegenheid vervangen door Pfalz-specifieke foto.
 - `landschap-oogst-seizoen-001.jpg`: opnamelocatie Oregon, USA. Druivenoogst is universeel visueel. Acceptabel voor seizoenscontent; bij gelegenheid vervangen door Europese oogstfoto.
-- `landschap-etna-sicilie-001.jpg` en `portret-cornelissen-etna-001.jpg` en `landschap-etna-noord-001.jpg`: alle drie gebruik van dezelfde bronopname (Caitlyn Vermeij). Visueel onderscheid door crop-variant. Vervangen zodra tweede gratis Etna-foto beschikbaar.
+- `landschap-etna-sicilie-001.jpg` en `wijnhuis-cornelissen-etna-001.jpg` en `landschap-etna-noord-001.jpg`: alle drie gebruik van dezelfde bronopname (Caitlyn Vermeij). Visueel onderscheid door crop-variant. Vervangen zodra tweede gratis Etna-foto beschikbaar.
