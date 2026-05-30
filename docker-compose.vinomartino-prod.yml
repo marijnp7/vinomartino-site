@@ -6,6 +6,8 @@ services:
     volumes:
       - ./dist:/usr/share/nginx/html:ro
       - ./nginx-prod.conf:/etc/nginx/conf.d/default.conf:ro
+      # LAT-1026: htpasswd for /intern/ basic-auth.
+      - ./htpasswd:/etc/nginx/.htpasswd:ro
     mem_limit: 128m
     labels:
       - "traefik.enable=true"
@@ -15,9 +17,14 @@ services:
       - "traefik.http.services.vinomartino.loadbalancer.server.port=80"
     networks:
       - paperclip_default
+      # LAT-1026: reach vinomartino-directus-1 for /api/clicks/affiliate proxy.
+      - directus_directus_net
 
 networks:
   paperclip_default:
     external: true
     name: paperclip_default
+  directus_directus_net:
+    external: true
+    name: directus_directus_net
 
