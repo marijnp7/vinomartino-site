@@ -34,6 +34,16 @@ async function api(method, path, body) {
   return res.status === 204 ? null : res.json();
 }
 
+// Directus returns 409 'already exists' for duplicate collections/fields, but
+// 400 'already has an associated relationship' for duplicate relations. Treat
+// both as idempotent so re-runs on a bootstrapped schema are no-ops.
+function isAlreadyExists(e) {
+  const m = e.message;
+  return m.includes('already exists')
+    || m.includes('409')
+    || m.includes('already has an associated relationship');
+}
+
 async function createCollection(collection, meta = {}) {
   console.log(`Creating collection: ${collection}`);
   try {
@@ -43,7 +53,7 @@ async function createCollection(collection, meta = {}) {
       schema: {},
     });
   } catch (e) {
-    if (e.message.includes('already exists') || e.message.includes('409')) {
+    if (isAlreadyExists(e)) {
       console.log(`  ↳ already exists`);
     } else throw e;
   }
@@ -54,7 +64,7 @@ async function createField(collection, field) {
   try {
     await api('POST', `/fields/${collection}`, field);
   } catch (e) {
-    if (e.message.includes('already exists') || e.message.includes('409')) {
+    if (isAlreadyExists(e)) {
       console.log(`    ↳ already exists`);
     } else throw e;
   }
@@ -65,7 +75,7 @@ async function createRelation(relation) {
   try {
     await api('POST', '/relations', relation);
   } catch (e) {
-    if (e.message.includes('already exists') || e.message.includes('409')) {
+    if (isAlreadyExists(e)) {
       console.log(`    ↳ already exists`);
     } else throw e;
   }
