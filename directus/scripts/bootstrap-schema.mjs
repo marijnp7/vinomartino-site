@@ -121,7 +121,7 @@ const statusField = () => ({
 const imageField = (field = 'hero_image') => ({
   field,
   type: 'uuid',
-  meta: { interface: 'file-image', width: 'full' },
+  meta: { interface: 'file-image', width: 'full', special: ['file'], display: 'image' },
   schema: { is_nullable: true },
 });
 
