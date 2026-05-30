@@ -15,8 +15,7 @@ const streken = (await loadStreken()).slice(0, 3);
 
 const schema = organizationSchema();
 
-const HERO_IMAGE_DESKTOP = '/images/landschap-langhe-001.jpg';
-const HERO_IMAGE_MOBILE = '/images/landschap-douro-vallei-001.jpg';
+const HERO_IMAGE = '/images/landschap-piemonte-barolo-001.jpg';
 
 const editorialStreken = [
   {
@@ -24,7 +23,7 @@ const editorialStreken = [
     eyebrow: 'Italië',
     blurb: 'Nebbiolo, mist en truffels, de Langhe is het Piemonte dat zijn beloftes waarmaakt.',
     href: '/streken/langhe-piemonte/',
-    image: '/images/landschap-piemonte-barolo-001.jpg',
+    image: '/images/landschap-langhe-001.jpg',
   },
   {
     name: 'Douro',
@@ -62,21 +61,20 @@ function formatDate(value?: string | null) {
 <SiteLayout
   title="VinoMartino: Wijnreizen door Europa"
   description="Image-led wijnreis-verhalen, routes en proefnotities door Piemonte, Douro, Etna, Mosel en verder, geschreven door wijnliefhebbers die zelf op pad gaan."
-  ogImage={HERO_IMAGE_DESKTOP}
+  ogImage={HERO_IMAGE}
   schema={schema}
 >
   <section class="hero" aria-label="Wijnreizen door Europa">
-    <picture class="hero-media">
-      <source media="(min-width: 768px)" srcset={HERO_IMAGE_DESKTOP} />
+    <div class="hero-media">
       <img
-        src={HERO_IMAGE_MOBILE}
-        alt="Wijngaarden in de Langhe in herfstkleur, Barolo, Piemonte"
-        width="1920"
-        height="1080"
+        src={HERO_IMAGE}
+        alt="Golden-hour wijngaardlandschap in de Langhe, pad door de vines richting Barolo, Piemonte"
+        width="1600"
+        height="1067"
         fetchpriority="high"
         decoding="async"
       />
-    </picture>
+    </div>
     <div class="hero-veil" aria-hidden="true"></div>
     <div class="hero-inner container">
       <span class="hero-eyebrow">VinoMartino, sinds de oogst van 2024</span>
