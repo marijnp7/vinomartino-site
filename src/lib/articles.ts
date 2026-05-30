@@ -17,6 +17,64 @@ export interface Article {
 
 const META_DESC_RE = /^\s*\*{0,2}Meta-description:?\*{0,2}\s*/i;
 
+// LAT-1061: redactionele metadata-headers die Lead Editor soms in de Directus
+// `body` plakt (bv. "**Byline:** ...", "**SEO Meta-title:** ...") horen NIET
+// als prose op de site. Normaliseer op lowercase, strip optionele afmetingen
+// tussen haakjes (bv. "Hero image (1600×900)" → "hero image").
+const EDITORIAL_KEYS = new Set<string>([
+    'byline', 'auteur', 'author',
+    'slug',
+    'pub-datum', 'pubdatum', 'pub date', 'publicatie', 'publicatiedatum', 'publish date',
+    'pillar', 'rubriek', 'sectie', 'category', 'categorie',
+    'woordtelling', 'word count', 'aantal woorden',
+    'status',
+    'titel', 'title',
+    'seo meta-title', 'seo meta title', 'meta-title', 'meta title', 'meta-titel', 'meta titel',
+    'seo meta-description', 'seo meta description', 'meta-description', 'meta description',
+    'focus keyword', 'focus-keyword',
+    'secundair keyword', 'secundaire keyword', 'secundair keywords', 'secundaire keywords',
+    'keywords', 'keyword',
+    'hero image', 'hero', 'header image', 'headerafbeelding',
+    'og image', 'og-image', 'og / social image', 'og/social image', 'social image', 'og social image',
+    'alt-tekst', 'alt tekst', 'alttekst', 'alt text', 'alt', 'alternative text',
+    'fotocredit', 'foto-credit', 'foto credit', 'photo credit', 'image credit', 'credit', 'beeldcredit',
+    'intern', 'internal', 'redactioneel', 'redactionele notitie', 'editorial',
+]);
+
+const KEY_LABEL_RE = /\*\*([^*\n]+?):\*\*/g;
+
+function normalizeEditorialKey(raw: string): string {
+    const norm = raw.replace(/\s+/g, ' ').trim().toLowerCase();
+    if (EDITORIAL_KEYS.has(norm)) return norm;
+    const base = norm.replace(/\s*\([^)]*\)\s*$/, '').trim();
+    return EDITORIAL_KEYS.has(base) ? base : norm;
+}
+
+function isEditorialParagraph(paragraph: string): boolean {
+    const lines = paragraph.split('\n').map((l) => l.trim()).filter(Boolean);
+    if (lines.length === 0) return false;
+    let editorialKeyFound = false;
+    for (const line of lines) {
+        if (!line.startsWith('**')) return false;
+        const matches = [...line.matchAll(KEY_LABEL_RE)];
+        if (matches.length === 0) return false;
+        for (const m of matches) {
+            const key = normalizeEditorialKey(m[1]);
+            if (EDITORIAL_KEYS.has(key)) editorialKeyFound = true;
+        }
+    }
+    return editorialKeyFound;
+}
+
+function extractMetaDescriptionFromEditorial(blocks: string[]): string {
+    const re = /\*\*(?:SEO\s+)?Meta[\s-]?description:?\*\*\s*([^\n*]+?)(?=\s*\n|\s*\*\*[^*]+:\*\*|$)/i;
+    for (const b of blocks) {
+        const m = b.match(re);
+        if (m && m[1]) return m[1].trim();
+    }
+    return '';
+}
+
 function parseFrontmatterList(value: string | undefined): string[] {
     if (!value) return [];
     const trimmed = value.trim();
@@ -31,19 +89,36 @@ function parseFrontmatterList(value: string | undefined): string[] {
     return trimmed.split(',').map((t) => t.trim().replace(/^["']|["']$/g, '')).filter(Boolean);
 }
 
-function stripMetaDescriptionFromBody(markdown: string): { body: string; extracted: string } {
+function stripLegacyMetaDescriptionLine(markdown: string): { body: string; extracted: string } {
     const lines = markdown.split('\n');
     const limit = Math.min(lines.length, 10);
     for (let i = 0; i < limit; i++) {
-          if (META_DESC_RE.test(lines[i])) {
-                  const extracted = lines[i].replace(META_DESC_RE, '').trim();
-                  let endIdx = i + 1;
-                  while (endIdx < lines.length && lines[endIdx].trim() === '') endIdx++;
-                  const cleaned = [...lines.slice(0, i), ...lines.slice(endIdx)].join('\n');
-                  return { body: cleaned, extracted };
-          }
+        if (META_DESC_RE.test(lines[i])) {
+            const extracted = lines[i].replace(META_DESC_RE, '').trim();
+            let endIdx = i + 1;
+            while (endIdx < lines.length && lines[endIdx].trim() === '') endIdx++;
+            const cleaned = [...lines.slice(0, i), ...lines.slice(endIdx)].join('\n');
+            return { body: cleaned, extracted };
+        }
     }
     return { body: markdown, extracted: '' };
+}
+
+function stripMetaDescriptionFromBody(markdown: string): { body: string; extracted: string } {
+    const paragraphs = markdown.split(/\n\s*\n/);
+    let i = 0;
+    const stripped: string[] = [];
+    while (i < paragraphs.length) {
+        const p = paragraphs[i];
+        if (!p.trim()) { i++; continue; }
+        if (isEditorialParagraph(p)) { stripped.push(p); i++; continue; }
+        break;
+    }
+    if (stripped.length === 0) return stripLegacyMetaDescriptionLine(markdown);
+    if (i < paragraphs.length && /^-{3,}\s*$/.test(paragraphs[i].trim())) i++;
+    const body = paragraphs.slice(i).join('\n\n');
+    const extracted = extractMetaDescriptionFromEditorial(stripped);
+    return { body, extracted };
 }
 
 import { markdownToHtml as renderMarkdown } from './markdown';
