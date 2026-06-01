@@ -6,6 +6,7 @@ Gratis voor commercieel gebruik; geen attributie verplicht, maar hier gedocument
 Audit uitgevoerd: 2026-05-30 — [LAT-1069](/LAT/issues/LAT-1069)
 Aangevuld: 2026-06-01 — [LAT-1074](/LAT/issues/LAT-1074)
 Aangevuld: 2026-06-01 — [LAT-1076](/LAT/issues/LAT-1076) (Priorat AI-generatie)
+Gecorrigeerd: 2026-06-01 — [LAT-1083](/LAT/issues/LAT-1083) (2 outright-foute hero's vervangen: Mosel-route + Bartolo Mascarello)
 
 ---
 
@@ -15,7 +16,7 @@ Aangevuld: 2026-06-01 — [LAT-1076](/LAT/issues/LAT-1076) (Priorat AI-generatie
 
 | Bestand | Beschrijving | Fotograaf | Unsplash-profiel | Foto-URL | Locatie |
 |---|---|---|---|---|---|
-| `wijnhuis-bartolo-mascarello-001.jpg` | Vrouw in wijnkelder bij grote vaten | Alfonso Betancourt | @tigredemar | [unsplash.com/photos/K9VyHt8AHWk](https://unsplash.com/photos/K9VyHt8AHWk) | — |
+| `wijnhuis-bartolo-mascarello-001.jpg` | Herfst Langhe wijngaardlandschap, glooiende heuvels Piemonte (interim — pending commissie botti-shot via Marijn; zie noot) | Sebastian | @bicio | [unsplash.com/photos/1XakA7Z9kn4](https://unsplash.com/photos/1XakA7Z9kn4) | Langhe, Piemonte, Italië |
 | `wijnhuis-cornelissen-etna-001.jpg` | Wijngaard met Etna-vulkaan op achtergrond, Castiglione di Sicilia | Caitlyn Vermeij | @caitlynvermeij | [unsplash.com/photos/DRhKeDhEdxc](https://unsplash.com/photos/DRhKeDhEdxc) | Etna, Castiglione di Sicilia, Italië |
 | `wijnhuis-niepoort-douro-001.jpg` | Douro-vallei, terraswijngaarden en rivier | Eduardo Lages | @hed | [unsplash.com/photos/VA0_KpCUnTk](https://unsplash.com/photos/VA0_KpCUnTk) | Douro, Portugal |
 | `wijnhuis-occhipinti-vittoria-001.jpg` | Mediterrane wijngaard met olijfbomen op glooiende heuvels, zonnig | Susana Bartolome | @susi50 | [unsplash.com/photos/fch791ByMuc](https://unsplash.com/photos/fch791ByMuc) | Mediterraan (locatie onbevestigd) |
@@ -46,7 +47,7 @@ Aangevuld: 2026-06-01 — [LAT-1076](/LAT/issues/LAT-1076) (Priorat AI-generatie
 
 | Bestand | Beschrijving | Fotograaf | Unsplash-profiel | Foto-URL | Locatie |
 |---|---|---|---|---|---|
-| `landschap-mosel-route-001.jpg` | Drone-opname Moselschleife Bremm, wijngaardhellingen | Chris Weiher | @chrisvomradio_jpeg | [unsplash.com/photos/yz1Up4hb6I8](https://unsplash.com/photos/yz1Up4hb6I8) | Moselschleife Bremm, Duitsland |
+| `landschap-mosel-route-001.jpg` | Mittelmosel terraswijngaarden met Mosel-dorp op achtergrond, analoge filmfotografie (Kodak Gold 200), steile helllingen zichtbaar, voorgrond druivenbladeren | Chris Weiher | @chrisvomradio | [unsplash.com/photos/VDSbxUTcXhs](https://unsplash.com/photos/VDSbxUTcXhs) | Mittelmosel, Duitsland |
 | `landschap-priorat-route-001.jpg` | Priorat route-hero: kronkelende bergweg door steile llicorella-terraswijngaarden (costers), oude copa-stijl Garnacha-stammen, gouden uur, dramatisch berglandschap bij Falset/Escaladei | AI-gegenereerd (Atelier/gpt-image-2) | n.v.t. | [LAT-1076](/LAT/issues/LAT-1076) | Priorat DOQ, Catalonië, Spanje (AI-generatie) |
 | `landschap-etna-noord-001.jpg` | Wijngaard met Etna-vulkaan, Castiglione di Sicilia | Caitlyn Vermeij | @caitlynvermeij | [unsplash.com/photos/DRhKeDhEdxc](https://unsplash.com/photos/DRhKeDhEdxc) | Etna, Castiglione di Sicilia, Italië |
 
@@ -85,3 +86,4 @@ Aangevuld: 2026-06-01 — [LAT-1076](/LAT/issues/LAT-1076) (Priorat AI-generatie
 - `landschap-pfalz-001.jpg`: bronlocatie is Kernen im Remstal (Württemberg), niet formeel Pfalz. Geografisch naburig Duits wijngebied met vergelijkbaar landschap. Bij gelegenheid vervangen door Pfalz-specifieke foto.
 - `landschap-oogst-seizoen-001.jpg`: opnamelocatie Oregon, USA. Druivenoogst is universeel visueel. Acceptabel voor seizoenscontent; bij gelegenheid vervangen door Europese oogstfoto.
 - `landschap-etna-sicilie-001.jpg` en `wijnhuis-cornelissen-etna-001.jpg` en `landschap-etna-noord-001.jpg`: alle drie gebruik van dezelfde bronopname (Caitlyn Vermeij). Visueel onderscheid door crop-variant. Vervangen zodra tweede gratis Etna-foto beschikbaar.
+- `wijnhuis-bartolo-mascarello-001.jpg`: **interim**. Vorige opname (Alfonso Betancourt, modeshoot in kelder) was editorial malpractice voor een DOCG-wijnhuis. Unsplash gratis tier levert geen authentieke foto van de Cantina Bartolo Mascarello (Via Roma 15, Castiglione Falletto) of de grote Slavonische eik botti die het wijnhuis exclusief gebruikt. AI-generatie uitgesloten per [LAT-1062](/LAT/issues/LAT-1062) beleid (prestige DOCG). Huidige interim = bevestigde Langhe-herfstlandschap (geo-authentiek). Definitieve oplossing: betaalde fotografie-commissie via Marijn — zie [LAT-1083](/LAT/issues/LAT-1083).
