@@ -24,8 +24,7 @@ function markdownToHtml(markdown: string): Promise<string> {
 import {
     readDirectusEnv,
     statusFilterQuery,
-    filterLocalByStatus,
-    assertLocalFallbackAllowed,
+    assertDirectusConfigured,
 } from './directus-config';
 
 const assetDebug: Array<Record<string, unknown>> = [];
@@ -174,63 +173,10 @@ async function loadFromDirectus(url: string, token: string): Promise<WijnRoute[]
     return items;
 }
 
-async function loadFromLocalFiles(): Promise<WijnRoute[]> {
-    const { readFileSync, readdirSync } = await import('node:fs');
-    const { join } = await import('node:path');
-    const dir = 'src/content/wijnroutes';
-    let files: string[];
-    try {
-        files = readdirSync(dir)
-            .filter((f: string) => f.endsWith('.md') && f !== 'README.md')
-            .map((f: string) => join(dir, f));
-    } catch { return []; }
-    if (files.length === 0) return [];
-    const items: WijnRoute[] = [];
-    for (const filePath of files) {
-        const raw = readFileSync(filePath, 'utf-8');
-        const fmMatch = raw.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
-        if (!fmMatch) continue;
-        const fm: Record<string, string> = {};
-        for (const line of fmMatch[1].split('\n')) {
-            const [key, ...rest] = line.split(':');
-            if (key && rest.length) fm[key.trim()] = rest.join(':').trim().replace(/^["']|["']$/g, '');
-        }
-        const bodyHtml = fmMatch[2] ? await markdownToHtml(fmMatch[2]) : '';
-        items.push({
-            slug: fm.slug || filePath.replace(/.*\//, '').replace('.md', ''),
-            title: normalizeEmDashes(fm.title || 'Untitled'),
-            description: normalizeEmDashes(fm.description || ''),
-            duration: fm.duration || '',
-            transport: fm.transport || '',
-            style: fm.style || '',
-            highlights: fm.highlights ? fm.highlights.split(',').map((t: string) => t.trim()) : [],
-            stops: fm.stops ? fm.stops.split(',').map((t: string) => t.trim()) : [],
-            heroImage: fm.heroImage || null,
-            ogImage: fm.ogImage || null,
-            status: fm.status || 'published',
-            metaTitle: fm.metaTitle || fm.title || 'Untitled',
-            metaDescription: fm.metaDescription || fm.description || '',
-            bodyHtml,
-        });
-    }
-    items.sort((a, b) => a.title.localeCompare(b.title));
-    console.log(`[loadRoutes] loaded ${items.length} routes from local files`);
-    return items;
-}
-
 export async function loadRoutes(): Promise<WijnRoute[]> {
     const env = readDirectusEnv();
-    let pathTaken: 'directus' | 'local-fallback';
-    let items: WijnRoute[] = [];
-    if (env.configured) {
-        items = await loadFromDirectus(env.url, env.token);
-        pathTaken = 'directus';
-    } else {
-        assertLocalFallbackAllowed('loadRoutes', env);
-        console.warn(`[loadRoutes] Directus not configured — loading from local files (ALLOW_LOCAL_CONTENT_FALLBACK=1)`);
-        pathTaken = 'local-fallback';
-        items = filterLocalByStatus(await loadFromLocalFiles(), env);
-    }
-    await writeAssetDebug(pathTaken);
+    assertDirectusConfigured('loadRoutes', env);
+    const items = await loadFromDirectus(env.url, env.token);
+    await writeAssetDebug('directus');
     return items;
 }

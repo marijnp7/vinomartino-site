@@ -75,20 +75,6 @@ function extractMetaDescriptionFromEditorial(blocks: string[]): string {
     return '';
 }
 
-function parseFrontmatterList(value: string | undefined): string[] {
-    if (!value) return [];
-    const trimmed = value.trim();
-    if (trimmed.startsWith('[')) {
-        try {
-            const parsed = JSON.parse(trimmed);
-            if (Array.isArray(parsed)) return parsed.map((v) => String(v).trim()).filter(Boolean);
-        } catch {
-            // fall through to comma split
-        }
-    }
-    return trimmed.split(',').map((t) => t.trim().replace(/^["']|["']$/g, '')).filter(Boolean);
-}
-
 function stripLegacyMetaDescriptionLine(markdown: string): { body: string; extracted: string } {
     const lines = markdown.split('\n');
     const limit = Math.min(lines.length, 10);
@@ -171,8 +157,7 @@ function substituteAffiliateTokens(markdown: string): string {
 import {
     readDirectusEnv,
     statusFilterQuery,
-    filterLocalByStatus,
-    assertLocalFallbackAllowed,
+    assertDirectusConfigured,
 } from './directus-config';
 
 async function downloadArticleAsset(assetId: string, directusUrl: string, token: string): Promise<string | null> {
@@ -222,8 +207,9 @@ function mapArticle(a: Record<string, unknown>, heroImagePath: string | null, og
 /**
  * Load published articles from Directus.
  *
- * Directus is the canonical content source. Markdown files in src/content/posts/
- * are seed data only, NOT a runtime fallback (see src/content/posts/README.md).
+ * Directus is the canonical content source. Legacy seed markdown lives in
+ * src/content/_legacy/posts/ and is archive-only since LAT-1078 — no loader
+ * reads it at runtime.
  *
  * Throws on any failure so silent broken builds (build succeeds with 0 articles)
  * are impossible by design.
@@ -294,62 +280,8 @@ async function loadFromDirectus(url: string, token: string): Promise<Article[]> 
     return items;
 }
 
-async function loadFromLocalFiles(): Promise<Article[]> {
-    const { readFileSync, readdirSync } = await import('node:fs');
-    const { join } = await import('node:path');
-    const dir = 'src/content/posts';
-    let files: string[];
-    try {
-          files = readdirSync(dir)
-                .filter((f: string) => f.endsWith('.md') && f !== 'README.md')
-                .map((f: string) => join(dir, f));
-    } catch { return []; }
-    if (files.length === 0) return [];
-    const articles: Article[] = [];
-    for (const filePath of files) {
-          const raw = readFileSync(filePath, 'utf-8');
-          const fmMatch = raw.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
-          if (!fmMatch) continue;
-          const fm: Record<string, string> = {};
-          for (const line of fmMatch[1].split('\n')) {
-                const [key, ...rest] = line.split(':');
-                if (key && rest.length) fm[key.trim()] = rest.join(':').trim().replace(/^["']|["']$/g, '');
-          }
-          const { body: cleanBody, extracted } = stripMetaDescriptionFromBody(fmMatch[2]);
-          const bodyHtml = cleanBody ? await markdownToHtml(cleanBody) : '';
-          articles.push({
-                slug: fm.slug || filePath.replace(/.*\//, '').replace('.md', ''),
-                title: normalizeEmDashes(fm.title || 'Untitled'),
-                description: normalizeEmDashes(extracted || fm.summary || fm.description || ''),
-                author: fm.author || 'VinoMartino',
-                pubDate: fm.date || fm.pubDate || new Date().toISOString().slice(0, 10),
-                updatedAt: fm.updatedAt || fm.updated_at || null,
-                category: fm.category || '',
-                tags: parseFrontmatterList(fm.tags),
-                heroImage: fm.heroImage || fm.hero_image || null,
-                ogImage: fm.ogImage || fm.og_image || null,
-                status: fm.status || 'published',
-                metaTitle: normalizeEmDashes(fm.metaTitle || fm.title || 'Untitled'),
-                metaDescription: normalizeEmDashes(extracted || fm.metaDescription || fm.description || ''),
-                bodyHtml,
-          });
-    }
-    articles.sort((a, b) => b.pubDate.localeCompare(a.pubDate));
-    console.log(`[loadArticles] loaded ${articles.length} articles from local files`);
-    return articles;
-}
-
-function filterLocalByPubDate(items: Article[]): Article[] {
-    // LAT-1053: mirror de Directus pub_date<=$NOW gate voor lokale fallback. Vergelijking
-    // op ISO-prefix (YYYY-MM-DD) houdt 't tijdzone-vrij; null/lege pubDate blijft zichtbaar.
-    const todayIso = new Date().toISOString().slice(0, 10);
-    return items.filter((i) => !i.pubDate || i.pubDate.slice(0, 10) <= todayIso);
-}
-
 export async function loadArticles(): Promise<Article[]> {
     const env = readDirectusEnv();
-    if (env.configured) return loadFromDirectus(env.url, env.token);
-    assertLocalFallbackAllowed('loadArticles', env);
-    console.warn(`[loadArticles] Directus not configured — loading from local files (ALLOW_LOCAL_CONTENT_FALLBACK=1)`);
-    return filterLocalByPubDate(filterLocalByStatus(await loadFromLocalFiles(), env));
+    assertDirectusConfigured('loadArticles', env);
+    return loadFromDirectus(env.url, env.token);
 }

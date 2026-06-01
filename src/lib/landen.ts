@@ -30,8 +30,7 @@ async function markdownToHtml(markdown: string): Promise<string> {
 import {
     readDirectusEnv,
     statusFilterQuery,
-    filterLocalByStatus,
-    assertLocalFallbackAllowed,
+    assertDirectusConfigured,
 } from './directus-config';
 
 function parseJsonField(val: unknown): string[] {
@@ -41,20 +40,6 @@ function parseJsonField(val: unknown): string[] {
         catch { return []; }
     }
     return [];
-}
-
-function parseFrontmatterList(value: string | undefined): string[] {
-    if (!value) return [];
-    const trimmed = value.trim();
-    if (trimmed.startsWith('[')) {
-        try {
-            const parsed = JSON.parse(trimmed);
-            if (Array.isArray(parsed)) return parsed.map((v) => String(v).trim()).filter(Boolean);
-        } catch {
-            // fall through to comma split
-        }
-    }
-    return trimmed.split(',').map((t) => t.trim().replace(/^["']|["']$/g, '')).filter(Boolean);
 }
 
 function mapWijnstreken(val: unknown): { name: string; slug?: string }[] {
@@ -151,56 +136,8 @@ async function loadFromDirectus(url: string, token: string): Promise<Land[]> {
     return items;
 }
 
-async function loadFromLocalFiles(): Promise<Land[]> {
-    const { readFileSync, readdirSync } = await import('node:fs');
-    const { join } = await import('node:path');
-    const dir = 'src/content/landen';
-    let files: string[];
-    try {
-        files = readdirSync(dir)
-            .filter((f: string) => f.endsWith('.md') && f !== 'README.md')
-            .map((f: string) => join(dir, f));
-    } catch { return []; }
-    if (files.length === 0) return [];
-    const items: Land[] = [];
-    for (const filePath of files) {
-        const raw = readFileSync(filePath, 'utf-8');
-        const fmMatch = raw.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
-        if (!fmMatch) continue;
-        const fm: Record<string, string> = {};
-        for (const line of fmMatch[1].split('\n')) {
-            const [key, ...rest] = line.split(':');
-            if (key && rest.length) fm[key.trim()] = rest.join(':').trim().replace(/^["']|["']$/g, '');
-        }
-        const bodyHtml = fmMatch[2] ? await markdownToHtml(fmMatch[2]) : '';
-        items.push({
-            slug: fm.slug || filePath.replace(/.*\//, '').replace('.md', ''),
-            name: normalizeEmDashes(fm.name || fm.title || 'Untitled'),
-            description: normalizeEmDashes(fm.description || ''),
-            continent: fm.continent || '',
-            capital: fm.capital || '',
-            climate: fm.climate || '',
-            mainGrapes: parseFrontmatterList(fm.grapeVarieties),
-            wineHistory: '',
-            bestTimeToVisit: fm.bestTimeToVisit || '',
-            heroImage: fm.heroImage || null,
-            ogImage: fm.ogImage || null,
-            wijnstreken: parseFrontmatterList(fm.wijnstreken).map((name) => ({ name })),
-            status: fm.status || 'published',
-            metaTitle: fm.metaTitle || fm.name || fm.title || 'Untitled',
-            metaDescription: fm.metaDescription || fm.description || '',
-            bodyHtml,
-        });
-    }
-    items.sort((a, b) => a.name.localeCompare(b.name));
-    console.log(`[loadLanden] loaded ${items.length} landen from local files`);
-    return items;
-}
-
 export async function loadLanden(): Promise<Land[]> {
     const env = readDirectusEnv();
-    if (env.configured) return loadFromDirectus(env.url, env.token);
-    assertLocalFallbackAllowed('loadLanden', env);
-    console.warn(`[loadLanden] Directus not configured — loading from local files (ALLOW_LOCAL_CONTENT_FALLBACK=1)`);
-    return filterLocalByStatus(await loadFromLocalFiles(), env);
+    assertDirectusConfigured('loadLanden', env);
+    return loadFromDirectus(env.url, env.token);
 }

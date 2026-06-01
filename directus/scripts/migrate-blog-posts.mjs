@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * Migrate existing markdown blog posts from src/content/posts/ into Directus articles collection.
+ * Migrate archived markdown blog posts from src/content/_legacy/posts/ into Directus articles collection.
+ * Source moved to _legacy/ per LAT-1078 (markdown is archive, not runtime source).
  * Run after bootstrap-schema.mjs: DIRECTUS_URL=http://localhost:8055 DIRECTUS_TOKEN=<token> node directus/scripts/migrate-blog-posts.mjs
  */
 
@@ -9,7 +10,7 @@ import { join, resolve } from 'path';
 
 const DIRECTUS_URL = process.env.DIRECTUS_URL || 'http://localhost:8055';
 const DIRECTUS_TOKEN = process.env.DIRECTUS_TOKEN;
-const POSTS_DIR = resolve(process.cwd(), 'src/content/posts');
+const POSTS_DIR = resolve(process.cwd(), 'src/content/_legacy/posts');
 
 if (!DIRECTUS_TOKEN) {
   console.error('DIRECTUS_TOKEN is required.');

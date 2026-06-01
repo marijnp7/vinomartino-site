@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 /**
- * Seed body/description into Directus content items from local markdown (LAT-896).
+ * Seed body/description into Directus content items from archived markdown (LAT-896).
  *
- * Reads src/content/{streken,wijnhuizen,wijnroutes}/<slug>.md, extracts the
- * frontmatter description and the markdown body, and PATCHes the matching
- * Directus item — only when the live `body` field is empty. Hero images are
- * untouched (set by set-content-hero-images.mjs).
+ * Reads src/content/_legacy/{streken,wijnhuizen,wijnroutes}/<slug>.md (path moved
+ * by LAT-1078), extracts the frontmatter description and the markdown body, and
+ * PATCHes the matching Directus item — only when the live `body` field is empty.
+ * Hero images are untouched (set by set-content-hero-images.mjs).
  *
  * After this runs, Directus is the source of truth — editors can change
  * body/description/etc. via the Directus UI and changes appear on the next
@@ -22,7 +22,7 @@ import { join, resolve } from 'path';
 
 const DIRECTUS_URL = process.env.DIRECTUS_URL || 'http://directus:8055';
 const DIRECTUS_TOKEN = process.env.DIRECTUS_TOKEN;
-const CONTENT_ROOT = resolve(process.cwd(), 'src/content');
+const CONTENT_ROOT = resolve(process.cwd(), 'src/content/_legacy');
 
 if (!DIRECTUS_TOKEN) {
   console.error('DIRECTUS_TOKEN is required.');
@@ -77,7 +77,7 @@ function loadLocalEntries(dir) {
 
 async function processCollection(name, { force }) {
   const cfg = COLLECTIONS[name];
-  console.log(`\n=== ${name} (local: src/content/${cfg.dir}/) ===\n`);
+  console.log(`\n=== ${name} (legacy: src/content/_legacy/${cfg.dir}/) ===\n`);
 
   const local = loadLocalEntries(cfg.dir);
   if (local.length === 0) {
