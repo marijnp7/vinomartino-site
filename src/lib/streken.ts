@@ -27,8 +27,7 @@ function markdownToHtml(markdown: string): Promise<string> {
 import {
     readDirectusEnv,
     statusFilterQuery,
-    filterLocalByStatus,
-    assertLocalFallbackAllowed,
+    assertDirectusConfigured,
 } from './directus-config';
 
 const assetDebug: Array<Record<string, unknown>> = [];
@@ -182,66 +181,10 @@ async function loadFromDirectus(url: string, token: string): Promise<Streek[]> {
     return items;
 }
 
-async function loadFromLocalFiles(): Promise<Streek[]> {
-    const { readFileSync, readdirSync } = await import('node:fs');
-    const { join } = await import('node:path');
-    const dir = 'src/content/streken';
-    let files: string[];
-    try {
-        files = readdirSync(dir)
-            .filter((f: string) => f.endsWith('.md') && f !== 'README.md')
-            .map((f: string) => join(dir, f));
-    } catch { return []; }
-    if (files.length === 0) return [];
-    const items: Streek[] = [];
-    for (const filePath of files) {
-        const raw = readFileSync(filePath, 'utf-8');
-        const fmMatch = raw.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
-        if (!fmMatch) continue;
-        const fm: Record<string, string> = {};
-        for (const line of fmMatch[1].split('\n')) {
-            const [key, ...rest] = line.split(':');
-            if (key && rest.length) fm[key.trim()] = rest.join(':').trim().replace(/^["']|["']$/g, '');
-        }
-        const bodyHtml = fmMatch[2] ? await markdownToHtml(fmMatch[2]) : '';
-        items.push({
-            slug: fm.slug || filePath.replace(/.*\//, '').replace('.md', ''),
-            name: normalizeEmDashes(fm.name || fm.title || 'Untitled'),
-            description: normalizeEmDashes(fm.description || ''),
-            country: fm.country || '',
-            climate: fm.climate || '',
-            soil: fm.soil || '',
-            mainGrapes: fm.grapeVarieties ? fm.grapeVarieties.split(',').map((t: string) => t.trim()) : [],
-            subRegions: fm.subregions ? fm.subregions.split(',').map((t: string) => t.trim()) : [],
-            vineyardArea: '',
-            altitude: '',
-            appellations: [],
-            heroImage: fm.heroImage || null,
-            ogImage: fm.ogImage || null,
-            status: fm.status || 'published',
-            metaTitle: fm.metaTitle || fm.name || fm.title || 'Untitled',
-            metaDescription: fm.metaDescription || fm.description || '',
-            bodyHtml,
-        });
-    }
-    items.sort((a, b) => a.name.localeCompare(b.name));
-    console.log(`[loadStreken] loaded ${items.length} streken from local files`);
-    return items;
-}
-
 export async function loadStreken(): Promise<Streek[]> {
     const env = readDirectusEnv();
-    let pathTaken: 'directus' | 'local-fallback';
-    let items: Streek[] = [];
-    if (env.configured) {
-        items = await loadFromDirectus(env.url, env.token);
-        pathTaken = 'directus';
-    } else {
-        assertLocalFallbackAllowed('loadStreken', env);
-        console.warn(`[loadStreken] Directus not configured — loading from local files (ALLOW_LOCAL_CONTENT_FALLBACK=1)`);
-        pathTaken = 'local-fallback';
-        items = filterLocalByStatus(await loadFromLocalFiles(), env);
-    }
-    await writeAssetDebug(pathTaken);
+    assertDirectusConfigured('loadStreken', env);
+    const items = await loadFromDirectus(env.url, env.token);
+    await writeAssetDebug('directus');
     return items;
 }
