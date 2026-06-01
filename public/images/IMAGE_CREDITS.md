@@ -5,6 +5,7 @@ Gratis voor commercieel gebruik; geen attributie verplicht, maar hier gedocument
 
 Audit uitgevoerd: 2026-05-30 — [LAT-1069](/LAT/issues/LAT-1069)
 Aangevuld: 2026-06-01 — [LAT-1074](/LAT/issues/LAT-1074)
+Aangevuld: 2026-06-01 — [LAT-1076](/LAT/issues/LAT-1076) (Priorat AI-generatie)
 
 ---
 
@@ -46,7 +47,7 @@ Aangevuld: 2026-06-01 — [LAT-1074](/LAT/issues/LAT-1074)
 | Bestand | Beschrijving | Fotograaf | Unsplash-profiel | Foto-URL | Locatie |
 |---|---|---|---|---|---|
 | `landschap-mosel-route-001.jpg` | Drone-opname Moselschleife Bremm, wijngaardhellingen | Chris Weiher | @chrisvomradio_jpeg | [unsplash.com/photos/yz1Up4hb6I8](https://unsplash.com/photos/yz1Up4hb6I8) | Moselschleife Bremm, Duitsland |
-| `landschap-priorat-route-001.jpg` | Terraswijngaard op heuvelflank | Ryleigh Henschen | @ryleighhenschen | [unsplash.com/photos/DQV8EZx1HWw](https://unsplash.com/photos/DQV8EZx1HWw) | — |
+| `landschap-priorat-route-001.jpg` | Priorat route-hero: kronkelende bergweg door steile llicorella-terraswijngaarden (costers), oude copa-stijl Garnacha-stammen, gouden uur, dramatisch berglandschap bij Falset/Escaladei | AI-gegenereerd (Atelier/gpt-image-2) | n.v.t. | [LAT-1076](/LAT/issues/LAT-1076) | Priorat DOQ, Catalonië, Spanje (AI-generatie) |
 | `landschap-etna-noord-001.jpg` | Wijngaard met Etna-vulkaan, Castiglione di Sicilia | Caitlyn Vermeij | @caitlynvermeij | [unsplash.com/photos/DRhKeDhEdxc](https://unsplash.com/photos/DRhKeDhEdxc) | Etna, Castiglione di Sicilia, Italië |
 
 ---
@@ -56,7 +57,7 @@ Aangevuld: 2026-06-01 — [LAT-1074](/LAT/issues/LAT-1074)
 | Bestand | Beschrijving | Fotograaf | Unsplash-profiel | Foto-URL | Locatie |
 |---|---|---|---|---|---|
 | `landschap-piemonte-barolo-001.jpg` | Barolo/Piemonte wijngaarden, glooiende heuvels | Sebastian | @bicio | [unsplash.com/photos/vg8UFQHwRAo](https://unsplash.com/photos/vg8UFQHwRAo) | Barolo, CN, Italië |
-| `landschap-priorat-001.jpg` | Terraswijngaard op heuvelflank (2e crop) | Ryleigh Henschen | @ryleighhenschen | [unsplash.com/photos/DQV8EZx1HWw](https://unsplash.com/photos/DQV8EZx1HWw) | — |
+| `landschap-priorat-001.jpg` | Priorat streek-hero: steile bancales met llicorella-leisteen bodem, oude knoestige Garnacha bushvines (alberello/copa), gouden uur, Montsant-gebergte op achtergrond bij Gratallops | AI-gegenereerd (Atelier/gpt-image-2) | n.v.t. | [LAT-1076](/LAT/issues/LAT-1076) | Priorat DOQ, Catalonië, Spanje (AI-generatie) |
 
 ---
 
@@ -78,7 +79,7 @@ Aangevuld: 2026-06-01 — [LAT-1074](/LAT/issues/LAT-1074)
 
 ## Noten
 
-- `landschap-priorat-001.jpg` en `landschap-priorat-route-001.jpg`: zelfde bronfoto, andere crop-parameter. Geen gratis Unsplash-equivalent beschikbaar op 2026-05-30 (LAT-1069) noch op 2026-06-01 (LAT-1074). Zoekopdrachten op "priorat vineyard spain", "tarragona vineyard catalonia", "steep vineyard terraces spain" leverden geen vrije afbeelding op die specifiek Llicorella-leisteen, Gratallops of Porrera toont. Aanbevolen vervolgactie: CEO-beslissing over Atelier-generatie (gpt-image-2 of commissie).
+- `landschap-priorat-001.jpg` en `landschap-priorat-route-001.jpg`: AI-gegenereerd door Atelier (gpt-image-2, high quality, 1536×1024px) op 2026-06-01 via [LAT-1076](/LAT/issues/LAT-1076). Twee Unsplash-passes ([LAT-1069](/LAT/issues/LAT-1069), [LAT-1074](/LAT/issues/LAT-1074)) leverden geen authentiek Priorat-alternatief op. Prompt-samenvatting: steile bancales/costers, llicorella zwartblauwe leisteen, oude Garnacha/Cariñena bushvines (alberello/copa stijl, 60+ jaar), Gratallops/Porrera/Escaladei-setting, Montsant-gebergte, gouden uur, cinematic low-angle. Geselecteerd uit 4 candidates (2 per slot) — alle candidates opgeslagen in Atelier output dir.
 - `landschap-jerez-albariza-001.jpg`: opnamelocatie is Antiga Casa de Guardia, Málaga (niet Jerez). Andaloesisch wijnkelder-interieur met authentieke bodega-atmosfeer; visueel representatief voor de Jerez-wijntraditie. Bij gelegenheid vervangen door daadwerkelijke Jerez-bodega-foto (González Byass, Lustau o.d.).
 - `wijnhuis-occhipinti-vittoria-001.jpg`: exacte locatie van de bronopname onbevestigd. Mediterraan wijngaardlandschap (wijngaard + olijfbomen) — visueel representatief voor het Ragusano/Vittoria-landschap. Echt Vittoria-specifieke foto (alberello/bushvines) niet beschikbaar in Unsplash gratis tier.
 - `landschap-pfalz-001.jpg`: bronlocatie is Kernen im Remstal (Württemberg), niet formeel Pfalz. Geografisch naburig Duits wijngebied met vergelijkbaar landschap. Bij gelegenheid vervangen door Pfalz-specifieke foto.
