@@ -7,6 +7,7 @@ description: "In Vittoria, het zuidoosten van Sicilië, maakt Arianna Occhipinti
 category: "winery-portraits"
 tags: ["occhipinti", "frappato", "cerasuolo-di-vittoria", "sicilië", "biodynamisch", "wijnhuis"]
 slug: "occhipinti-wijnhuis-portret-vittoria"
+heroImage: "/images/wijnhuis-occhipinti-vittoria-001.jpg"
 ---
 
 # Arianna Occhipinti — de wijnmaker die haar eigen ranken snoeit

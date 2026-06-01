@@ -99,7 +99,7 @@ Pas `root` aan naar het pad dat in `Dockerfile` / compose wordt gemount.
 
 ### Asset-mapping-tabel (#5 bijlage)
 
-**Bijgewerkt na audit [LAT-1069](/LAT/issues/LAT-1069) — 2026-05-30. Bijgewerkt na refinement [LAT-1070](/LAT/issues/LAT-1070) — 2026-05-30.**
+**Bijgewerkt na audit [LAT-1069](/LAT/issues/LAT-1069) — 2026-05-30. Bijgewerkt na refinement [LAT-1070](/LAT/issues/LAT-1070) — 2026-05-30. Bijgewerkt met Unsplash-pass posts [LAT-1074](/LAT/issues/LAT-1074) — 2026-06-01.**
 
 **Naamconventie:** `wijnhuis-{slug}-{id}.jpg` voor wijnhuizen (sfeerfoto's, niet-persoonsportretten), `portret-{slug}-{id}.jpg` gereserveerd voor toekomstige daadwerkelijke persoonsportretten (fotograaf-outreach v2.2), `landschap-{streek}-{id}.jpg` voor streken/routes.
 
@@ -114,6 +114,10 @@ Pas `root` aan naar het pad dat in `Dockerfile` / compose wordt gemount.
 | streek | douro-portugal | `landschap-douro-001.jpg` | `public/images/` | Unsplash / Eduardo Lages |
 | streek | langhe-piemonte | `landschap-langhe-001.jpg` | `public/images/` | Unsplash / Sebastian |
 | streek | mosel-duitsland | `landschap-mosel-001.jpg` | `public/images/` | Unsplash / Marc-Philipp Esser |
+| streek | ribeira-sacra-galicie | `landschap-ribeira-sacra-001.jpg` | `public/images/` | Unsplash / Alejandro Piñero Amerio |
+| post | bourgogne-villages-zonder-grand-cru | `landschap-bourgogne-villages-001.jpg` | `public/images/` | Unsplash / Elodie Debard |
+| post | jerez-sherry-wijnregio-reisverslag | `landschap-jerez-albariza-001.jpg` | `public/images/` | Unsplash / Chris Caines (Málaga) |
+| post | occhipinti-wijnhuis-portret-vittoria | `wijnhuis-occhipinti-vittoria-001.jpg` | `public/images/` | Unsplash / Susana Bartolome |
 
 Volledige creditering + fotograafslinks: zie `public/images/IMAGE_CREDITS.md`.
 
