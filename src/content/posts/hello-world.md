@@ -7,6 +7,7 @@ description: "Een eerste post is altijd een beetje vreemd. Wie ben ik, wat doe i
 category: "travel-tips"
 tags: ["over-ons", "martin", "sophie", "wset", "wijnreizen"]
 slug: "waarom-ik-schrijf-over-wijn-en-reizen"
+heroImage: "/images/landschap-piemonte-wijnreis-001.jpg"
 ---
 
 # Waarom ik schrijf over wijn en reizen — en niet over scores of sterren
