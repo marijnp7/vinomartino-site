@@ -7,6 +7,7 @@ description: "Bourgogne heeft een reputatie als wijngebied voor mensen met een r
 category: "wine-regions"
 tags: ["bourgogne", "pinot-noir", "chardonnay", "côte-de-nuits", "villages", "premier-cru"]
 slug: "bourgogne-villages-zonder-grand-cru"
+heroImage: "/images/landschap-bourgogne-villages-001.jpg"
 ---
 
 # Vijf dagen Bourgogne zonder een grand-cru te kopen

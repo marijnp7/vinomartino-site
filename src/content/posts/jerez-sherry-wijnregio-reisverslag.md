@@ -9,6 +9,7 @@ metaDescription: "Ontdek waarom Jerez een verborgen parel is voor Sherry-liefheb
 category: "wine-regions"
 tags: ["jerez", "sherry", "manzanilla", "spanje", "fino", "andalusie", "fortified"]
 slug: "jerez-sherry-wijnregio-reisverslag"
+heroImage: "/images/landschap-jerez-albariza-001.jpg"
 ---
 
 # Jerez — de vergeten hoofdstad van smaak

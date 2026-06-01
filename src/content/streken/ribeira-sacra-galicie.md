@@ -13,7 +13,7 @@ hoofddruiven: ["Mencía", "Brancellao", "Merenzao", "Godello"]
 wijnstijlen: ["rood", "wit"]
 martin_bezocht: true
 tags: ["ribeira-sacra", "galicie", "mencia", "viticultura-heroica", "spanje", "atlantisch-spanje"]
-heroImage: "/images/ribeira-sacra-sil-kloof.jpg"
+heroImage: "/images/landschap-ribeira-sacra-001.jpg"
 ---
 
 De kloof van de Sil ruikt niet naar wijn. Hij ruikt naar rotsvocht, naaldbomen die boven de terrassen uitgroeien, en de rivier die je hoort voordat je hem ziet. Als de weg langs de kanonhelling afdaalt, verschijnt de eerste wijngaard: een smal vlak geschiste leisteen, schuin als een schuine boekenkast, met Mencía-stokken die er bijna op geplakt lijken. Sophie vroeg of dit echt bewerkt wordt. Het antwoord is ja — met de hand, elk jaar, op terrassen die voor geen enkel voertuig toegankelijk zijn.
