@@ -10,6 +10,7 @@ grapes: ["Nebbiolo"]
 established: 1918
 address: "Via Roma 15, Castiglione Falletto (CN), Piemonte"
 website: "n.v.t. — geen website"
+heroImage: "/images/wijnhuis-bartolo-mascarello-001.jpg"
 description: "Maria Teresa Mascarello maakt in Castiglione Falletto de Barolo van haar vader Bartolo, die weigerde in te binden toen iedereen moderniseerde. Geen kleine barriques, geen cru-selecties. Één blend van vier percelen — Ruè, Cannubi, San Lorenzo, Rocche dell'Annunziata — vijftig tot zeventig dagen gemacereerd, daarna vier tot vijf jaar in grote Slavonische eiken, tot de wijn klaar is. De etiketten worden met de hand getekend. Er is geen website. De jonge wijn is tannineus en gesloten als een vuist. Na twintig jaar opent hij langzaam. Dat geduld is het hele punt van dit wijnhuis."
 ---
 

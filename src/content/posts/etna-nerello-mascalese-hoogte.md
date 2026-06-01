@@ -8,6 +8,7 @@ description: "Op de noordflank van de Etna groeit één van Italië's meest span
 category: "wine-regions"
 tags: ["etna", "nerello-mascalese", "sicilië", "vulkanisch", "terroir"]
 slug: "etna-nerello-mascalese-hoogte"
+heroImage: "/images/landschap-etna-sicilie-001.jpg"
 ---
 
 # Nerello Mascalese op 900 meter — waarom de Etna anders is dan alles

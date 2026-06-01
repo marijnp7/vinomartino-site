@@ -7,6 +7,7 @@ description: "Een verticale proeverij bij J.J. Prüm in Bernkastel laat zien wat
 category: "tasting-notes"
 tags: ["mosel", "riesling", "duitsland", "pruem", "verticale-proeverij", "spätlese"]
 slug: "mosel-riesling-verticaal-pruem"
+heroImage: "/images/landschap-mosel-001.jpg"
 ---
 
 # Mosel-Riesling over drie decennia — een verticale proeverij bij J.J. Prüm

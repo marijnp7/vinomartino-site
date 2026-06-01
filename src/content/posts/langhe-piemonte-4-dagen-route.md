@@ -7,6 +7,7 @@ description: "Piemonte in het laagseizoen is een heel ander Piemonte dan in okto
 category: "travel-tips"
 tags: ["piemonte", "barolo", "barbaresco", "langhe", "reisroute", "alba"]
 slug: "langhe-piemonte-4-dagen-route"
+heroImage: "/images/landschap-piemonte-wijnreis-001.jpg"
 ---
 
 # Langhe in vier dagen — Barolo, Barbaresco en de restaurants ertussenin

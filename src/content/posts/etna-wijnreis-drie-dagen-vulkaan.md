@@ -9,6 +9,7 @@ metaDescription: "Hoe plan je drie dagen Etna wijnreis? Noord-flank via Randazzo
 category: "wine-regions"
 tags: ["etna", "sicilië", "nerello-mascalese", "terroir", "reislogboek", "wijnreis", "vulkaan", "italie"]
 slug: "etna-wijnreis-drie-dagen-vulkaan"
+heroImage: "/images/landschap-etna-noord-001.jpg"
 ---
 
 # Etna wijnreis: drie dagen op de vulkaan
