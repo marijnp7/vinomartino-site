@@ -9,6 +9,7 @@ metaDescription: "Wijnkennis en wijnplezier zijn geen tegenpolen. Een column ove
 category: "wijnkennis"
 tags: ["pét-nat", "méthode-ancestrale", "wijnkennis", "column", "barolo", "vrijdag"]
 slug: "fun-vs-fine-wset-pet-nat"
+heroImage: "/images/landschap-oogst-seizoen-001.jpg"
 ---
 
 # Fun vs. Fine — WSET4 en toch pét-nat op vrijdag
