@@ -33,6 +33,39 @@ import {
     assertDirectusConfigured,
 } from './directus-config';
 
+const assetDebug: Array<Record<string, unknown>> = [];
+
+async function downloadAsset(assetId: string, directusUrl: string, token: string, prefix = ''): Promise<string | null> {
+    const { writeFileSync, mkdirSync, existsSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const outDir = join(process.cwd(), 'public', 'images', 'landen');
+    const fileName = `${prefix}${assetId}.jpg`;
+    const outPath = join(outDir, fileName);
+    if (existsSync(outPath)) return `/images/landen/${fileName}`;
+    try {
+        const res = await fetch(`${directusUrl}/assets/${assetId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+            signal: AbortSignal.timeout(15000),
+        });
+        if (!res.ok) {
+            const body = await res.text().catch(() => '');
+            console.warn(`[loadLanden] could not fetch asset ${assetId}: ${res.status} body=${body.slice(0, 300)}`);
+            assetDebug.push({ assetId, prefix, status: res.status, body: body.slice(0, 500) });
+            return null;
+        }
+        const buf = Buffer.from(await res.arrayBuffer());
+        mkdirSync(outDir, { recursive: true });
+        writeFileSync(outPath, buf);
+        assetDebug.push({ assetId, prefix, status: 200, bytes: buf.byteLength });
+        return `/images/landen/${fileName}`;
+    } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn(`[loadLanden] asset download failed for ${assetId}: ${msg}`);
+        assetDebug.push({ assetId, prefix, error: msg });
+        return null;
+    }
+}
+
 function parseJsonField(val: unknown): string[] {
     if (Array.isArray(val)) return val.map(String);
     if (typeof val === 'string') {
@@ -59,7 +92,12 @@ function mapWijnstreken(val: unknown): { name: string; slug?: string }[] {
         .filter((s): s is { name: string; slug?: string } => s !== null);
 }
 
-function mapLand(r: Record<string, unknown>, directusUrl: string, bodyHtml: string): Land {
+function mapLand(
+    r: Record<string, unknown>,
+    heroImagePath: string | null,
+    ogImagePath: string | null,
+    bodyHtml: string,
+): Land {
     return {
         slug: String(r.slug),
         name: normalizeEmDashes(String(r.name)),
@@ -70,8 +108,8 @@ function mapLand(r: Record<string, unknown>, directusUrl: string, bodyHtml: stri
         mainGrapes: parseJsonField(r.main_grapes),
         wineHistory: String(r.wine_history || ''),
         bestTimeToVisit: String(r.best_time_to_visit || ''),
-        heroImage: r.hero_image ? `${directusUrl}/assets/${String(r.hero_image)}` : null,
-        ogImage: r.og_image ? `${directusUrl}/assets/${String(r.og_image)}` : null,
+        heroImage: heroImagePath,
+        ogImage: ogImagePath,
         wijnstreken: mapWijnstreken(r.wijnstreken),
         status: String(r.status || 'draft'),
         metaTitle: String(r.meta_title || r.name),
@@ -129,7 +167,13 @@ async function loadFromDirectus(url: string, token: string): Promise<Land[]> {
     const items = await Promise.all(
         data.map(async (r) => {
             const bodyHtml = r.body ? await markdownToHtml(String(r.body)) : '';
-            return mapLand(r, url, bodyHtml);
+            const heroImagePath = r.hero_image
+                ? await downloadAsset(String(r.hero_image), url, token)
+                : null;
+            const ogImagePath = r.og_image
+                ? await downloadAsset(String(r.og_image), url, token, 'og-')
+                : null;
+            return mapLand(r, heroImagePath, ogImagePath, bodyHtml);
         }),
     );
     console.log(`[loadLanden] fetched ${items.length} landen from Directus`);
