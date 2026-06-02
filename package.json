@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "scripts": {
     "dev": "astro dev --host 0.0.0.0",
-    "build": "astro build && echo '=== public/images/ pre-copy ===' && ls -la public/images/ && for d in wijnhuizen streken routes articles landen; do echo \"--- $d ---\"; [ -d public/images/$d ] && echo \"public/images/$d EXISTS, contents:\" && ls public/images/$d/ | head -5 || echo \"public/images/$d MISSING\"; if [ -d public/images/$d ]; then mkdir -p dist/images/$d && cp -r public/images/$d/. dist/images/$d/; fi; done && echo '=== dist/images/ post-copy ===' && ls -la dist/images/ && for f in public/build-debug-*.json; do [ -f \"$f\" ] && cp \"$f\" dist/; done; true",
+    "build": "astro build && for d in wijnhuizen streken routes articles landen; do if [ -d public/images/$d ]; then mkdir -p dist/images/$d && cp -r public/images/$d/. dist/images/$d/; fi; done && for f in public/build-debug-*.json; do [ -f \"$f\" ] && cp \"$f\" dist/; done; true",
     "build:vinomartino": "astro build",
     "preview": "astro preview --host 0.0.0.0",
     "directus:bootstrap": "node directus/scripts/bootstrap-schema.mjs",
