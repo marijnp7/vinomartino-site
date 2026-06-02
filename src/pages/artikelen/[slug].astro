@@ -1,6 +1,7 @@
 ---
 import SiteLayout from '../../layouts/SiteLayout.astro';
 import AffiliatePlaceholder from '../../components/AffiliatePlaceholder.astro';
+import RelatedEntities from '../../components/RelatedEntities.astro';
 import { loadArticles, type Article } from '../../lib/articles';
 import { articleSchema, breadcrumbSchema } from '../../lib/seo';
 import { getAffiliateBlock } from '../../lib/affiliates';
@@ -130,6 +131,13 @@ const schema = [
         )}
       </aside>
     </div>
+
+    <RelatedEntities
+      streken={article.relatedStreken}
+      wijnhuizen={article.relatedWijnhuizen}
+      wijnroutes={article.relatedWijnroutes}
+      landen={article.relatedLanden}
+    />
   </article>
 </SiteLayout>
 

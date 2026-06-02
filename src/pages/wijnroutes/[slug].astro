@@ -1,5 +1,6 @@
 ---
 import SiteLayout from '../../layouts/SiteLayout.astro';
+import RelatedArticles from '../../components/RelatedArticles.astro';
 import { loadRoutes, type WijnRoute } from '../../lib/routes';
 import { wijnrouteSchema, wijnrouteMetaTitle, wijnrouteMetaDescription, breadcrumbSchema } from '../../lib/seo';
 
@@ -80,6 +81,8 @@ const schema = [
         )}
       </aside>
     </div>
+
+    <RelatedArticles items={entry.relatedArticles} />
   </article>
 </SiteLayout>
 

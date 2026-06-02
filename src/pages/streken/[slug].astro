@@ -2,6 +2,7 @@
 import SiteLayout from '../../layouts/SiteLayout.astro';
 import AffiliatePlaceholder from '../../components/AffiliatePlaceholder.astro';
 import AffiliateDisclosure from '../../components/AffiliateDisclosure.astro';
+import RelatedArticles from '../../components/RelatedArticles.astro';
 import { loadStreken, type Streek } from '../../lib/streken';
 import { streekSchema, streekMetaTitle, streekMetaDescription, breadcrumbSchema } from '../../lib/seo';
 
@@ -151,6 +152,8 @@ const hasStats = Boolean(
         <AffiliatePlaceholder type="insurance" partner="reisverzekering" region={entry.name} placement="footer" context="streek-insurance" />
       </div>
     </section>
+
+    <RelatedArticles items={entry.relatedArticles} />
 
     <AffiliateDisclosure />
   </article>

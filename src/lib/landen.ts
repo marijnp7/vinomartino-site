@@ -1,4 +1,6 @@
 import { normalizeEmDashes } from './markdown';
+import type { RelatedRef } from './articles';
+
 export interface Land {
     slug: string;
     name: string;
@@ -16,6 +18,24 @@ export interface Land {
     metaTitle: string;
     metaDescription: string;
     bodyHtml: string;
+    relatedArticles: RelatedRef[];
+}
+
+function mapRelatedArticles(val: unknown): RelatedRef[] {
+    if (!Array.isArray(val)) return [];
+    const out: RelatedRef[] = [];
+    for (const row of val) {
+        if (!row || typeof row !== 'object') continue;
+        const rec = row as Record<string, unknown>;
+        const inner = rec.articles_id && typeof rec.articles_id === 'object'
+            ? rec.articles_id as Record<string, unknown>
+            : rec;
+        const slug = inner.slug ? String(inner.slug) : '';
+        const name = inner.title ? String(inner.title) : slug;
+        if (!slug) continue;
+        out.push({ slug, name: normalizeEmDashes(name) });
+    }
+    return out;
 }
 
 async function markdownToHtml(markdown: string): Promise<string> {
@@ -126,6 +146,7 @@ function mapLand(
         metaTitle: String(r.meta_title || r.name),
         metaDescription: String(r.meta_description || r.description || ''),
         bodyHtml,
+        relatedArticles: mapRelatedArticles(r.related_articles),
     };
 }
 
@@ -133,12 +154,14 @@ async function fetchLandenItems(url: string, token: string): Promise<Record<stri
     const env = readDirectusEnv();
     const baseFields = 'id,slug,name,description,body,continent,capital,climate,main_grapes,wine_history,best_time_to_visit,hero_image,status,meta_title,meta_description';
     const withSeoMeta = `${baseFields},og_image,wijnstreken.name,wijnstreken.slug`;
+    // LAT-1098: reverse-relation via M2M articles.related_landen.
+    const withRelations = `${withSeoMeta},related_articles.articles_id.slug,related_articles.articles_id.title`;
     const filterSort = `${statusFilterQuery(env)}&sort=name`;
     const headers = { Authorization: `Bearer ${token}` };
     const signal = AbortSignal.timeout(15000);
     let res: Response;
     try {
-        res = await fetch(`${url}/items/landen?limit=-1&fields=${withSeoMeta}${filterSort}`, { headers, signal });
+        res = await fetch(`${url}/items/landen?limit=-1&fields=${withRelations}${filterSort}`, { headers, signal });
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         throw new Error(`[loadLanden] Directus unreachable at ${url}: ${msg}`);
@@ -148,11 +171,21 @@ async function fetchLandenItems(url: string, token: string): Promise<Record<stri
         return (json.data || []) as Record<string, unknown>[];
     }
     // 400 = veld bestaat niet in Directus (pre-migratie); 403 = veld bestaat wel
-    // maar de build-rol heeft geen read-permissie. Beide gevallen: degraderen
-    // naar baseFields zodat de build niet hard breekt op een SEO-meta-veld.
+    // maar de build-rol heeft geen read-permissie. Tier-fallback: relations →
+    // SeoMeta → baseFields.
     if (res.status === 400 || res.status === 403) {
         const body = await res.text().catch(() => '');
-        console.warn(`[loadLanden] Directus rejected fields=…,og_image,wijnstreken.* (HTTP ${res.status}) — retrying without LAT-1008 fields. Run directus/scripts/add-seo-meta-fields.mjs en/of geef de build-rol read-permissie op landen.og_image en landen.wijnstreken.`);
+        console.warn(`[loadLanden] Directus rejected fields=…,related_articles (HTTP ${res.status}) — retrying without LAT-1098 relations.`);
+        const retryRel = await fetch(`${url}/items/landen?limit=-1&fields=${withSeoMeta}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
+        if (retryRel.ok) {
+            const json = await retryRel.json();
+            return (json.data || []) as Record<string, unknown>[];
+        }
+        if (retryRel.status !== 400 && retryRel.status !== 403) {
+            const rbody = await retryRel.text().catch(() => '');
+            throw new Error(`[loadLanden] Directus retry without relations failed: ${retryRel.status} ${retryRel.statusText}: ${rbody.slice(0, 300)} | original ${res.status} body: ${body.slice(0, 200)}`);
+        }
+        console.warn(`[loadLanden] Directus also rejected fields=…,og_image,wijnstreken.* (HTTP ${retryRel.status}) — retrying without LAT-1008 fields. Run directus/scripts/add-seo-meta-fields.mjs en/of geef de build-rol read-permissie op landen.og_image en landen.wijnstreken.`);
         const retry = await fetch(`${url}/items/landen?limit=-1&fields=${baseFields}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
         if (retry.ok) {
             const json = await retry.json();
