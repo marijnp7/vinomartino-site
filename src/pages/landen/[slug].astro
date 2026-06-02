@@ -75,6 +75,53 @@ const showcaseData: Record<string, {
     ],
     climate: 'Van continentaal-koel in Piemonte (Alpen geven scherpe winters en hete zomers) tot mediterraan in Sicilië. Droogtes nemen toe; hoogte speelt een steeds grotere rol.',
   },
+  // LAT-1105: showcase-mapping voor 4 landen, alleen slugs die vandaag al op prod
+  // staan. Geen 404-traps: elke slug hier is geverifieerd via curl 200 op
+  // vinomartino.com (2026-06-02). Geen nieuwe Directus-entries; cards verwijzen
+  // naar bestaande streek/wijnhuis/route-pagina's. Oostenrijk blijft bewust leeg
+  // tot Lead Editor (LAT-1099) content toevoegt.
+  frankrijk: {
+    name: 'Frankrijk',
+    flagEmoji: '🇫🇷',
+    continent: 'Europa',
+    description: 'Bourgogne, Bordeaux, Champagne: Frankrijk schreef de regels voor wijnstreken zoals de wereld ze leerde kennen.',
+    streken: [
+      { name: 'Champagne', slug: 'champagne', badge: 'Champagne · Pinot Noir & Chardonnay', description: 'Krijthellingen tussen Reims en Épernay, waar koel klimaat en tweede fermentatie de mousserende standaard zetten.' },
+    ],
+  },
+  duitsland: {
+    name: 'Duitsland',
+    flagEmoji: '🇩🇪',
+    continent: 'Europa',
+    description: 'Steile leisteenhellingen langs de Mosel en Rijn, waar Riesling laat in het seizoen rijpt tot iets dat nergens anders bestaat.',
+    streken: [
+      { name: 'Mosel', slug: 'mosel-duitsland', badge: 'Mosel · Riesling', description: 'Blauwe Devonische leisteen langs de kronkelende rivier; steile zuidhellingen die Riesling tot november aan de stok houden.' },
+    ],
+    routes: [
+      { title: 'Langs de Mosel: Bernkastel naar Traben-Trarbach', slug: 'mosel-bernkastel-traben-trarbach', days: 3, transport: 'Auto', style: 'Klassiek' },
+    ],
+  },
+  portugal: {
+    name: 'Portugal',
+    flagEmoji: '🇵🇹',
+    continent: 'Europa',
+    description: 'Van de Port-quintas in de Douro tot de Atlantische Vinho Verde: Portugal werkt met inheemse druiven die je elders niet vindt.',
+    streken: [
+      { name: 'Douro', slug: 'douro-portugal', badge: 'Douro · Touriga Nacional', description: 'Xisto-schist, terrasvormige wijngaarden langs de rivier en quinta-cultuur die meer maakt dan alleen Port.' },
+    ],
+    topWijnhuizen: [
+      { name: 'Niepoort', slug: 'niepoort-douro-portugal', region: 'Douro · Portugal', badge: 'Port & Redoma' },
+    ],
+  },
+  spanje: {
+    name: 'Spanje',
+    flagEmoji: '🇪🇸',
+    continent: 'Europa',
+    description: 'Van Rioja\'s Tempranillo tot de llicorella van Priorat: Spanje koppelt extreme bodems aan diepgewortelde wijnbouwtraditie.',
+    routes: [
+      { title: 'Door het hart van de Priorat: Porrera naar Gratallops', slug: 'priorat-porrera-gratallops', days: 1, transport: 'Auto', style: 'Compact' },
+    ],
+  },
 };
 
 // Build props from entry or showcase data
