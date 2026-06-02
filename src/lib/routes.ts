@@ -129,7 +129,7 @@ async function fetchRoutesItems(url: string, token: string): Promise<Record<stri
     const env = readDirectusEnv();
     const baseFields = 'id,slug,title,description,body,duration,transport,style,highlights,stops,hero_image,status,meta_title,meta_description';
     const withOg = `${baseFields},og_image`;
-    // LAT-1098: reverse-relation via M2M articles.related_wijnroutes (junction `articles_routes`).
+    // LAT-1098: reverse-relation via M2M articles.related_routes (junction `articles_routes`).
     const withRelations = `${withOg},related_articles.articles_id.slug,related_articles.articles_id.title`;
     const filterSort = `${statusFilterQuery(env)}&sort=title`;
     const headers = { Authorization: `Bearer ${token}` };

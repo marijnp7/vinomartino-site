@@ -233,7 +233,7 @@ function mapArticle(a: Record<string, unknown>, heroImagePath: string | null, og
           bodyHtml,
           relatedStreken: mapRelatedRefs(a.related_streken, 'streken_id', 'name'),
           relatedWijnhuizen: mapRelatedRefs(a.related_wijnhuizen, 'wijnhuizen_id', 'name'),
-          relatedWijnroutes: mapRelatedRefs(a.related_wijnroutes, 'routes_id', 'title'),
+          relatedWijnroutes: mapRelatedRefs(a.related_routes, 'routes_id', 'title'),
           relatedLanden: mapRelatedRefs(a.related_landen, 'landen_id', 'name'),
     };
 }
@@ -259,7 +259,7 @@ async function fetchArticlesItems(url: string, token: string): Promise<Record<st
     const withRelations = `${withUpdatedAt}` +
         ',related_streken.streken_id.slug,related_streken.streken_id.name' +
         ',related_wijnhuizen.wijnhuizen_id.slug,related_wijnhuizen.wijnhuizen_id.name' +
-        ',related_wijnroutes.routes_id.slug,related_wijnroutes.routes_id.title' +
+        ',related_routes.routes_id.slug,related_routes.routes_id.title' +
         ',related_landen.landen_id.slug,related_landen.landen_id.name';
     // LAT-1053: scheduled publish — verberg artikelen waarvan pub_date in de toekomst
     // ligt, ook als status=published. Directus's $NOW resolvet server-side; pub_date
