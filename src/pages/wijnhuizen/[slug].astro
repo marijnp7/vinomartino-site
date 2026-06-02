@@ -1,6 +1,7 @@
 ---
 import SiteLayout from '../../layouts/SiteLayout.astro';
 import WijnhuisPageContent from '../../components/pages/WijnhuisPageContent.astro';
+import RelatedArticles from '../../components/RelatedArticles.astro';
 import { loadWijnhuizen, type Wijnhuis } from '../../lib/wijnhuizen';
 import { wijnhuisSchema, wijnhuisMetaTitle, wijnhuisMetaDescription, breadcrumbSchema } from '../../lib/seo';
 
@@ -54,4 +55,5 @@ const schema = [
   >
     {entry.bodyHtml && <div slot="story" set:html={entry.bodyHtml} />}
   </WijnhuisPageContent>
+  <RelatedArticles items={entry.relatedArticles} />
 </SiteLayout>

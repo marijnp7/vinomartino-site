@@ -1,3 +1,5 @@
+import type { RelatedRef } from './articles';
+
 export interface Wijnhuis {
     slug: string;
     name: string;
@@ -17,6 +19,24 @@ export interface Wijnhuis {
     metaTitle: string;
     metaDescription: string;
     bodyHtml: string;
+    relatedArticles: RelatedRef[];
+}
+
+function mapRelatedArticles(val: unknown): RelatedRef[] {
+    if (!Array.isArray(val)) return [];
+    const out: RelatedRef[] = [];
+    for (const row of val) {
+        if (!row || typeof row !== 'object') continue;
+        const rec = row as Record<string, unknown>;
+        const inner = rec.articles_id && typeof rec.articles_id === 'object'
+            ? rec.articles_id as Record<string, unknown>
+            : rec;
+        const slug = inner.slug ? String(inner.slug) : '';
+        const name = inner.title ? String(inner.title) : slug;
+        if (!slug) continue;
+        out.push({ slug, name: normalizeEmDashes(name) });
+    }
+    return out;
 }
 
 import { markdownToHtml as renderMarkdown, normalizeEmDashes } from './markdown';
@@ -109,6 +129,7 @@ function mapWijnhuis(
         metaTitle: String(r.meta_title || r.name),
         metaDescription: String(r.meta_description || r.description || ''),
         bodyHtml,
+        relatedArticles: mapRelatedArticles(r.related_articles),
     };
 }
 
@@ -116,12 +137,14 @@ async function fetchWijnhuizenItems(url: string, token: string): Promise<Record<
     const env = readDirectusEnv();
     const baseFields = 'id,slug,name,description,body,address,website,established,hectares,biodynamisch,winemaker,grapes,hero_image,status,meta_title,meta_description,streek_id.name';
     const withOg = `${baseFields},og_image`;
+    // LAT-1098: reverse-relation via M2M articles.related_wijnhuizen.
+    const withRelations = `${withOg},related_articles.articles_id.slug,related_articles.articles_id.title`;
     const filterSort = `${statusFilterQuery(env)}&sort=name`;
     const headers = { Authorization: `Bearer ${token}` };
     const signal = AbortSignal.timeout(15000);
     let res: Response;
     try {
-        res = await fetch(`${url}/items/wijnhuizen?limit=-1&fields=${withOg}${filterSort}`, { headers, signal });
+        res = await fetch(`${url}/items/wijnhuizen?limit=-1&fields=${withRelations}${filterSort}`, { headers, signal });
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         assetDebug.push({ kind: 'query', url, error: msg });
@@ -134,8 +157,27 @@ async function fetchWijnhuizenItems(url: string, token: string): Promise<Record<
     }
     if (res.status === 400 || res.status === 403) {
         const body = await res.text().catch(() => '');
-        console.warn(`[loadWijnhuizen] Directus rejected fields=…,og_image (HTTP ${res.status}) — retrying without og_image. Run directus/scripts/add-og-image-fields.mjs en/of geef de build-rol read-permissie op wijnhuizen.og_image.`);
-        assetDebug.push({ kind: 'query', url, status: res.status, body: body.slice(0, 500), retryWithoutOg: true });
+        console.warn(`[loadWijnhuizen] Directus rejected fields=…,related_articles (HTTP ${res.status}) — retrying without LAT-1098 relations.`);
+        assetDebug.push({ kind: 'query', url, status: res.status, body: body.slice(0, 500), retryWithoutRelations: true });
+        let retryRel: Response;
+        try {
+            retryRel = await fetch(`${url}/items/wijnhuizen?limit=-1&fields=${withOg}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            assetDebug.push({ kind: 'query-retry-rel', url, error: msg });
+            throw new Error(`[loadWijnhuizen] Directus retry without relations threw: ${msg}`);
+        }
+        if (retryRel.ok) {
+            const json = await retryRel.json();
+            assetDebug.push({ kind: 'query-retry-rel', url, status: 200, count: (json.data || []).length });
+            return (json.data || []) as Record<string, unknown>[];
+        }
+        if (retryRel.status !== 400 && retryRel.status !== 403) {
+            const rbody = await retryRel.text().catch(() => '');
+            assetDebug.push({ kind: 'query-retry-rel', url, status: retryRel.status, body: rbody.slice(0, 500) });
+            throw new Error(`[loadWijnhuizen] Directus retry without relations failed: ${retryRel.status} ${retryRel.statusText}: ${rbody.slice(0, 300)}`);
+        }
+        console.warn(`[loadWijnhuizen] Directus also rejected fields=…,og_image (HTTP ${retryRel.status}) — retrying without og_image.`);
         let retry: Response;
         try {
             retry = await fetch(`${url}/items/wijnhuizen?limit=-1&fields=${baseFields}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });

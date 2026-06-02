@@ -1,3 +1,5 @@
+import type { RelatedRef } from './articles';
+
 export interface Streek {
     slug: string;
     name: string;
@@ -16,6 +18,27 @@ export interface Streek {
     metaTitle: string;
     metaDescription: string;
     bodyHtml: string;
+    relatedArticles: RelatedRef[];
+}
+
+// LAT-1098: reverse M2M `streken.related_articles` → `articles_id.{slug,title}`.
+// Same shape-tolerant mapping as articles.mapRelatedRefs (duplicated to avoid
+// import cycle on the shared mapper).
+function mapRelatedArticles(val: unknown): RelatedRef[] {
+    if (!Array.isArray(val)) return [];
+    const out: RelatedRef[] = [];
+    for (const row of val) {
+        if (!row || typeof row !== 'object') continue;
+        const rec = row as Record<string, unknown>;
+        const inner = rec.articles_id && typeof rec.articles_id === 'object'
+            ? rec.articles_id as Record<string, unknown>
+            : rec;
+        const slug = inner.slug ? String(inner.slug) : '';
+        const name = inner.title ? String(inner.title) : slug;
+        if (!slug) continue;
+        out.push({ slug, name: normalizeEmDashes(name) });
+    }
+    return out;
 }
 
 import { markdownToHtml as renderMarkdown, normalizeEmDashes } from './markdown';
@@ -107,6 +130,7 @@ function mapStreek(
         metaTitle: String(r.meta_title || r.name),
         metaDescription: String(r.meta_description || r.description || ''),
         bodyHtml,
+        relatedArticles: mapRelatedArticles(r.related_articles),
     };
 }
 
@@ -114,12 +138,15 @@ async function fetchStrekenItems(url: string, token: string): Promise<Record<str
     const env = readDirectusEnv();
     const baseFields = 'id,slug,name,description,body,climate,soil,main_grapes,sub_regions,vineyard_area,altitude,appellations,hero_image,status,meta_title,meta_description,land_id.name';
     const withOg = `${baseFields},og_image`;
+    // LAT-1098: reverse-relation auto-aangemaakt door Directus M2M op articles
+    // (LAT-1097). Junction `articles_streken` → `articles_id.{slug,title}`.
+    const withRelations = `${withOg},related_articles.articles_id.slug,related_articles.articles_id.title`;
     const filterSort = `${statusFilterQuery(env)}&sort=name`;
     const headers = { Authorization: `Bearer ${token}` };
     const signal = AbortSignal.timeout(15000);
     let res: Response;
     try {
-        res = await fetch(`${url}/items/streken?limit=-1&fields=${withOg}${filterSort}`, { headers, signal });
+        res = await fetch(`${url}/items/streken?limit=-1&fields=${withRelations}${filterSort}`, { headers, signal });
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         assetDebug.push({ kind: 'query', url, error: msg });
@@ -132,8 +159,29 @@ async function fetchStrekenItems(url: string, token: string): Promise<Record<str
     }
     if (res.status === 400 || res.status === 403) {
         const body = await res.text().catch(() => '');
-        console.warn(`[loadStreken] Directus rejected fields=…,og_image (HTTP ${res.status}) — retrying without og_image. Run directus/scripts/add-og-image-fields.mjs en/of geef de build-rol read-permissie op streken.og_image.`);
-        assetDebug.push({ kind: 'query', url, status: res.status, body: body.slice(0, 500), retryWithoutOg: true });
+        console.warn(`[loadStreken] Directus rejected fields=…,related_articles (HTTP ${res.status}) — retrying without LAT-1098 relations. Run LAT-1097 (Directus M2M schema) en/of geef de build-rol read-permissie op streken.related_articles.`);
+        assetDebug.push({ kind: 'query', url, status: res.status, body: body.slice(0, 500), retryWithoutRelations: true });
+        let retryRel: Response;
+        try {
+            retryRel = await fetch(`${url}/items/streken?limit=-1&fields=${withOg}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            assetDebug.push({ kind: 'query-retry-rel', url, error: msg });
+            throw new Error(`[loadStreken] Directus retry without relations threw: ${msg}`);
+        }
+        if (retryRel.ok) {
+            const json = await retryRel.json();
+            assetDebug.push({ kind: 'query-retry-rel', url, status: 200, count: (json.data || []).length });
+            return (json.data || []) as Record<string, unknown>[];
+        }
+        // Relations missing AND og_image still failing → drop to baseFields.
+        if (retryRel.status !== 400 && retryRel.status !== 403) {
+            const rbody = await retryRel.text().catch(() => '');
+            assetDebug.push({ kind: 'query-retry-rel', url, status: retryRel.status, body: rbody.slice(0, 500) });
+            throw new Error(`[loadStreken] Directus retry without relations failed: ${retryRel.status} ${retryRel.statusText}: ${rbody.slice(0, 300)}`);
+        }
+        console.warn(`[loadStreken] Directus also rejected fields=…,og_image (HTTP ${retryRel.status}) — retrying without og_image. Run directus/scripts/add-og-image-fields.mjs en/of geef de build-rol read-permissie op streken.og_image.`);
+        assetDebug.push({ kind: 'query-retry-og', url, status: retryRel.status });
         let retry: Response;
         try {
             retry = await fetch(`${url}/items/streken?limit=-1&fields=${baseFields}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });

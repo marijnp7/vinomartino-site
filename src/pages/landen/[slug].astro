@@ -1,6 +1,7 @@
 ---
 import SiteLayout from '../../layouts/SiteLayout.astro';
 import LandPageContent from '../../components/pages/LandPageContent.astro';
+import RelatedArticles from '../../components/RelatedArticles.astro';
 import { loadLanden, type Land } from '../../lib/landen';
 import { breadcrumbSchema, landSchema, landMetaTitle, landMetaDescription } from '../../lib/seo';
 
@@ -172,4 +173,5 @@ const schema = [
     practical={pageData.practical}
     climate={pageData.climate}
   />
+  {entry && <RelatedArticles items={entry.relatedArticles} />}
 </SiteLayout>

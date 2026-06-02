@@ -1,3 +1,8 @@
+export interface RelatedRef {
+    slug: string;
+    name: string;
+}
+
 export interface Article {
     slug: string;
     title: string;
@@ -13,6 +18,10 @@ export interface Article {
     metaTitle: string;
     metaDescription: string;
     bodyHtml: string;
+    relatedStreken: RelatedRef[];
+    relatedWijnhuizen: RelatedRef[];
+    relatedWijnroutes: RelatedRef[];
+    relatedLanden: RelatedRef[];
 }
 
 const META_DESC_RE = /^\s*\*{0,2}Meta-description:?\*{0,2}\s*/i;
@@ -185,6 +194,27 @@ async function downloadArticleAsset(assetId: string, directusUrl: string, token:
     }
 }
 
+// LAT-1098: Directus M2M-junction shape on `articles.related_<entity>` is
+// `{[junction_id_or_index]: {<entity>_id: {slug, name|title}}}`. Reverse on the
+// entity side uses `{articles_id: {slug, title}}`. We accept a few common shapes
+// so a missing/renamed junction degrades to empty instead of throwing.
+function mapRelatedRefs(val: unknown, slugKey: string, nameKey: string): RelatedRef[] {
+    if (!Array.isArray(val)) return [];
+    const out: RelatedRef[] = [];
+    for (const row of val) {
+        if (!row || typeof row !== 'object') continue;
+        const rec = row as Record<string, unknown>;
+        const inner = rec[slugKey] && typeof rec[slugKey] === 'object'
+            ? rec[slugKey] as Record<string, unknown>
+            : rec;
+        const slug = inner.slug ? String(inner.slug) : '';
+        const name = inner[nameKey] ? String(inner[nameKey]) : slug;
+        if (!slug) continue;
+        out.push({ slug, name: normalizeEmDashes(name) });
+    }
+    return out;
+}
+
 function mapArticle(a: Record<string, unknown>, heroImagePath: string | null, ogImagePath: string | null, bodyHtml: string): Article {
     return {
           slug: String(a.slug),
@@ -201,6 +231,10 @@ function mapArticle(a: Record<string, unknown>, heroImagePath: string | null, og
           metaTitle: normalizeEmDashes(String(a.meta_title || a.title)),
           metaDescription: normalizeEmDashes(String(a.meta_description || a.description || '')),
           bodyHtml,
+          relatedStreken: mapRelatedRefs(a.related_streken, 'streken_id', 'name'),
+          relatedWijnhuizen: mapRelatedRefs(a.related_wijnhuizen, 'wijnhuizen_id', 'name'),
+          relatedWijnroutes: mapRelatedRefs(a.related_routes, 'routes_id', 'title'),
+          relatedLanden: mapRelatedRefs(a.related_landen, 'landen_id', 'name'),
     };
 }
 
@@ -218,6 +252,15 @@ async function fetchArticlesItems(url: string, token: string): Promise<Record<st
     const env = readDirectusEnv();
     const baseFields = 'id,slug,title,description,body,pub_date,author,category,tags,hero_image,og_image,status,meta_title,meta_description';
     const withUpdatedAt = `${baseFields},updated_at`;
+    // LAT-1098: 4 forward relations toegevoegd aan articles. Junction-tabellen
+    // volgen Directus-conventie `articles_<entity>` met FK `<entity>_id`.
+    // Faalt graceful met 400/403 retry naar withUpdatedAt zolang LAT-1097
+    // schema nog niet live is — site bouwt dan zonder cross-links.
+    const withRelations = `${withUpdatedAt}` +
+        ',related_streken.streken_id.slug,related_streken.streken_id.name' +
+        ',related_wijnhuizen.wijnhuizen_id.slug,related_wijnhuizen.wijnhuizen_id.name' +
+        ',related_routes.routes_id.slug,related_routes.routes_id.title' +
+        ',related_landen.landen_id.slug,related_landen.landen_id.name';
     // LAT-1053: scheduled publish — verberg artikelen waarvan pub_date in de toekomst
     // ligt, ook als status=published. Directus's $NOW resolvet server-side; pub_date
     // null wordt eveneens getoond (legacy/onbekend) zodat bestaande artikelen niet
@@ -228,7 +271,7 @@ async function fetchArticlesItems(url: string, token: string): Promise<Record<st
     const signal = AbortSignal.timeout(15000);
     let res: Response;
     try {
-          res = await fetch(`${url}/items/articles?limit=-1&fields=${withUpdatedAt}${filterSort}`, { headers, signal });
+          res = await fetch(`${url}/items/articles?limit=-1&fields=${withRelations}${filterSort}`, { headers, signal });
     } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           throw new Error(`[loadArticles] Directus unreachable at ${url}: ${msg}`);
@@ -239,17 +282,28 @@ async function fetchArticlesItems(url: string, token: string): Promise<Record<st
     }
     // 400 = veld bestaat niet in Directus (pre-migratie); 403 = veld bestaat wel
     // maar de build-rol heeft geen read-permissie. Beide gevallen: degraderen
-    // naar baseFields zodat de build niet hard breekt op een SEO-meta-veld.
+    // door relations te droppen, dan updated_at, zodat de build nooit hard breekt.
     if (res.status === 400 || res.status === 403) {
           const body = await res.text().catch(() => '');
-          console.warn(`[loadArticles] Directus rejected fields=…,updated_at (HTTP ${res.status}) — retrying without updated_at. Run directus/scripts/add-seo-meta-fields.mjs en/of geef de build-rol read-permissie op articles.updated_at.`);
-          const retry = await fetch(`${url}/items/articles?limit=-1&fields=${baseFields}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
-          if (retry.ok) {
-                const json = await retry.json();
+          console.warn(`[loadArticles] Directus rejected fields=…,related_* (HTTP ${res.status}) — retrying without LAT-1098 relations. Run LAT-1097 (Directus M2M schema) en/of geef de build-rol read-permissie op related_*.`);
+          const retryRel = await fetch(`${url}/items/articles?limit=-1&fields=${withUpdatedAt}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
+          if (retryRel.ok) {
+                const json = await retryRel.json();
                 return (json.data || []) as Record<string, unknown>[];
           }
-          const rbody = await retry.text().catch(() => '');
-          throw new Error(`[loadArticles] Directus retry without updated_at failed: ${retry.status} ${retry.statusText}: ${rbody.slice(0, 300)} | original ${res.status} body: ${body.slice(0, 200)}`);
+          if (retryRel.status === 400 || retryRel.status === 403) {
+                const rbody1 = await retryRel.text().catch(() => '');
+                console.warn(`[loadArticles] Directus rejected fields=…,updated_at (HTTP ${retryRel.status}) — retrying without updated_at. Run directus/scripts/add-seo-meta-fields.mjs en/of geef de build-rol read-permissie op articles.updated_at.`);
+                const retry = await fetch(`${url}/items/articles?limit=-1&fields=${baseFields}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
+                if (retry.ok) {
+                      const json = await retry.json();
+                      return (json.data || []) as Record<string, unknown>[];
+                }
+                const rbody2 = await retry.text().catch(() => '');
+                throw new Error(`[loadArticles] Directus retry without updated_at failed: ${retry.status} ${retry.statusText}: ${rbody2.slice(0, 300)} | retryRel ${retryRel.status} body: ${rbody1.slice(0, 200)} | original ${res.status} body: ${body.slice(0, 200)}`);
+          }
+          const rbody = await retryRel.text().catch(() => '');
+          throw new Error(`[loadArticles] Directus retry without relations failed: ${retryRel.status} ${retryRel.statusText}: ${rbody.slice(0, 300)} | original ${res.status} body: ${body.slice(0, 200)}`);
     }
     const body = await res.text().catch(() => '');
     throw new Error(`[loadArticles] Directus returned ${res.status} ${res.statusText} for /items/articles: ${body.slice(0, 300)}`);
