@@ -35,6 +35,17 @@ import {
 
 const assetDebug: Array<Record<string, unknown>> = [];
 
+async function writeAssetDebug(pathTaken: string): Promise<void> {
+    const { writeFileSync, mkdirSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const dir = join(process.cwd(), 'public');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+        join(dir, 'build-debug-landen.json'),
+        JSON.stringify({ asOf: new Date().toISOString(), pathTaken, cwd: process.cwd(), entries: assetDebug }, null, 2),
+    );
+}
+
 async function downloadAsset(assetId: string, directusUrl: string, token: string, prefix = ''): Promise<string | null> {
     const { writeFileSync, mkdirSync, existsSync } = await import('node:fs');
     const { join } = await import('node:path');
@@ -177,6 +188,7 @@ async function loadFromDirectus(url: string, token: string): Promise<Land[]> {
         }),
     );
     console.log(`[loadLanden] fetched ${items.length} landen from Directus`);
+    await writeAssetDebug('directus');
     return items;
 }
 
