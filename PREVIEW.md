@@ -53,6 +53,21 @@ curl -I https://vinomartino.com/streken/test-preview/
 - `nginx-preview.conf` voegt `X-Robots-Tag: noindex, nofollow` met
   `always` toe — dekt 2xx, 404, redirects.
 
+## Beveiligingsmodel
+
+Preview vertrouwt op `X-Robots-Tag: noindex, nofollow` + URL-obscurity
+(preview.vinomartino.com is niet vanuit prod gelinkt). Akkoord van Marijn
+en CEO voor MVP. **Trigger voor escalatie naar basic-auth (htpasswd-mount
+zit al in `docker-compose.vinomartino-preview.yml`):**
+
+- Preview-URL duikt op in een externe index (Google Search Console, Bing).
+- Preview-URL wordt gedeeld buiten Marijn / het VinoMartino-team.
+- Een draft lekt herleidbaar naar pers/partners voordat publish goedgekeurd is.
+
+In één van die gevallen: zet `htpasswd auth_basic` aan in
+`nginx-preview.conf` (1 regel) en deel creds via BWS. Backlog-ticket
+bestaat hiervoor — niet wachten op een incident.
+
 ## Volgende stappen (out-of-scope voor stap 1)
 
 - Stap 2/3: Telegram approve-flow via CoS approval-bridge.

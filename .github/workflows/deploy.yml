@@ -318,6 +318,17 @@ jobs:
           if [ "${{ steps.env.outputs.target }}" = "production" ]; then
             [ "$code" = "200" ] || { echo "::error::Productie smoke-test faalde na 5 pogingen ($code)"; exit 1; }
 
+            # LAT-1112: regressie-guard. Productie mag NOOIT X-Robots-Tag
+            # noindex meesturen — als iemand per ongeluk een noindex-regel
+            # in nginx-prod.conf laat sluipen, vangen we dat hier op voordat
+            # Google de site uitsluit.
+            prod_headers=$(curl -sSI --max-time 15 -H 'Cache-Control: no-cache' "$URL" || true)
+            if printf '%s\n' "$prod_headers" | grep -i '^x-robots-tag:.*noindex' >/dev/null; then
+              echo "::error::Productie homepage stuurt X-Robots-Tag: noindex — nginx-prod.conf is per ongeluk noindex gemarkeerd (LAT-1112 regressie)"
+              echo "$prod_headers"
+              exit 1
+            fi
+
             # LAT-1014: download de homepage echt en eis dat de body > 10 KB
             # is. Een 200 met een 4 KB Astro 404-fallback is óók "groen"
             # voor de status-code-check hierboven; pas een size-check vangt
