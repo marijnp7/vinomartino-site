@@ -1,0 +1,475 @@
+---
+/**
+ * <InfographicCardMinimal> — Stijl 1 "Minimaal & Wit" web component
+ * LAT-1110 — herzien op feedback dat de print-card (LAT-1108) te klein/dun was.
+ *
+ * Verschillen t.o.v. <InfographicCard>:
+ *   • Web-first (geen vaste 1080×1350 canvas) — schaalt mee met container
+ *   • Pure wit, geen cream-paper, geen frame
+ *   • Dikker stroke, grotere body-typo, hogere contrast burgundy
+ *   • Twee weergaven: 'single' (één profiel) of 'compare' (twee profielen naast elkaar
+ *     met gedeelde 5-assen-radar — primaire use-case zoals in de Atelier-mockup)
+ *   • Subtiel scroll-reveal + hover-waardes via een minimaal scriptje verderop
+ */
+
+export interface RadialAxis {
+  label: string;
+  value: number; // 0–10
+}
+
+export interface DataPair {
+  label: string;
+  value: string;
+}
+
+export interface MinimalProfile {
+  label: string;                 // "Barolo"
+  contextLine?: string;          // "DOCG · 11 gemeenten · 170–540 m"
+  axes: [RadialAxis, RadialAxis, RadialAxis, RadialAxis, RadialAxis];
+  meta?: DataPair[];             // 2–4 facts onder radar
+  tasting?: string;              // 1 zin italic
+  accent?: 'burgundy' | 'rust' | 'vine' | 'gold';
+}
+
+export interface Props {
+  /** Kicker — bv. "DRUIVENPROFIEL · NO. 002" */
+  kicker?: string;
+  /** Hoofdtitel — bv. "Nebbiolo" */
+  title?: string;
+  /** Subtitel — bv. "Barolo vs Barbaresco" */
+  subtitle?: string;
+  /** Optionele intro-zin onder de kop */
+  intro?: string;
+  /** Eén of twee profielen (compare-mode bij twee) */
+  profiles: [MinimalProfile] | [MinimalProfile, MinimalProfile];
+  /** Bron, klein onderaan */
+  source?: string;
+  /** Verplicht: aria-label voor het hele blok */
+  alt: string;
+  class?: string;
+}
+
+const { kicker, title, subtitle, intro, profiles, source, alt, class: className } = Astro.props;
+
+const ACCENT_HEX: Record<NonNullable<MinimalProfile['accent']>, string> = {
+  burgundy: '#5A1A1F',
+  rust:     '#A14F2A',
+  vine:     '#5C6B3F',
+  gold:     '#B8923C',
+};
+function accentOf(p: MinimalProfile) {
+  return ACCENT_HEX[p.accent ?? 'burgundy'];
+}
+
+// ─── Radar geometry (5 axes, top = up, clockwise) ──────────────
+// Larger logical canvas zodat type op web groot leesbaar uitkomt.
+const R = 140;            // outer radius
+const CX = 200;
+const CY = 200;
+const VIEWBOX = '0 0 400 400';
+const RINGS = [0.25, 0.5, 0.75, 1.0]; // 4 concentrische ringen
+
+function polarPoint(i: number, value: number, count = 5) {
+  const angle = -Math.PI / 2 + (i * 2 * Math.PI) / count;
+  const r = Math.max(0, Math.min(10, value)) / 10 * R;
+  return {
+    x: CX + r * Math.cos(angle),
+    y: CY + r * Math.sin(angle),
+  };
+}
+function axisLine(i: number) {
+  const angle = -Math.PI / 2 + (i * 2 * Math.PI) / 5;
+  return {
+    x: CX + R * Math.cos(angle),
+    y: CY + R * Math.sin(angle),
+    angle,
+  };
+}
+function labelPos(i: number) {
+  const angle = -Math.PI / 2 + (i * 2 * Math.PI) / 5;
+  const offset = R + 28;
+  const x = CX + offset * Math.cos(angle);
+  const y = CY + offset * Math.sin(angle) + 4; // baseline nudge
+  let anchor: 'start' | 'middle' | 'end' = 'middle';
+  if (Math.cos(angle) > 0.3) anchor = 'start';
+  else if (Math.cos(angle) < -0.3) anchor = 'end';
+  return { x, y, anchor };
+}
+
+function polygonPoints(axes: RadialAxis[]): string {
+  return axes
+    .map((a, i) => {
+      const p = polarPoint(i, a.value);
+      return `${p.x.toFixed(1)},${p.y.toFixed(1)}`;
+    })
+    .join(' ');
+}
+
+// Shared axis labels — same for both profiles in compare mode
+const sharedAxisLabels = profiles[0].axes.map((a) => a.label);
+const profileCount = profiles.length;
+const blockId = `vmcm-${Math.random().toString(36).slice(2, 9)}`;
+---
+
+<figure
+  class:list={['vm-card-minimal', `count-${profileCount}`, className]}
+  aria-label={alt}
+  data-block-id={blockId}
+>
+  {(kicker || title || subtitle) && (
+    <header class="header">
+      {kicker && <p class="kicker">{kicker}</p>}
+      {title && <h2 class="title">{title}</h2>}
+      {subtitle && <p class="subtitle">{subtitle}</p>}
+      {intro && <p class="intro">{intro}</p>}
+    </header>
+  )}
+
+  <div class="grid" role="group" aria-label={`${profileCount} profielen`}>
+    {profiles.map((p) => {
+      const accent = accentOf(p);
+      return (
+        <article class="profile" style={`--accent: ${accent};`}>
+          <div class="profile-head">
+            <h3 class="profile-label">{p.label}</h3>
+            {p.contextLine && <p class="profile-context">{p.contextLine}</p>}
+          </div>
+
+          <div class="radar-wrap">
+            <svg
+              viewBox={VIEWBOX}
+              role="img"
+              aria-label={`Radar van ${p.label}: ${p.axes.map((a) => `${a.label} ${a.value}`).join(', ')}`}
+              class="radar"
+            >
+              <title>{p.label} — radarprofiel</title>
+
+              {/* Concentrische ringen (subtiel grid) */}
+              {RINGS.map((ratio) => (
+                <circle
+                  cx={CX}
+                  cy={CY}
+                  r={R * ratio}
+                  class="ring"
+                />
+              ))}
+
+              {/* Assenstralen + nummerlabels op de buitenring */}
+              {p.axes.map((axis, i) => {
+                const a = axisLine(i);
+                const lp = labelPos(i);
+                return (
+                  <>
+                    <line x1={CX} y1={CY} x2={a.x} y2={a.y} class="spoke" />
+                    <text
+                      x={lp.x}
+                      y={lp.y}
+                      text-anchor={lp.anchor}
+                      class="axis-label"
+                    >{axis.label}</text>
+                  </>
+                );
+              })}
+
+              {/* Polygoon (gevuld) */}
+              <polygon
+                points={polygonPoints(p.axes)}
+                class="poly"
+              />
+
+              {/* Knooppunten met value-tooltips */}
+              {p.axes.map((axis, i) => {
+                const pt = polarPoint(i, axis.value);
+                return (
+                  <g class="node">
+                    <circle cx={pt.x} cy={pt.y} r={5} class="node-dot" />
+                    <circle cx={pt.x} cy={pt.y} r={14} class="node-hit" />
+                    <title>{axis.label}: {axis.value}/10</title>
+                  </g>
+                );
+              })}
+            </svg>
+          </div>
+
+          {p.meta && p.meta.length > 0 && (
+            <dl class="meta">
+              {p.meta.map((m) => (
+                <div class="meta-row">
+                  <dt>{m.label}</dt>
+                  <dd>{m.value}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
+
+          {p.tasting && <p class="tasting">{p.tasting}</p>}
+        </article>
+      );
+    })}
+  </div>
+
+  {source && (
+    <footer class="source">
+      <span class="source-label">Bron</span>
+      <span class="source-value">{source}</span>
+    </footer>
+  )}
+</figure>
+
+<style>
+  .vm-card-minimal {
+    /* Stijl-1 lokale tokens — overschrijven site-tokens voor pure wit/burgundy */
+    --bg: #FFFFFF;
+    --ink: #1A1A1A;
+    --ink-soft: #555555;
+    --ink-faint: #8A8A8A;
+    --rule: #E5E5E5;
+    --rule-strong: #1A1A1A;
+    --burgundy: #5A1A1F;
+
+    margin: clamp(2rem, 5vw, 4rem) 0;
+    padding: clamp(1.5rem, 4vw, 3rem) clamp(1.25rem, 3vw, 2.5rem);
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Source Serif 4', Georgia, serif;
+    container-type: inline-size;
+  }
+
+  .header {
+    text-align: center;
+    max-width: 38rem;
+    margin: 0 auto clamp(1.5rem, 3vw, 2.5rem);
+  }
+  .kicker {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--burgundy);
+    margin: 0 0 0.75rem;
+  }
+  .title {
+    font-family: 'Cormorant Garamond', 'EB Garamond', Georgia, serif;
+    font-size: clamp(2rem, 4.5vw, 3.25rem);
+    font-style: italic;
+    font-weight: 500;
+    line-height: 1.05;
+    color: var(--ink);
+    margin: 0 0 0.25rem;
+  }
+  .subtitle {
+    font-family: 'Cormorant Garamond', 'EB Garamond', Georgia, serif;
+    font-size: clamp(1.05rem, 1.9vw, 1.35rem);
+    font-style: italic;
+    color: var(--ink-soft);
+    margin: 0 0 1rem;
+  }
+  .intro {
+    font-size: clamp(0.95rem, 1.4vw, 1.05rem);
+    line-height: 1.6;
+    color: var(--ink-soft);
+    margin: 0;
+  }
+
+  .grid {
+    display: grid;
+    gap: clamp(1.5rem, 3vw, 3rem);
+  }
+  .count-2 .grid {
+    grid-template-columns: 1fr;
+  }
+  @container (min-width: 720px) {
+    .count-2 .grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  .profile-head {
+    text-align: center;
+    border-top: 1px solid var(--rule-strong);
+    padding-top: 1rem;
+    margin-bottom: 1rem;
+  }
+  .profile-label {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 0.875rem;
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink);
+    margin: 0;
+  }
+  .profile-context {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0.35rem 0 0;
+  }
+
+  .radar-wrap {
+    display: flex;
+    justify-content: center;
+    padding: 0.5rem 0 1rem;
+  }
+  .radar {
+    width: 100%;
+    max-width: 22rem;
+    height: auto;
+    display: block;
+  }
+  .radar .ring {
+    fill: none;
+    stroke: var(--rule);
+    stroke-width: 1;
+  }
+  .radar .ring:last-of-type {
+    stroke: #BFBFBF;
+    stroke-width: 1.25;
+  }
+  .radar .spoke {
+    stroke: var(--rule);
+    stroke-width: 1;
+  }
+  .radar .axis-label {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 13px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    fill: var(--ink);
+  }
+  .radar .poly {
+    fill: var(--accent);
+    fill-opacity: 0.12;
+    stroke: var(--accent);
+    stroke-width: 2.25;
+    stroke-linejoin: round;
+    transition: fill-opacity 220ms ease, stroke-width 220ms ease;
+  }
+  .radar .node-dot {
+    fill: var(--accent);
+    stroke: var(--bg);
+    stroke-width: 1.5;
+  }
+  .radar .node-hit {
+    fill: transparent;
+    cursor: help;
+  }
+  .radar .node:hover .node-dot,
+  .radar .node:focus-within .node-dot {
+    r: 7;
+  }
+  .profile:hover .radar .poly {
+    fill-opacity: 0.2;
+  }
+
+  .meta {
+    margin: 1rem 0 0;
+    padding: 1rem 0 0;
+    border-top: 1px solid var(--rule);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem 1.5rem;
+  }
+  .meta-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+  .meta dt {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  .meta dd {
+    margin: 0;
+    font-family: 'Source Serif 4', Georgia, serif;
+    font-size: 1rem;
+    color: var(--ink);
+  }
+
+  .tasting {
+    margin: 1.25rem 0 0;
+    font-style: italic;
+    font-size: 1rem;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    text-align: center;
+    max-width: 32ch;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .source {
+    margin-top: clamp(1.5rem, 3vw, 2.5rem);
+    padding-top: 1rem;
+    border-top: 1px solid var(--rule);
+    display: flex;
+    justify-content: center;
+    gap: 0.75rem;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  .source-label { color: var(--ink-faint); }
+  .source-value { color: var(--ink-soft); }
+
+  /* Scroll-reveal — fade + lift bij in-view */
+  .radar .poly,
+  .radar .node-dot {
+    opacity: 0;
+    transform-origin: 200px 200px;
+    transform: scale(0.92);
+    transition: opacity 600ms cubic-bezier(0.16, 1, 0.3, 1),
+                transform 600ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .vm-card-minimal.is-visible .radar .poly,
+  .vm-card-minimal.is-visible .radar .node-dot {
+    opacity: 1;
+    transform: scale(1);
+  }
+  /* Respecteer reduced-motion */
+  @media (prefers-reduced-motion: reduce) {
+    .radar .poly,
+    .radar .node-dot {
+      opacity: 1;
+      transform: none;
+      transition: none;
+    }
+  }
+</style>
+
+<script>
+  // Scroll-reveal — fade-in radars wanneer ze in view komen.
+  // No-bundle script, idempotent, draait éénmaal per kaart.
+  (function () {
+    if (typeof window === 'undefined') return;
+    const els = document.querySelectorAll('.vm-card-minimal:not([data-revealed])');
+    if (!els.length) return;
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce || !('IntersectionObserver' in window)) {
+      els.forEach((el) => {
+        el.classList.add('is-visible');
+        el.setAttribute('data-revealed', 'true');
+      });
+      return;
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) {
+            e.target.classList.add('is-visible');
+            e.target.setAttribute('data-revealed', 'true');
+            io.unobserve(e.target);
+          }
+        }
+      },
+      { rootMargin: '0px 0px -10% 0px', threshold: 0.15 }
+    );
+    els.forEach((el) => io.observe(el));
+  })();
+</script>
