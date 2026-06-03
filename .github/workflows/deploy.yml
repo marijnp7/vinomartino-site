@@ -129,11 +129,21 @@ jobs:
           GIT_SHA: ${{ github.sha }}
           RUN_ID: ${{ github.run_id }}
           RUN_NUMBER: ${{ github.run_number }}
+          TARGET: ${{ steps.env.outputs.target }}
           BUILD_SCRIPT: |
             set -euo pipefail
             cd "$STAGE"
             if [ -f /root/vinomartino-site/.env ]; then
               cp /root/vinomartino-site/.env .env
+            fi
+            # LAT-1112: preview-builds include draft items so Marijn can
+            # review status=draft entries on preview.vinomartino.com before
+            # promote-to-production. Productie krijgt deze env-var NIET en
+            # blijft daarom alleen `status=published` serveren.
+            if [ "$TARGET" = "preview" ]; then
+              DRAFTS_ENV="-e DIRECTUS_INCLUDE_DRAFTS=1"
+            else
+              DRAFTS_ENV=""
             fi
             # Build altijd in docker met --network directus_directus_net,
             # anders kan de host de container-DNS `vinomartino-directus-1`
@@ -145,6 +155,7 @@ jobs:
             # LAT-1011 ondanks Directus 403 — alleen het log onthult dat.
             set +e
             docker run --rm --network directus_directus_net \
+              $DRAFTS_ENV \
               -v "$STAGE":/app -w /app \
               node:24 bash -c "npm ci && npm run build" 2>&1 | tee build.log
             build_rc=${PIPESTATUS[0]}
@@ -176,7 +187,7 @@ jobs:
             bash scripts/verify-build.sh dist
         run: |
           printf '%s\n' "$BUILD_SCRIPT" \
-            | ssh "$VPS" "STAGE='$STAGE' GIT_SHA='$GIT_SHA' RUN_ID='$RUN_ID' RUN_NUMBER='$RUN_NUMBER' bash -s"
+            | ssh "$VPS" "STAGE='$STAGE' GIT_SHA='$GIT_SHA' RUN_ID='$RUN_ID' RUN_NUMBER='$RUN_NUMBER' TARGET='$TARGET' bash -s"
 
       # ── 7. Sync inhoud + config naar DIST + container reload ─────────────
       #
@@ -289,6 +300,20 @@ jobs:
             if [ "$code" = "200" ]; then break; fi
             sleep 4
           done
+
+          if [ "${{ steps.env.outputs.target }}" = "preview" ]; then
+            # LAT-1112: preview moet altijd X-Robots-Tag: noindex meesturen,
+            # ook op 200/404/redirect. We checken op de homepage als
+            # representative voor de nginx-config; `always` in nginx-preview.conf
+            # zorgt dat de header universeel zit.
+            headers=$(curl -sSI --max-time 15 -H 'Cache-Control: no-cache' "$URL" || true)
+            echo "$headers"
+            if ! printf '%s\n' "$headers" | grep -i '^x-robots-tag:.*noindex' >/dev/null; then
+              echo "::error::Preview mist X-Robots-Tag: noindex op homepage — nginx-preview.conf check (LAT-1112)"
+              exit 1
+            fi
+            echo "::notice::Preview smoke-test OK — X-Robots-Tag noindex aanwezig"
+          fi
 
           if [ "${{ steps.env.outputs.target }}" = "production" ]; then
             [ "$code" = "200" ] || { echo "::error::Productie smoke-test faalde na 5 pogingen ($code)"; exit 1; }
