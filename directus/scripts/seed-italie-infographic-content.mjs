@@ -52,7 +52,7 @@ function log(msg) {
 async function updateItalieLand() {
   log('\n=== Stap 1: Italië (landen id=1) facts-box ===');
   const res = await api('PATCH', '/items/landen/1', {
-    main_grapes: "Sangiovese, Nebbiolo, Barbera, Montepulciano, Primitivo, Corvina, Vermentino, Nero d'Avola",
+    main_grapes: ["Sangiovese", "Nebbiolo", "Barbera", "Montepulciano", "Primitivo", "Corvina", "Vermentino", "Nero d'Avola"],
     best_time_to_visit: 'april–juni en september–oktober (vendemmia/oogst)',
     infographic_kicker: '418 erkende appellaties — meer dan welk wijnland ook ter wereld.',
     facts_override: {
@@ -81,7 +81,7 @@ const EXISTING_STREKEN_UPDATES = [
     label: 'Piemonte/Langhe',
     sort_order: 1,
     dominant_grape: 'Nebbiolo',
-    main_grapes: 'Nebbiolo, Barbera, Dolcetto, Moscato Bianco, Cortese, Arneis',
+    main_grapes: ["Nebbiolo", "Barbera", "Dolcetto", "Moscato Bianco", "Cortese", "Arneis"],
     wine_style:
       'Tanninrijke rode bewaarwijnen (Barolo, Barbaresco) van Nebbiolo — lang rijpend, hoge zuurgraad. ' +
       'Toegankelijkere Barbera (donker fruit, volle zuurgraad) en dagelijkse Dolcetto (amandelbitter, soepel). ' +
@@ -93,7 +93,7 @@ const EXISTING_STREKEN_UPDATES = [
     label: 'Toscane',
     sort_order: 2,
     dominant_grape: 'Sangiovese',
-    main_grapes: 'Sangiovese, Cabernet Sauvignon, Merlot, Vernaccia di San Gimignano',
+    main_grapes: ["Sangiovese", "Cabernet Sauvignon", "Merlot", "Vernaccia di San Gimignano"],
     wine_style:
       'Sangiovese-gedomineerde rode wijnen in diverse appellaties: Brunello di Montalcino (100% Brunello, ' +
       'min. 5 jaar rijping), Chianti Classico (min. 80% Sangiovese), Vino Nobile di Montepulciano, ' +
@@ -106,7 +106,7 @@ const EXISTING_STREKEN_UPDATES = [
     label: 'Sicilië/Etna',
     sort_order: 7,
     dominant_grape: 'Nerello Mascalese',
-    main_grapes: "Nerello Mascalese, Carricante, Nero d'Avola, Frappato, Catarratto, Grillo, Inzolia",
+    main_grapes: ["Nerello Mascalese", "Carricante", "Nero d'Avola", "Frappato", "Catarratto", "Grillo", "Inzolia"],
     wine_style:
       'Vulkanische wijnen van Etna: Nerello Mascalese (rood, dunne schil, hoge tannine en zuurgraad, ' +
       '500–1000m hoogte op basaltbodem) en Carricante (wit, mineraal, lang houdbaar). ' +
@@ -124,7 +124,7 @@ const NEW_STREKEN = [
     land_id: 1,
     sort_order: 3,
     dominant_grape: 'Corvina Veronese',
-    main_grapes: 'Corvina Veronese, Corvinone, Rondinella, Garganega, Glera',
+    main_grapes: ["Corvina Veronese", "Corvinone", "Rondinella", "Garganega", "Glera"],
     wine_style:
       'Amarone della Valpolicella (appassimento van gedroogde Corvina-druiven, 14–17% alc, droog-complex). ' +
       'Droge witte Soave (Garganega, amandelachtig, bloemenig). ' +
@@ -138,7 +138,7 @@ const NEW_STREKEN = [
     land_id: 1,
     sort_order: 4,
     dominant_grape: 'Friulano',
-    main_grapes: 'Friulano, Ribolla Gialla, Pinot Grigio, Refosco dal Peduncolo Rosso',
+    main_grapes: ["Friulano", "Ribolla Gialla", "Pinot Grigio", "Refosco dal Peduncolo Rosso"],
     wine_style:
       'Droge witte wijnen: Friulano (amandelbitter, laag zuur) en Pinot Grigio (droger dan de ' +
       'massaproductie-variant). Oranjewijnen van Ribolla Gialla — langdurig vellencontact, ' +
@@ -151,7 +151,7 @@ const NEW_STREKEN = [
     land_id: 1,
     sort_order: 5,
     dominant_grape: 'Gewürztraminer',
-    main_grapes: 'Gewürztraminer, Pinot Bianco, Pinot Grigio, Lagrein, Teroldego Rotaliano, Schiava',
+    main_grapes: ["Gewürztraminer", "Pinot Bianco", "Pinot Grigio", "Lagrein", "Teroldego Rotaliano", "Schiava"],
     wine_style:
       'Aromatische witte Gewürztraminer — haar bakermat ligt in Tramin/Termeno (Zuid-Tirol). ' +
       'Helder Pinot Bianco met hoge zuurgraad door koele bergklimaat (600–900m). ' +
@@ -165,7 +165,7 @@ const NEW_STREKEN = [
     land_id: 1,
     sort_order: 6,
     dominant_grape: 'Lambrusco',
-    main_grapes: 'Lambrusco (di Sorbara, Grasparossa, Salamino, Maestri), Sangiovese di Romagna, Albana',
+    main_grapes: ["Lambrusco", "Sangiovese di Romagna", "Albana"],
     wine_style:
       'Mousserende Lambrusco in stijlen van frisroze tot donkerrood, droog (secco) tot zoet (dolce) — ' +
       'klassieke pairingwijn bij Parmigiano Reggiano en prosciutto di Parma. ' +
@@ -179,7 +179,7 @@ const NEW_STREKEN = [
     land_id: 1,
     sort_order: 8,
     dominant_grape: 'Aglianico',
-    main_grapes: 'Aglianico, Greco di Tufo, Fiano di Avellino, Falanghina',
+    main_grapes: ["Aglianico", "Greco di Tufo", "Fiano di Avellino", "Falanghina"],
     wine_style:
       "Tanninrijke Taurasi DOCG van Aglianico — 'Barolo van het Zuiden', min. 85% Aglianico, " +
       'min. 3 jaar rijping (4 voor Riserva). Late rijping (oogst in oktober). ' +
@@ -194,7 +194,7 @@ const NEW_STREKEN = [
     land_id: 1,
     sort_order: 9,
     dominant_grape: 'Primitivo',
-    main_grapes: 'Primitivo, Negroamaro, Nero di Troia, Malvasia Nera',
+    main_grapes: ["Primitivo", "Negroamaro", "Nero di Troia", "Malvasia Nera"],
     wine_style:
       'Primitivo di Manduria: rijp en jam-achtig (DNA-identiek aan Californische Zinfandel), ' +
       '14–17% alcohol. Donkere Negroamaro ("zwart-bitter") voor Salice Salentino. ' +
@@ -208,7 +208,7 @@ const NEW_STREKEN = [
     land_id: 1,
     sort_order: 10,
     dominant_grape: 'Vermentino',
-    main_grapes: 'Vermentino, Cannonau, Carignano, Nuragus',
+    main_grapes: ["Vermentino", "Cannonau", "Carignano", "Nuragus"],
     wine_style:
       'Aromatische witte Vermentino di Gallura DOCG (enige DOCG van Sardegna, min. 95% Vermentino) — ' +
       'bloemenig, citrus, licht bitterheid. ' +
