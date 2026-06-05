@@ -23,23 +23,35 @@ export const AFFILIATE_BLOCKS: Record<string, AffiliateBlockConfig[]> = {
   // bevestigd bezoek-bewijs (Lead Editor regel #2 van /over-ons).
 
   // Toscane — Tenuta di Capezzana ✅ Lead Editor go (LAT-1030 comment 27226cc5).
-  // ON HOLD: geen Toscane-artikel in src/content/posts/ — CW heeft `LAT-36-toscane-draft.md`
-  // klaar in editorial workspace (Bolgheri+Montalcino+Carmignano-structuur). Wacht op
-  // Lead Editor eindredactie + publicatie van die draft, dan activeert CTO entry met
-  // de uiteindelijke slug. Capezzana-bezoek = Oktober 2024 (CW bevestigd).
+  // Production article `wijnreizen-toscane-voorbij-de-toeristische-chianti-route`
+  // beschrijft het bezoek: "drie weken van tevoren gemaild ... ontvangen door een
+  // neef van de eigenaar ... cantina: grote fusti 2.000–5.000 L". Sluit precies
+  // aan op CW-verificatie (LAT-1030 comment c367f942). Bezoek = Oktober 2024.
+  // GetYourGuide partner-URL nog niet rond; tijdelijk directe link naar
+  // capezzana.it/visita-e-degustazioni/ (Lead Editor original).
+  'wijnreizen-toscane-voorbij-de-toeristische-chianti-route': [
+    {
+      location: 'activity',
+      producent: 'Tenuta di Capezzana',
+      bezoekMaand: 'Oktober',
+      bezoekJaar: 2024,
+      linkBron: 'directe link',
+      href: 'https://www.capezzana.it/visita-e-degustazioni/',
+      ctaLabel: 'Reserveer proeverij',
+    },
+  ],
 
-  // Langhe — Produttori del Barbaresco (vervanger voor Cascina delle Rose per
-  // [LAT-1030](/LAT/issues/LAT-1030) comment 27226cc5). Volledig gedocumenteerd in
-  // `langhe-piemonte-4-dagen-route.md`: Sophie's Rabajà-moment + zes flessen mee
-  // genomen — Via Torino 54 Barbaresco. Trip = februari (artikel-narratief
-  // "Piemonte in februari"). Jaar genoteerd als 2026 obv pub-date 2026-04-15;
-  // Lead Editor mag corrigeren via comment-fix als nodig.
-  'langhe-piemonte-4-dagen-route': [
+  // Langhe — Produttori del Barbaresco (Cascina delle Rose-vervanger per LAT-1030
+  // comment 27226cc5). Production article `een-week-in-piemonte-barolo-barbaresco-
+  // en-alles-daartussenin` is de Piemonte-pillar (Oktober 2024-trip): "In oktober
+  // zijn die heuvelruggen geel en oranje", coöperatief-passage met €18 ex-cellar.
+  // Disclosure-jaar = 2024 (matcht "2024-prijs" voor truffel in artikel-body).
+  'een-week-in-piemonte-barolo-barbaresco-en-alles-daartussenin': [
     {
       location: 'activity',
       producent: 'Produttori del Barbaresco',
-      bezoekMaand: 'Februari',
-      bezoekJaar: 2026,
+      bezoekMaand: 'Oktober',
+      bezoekJaar: 2024,
       linkBron: 'directe link',
       href: 'https://www.produttoridelbarbaresco.com',
       ctaLabel: 'Plan je bezoek',
