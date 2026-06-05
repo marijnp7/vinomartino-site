@@ -282,40 +282,55 @@ jobs:
         env:
           GIT_SHA: ${{ github.sha }}
           RUN_ID: ${{ github.run_id }}
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
         run: |
-          if [ "${{ steps.env.outputs.target }}" = "production" ]; then
-            URL="https://vinomartino.com/?cb=${RUN_ID}"
-            INFO_URL="https://vinomartino.com/build-info.json?cb=${RUN_ID}"
-          else
-            URL="https://preview.vinomartino.com/?cb=${RUN_ID}"
-            INFO_URL="https://preview.vinomartino.com/build-info.json?cb=${RUN_ID}"
-            # Preview zit achter CF Access; 302 of 200 is OK
-          fi
-
-          code="000"
-          for attempt in 1 2 3 4 5; do
-            code=$(curl -sS -o /dev/null -w "%{http_code}" \
-              -H 'Cache-Control: no-cache' --max-time 15 "$URL" || echo "000")
-            echo "Attempt $attempt: GET $URL → HTTP $code"
-            if [ "$code" = "200" ]; then break; fi
-            sleep 4
-          done
-
           if [ "${{ steps.env.outputs.target }}" = "preview" ]; then
+            # LAT-1112: preview.vinomartino.com zit achter Cloudflare Access
+            # (Google-login). Een publieke curl krijgt daardoor een 302 naar de
+            # CF-loginpagina i.p.v. de echte nginx-preview respons, waardoor de
+            # X-Robots-Tag-assertie altijd faalt. We testen daarom rechtstreeks
+            # tegen de preview-origin op de VPS — de container publiceert op
+            # 0.0.0.0:8090 (docker-compose.vinomartino-preview.yml) — zodat we
+            # de werkelijke nginx-preview.conf output zien, langs CF Access heen.
+            ORIGIN="http://localhost:8090/?cb=${RUN_ID}"
+
+            code="000"
+            for attempt in 1 2 3 4 5; do
+              code=$(ssh "$VPS" "curl -sS -o /dev/null -w '%{http_code}' \
+                --max-time 15 -H 'Cache-Control: no-cache' '$ORIGIN'" || echo "000")
+              echo "Attempt $attempt: GET $ORIGIN (via VPS) → HTTP $code"
+              if [ "$code" = "200" ]; then break; fi
+              sleep 4
+            done
+
+            [ "$code" = "200" ] || { echo "::error::Preview-origin smoke-test faalde na 5 pogingen ($code) — preview-container draait niet of serveert geen homepage (LAT-1112)"; exit 1; }
+
             # LAT-1112: preview moet altijd X-Robots-Tag: noindex meesturen,
-            # ook op 200/404/redirect. We checken op de homepage als
-            # representative voor de nginx-config; `always` in nginx-preview.conf
-            # zorgt dat de header universeel zit.
-            headers=$(curl -sSI --max-time 15 -H 'Cache-Control: no-cache' "$URL" || true)
+            # ook op 200/404/redirect. `always` in nginx-preview.conf zorgt dat
+            # de header universeel zit; we checken op de homepage als
+            # representative voor de nginx-config.
+            headers=$(ssh "$VPS" "curl -sSI --max-time 15 -H 'Cache-Control: no-cache' '$ORIGIN'" || true)
             echo "$headers"
             if ! printf '%s\n' "$headers" | grep -i '^x-robots-tag:.*noindex' >/dev/null; then
               echo "::error::Preview mist X-Robots-Tag: noindex op homepage — nginx-preview.conf check (LAT-1112)"
               exit 1
             fi
-            echo "::notice::Preview smoke-test OK — X-Robots-Tag noindex aanwezig"
+            echo "::notice::Preview smoke-test OK — origin 200 + X-Robots-Tag noindex aanwezig (langs CF Access)"
           fi
 
           if [ "${{ steps.env.outputs.target }}" = "production" ]; then
+            URL="https://vinomartino.com/?cb=${RUN_ID}"
+            INFO_URL="https://vinomartino.com/build-info.json?cb=${RUN_ID}"
+
+            code="000"
+            for attempt in 1 2 3 4 5; do
+              code=$(curl -sS -o /dev/null -w "%{http_code}" \
+                -H 'Cache-Control: no-cache' --max-time 15 "$URL" || echo "000")
+              echo "Attempt $attempt: GET $URL → HTTP $code"
+              if [ "$code" = "200" ]; then break; fi
+              sleep 4
+            done
+
             [ "$code" = "200" ] || { echo "::error::Productie smoke-test faalde na 5 pogingen ($code)"; exit 1; }
 
             # LAT-1112: regressie-guard. Productie mag NOOIT X-Robots-Tag
