@@ -86,6 +86,11 @@ const schema = [
     grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
     gap: var(--space-6);
   }
+  /* LAT-1118 (M5-hardening): voorkom horizontale overflow op smalle telefoons
+     (<=360px Android / 320px iPhone SE) waar de track de viewport overschrijdt. */
+  @media (max-width: 420px) {
+    .grid { grid-template-columns: 1fr; }
+  }
   .card-link {
     text-decoration: none;
     color: inherit;
