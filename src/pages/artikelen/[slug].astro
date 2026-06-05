@@ -2,9 +2,11 @@
 import SiteLayout from '../../layouts/SiteLayout.astro';
 import AffiliatePlaceholder from '../../components/AffiliatePlaceholder.astro';
 import RelatedEntities from '../../components/RelatedEntities.astro';
+import Stay22Stay from '../../components/Stay22Stay.astro';
 import { loadArticles, type Article } from '../../lib/articles';
 import { articleSchema, breadcrumbSchema } from '../../lib/seo';
 import { getAffiliateBlock } from '../../lib/affiliates';
+import { deriveArticleLocation } from '../../lib/stay22';
 
 export async function getStaticPaths() {
   const articles = await loadArticles();
@@ -15,6 +17,7 @@ const { article } = Astro.props as { article: Article };
 const accommodation = getAffiliateBlock(article.slug, 'accommodation');
 const activity = getAffiliateBlock(article.slug, 'activity');
 const sidebar = getAffiliateBlock(article.slug, 'sidebar');
+const stay22Location = deriveArticleLocation(article);
 
 const pageUrl = new URL(`/artikelen/${article.slug}/`, Astro.site ?? 'https://vinomartino.com').href;
 
@@ -111,6 +114,8 @@ const schema = [
             description={activity.description}
           />
         )}
+
+        <Stay22Stay location={stay22Location} context={article.slug} placement="inline-end" />
       </div>
 
       <aside class="article-sidebar">

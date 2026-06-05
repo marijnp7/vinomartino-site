@@ -2,6 +2,7 @@
 import SmartImg from '../SmartImg.astro';
 import AffiliatePlaceholder from '../AffiliatePlaceholder.astro';
 import AffiliateDisclosure from '../AffiliateDisclosure.astro';
+import Stay22Stay from '../Stay22Stay.astro';
 
 interface LandStreek {
   name: string;
@@ -228,6 +229,7 @@ const {
 <section class="land-travel">
   <div class="container">
     <h2 class="land-section-title">Plan je reis</h2>
+    <Stay22Stay location={name} context={`land-${name.toLowerCase()}`} placement="sidebar" heading={`Waar te slapen in ${name}`} />
     <div class="land-travel__grid">
       <AffiliatePlaceholder type="accommodation" partner="booking.com" region={name} placement="sidebar" context="land-accommodation" />
       <AffiliatePlaceholder type="flight" partner="skyscanner" region={name} placement="sidebar" context="land-flight" />
