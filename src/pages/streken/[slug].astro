@@ -3,6 +3,7 @@ import SiteLayout from '../../layouts/SiteLayout.astro';
 import AffiliatePlaceholder from '../../components/AffiliatePlaceholder.astro';
 import AffiliateDisclosure from '../../components/AffiliateDisclosure.astro';
 import RelatedArticles from '../../components/RelatedArticles.astro';
+import Stay22Stay from '../../components/Stay22Stay.astro';
 import { loadStreken, type Streek } from '../../lib/streken';
 import { streekSchema, streekMetaTitle, streekMetaDescription, breadcrumbSchema } from '../../lib/seo';
 
@@ -16,6 +17,7 @@ export async function getStaticPaths() {
 
 const { entry } = Astro.props as { entry: Streek };
 const pageUrl = new URL(`/streken/${entry.slug}/`, Astro.site ?? 'https://vinomartino.com').href;
+const stay22Location = entry.country ? `${entry.name}, ${entry.country}` : entry.name;
 
 const schema = [
   streekSchema({
@@ -108,6 +110,7 @@ const hasStats = Boolean(
 
     <section class="streek-accommodation">
       <div class="container">
+        <Stay22Stay location={stay22Location} context={`streek-${entry.slug}`} placement="sidebar" heading={`Waar te slapen in ${entry.name}`} />
         <AffiliatePlaceholder type="accommodation" partner="booking.com" region={entry.name} placement="sidebar" context="streek-accommodation" />
       </div>
     </section>

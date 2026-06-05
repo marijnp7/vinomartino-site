@@ -1,0 +1,137 @@
+---
+// LAT-1127 — Reusable Stay22 "Waar te slapen" affiliate block.
+// Renders an Allez accommodation-search deep-link for a destination string.
+// Drop on articles + streek/landen/route pages so the whole site monetiseert,
+// not just Piemonte. The global letmeallez.js loader (LAT-1126) handles
+// LinkSwap; this block guarantees a crawl-verifiable Stay22 href on every page.
+//
+// Click tracking piggybacks on the in-house tracker (LAT-1019) via the same
+// [data-affiliate-track] data-attributes the AffiliateBlock uses.
+
+import { allezSearchUrl } from '../lib/stay22';
+
+interface Props {
+  /** Destination as a place string (region, country, venue). No location → renders nothing. */
+  location?: string | null;
+  /** Page identifier for click attribution (slug or page key). */
+  context: string;
+  /** Stay22 Hub campaign label; defaults to context. */
+  campaign?: string;
+  /** Tracker placement bucket. */
+  placement?: 'inline-mid' | 'inline-end' | 'sidebar' | 'footer';
+  heading?: string;
+  description?: string;
+  ctaLabel?: string;
+}
+
+const {
+  location,
+  context,
+  campaign,
+  placement = 'inline-end',
+  heading = 'Waar te slapen',
+  description,
+  ctaLabel = 'Bekijk accommodaties',
+} = Astro.props;
+
+const loc = location?.trim();
+const href = loc ? allezSearchUrl({ location: loc, campaign: campaign ?? context }) : null;
+const descText = description ?? (loc ? `Vind hotels en verblijven rond ${loc}.` : '');
+---
+
+{href && (
+  <aside
+    class={`stay22-block stay22-${placement}`}
+    data-stay22-block
+    data-context={context}
+    data-placement={placement}
+  >
+    <div class="stay22-block__inner">
+      <span class="stay22-block__icon" aria-hidden="true">🏨</span>
+      <div class="stay22-block__text">
+        <strong class="stay22-block__title">{heading}</strong>
+        <p class="stay22-block__desc">{descText}</p>
+      </div>
+      <a
+        class="stay22-block__cta"
+        href={href}
+        target="_blank"
+        rel="sponsored nofollow noopener"
+        data-affiliate-track
+        data-affiliate-placement={placement}
+        data-affiliate-partner="stay22"
+        data-affiliate-context={context}
+      >
+        {ctaLabel}
+      </a>
+    </div>
+    <p class="stay22-block__disclosure">
+      Affiliate-link · we kunnen een commissie ontvangen, jij betaalt niets extra.
+    </p>
+  </aside>
+)}
+
+<style>
+  .stay22-block {
+    border: 1px solid var(--ruleSoft, #E0D2B0);
+    border-radius: var(--radius-sm, 2px);
+    background: var(--paperDeep, #F0E6D0);
+    padding: 1.25rem 1.5rem;
+    margin: 1.5rem 0;
+  }
+
+  .stay22-block__inner {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .stay22-block__icon {
+    font-size: 1.5rem;
+    flex-shrink: 0;
+  }
+
+  .stay22-block__text { flex: 1; }
+
+  .stay22-block__title {
+    font-family: var(--font-ui, sans-serif);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--ink, #1F1A16);
+    display: block;
+  }
+
+  .stay22-block__desc {
+    font-size: 0.8125rem;
+    color: var(--inkSoft, #5A4F45);
+    margin: 0.125rem 0 0;
+  }
+
+  .stay22-block__cta {
+    font-family: var(--font-ui, sans-serif);
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--paper, #FBF7EE);
+    background: var(--burgundy, #8B4513);
+    padding: 0.625rem 1rem;
+    border-radius: var(--radius-sm, 2px);
+    text-decoration: none;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: opacity 0.15s ease;
+  }
+
+  .stay22-block__cta:hover { opacity: 0.9; }
+
+  .stay22-block__disclosure {
+    font-size: 0.6875rem;
+    font-style: italic;
+    color: var(--inkFaint, #8A7D6E);
+    margin: 0.75rem 0 0;
+  }
+
+  @media (max-width: 640px) {
+    .stay22-block__inner { flex-wrap: wrap; }
+    .stay22-block__cta { width: 100%; text-align: center; }
+  }
+</style>

@@ -1,6 +1,7 @@
 ---
 import SiteLayout from '../../layouts/SiteLayout.astro';
 import RelatedArticles from '../../components/RelatedArticles.astro';
+import Stay22Stay from '../../components/Stay22Stay.astro';
 import { loadRoutes, type WijnRoute } from '../../lib/routes';
 import { wijnrouteSchema, wijnrouteMetaTitle, wijnrouteMetaDescription, breadcrumbSchema } from '../../lib/seo';
 
@@ -64,6 +65,8 @@ const schema = [
       </div>
 
       <aside class="page-sidebar">
+        <Stay22Stay location={entry.title} context={`route-${entry.slug}`} placement="sidebar" heading="Waar te slapen op deze route" />
+
         <div class="sidebar-card">
           <h3>Route info</h3>
           {entry.duration && <p><strong>Duur:</strong> {entry.duration}</p>}
