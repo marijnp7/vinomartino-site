@@ -2,7 +2,7 @@
 import SiteLayout from '../layouts/SiteLayout.astro';
 import { breadcrumbSchema } from '../lib/seo';
 
-const datum = "29 mei 2026";
+const datum = "5 juni 2026";
 
 const schema = [
   breadcrumbSchema([
@@ -22,24 +22,27 @@ const schema = [
       <h1>Colofon</h1>
       <p class="update-datum"><em>Laatste update: {datum}</em></p>
 
-      <p>VinoMartino is een onafhankelijk reis- en wijnplatform dat schrijft over wijnreizen in Europa. Op deze pagina vindt u de juridische en redactionele gegevens van de uitgever — voor pers, partners en lezers die willen weten wie er achter de site zit.</p>
+      <p>VinoMartino is een onafhankelijk reis- en wijnplatform dat schrijft over wijnreizen in Europa. Op deze pagina vindt u de juridische en redactionele gegevens van de uitgever, bedoeld voor pers, partners en lezers die willen weten wie er achter de site zit.</p>
 
       <h2>Uitgever</h2>
       <dl class="colofon-dl">
         <dt>Handelsnaam</dt>
         <dd>VinoMartino</dd>
 
-        <dt>Juridische entiteit</dt>
-        <dd>{/* TODO LAT-1020 — Strategy levert officiële entiteitsnaam */}<em>aangevraagd bij Strategy</em></dd>
+        <dt>Juridische vorm</dt>
+        <dd>In Nederland geregistreerde handelsnaam van een eenmanszaak, ingeschreven in het Handelsregister van de Kamer van Koophandel.</dd>
 
         <dt>KvK-nummer</dt>
-        <dd>{/* TODO LAT-1020 — Strategy levert KvK-nummer */}<em>aangevraagd bij Strategy</em></dd>
+        <dd>50186213</dd>
+
+        <dt>BTW-identificatienummer</dt>
+        <dd>NL001551010B59</dd>
 
         <dt>Vestigingsadres</dt>
-        <dd>{/* TODO LAT-1020 — Strategy levert vestigingsadres */}<em>aangevraagd bij Strategy</em></dd>
+        <dd>Narva-eiland 176<br />1014 ZJ Amsterdam<br />Nederland</dd>
 
         <dt>E-mail</dt>
-        <dd><a href="mailto:contact@vinomartino.com">contact@vinomartino.com</a></dd>
+        <dd><a href="mailto:info@vinomartino.com">info@vinomartino.com</a></dd>
 
         <dt>Website</dt>
         <dd><a href="https://vinomartino.com">vinomartino.com</a></dd>
@@ -49,17 +52,17 @@ const schema = [
       <p>De redactie van VinoMartino bestaat uit Martin &amp; Sophie. Zij schrijven, reizen en proeven zelf. Meer over wie wij zijn en hoe we werken vindt u op de pagina <a href="/over-ons/">Over ons</a>, waar ook onze redactionele uitgangspunten staan beschreven (geen sponsoring, geen affiliate-lijstjes, eerlijke proefnotities).</p>
 
       <h2>Contact voor pers en partners</h2>
-      <p>Persvragen, samenwerkingsvoorstellen of correcties: <a href="mailto:contact@vinomartino.com">contact@vinomartino.com</a>. We reageren doorgaans binnen vijf werkdagen.</p>
+      <p>Persvragen, samenwerkingsvoorstellen of correcties: <a href="mailto:info@vinomartino.com">info@vinomartino.com</a>. We reageren doorgaans binnen vijf werkdagen.</p>
 
       <h2>Juridische verklaringen</h2>
       <ul>
-        <li><a href="/privacy/">Privacybeleid</a> — hoe wij omgaan met persoonsgegevens.</li>
-        <li><a href="/cookies/">Cookieverklaring</a> — welke cookies wij plaatsen en waarom.</li>
-        <li><a href="/affiliate-verklaring/">Affiliate-verklaring</a> — hoe wij partnerlinks markeren en met wie wij samenwerken.</li>
+        <li><a href="/privacy/">Privacybeleid</a>: hoe wij omgaan met persoonsgegevens.</li>
+        <li><a href="/cookies/">Cookieverklaring</a>: welke cookies wij plaatsen en waarom.</li>
+        <li><a href="/affiliate-verklaring/">Affiliate-verklaring</a>: hoe wij partnerlinks markeren en met wie wij samenwerken.</li>
       </ul>
 
       <h2>Auteursrecht</h2>
-      <p>Alle teksten, foto's en proefnotities op vinomartino.com vallen onder auteursrecht van VinoMartino, tenzij anders vermeld. Overname van langere passages is toegestaan met bronvermelding en een link naar het oorspronkelijke artikel. Neem voor commercieel hergebruik contact op via <a href="mailto:contact@vinomartino.com">contact@vinomartino.com</a>.</p>
+      <p>Alle teksten, foto's en proefnotities op vinomartino.com vallen onder auteursrecht van VinoMartino, tenzij anders vermeld. Overname van langere passages is toegestaan met bronvermelding en een link naar het oorspronkelijke artikel. Neem voor commercieel hergebruik contact op via <a href="mailto:info@vinomartino.com">info@vinomartino.com</a>.</p>
     </article>
   </section>
 </SiteLayout>
