@@ -1,0 +1,190 @@
+---
+import SiteLayout from '../../../layouts/SiteLayout.astro';
+import InfographicAtlasInteractive from '../../../components/InfographicAtlasInteractive.astro';
+import type { AtlasZone } from '../../../components/InfographicAtlasInteractive.astro';
+
+/**
+ * LAT-1122 — interactieve Italië-landenkaart, design-review mockup.
+ *
+ * Doel van deze pagina: Marijn de interactie (3 toggle-lagen, hover-facts,
+ * klik-drill-down, mobiele lijst-fallback) laten reviewen vóórdat de definitieve
+ * geometrie (LAT-1121) en het Directus-schema (LAT-1120) live staan.
+ *
+ * GEEN definitieve data:
+ *   • De zone_path d-strings zijn PLACEHOLDER-vormen, geen echte cartografie.
+ *     Worden vervangen door de Design-Lead-geometrie uit LAT-1121.
+ *   • Drill-down linkt alléén naar geverifieerde, bestaande streek-pagina's
+ *     (/streken/langhe-piemonte/ en /streken/etna/) — geen 404-traps.
+ *   • Op /landen/italie/ komt de echte versie, gevoed uit Directus (LAT-1120).
+ *
+ * Route is noindex via SiteLayout; pagina is puur voor redactie-review.
+ */
+
+const zones: AtlasZone[] = [
+  {
+    slug: 'langhe-piemonte',
+    name: 'Langhe',
+    zonePath: 'M120 130 L175 118 L198 162 L160 198 L118 182 Z',
+    zoneColor: 'burgundy',
+    grapeColor: 'burgundy',
+    dominantGrape: 'Nebbiolo',
+    wineStyle: 'Rood, krachtig & lang rijpend',
+    labelOffset: { x: 0, y: 4 },
+    facts: [
+      { label: 'Regio', value: 'Piemonte' },
+      { label: 'Hoogte', value: '170-540 m' },
+      { label: 'Bodem', value: 'Kalkmergel' },
+    ],
+    appellaties: [
+      {
+        name: 'Barolo DOCG',
+        classification: 'DOCG',
+        zoneColor: 'burgundy',
+        zonePath: 'M124 150 L154 140 L168 168 L138 184 Z',
+      },
+      {
+        name: 'Barbaresco DOCG',
+        classification: 'DOCG',
+        zoneColor: 'rust',
+        zonePath: 'M168 132 L194 148 L182 174 L160 160 Z',
+      },
+    ],
+  },
+  {
+    slug: 'etna',
+    name: 'Etna',
+    zonePath: 'M250 668 L302 658 L322 702 L286 728 L246 706 Z',
+    zoneColor: 'vine',
+    grapeColor: 'rust',
+    dominantGrape: 'Nerello Mascalese',
+    wineStyle: 'Rood, vulkanisch & mineraal',
+    labelOffset: { x: 0, y: 4 },
+    facts: [
+      { label: 'Regio', value: 'Sicilië' },
+      { label: 'Hoogte', value: '400-1000 m' },
+      { label: 'Bodem', value: 'Vulkanisch' },
+    ],
+    appellaties: [
+      {
+        name: 'Etna DOC',
+        classification: 'DOC',
+        zoneColor: 'vine',
+        // Leeg zonePath → valt terug op de streek-zone (laag 3 demo).
+      },
+    ],
+  },
+];
+
+const facts = [
+  { label: 'Wijnstreken', value: '20 regio\'s' },
+  { label: 'Kern-druiven', value: 'Nebbiolo · Sangiovese · Nerello' },
+  { label: 'Appellaties', value: '~530 DOC/DOCG' },
+  { label: 'Beste reisseizoen', value: 'Sep–okt (oogst)' },
+];
+---
+
+<SiteLayout
+  title="Italië, interactieve wijnatlas | LAT-1122 mockup"
+  description="Design-review mockup van de interactieve Italië-landenkaart: 3 toggle-lagen, hover-facts en klik-drill-down. Pilot voor LAT-1122."
+  activeNav=""
+  schema={[]}
+  noindex={true}
+>
+  <main class="atlas-demo">
+    <div class="wrap">
+      <header class="demo-head">
+        <p class="eyebrow">REDACTIE-MOCKUP · LAT-1122</p>
+        <h1 class="display">Italië, in drie doorsnedes</h1>
+        <p class="standfirst">
+          Eén kaart, drie lezingen: streken, druiven en appellaties. Schakel met
+          de knoppen, beweeg over een zone voor de kerngetallen en klik om naar
+          de streekgids te gaan. Op smalle schermen valt de kaart terug op een
+          gestapelde lijst.
+        </p>
+        <div class="notice">
+          <p>
+            <strong>Let op: mockup.</strong> De zone-vormen zijn placeholder en
+            worden vervangen door de definitieve cartografie (LAT-1121). De
+            kerngetallen en koppelingen komen straks uit Directus (LAT-1120).
+            Alleen <em>Langhe</em> en <em>Etna</em> linken nu naar live
+            streekpagina's; de overige regio's volgen zodra hun streekgids
+            bestaat.
+          </p>
+        </div>
+      </header>
+
+      <InfographicAtlasInteractive
+        kicker="WIJNATLAS · ITALIË"
+        title="Van de Langhe tot de Etna"
+        subtitle="Streken, druiven en appellaties op één kaart"
+        intro="Drie lagen over dezelfde geografie. Kies een laag, beweeg over een zone en klik door naar de streek."
+        map={{
+          viewBox: '0 0 600 800',
+          bbox: ['46°N 7°E', '46°N 18°E', '37°N 18°E', '37°N 7°E'],
+          compass: true,
+          scaleBar: { kmTo: 200, pxLength: 120 },
+          backgroundPattern: 'contour',
+        }}
+        zones={zones}
+        facts={facts}
+        source="VinoMartino redactie · placeholder-geometrie (LAT-1121 volgt)"
+        alt="Interactieve kaart van Italië met schakelbare lagen voor streken, druiven en appellaties; zones tonen kerngetallen bij hover en linken naar de streekgids."
+      />
+
+      <p class="back">
+        <a href="/infographics/">← Terug naar alle infographics</a>
+      </p>
+    </div>
+  </main>
+</SiteLayout>
+
+<style>
+  .atlas-demo {
+    background: #FAF5E9;
+    color: #1F1A16;
+    padding: clamp(2rem, 5vw, 4.5rem) clamp(1rem, 3vw, 2rem) clamp(4rem, 8vw, 7rem);
+  }
+  .wrap {
+    max-width: 60rem;
+    margin: 0 auto;
+    font-family: 'Source Serif 4', Georgia, serif;
+  }
+  .demo-head {
+    max-width: 44rem;
+    margin: 0 auto clamp(2rem, 4vw, 3rem);
+    text-align: center;
+  }
+  .eyebrow {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 0.75rem; letter-spacing: 0.22em; text-transform: uppercase;
+    color: #5A1A1F; margin: 0 0 1rem;
+  }
+  .display {
+    font-family: 'Cormorant Garamond', 'EB Garamond', Georgia, serif;
+    font-size: clamp(2.25rem, 5.5vw, 4rem); font-style: italic; font-weight: 500;
+    line-height: 1.04; margin: 0 0 1rem;
+  }
+  .standfirst {
+    max-width: 38rem; margin: 0 auto;
+    font-size: clamp(1.02rem, 1.5vw, 1.18rem); line-height: 1.6; color: #5A4F45;
+  }
+  .notice {
+    margin: 1.75rem auto 0; max-width: 40rem;
+    border: 1px solid #C9B98F; background: #F0E6D0;
+    padding: 0.9rem 1.1rem; text-align: left;
+  }
+  .notice p {
+    margin: 0; font-size: 0.92rem; line-height: 1.55; color: #5A4F45;
+  }
+  .notice strong { color: #5A1A1F; }
+  .back {
+    margin: clamp(2rem, 4vw, 3rem) 0 0; text-align: center;
+  }
+  .back a {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 0.75rem; letter-spacing: 0.16em; text-transform: uppercase;
+    color: #5A1A1F; text-decoration: none; border-bottom: 1px solid currentColor;
+    padding-bottom: 0.15rem;
+  }
+  .back a:hover { color: #1F1A16; }
+</style>
