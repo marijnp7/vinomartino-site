@@ -1,79 +1,34 @@
 ---
 import SiteLayout from '../../../layouts/SiteLayout.astro';
 import InfographicAtlasInteractive from '../../../components/InfographicAtlasInteractive.astro';
-import type { AtlasZone } from '../../../components/InfographicAtlasInteractive.astro';
+import { mapConfigToProps, buildZones } from '../../../lib/atlas';
+import seed from '../../../data/atlas/italie.seed.json';
 
 /**
  * LAT-1122 — interactieve Italië-landenkaart, design-review mockup.
  *
- * Doel van deze pagina: Marijn de interactie (3 toggle-lagen, hover-facts,
- * klik-drill-down, mobiele lijst-fallback) laten reviewen vóórdat de definitieve
- * geometrie (LAT-1121) en het Directus-schema (LAT-1120) live staan.
+ * Doel: Marijn de interactie (3 toggle-lagen, hover-facts, mobiele
+ * lijst-fallback) en de ECHTE cartografie laten reviewen vóórdat de live
+ * versie op /landen/italie/ uit Directus wordt gevoed.
  *
- * GEEN definitieve data:
- *   • De zone_path d-strings zijn PLACEHOLDER-vormen, geen echte cartografie.
- *     Worden vervangen door de Design-Lead-geometrie uit LAT-1121.
- *   • Drill-down linkt alléén naar geverifieerde, bestaande streek-pagina's
- *     (/streken/langhe-piemonte/ en /streken/etna/) — geen 404-traps.
- *   • Op /landen/italie/ komt de echte versie, gevoed uit Directus (LAT-1120).
+ * Data: de definitieve LAT-1121-geometrie (italie.seed.json), via dezelfde
+ * adapter (lib/atlas) die straks de Directus-rijen mapt. Geen placeholder meer.
+ *
+ * 404-veiligheid: `publishedSlugs` is hier LEEG, dus geen enkele zone is
+ * klikbaar — de seed-slugs (langhe, veneto, …) hebben nog geen streekpagina
+ * (die maakt LAT-1123 aan). Drill-down-navigatie wordt getest op /landen/italie/
+ * zodra LAT-1123 de streken seedt. Zo geen 404-traps in de mockup.
  *
  * Route is noindex via SiteLayout; pagina is puur voor redactie-review.
  */
 
-const zones: AtlasZone[] = [
-  {
-    slug: 'langhe-piemonte',
-    name: 'Langhe',
-    zonePath: 'M120 130 L175 118 L198 162 L160 198 L118 182 Z',
-    zoneColor: 'burgundy',
-    grapeColor: 'burgundy',
-    dominantGrape: 'Nebbiolo',
-    wineStyle: 'Rood, krachtig & lang rijpend',
-    labelOffset: { x: 0, y: 4 },
-    facts: [
-      { label: 'Regio', value: 'Piemonte' },
-      { label: 'Hoogte', value: '170-540 m' },
-      { label: 'Bodem', value: 'Kalkmergel' },
-    ],
-    appellaties: [
-      {
-        name: 'Barolo DOCG',
-        classification: 'DOCG',
-        zoneColor: 'burgundy',
-        zonePath: 'M124 150 L154 140 L168 168 L138 184 Z',
-      },
-      {
-        name: 'Barbaresco DOCG',
-        classification: 'DOCG',
-        zoneColor: 'rust',
-        zonePath: 'M168 132 L194 148 L182 174 L160 160 Z',
-      },
-    ],
-  },
-  {
-    slug: 'etna',
-    name: 'Etna',
-    zonePath: 'M250 668 L302 658 L322 702 L286 728 L246 706 Z',
-    zoneColor: 'vine',
-    grapeColor: 'rust',
-    dominantGrape: 'Nerello Mascalese',
-    wineStyle: 'Rood, vulkanisch & mineraal',
-    labelOffset: { x: 0, y: 4 },
-    facts: [
-      { label: 'Regio', value: 'Sicilië' },
-      { label: 'Hoogte', value: '400-1000 m' },
-      { label: 'Bodem', value: 'Vulkanisch' },
-    ],
-    appellaties: [
-      {
-        name: 'Etna DOC',
-        classification: 'DOC',
-        zoneColor: 'vine',
-        // Leeg zonePath → valt terug op de streek-zone (laag 3 demo).
-      },
-    ],
-  },
-];
+const mapConfig = (seed as Record<string, any>)['landen.map_config[italie]'];
+const strekenRows = (seed as Record<string, any>)['streken[]'] as Record<string, unknown>[];
+const appellatieRows = (seed as Record<string, any>)['appellaties[]'] as Record<string, unknown>[];
+
+const map = mapConfigToProps(mapConfig);
+// Mockup: geen gepubliceerde streekpagina's → alle zones niet-klikbaar.
+const zones = buildZones(strekenRows, appellatieRows, []);
 
 const facts = [
   { label: 'Wijnstreken', value: '20 regio\'s' },
@@ -103,12 +58,12 @@ const facts = [
         </p>
         <div class="notice">
           <p>
-            <strong>Let op: mockup.</strong> De zone-vormen zijn placeholder en
-            worden vervangen door de definitieve cartografie (LAT-1121). De
-            kerngetallen en koppelingen komen straks uit Directus (LAT-1120).
-            Alleen <em>Langhe</em> en <em>Etna</em> linken nu naar live
-            streekpagina's; de overige regio's volgen zodra hun streekgids
-            bestaat.
+            <strong>Let op: mockup.</strong> De kaartvormen zijn de definitieve
+            cartografie (LAT-1121), maar de kerngetallen en koppelingen komen op
+            de live pagina uit Directus (LAT-1120). In deze mockup zijn de zones
+            bewust <em>niet</em> klikbaar: de streekpagina's worden door LAT-1123
+            aangemaakt. De drill-down-navigatie testen we op
+            <em>/landen/italie/</em> zodra die streken bestaan.
           </p>
         </div>
       </header>
@@ -118,16 +73,10 @@ const facts = [
         title="Van de Langhe tot de Etna"
         subtitle="Streken, druiven en appellaties op één kaart"
         intro="Drie lagen over dezelfde geografie. Kies een laag, beweeg over een zone en klik door naar de streek."
-        map={{
-          viewBox: '0 0 600 800',
-          bbox: ['46°N 7°E', '46°N 18°E', '37°N 18°E', '37°N 7°E'],
-          compass: true,
-          scaleBar: { kmTo: 200, pxLength: 120 },
-          backgroundPattern: 'contour',
-        }}
+        map={map}
         zones={zones}
         facts={facts}
-        source="VinoMartino redactie · placeholder-geometrie (LAT-1121 volgt)"
+        source="VinoMartino redactie · cartografie LAT-1121"
         alt="Interactieve kaart van Italië met schakelbare lagen voor streken, druiven en appellaties; zones tonen kerngetallen bij hover en linken naar de streekgids."
       />
 
