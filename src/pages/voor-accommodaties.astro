@@ -1,0 +1,315 @@
+---
+import SiteLayout from '../layouts/SiteLayout.astro';
+import { organizationSchema, breadcrumbSchema } from '../lib/seo';
+
+const schema = [
+  organizationSchema(),
+  breadcrumbSchema([
+    { name: 'Home', url: '/' },
+    { name: 'Samenwerken', url: '/voor-accommodaties/' },
+  ]),
+];
+
+const krijgt = [
+  'Een redactionele vermelding in een artikel of regio-gids, met foto’s en terroir-context',
+  'Een pin op onze interactieve regio-kaarten',
+  'Organisch bereik bij een doelgroep die actief zoekt naar dit type adres',
+];
+
+const vragen = [
+  'Verblijf, één of twee nachten, soms meer afhankelijk van de reis',
+  'De ruimte om eerlijk te schrijven, ook als iets ons tegenvalt',
+];
+
+const nietDoen = [
+  {
+    h: 'Geen betaalde plaatsingen',
+    d: 'Een artikel kopen is niet mogelijk, ook niet via omwegen.',
+  },
+  {
+    h: 'Geen gegarandeerd positieve reviews',
+    d: 'We schrijven wat we ervaren.',
+  },
+  {
+    h: 'Geen vage samenwerking zonder transparantie',
+    d: 'Hosted visits worden altijd als zodanig vermeld.',
+  },
+];
+
+const past = [
+  'Boutique-hotels en agriturismi in wijnregio’s die we actief beschrijven',
+  'Adressen met een directe relatie tot wijn, eigen wijngaard, samenwerking met lokale producers, een wijnkelder die deel uitmaakt van het verblijf',
+  'Plekken waar de eigenaar zelf het verhaal is',
+];
+---
+
+<SiteLayout
+  title="Samenwerken, voor accommodaties, agriturismi en wijngoederen"
+  description="VinoMartino staat open voor press stays en hosted visits. Redactionele vermelding bij een doelgroep die actief zoekt naar boutique-accommodaties in wijnregio’s. Geen betaalde plaatsingen."
+  schema={schema}
+>
+  <section class="hero">
+    <div class="container container-narrow">
+      <span class="kicker kicker-vine">Samenwerken</span>
+      <h1>Voor accommodaties, agriturismi en <em>wijngoederen</em></h1>
+      <p class="lede">
+        VinoMartino is een reisblog voor mensen die hun reisagenda plannen rondom wijn. Onze lezers zijn 28 tot 45 jaar,
+        hebben een bovenmodaal inkomen en zoeken actief naar goede adressen in de wijnregio’s die we beschrijven. Ze boeken
+        boutique-hotels en agriturismi, geen ketens. Ze kopen wijn bij de gespecialiseerde slijter. Ze plannen hun proeverijen
+        weken van tevoren.
+      </p>
+      <p class="lede lede-accent">We bereiken niet de grootste aantallen. We bereiken de juiste mensen.</p>
+    </div>
+  </section>
+
+  <section class="intro">
+    <div class="container container-narrow">
+      <span class="kicker kicker-burgundy">§ Wie wij zijn</span>
+      <p>
+        Martin reist 6 tot 8 keer per jaar naar Europese wijnregio’s: Piemonte, Toscane, Etna, Priorat, Mosel, Wachau, en steeds
+        vaker ook Georgië, Slovenië en Kroatië. Altijd met een concrete agenda: wijnmakers bezoeken, regio’s leren kennen, eerlijke
+        verslagen schrijven. De accommodaties die hij beschrijft, beschrijft hij omdat hij er werkelijk gebleven is. Niet omdat
+        er een betaling tegenover stond.
+      </p>
+    </div>
+  </section>
+
+  <section class="offer">
+    <div class="container container-narrow">
+      <span class="kicker kicker-rust">Press stays en hosted visits</span>
+      <h2>We staan open voor press stays en hosted visits</h2>
+      <p>
+        Als we een regio bezoeken die aansluit bij onze editoriaal calendar, nemen we soms contact op met accommodaties die
+        passen bij wie we zijn.
+      </p>
+      <div class="offer-grid">
+        <div class="offer-card">
+          <h3>Wat u krijgt</h3>
+          <ul>
+            {krijgt.map((item) => <li>{item}</li>)}
+          </ul>
+        </div>
+        <div class="offer-card">
+          <h3>Wat wij vragen</h3>
+          <ul>
+            {vragen.map((item) => <li>{item}</li>)}
+          </ul>
+        </div>
+      </div>
+      <p>
+        Dat laatste punt is niet-onderhandelbaar. Onze lezers vertrouwen ons omdat we niet schrijven voor wie ons betaalt. Als
+        we uw accommodatie niet eerlijk kunnen beschrijven, schrijven we niet over u. Dat klinkt streng, maar het is ook de
+        reden dat een vermelding bij ons iets waard is.
+      </p>
+      <p>
+        Alle hosted-visit-content krijgt een expliciete vermelding dat het een press stay betrof. Transparantie is geen
+        kleine-lettertjeskwestie bij ons.
+      </p>
+    </div>
+  </section>
+
+  <section class="niet">
+    <div class="container container-narrow">
+      <span class="kicker kicker-burgundy">Wat wij níet doen</span>
+      <ul class="niet-list">
+        {nietDoen.map((n) => (
+          <li>
+            <h3>{n.h}</h3>
+            <p>{n.d}</p>
+          </li>
+        ))}
+      </ul>
+    </div>
+  </section>
+
+  <section class="past">
+    <div class="container container-narrow">
+      <span class="kicker kicker-vine">Past uw accommodatie bij ons?</span>
+      <h2>We zoeken naar</h2>
+      <ul class="past-list">
+        {past.map((item) => <li>{item}</li>)}
+      </ul>
+    </div>
+  </section>
+
+  <section class="contact">
+    <div class="container container-narrow">
+      <h2>Contact</h2>
+      <p>
+        Denkt u dat uw accommodatie past bij wat Martin beschrijft? Stuur een korte e-mail, locatie, seizoen, en waarom u
+        denkt dat het klikt, naar:
+      </p>
+      <p class="contact-mail"><a href="mailto:info@vinomartino.com">info@vinomartino.com</a></p>
+      <p class="contact-sla">We reageren binnen vijf werkdagen.</p>
+    </div>
+  </section>
+</SiteLayout>
+
+<style>
+  .container { max-width: 1280px; margin: 0 auto; padding-inline: var(--gutter); }
+  .container-narrow { max-width: 880px; }
+
+  .kicker {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    display: inline-block;
+    margin-bottom: 1rem;
+  }
+  .kicker-vine { color: var(--color-vine, #5C6B3F); }
+  .kicker-burgundy { color: var(--color-primary); }
+  .kicker-rust { color: var(--color-rust, #A14F2A); }
+
+  .hero {
+    padding: clamp(48px, 8vw, 80px) 0;
+    border-bottom: 1px solid var(--color-rule, #C9B98F);
+  }
+  .hero h1 {
+    font-family: var(--font-display);
+    font-size: clamp(2.25rem, 4vw + 1rem, 4rem);
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    color: var(--color-text);
+    margin: 0;
+  }
+  .hero h1 em {
+    color: var(--color-primary);
+    font-style: italic;
+  }
+  .lede {
+    font-family: var(--font-serif, var(--font-body));
+    font-size: 1.1875rem;
+    line-height: 1.6;
+    color: var(--color-text-soft, var(--color-text));
+    margin-top: 1.5rem;
+    text-wrap: pretty;
+  }
+  .lede-accent {
+    font-style: italic;
+    color: var(--color-primary);
+  }
+
+  .intro,
+  .offer,
+  .niet,
+  .past {
+    padding: clamp(40px, 6vw, 64px) 0;
+    border-bottom: 1px solid var(--color-rule, #C9B98F);
+  }
+
+  .intro p,
+  .offer p,
+  .past p {
+    font-family: var(--font-serif, var(--font-body));
+    font-size: 1.0625rem;
+    line-height: 1.75;
+    color: var(--color-text);
+    margin: 0 0 1.5rem;
+  }
+  .intro p:last-child,
+  .offer p:last-child { margin-bottom: 0; }
+
+  .offer h2,
+  .past h2,
+  .contact h2 {
+    font-family: var(--font-display);
+    font-size: clamp(1.75rem, 3vw + 1rem, 2.5rem);
+    font-weight: 500;
+    color: var(--color-text);
+    margin: 0 0 1.5rem;
+  }
+
+  .offer-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin: 2rem 0;
+  }
+  .offer-card {
+    background: var(--color-paper-deep, #F0E6D0);
+    padding: 1.75rem;
+    border: 1px solid var(--color-rule-soft, #E0D2B0);
+  }
+  .offer-card h3 {
+    font-family: var(--font-display);
+    font-size: 1.375rem;
+    font-weight: 500;
+    color: var(--color-primary);
+    margin: 0 0 1rem;
+  }
+  .offer-card ul,
+  .past-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .offer-card li,
+  .past-list li {
+    font-family: var(--font-serif, var(--font-body));
+    font-size: 1rem;
+    line-height: 1.6;
+    color: var(--color-text);
+    padding-left: 1.25rem;
+    position: relative;
+    margin-bottom: 0.75rem;
+  }
+  .offer-card li:last-child,
+  .past-list li:last-child { margin-bottom: 0; }
+  .offer-card li::before,
+  .past-list li::before {
+    content: '—';
+    position: absolute;
+    left: 0;
+    color: var(--color-primary);
+  }
+
+  .niet-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .niet-list li {
+    padding: 1.25rem 0;
+    border-top: 1px solid var(--color-rule-soft, #E0D2B0);
+  }
+  .niet-list h3 {
+    font-family: var(--font-display);
+    font-size: 1.375rem;
+    font-weight: 500;
+    color: var(--color-text);
+    margin: 0 0 0.375rem;
+  }
+  .niet-list p {
+    font-family: var(--font-serif, var(--font-body));
+    font-size: 1.0625rem;
+    line-height: 1.6;
+    color: var(--color-text-soft, var(--color-text));
+    margin: 0;
+  }
+
+  .contact {
+    padding: clamp(48px, 8vw, 80px) 0;
+  }
+  .contact p {
+    font-family: var(--font-serif, var(--font-body));
+    font-size: 1.125rem;
+    line-height: 1.7;
+    color: var(--color-text-soft, var(--color-text));
+    margin: 0 0 1rem;
+  }
+  .contact-mail a {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    color: var(--color-primary);
+  }
+  .contact-sla {
+    font-size: 0.9375rem !important;
+    opacity: 0.7;
+  }
+
+  @media (max-width: 768px) {
+    .offer-grid { grid-template-columns: 1fr; }
+  }
+</style>
