@@ -120,7 +120,7 @@ export function wijnrouteSchema(data: WijnrouteSchemaData) {
     data.stops && data.stops.length > 0
       ? {
           '@type': 'ItemList',
-          name: `${data.name} — stops`,
+          name: `${data.name}, stops`,
           itemListElement: data.stops.map((stop, i) => ({
             '@type': 'ListItem',
             position: i + 1,
@@ -190,8 +190,8 @@ export function streekSchema(data: StreekSchemaData) {
 
 export function wijnhuisMetaTitle(name: string, region?: string): string {
   return region
-    ? `${name} — Wijnhuis in ${region} | VinoMartino`
-    : `${name} — Wijnhuis | VinoMartino`;
+    ? `${name}, Wijnhuis in ${region} | VinoMartino`
+    : `${name}, Wijnhuis | VinoMartino`;
 }
 
 export function wijnhuisMetaDescription(data: {
@@ -202,13 +202,13 @@ export function wijnhuisMetaDescription(data: {
 }): string {
   if (data.description) return data.description.slice(0, 155);
   const location = [data.region, data.country].filter(Boolean).join(', ');
-  return `Ontdek ${data.name}${location ? ` in ${location}` : ''} — wijnen, druivenrassen en productiestijl. Alles over dit wijnhuis op VinoMartino.`;
+  return `Ontdek ${data.name}${location ? ` in ${location}` : ''}, wijnen, druivenrassen en productiestijl. Alles over dit wijnhuis op VinoMartino.`;
 }
 
 export function wijnrouteMetaTitle(name: string, region?: string): string {
   return region
-    ? `${name} — Wijnroute door ${region} | VinoMartino`
-    : `${name} — Wijnroute | VinoMartino`;
+    ? `${name}, Wijnroute door ${region} | VinoMartino`
+    : `${name}, Wijnroute | VinoMartino`;
 }
 
 export function wijnrouteMetaDescription(data: {
@@ -227,8 +227,8 @@ export function wijnrouteMetaDescription(data: {
 
 export function streekMetaTitle(name: string, country?: string): string {
   return country
-    ? `${name} — Wijnstreek in ${country} | VinoMartino`
-    : `${name} — Wijnstreek | VinoMartino`;
+    ? `${name}, Wijnstreek in ${country} | VinoMartino`
+    : `${name}, Wijnstreek | VinoMartino`;
 }
 
 export function streekMetaDescription(data: {
@@ -243,7 +243,7 @@ export function streekMetaDescription(data: {
       ? ` met ${data.grapeVarieties.slice(0, 3).join(', ')}`
       : '';
   const inCountry = data.country ? ` in ${data.country}` : '';
-  return `Alles over de wijnstreek ${data.name}${inCountry}${grapes} — klimaat, terroir, wijnhuizen en wijntips van VinoMartino.`;
+  return `Alles over de wijnstreek ${data.name}${inCountry}${grapes}, klimaat, terroir, wijnhuizen en wijntips van VinoMartino.`;
 }
 
 // ─── Land (Country / TouristDestination) ─────────────────────────────────────
@@ -254,7 +254,11 @@ export interface LandSchemaData {
   image?: string | null;
   continent?: string;
   capital?: string;
-  wijnstreken?: string[];
+  /**
+   * Accepts plain names (legacy showcase-derived) or `{name, slug}` objects
+   * (Directus o2m join, post-LAT-1008). Slugs yield resolvable `url` in JSON-LD.
+   */
+  wijnstreken?: Array<string | { name: string; slug?: string }>;
   grapeVarieties?: string[];
   pageUrl: string;
 }
@@ -276,11 +280,17 @@ export function landSchema(data: LandSchemaData) {
       : {}),
     ...(data.wijnstreken && data.wijnstreken.length > 0
       ? {
-          hasPart: data.wijnstreken.map((streek) => ({
-            '@type': 'Place',
-            additionalType: 'https://schema.org/TouristDestination',
-            name: streek,
-          })),
+          hasPart: data.wijnstreken.map((streek) => {
+            const name = typeof streek === 'string' ? streek : streek.name;
+            const slug = typeof streek === 'string' ? undefined : streek.slug;
+            const url = slug ? `${SITE_URL}/streken/${slug}/` : undefined;
+            return {
+              '@type': 'Place',
+              additionalType: 'https://schema.org/TouristDestination',
+              name,
+              ...(url ? { url } : {}),
+            };
+          }),
         }
       : {}),
     mainEntityOfPage: { '@type': 'WebPage', '@id': data.pageUrl },
@@ -290,21 +300,23 @@ export function landSchema(data: LandSchemaData) {
 
 export function landMetaTitle(name: string, continent?: string): string {
   return continent
-    ? `${name} — Wijnen & wijnstreken in ${continent} | VinoMartino`
-    : `${name} — Wijnen & wijnstreken | VinoMartino`;
+    ? `${name}, Wijnen & wijnstreken in ${continent} | VinoMartino`
+    : `${name}, Wijnen & wijnstreken | VinoMartino`;
 }
 
 export function landMetaDescription(data: {
   name: string;
-  wijnstreken?: string[];
+  wijnstreken?: Array<string | { name: string; slug?: string }>;
   grapeVarieties?: string[];
   description?: string;
 }): string {
   if (data.description) return data.description.slice(0, 155);
+  const strekenNames =
+    data.wijnstreken
+      ?.map((s) => (typeof s === 'string' ? s : s.name))
+      .filter((n): n is string => Boolean(n)) ?? [];
   const streken =
-    data.wijnstreken && data.wijnstreken.length > 0
-      ? ` — streken als ${data.wijnstreken.slice(0, 3).join(', ')}`
-      : '';
+    strekenNames.length > 0 ? `, streken als ${strekenNames.slice(0, 3).join(', ')}` : '';
   const grapes =
     data.grapeVarieties && data.grapeVarieties.length > 0
       ? `, druivenrassen als ${data.grapeVarieties.slice(0, 3).join(', ')}`

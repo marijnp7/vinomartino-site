@@ -34,6 +34,16 @@ async function api(method, path, body) {
   return res.status === 204 ? null : res.json();
 }
 
+// Directus returns 409 'already exists' for duplicate collections/fields, but
+// 400 'already has an associated relationship' for duplicate relations. Treat
+// both as idempotent so re-runs on a bootstrapped schema are no-ops.
+function isAlreadyExists(e) {
+  const m = e.message;
+  return m.includes('already exists')
+    || m.includes('409')
+    || m.includes('already has an associated relationship');
+}
+
 async function createCollection(collection, meta = {}) {
   console.log(`Creating collection: ${collection}`);
   try {
@@ -43,7 +53,7 @@ async function createCollection(collection, meta = {}) {
       schema: {},
     });
   } catch (e) {
-    if (e.message.includes('already exists') || e.message.includes('409')) {
+    if (isAlreadyExists(e)) {
       console.log(`  ↳ already exists`);
     } else throw e;
   }
@@ -54,7 +64,7 @@ async function createField(collection, field) {
   try {
     await api('POST', `/fields/${collection}`, field);
   } catch (e) {
-    if (e.message.includes('already exists') || e.message.includes('409')) {
+    if (isAlreadyExists(e)) {
       console.log(`    ↳ already exists`);
     } else throw e;
   }
@@ -65,7 +75,7 @@ async function createRelation(relation) {
   try {
     await api('POST', '/relations', relation);
   } catch (e) {
-    if (e.message.includes('already exists') || e.message.includes('409')) {
+    if (isAlreadyExists(e)) {
       console.log(`    ↳ already exists`);
     } else throw e;
   }
@@ -121,7 +131,7 @@ const statusField = () => ({
 const imageField = (field = 'hero_image') => ({
   field,
   type: 'uuid',
-  meta: { interface: 'file-image', width: 'full' },
+  meta: { interface: 'file-image', width: 'full', special: ['file'], display: 'image' },
   schema: { is_nullable: true },
 });
 
@@ -141,7 +151,8 @@ async function run() {
   console.log(`\nBootstrapping Directus schema at ${DIRECTUS_URL}\n`);
 
   // ── 1. Countries ──────────────────────────────────────
-  await createCollection('countries', { icon: 'flag', note: 'Country overview pages' });
+  // Legacy travel-collection — hidden by default (LAT-962). VinoMartino uses `landen`.
+  await createCollection('countries', { icon: 'flag', note: 'Country overview pages', hidden: true });
   for (const f of [
     textField('name', { nullable: false }),
     slugField(),
@@ -162,7 +173,8 @@ async function run() {
   ]) await createField('countries', f);
 
   // ── 2. Regions ────────────────────────────────────────
-  await createCollection('regions', { icon: 'map', note: 'Geographic sub-units within countries' });
+  // Legacy travel-collection — hidden by default (LAT-962). VinoMartino uses `streken`.
+  await createCollection('regions', { icon: 'map', note: 'Geographic sub-units within countries', hidden: true });
   for (const f of [
     textField('name', { nullable: false }),
     slugField(),
@@ -176,7 +188,8 @@ async function run() {
   await createRelation({ collection: 'regions', field: 'country_id', related_collection: 'countries' });
 
   // ── 3. Destinations ───────────────────────────────────
-  await createCollection('destinations', { icon: 'place', note: 'City or place — SEO workhorse pages' });
+  // Legacy travel-collection — hidden by default (LAT-962).
+  await createCollection('destinations', { icon: 'place', note: 'City or place — SEO workhorse pages', hidden: true });
   for (const f of [
     textField('name', { nullable: false }),
     slugField(),
@@ -195,7 +208,8 @@ async function run() {
   await createRelation({ collection: 'destinations', field: 'region_id', related_collection: 'regions' });
 
   // ── 4. Itineraries ────────────────────────────────────
-  await createCollection('itineraries', { icon: 'route', note: 'Ready-to-go travel routes' });
+  // Legacy travel-collection — hidden by default (LAT-962). VinoMartino uses `routes`.
+  await createCollection('itineraries', { icon: 'route', note: 'Ready-to-go travel routes', hidden: true });
   for (const f of [
     textField('title', { nullable: false }),
     slugField(),
@@ -223,6 +237,7 @@ async function run() {
     richTextField('body'),
     textField('author'),
     { field: 'pub_date', type: 'date', meta: { interface: 'datetime', width: 'half' }, schema: { is_nullable: true } },
+    { field: 'updated_at', type: 'timestamp', meta: { interface: 'datetime', width: 'half', note: 'Last meaningful editorial update. Drives <meta property="article:modified_time"> and JSON-LD dateModified.' }, schema: { is_nullable: true } },
     textField('category'),
     jsonField('tags', { note: 'Array of tag strings' }),
     imageField(),
@@ -231,7 +246,8 @@ async function run() {
   ]) await createField('articles', f);
 
   // ── 6. Themes ─────────────────────────────────────────
-  await createCollection('themes', { icon: 'label', note: 'Thematic filters / taxonomy' });
+  // Legacy travel-collection — hidden by default (LAT-962).
+  await createCollection('themes', { icon: 'label', note: 'Thematic filters / taxonomy', hidden: true });
   for (const f of [
     textField('name', { nullable: false }),
     slugField(),
@@ -241,7 +257,8 @@ async function run() {
   ]) await createField('themes', f);
 
   // ── 7. Attractions ────────────────────────────────────
-  await createCollection('attractions', { icon: 'museum', note: 'Sights: temples, museums, parks' });
+  // Legacy travel-collection — hidden by default (LAT-962).
+  await createCollection('attractions', { icon: 'museum', note: 'Sights: temples, museums, parks', hidden: true });
   for (const f of [
     textField('name', { nullable: false }),
     slugField(),
@@ -253,7 +270,8 @@ async function run() {
   await createRelation({ collection: 'attractions', field: 'destination_id', related_collection: 'destinations' });
 
   // ── 8. Accommodations ─────────────────────────────────
-  await createCollection('accommodations', { icon: 'hotel', note: 'Hotels, hostels, resorts' });
+  // Legacy travel-collection — hidden by default (LAT-962).
+  await createCollection('accommodations', { icon: 'hotel', note: 'Hotels, hostels, resorts', hidden: true });
   for (const f of [
     textField('name', { nullable: false }),
     slugField(),
@@ -267,7 +285,8 @@ async function run() {
   await createRelation({ collection: 'accommodations', field: 'destination_id', related_collection: 'destinations' });
 
   // ── 9. Activities ─────────────────────────────────────
-  await createCollection('activities', { icon: 'directions_run', note: 'Tours, excursions, experiences' });
+  // Legacy travel-collection — hidden by default (LAT-962).
+  await createCollection('activities', { icon: 'directions_run', note: 'Tours, excursions, experiences', hidden: true });
   for (const f of [
     textField('name', { nullable: false }),
     slugField(),
@@ -281,7 +300,8 @@ async function run() {
   await createRelation({ collection: 'activities', field: 'destination_id', related_collection: 'destinations' });
 
   // ── 10. Food Spots ────────────────────────────────────
-  await createCollection('food_spots', { icon: 'restaurant', note: 'Restaurants, street food, markets' });
+  // Legacy travel-collection — hidden by default (LAT-962).
+  await createCollection('food_spots', { icon: 'restaurant', note: 'Restaurants, street food, markets', hidden: true });
   for (const f of [
     textField('name', { nullable: false }),
     slugField(),
@@ -294,7 +314,8 @@ async function run() {
   await createRelation({ collection: 'food_spots', field: 'destination_id', related_collection: 'destinations' });
 
   // ── 11. Transport Routes ──────────────────────────────
-  await createCollection('transport_routes', { icon: 'directions_bus', note: 'How to get from A to B' });
+  // Legacy travel-collection — hidden by default (LAT-962).
+  await createCollection('transport_routes', { icon: 'directions_bus', note: 'How to get from A to B', hidden: true });
   for (const f of [
     textField('name', { nullable: false }),
     slugField(),
@@ -327,6 +348,7 @@ async function run() {
     textField('best_time_to_visit'),
     textField('continent'),
     textField('capital'),
+    imageField('og_image'),
     ...seoFields(),
     jsonField('translations', { note: i18nNote }),
   ]) await createField('landen', f);
@@ -352,7 +374,26 @@ async function run() {
     jsonField('translations', { note: i18nNote }),
   ]) await createField('streken', f);
   await createField('streken', { field: 'land_id', type: 'integer', meta: { interface: 'select-dropdown-m2o', width: 'half' }, schema: { is_nullable: true } });
-  await createRelation({ collection: 'streken', field: 'land_id', related_collection: 'landen' });
+  // landen.wijnstreken — reverse o2m alias of streken.land_id, so editors see streken under their land
+  // and the API can join `wijnstreken.name,wijnstreken.slug` for JSON-LD hasPart.
+  await createField('landen', {
+    field: 'wijnstreken',
+    type: 'alias',
+    meta: {
+      interface: 'list-o2m',
+      special: ['o2m'],
+      width: 'full',
+      note: 'Reverse relation: streken whose land_id points to this land. Drives JSON-LD hasPart.',
+      options: { template: '{{name}}' },
+    },
+    schema: null,
+  });
+  await createRelation({
+    collection: 'streken',
+    field: 'land_id',
+    related_collection: 'landen',
+    meta: { one_field: 'wijnstreken' },
+  });
 
   // ── 14. Wijnhuizen ───────────────────────────────────
   await createCollection('wijnhuizen', { icon: 'liquor', note: 'Winery portraits' });
@@ -434,7 +475,17 @@ async function run() {
   await createRelation({ collection: 'articles_routes', field: 'articles_id', related_collection: 'articles' });
   await createRelation({ collection: 'articles_routes', field: 'routes_id', related_collection: 'routes' });
 
-  console.log('\n✅ Schema bootstrap complete — 17 collections + 5 junction tables created.\n');
+  // ── 17. Navigation items (header menu) ──────────────────
+  await createCollection('nav_items', { icon: 'menu', note: 'Header navigatie items — beheer door redactie (LAT-907)' });
+  for (const f of [
+    textField('label', { nullable: false, note: 'Zichtbaar menu-label' }),
+    textField('href', { nullable: false, note: 'URL-pad, bijv. /landen/' }),
+    textField('key', { nullable: false, note: 'Stabiele identifier voor activeNav matching' }),
+    { field: 'order', type: 'integer', meta: { interface: 'input', width: 'half', note: 'Volgorde — laagste eerst' }, schema: { is_nullable: true, default_value: 0 } },
+    statusField(),
+  ]) await createField('nav_items', f);
+
+  console.log('\n✅ Schema bootstrap complete — 18 collections + 5 junction tables created.\n');
 }
 
 run().catch((err) => {

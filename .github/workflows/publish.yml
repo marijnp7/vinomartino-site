@@ -1,0 +1,343 @@
+# LAT-943 — Combo-workflow: één-klik publiceren naar prod
+#
+# Triggered by paperclip-publish-dispatcher (LAT-925) na Marijn's
+# Publiceer-klik in Directus. Orkestreert sequentieel:
+#   Job 1 (build-preview): rsync src → VPS staging → docker node build →
+#     rsync naar preview-dist → nginx-preview reload → smoke preview
+#   Job 2 (promote-prod): verify preview-dist sha → CoS Telegram-approval →
+#     rsync preview-dist → prod dist → nginx-prod reload → sha-aware smoke
+#
+# Géén `environment: production` block op Job 2 — Telegram-approval is de
+# enige gate (LAT-920 UX-eis: één klik + één Telegram-tap).
+#
+# Concurrency: alle drie workflows (deploy.yml, promote.yml, publish.yml)
+# delen `vinomartino-write` zodat een Marijn-push naar preview niet kan
+# racen met de gap tussen Job 1 → Job 2.
+#
+# Vereiste secrets: VPS_HOST, VPS_USER, VPS_SSH_PRIVATE_KEY
+# CoS HMAC secret wordt op de VPS gelezen uit /opt/paperclip-cos/.env.cos.
+
+name: Publish VinoMartino (preview build → prod promote)
+
+on:
+  workflow_dispatch: {}
+
+concurrency:
+  group: vinomartino-write
+  cancel-in-progress: false
+
+jobs:
+  build-preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      sha: ${{ steps.sha.outputs.sha }}
+
+    steps:
+      - name: Capture SHA
+        id: sha
+        run: |
+          echo "sha=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          echo "::notice::Publishing SHA ${{ github.sha }} (run ${{ github.run_id }})"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          cat >> ~/.ssh/config <<EOF
+          Host $VPS_HOST
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+          EOF
+          ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Sync source to VPS staging
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          STAGE: /srv/vino-builds/${{ github.run_id }}
+        run: |
+          ssh "$VPS" "mkdir -p '$STAGE'"
+          rsync -avz --delete \
+            --exclude=node_modules \
+            --exclude=dist \
+            --exclude=preview-dist \
+            --exclude=.git \
+            --exclude='*.old-*' \
+            --exclude='deploy-key-github-actions*' \
+            ./ "$VPS:$STAGE/"
+
+      - name: Build on VPS (docker, directus_directus_net)
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          STAGE: /srv/vino-builds/${{ github.run_id }}
+          GIT_SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_NUMBER: ${{ github.run_number }}
+          BUILD_SCRIPT: |
+            set -euo pipefail
+            cd "$STAGE"
+            if [ -f /root/vinomartino-site/.env ]; then
+              cp /root/vinomartino-site/.env .env
+            fi
+            docker run --rm --network directus_directus_net \
+              -v "$STAGE":/app -w /app \
+              node:24 bash -c "npm ci && npm run build"
+            printf '{"sha":"%s","runId":"%s","runNumber":"%s","builtAt":"%s"}\n' \
+              "$GIT_SHA" "$RUN_ID" "$RUN_NUMBER" "$(date -u +%FT%TZ)" \
+              > dist/build-info.json
+            echo "dist/build-info.json:"
+            cat dist/build-info.json
+            ls -la dist/ | head -10
+        run: |
+          printf '%s\n' "$BUILD_SCRIPT" \
+            | ssh "$VPS" "STAGE='$STAGE' GIT_SHA='$GIT_SHA' RUN_ID='$RUN_ID' RUN_NUMBER='$RUN_NUMBER' bash -s"
+
+      - name: Sync to preview-dist + nginx-preview reload
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          STAGE: /srv/vino-builds/${{ github.run_id }}
+          DIST: /root/vinomartino-site/preview-dist
+          CONTAINER: paperclip-vinomartino-preview-1
+          SWAP_SCRIPT: |
+            set -euo pipefail
+            SITE_ROOT="/root/vinomartino-site"
+            mkdir -p "$DIST"
+            BACKUP="${DIST}.old-$(date +%s)"
+            cp -al "$DIST" "$BACKUP" 2>/dev/null || cp -a "$DIST" "$BACKUP"
+            rsync -a --delete --stats --itemize-changes "$STAGE/dist/" "$DIST/" \
+              | tail -n 30
+            if [ ! -f "$DIST/build-info.json" ]; then
+              echo "::error::build-info.json ontbreekt in preview-dist na rsync"
+              exit 1
+            fi
+            CONFIG_FILES="nginx-preview.conf htpasswd docker-compose.vinomartino-preview.yml"
+            for f in $CONFIG_FILES; do
+              if [ -f "$STAGE/$f" ]; then
+                [ -f "$SITE_ROOT/$f" ] && cp "$SITE_ROOT/$f" "$SITE_ROOT/$f.bak"
+                cp "$STAGE/$f" "$SITE_ROOT/$f"
+              fi
+            done
+            if ! docker exec "$CONTAINER" nginx -t 2>&1; then
+              echo "::error::nginx-preview -t gefaald — config rollback"
+              for f in $CONFIG_FILES; do
+                [ -f "$SITE_ROOT/$f.bak" ] && mv "$SITE_ROOT/$f.bak" "$SITE_ROOT/$f"
+              done
+              exit 1
+            fi
+            for f in $CONFIG_FILES; do
+              rm -f "$SITE_ROOT/$f.bak"
+            done
+            rm -rf "$STAGE"
+            ls -1dt "${DIST}".old-* 2>/dev/null | tail -n +4 | xargs -r rm -rf
+            docker exec "$CONTAINER" nginx -s reload \
+              || docker restart "$CONTAINER"
+        run: |
+          printf '%s\n' "$SWAP_SCRIPT" \
+            | ssh "$VPS" "DIST='$DIST' STAGE='$STAGE' CONTAINER='$CONTAINER' bash -s"
+
+      - name: Smoke test preview (auth-aware)
+        env:
+          GIT_SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          # Preview zit achter CF Access — 200/302/401/403 acceptabel
+          # zolang het geen 5xx is. We checken alleen of nginx leeft.
+          URL="https://preview.vinomartino.com/?cb=${RUN_ID}"
+          code="000"
+          for attempt in 1 2 3 4 5; do
+            code=$(curl -sS -o /dev/null -w "%{http_code}" \
+              -H 'Cache-Control: no-cache' --max-time 15 "$URL" || echo "000")
+            echo "Poging $attempt: GET $URL → HTTP $code"
+            if [[ "$code" =~ ^(200|302|401|403)$ ]]; then break; fi
+            sleep 4
+          done
+          if [[ "$code" =~ ^5 ]] || [ "$code" = "000" ]; then
+            echo "::error::Preview returnt $code — build niet OK"
+            exit 1
+          fi
+          echo "::notice::Preview smoke OK (HTTP $code) — door naar promote"
+
+  promote-prod:
+    needs: build-preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          cat >> ~/.ssh/config <<EOF
+          Host $VPS_HOST
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+          EOF
+          ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Verify preview-dist + CoS approval + promote
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          GIT_SHA: ${{ needs.build-preview.outputs.sha }}
+          RUN_ID: ${{ github.run_id }}
+          PROMOTE_SCRIPT: |
+            set -euo pipefail
+            SITE_ROOT="/root/vinomartino-site"
+            PREVIEW_DIST="$SITE_ROOT/preview-dist"
+            PROD_DIST="$SITE_ROOT/dist"
+            PROD_CONTAINER="paperclip-vinomartino-prod-1"
+            BRIDGE_HOST="paperclip-cos-bridge-1"
+            BRIDGE_PORT="3200"
+
+            if [ ! -d "$PREVIEW_DIST" ] || [ -z "$(ls -A "$PREVIEW_DIST" 2>/dev/null)" ]; then
+              echo "::error::preview-dist bestaat niet of is leeg — Job 1 was niet OK"
+              exit 1
+            fi
+
+            # SHA-guard: preview-dist moet exact deze run's build hebben
+            PREV_SHA=$(python3 -c "import json;print(json.load(open('$PREVIEW_DIST/build-info.json')).get('sha',''))" 2>/dev/null || echo "")
+            if [ "$PREV_SHA" != "$GIT_SHA" ]; then
+              echo "::error::preview-dist build-info.sha=$PREV_SHA != publish.GIT_SHA=$GIT_SHA"
+              echo "::error::Marijn-push tussen Job 1 en Job 2? Promote afgebroken om gemixte content te voorkomen."
+              exit 1
+            fi
+            echo "::notice::preview-dist klopt met $GIT_SHA — door naar Telegram-approval"
+
+            # CoS bridge IP-lookup (LAT-920g d2641de) — Docker-hostnames niet
+            # resolvable vanaf host
+            BRIDGE_IP=$(docker inspect "$BRIDGE_HOST" --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{"\n"}}{{end}}' 2>/dev/null | grep -v '^$' | head -n 1)
+            if [ -z "$BRIDGE_IP" ]; then
+              echo "::error::CoS bridge $BRIDGE_HOST niet bereikbaar"
+              exit 1
+            fi
+            COS_URL="http://$BRIDGE_IP:$BRIDGE_PORT"
+
+            if [ ! -f /opt/paperclip-cos/.env.cos ]; then
+              echo "::error::/opt/paperclip-cos/.env.cos niet gevonden"
+              exit 1
+            fi
+            set -a; source /opt/paperclip-cos/.env.cos; set +a
+
+            REQUEST_ID="publish-${RUN_ID}"
+            PAYLOAD=$(python3 -c "
+            import json
+            print(json.dumps({
+                'request_id': '$REQUEST_ID',
+                'agent': 'publish-workflow',
+                'title': 'Publish vinomartino.com (Marijn klikte Publiceer)',
+                'body': 'Build $GIT_SHA staat op preview. Promote naar productie?',
+                'urgency': 'normal',
+                'timeout_seconds': 600
+            }))
+            ")
+            SIGNATURE="sha256=$(printf '%s' "$PAYLOAD" | openssl dgst -sha256 -hmac "$APPROVAL_HMAC_SECRET" | awk '{print $NF}')"
+
+            echo "Approval-request naar CoS bridge..."
+            RESPONSE=$(curl -sS -f -X POST "$COS_URL/approval" \
+              -H "Content-Type: application/json" \
+              -H "X-Signature: $SIGNATURE" \
+              -d "$PAYLOAD")
+            APPROVAL_ID=$(echo "$RESPONSE" | python3 -c "import sys,json;print(json.load(sys.stdin)['action_id'])")
+            echo "Approval ID: $APPROVAL_ID — wacht op Telegram (max 10 min)"
+
+            DECISION="pending"
+            for i in $(seq 1 120); do
+              sleep 5
+              STATUS=$(curl -sS "$COS_URL/approval/$APPROVAL_ID" || echo '{}')
+              DECISION=$(echo "$STATUS" | python3 -c "
+            import sys,json
+            try:
+                d=json.load(sys.stdin); print(d.get('decision','pending'))
+            except:
+                print('pending')
+            ")
+              if [ "$DECISION" = "approve" ] || [ "$DECISION" = "approved" ]; then
+                echo "Goedgekeurd via Telegram — promote start"
+                break
+              elif [ "$DECISION" = "reject" ] || [ "$DECISION" = "rejected" ] || [ "$DECISION" = "deny" ] || [ "$DECISION" = "denied" ]; then
+                echo "::error::Afgewezen via Telegram. Productie ongewijzigd."
+                exit 1
+              fi
+            done
+            if [ "$DECISION" != "approve" ] && [ "$DECISION" != "approved" ]; then
+              echo "::error::Timeout (10 min) zonder goedkeuring. Productie ongewijzigd."
+              exit 1
+            fi
+
+            # Promote: hardlink-snapshot + in-place sync (bind-mount safe)
+            BACKUP="${PROD_DIST}.old-$(date +%s)"
+            cp -al "$PROD_DIST" "$BACKUP" 2>/dev/null || cp -a "$PROD_DIST" "$BACKUP"
+            rsync -a --delete "$PREVIEW_DIST/" "$PROD_DIST/"
+
+            if ! docker exec "$PROD_CONTAINER" nginx -t 2>&1; then
+              echo "::error::nginx -t gefaald — rollback naar backup"
+              rsync -a --delete "$BACKUP/" "$PROD_DIST/"
+              docker exec "$PROD_CONTAINER" nginx -s reload 2>/dev/null || true
+              exit 1
+            fi
+
+            docker exec "$PROD_CONTAINER" nginx -s reload \
+              || docker restart "$PROD_CONTAINER"
+
+            ls -1dt "${PROD_DIST}".old-* 2>/dev/null | tail -n +4 | xargs -r rm -rf
+            echo "::notice::Productie bijgewerkt naar $GIT_SHA"
+        run: |
+          printf '%s\n' "$PROMOTE_SCRIPT" \
+            | ssh "$VPS" "GIT_SHA='$GIT_SHA' RUN_ID='$RUN_ID' bash -s"
+
+      - name: Smoke test prod (sha-match op build-info.json, LAT-910)
+        env:
+          GIT_SHA: ${{ needs.build-preview.outputs.sha }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          echo "Wacht 5s op nginx warm-up..."
+          sleep 5
+          URL="https://vinomartino.com/?cb=${RUN_ID}"
+          INFO_URL="https://vinomartino.com/build-info.json?cb=${RUN_ID}"
+
+          code="000"
+          for attempt in 1 2 3 4 5; do
+            code=$(curl -sS -o /dev/null -w "%{http_code}" \
+              -H 'Cache-Control: no-cache' --max-time 15 "$URL" || echo "000")
+            echo "Poging $attempt: GET $URL → HTTP $code"
+            if [ "$code" = "200" ]; then break; fi
+            sleep 4
+          done
+          [ "$code" = "200" ] || { echo "::error::Prod smoke gefaald na 5 pogingen ($code)"; exit 1; }
+
+          served_sha=""
+          for attempt in 1 2 3 4 5; do
+            served_sha=$(curl -fsS --max-time 10 \
+              -H 'Cache-Control: no-cache' "$INFO_URL" 2>/dev/null \
+              | python3 -c 'import json,sys;print(json.load(sys.stdin).get("sha",""))' 2>/dev/null \
+              || echo "")
+            echo "Poging $attempt: build-info.sha = '$served_sha' (verwacht: $GIT_SHA)"
+            if [ "$served_sha" = "$GIT_SHA" ]; then break; fi
+            sleep 4
+          done
+
+          if [ "$served_sha" != "$GIT_SHA" ]; then
+            echo "::error::Prod serveert SHA '$served_sha' maar publish-cycle was voor '$GIT_SHA' — promote rsync mislukt of CDN cachet stale (LAT-910)"
+            exit 1
+          fi
+          echo "::notice::Prod-smoke OK — vinomartino.com serveert $served_sha"
+
+      - name: Done
+        run: |
+          echo "::notice::Publish cycle voltooid — ${{ needs.build-preview.outputs.sha }} live op vinomartino.com"

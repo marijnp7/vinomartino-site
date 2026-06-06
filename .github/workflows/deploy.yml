@@ -35,7 +35,7 @@ on:
         options: [preview, production]
 
 concurrency:
-  group: deploy-${{ github.ref }}
+  group: vinomartino-write
   cancel-in-progress: false
 
 jobs:
@@ -126,22 +126,68 @@ jobs:
         env:
           VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
           STAGE: /srv/vino-builds/${{ github.run_id }}
+          GIT_SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_NUMBER: ${{ github.run_number }}
+          TARGET: ${{ steps.env.outputs.target }}
           BUILD_SCRIPT: |
             set -euo pipefail
             cd "$STAGE"
             if [ -f /root/vinomartino-site/.env ]; then
               cp /root/vinomartino-site/.env .env
             fi
+            # LAT-1112: preview-builds include draft items so Marijn can
+            # review status=draft entries on preview.vinomartino.com before
+            # promote-to-production. Productie krijgt deze env-var NIET en
+            # blijft daarom alleen `status=published` serveren.
+            if [ "$TARGET" = "preview" ]; then
+              DRAFTS_ENV="-e DIRECTUS_INCLUDE_DRAFTS=1"
+            else
+              DRAFTS_ENV=""
+            fi
             # Build altijd in docker met --network directus_directus_net,
             # anders kan de host de container-DNS `vinomartino-directus-1`
             # niet resolven en valt de build silently terug op lokale
             # markdown-bestanden zonder hero_image (LAT-896 follow-up).
+            #
+            # LAT-1014: capture full build output zodat we kunnen detecteren
+            # of Astro silently faalde op getStaticPaths. Astro exit'te 0 in
+            # LAT-1011 ondanks Directus 403 — alleen het log onthult dat.
+            set +e
             docker run --rm --network directus_directus_net \
+              $DRAFTS_ENV \
               -v "$STAGE":/app -w /app \
-              node:24 bash -c "npm ci && npm run build"
+              node:24 bash -c "npm ci && npm run build" 2>&1 | tee build.log
+            build_rc=${PIPESTATUS[0]}
+            set -e
+            if [ "$build_rc" -ne 0 ]; then
+              echo "::error::astro build exit $build_rc"
+              exit "$build_rc"
+            fi
+            # LAT-1014: fail-fast op getStaticPaths-errors die Astro
+            # zwaluwt. Match exact de regels die LAT-1011 produceerde.
+            if grep -E '(\[ERROR\] \[build\] Failed to call getStaticPaths|Failed to call getStaticPaths)' build.log >/dev/null 2>&1; then
+              echo "::error::Astro logde een getStaticPaths-error maar exit'te 0 — pipeline faalt expliciet (LAT-1014)"
+              grep -nE '(\[ERROR\]|Failed to call getStaticPaths)' build.log | head -30
+              exit 1
+            fi
+            # LAT-910: write build-fingerprint into dist/ so smoke-test
+            # downstream can verify served bytes matchen deze run. Zonder
+            # dit kan een silently-mislukte rsync naar DIST groene runs
+            # opleveren terwijl prod oude content blijft serveren.
+            printf '{"sha":"%s","runId":"%s","runNumber":"%s","builtAt":"%s"}\n' \
+              "$GIT_SHA" "$RUN_ID" "$RUN_NUMBER" "$(date -u +%FT%TZ)" \
+              > dist/build-info.json
+            echo "dist/build-info.json:"
+            cat dist/build-info.json
             ls -la dist/
+            # LAT-1014: dist-completeness gate. Hard-fail als verplichte
+            # index-pagina's ontbreken of het HTML-aantal onder drempel
+            # ligt.
+            bash scripts/verify-build.sh dist
         run: |
-          printf '%s\n' "$BUILD_SCRIPT" | ssh "$VPS" "STAGE='$STAGE' bash -s"
+          printf '%s\n' "$BUILD_SCRIPT" \
+            | ssh "$VPS" "STAGE='$STAGE' GIT_SHA='$GIT_SHA' RUN_ID='$RUN_ID' RUN_NUMBER='$RUN_NUMBER' TARGET='$TARGET' bash -s"
 
       # ── 7. Sync inhoud + config naar DIST + container reload ─────────────
       #
@@ -173,7 +219,20 @@ jobs:
             cp -al "$DIST" "$BACKUP" 2>/dev/null || cp -a "$DIST" "$BACKUP"
 
             # Inhoud overschrijven, DIST-directory zelf raken we niet aan
-            rsync -a --delete "$STAGE/dist/" "$DIST/"
+            # LAT-910: itemize-changes zodat we in de GHA-log kunnen zien
+            # dat rsync daadwerkelijk bestanden heeft gekopieerd. Stats
+            # voor explicit copy-count.
+            rsync -a --delete --stats --itemize-changes "$STAGE/dist/" "$DIST/" \
+              | tail -n 30
+            echo "DIST inhoud na rsync:"
+            ls -la "$DIST/" | head -20
+            if [ -f "$DIST/build-info.json" ]; then
+              echo "DIST/build-info.json:"
+              cat "$DIST/build-info.json"
+            else
+              echo "::error::build-info.json ontbreekt in DIST na rsync — build heeft hem niet geschreven"
+              exit 1
+            fi
 
             # Config-files syncen naar site-root (LAT-779)
             CONFIG_FILES="nginx-prod.conf nginx-preview.conf htpasswd docker-compose.vinomartino-prod.yml docker-compose.vinomartino-preview.yml"
@@ -214,25 +273,110 @@ jobs:
       # ── 8. Smoke test ────────────────────────────────────────────────────
       # Retry-loop omdat nginx een paar seconden nodig heeft om warm te zijn
       # na de reload. Eerste request kan transient 500/502 geven.
+      #
+      # LAT-910: voor productie checken we /build-info.json zodat we
+      # garanderen dat de net-gepushte SHA daadwerkelijk geserveerd wordt.
+      # Het oude `/vinomartino/nl/` smoke-pad volgde 301 → / via -L en gaf
+      # daardoor altijd 200, óók als rsync-naar-DIST silently mislukte.
       - name: Smoke test
+        env:
+          GIT_SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
         run: |
-          if [ "${{ steps.env.outputs.target }}" = "production" ]; then
-            URL="https://vinomartino.com/vinomartino/nl/"
-          else
-            URL="https://preview.vinomartino.com/vinomartino/nl/"
-            # Preview zit achter CF Access; 302 of 200 is OK
+          if [ "${{ steps.env.outputs.target }}" = "preview" ]; then
+            # LAT-1112: preview.vinomartino.com zit achter Cloudflare Access
+            # (Google-login). Een publieke curl krijgt daardoor een 302 naar de
+            # CF-loginpagina i.p.v. de echte nginx-preview respons, waardoor de
+            # X-Robots-Tag-assertie altijd faalt. We testen daarom rechtstreeks
+            # tegen de preview-origin op de VPS — de container publiceert op
+            # 0.0.0.0:8090 (docker-compose.vinomartino-preview.yml) — zodat we
+            # de werkelijke nginx-preview.conf output zien, langs CF Access heen.
+            ORIGIN="http://localhost:8090/?cb=${RUN_ID}"
+
+            code="000"
+            for attempt in 1 2 3 4 5; do
+              code=$(ssh "$VPS" "curl -sS -o /dev/null -w '%{http_code}' \
+                --max-time 15 -H 'Cache-Control: no-cache' '$ORIGIN'" || echo "000")
+              echo "Attempt $attempt: GET $ORIGIN (via VPS) → HTTP $code"
+              if [ "$code" = "200" ]; then break; fi
+              sleep 4
+            done
+
+            [ "$code" = "200" ] || { echo "::error::Preview-origin smoke-test faalde na 5 pogingen ($code) — preview-container draait niet of serveert geen homepage (LAT-1112)"; exit 1; }
+
+            # LAT-1112: preview moet altijd X-Robots-Tag: noindex meesturen,
+            # ook op 200/404/redirect. `always` in nginx-preview.conf zorgt dat
+            # de header universeel zit; we checken op de homepage als
+            # representative voor de nginx-config.
+            headers=$(ssh "$VPS" "curl -sSI --max-time 15 -H 'Cache-Control: no-cache' '$ORIGIN'" || true)
+            echo "$headers"
+            if ! printf '%s\n' "$headers" | grep -i '^x-robots-tag:.*noindex' >/dev/null; then
+              echo "::error::Preview mist X-Robots-Tag: noindex op homepage — nginx-preview.conf check (LAT-1112)"
+              exit 1
+            fi
+            echo "::notice::Preview smoke-test OK — origin 200 + X-Robots-Tag noindex aanwezig (langs CF Access)"
           fi
 
-          code="000"
-          for attempt in 1 2 3 4 5; do
-            code=$(curl -sS -o /dev/null -w "%{http_code}" -L --max-time 15 "$URL" || echo "000")
-            echo "Attempt $attempt: GET $URL → HTTP $code"
-            if [ "$code" = "200" ]; then break; fi
-            sleep 4
-          done
-
           if [ "${{ steps.env.outputs.target }}" = "production" ]; then
+            URL="https://vinomartino.com/?cb=${RUN_ID}"
+            INFO_URL="https://vinomartino.com/build-info.json?cb=${RUN_ID}"
+
+            code="000"
+            for attempt in 1 2 3 4 5; do
+              code=$(curl -sS -o /dev/null -w "%{http_code}" \
+                -H 'Cache-Control: no-cache' --max-time 15 "$URL" || echo "000")
+              echo "Attempt $attempt: GET $URL → HTTP $code"
+              if [ "$code" = "200" ]; then break; fi
+              sleep 4
+            done
+
             [ "$code" = "200" ] || { echo "::error::Productie smoke-test faalde na 5 pogingen ($code)"; exit 1; }
+
+            # LAT-1112: regressie-guard. Productie mag NOOIT X-Robots-Tag
+            # noindex meesturen — als iemand per ongeluk een noindex-regel
+            # in nginx-prod.conf laat sluipen, vangen we dat hier op voordat
+            # Google de site uitsluit.
+            prod_headers=$(curl -sSI --max-time 15 -H 'Cache-Control: no-cache' "$URL" || true)
+            if printf '%s\n' "$prod_headers" | grep -i '^x-robots-tag:.*noindex' >/dev/null; then
+              echo "::error::Productie homepage stuurt X-Robots-Tag: noindex — nginx-prod.conf is per ongeluk noindex gemarkeerd (LAT-1112 regressie)"
+              echo "$prod_headers"
+              exit 1
+            fi
+
+            # LAT-1014: download de homepage echt en eis dat de body > 10 KB
+            # is. Een 200 met een 4 KB Astro 404-fallback is óók "groen"
+            # voor de status-code-check hierboven; pas een size-check vangt
+            # de LAT-1011 failure mode.
+            body_bytes=$(curl -fsS --max-time 15 -H 'Cache-Control: no-cache' "$URL" | wc -c | tr -d ' ')
+            echo "Homepage body size: $body_bytes bytes"
+            if [ "${body_bytes:-0}" -lt 10240 ]; then
+              echo "::error::Productie homepage is $body_bytes bytes (drempel: 10240) — waarschijnlijk een 404/SSR-stub (LAT-1014)"
+              exit 1
+            fi
+
+            # Verifieer dat productie de net-gebouwde SHA serveert. We doen
+            # dit via een cache-buster query + no-cache header zodat een
+            # eventuele Cloudflare-edge-cache het resultaat niet vertroebelt.
+            served_sha=""
+            for attempt in 1 2 3 4 5; do
+              served_sha=$(curl -fsS --max-time 10 \
+                -H 'Cache-Control: no-cache' \
+                "$INFO_URL" 2>/dev/null \
+                | python3 -c 'import json,sys;print(json.load(sys.stdin).get("sha",""))' 2>/dev/null \
+                || echo "")
+              echo "Attempt $attempt: build-info.sha = '$served_sha' (verwacht: $GIT_SHA)"
+              if [ "$served_sha" = "$GIT_SHA" ]; then break; fi
+              sleep 4
+            done
+
+            if [ "$served_sha" != "$GIT_SHA" ]; then
+              echo "::error::Productie serveert SHA '$served_sha' maar workflow draait '$GIT_SHA' — rsync naar DIST is mislukt of CDN cachet stale content (LAT-910)"
+              echo "INFO_URL: $INFO_URL"
+              curl -sS --max-time 10 -H 'Cache-Control: no-cache' "$INFO_URL" || true
+              exit 1
+            fi
+            echo "::notice::Smoke-test OK — productie serveert correcte build $served_sha"
           fi
 
       - name: Done

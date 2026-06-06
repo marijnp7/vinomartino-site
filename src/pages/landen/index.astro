@@ -1,5 +1,6 @@
 ---
 import SiteLayout from '../../layouts/SiteLayout.astro';
+import SmartImg from '../../components/SmartImg.astro';
 import { loadLanden } from '../../lib/landen';
 import { organizationSchema, breadcrumbSchema } from '../../lib/seo';
 
@@ -15,7 +16,7 @@ const schema = [
 ---
 
 <SiteLayout
-  title="Wijnlanden — Wijnen & wijnstreken per land | VinoMartino"
+  title="Wijnlanden, Wijnen & wijnstreken per land | VinoMartino"
   description="Ontdek de grote wijnlanden van Europa: Italië, Frankrijk, Spanje, Portugal, Duitsland en Oostenrijk. Per land de belangrijkste streken, druivenrassen en reistips."
   schema={schema}
   activeNav="landen"
@@ -24,7 +25,7 @@ const schema = [
     <div class="container">
       <span class="section-label">Wijnlanden</span>
       <h1>Wijnen & wijnstreken per land</h1>
-      <p class="hero-desc">De grote wijnlanden van Europa — per land de streken, druivenrassen, tradities en reistips die ertoe doen.</p>
+      <p class="hero-desc">De grote wijnlanden van Europa, per land de streken, druivenrassen, tradities en reistips die ertoe doen.</p>
     </div>
   </section>
 
@@ -33,9 +34,9 @@ const schema = [
       <div class="grid">
         {entries.map(entry => (
           <a href={`/landen/${entry.slug}/`} class="card card-link">
-            {entry.heroImage && (
-              <img src={entry.heroImage} alt={entry.name} loading="lazy" width="400" height="260" class="card-img" />
-            )}
+            <div class="card-img-wrap">
+              <SmartImg src={entry.heroImage || undefined} alt={entry.name} theme="region" class="card-img" />
+            </div>
             <div class="card-body">
               {entry.continent && <span class="card-continent">{entry.continent}</span>}
               <h2 class="card-title">{entry.name}</h2>
@@ -52,7 +53,7 @@ const schema = [
     ) : (
       <div class="empty-state">
         <h2>Landengidsen komen eraan</h2>
-        <p>We werken aan uitgebreide wijnlandgidsen. Binnenkort beschikbaar.</p>
+        <p>We werken aan uitgebreide wijnlandgidsen op basis van eigen bezoek aan de regio's.</p>
       </div>
     )}
   </section>
@@ -90,11 +91,19 @@ const schema = [
     color: inherit;
     display: block;
   }
-  .card-img {
-    width: 100%;
-    height: 260px;
-    object-fit: cover;
+  .card-img-wrap {
+    aspect-ratio: 16 / 11;
+    overflow: hidden;
+    background: var(--paperShade);
   }
+  .card-img-wrap :global(img),
+  .card-img-wrap :global(.smart-img-placeholder) {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform var(--duration-image) var(--ease-out);
+  }
+  .card-link:hover .card-img-wrap :global(img) { transform: scale(1.03); }
   .card-body { padding: 1.25rem; }
   .card-continent {
     font-family: var(--font-mono);

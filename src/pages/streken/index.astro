@@ -1,5 +1,6 @@
 ---
 import SiteLayout from '../../layouts/SiteLayout.astro';
+import SmartImg from '../../components/SmartImg.astro';
 import { loadStreken } from '../../lib/streken';
 import { organizationSchema, breadcrumbSchema } from '../../lib/seo';
 
@@ -15,8 +16,8 @@ const schema = [
 ---
 
 <SiteLayout
-  title="Wijnstreken — Van Piemonte tot de Mosel | VinoMartino"
-  description="Ontdek de grote wijnstreken van Europa — terroir, druivenrassen, klimaat en de beste producenten. Diepgaande gidsen voor wijnliefhebbers."
+  title="Wijnstreken, Van Piemonte tot de Mosel | VinoMartino"
+  description="Ontdek de grote wijnstreken van Europa, terroir, druivenrassen, klimaat en de beste producenten. Diepgaande gidsen voor wijnliefhebbers."
   schema={schema}
   activeNav="streken"
 >
@@ -24,7 +25,7 @@ const schema = [
     <div class="container">
       <span class="section-label">Wijnstreken</span>
       <h1>Terroir, druiven & traditie</h1>
-      <p class="hero-desc">De wijnstreken die ertoe doen — klimaat, bodem, appellations en de producenten die het landschap vormen.</p>
+      <p class="hero-desc">Piemonte, Etna, Bourgogne, Mosel, elke streek heeft een eigen logica van bodem, klimaat en druif. Hier leg ik ze uit zoals ik ze heb leren kennen: door er naartoe te rijden.</p>
     </div>
   </section>
 
@@ -33,9 +34,9 @@ const schema = [
       <div class="grid">
         {entries.map(entry => (
           <a href={`/streken/${entry.slug}/`} class="card card-link">
-            {entry.heroImage && (
-              <img src={entry.heroImage} alt={entry.name} loading="lazy" width="400" height="220" class="card-img" />
-            )}
+            <div class="card-img-wrap">
+              <SmartImg src={entry.heroImage || undefined} alt={entry.name} theme="vineyard" class="card-img" />
+            </div>
             <div class="card-body">
               {entry.country && <span class="card-country">{entry.country}</span>}
               <h2 class="card-title">{entry.name}</h2>
@@ -51,8 +52,8 @@ const schema = [
       </div>
     ) : (
       <div class="empty-state">
-        <h2>Streek-gidsen komen eraan</h2>
-        <p>We werken aan uitgebreide gidsen voor de belangrijkste wijnstreken. Binnenkort beschikbaar.</p>
+        <h2>De gidsen zijn onderweg</h2>
+        <p>Piemonte, Etna, Bourgogne, Mosel en Priorat staan bovenaan de lijst. Ik schrijf ze liever goed dan snel, begin ondertussen bij de <a href="/artikelen/">artikelen</a>.</p>
       </div>
     )}
   </section>
@@ -90,11 +91,19 @@ const schema = [
     color: inherit;
     display: block;
   }
-  .card-img {
-    width: 100%;
-    height: 220px;
-    object-fit: cover;
+  .card-img-wrap {
+    aspect-ratio: 16 / 11;
+    overflow: hidden;
+    background: var(--paperShade);
   }
+  .card-img-wrap :global(img),
+  .card-img-wrap :global(.smart-img-placeholder) {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform var(--duration-image) var(--ease-out);
+  }
+  .card-link:hover .card-img-wrap :global(img) { transform: scale(1.03); }
   .card-body { padding: 1.25rem; }
   .card-country {
     font-family: var(--font-mono);

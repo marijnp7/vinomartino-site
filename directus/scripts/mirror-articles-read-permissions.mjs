@@ -28,7 +28,7 @@ if (!DIRECTUS_TOKEN) {
 
 const AUTH = { Authorization: `Bearer ${DIRECTUS_TOKEN}`, 'Content-Type': 'application/json' };
 const SOURCE = 'articles';
-const TARGETS = ['streken', 'wijnhuizen', 'routes'];
+const TARGETS = ['landen', 'streken', 'wijnhuizen', 'routes'];
 
 async function api(method, path, body) {
   const res = await fetch(`${DIRECTUS_URL}${path}`, {

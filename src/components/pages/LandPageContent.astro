@@ -2,6 +2,7 @@
 import SmartImg from '../SmartImg.astro';
 import AffiliatePlaceholder from '../AffiliatePlaceholder.astro';
 import AffiliateDisclosure from '../AffiliateDisclosure.astro';
+import Stay22Stay from '../Stay22Stay.astro';
 
 interface LandStreek {
   name: string;
@@ -202,11 +203,11 @@ const {
           <div class="land-section-label land-section-label--rust">Routes</div>
           <h2 class="land-section-title">Reisroutes door {name}</h2>
         </div>
-        <a href="/routes/" class="land-all-link">Alle routes →</a>
+        <a href="/wijnroutes/" class="land-all-link">Alle routes →</a>
       </div>
       <div class="land-routes__grid">
         {routes.map(route => (
-          <a href={`/routes/${route.slug}/`} class="land-route-card">
+          <a href={`/wijnroutes/${route.slug}/`} class="land-route-card">
             <div class="land-route-card__img">
               <div class="land-route-card__badges">
                 <span class="land-badge land-badge--days">{route.days}d</span>
@@ -228,6 +229,7 @@ const {
 <section class="land-travel">
   <div class="container">
     <h2 class="land-section-title">Plan je reis</h2>
+    <Stay22Stay location={name} context={`land-${name.toLowerCase()}`} placement="sidebar" heading={`Waar te slapen in ${name}`} />
     <div class="land-travel__grid">
       <AffiliatePlaceholder type="accommodation" partner="booking.com" region={name} placement="sidebar" context="land-accommodation" />
       <AffiliatePlaceholder type="flight" partner="skyscanner" region={name} placement="sidebar" context="land-flight" />

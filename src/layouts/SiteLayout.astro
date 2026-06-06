@@ -3,20 +3,44 @@ import SiteHeader from '../components/SiteHeader.astro';
 import SiteFooter from '../components/SiteFooter.astro';
 import '../styles/tokens.css';
 
+type OgType = 'website' | 'article' | 'profile' | 'place';
+
+interface ArticleMeta {
+  publishedTime?: string;
+  modifiedTime?: string;
+  author?: string;
+  section?: string;
+  tags?: string[];
+}
+
 interface Props {
   title: string;
   description?: string;
   canonicalUrl?: string;
   ogImage?: string;
+  ogType?: OgType;
+  article?: ArticleMeta;
+  noindex?: boolean;
   schema?: Record<string, unknown> | Record<string, unknown>[];
   activeNav?: string;
 }
 
-const { title, description, canonicalUrl, ogImage, schema, activeNav } = Astro.props;
+const { title, description, canonicalUrl, ogImage, ogType, article, noindex, schema, activeNav } = Astro.props;
 
-const pageTitle = title.includes('VinoMartino') ? title : `${title} — VinoMartino`;
+const SITE_ORIGIN = (Astro.site ?? new URL('https://vinomartino.com')).origin;
+const pageTitle = title.includes('VinoMartino') ? title : `${title} | VinoMartino`;
 const canonical = canonicalUrl ?? new URL(Astro.url.pathname, Astro.site ?? 'https://vinomartino.com').href;
-const ogImageUrl = ogImage || undefined;
+
+function toAbsoluteUrl(value?: string | null): string | undefined {
+  if (!value) return undefined;
+  if (/^https?:\/\//i.test(value)) return value;
+  if (value.startsWith('//')) return `https:${value}`;
+  return new URL(value.startsWith('/') ? value : `/${value}`, Astro.site ?? 'https://vinomartino.com').href;
+}
+
+const ogImageUrl = toAbsoluteUrl(ogImage);
+const resolvedOgType: OgType = ogType ?? (article ? 'article' : 'website');
+const articleTags = article?.tags?.filter((tag): tag is string => Boolean(tag && tag.trim())) ?? [];
 ---
 
 <!doctype html>
@@ -26,25 +50,51 @@ const ogImageUrl = ogImage || undefined;
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{pageTitle}</title>
     {description && <meta name="description" content={description} />}
+    {noindex && <meta name="robots" content="noindex, nofollow" />}
     <meta property="og:title" content={pageTitle} />
     <meta property="og:site_name" content="VinoMartino" />
-    <meta property="og:type" content="website" />
+    <meta property="og:type" content={resolvedOgType} />
     <meta property="og:url" content={canonical} />
     {ogImageUrl && (
       <>
         <meta property="og:image" content={ogImageUrl} />
         <meta property="og:image:width" content="1200" />
         <meta property="og:image:height" content="630" />
+        <meta property="og:image:alt" content={pageTitle} />
       </>
     )}
     <meta property="og:locale" content="nl_NL" />
     {description && <meta property="og:description" content={description} />}
+    {resolvedOgType === 'article' && article?.publishedTime && (
+      <meta property="article:published_time" content={article.publishedTime} />
+    )}
+    {resolvedOgType === 'article' && article?.modifiedTime && (
+      <meta property="article:modified_time" content={article.modifiedTime} />
+    )}
+    {resolvedOgType === 'article' && article?.author && (
+      <meta property="article:author" content={article.author} />
+    )}
+    {resolvedOgType === 'article' && article?.section && (
+      <meta property="article:section" content={article.section} />
+    )}
+    {resolvedOgType === 'article' && articleTags.map((tag) => (
+      <meta property="article:tag" content={tag} />
+    ))}
     <meta name="twitter:card" content={ogImageUrl ? 'summary_large_image' : 'summary'} />
+    <meta name="twitter:site" content="@vinomartino" />
     <meta name="twitter:title" content={pageTitle} />
     {description && <meta name="twitter:description" content={description} />}
     {ogImageUrl && <meta name="twitter:image" content={ogImageUrl} />}
+    {ogImageUrl && <meta name="twitter:image:alt" content={pageTitle} />}
     <link rel="canonical" href={canonical} />
-    <link rel="icon" href="/favicon.svg" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="alternate icon" type="image/png" href="/favicon-32.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="mask-icon" href="/favicon.svg" color="#6b1f2b" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="theme-color" content="#6b1f2b" />
+    <meta name="apple-mobile-web-app-title" content="VinoMartino" />
+    <meta name="application-name" content="VinoMartino" />
     {schema && (
       <script type="application/ld+json" set:html={JSON.stringify(Array.isArray(schema) ? schema : [schema])} />
     )}
@@ -62,6 +112,19 @@ const ogImageUrl = ogImage || undefined;
         } catch (e) {}
       })();
     </script>
+    <!-- Stay22 "Let Me Allez" affiliate loader (LAT-1126). LinkSwap auto-converteert
+         bestaande hotel/activiteit-links naar Stay22-affiliate-links. AID: vinomartino. -->
+    <script is:inline>
+      (function (s, t, a, y, twenty, two) {
+        s.Stay22 = s.Stay22 || {};
+        s.Stay22.params = { lmaID: '6a22c22f543a519eadd2cd2e' };
+        twenty = t.createElement(a);
+        two = t.getElementsByTagName(a)[0];
+        twenty.async = 1;
+        twenty.src = y;
+        two.parentNode.insertBefore(twenty, two);
+      })(window, document, 'script', 'https://scripts.stay22.com/letmeallez.js');
+    </script>
   </head>
   <body>
     <SiteHeader activeNav={activeNav} />
@@ -69,6 +132,10 @@ const ogImageUrl = ogImage || undefined;
       <slot />
     </main>
     <SiteFooter />
+    <script>
+      import { initAffiliateTracker } from '../lib/click-tracker';
+      initAffiliateTracker();
+    </script>
   </body>
 </html>
 

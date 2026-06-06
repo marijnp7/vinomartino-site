@@ -16,7 +16,7 @@ on:
   workflow_dispatch: {}
 
 concurrency:
-  group: promote-production
+  group: vinomartino-write
   cancel-in-progress: false
 
 jobs:
@@ -53,8 +53,11 @@ jobs:
             PREVIEW_DIST="$SITE_ROOT/preview-dist"
             PROD_DIST="$SITE_ROOT/dist"
             PROD_CONTAINER="paperclip-vinomartino-prod-1"
-            COS_URL="http://paperclip-cos-bridge-1:3200"
-
+            # Bridge-IP lookup: paperclip-cos-bridge-1 hostname is alleen
+            # binnen Docker-netwerk resolvbaar; dit script draait op de host.
+            COS_BRIDGE_IP="$(docker inspect paperclip-cos-bridge-1 --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}')"
+            [ -z "$COS_BRIDGE_IP" ] && { echo "::error::cos-bridge IP niet vindbaar"; exit 1; }
+            COS_URL="http://${COS_BRIDGE_IP}:3200"
             # Controleer dat preview-dist bestaat en inhoud heeft
             if [ ! -d "$PREVIEW_DIST" ] || [ -z "$(ls -A "$PREVIEW_DIST" 2>/dev/null)" ]; then
               echo "::error::preview-dist bestaat niet of is leeg"

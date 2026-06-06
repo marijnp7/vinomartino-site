@@ -1,8 +1,9 @@
 ---
 import SiteLayout from '../../layouts/SiteLayout.astro';
 import LandPageContent from '../../components/pages/LandPageContent.astro';
+import RelatedArticles from '../../components/RelatedArticles.astro';
 import { loadLanden, type Land } from '../../lib/landen';
-import { breadcrumbSchema } from '../../lib/seo';
+import { breadcrumbSchema, landSchema, landMetaTitle, landMetaDescription } from '../../lib/seo';
 
 export async function getStaticPaths() {
   const entries = await loadLanden();
@@ -41,7 +42,7 @@ const showcaseData: Record<string, {
     name: 'Italië',
     flagEmoji: '🇮🇹',
     continent: 'Europa',
-    description: 'Van de nevels van de Langhe tot de vulkaanhellingen van de Etna — Italië maakt wijnen die nergens anders op aarde worden gemaakt.',
+    description: 'Van de nevels van de Langhe tot de vulkaanhellingen van de Etna, Italië maakt wijnen die nergens anders op aarde worden gemaakt.',
     stats: [
       { label: 'Wijnstreken', value: '20 officiële regio\'s' },
       { label: 'Inheemse druiven', value: '~2.000 rassen' },
@@ -49,28 +50,20 @@ const showcaseData: Record<string, {
       { label: 'Topappellations', value: 'Barolo · Brunello · Amarone' },
     ],
     streken: [
-      { name: 'Piemonte', slug: 'piemonte', badge: 'Barolo & Barbaresco', description: 'Nebbiolo, mist en familietafels. De streek die Italië zijn geduldige wijnen geeft.' },
-      { name: 'Toscane', slug: 'toscane', badge: 'Chianti & Brunello', description: 'Sangiovese op heuvels tussen cypressen. De bekendste wijnstreek van Italië.' },
-      { name: 'Etna', slug: 'etna', badge: 'Vulkaan · Sicilië', description: 'Nerello Mascalese op lava. Complex, uniek en nog altijd grotendeels onontdekt.' },
+      { name: 'Langhe', slug: 'langhe-piemonte', badge: 'Piemonte · Nebbiolo', description: 'Barolo en Barbaresco, beide van Nebbiolo, in de zuidelijke heuvels van Piemonte.' },
     ],
     topWijnhuizen: [
-      { name: 'Cordero di Montezemolo', slug: 'cordero-di-montezemolo', region: 'La Morra · Piemonte', badge: 'Barolo' },
       { name: 'Bartolo Mascarello', slug: 'bartolo-mascarello-barolo', region: 'Castiglione Falletto', badge: 'Barolo' },
       { name: 'Cornelissen', slug: 'cornelissen-etna-sicilie', region: 'Etna · Sicilië', badge: 'Etna Rosso' },
-      { name: 'Vietti', slug: 'vietti', region: 'Castiglione Falletto', badge: 'Barolo' },
-      { name: 'Produttori del Barbaresco', slug: 'produttori-del-barbaresco', region: 'Barbaresco', badge: 'Coöperatie' },
-      { name: 'Bruno Giacosa', slug: 'bruno-giacosa', region: 'Neive · Langhe', badge: 'Legendarisch' },
     ],
     druiven: [
-      { name: 'Nebbiolo', color: 'rood', description: 'Koningin van Piemonte. Hoge tannine, hoge zuur — transformeert na jaren tot iets transcendents.', wines: ['Barolo', 'Barbaresco', 'Gattinara'] },
+      { name: 'Nebbiolo', color: 'rood', description: 'Koningin van Piemonte. Hoge tannine, hoge zuur, transformeert na jaren tot iets transcendents.', wines: ['Barolo', 'Barbaresco', 'Gattinara'] },
       { name: 'Sangiovese', color: 'rood', description: 'De ruggengraat van Toscane. Van lichte Chianti tot de lange Brunello di Montalcino.', wines: ['Chianti Classico', 'Brunello', 'Morellino'] },
       { name: 'Nerello Mascalese', color: 'rood', description: 'De Nebbiolo van Sicilië. Licht van kleur, complex van geur, vulkanisch van mineraal.', wines: ['Etna Rosso', 'Faro'] },
       { name: 'Vermentino', color: 'wit', description: 'Frisse witte wijn uit Sardinië en de Ligurische kust. Kruiden, limoen, brak zout.', wines: ['Vermentino di Gallura', 'Vermentino di Sardegna'] },
     ],
     routes: [
-      { title: 'Drie dagen Langhe', slug: 'drie-dagen-langhe', days: 3, transport: 'Auto', style: 'Klassiek' },
-      { title: 'Etna-rondrit', slug: 'etna-rondrit', days: 3, transport: 'Auto', style: 'Vulkaan' },
-      { title: 'Schuimwijn-tour Asti', slug: 'schuimwijn-tour-asti', days: 2, transport: 'Auto', style: 'Bubbels' },
+      { title: 'Etna noord: Randazzo & Solicchiata', slug: 'etna-noord-randazzo-solicchiata', days: 2, transport: 'Auto', style: 'Vulkaan' },
     ],
     practical: [
       { key: 'Vliegen op', value: 'Milano Malpensa (MXP), Turijn (TRN), Rome (FCO)' },
@@ -82,50 +75,137 @@ const showcaseData: Record<string, {
     ],
     climate: 'Van continentaal-koel in Piemonte (Alpen geven scherpe winters en hete zomers) tot mediterraan in Sicilië. Droogtes nemen toe; hoogte speelt een steeds grotere rol.',
   },
+  // LAT-1105: showcase-mapping voor 4 landen, alleen slugs die vandaag al op prod
+  // staan. Geen 404-traps: elke slug hier is geverifieerd via curl 200 op
+  // vinomartino.com (2026-06-02). Geen nieuwe Directus-entries; cards verwijzen
+  // naar bestaande streek/wijnhuis/route-pagina's. Oostenrijk blijft bewust leeg
+  // tot Lead Editor (LAT-1099) content toevoegt.
+  frankrijk: {
+    name: 'Frankrijk',
+    flagEmoji: '🇫🇷',
+    continent: 'Europa',
+    description: 'Bourgogne, Bordeaux, Champagne: Frankrijk schreef de regels voor wijnstreken zoals de wereld ze leerde kennen.',
+    streken: [
+      { name: 'Champagne', slug: 'champagne', badge: 'Champagne · Pinot Noir & Chardonnay', description: 'Krijthellingen tussen Reims en Épernay, waar koel klimaat en tweede fermentatie de mousserende standaard zetten.' },
+    ],
+  },
+  duitsland: {
+    name: 'Duitsland',
+    flagEmoji: '🇩🇪',
+    continent: 'Europa',
+    description: 'Steile leisteenhellingen langs de Mosel en Rijn, waar Riesling laat in het seizoen rijpt tot iets dat nergens anders bestaat.',
+    streken: [
+      { name: 'Mosel', slug: 'mosel-duitsland', badge: 'Mosel · Riesling', description: 'Blauwe Devonische leisteen langs de kronkelende rivier; steile zuidhellingen die Riesling tot november aan de stok houden.' },
+    ],
+    routes: [
+      { title: 'Langs de Mosel: Bernkastel naar Traben-Trarbach', slug: 'mosel-bernkastel-traben-trarbach', days: 3, transport: 'Auto', style: 'Klassiek' },
+    ],
+  },
+  portugal: {
+    name: 'Portugal',
+    flagEmoji: '🇵🇹',
+    continent: 'Europa',
+    description: 'Van de Port-quintas in de Douro tot de Atlantische Vinho Verde: Portugal werkt met inheemse druiven die je elders niet vindt.',
+    streken: [
+      { name: 'Douro', slug: 'douro-portugal', badge: 'Douro · Touriga Nacional', description: 'Xisto-schist, terrasvormige wijngaarden langs de rivier en quinta-cultuur die meer maakt dan alleen Port.' },
+    ],
+    topWijnhuizen: [
+      { name: 'Niepoort', slug: 'niepoort-douro-portugal', region: 'Douro · Portugal', badge: 'Port & Redoma' },
+    ],
+  },
+  spanje: {
+    name: 'Spanje',
+    flagEmoji: '🇪🇸',
+    continent: 'Europa',
+    description: 'Van Rioja\'s Tempranillo tot de llicorella van Priorat: Spanje koppelt extreme bodems aan diepgewortelde wijnbouwtraditie.',
+    routes: [
+      { title: 'Door het hart van de Priorat: Porrera naar Gratallops', slug: 'priorat-porrera-gratallops', days: 1, transport: 'Auto', style: 'Compact' },
+    ],
+  },
 };
 
 // Build props from entry or showcase data
 const showcase = showcaseData[slug!];
+// LAT-1090: merge Directus entry over showcase for rich fields (streken/wijnhuizen/druiven/
+// routes/practical/climate) zodat een Directus-record met alleen name+capital niet alle
+// content kapotmaakt. Directus wint voor wat het levert; showcase vult de rest.
 const pageData = entry
   ? {
       name: entry.name,
-      continent: entry.continent || undefined,
+      continent: entry.continent || showcase?.continent || undefined,
       description: entry.description,
       heroImage: entry.heroImage || undefined,
       stats: [
         ...(entry.bestTimeToVisit ? [{ label: 'Beste reistijd', value: entry.bestTimeToVisit }] : []),
         ...(entry.mainGrapes.length > 0 ? [{ label: 'Druivenrassen', value: entry.mainGrapes.slice(0, 4).join(', ') }] : []),
         ...(entry.capital ? [{ label: 'Hoofdstad', value: entry.capital }] : []),
+        ...(showcase?.stats ?? []).filter((s) => {
+          const hasEntryBestTime = Boolean(entry.bestTimeToVisit) && s.label === 'Beste reistijd';
+          const hasEntryGrapes = entry.mainGrapes.length > 0 && s.label === 'Druivenrassen';
+          const hasEntryCapital = Boolean(entry.capital) && s.label === 'Hoofdstad';
+          return !(hasEntryBestTime || hasEntryGrapes || hasEntryCapital);
+        }),
       ],
-      climate: entry.climate || undefined,
-      streken: [] as { name: string; slug: string; badge: string; description: string }[],
-      topWijnhuizen: [] as { name: string; slug: string; region: string; badge?: string }[],
-      druiven: [] as { name: string; color: 'rood' | 'wit' | 'rosé'; description: string; wines?: string[] }[],
-      routes: [] as { title: string; slug: string; days: number; transport: string; style?: string }[],
-      practical: [] as { key: string; value: string }[],
+      climate: entry.climate || showcase?.climate || undefined,
+      streken: showcase?.streken ?? [],
+      topWijnhuizen: showcase?.topWijnhuizen ?? [],
+      druiven: showcase?.druiven ?? [],
+      routes: showcase?.routes ?? [],
+      practical: showcase?.practical ?? [],
     }
   : showcase ?? {
       name: slug ? slug.charAt(0).toUpperCase() + slug.slice(1) : 'Wijnland',
       continent: 'Europa',
-      description: 'Dit wijnland wordt binnenkort verder uitgewerkt.',
+      description: 'Dit wijnland krijgt zijn gids zodra wij er zelf zijn geweest.',
       streken: [], topWijnhuizen: [], druiven: [], routes: [], practical: [],
     };
 
 const pageUrl = new URL(`/landen/${slug}/`, Astro.site ?? 'https://vinomartino.com').href;
 
-const schema = breadcrumbSchema([
-  { name: 'Home', url: '/' },
-  { name: 'Landen', url: '/landen/' },
-  { name: pageData.name, url: pageUrl },
-]);
+// Prefer Directus o2m join `entry.wijnstreken` (LAT-1008). Fall back to showcase-derived
+// names so JSON-LD stays populated until editors fill the relation.
+const landStrekenForSchema: Array<string | { name: string; slug?: string }> =
+  entry?.wijnstreken && entry.wijnstreken.length > 0
+    ? entry.wijnstreken
+    : (pageData.streken?.map((s) => s.name) ?? []).filter((n): n is string => Boolean(n));
+const landGrapesForSchema =
+  entry?.mainGrapes ?? pageData.druiven?.map((d) => d.name) ?? [];
+const landCapitalForSchema = entry?.capital && entry.capital.trim().length > 0 ? entry.capital : undefined;
+const landHeroImage = 'heroImage' in pageData ? pageData.heroImage ?? null : null;
+// og:image: explicit `og_image` (LAT-1008) wins, then hero_image fallback.
+const landOgImage = entry?.ogImage ?? landHeroImage;
+const landImageForSchema = landOgImage;
+
+const schema = [
+  landSchema({
+    name: pageData.name,
+    description: pageData.description,
+    image: landImageForSchema,
+    continent: pageData.continent,
+    capital: landCapitalForSchema,
+    wijnstreken: landStrekenForSchema,
+    grapeVarieties: landGrapesForSchema,
+    pageUrl,
+  }),
+  breadcrumbSchema([
+    { name: 'Home', url: '/' },
+    { name: 'Landen', url: '/landen/' },
+    { name: pageData.name, url: pageUrl },
+  ]),
+];
 ---
 
 <SiteLayout
-  title={`${pageData.name} — Wijnland | VinoMartino`}
-  description={pageData.description}
-  ogImage={'heroImage' in pageData ? pageData.heroImage : undefined}
+  title={landMetaTitle(pageData.name, pageData.continent)}
+  description={landMetaDescription({
+    name: pageData.name,
+    wijnstreken: landStrekenForSchema,
+    grapeVarieties: landGrapesForSchema,
+    description: pageData.description,
+  })}
+  ogImage={landOgImage || undefined}
   schema={schema}
-  activeNav="Streken"
+  activeNav="landen"
 >
   <LandPageContent
     name={pageData.name}
@@ -141,4 +221,5 @@ const schema = breadcrumbSchema([
     practical={pageData.practical}
     climate={pageData.climate}
   />
+  {entry && <RelatedArticles items={entry.relatedArticles} />}
 </SiteLayout>

@@ -1,0 +1,395 @@
+---
+/**
+ * <InfographicAtlas> — Editorial Atlas (cartografie)
+ * Spec: LAT-1107 § 3. Implementatie LAT-1108.
+ * v1 is statisch SVG. Interactiviteit (hover/filter) is out-of-scope.
+ */
+export type AtlasKind = 'region' | 'route' | 'comparison';
+export type AtlasVariant = 'standalone' | 'article-inline' | 'social-crop';
+export type AtlasAspect = 'portrait' | 'landscape';
+export type AccentColor = 'burgundy' | 'rust' | 'vine';
+
+export interface DataPair {
+  label: string;
+  value: string;
+}
+
+export interface LegendItem {
+  label: string;
+  color: AccentColor;
+  /** Optionele symbool-id uit de spritesheet (bv. 'mark-pin-solid'). */
+  symbol?: string;
+}
+
+export type PointType = 'village' | 'city' | 'winery' | 'summit' | 'pin-solid' | 'pin-outline';
+
+export type AtlasLayer = {
+  kind: 'zone' | 'path' | 'point' | 'waterway' | 'callout';
+  // zone, path, waterway
+  d?: string;
+  color?: AccentColor;
+  label?: string;
+  sublabel?: string;
+  // path
+  dashed?: boolean;
+  width?: number;
+  // point
+  x?: number;
+  y?: number;
+  type?: PointType;
+  labelOffsetX?: number;
+  labelOffsetY?: number;
+  number?: number;
+  // callout
+  w?: number;
+  h?: number;
+  kicker?: string;
+  title?: string;
+  meta?: string;
+};
+
+export interface AtlasMap {
+  viewBox: string;
+  /** NW, NE, SE, SW coord-labels (mono, weergegeven in hoeken). */
+  bbox?: [string, string, string, string];
+  layers: AtlasLayer[];
+  compass?: boolean;
+  scaleBar?: { kmTo: number; pxLength: number };
+  backgroundPattern?: 'contour' | 'vine-rows' | 'hatch' | 'none';
+}
+
+export interface Props {
+  kind: AtlasKind;
+  kicker: string;
+  title: string;
+  subtitle?: string;
+  intro?: string;
+  map: AtlasMap;
+  legend?: LegendItem[];
+  dataStrip?: DataPair[];
+  source: string;
+  domain?: string;
+  variant?: AtlasVariant;
+  aspect?: AtlasAspect;
+  /** Verplicht — gebruikt als aria-label en title. */
+  alt: string;
+  class?: string;
+}
+
+const {
+  kind,
+  kicker,
+  title,
+  subtitle,
+  intro,
+  map,
+  legend = [],
+  dataStrip = [],
+  source,
+  domain = 'VINOMARTINO.COM',
+  variant = 'standalone',
+  aspect = 'portrait',
+  alt,
+  class: className,
+} = Astro.props;
+
+const atlasId = `vmatlas-${Math.random().toString(36).slice(2, 9)}`;
+const titleId = `${atlasId}-title`;
+const descId = `${atlasId}-desc`;
+
+const CANVAS = aspect === 'landscape' ? { w: 1600, h: 900 } : { w: 1080, h: 1350 };
+
+const COLOR_HEX: Record<AccentColor, string> = {
+  burgundy: '#5A1A1F',
+  rust: '#A14F2A',
+  vine: '#5C6B3F',
+};
+
+// Map-card region. Eat ~25% from top for title/intro, ~20% from bottom for legend/data.
+// On landscape the map fills more of the canvas.
+const MAP = aspect === 'landscape'
+  ? { x: 60, y: 110, w: CANVAS.w - 120, h: CANVAS.h - 220 }
+  : { x: 60, y: 360, w: CANVAS.w - 120, h: 720 };
+
+const intrinsicViewBox = map.viewBox.split(/\s+/).map(Number);
+const mapInnerW = intrinsicViewBox[2] || 960;
+const mapInnerH = intrinsicViewBox[3] || 640;
+
+const bgPattern = map.backgroundPattern ?? 'contour';
+const showCompass = map.compass ?? true;
+
+// Strip render-layers per kind so we control z-order regardless of input order.
+const zoneLayers   = map.layers.filter((l) => l.kind === 'zone');
+const waterLayers  = map.layers.filter((l) => l.kind === 'waterway');
+const pathLayers   = map.layers.filter((l) => l.kind === 'path');
+const pointLayers  = map.layers.filter((l) => l.kind === 'point');
+const calloutLayers = map.layers.filter((l) => l.kind === 'callout');
+
+const legendY = MAP.y + MAP.h + 40;
+const dataY = legendY + 60;
+const titleY = aspect === 'landscape' ? 60 : 150;
+---
+
+<div
+  class:list={['vm-infographic-atlas', `vm-atlas-${variant}`, `vm-atlas-${aspect}`, className]}
+  data-kind={kind}
+>
+  <svg
+    viewBox={`0 0 ${CANVAS.w} ${CANVAS.h}`}
+    role="img"
+    aria-labelledby={`${titleId} ${descId}`}
+    preserveAspectRatio="xMidYMid meet"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <title id={titleId}>{title}</title>
+    <desc id={descId}>{alt}</desc>
+
+    <defs>
+      {bgPattern === 'contour' && (
+        <pattern id={`${atlasId}-pat-contour`} patternUnits="userSpaceOnUse" width="80" height="80">
+          <g fill="none" stroke="#C9B98F" stroke-width="0.35" opacity="0.35">
+            <path d="M0 40 Q20 20 40 40 T80 40" />
+            <path d="M0 60 Q20 40 40 60 T80 60" />
+            <path d="M0 20 Q20 0 40 20 T80 20" />
+          </g>
+        </pattern>
+      )}
+      {bgPattern === 'vine-rows' && (
+        <pattern id={`${atlasId}-pat-vine-rows`} patternUnits="userSpaceOnUse" width="24" height="24">
+          <line x1="0" y1="0" x2="0" y2="24" stroke="#5C6B3F" stroke-width="0.5" opacity="0.25" />
+        </pattern>
+      )}
+      {bgPattern === 'hatch' && (
+        <pattern id={`${atlasId}-pat-hatch`} patternUnits="userSpaceOnUse" width="6" height="6">
+          <line x1="0" y1="0" x2="6" y2="6" stroke="#1F1A16" stroke-width="0.3" opacity="0.18" />
+        </pattern>
+      )}
+    </defs>
+
+    {/* Canvas background */}
+    <rect width={CANVAS.w} height={CANVAS.h} fill="var(--paper, #FAF5E9)" />
+    <rect x="0.4" y="0.4" width={CANVAS.w - 0.8} height={CANVAS.h - 0.8} fill="none" stroke="var(--rule, #C9B98F)" stroke-width="0.8" />
+
+    {/* Top rule + ticker */}
+    <line x1="60" y1="60" x2={CANVAS.w - 60} y2="60" stroke="#C9B98F" stroke-width="0.6" />
+    <text x="60" y="52" class="vm-mono" font-size="11" letter-spacing="0.18em" fill="#8A7E70">{kind.toUpperCase()} · ATLAS</text>
+    <text x={CANVAS.w - 60} y="52" class="vm-mono" font-size="11" letter-spacing="0.22em" text-anchor="end" fill="#8A7E70">VINOMARTINO · INFOGRAPHIC SYSTEM</text>
+
+    {/* Title block (left-aligned) */}
+    <text x="60" y={titleY} class="vm-mono" font-size="13" letter-spacing="0.22em" fill="#5A1A1F">{kicker}</text>
+    <text x="60" y={titleY + 60} class="vm-display" font-style="italic" font-size="64" fill="#1F1A16">{title}</text>
+    {subtitle && (
+      <text x="60" y={titleY + 96} class="vm-display" font-size="26" fill="#5A4F45">{subtitle}</text>
+    )}
+    {/* Ornament rule */}
+    <g transform={`translate(60, ${titleY + 124})`}>
+      <line x1="0" y1="0" x2="40" y2="0" stroke="#5A1A1F" stroke-width="1.6" />
+      <path d="M55 -7 L65 0 L55 7 L45 0 Z" fill="#5A1A1F" />
+    </g>
+    {intro && (
+      <text x="60" y={titleY + 160} class="vm-body" font-size="15" fill="#5A4F45">{intro}</text>
+    )}
+
+    {/* MAP CARD */}
+    <g class="vm-map-card">
+      {/* Card surface */}
+      <rect x={MAP.x} y={MAP.y} width={MAP.w} height={MAP.h} fill="var(--paperDeep, #F0E6D0)" stroke="var(--rule, #C9B98F)" stroke-width="0.8" />
+
+      {/* Background pattern (clipped to map card) */}
+      {bgPattern !== 'none' && (
+        <rect
+          x={MAP.x}
+          y={MAP.y}
+          width={MAP.w}
+          height={MAP.h}
+          fill={`url(#${atlasId}-pat-${bgPattern})`}
+        />
+      )}
+
+      {/* Inner content lives in the intrinsic viewBox of map.viewBox.
+          We translate+scale that coordinate system into the map card. */}
+      <g transform={`translate(${MAP.x}, ${MAP.y}) scale(${MAP.w / mapInnerW}, ${MAP.h / mapInnerH})`}>
+        {/* Zones (DOCG appellations) */}
+        {zoneLayers.map((l) => (
+          <g>
+            <path d={l.d} fill={COLOR_HEX[l.color ?? 'burgundy']} fill-opacity="0.13" stroke={COLOR_HEX[l.color ?? 'burgundy']} stroke-width="1.2" stroke-opacity="0.6" />
+            {l.label && (
+              <text class="vm-display" font-style="italic" font-size="20" fill="#1F1A16" text-anchor="middle">{l.label}</text>
+            )}
+          </g>
+        ))}
+
+        {/* Waterways */}
+        {waterLayers.map((l) => (
+          <path d={l.d} fill="none" stroke="#5C6B3F" stroke-width="1.5" stroke-opacity="0.7" stroke-linecap="round" />
+        ))}
+
+        {/* Paths (routes) */}
+        {pathLayers.map((l) => (
+          <path
+            d={l.d}
+            fill="none"
+            stroke={COLOR_HEX[l.color ?? 'burgundy']}
+            stroke-width={l.width ?? 2}
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-dasharray={l.dashed ? '6 4' : undefined}
+          />
+        ))}
+
+        {/* Points */}
+        {pointLayers.map((l) => {
+          const labelOX = l.labelOffsetX ?? 14;
+          const labelOY = l.labelOffsetY ?? 4;
+          if (l.type === 'pin-solid' && typeof l.number === 'number') {
+            return (
+              <g>
+                <circle cx={l.x} cy={l.y} r="14" fill="#5A1A1F" />
+                <text x={l.x} y={(l.y ?? 0) + 4} text-anchor="middle" class="vm-mono" font-size="11" fill="#FAF5E9" font-weight="500">{l.number}</text>
+                {l.label && (
+                  <text x={(l.x ?? 0) + labelOX} y={(l.y ?? 0) + labelOY} class="vm-mono" font-size="11" letter-spacing="0.12em" fill="#1F1A16">{l.label}</text>
+                )}
+              </g>
+            );
+          }
+          if (l.type === 'pin-solid') {
+            return (
+              <g>
+                <circle cx={l.x} cy={l.y} r="6" fill="#5A1A1F" />
+                {l.label && <text x={(l.x ?? 0) + labelOX} y={(l.y ?? 0) + labelOY} class="vm-mono" font-size="11" fill="#1F1A16">{l.label}</text>}
+              </g>
+            );
+          }
+          if (l.type === 'pin-outline') {
+            return (
+              <g>
+                <circle cx={l.x} cy={l.y} r="5.5" fill="#FAF5E9" stroke="#5A1A1F" stroke-width="1.2" />
+                {l.label && <text x={(l.x ?? 0) + labelOX} y={(l.y ?? 0) + labelOY} class="vm-mono" font-size="11" fill="#1F1A16">{l.label}</text>}
+              </g>
+            );
+          }
+          // village / city / winery / summit — referentie naar spritesheet
+          const sym = `mark-${l.type}`;
+          const cx = l.x ?? 0;
+          const cy = l.y ?? 0;
+          return (
+            <g>
+              <use href={`/assets/vm-infographic-sprites.svg#${sym}`} x={cx - 10} y={cy - 10} width="20" height="20" style="color: #1F1A16" />
+              {l.label && <text x={cx + labelOX} y={cy + labelOY} class="vm-mono" font-size="11" fill="#1F1A16">{l.label}</text>}
+            </g>
+          );
+        })}
+
+        {/* Callouts */}
+        {calloutLayers.map((l) => {
+          const cw = l.w ?? 220;
+          const ch = l.h ?? 62;
+          const cx = l.x ?? 0;
+          const cy = l.y ?? 0;
+          return (
+            <g>
+              <rect x={cx} y={cy} width={cw} height={ch} fill="#FAF5E9" stroke="#C9B98F" stroke-width="0.8" />
+              {l.kicker && <text x={cx + 12} y={cy + 18} class="vm-mono" font-size="10" letter-spacing="0.18em" fill="#5A1A1F">{l.kicker}</text>}
+              <text x={cx + 12} y={cy + 40} class="vm-display" font-style="italic" font-size="20" fill="#1F1A16">{l.title}</text>
+              {l.meta && <text x={cx + 12} y={cy + 56} class="vm-mono" font-size="10" fill="#8A7E70">{l.meta}</text>}
+            </g>
+          );
+        })}
+      </g>
+
+      {/* Compass (top-right) */}
+      {showCompass && (
+        <g transform={`translate(${MAP.x + MAP.w - 40}, ${MAP.y + 40})`} class="vm-compass">
+          <circle r="14" fill="none" stroke="#5A1A1F" stroke-width="0.8" />
+          <path d="M0 -12 L4 0 L0 12 L-4 0 Z" fill="#5A1A1F" />
+          <text y="-20" text-anchor="middle" class="vm-mono" font-size="9" fill="#5A1A1F">N</text>
+        </g>
+      )}
+
+      {/* Scale bar (bottom-left) */}
+      {map.scaleBar && (
+        <g transform={`translate(${MAP.x + 24}, ${MAP.y + MAP.h - 24})`}>
+          <line x1="0" y1="0" x2={map.scaleBar.pxLength} y2="0" stroke="#1F1A16" stroke-width="1.2" />
+          <line x1="0" y1="-4" x2="0" y2="4" stroke="#1F1A16" stroke-width="1.2" />
+          <line x1={map.scaleBar.pxLength} y1="-4" x2={map.scaleBar.pxLength} y2="4" stroke="#1F1A16" stroke-width="1.2" />
+          <text x="0" y="-8" class="vm-mono" font-size="9" letter-spacing="0.18em" fill="#5A4F45">{map.scaleBar.kmTo} KM</text>
+        </g>
+      )}
+
+      {/* Coord ticks (4 corners) */}
+      {map.bbox && (
+        <g class="vm-coords">
+          <text x={MAP.x + 8} y={MAP.y + 12} class="vm-mono" font-size="9" fill="#8A7E70">{map.bbox[0]}</text>
+          <text x={MAP.x + MAP.w - 8} y={MAP.y + 12} text-anchor="end" class="vm-mono" font-size="9" fill="#8A7E70">{map.bbox[1]}</text>
+          <text x={MAP.x + MAP.w - 8} y={MAP.y + MAP.h - 8} text-anchor="end" class="vm-mono" font-size="9" fill="#8A7E70">{map.bbox[2]}</text>
+          <text x={MAP.x + 8} y={MAP.y + MAP.h - 8} class="vm-mono" font-size="9" fill="#8A7E70">{map.bbox[3]}</text>
+        </g>
+      )}
+    </g>
+
+    {/* Legend strip */}
+    {legend.length > 0 && (
+      <g class="vm-legend">
+        {legend.map((item, i) => {
+          const x = 60 + i * Math.min(200, (CANVAS.w - 120) / Math.max(1, legend.length));
+          return (
+            <g transform={`translate(${x}, ${legendY})`}>
+              <rect width="14" height="10" y="-9" fill={COLOR_HEX[item.color]} fill-opacity="0.45" />
+              <text x="22" y="0" class="vm-mono" font-size="10" letter-spacing="0.18em" fill="#1F1A16">{item.label.toUpperCase()}</text>
+            </g>
+          );
+        })}
+      </g>
+    )}
+
+    {/* Data strip */}
+    {dataStrip.length > 0 && (
+      <g class="vm-data-strip">
+        {dataStrip.map((pair, i) => {
+          const colW = (CANVAS.w - 120) / Math.max(1, dataStrip.length);
+          const x = 60 + i * colW;
+          return (
+            <g transform={`translate(${x}, ${dataY})`}>
+              <text class="vm-mono" font-size="10" letter-spacing="0.18em" fill="#8A7E70">{pair.label.toUpperCase()}</text>
+              <text y="32" class="vm-display" font-size="26" fill="#1F1A16">{pair.value}</text>
+            </g>
+          );
+        })}
+      </g>
+    )}
+
+    {/* Source line */}
+    <line x1="60" y1={CANVAS.h - 40} x2={CANVAS.w - 60} y2={CANVAS.h - 40} stroke="#E0D2B0" stroke-width="0.5" />
+    <text x="60" y={CANVAS.h - 22} class="vm-mono" font-size="10" letter-spacing="0.18em" fill="#8A7E70">{source.toUpperCase()}</text>
+    <text x={CANVAS.w - 60} y={CANVAS.h - 22} text-anchor="end" class="vm-mono" font-size="10" letter-spacing="0.22em" fill="#5A1A1F">{domain}</text>
+  </svg>
+</div>
+
+<style>
+  .vm-infographic-atlas {
+    --paper: #FAF5E9;
+    --paperDeep: #F0E6D0;
+    --rule: #C9B98F;
+    --ruleSoft: #E0D2B0;
+    display: block;
+    margin-inline: auto;
+    background: var(--paper);
+  }
+  .vm-atlas-portrait  { aspect-ratio: 4 / 5; }
+  .vm-atlas-landscape { aspect-ratio: 16 / 9; }
+
+  .vm-infographic-atlas > svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .vm-atlas-standalone     { width: 100%; max-width: 1080px; }
+  .vm-atlas-article-inline { width: 100%; max-width: 720px; }
+  .vm-atlas-social-crop    { width: 100%; max-width: 1080px; }
+  .vm-atlas-landscape.vm-atlas-standalone { max-width: 1600px; }
+
+  .vm-mono    { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+  .vm-display { font-family: 'Cormorant Garamond', 'EB Garamond', Georgia, serif; }
+  .vm-body    { font-family: 'Source Serif 4', Georgia, serif; }
+</style>

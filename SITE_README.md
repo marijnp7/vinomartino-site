@@ -34,24 +34,13 @@ npm run dev
 
 ## Een post toevoegen
 
-1. Maak een nieuw `.md` bestand in `src/content/posts/`:
-   ```bash
-   touch src/content/posts/mijn-reis.md
-   ```
+Productie-content (artikelen, streken, wijnhuizen, wijnroutes, landen) leeft
+in Directus, niet in de repo. Bewerk via de Directus UI; de eerstvolgende
+Astro-build pakt de wijziging op.
 
-2. Voeg frontmatter toe bovenaan:
-   ```markdown
-   ---
-   title: "Titel van je post"
-   date: 2026-04-20
-   author: "Persona-naam"
-   summary: "Korte samenvatting voor de homepage"
-   ---
-
-   Je content hier in markdown.
-   ```
-
-3. De dev-server herlaadt automatisch (hot-reload).
+Zie `PROJECT_BRIEF.md` § 3.0 — DAM → CMS → Site is de hard rule. Markdown onder
+`src/content/_legacy/` is archief en wordt sinds LAT-1078 nergens runtime
+gelezen.
 
 ## Structuur
 
@@ -60,7 +49,7 @@ site/
   src/
     lib/
       brands.ts                 # Brand type + statische brand-data
-      articles.ts               # Article loading (Directus + local fallback)
+      articles.ts               # Article loading (Directus-only sinds LAT-1078)
     layouts/
       SiteLayout.astro          # Hoofd-layout met header/footer
       BaseLayout.astro          # Minimal layout (juridische pagina's)
@@ -78,7 +67,7 @@ site/
       privacy.astro             # Privacybeleid
       cookies.astro             # Cookieverklaring
       affiliate-verklaring.astro # Affiliate-verklaring
-    content/posts/*.md          # Articles (markdown)
+    content/_legacy/            # Gearchiveerde seed-markdown (LAT-1078, NIET runtime)
   public/                       # Statische bestanden
   Dockerfile                    # Container definitie
   docker-compose.site.yml       # Compose config

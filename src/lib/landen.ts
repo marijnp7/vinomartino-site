@@ -1,3 +1,6 @@
+import { normalizeEmDashes } from './markdown';
+import type { RelatedRef } from './articles';
+
 export interface Land {
     slug: string;
     name: string;
@@ -9,10 +12,30 @@ export interface Land {
     wineHistory: string;
     bestTimeToVisit: string;
     heroImage: string | null;
+    ogImage: string | null;
+    wijnstreken: { name: string; slug?: string }[];
     status: string;
     metaTitle: string;
     metaDescription: string;
     bodyHtml: string;
+    relatedArticles: RelatedRef[];
+}
+
+function mapRelatedArticles(val: unknown): RelatedRef[] {
+    if (!Array.isArray(val)) return [];
+    const out: RelatedRef[] = [];
+    for (const row of val) {
+        if (!row || typeof row !== 'object') continue;
+        const rec = row as Record<string, unknown>;
+        const inner = rec.articles_id && typeof rec.articles_id === 'object'
+            ? rec.articles_id as Record<string, unknown>
+            : rec;
+        const slug = inner.slug ? String(inner.slug) : '';
+        const name = inner.title ? String(inner.title) : slug;
+        if (!slug) continue;
+        out.push({ slug, name: normalizeEmDashes(name) });
+    }
+    return out;
 }
 
 async function markdownToHtml(markdown: string): Promise<string> {
@@ -24,10 +47,54 @@ async function markdownToHtml(markdown: string): Promise<string> {
     return toHtml(hast as Parameters<typeof toHtml>[0]);
 }
 
-function getDirectusConfig() {
-    const url = process.env['DIRECTUS_URL'] || '';
-    const token = process.env['DIRECTUS_TOKEN'] || '';
-    return { url, token };
+import {
+    readDirectusEnv,
+    statusFilterQuery,
+    assertDirectusConfigured,
+} from './directus-config';
+
+const assetDebug: Array<Record<string, unknown>> = [];
+
+async function writeAssetDebug(pathTaken: string): Promise<void> {
+    const { writeFileSync, mkdirSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const dir = join(process.cwd(), 'public');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+        join(dir, 'build-debug-landen.json'),
+        JSON.stringify({ asOf: new Date().toISOString(), pathTaken, cwd: process.cwd(), entries: assetDebug }, null, 2),
+    );
+}
+
+async function downloadAsset(assetId: string, directusUrl: string, token: string, prefix = ''): Promise<string | null> {
+    const { writeFileSync, mkdirSync, existsSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const outDir = join(process.cwd(), 'public', 'images', 'landen');
+    const fileName = `${prefix}${assetId}.jpg`;
+    const outPath = join(outDir, fileName);
+    if (existsSync(outPath)) return `/images/landen/${fileName}`;
+    try {
+        const res = await fetch(`${directusUrl}/assets/${assetId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+            signal: AbortSignal.timeout(15000),
+        });
+        if (!res.ok) {
+            const body = await res.text().catch(() => '');
+            console.warn(`[loadLanden] could not fetch asset ${assetId}: ${res.status} body=${body.slice(0, 300)}`);
+            assetDebug.push({ assetId, prefix, status: res.status, body: body.slice(0, 500) });
+            return null;
+        }
+        const buf = Buffer.from(await res.arrayBuffer());
+        mkdirSync(outDir, { recursive: true });
+        writeFileSync(outPath, buf);
+        assetDebug.push({ assetId, prefix, status: 200, bytes: buf.byteLength });
+        return `/images/landen/${fileName}`;
+    } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn(`[loadLanden] asset download failed for ${assetId}: ${msg}`);
+        assetDebug.push({ assetId, prefix, error: msg });
+        return null;
+    }
 }
 
 function parseJsonField(val: unknown): string[] {
@@ -39,106 +106,127 @@ function parseJsonField(val: unknown): string[] {
     return [];
 }
 
-function mapLand(r: Record<string, unknown>, directusUrl: string, bodyHtml: string): Land {
+function mapWijnstreken(val: unknown): { name: string; slug?: string }[] {
+    if (!Array.isArray(val)) return [];
+    return val
+        .map((item) => {
+            if (item && typeof item === 'object') {
+                const rec = item as Record<string, unknown>;
+                const name = rec.name ? String(rec.name) : '';
+                if (!name) return null;
+                const slug = rec.slug ? String(rec.slug) : undefined;
+                return { name, slug };
+            }
+            if (typeof item === 'string' && item.trim()) return { name: item.trim() };
+            return null;
+        })
+        .filter((s): s is { name: string; slug?: string } => s !== null);
+}
+
+function mapLand(
+    r: Record<string, unknown>,
+    heroImagePath: string | null,
+    ogImagePath: string | null,
+    bodyHtml: string,
+): Land {
     return {
         slug: String(r.slug),
-        name: String(r.name),
-        description: String(r.description || ''),
+        name: normalizeEmDashes(String(r.name)),
+        description: normalizeEmDashes(String(r.description || '')),
         continent: String(r.continent || ''),
         capital: String(r.capital || ''),
         climate: String(r.climate || ''),
         mainGrapes: parseJsonField(r.main_grapes),
         wineHistory: String(r.wine_history || ''),
         bestTimeToVisit: String(r.best_time_to_visit || ''),
-        heroImage: r.hero_image ? `${directusUrl}/assets/${String(r.hero_image)}` : null,
+        heroImage: heroImagePath,
+        ogImage: ogImagePath,
+        wijnstreken: mapWijnstreken(r.wijnstreken),
         status: String(r.status || 'draft'),
         metaTitle: String(r.meta_title || r.name),
         metaDescription: String(r.meta_description || r.description || ''),
         bodyHtml,
+        relatedArticles: mapRelatedArticles(r.related_articles),
     };
 }
 
-async function loadFromDirectus(url: string, token: string): Promise<Land[]> {
+async function fetchLandenItems(url: string, token: string): Promise<Record<string, unknown>[]> {
+    const env = readDirectusEnv();
+    const baseFields = 'id,slug,name,description,body,continent,capital,climate,main_grapes,wine_history,best_time_to_visit,hero_image,status,meta_title,meta_description';
+    const withSeoMeta = `${baseFields},og_image,wijnstreken.name,wijnstreken.slug`;
+    // LAT-1098: reverse-relation via M2M articles.related_landen.
+    const withRelations = `${withSeoMeta},related_articles.articles_id.slug,related_articles.articles_id.title`;
+    const filterSort = `${statusFilterQuery(env)}&sort=name`;
+    const headers = { Authorization: `Bearer ${token}` };
+    const signal = AbortSignal.timeout(15000);
     let res: Response;
     try {
-        res = await fetch(
-            `${url}/items/landen?limit=-1&fields=id,slug,name,description,body,continent,capital,climate,main_grapes,wine_history,best_time_to_visit,hero_image,status,meta_title,meta_description&filter[status][_in]=published,draft&sort=name`,
-            {
-                headers: { Authorization: `Bearer ${token}` },
-                signal: AbortSignal.timeout(15000),
-            },
-        );
+        res = await fetch(`${url}/items/landen?limit=-1&fields=${withRelations}${filterSort}`, { headers, signal });
     } catch (err) {
-        console.warn(`[loadLanden] Directus unreachable at ${url}: ${err instanceof Error ? err.message : String(err)}`);
-        return [];
+        const msg = err instanceof Error ? err.message : String(err);
+        throw new Error(`[loadLanden] Directus unreachable at ${url}: ${msg}`);
     }
-    if (!res.ok) {
-        console.warn(`[loadLanden] Directus returned ${res.status} ${res.statusText}`);
-        return [];
+    if (res.ok) {
+        const json = await res.json();
+        return (json.data || []) as Record<string, unknown>[];
     }
-    const json = await res.json();
-    const data = (json.data || []) as Record<string, unknown>[];
+    // 400 = veld bestaat niet in Directus (pre-migratie); 403 = veld bestaat wel
+    // maar de build-rol heeft geen read-permissie. Tier-fallback: relations →
+    // SeoMeta → baseFields.
+    if (res.status === 400 || res.status === 403) {
+        const body = await res.text().catch(() => '');
+        console.warn(`[loadLanden] Directus rejected fields=…,related_articles (HTTP ${res.status}) — retrying without LAT-1098 relations.`);
+        const retryRel = await fetch(`${url}/items/landen?limit=-1&fields=${withSeoMeta}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
+        if (retryRel.ok) {
+            const json = await retryRel.json();
+            return (json.data || []) as Record<string, unknown>[];
+        }
+        if (retryRel.status !== 400 && retryRel.status !== 403) {
+            const rbody = await retryRel.text().catch(() => '');
+            throw new Error(`[loadLanden] Directus retry without relations failed: ${retryRel.status} ${retryRel.statusText}: ${rbody.slice(0, 300)} | original ${res.status} body: ${body.slice(0, 200)}`);
+        }
+        console.warn(`[loadLanden] Directus also rejected fields=…,og_image,wijnstreken.* (HTTP ${retryRel.status}) — retrying without LAT-1008 fields. Run directus/scripts/add-seo-meta-fields.mjs en/of geef de build-rol read-permissie op landen.og_image en landen.wijnstreken.`);
+        const retry = await fetch(`${url}/items/landen?limit=-1&fields=${baseFields}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
+        if (retry.ok) {
+            const json = await retry.json();
+            return (json.data || []) as Record<string, unknown>[];
+        }
+        const rbody = await retry.text().catch(() => '');
+        // LAT-1011: als de retry óók 403/404 geeft heeft de build-rol geen
+        // collection-level read op /landen. Hard throw zou de hele Astro-build
+        // halten (geen /index.html, prod 403). Degradeer naar lege lijst zodat
+        // de rest van de site bouwt. LAT-1013 fixt de Directus-permissie.
+        if (retry.status === 403 || retry.status === 404) {
+            console.error(`[loadLanden] Directus collection 'landen' ontoegankelijk voor build-rol (HTTP ${retry.status}). /landen/* pages worden NIET gebuild. Fix Directus-permissies in LAT-1013. Body: ${rbody.slice(0, 200)}`);
+            return [];
+        }
+        throw new Error(`[loadLanden] Directus retry without LAT-1008 fields failed: ${retry.status} ${retry.statusText}: ${rbody.slice(0, 300)} | original ${res.status} body: ${body.slice(0, 200)}`);
+    }
+    const body = await res.text().catch(() => '');
+    throw new Error(`[loadLanden] Directus returned ${res.status} ${res.statusText}: ${body.slice(0, 300)}`);
+}
+
+async function loadFromDirectus(url: string, token: string): Promise<Land[]> {
+    const data = await fetchLandenItems(url, token);
     const items = await Promise.all(
         data.map(async (r) => {
             const bodyHtml = r.body ? await markdownToHtml(String(r.body)) : '';
-            return mapLand(r, url, bodyHtml);
+            const heroImagePath = r.hero_image
+                ? await downloadAsset(String(r.hero_image), url, token)
+                : null;
+            const ogImagePath = r.og_image
+                ? await downloadAsset(String(r.og_image), url, token, 'og-')
+                : null;
+            return mapLand(r, heroImagePath, ogImagePath, bodyHtml);
         }),
     );
     console.log(`[loadLanden] fetched ${items.length} landen from Directus`);
-    return items;
-}
-
-async function loadFromLocalFiles(): Promise<Land[]> {
-    const { readFileSync, readdirSync } = await import('node:fs');
-    const { join } = await import('node:path');
-    const dir = 'src/content/landen';
-    let files: string[];
-    try {
-        files = readdirSync(dir)
-            .filter((f: string) => f.endsWith('.md') && f !== 'README.md')
-            .map((f: string) => join(dir, f));
-    } catch { return []; }
-    if (files.length === 0) return [];
-    const items: Land[] = [];
-    for (const filePath of files) {
-        const raw = readFileSync(filePath, 'utf-8');
-        const fmMatch = raw.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
-        if (!fmMatch) continue;
-        const fm: Record<string, string> = {};
-        for (const line of fmMatch[1].split('\n')) {
-            const [key, ...rest] = line.split(':');
-            if (key && rest.length) fm[key.trim()] = rest.join(':').trim().replace(/^["']|["']$/g, '');
-        }
-        const bodyHtml = fmMatch[2] ? await markdownToHtml(fmMatch[2]) : '';
-        items.push({
-            slug: fm.slug || filePath.replace(/.*\//, '').replace('.md', ''),
-            name: fm.name || fm.title || 'Untitled',
-            description: fm.description || '',
-            continent: fm.continent || '',
-            capital: fm.capital || '',
-            climate: fm.climate || '',
-            mainGrapes: fm.grapeVarieties ? fm.grapeVarieties.split(',').map((t: string) => t.trim()) : [],
-            wineHistory: '',
-            bestTimeToVisit: fm.bestTimeToVisit || '',
-            heroImage: fm.heroImage || null,
-            status: fm.status || 'published',
-            metaTitle: fm.metaTitle || fm.name || fm.title || 'Untitled',
-            metaDescription: fm.metaDescription || fm.description || '',
-            bodyHtml,
-        });
-    }
-    items.sort((a, b) => a.name.localeCompare(b.name));
-    console.log(`[loadLanden] loaded ${items.length} landen from local files`);
+    await writeAssetDebug('directus');
     return items;
 }
 
 export async function loadLanden(): Promise<Land[]> {
-    const { url, token } = getDirectusConfig();
-    if (url && token) {
-        const items = await loadFromDirectus(url, token);
-        if (items.length > 0) return items;
-    } else {
-        console.warn(`[loadLanden] Directus not configured — loading from local files`);
-    }
-    return loadFromLocalFiles();
+    const env = readDirectusEnv();
+    assertDirectusConfigured('loadLanden', env);
+    return loadFromDirectus(env.url, env.token);
 }

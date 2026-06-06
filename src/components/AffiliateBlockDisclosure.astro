@@ -1,0 +1,38 @@
+---
+// LAT-1029, Per-block disclosure line.
+// One italic line above (or below) an AffiliateBlock that names the producer,
+// the visit month/year, and the link source. Required by M1-Optie B disclosure rules.
+
+import type { AffiliateLinkBron } from '../lib/affiliates';
+
+interface Props {
+  producent: string;
+  bezoekMaand: string;
+  bezoekJaar: number;
+  linkBron: AffiliateLinkBron;
+}
+
+const { producent, bezoekMaand, bezoekJaar, linkBron } = Astro.props;
+
+const bronLabel: Record<typeof linkBron, string> = {
+  'Booking.com': 'Booking.com',
+  'GetYourGuide': 'GetYourGuide',
+  'directe link': 'de directe link naar het wijnhuis',
+};
+---
+
+<p class="affiliate-block-disclosure">
+  Wij bezochten {producent} in {bezoekMaand.toLowerCase()} {bezoekJaar}.
+  Reservering via {bronLabel[linkBron]}, VinoMartino ontvangt commissie, prijs voor jou identiek.
+</p>
+
+<style>
+  .affiliate-block-disclosure {
+    font-family: var(--font-body, serif);
+    font-style: italic;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: var(--inkSoft, #5A4F45);
+    margin: 0 0 0.5rem;
+  }
+</style>

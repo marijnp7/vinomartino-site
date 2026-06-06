@@ -1,8 +1,12 @@
 ---
 import SiteLayout from '../../layouts/SiteLayout.astro';
 import AffiliatePlaceholder from '../../components/AffiliatePlaceholder.astro';
+import RelatedEntities from '../../components/RelatedEntities.astro';
+import Stay22Stay from '../../components/Stay22Stay.astro';
 import { loadArticles, type Article } from '../../lib/articles';
 import { articleSchema, breadcrumbSchema } from '../../lib/seo';
+import { getAffiliateBlock } from '../../lib/affiliates';
+import { deriveArticleLocation } from '../../lib/stay22';
 
 export async function getStaticPaths() {
   const articles = await loadArticles();
@@ -10,8 +14,14 @@ export async function getStaticPaths() {
 }
 
 const { article } = Astro.props as { article: Article };
+const accommodation = getAffiliateBlock(article.slug, 'accommodation');
+const activity = getAffiliateBlock(article.slug, 'activity');
+const sidebar = getAffiliateBlock(article.slug, 'sidebar');
+const stay22Location = deriveArticleLocation(article);
 
 const pageUrl = new URL(`/artikelen/${article.slug}/`, Astro.site ?? 'https://vinomartino.com').href;
+
+const modifiedTime = article.updatedAt || article.pubDate;
 
 const schema = [
   articleSchema({
@@ -19,6 +29,7 @@ const schema = [
     description: article.description,
     author: article.author,
     datePublished: article.pubDate,
+    dateModified: modifiedTime,
     image: article.heroImage,
     url: pageUrl,
   }),
@@ -33,7 +44,15 @@ const schema = [
 <SiteLayout
   title={article.metaTitle || article.title}
   description={article.metaDescription || article.description}
-  ogImage={article.heroImage || undefined}
+  ogImage={article.ogImage || article.heroImage || undefined}
+  ogType="article"
+  article={{
+    publishedTime: article.pubDate,
+    modifiedTime,
+    author: article.author,
+    section: article.category,
+    tags: article.tags,
+  }}
   schema={schema}
   activeNav="artikelen"
 >
@@ -65,14 +84,65 @@ const schema = [
 
         <div class="article-prose" set:html={article.bodyHtml} />
 
-        <AffiliatePlaceholder type="accommodation" context={article.slug} />
-        <AffiliatePlaceholder type="activity" context={article.slug} />
+        {accommodation && (
+          <AffiliatePlaceholder
+            type="accommodation"
+            context={article.slug}
+            partner={accommodation.linkBron === 'Booking.com' ? 'booking.com' : accommodation.linkBron === 'GetYourGuide' ? 'getyourguide' : undefined}
+            placement="inline-mid"
+            href={accommodation.href}
+            producent={accommodation.producent}
+            bezoekMaand={accommodation.bezoekMaand}
+            bezoekJaar={accommodation.bezoekJaar}
+            linkBron={accommodation.linkBron}
+            ctaLabel={accommodation.ctaLabel}
+            description={accommodation.description}
+          />
+        )}
+        {activity && (
+          <AffiliatePlaceholder
+            type="activity"
+            context={article.slug}
+            partner={activity.linkBron === 'Booking.com' ? 'booking.com' : activity.linkBron === 'GetYourGuide' ? 'getyourguide' : undefined}
+            placement="inline-end"
+            href={activity.href}
+            producent={activity.producent}
+            bezoekMaand={activity.bezoekMaand}
+            bezoekJaar={activity.bezoekJaar}
+            linkBron={activity.linkBron}
+            ctaLabel={activity.ctaLabel}
+            description={activity.description}
+          />
+        )}
+
+        <Stay22Stay location={stay22Location} context={article.slug} placement="inline-end" />
       </div>
 
       <aside class="article-sidebar">
-        <AffiliatePlaceholder type="sidebar" context={article.slug} />
+        {sidebar && (
+          <AffiliatePlaceholder
+            type="sidebar"
+            context={article.slug}
+            partner={sidebar.linkBron === 'Booking.com' ? 'booking.com' : sidebar.linkBron === 'GetYourGuide' ? 'getyourguide' : undefined}
+            placement="sidebar"
+            href={sidebar.href}
+            producent={sidebar.producent}
+            bezoekMaand={sidebar.bezoekMaand}
+            bezoekJaar={sidebar.bezoekJaar}
+            linkBron={sidebar.linkBron}
+            ctaLabel={sidebar.ctaLabel}
+            description={sidebar.description}
+          />
+        )}
       </aside>
     </div>
+
+    <RelatedEntities
+      streken={article.relatedStreken}
+      wijnhuizen={article.relatedWijnhuizen}
+      wijnroutes={article.relatedWijnroutes}
+      landen={article.relatedLanden}
+    />
   </article>
 </SiteLayout>
 

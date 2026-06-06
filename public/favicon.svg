@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="VinoMartino">
+  <rect width="64" height="64" rx="10" fill="#f3ecdf"/>
+  <g transform="translate(0,1)">
+    <!-- wine glass bowl -->
+    <path d="M20 12 H44 C44 26 38 32 32 32 C26 32 20 26 20 12 Z" fill="#6b1f2b"/>
+    <!-- wine level highlight -->
+    <path d="M22 14 H42 C42 18 38 21 32 21 C26 21 22 18 22 14 Z" fill="#8a2a37" opacity="0.85"/>
+    <!-- stem -->
+    <rect x="30.5" y="32" width="3" height="14" fill="#3a2018"/>
+    <!-- base -->
+    <rect x="20" y="46" width="24" height="3" rx="1.5" fill="#3a2018"/>
+  </g>
+  <!-- monogram V/M dot -->
+  <circle cx="48" cy="18" r="3" fill="#c46a3a"/>
+</svg>

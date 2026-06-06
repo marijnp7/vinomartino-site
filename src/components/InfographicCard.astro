@@ -1,0 +1,448 @@
+---
+/**
+ * <InfographicCard> — Cellar Card hoofdsysteem
+ * Spec: LAT-1107 § 2. Implementatie LAT-1108.
+ * Canonical viewBox 1080×1350 (social-crop direct exportabel, andere varianten via CSS width).
+ */
+export type CardType = 'grape' | 'region' | 'climate' | 'aroma';
+export type CardVariant = 'standalone' | 'article-inline' | 'sidebar' | 'social-crop';
+
+export interface DataPair {
+  label: string;
+  value: string;
+}
+
+export interface RadialAxis {
+  /** Kort label, max ~10 chars. */
+  label: string;
+  /** Schaal 0–10. */
+  value: number;
+}
+
+export interface RadialProps {
+  /** Spec: altijd exact 5 assen. */
+  axes: [RadialAxis, RadialAxis, RadialAxis, RadialAxis, RadialAxis];
+}
+
+export interface AromaWedge {
+  label: string;
+  primair?: string;
+  secundair?: string;
+  tertiair?: string;
+}
+
+export interface AromaWheelProps {
+  /** Spec: altijd exact 8 wedges. */
+  wedges: AromaWedge[];
+  centerLine1?: string;
+  centerLine2?: string;
+}
+
+export interface Props {
+  type: CardType;
+  number: string;
+  kicker: string;
+  subKicker?: string;
+  title: string;
+  subtitle?: string;
+  contextLine?: string;
+  radial?: RadialProps;
+  dataGrid?: DataPair[];
+  aromaWheel?: AromaWheelProps;
+  tastingNote?: string | string[];
+  source: string;
+  domain?: string;
+  variant?: CardVariant;
+  /** Verplicht — gebruikt als aria-label en title. */
+  alt: string;
+  class?: string;
+}
+
+const {
+  type,
+  number,
+  kicker,
+  subKicker,
+  title,
+  subtitle,
+  contextLine,
+  radial,
+  dataGrid = [],
+  aromaWheel,
+  tastingNote,
+  source,
+  domain = 'VINOMARTINO.COM',
+  variant = 'standalone',
+  alt,
+  class: className,
+} = Astro.props;
+
+const cardId = `vmcard-${Math.random().toString(36).slice(2, 9)}`;
+const titleId = `${cardId}-title`;
+const descId = `${cardId}-desc`;
+
+const ACCENT_HEX: Record<CardType, string> = {
+  grape: '#A14F2A',
+  region: '#5A1A1F',
+  climate: '#5C6B3F',
+  aroma: '#E5C99B',
+};
+const accent = ACCENT_HEX[type];
+
+// ─── Radial geometry (5 axes, top = up, clockwise) ─────────────
+const RADIAL_R = 200;
+const RADIAL_CX = 540;
+const RADIAL_CY = 720;
+
+function radialPoints(axes: RadialAxis[]): string {
+  return axes
+    .map((axis, i) => {
+      const angle = -Math.PI / 2 + (i * 2 * Math.PI) / 5;
+      const r = Math.max(0, Math.min(10, axis.value)) / 10 * RADIAL_R;
+      const x = RADIAL_CX + r * Math.cos(angle);
+      const y = RADIAL_CY + r * Math.sin(angle);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(' ');
+}
+
+function radialAxisLine(i: number): { x: number; y: number } {
+  const angle = -Math.PI / 2 + (i * 2 * Math.PI) / 5;
+  return {
+    x: RADIAL_CX + RADIAL_R * Math.cos(angle),
+    y: RADIAL_CY + RADIAL_R * Math.sin(angle),
+  };
+}
+
+function radialLabelPos(i: number): { x: number; y: number; anchor: 'middle' | 'start' | 'end' } {
+  const angle = -Math.PI / 2 + (i * 2 * Math.PI) / 5;
+  const offset = RADIAL_R + 36;
+  const x = RADIAL_CX + offset * Math.cos(angle);
+  const y = RADIAL_CY + offset * Math.sin(angle);
+  let anchor: 'middle' | 'start' | 'end' = 'middle';
+  if (Math.cos(angle) > 0.3) anchor = 'start';
+  else if (Math.cos(angle) < -0.3) anchor = 'end';
+  return { x, y, anchor };
+}
+
+// ─── Aroma wheel geometry (3 rings × 8 wedges) ─────────────────
+const WHEEL_CX = 540;
+const WHEEL_CY = 720;
+const WHEEL_R_OUTER = 270;
+const WHEEL_R_MID = 195;
+const WHEEL_R_INNER = 120;
+const WHEEL_R_CENTER = 60;
+
+function arcPath(cx: number, cy: number, rInner: number, rOuter: number, startA: number, endA: number): string {
+  const x1 = cx + rOuter * Math.cos(startA);
+  const y1 = cy + rOuter * Math.sin(startA);
+  const x2 = cx + rOuter * Math.cos(endA);
+  const y2 = cy + rOuter * Math.sin(endA);
+  const x3 = cx + rInner * Math.cos(endA);
+  const y3 = cy + rInner * Math.sin(endA);
+  const x4 = cx + rInner * Math.cos(startA);
+  const y4 = cy + rInner * Math.sin(startA);
+  const largeArc = endA - startA > Math.PI ? 1 : 0;
+  return `M ${x1.toFixed(1)} ${y1.toFixed(1)}
+          A ${rOuter} ${rOuter} 0 ${largeArc} 1 ${x2.toFixed(1)} ${y2.toFixed(1)}
+          L ${x3.toFixed(1)} ${y3.toFixed(1)}
+          A ${rInner} ${rInner} 0 ${largeArc} 0 ${x4.toFixed(1)} ${y4.toFixed(1)} Z`;
+}
+
+const wedgeCount = 8;
+const wedgeStep = (2 * Math.PI) / wedgeCount;
+// Start at -90° (top) and wedges proceed clockwise
+const wheelWedges = (aromaWheel?.wedges ?? []).slice(0, wedgeCount).map((w, i) => {
+  const start = -Math.PI / 2 + i * wedgeStep;
+  const end = start + wedgeStep;
+  const mid = (start + end) / 2;
+  return {
+    wedge: w,
+    pathInner: arcPath(WHEEL_CX, WHEEL_CY, WHEEL_R_CENTER, WHEEL_R_INNER, start, end),
+    pathMid: arcPath(WHEEL_CX, WHEEL_CY, WHEEL_R_INNER, WHEEL_R_MID, start, end),
+    pathOuter: arcPath(WHEEL_CX, WHEEL_CY, WHEEL_R_MID, WHEEL_R_OUTER, start, end),
+    labelX: WHEEL_CX + (WHEEL_R_OUTER + 24) * Math.cos(mid),
+    labelY: WHEEL_CY + (WHEEL_R_OUTER + 24) * Math.sin(mid),
+    labelAnchor:
+      Math.cos(mid) > 0.3 ? 'start' : Math.cos(mid) < -0.3 ? 'end' : 'middle',
+    primairX: WHEEL_CX + (WHEEL_R_CENTER + WHEEL_R_INNER) / 2 * Math.cos(mid),
+    primairY: WHEEL_CY + (WHEEL_R_CENTER + WHEEL_R_INNER) / 2 * Math.sin(mid),
+    secundairX: WHEEL_CX + (WHEEL_R_INNER + WHEEL_R_MID) / 2 * Math.cos(mid),
+    secundairY: WHEEL_CY + (WHEEL_R_INNER + WHEEL_R_MID) / 2 * Math.sin(mid),
+    tertiairX: WHEEL_CX + (WHEEL_R_MID + WHEEL_R_OUTER) / 2 * Math.cos(mid),
+    tertiairY: WHEEL_CY + (WHEEL_R_MID + WHEEL_R_OUTER) / 2 * Math.sin(mid),
+  };
+});
+
+const tastingLines = Array.isArray(tastingNote) ? tastingNote : tastingNote ? [tastingNote] : [];
+
+// ─── Data-grid layout (2 columns × N rows) ─────────────────────
+// Slot start: when both radial+grid present, grid lives in footer band area.
+// Standalone: grid below radial at y ~ 980; bars-only at y ~ 760.
+const hasRadial = !!radial;
+const hasWheel = !!aromaWheel;
+const dataStartY = hasRadial ? 980 : hasWheel ? 1040 : 720;
+---
+
+<div
+  class:list={['vm-infographic-card', `vm-card-${variant}`, className]}
+  data-type={type}
+  style={`--card-accent: ${accent};`}
+>
+  <svg
+    viewBox="0 0 1080 1350"
+    role="img"
+    aria-labelledby={`${titleId} ${descId}`}
+    preserveAspectRatio="xMidYMid meet"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <title id={titleId}>{title}</title>
+    <desc id={descId}>{alt}</desc>
+
+    {/* Card frame */}
+    <rect width="1080" height="1350" fill="var(--paper, #FAF5E9)" />
+    <rect x="0.4" y="0.4" width="1079.2" height="1349.2" fill="none" stroke="var(--rule, #C9B98F)" stroke-width="0.8" />
+
+    {/* Kicker zone band */}
+    <rect x="0" y="0" width="1080" height="80" fill="var(--paperDeep, #F0E6D0)" />
+    <line x1="0" y1="80" x2="1080" y2="80" stroke="var(--rule, #C9B98F)" stroke-width="0.8" />
+    <text x="60" y="50" class="vm-mono kicker-text" font-size="13" letter-spacing="0.22em" fill={accent}>{kicker}</text>
+    {subKicker && (
+      <text x="60" y="68" class="vm-mono" font-size="10" letter-spacing="0.18em" fill="#8A7E70">{subKicker}</text>
+    )}
+    <text x="1020" y="50" class="vm-mono" font-size="13" letter-spacing="0.22em" text-anchor="end" fill="#8A7E70">NO. {number}</text>
+
+    {/* Title block */}
+    <text x="540" y="180" class="vm-display" font-style="italic" font-size="76" text-anchor="middle" fill="#1F1A16">{title}</text>
+    {subtitle && (
+      <text x="540" y="225" class="vm-display" font-size="28" text-anchor="middle" fill="#5A4F45">{subtitle}</text>
+    )}
+
+    {/* Ornament rule diamond */}
+    <g transform="translate(540, 260)">
+      <line x1="-100" y1="0" x2="-15" y2="0" stroke={accent} stroke-width="1.6" />
+      <path d="M0 -7 L10 0 L0 7 L-10 0 Z" fill={accent} />
+      <line x1="15" y1="0" x2="100" y2="0" stroke={accent} stroke-width="1.6" />
+    </g>
+
+    {contextLine && (
+      <text x="540" y="305" class="vm-mono" font-size="11" letter-spacing="0.18em" text-anchor="middle" fill="#5A4F45">
+        {contextLine}
+      </text>
+    )}
+
+    {/* Data region: radial */}
+    {radial && (
+      <g class="vm-radial">
+        {/* Concentric guide rings (3 of them) */}
+        {[1, 2, 3].map((step) => (
+          <circle cx={RADIAL_CX} cy={RADIAL_CY} r={(RADIAL_R * step) / 3} fill="none" stroke="#E0D2B0" stroke-width="0.5" />
+        ))}
+        {/* Spoke axes */}
+        {[0, 1, 2, 3, 4].map((i) => {
+          const p = radialAxisLine(i);
+          return <line x1={RADIAL_CX} y1={RADIAL_CY} x2={p.x} y2={p.y} stroke="#C9B98F" stroke-width="0.4" />;
+        })}
+        {/* Polygon */}
+        <polygon
+          points={radialPoints(radial.axes)}
+          fill={accent}
+          fill-opacity="0.28"
+          stroke={accent}
+          stroke-width="1.6"
+        />
+        {/* Axis labels */}
+        {radial.axes.map((axis, i) => {
+          const pos = radialLabelPos(i);
+          return (
+            <text
+              x={pos.x}
+              y={pos.y}
+              text-anchor={pos.anchor}
+              dominant-baseline="middle"
+              class="vm-mono"
+              font-size="11"
+              letter-spacing="0.18em"
+              fill="#1F1A16"
+            >
+              {axis.label.toUpperCase()} · {axis.value}
+            </text>
+          );
+        })}
+      </g>
+    )}
+
+    {/* Data region: aroma wheel */}
+    {aromaWheel && (
+      <g class="vm-aroma-wheel">
+        {wheelWedges.map((w) => (
+          <>
+            <path d={w.pathInner} fill="#E5C99B" fill-opacity="0.55" stroke="#FAF5E9" stroke-width="1" />
+            <path d={w.pathMid} fill="#A14F2A" fill-opacity="0.20" stroke="#FAF5E9" stroke-width="1" />
+            <path d={w.pathOuter} fill="#5C6B3F" fill-opacity="0.12" stroke="#FAF5E9" stroke-width="1" />
+            <text
+              x={w.labelX}
+              y={w.labelY}
+              text-anchor={w.labelAnchor as any}
+              dominant-baseline="middle"
+              class="vm-mono"
+              font-size="11"
+              letter-spacing="0.16em"
+              fill="#1F1A16"
+            >
+              {w.wedge.label.toUpperCase()}
+            </text>
+            {w.wedge.primair && (
+              <text x={w.primairX} y={w.primairY} text-anchor="middle" dominant-baseline="middle" class="vm-display" font-style="italic" font-size="13" fill="#1F1A16">{w.wedge.primair}</text>
+            )}
+            {w.wedge.secundair && (
+              <text x={w.secundairX} y={w.secundairY} text-anchor="middle" dominant-baseline="middle" class="vm-display" font-style="italic" font-size="13" fill="#1F1A16">{w.wedge.secundair}</text>
+            )}
+            {w.wedge.tertiair && (
+              <text x={w.tertiairX} y={w.tertiairY} text-anchor="middle" dominant-baseline="middle" class="vm-display" font-style="italic" font-size="13" fill="#1F1A16">{w.wedge.tertiair}</text>
+            )}
+          </>
+        ))}
+        <circle cx={WHEEL_CX} cy={WHEEL_CY} r={WHEEL_R_CENTER} fill="var(--paperDeep, #F0E6D0)" stroke={accent} stroke-width="1.2" />
+        {aromaWheel.centerLine1 && (
+          <text x={WHEEL_CX} y={WHEEL_CY - 6} text-anchor="middle" class="vm-display" font-style="italic" font-size="22" fill="#1F1A16">{aromaWheel.centerLine1}</text>
+        )}
+        {aromaWheel.centerLine2 && (
+          <text x={WHEEL_CX} y={WHEEL_CY + 18} text-anchor="middle" class="vm-mono" font-size="10" letter-spacing="0.18em" fill="#5A4F45">{aromaWheel.centerLine2}</text>
+        )}
+      </g>
+    )}
+
+    {/* Data grid (2 columns) */}
+    {dataGrid.length > 0 && (
+      <g class="vm-data-grid">
+        {dataGrid.map((pair, i) => {
+          const col = i % 2;
+          const row = Math.floor(i / 2);
+          const x = 60 + col * 500;
+          const y = dataStartY + row * 70;
+          return (
+            <>
+              <text x={x} y={y} class="vm-mono" font-size="10" letter-spacing="0.18em" fill="#8A7E70">{pair.label.toUpperCase()}</text>
+              <text x={x} y={y + 32} class="vm-display" font-size="28" fill="#1F1A16">{pair.value}</text>
+            </>
+          );
+        })}
+      </g>
+    )}
+
+    {/* Tasting note */}
+    {tastingLines.length > 0 && (
+      <g class="vm-tasting">
+        <line x1="220" y1="1175" x2="860" y2="1175" stroke="var(--ruleSoft, #E0D2B0)" stroke-width="0.5" />
+        {tastingLines.map((line, i) => (
+          <text x="540" y={1210 + i * 28} class="vm-body" font-style="italic" font-size="17" text-anchor="middle" fill="#5A4F45">{line}</text>
+        ))}
+      </g>
+    )}
+
+    {/* Footer band */}
+    <rect x="0" y="1300" width="1080" height="50" fill="var(--paperDeep, #F0E6D0)" />
+    <line x1="0" y1="1300" x2="1080" y2="1300" stroke="var(--rule, #C9B98F)" stroke-width="0.8" />
+    <text x="60" y="1330" class="vm-mono" font-size="11" letter-spacing="0.22em" fill="#8A7E70">NO. {number} · {source}</text>
+    <text x="1020" y="1330" class="vm-mono" font-size="11" letter-spacing="0.22em" text-anchor="end" fill={accent}>{domain}</text>
+  </svg>
+
+  {/* Mobile fallback: radial → horizontal bars (spec § 5.4) */}
+  {radial && (
+    <ul class="vm-radial-bars" aria-hidden="true">
+      {radial.axes.map((axis) => (
+        <li>
+          <span class="vm-radial-bars__label">{axis.label}</span>
+          <span class="vm-radial-bars__track">
+            <span class="vm-radial-bars__fill" style={`width: ${Math.max(0, Math.min(10, axis.value)) * 10}%`}></span>
+          </span>
+          <span class="vm-radial-bars__value">{axis.value}</span>
+        </li>
+      ))}
+    </ul>
+  )}
+</div>
+
+<style>
+  .vm-infographic-card {
+    --paper: #FAF5E9;
+    --paperDeep: #F0E6D0;
+    --rule: #C9B98F;
+    --ruleSoft: #E0D2B0;
+    display: block;
+    margin-inline: auto;
+    aspect-ratio: 4 / 5;
+    container-type: inline-size;
+    background: var(--paper);
+  }
+
+  .vm-infographic-card[data-type='grape']   { --card-accent: #A14F2A; }
+  .vm-infographic-card[data-type='region']  { --card-accent: #5A1A1F; }
+  .vm-infographic-card[data-type='climate'] { --card-accent: #5C6B3F; }
+  .vm-infographic-card[data-type='aroma']   { --card-accent: #E5C99B; }
+
+  .vm-infographic-card > svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .vm-card-standalone     { width: 100%; max-width: 880px; }
+  .vm-card-article-inline { width: 100%; max-width: 480px; }
+  .vm-card-sidebar        { width: 100%; max-width: 320px; }
+  .vm-card-social-crop    { width: 100%; max-width: 1080px; }
+
+  .vm-mono    { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+  .vm-display { font-family: 'Cormorant Garamond', 'EB Garamond', Georgia, serif; }
+  .vm-body    { font-family: 'Source Serif 4', Georgia, serif; }
+
+  /* Mobile fallback bars — spec § 5.4. Verberg default, toon onder 360px container. */
+  .vm-radial-bars {
+    display: none;
+    list-style: none;
+    padding: 1rem 1.25rem 1.5rem;
+    margin: 0;
+  }
+  .vm-radial-bars li {
+    display: grid;
+    grid-template-columns: 5rem 1fr 1.5rem;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem 0;
+    border-bottom: 0.5px solid var(--ruleSoft);
+  }
+  .vm-radial-bars__label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.625rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #5A4F45;
+  }
+  .vm-radial-bars__track {
+    position: relative;
+    height: 6px;
+    background: var(--ruleSoft);
+    border-radius: 1px;
+    overflow: hidden;
+  }
+  .vm-radial-bars__fill {
+    position: absolute;
+    inset: 0;
+    background: var(--card-accent);
+    opacity: 0.7;
+  }
+  .vm-radial-bars__value {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-size: 1.125rem;
+    color: #1F1A16;
+    text-align: right;
+  }
+
+  @container (max-width: 360px) {
+    .vm-infographic-card .vm-radial { display: none; }
+    .vm-infographic-card .vm-radial-bars { display: block; }
+    .vm-infographic-card { aspect-ratio: auto; }
+    .vm-infographic-card > svg { height: auto; }
+  }
+</style>
