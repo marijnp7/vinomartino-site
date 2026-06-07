@@ -1,25 +1,28 @@
 ---
-// LAT-1127 — Reusable Stay22 "Waar te slapen" affiliate block.
+// LAT-1127 — Reusable Stay22 "Waar te slapen" affiliate block (interim).
 // Renders an Allez accommodation-search deep-link for a destination string.
-// Drop on articles + streek/landen/route pages so the whole site monetiseert,
-// not just Piemonte. The global letmeallez.js loader (LAT-1126) handles
-// LinkSwap; this block guarantees a crawl-verifiable Stay22 href on every page.
+// Used on pages WITHOUT a curated accommodation dataset (articles + landen +
+// wijnroutes, and streken not yet curated). The global letmeallez.js loader
+// (LAT-1126) handles LinkSwap; this block guarantees a crawl-verifiable Stay22
+// href on every page.
+//
+// The Stay22 embed/gm map was DROPPED here (Marijn 2026-06-07): it surfaced
+// Stay22's full inventory, not our curation. Curated streken render their own
+// map + cards via <CuratedStayMap>; this block disappears once a streek has
+// curated data.
 //
 // Click tracking piggybacks on the in-house tracker (LAT-1019) via the same
 // [data-affiliate-track] data-attributes the AffiliateBlock uses.
 
-import { allezSearchUrl, embedMapUrl } from '../lib/stay22';
+import { allezSearchUrl } from '../lib/stay22';
 
 interface Props {
-  /** Destination as a place string (region, country, venue). Used for the Allez link + map title. */
+  /** Destination as a place string (region, country, venue). Used for the Allez link. */
   location?: string | null;
   /** Page identifier for click attribution (slug or page key). */
   context: string;
   /** Stay22 Hub campaign label; defaults to context. */
   campaign?: string;
-  /** Interactive map coords. When both present, render the Stay22 map embed. */
-  lat?: number | null;
-  lng?: number | null;
   /** Tracker placement bucket. */
   placement?: 'inline-mid' | 'inline-end' | 'sidebar' | 'footer';
   heading?: string;
@@ -31,26 +34,21 @@ const {
   location,
   context,
   campaign,
-  lat,
-  lng,
   placement = 'inline-end',
   heading = 'Waar te slapen',
   description,
-  ctaLabel = 'Bekijk accommodaties',
+  ctaLabel = 'Vind accommodaties',
 } = Astro.props;
 
 const loc = location?.trim();
 const camp = campaign ?? context;
-const hasCoords = typeof lat === 'number' && typeof lng === 'number';
-const mapSrc = hasCoords ? embedMapUrl({ lat: lat as number, lng: lng as number, campaign: camp }) : null;
 const allezHref = loc ? allezSearchUrl({ location: loc, campaign: camp }) : null;
 const descText = description ?? (loc ? `Vind hotels en verblijven rond ${loc}.` : 'Vind hotels en verblijven in deze regio.');
-const hasContent = Boolean(mapSrc || allezHref);
 ---
 
-{hasContent && (
+{allezHref && (
   <aside
-    class={`stay22-block stay22-${placement} ${mapSrc ? 'stay22-block--map' : ''}`}
+    class={`stay22-block stay22-${placement}`}
     data-stay22-block
     data-context={context}
     data-placement={placement}
@@ -61,31 +59,19 @@ const hasContent = Boolean(mapSrc || allezHref);
         <strong class="stay22-block__title">{heading}</strong>
         <p class="stay22-block__desc">{descText}</p>
       </div>
-      {allezHref && (
-        <a
-          class="stay22-block__cta"
-          href={allezHref}
-          target="_blank"
-          rel="sponsored nofollow noopener"
-          data-affiliate-track
-          data-affiliate-placement={placement}
-          data-affiliate-partner="stay22"
-          data-affiliate-context={context}
-        >
-          {ctaLabel}
-        </a>
-      )}
+      <a
+        class="stay22-block__cta"
+        href={allezHref}
+        target="_blank"
+        rel="sponsored nofollow noopener"
+        data-affiliate-track
+        data-affiliate-placement={placement}
+        data-affiliate-partner="stay22"
+        data-affiliate-context={context}
+      >
+        {ctaLabel}
+      </a>
     </div>
-
-    {mapSrc && (
-      <iframe
-        class="stay22-block__map"
-        src={mapSrc}
-        title={`Accommodaties op de kaart${loc ? ` rond ${loc}` : ''}`}
-        loading="lazy"
-        referrerpolicy="no-referrer-when-downgrade"
-      ></iframe>
-    )}
 
     <p class="stay22-block__disclosure">
       Affiliate-link · we kunnen een commissie ontvangen, jij betaalt niets extra.
@@ -144,15 +130,6 @@ const hasContent = Boolean(mapSrc || allezHref);
   }
 
   .stay22-block__cta:hover { opacity: 0.9; }
-
-  .stay22-block__map {
-    width: 100%;
-    min-height: 450px;
-    border: 0;
-    border-radius: var(--radius-sm, 2px);
-    margin-top: 1rem;
-    display: block;
-  }
 
   .stay22-block__disclosure {
     font-size: 0.6875rem;

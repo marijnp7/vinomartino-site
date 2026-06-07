@@ -1,0 +1,405 @@
+---
+// LAT-1127 — Curated "Waar te slapen" block (Marijn-spec 2026-06-07).
+//
+// Replaces the Stay22 embed/gm map, which showed Stay22's full inventory. We
+// render our OWN map from the curated Directus dataset (LAT-1136): exactly the
+// 9 hand-picked accommodaties (pin-styled per tier) + the wijnhuizen mentioned
+// in the piece. Stay22 supplies only the per-address booking deep-link — not
+// the map UI. Each pin and each text-card links to its Stay22 Allez boeklink
+// (AID vinomartino, campaign = streek-slug) for the commission.
+//
+// The map is a hand-projected SVG (equirectangular, cos-latitude corrected) in
+// the InfographicAtlas visual language (LAT-1108/1122) — no third-party iframe.
+
+import type { Accommodation, WijnhuisPin } from '../lib/streken';
+import { allezSearchUrl } from '../lib/stay22';
+
+interface Props {
+  streek: string;
+  slug: string;
+  accommodaties: Accommodation[];
+  wijnhuizen?: WijnhuisPin[];
+}
+
+const { streek, slug, accommodaties, wijnhuizen = [] } = Astro.props;
+
+type TierKey = 'slim_geboekt' | 'prijs_kwaliteit' | 'pure_luxe';
+const TIER_ORDER: TierKey[] = ['slim_geboekt', 'prijs_kwaliteit', 'pure_luxe'];
+const TIER_META: Record<TierKey, { label: string; color: string }> = {
+  slim_geboekt: { label: 'Slim geboekt', color: '#A14F2A' },
+  prijs_kwaliteit: { label: 'Prijs-kwaliteit', color: '#5C6B3F' },
+  pure_luxe: { label: 'Pure luxe', color: '#5A1A1F' },
+};
+
+// Stable numbering across tiers (1..N), tier order first.
+const ordered = TIER_ORDER.flatMap((t) => accommodaties.filter((a) => a.tier === t));
+const numbered = ordered.map((acc, i) => ({ acc, n: i + 1 }));
+
+function bookingHref(acc: Accommodation): string {
+  if (acc.boeklink && /^https?:\/\//.test(acc.boeklink)) return acc.boeklink;
+  return allezSearchUrl({ location: `${acc.naam}, ${streek}`, campaign: slug });
+}
+
+function priceLabel(acc: Accommodation): string | null {
+  if (acc.prijsLaag != null && acc.prijsHoog != null) return `€${acc.prijsLaag}–${acc.prijsHoog}`;
+  if (acc.prijsLaag != null) return `vanaf €${acc.prijsLaag}`;
+  if (acc.prijsHoog != null) return `tot €${acc.prijsHoog}`;
+  return null;
+}
+
+// ---- Map projection -------------------------------------------------------
+const W = 800;
+const H = 600;
+const PAD = 56;
+
+interface MapPin { x: number; y: number }
+
+const geoAcc = numbered.filter(({ acc }) => acc.lat != null && acc.lng != null);
+const geoWijn = wijnhuizen.filter((w) => w.lat != null && w.lng != null);
+const allLats = [...geoAcc.map(({ acc }) => acc.lat as number), ...geoWijn.map((w) => w.lat as number)];
+const allLngs = [...geoAcc.map(({ acc }) => acc.lng as number), ...geoWijn.map((w) => w.lng as number)];
+
+const hasMap = allLats.length >= 1;
+const latMean = hasMap ? allLats.reduce((s, v) => s + v, 0) / allLats.length : 0;
+const cosLat = Math.cos((latMean * Math.PI) / 180) || 1;
+
+// Project to a plane, then fit-to-box preserving aspect.
+const projX = (lng: number) => lng * cosLat;
+const xs = allLngs.map(projX);
+const ys = allLats; // latitude as Y (north up after inversion)
+const minX = xs.length ? Math.min(...xs) : 0;
+const maxX = xs.length ? Math.max(...xs) : 1;
+const minY = ys.length ? Math.min(...ys) : 0;
+const maxY = ys.length ? Math.max(...ys) : 1;
+const spanX = maxX - minX || 1e-4;
+const spanY = maxY - minY || 1e-4;
+const scale = Math.min((W - 2 * PAD) / spanX, (H - 2 * PAD) / spanY);
+const drawW = spanX * scale;
+const drawH = spanY * scale;
+const offX = (W - drawW) / 2;
+const offY = (H - drawH) / 2;
+
+function project(lat: number, lng: number): MapPin {
+  return {
+    x: offX + (projX(lng) - minX) * scale,
+    y: offY + (maxY - lat) * scale,
+  };
+}
+
+const accPins = geoAcc.map(({ acc, n }) => ({ ...project(acc.lat as number, acc.lng as number), n, acc }));
+const wijnPins = geoWijn.map((w) => ({ ...project(w.lat as number, w.lng as number), naam: w.naam }));
+
+const mapId = `staymap-${slug}`.replace(/[^a-z0-9-]/gi, '');
+const titleId = `${mapId}-title`;
+const usedTiers = TIER_ORDER.filter((t) => accommodaties.some((a) => a.tier === t));
+---
+
+<section class="curated-stay" aria-labelledby={titleId}>
+  <header class="curated-stay__head">
+    <span class="curated-stay__kicker">Waar te slapen</span>
+    <h2 id={titleId} class="curated-stay__title">Onze adressen in {streek}</h2>
+    <p class="curated-stay__intro">
+      Een handgekozen selectie — geen willekeurig hotelaanbod, maar {accommodaties.length} verblijven
+      die we zelf zouden boeken, in drie prijsklassen. De kaart toont precies deze adressen
+      {wijnPins.length > 0 && <> plus de wijnhuizen uit dit stuk</>}.
+    </p>
+  </header>
+
+  {hasMap && (
+    <figure class="curated-stay__map">
+      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-labelledby={titleId} preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id={`${mapId}-contour`} patternUnits="userSpaceOnUse" width="80" height="80">
+            <g fill="none" stroke="#C9B98F" stroke-width="0.35" opacity="0.35">
+              <path d="M0 40 Q20 20 40 40 T80 40" />
+              <path d="M0 60 Q20 40 40 60 T80 60" />
+              <path d="M0 20 Q20 0 40 20 T80 20" />
+            </g>
+          </pattern>
+        </defs>
+
+        <rect width={W} height={H} fill="#F0E6D0" />
+        <rect x={`${PAD - 16}`} y={`${PAD - 16}`} width={W - 2 * (PAD - 16)} height={H - 2 * (PAD - 16)} fill={`url(#${mapId}-contour)`} />
+        <rect x="0.5" y="0.5" width={W - 1} height={H - 1} fill="none" stroke="#C9B98F" stroke-width="1" />
+
+        <text x={PAD - 16} y={PAD - 26} class="csm-mono" font-size="11" letter-spacing="0.18em" fill="#8A7E70">REGION · STAY ATLAS</text>
+        <text x={W - (PAD - 16)} y={PAD - 26} text-anchor="end" class="csm-mono" font-size="11" letter-spacing="0.2em" fill="#5A1A1F">VINOMARTINO</text>
+
+        {/* Compass */}
+        <g transform={`translate(${W - PAD - 4}, ${PAD + 6})`}>
+          <circle r="13" fill="none" stroke="#5A1A1F" stroke-width="0.8" />
+          <path d="M0 -11 L4 0 L0 11 L-4 0 Z" fill="#5A1A1F" />
+          <text y="-18" text-anchor="middle" class="csm-mono" font-size="9" fill="#5A1A1F">N</text>
+        </g>
+
+        {/* Wijnhuis pins (outline diamond) */}
+        {wijnPins.map((p) => (
+          <g>
+            <path d={`M${p.x} ${p.y - 5.5} L${p.x + 5.5} ${p.y} L${p.x} ${p.y + 5.5} L${p.x - 5.5} ${p.y} Z`} fill="#FAF5E9" stroke="#1F1A16" stroke-width="1.2" />
+            <text x={p.x + 9} y={p.y + 3.5} class="csm-mono" font-size="9.5" fill="#5A4F45">{p.naam}</text>
+          </g>
+        ))}
+
+        {/* Accommodation pins (numbered, tier-coloured) — link to Stay22 boeklink */}
+        {accPins.map((p) => (
+          <a href={bookingHref(p.acc)} target="_blank" rel="sponsored nofollow noopener" aria-label={`Boek ${p.acc.naam} via Stay22`} data-affiliate-track data-affiliate-partner="stay22" data-affiliate-placement="map-pin" data-affiliate-context={`streek-${slug}`}>
+            <circle cx={p.x} cy={p.y} r="13" fill={TIER_META[p.acc.tier].color} stroke="#FAF5E9" stroke-width="1.5" />
+            <text x={p.x} y={p.y + 4} text-anchor="middle" class="csm-mono" font-size="11.5" font-weight="600" fill="#FAF5E9">{p.n}</text>
+          </a>
+        ))}
+      </svg>
+
+      <figcaption class="curated-stay__legend">
+        {usedTiers.map((t) => (
+          <span class="curated-stay__legend-item">
+            <span class="curated-stay__swatch" style={`background:${TIER_META[t].color}`}></span>
+            {TIER_META[t].label}
+          </span>
+        ))}
+        {wijnPins.length > 0 && (
+          <span class="curated-stay__legend-item">
+            <span class="curated-stay__swatch curated-stay__swatch--diamond"></span>
+            Wijnhuizen
+          </span>
+        )}
+      </figcaption>
+    </figure>
+  )}
+
+  <div class="curated-stay__tiers">
+    {usedTiers.map((t) => (
+      <div class="curated-stay__tier">
+        <h3 class="curated-stay__tier-title">
+          <span class="curated-stay__tier-dot" style={`background:${TIER_META[t].color}`}></span>
+          {TIER_META[t].label}
+        </h3>
+        <div class="curated-stay__cards">
+          {numbered.filter(({ acc }) => acc.tier === t).map(({ acc, n }) => (
+            <article class="stay-card">
+              <div class="stay-card__head">
+                <span class="stay-card__num" style={`background:${TIER_META[t].color}`}>{n}</span>
+                <h4 class="stay-card__name">{acc.naam}</h4>
+                {priceLabel(acc) && <span class="stay-card__price">{priceLabel(acc)}<span class="stay-card__price-unit"> / nacht</span></span>}
+              </div>
+              {acc.whyThisOne && <p class="stay-card__why">{acc.whyThisOne}</p>}
+              <div class="stay-card__foot">
+                <a
+                  class="stay-card__cta"
+                  href={bookingHref(acc)}
+                  target="_blank"
+                  rel="sponsored nofollow noopener"
+                  data-affiliate-track
+                  data-affiliate-partner="stay22"
+                  data-affiliate-placement="stay-card"
+                  data-affiliate-context={`streek-${slug}`}
+                >
+                  Boek via Stay22 →
+                </a>
+                <span class="stay-card__note">Prijzen variëren per seizoen</span>
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
+    ))}
+  </div>
+
+  <p class="curated-stay__disclosure">
+    Affiliate-links · we kunnen een commissie ontvangen als je via deze links boekt — jij betaalt niets extra.
+  </p>
+</section>
+
+<style>
+  .curated-stay {
+    margin: 2.5rem 0;
+  }
+  .curated-stay__kicker {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: var(--burgundy, #5A1A1F);
+  }
+  .curated-stay__title {
+    font-family: var(--font-display, Georgia, serif);
+    font-size: clamp(1.75rem, 1.2rem + 2vw, 2.5rem);
+    font-weight: 500;
+    color: var(--ink, #1F1A16);
+    margin: 0.4rem 0 0.5rem;
+  }
+  .curated-stay__intro {
+    font-family: var(--font-body, Georgia, serif);
+    font-size: 1.0625rem;
+    line-height: 1.55;
+    color: var(--inkSoft, #5A4F45);
+    max-width: 52ch;
+    margin: 0 0 1.75rem;
+  }
+
+  .curated-stay__map {
+    margin: 0 0 2rem;
+  }
+  .curated-stay__map svg {
+    width: 100%;
+    height: auto;
+    display: block;
+    border-radius: 2px;
+  }
+  .curated-stay__map a { cursor: pointer; }
+  .curated-stay__map a:hover circle { stroke: #1F1A16; }
+
+  .curated-stay__legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.25rem;
+    margin-top: 0.875rem;
+  }
+  .curated-stay__legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-family: var(--font-mono, monospace);
+    font-size: 0.6875rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--inkSoft, #5A4F45);
+  }
+  .curated-stay__swatch {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .curated-stay__swatch--diamond {
+    background: #FAF5E9;
+    border: 1.5px solid #1F1A16;
+    border-radius: 0;
+    transform: rotate(45deg);
+    width: 11px;
+    height: 11px;
+  }
+
+  .curated-stay__tier { margin-bottom: 2rem; }
+  .curated-stay__tier-title {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-family: var(--font-ui, sans-serif);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--ink, #1F1A16);
+    margin: 0 0 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--rule, #C9B98F);
+  }
+  .curated-stay__tier-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .curated-stay__cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.25rem;
+  }
+
+  .stay-card {
+    border: 1px solid var(--ruleSoft, #E0D2B0);
+    border-radius: 3px;
+    background: var(--paper, #FBF7EE);
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+  }
+  .stay-card__head {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-areas: "num name" "num price";
+    column-gap: 0.75rem;
+    align-items: start;
+    margin-bottom: 0.75rem;
+  }
+  .stay-card__num {
+    grid-area: num;
+    align-self: start;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    color: #FAF5E9;
+    font-family: var(--font-mono, monospace);
+    font-size: 0.875rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .stay-card__name {
+    grid-area: name;
+    font-family: var(--font-display, Georgia, serif);
+    font-size: 1.25rem;
+    font-weight: 500;
+    line-height: 1.15;
+    color: var(--ink, #1F1A16);
+    margin: 0;
+  }
+  .stay-card__price {
+    grid-area: price;
+    font-family: var(--font-mono, monospace);
+    font-size: 0.8125rem;
+    color: var(--burgundy, #5A1A1F);
+    margin-top: 0.25rem;
+  }
+  .stay-card__price-unit { color: var(--inkFaint, #8A7D6E); }
+  .stay-card__why {
+    font-family: var(--font-body, Georgia, serif);
+    font-size: 0.9375rem;
+    line-height: 1.55;
+    color: var(--inkSoft, #5A4F45);
+    margin: 0 0 1rem;
+    flex: 1;
+  }
+  .stay-card__foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+  .stay-card__cta {
+    font-family: var(--font-ui, sans-serif);
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--paper, #FBF7EE);
+    background: var(--burgundy, #5A1A1F);
+    padding: 0.5rem 0.9rem;
+    border-radius: 2px;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: opacity 0.15s ease;
+  }
+  .stay-card__cta:hover { opacity: 0.9; }
+  .stay-card__note {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.625rem;
+    font-style: italic;
+    color: var(--inkFaint, #8A7D6E);
+  }
+
+  .curated-stay__disclosure {
+    font-family: var(--font-body, Georgia, serif);
+    font-size: 0.75rem;
+    font-style: italic;
+    color: var(--inkFaint, #8A7D6E);
+    margin: 0.5rem 0 0;
+  }
+
+  .csm-mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+
+  @media (max-width: 640px) {
+    .curated-stay__cards { grid-template-columns: 1fr; }
+  }
+</style>
