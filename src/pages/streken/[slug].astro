@@ -5,17 +5,25 @@ import AffiliateDisclosure from '../../components/AffiliateDisclosure.astro';
 import RelatedArticles from '../../components/RelatedArticles.astro';
 import Stay22Stay from '../../components/Stay22Stay.astro';
 import { loadStreken, type Streek } from '../../lib/streken';
+import { loadWijnhuizen, type Wijnhuis } from '../../lib/wijnhuizen';
 import { streekSchema, streekMetaTitle, streekMetaDescription, breadcrumbSchema } from '../../lib/seo';
 
 export async function getStaticPaths() {
-  const entries = await loadStreken();
+  const [entries, wijnhuizen] = await Promise.all([loadStreken(), loadWijnhuizen()]);
+  const byStreek = new Map<string, Wijnhuis[]>();
+  for (const wh of wijnhuizen) {
+    if (!wh.streekSlug) continue;
+    const list = byStreek.get(wh.streekSlug) ?? [];
+    list.push(wh);
+    byStreek.set(wh.streekSlug, list);
+  }
   return entries.map(entry => ({
     params: { slug: entry.slug },
-    props: { entry },
+    props: { entry, wijnhuizen: byStreek.get(entry.slug) ?? [] },
   }));
 }
 
-const { entry } = Astro.props as { entry: Streek };
+const { entry, wijnhuizen } = Astro.props as { entry: Streek; wijnhuizen: Wijnhuis[] };
 const pageUrl = new URL(`/streken/${entry.slug}/`, Astro.site ?? 'https://vinomartino.com').href;
 const stay22Location = entry.country ? `${entry.name}, ${entry.country}` : entry.name;
 
@@ -150,6 +158,23 @@ const hasStats = Boolean(
       </section>
     )}
 
+    {wijnhuizen.length > 0 && (
+      <section class="streek-wijnhuizen">
+        <div class="container">
+          <span class="section-label">Wijnhuizen in {entry.name}</span>
+          <div class="wijnhuis-grid">
+            {wijnhuizen.map(wh => (
+              <a class="wijnhuis-card" href={`/wijnhuizen/${wh.slug}/`}>
+                <span class="wijnhuis-card__name">{wh.name}</span>
+                {wh.description && <span class="wijnhuis-card__desc">{wh.description}</span>}
+                <span class="wijnhuis-card__cta">Lees portret &rarr;</span>
+              </a>
+            ))}
+          </div>
+        </div>
+      </section>
+    )}
+
     <section class="streek-insurance">
       <div class="container">
         <AffiliatePlaceholder type="insurance" partner="reisverzekering" region={entry.name} placement="footer" context="streek-insurance" />
@@ -276,9 +301,56 @@ const hasStats = Boolean(
     font-weight: 600;
     margin: 2rem 0 0.75rem;
   }
-  .streek-subregions, .streek-appellations, .streek-accommodation, .streek-insurance {
+  .streek-subregions, .streek-appellations, .streek-accommodation, .streek-insurance, .streek-wijnhuizen {
     padding: 3rem 0;
     border-bottom: 1px solid var(--rule);
+  }
+  .wijnhuis-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-top: var(--space-3);
+  }
+  .wijnhuis-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    text-decoration: none;
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    padding: 1.25rem;
+    transition: box-shadow 0.15s;
+  }
+  .wijnhuis-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+  .wijnhuis-card__name {
+    font-family: var(--font-display);
+    font-size: 1.375rem;
+    font-weight: 500;
+    color: var(--ink);
+  }
+  .wijnhuis-card__desc {
+    font-family: var(--font-body);
+    font-size: 0.9375rem;
+    line-height: 1.5;
+    color: var(--inkSoft);
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .wijnhuis-card__cta {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--burgundy);
+    margin-top: auto;
+  }
+  @media (max-width: 900px) {
+    .wijnhuis-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 640px) {
+    .wijnhuis-grid { grid-template-columns: 1fr; }
   }
   .subregion-grid, .appellation-grid {
     display: flex;

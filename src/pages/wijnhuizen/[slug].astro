@@ -48,6 +48,7 @@ const schema = [
     name={entry.name}
     subtitle={entry.description}
     region={[entry.region, entry.country].filter(Boolean).join(' · ')}
+    regionHref={entry.streekSlug ? `/streken/${entry.streekSlug}/` : undefined}
     since={entry.established ? String(entry.established) : undefined}
     hectaren={entry.hectares || undefined}
     biologisch={entry.biodynamisch ? 'Ja' : undefined}

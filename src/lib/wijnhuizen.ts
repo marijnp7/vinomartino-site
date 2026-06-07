@@ -5,6 +5,7 @@ export interface Wijnhuis {
     name: string;
     description: string;
     region: string;
+    streekSlug: string;
     country: string;
     address: string;
     website: string;
@@ -115,6 +116,7 @@ function mapWijnhuis(
         name: normalizeEmDashes(String(r.name)),
         description: normalizeEmDashes(String(r.description || '')),
         region: String(r.region || r.streek_name || ''),
+        streekSlug: String(r.streek_slug || ''),
         country: String(r.country || ''),
         address: String(r.address || ''),
         website: String(r.website || ''),
@@ -135,7 +137,7 @@ function mapWijnhuis(
 
 async function fetchWijnhuizenItems(url: string, token: string): Promise<Record<string, unknown>[]> {
     const env = readDirectusEnv();
-    const baseFields = 'id,slug,name,description,body,address,website,established,hectares,biodynamisch,winemaker,grapes,hero_image,status,meta_title,meta_description,streek_id.name';
+    const baseFields = 'id,slug,name,description,body,address,website,established,hectares,biodynamisch,winemaker,grapes,hero_image,status,meta_title,meta_description,streek_id.name,streek_id.slug';
     const withOg = `${baseFields},og_image`;
     // LAT-1098: reverse-relation via M2M articles.related_wijnhuizen.
     const withRelations = `${withOg},related_articles.articles_id.slug,related_articles.articles_id.title`;
@@ -211,6 +213,7 @@ async function loadFromDirectus(url: string, token: string): Promise<Wijnhuis[]>
         data.map(async (r) => {
             const streek = r.streek_id as Record<string, unknown> | null;
             if (streek && streek.name) r.streek_name = streek.name;
+            if (streek && streek.slug) r.streek_slug = streek.slug;
             const bodyHtml = r.body ? await markdownToHtml(String(r.body)) : '';
             const heroImagePath = r.hero_image
                 ? await downloadAsset(String(r.hero_image), url, token)
