@@ -21,6 +21,7 @@ interface Props {
   subtitle?: string;
   breadcrumb?: { label: string; href: string }[];
   region: string;
+  regionHref?: string;
   since?: string;
   hectaren?: string;
   biologisch?: string;
@@ -39,6 +40,7 @@ const {
   subtitle,
   breadcrumb = [],
   region,
+  regionHref,
   since,
   hectaren,
   biologisch,
@@ -78,7 +80,11 @@ const {
       <div class="wh-hero__meta">
         <div class="wh-meta-item">
           <span class="wh-meta-label">STREEK</span>
-          <span class="wh-meta-value">{region}</span>
+          {regionHref ? (
+            <a class="wh-meta-value wh-meta-value--link" href={regionHref}>{region}</a>
+          ) : (
+            <span class="wh-meta-value">{region}</span>
+          )}
         </div>
         {since && (
           <div class="wh-meta-item">
@@ -334,6 +340,13 @@ const {
     display: block;
     color: var(--inkSoft);
   }
+
+  .wh-meta-value--link {
+    color: var(--burgundy);
+    text-decoration: none;
+    border-bottom: 1px solid var(--rule);
+  }
+  .wh-meta-value--link:hover { color: var(--ink); }
 
   .wh-hero__img-wrap {
     aspect-ratio: 21 / 9;
