@@ -1,5 +1,30 @@
 import type { RelatedRef } from './articles';
 
+// LAT-1127 — curated accommodation tiers (Marijn-spec 2026-06-07). Stored as
+// cast-json on streken (LAT-1136 import). The site renders its own map + cards
+// from this data; Stay22 only supplies the per-address boeklink.
+export type StayTier = 'slim_geboekt' | 'prijs_kwaliteit' | 'pure_luxe';
+
+export interface Accommodation {
+    naam: string;
+    tier: StayTier;
+    whyThisOne: string;
+    prijsLaag: number | null;
+    prijsHoog: number | null;
+    lat: number | null;
+    lng: number | null;
+    /** Stay22 Allez deeplink (affiliate). */
+    boeklink: string;
+    adres: string;
+    rating: string;
+}
+
+export interface WijnhuisPin {
+    naam: string;
+    lat: number | null;
+    lng: number | null;
+}
+
 export interface Streek {
     slug: string;
     name: string;
@@ -19,6 +44,8 @@ export interface Streek {
     metaDescription: string;
     bodyHtml: string;
     relatedArticles: RelatedRef[];
+    accommodaties: Accommodation[];
+    wijnhuizen: WijnhuisPin[];
 }
 
 // LAT-1098: reverse M2M `streken.related_articles` → `articles_id.{slug,title}`.
@@ -106,6 +133,77 @@ function parseJsonField(val: unknown): string[] {
     return [];
 }
 
+// LAT-1127 — JSON array field that may arrive as an array (cast-json) or a
+// stringified array, depending on how Directus serialises the column.
+function parseJsonObjects(val: unknown): Record<string, unknown>[] {
+    let arr: unknown = val;
+    if (typeof val === 'string') {
+        try { arr = JSON.parse(val); } catch { return []; }
+    }
+    if (!Array.isArray(arr)) return [];
+    return arr.filter((row): row is Record<string, unknown> => Boolean(row) && typeof row === 'object');
+}
+
+function firstString(rec: Record<string, unknown>, keys: string[]): string {
+    for (const k of keys) {
+        const v = rec[k];
+        if (typeof v === 'string' && v.trim()) return normalizeEmDashes(v.trim());
+        if (typeof v === 'number') return String(v);
+    }
+    return '';
+}
+
+function firstNumber(rec: Record<string, unknown>, keys: string[]): number | null {
+    for (const k of keys) {
+        const v = rec[k];
+        if (typeof v === 'number' && Number.isFinite(v)) return v;
+        if (typeof v === 'string' && v.trim()) {
+            const n = Number(v.replace(/[^0-9.\-]/g, ''));
+            if (Number.isFinite(n)) return n;
+        }
+    }
+    return null;
+}
+
+const TIER_VALUES: StayTier[] = ['slim_geboekt', 'prijs_kwaliteit', 'pure_luxe'];
+
+function normalizeTier(raw: string): StayTier {
+    const v = raw.toLowerCase().replace(/[\s-]+/g, '_');
+    if ((TIER_VALUES as string[]).includes(v)) return v as StayTier;
+    if (v.includes('luxe') || v.includes('luxury')) return 'pure_luxe';
+    if (v.includes('kwaliteit') || v.includes('sweet') || v.includes('value')) return 'prijs_kwaliteit';
+    return 'slim_geboekt';
+}
+
+// Tolerant mapper: field names follow the LAT-1133 signed-off dataset but accept
+// reasonable aliases so a naming drift in Directus does not silently drop data.
+function parseAccommodaties(val: unknown): Accommodation[] {
+    return parseJsonObjects(val).map((r) => {
+        const naam = firstString(r, ['naam', 'name', 'title']);
+        const boeklink = firstString(r, ['boeklink', 'boeklink_stay22', 'stay22_link', 'allez_link', 'link']);
+        return {
+            naam,
+            tier: normalizeTier(firstString(r, ['tier', 'categorie', 'category'])),
+            whyThisOne: firstString(r, ['why_this_one', 'whyThisOne', 'blurb', 'why', 'beschrijving']),
+            prijsLaag: firstNumber(r, ['prijs_laag', 'prijsLaag', 'price_low', 'prijs_van']),
+            prijsHoog: firstNumber(r, ['prijs_hoog', 'prijsHoog', 'price_high', 'prijs_tot']),
+            lat: firstNumber(r, ['lat', 'latitude']),
+            lng: firstNumber(r, ['lng', 'lon', 'long', 'longitude']),
+            boeklink,
+            adres: firstString(r, ['adres', 'address']),
+            rating: firstString(r, ['rating', 'score']),
+        };
+    }).filter((a) => a.naam);
+}
+
+function parseWijnhuizen(val: unknown): WijnhuisPin[] {
+    return parseJsonObjects(val).map((r) => ({
+        naam: firstString(r, ['naam', 'name', 'title']),
+        lat: firstNumber(r, ['lat', 'latitude']),
+        lng: firstNumber(r, ['lng', 'lon', 'long', 'longitude']),
+    })).filter((w) => w.naam);
+}
+
 function mapStreek(
     r: Record<string, unknown>,
     heroImagePath: string | null,
@@ -130,13 +228,15 @@ function mapStreek(
         metaTitle: String(r.meta_title || r.name),
         metaDescription: String(r.meta_description || r.description || ''),
         bodyHtml,
+        accommodaties: parseAccommodaties(r.accommodaties),
+        wijnhuizen: parseWijnhuizen(r.wijnhuizen),
         relatedArticles: mapRelatedArticles(r.related_articles),
     };
 }
 
 async function fetchStrekenItems(url: string, token: string): Promise<Record<string, unknown>[]> {
     const env = readDirectusEnv();
-    const baseFields = 'id,slug,name,description,body,climate,soil,main_grapes,sub_regions,vineyard_area,altitude,appellations,hero_image,status,meta_title,meta_description,land_id.name';
+    const baseFields = 'id,slug,name,description,body,climate,soil,main_grapes,sub_regions,vineyard_area,altitude,appellations,accommodaties,wijnhuizen,hero_image,status,meta_title,meta_description,land_id.name';
     const withOg = `${baseFields},og_image`;
     // LAT-1098: reverse-relation auto-aangemaakt door Directus M2M op articles
     // (LAT-1097). Junction `articles_streken` → `articles_id.{slug,title}`.
