@@ -1,7 +1,11 @@
+import type { TocItem } from './markdown';
+
 export interface RelatedRef {
     slug: string;
     name: string;
 }
+
+export type { TocItem };
 
 export interface Article {
     slug: string;
@@ -18,6 +22,9 @@ export interface Article {
     metaTitle: string;
     metaDescription: string;
     bodyHtml: string;
+    wordCount: number;
+    readingMinutes: number;
+    toc: TocItem[];
     relatedStreken: RelatedRef[];
     relatedWijnhuizen: RelatedRef[];
     relatedWijnroutes: RelatedRef[];
@@ -129,10 +136,10 @@ function stripMetaDescriptionFromBody(markdown: string): { body: string; extract
     return { body, extracted };
 }
 
-import { markdownToHtml as renderMarkdown, normalizeEmDashes } from './markdown';
+import { markdownToHtmlWithToc, countWords, normalizeEmDashes } from './markdown';
 
-function markdownToHtml(markdown: string): Promise<string> {
-    return renderMarkdown(substituteAffiliateTokens(markdown), { stripFirstH1: true });
+function renderArticleBody(markdown: string): Promise<{ html: string; toc: TocItem[] }> {
+    return markdownToHtmlWithToc(substituteAffiliateTokens(markdown), { stripFirstH1: true });
 }
 
 function substituteAffiliateTokens(markdown: string): string {
@@ -215,7 +222,15 @@ function mapRelatedRefs(val: unknown, slugKey: string, nameKey: string): Related
     return out;
 }
 
-function mapArticle(a: Record<string, unknown>, heroImagePath: string | null, ogImagePath: string | null, bodyHtml: string): Article {
+function mapArticle(
+    a: Record<string, unknown>,
+    heroImagePath: string | null,
+    ogImagePath: string | null,
+    bodyHtml: string,
+    toc: TocItem[],
+    wordCount: number,
+    readingMinutes: number,
+): Article {
     return {
           slug: String(a.slug),
           title: normalizeEmDashes(String(a.title)),
@@ -231,6 +246,9 @@ function mapArticle(a: Record<string, unknown>, heroImagePath: string | null, og
           metaTitle: normalizeEmDashes(String(a.meta_title || a.title)),
           metaDescription: normalizeEmDashes(String(a.meta_description || a.description || '')),
           bodyHtml,
+          wordCount,
+          readingMinutes,
+          toc,
           relatedStreken: mapRelatedRefs(a.related_streken, 'streken_id', 'name'),
           relatedWijnhuizen: mapRelatedRefs(a.related_wijnhuizen, 'wijnhuizen_id', 'name'),
           relatedWijnroutes: mapRelatedRefs(a.related_routes, 'routes_id', 'title'),
@@ -322,12 +340,16 @@ async function loadFromDirectus(url: string, token: string): Promise<Article[]> 
                             const firstPara = cleanBody.trim().split(/\n\n+/)[0].replace(/[#*`_~[\]()]/g, '').trim();
                             if (firstPara.length > 30) a.description = firstPara.slice(0, 160);
                   }
-                  const bodyHtml = cleanBody ? await markdownToHtml(cleanBody) : '';
+                  const wordCount = cleanBody ? countWords(cleanBody) : 0;
+                  const readingMinutes = Math.max(1, Math.ceil(wordCount / 200));
+                  const { html: bodyHtml, toc } = cleanBody
+                        ? await renderArticleBody(cleanBody)
+                        : { html: '', toc: [] };
                   const [heroImagePath, ogImagePath] = await Promise.all([
                         a.hero_image ? downloadArticleAsset(String(a.hero_image), url, token) : Promise.resolve(null),
                         a.og_image ? downloadArticleAsset(String(a.og_image), url, token) : Promise.resolve(null),
                   ]);
-                  return mapArticle(a, heroImagePath, ogImagePath, bodyHtml);
+                  return mapArticle(a, heroImagePath, ogImagePath, bodyHtml, toc, wordCount, readingMinutes);
           }),
         );
     console.log(`[loadArticles] fetched ${items.length} articles from Directus`);

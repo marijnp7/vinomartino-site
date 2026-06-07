@@ -2,6 +2,59 @@ interface MarkdownOptions {
   stripFirstH1?: boolean;
 }
 
+export interface TocItem {
+  id: string;
+  text: string;
+  depth: number;
+}
+
+// LAT-1118: slug = lowercase, diacritics gestript, niet-alfanumeriek → `-`,
+// samengevouwen en getrimd. Lege resultaten vallen terug op `sectie`.
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+// Stateful slugger zodat duplicate koppen stabiele, unieke ids krijgen (`-2`, `-3`).
+function makeSlugger(): (text: string) => string {
+  const seen = new Map<string, number>();
+  return (text: string): string => {
+    const base = slugify(text) || 'sectie';
+    const n = seen.get(base) ?? 0;
+    seen.set(base, n + 1);
+    return n === 0 ? base : `${base}-${n + 1}`;
+  };
+}
+
+function headingText(node: { children?: Array<{ type: string; value?: string; children?: unknown[] }> }): string {
+  if (!node.children) return '';
+  let out = '';
+  for (const child of node.children) {
+    if (typeof child.value === 'string') out += child.value;
+    else if (Array.isArray(child.children)) out += headingText(child as { children: Array<{ type: string; value?: string }> });
+  }
+  return out.trim();
+}
+
+// LAT-1118: tel woorden van schone markdown (code/links/afbeeldingen/punctuatie
+// gestript). Gebruikt voor de leestijd-indicator (200 wpm, NL).
+export function countWords(markdown: string): number {
+  const text = markdown
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/`[^`]*`/g, ' ')
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/[#>*_~`|>-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!text) return 0;
+  return text.split(' ').filter(Boolean).length;
+}
+
 // LAT-1061: Marijn's VinoMartino style-rule — geen em-dashes (—) in copy.
 // Vervang alleen het volledige `word — word` patroon door `word, word`
 // (spaties aan beide kanten, niet-whitespace eromheen). Standalone of
@@ -13,11 +66,23 @@ export function normalizeEmDashes(input: string): string {
   return input.replace(/(\S)[ \t]+—[ \t]+(?=\S)/g, '$1, ');
 }
 
-export async function markdownToHtml(markdown: string, options: MarkdownOptions = {}): Promise<string> {
+type MdastHeading = {
+  type: string;
+  depth?: number;
+  children?: Array<{ type: string; value?: string; children?: unknown[] }>;
+  data?: { hProperties?: Record<string, unknown> };
+};
+
+// LAT-1118: rendert markdown én levert de inhoudsopgave (h2/h3) in één pass,
+// zodat de toc-ids gegarandeerd matchen met de ids in de gerenderde HTML.
+export async function markdownToHtmlWithToc(
+  markdown: string,
+  options: MarkdownOptions = {},
+): Promise<{ html: string; toc: TocItem[] }> {
   const { fromMarkdown } = await import('mdast-util-from-markdown');
   const { toHast } = await import('mdast-util-to-hast');
   const { toHtml } = await import('hast-util-to-html');
-  const mdast = fromMarkdown(normalizeEmDashes(markdown)) as { children: Array<{ type: string; depth?: number }> };
+  const mdast = fromMarkdown(normalizeEmDashes(markdown)) as { children: MdastHeading[] };
   if (options.stripFirstH1) {
     const firstIdx = mdast.children.findIndex((node) => node.type !== 'thematicBreak');
     if (firstIdx >= 0) {
@@ -27,6 +92,21 @@ export async function markdownToHtml(markdown: string, options: MarkdownOptions 
       }
     }
   }
+  const slug = makeSlugger();
+  const toc: TocItem[] = [];
+  for (const node of mdast.children) {
+    if (node.type !== 'heading' || (node.depth !== 2 && node.depth !== 3)) continue;
+    const text = headingText(node);
+    if (!text) continue;
+    const id = slug(text);
+    node.data = node.data ?? {};
+    node.data.hProperties = { ...(node.data.hProperties ?? {}), id };
+    toc.push({ id, text, depth: node.depth });
+  }
   const hast = toHast(mdast as Parameters<typeof toHast>[0]);
-  return toHtml(hast as Parameters<typeof toHtml>[0]);
+  return { html: toHtml(hast as Parameters<typeof toHtml>[0]), toc };
+}
+
+export async function markdownToHtml(markdown: string, options: MarkdownOptions = {}): Promise<string> {
+  return (await markdownToHtmlWithToc(markdown, options)).html;
 }

@@ -23,6 +23,11 @@ const pageUrl = new URL(`/artikelen/${article.slug}/`, Astro.site ?? 'https://vi
 
 const modifiedTime = article.updatedAt || article.pubDate;
 
+// LAT-1118: TOC alleen op langere stukken (>= 3 h2-koppen); korte artikelen
+// blijven schoon. Volledig afgeleid uit de koppen, geen handmatig onderhoud.
+const toc = article.toc ?? [];
+const showToc = toc.filter((t) => t.depth === 2).length >= 3;
+
 const schema = [
   articleSchema({
     title: article.title,
@@ -74,6 +79,7 @@ const schema = [
           <div class="article-meta">
             <span class="article-author">{article.author}</span>
             <span class="article-date">{new Date(article.pubDate).toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+            <span class="article-reading">· {article.readingMinutes} min lezen</span>
           </div>
           {article.tags && article.tags.length > 0 && (
             <div class="article-tags">
@@ -81,6 +87,21 @@ const schema = [
             </div>
           )}
         </header>
+
+        {showToc && (
+          <details class="toc-mobile">
+            <summary>Inhoud — spring naar</summary>
+            <nav aria-label="Inhoudsopgave">
+              <ol class="toc-list">
+                {toc.map((item) => (
+                  <li class={`toc-item toc-depth-${item.depth}`}>
+                    <a href={`#${item.id}`}>{item.text}</a>
+                  </li>
+                ))}
+              </ol>
+            </nav>
+          </details>
+        )}
 
         <div class="article-prose" set:html={article.bodyHtml} />
 
@@ -119,6 +140,18 @@ const schema = [
       </div>
 
       <aside class="article-sidebar">
+        {showToc && (
+          <nav class="toc-desktop" aria-label="Inhoudsopgave">
+            <p class="toc-heading">Inhoud</p>
+            <ol class="toc-list">
+              {toc.map((item) => (
+                <li class={`toc-item toc-depth-${item.depth}`}>
+                  <a href={`#${item.id}`} data-toc-link={item.id}>{item.text}</a>
+                </li>
+              ))}
+            </ol>
+          </nav>
+        )}
         {sidebar && (
           <AffiliatePlaceholder
             type="sidebar"
@@ -232,12 +265,14 @@ const schema = [
     font-size: 1.625rem;
     font-weight: 500;
     margin: var(--space-10) 0 var(--space-4);
+    scroll-margin-top: var(--space-8);
   }
   .article-prose :global(h3) {
     font-family: var(--font-ui);
     font-size: 1.125rem;
     font-weight: 600;
     margin: var(--space-8) 0 var(--space-3);
+    scroll-margin-top: var(--space-8);
   }
   .article-prose :global(p) {
     margin-bottom: var(--space-5);
@@ -261,7 +296,111 @@ const schema = [
     margin: var(--space-6) 0;
   }
 
+  /* LAT-1118: inhoudsopgave */
+  .toc-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .toc-item {
+    margin: 0;
+    line-height: 1.4;
+  }
+  .toc-item + .toc-item {
+    margin-top: var(--space-2);
+  }
+  .toc-depth-3 {
+    padding-left: var(--space-4);
+  }
+  .toc-list a {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--inkSoft);
+    text-decoration: none;
+    border-left: 2px solid transparent;
+    padding-left: var(--space-3);
+    display: block;
+  }
+  .toc-list a:hover {
+    color: var(--ink);
+  }
+  .toc-list a.toc-active {
+    color: var(--rust);
+    border-left-color: var(--rust);
+  }
+
+  .toc-desktop {
+    position: sticky;
+    top: var(--space-8);
+    width: var(--article-toc-width);
+  }
+  .toc-heading {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--inkFaint);
+    margin: 0 0 var(--space-3);
+    padding-left: var(--space-3);
+  }
+
+  .toc-mobile {
+    display: none;
+    border-top: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: var(--space-8);
+    padding: var(--space-3) 0;
+  }
+  .toc-mobile summary {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--inkSoft);
+    cursor: pointer;
+  }
+  .toc-mobile nav {
+    margin-top: var(--space-4);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    html { scroll-behavior: smooth; }
+  }
+
   @media (max-width: 900px) {
     .article-layout { grid-template-columns: 1fr; }
+    .toc-desktop { display: none; }
+    .toc-mobile { display: block; }
   }
 </style>
+
+<script>
+  // LAT-1118: highlight de actieve sectie in de desktop-TOC. Progressive
+  // enhancement — zonder JS blijft het een werkende anchor-lijst.
+  const links = Array.from(
+    document.querySelectorAll<HTMLAnchorElement>('.toc-desktop a[data-toc-link]'),
+  );
+  if (links.length > 0 && 'IntersectionObserver' in window) {
+    const byId = new Map(links.map((a) => [a.dataset.tocLink ?? '', a]));
+    const headings = links
+      .map((a) => document.getElementById(a.dataset.tocLink ?? ''))
+      .filter((el): el is HTMLElement => el !== null);
+    const visible = new Set<string>();
+    const setActive = (id: string | null) => {
+      for (const a of links) a.classList.remove('toc-active');
+      if (id) byId.get(id)?.classList.add('toc-active');
+    };
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) visible.add(entry.target.id);
+          else visible.delete(entry.target.id);
+        }
+        const firstVisible = headings.find((h) => visible.has(h.id));
+        if (firstVisible) setActive(firstVisible.id);
+      },
+      { rootMargin: '0px 0px -70% 0px', threshold: 0 },
+    );
+    for (const h of headings) observer.observe(h);
+  }
+</script>
