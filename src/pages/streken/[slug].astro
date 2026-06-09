@@ -27,6 +27,10 @@ const { entry, wijnhuizen } = Astro.props as { entry: Streek; wijnhuizen: Wijnhu
 const pageUrl = new URL(`/streken/${entry.slug}/`, Astro.site ?? 'https://vinomartino.com').href;
 const stay22Location = entry.country ? `${entry.name}, ${entry.country}` : entry.name;
 
+// LAT-1199: verticale kruimel Land → Streek. Toon de parent-Land wanneer de
+// streek→land relatie bekend is; val anders terug op de laterale Streken-index.
+const hasParentLand = Boolean(entry.landSlug && entry.country);
+
 const schema = [
   streekSchema({
     name: entry.name,
@@ -39,7 +43,12 @@ const schema = [
   }),
   breadcrumbSchema([
     { name: 'Home', url: '/' },
-    { name: 'Streken', url: '/streken/' },
+    ...(hasParentLand
+      ? [
+          { name: 'Landen', url: '/landen/' },
+          { name: entry.country, url: `/landen/${entry.landSlug}/` },
+        ]
+      : [{ name: 'Streken', url: '/streken/' }]),
     { name: entry.name, url: pageUrl },
   ]),
 ];
@@ -64,7 +73,13 @@ const hasStats = Boolean(
     <section class="streek-hero">
       <div class="container">
         <nav class="breadcrumb" aria-label="Breadcrumb">
-          <a href="/">Home</a> / <a href="/streken/">Streken</a> / <span>{entry.name}</span>
+          <a href="/">Home</a> /
+          {hasParentLand ? (
+            <><a href="/landen/">Landen</a> / <a href={`/landen/${entry.landSlug}/`}>{entry.country}</a> / </>
+          ) : (
+            <><a href="/streken/">Streken</a> / </>
+          )}
+          <span>{entry.name}</span>
         </nav>
         <div class:list={['streek-hero__grid', !hasStats && 'streek-hero__grid--no-stats']}>
           <div>
