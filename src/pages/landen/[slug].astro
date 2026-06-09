@@ -5,11 +5,13 @@ import RelatedArticles from '../../components/RelatedArticles.astro';
 import { loadLanden, type Land } from '../../lib/landen';
 import { loadStreken, type Streek } from '../../lib/streken';
 import { loadWijnhuizen, type Wijnhuis } from '../../lib/wijnhuizen';
+import { loadRoutes, type WijnRoute } from '../../lib/routes';
 import { breadcrumbSchema, landSchema, landMetaTitle, landMetaDescription } from '../../lib/seo';
 
 // LAT-1199: card shapes consumed by LandPageContent.
 type StreekCard = { name: string; slug: string; badge: string; description: string; image?: string };
 type WijnhuisCard = { name: string; slug: string; region: string; badge?: string };
+type RouteCard = { title: string; slug: string; days?: number; transport?: string; style?: string };
 
 function truncate(str: string, max = 150): string {
   if (str.length <= max) return str;
@@ -49,43 +51,61 @@ function wijnhuisToCard(w: Wijnhuis): WijnhuisCard {
   };
 }
 
+function routeToCard(r: WijnRoute): RouteCard {
+  const m = (r.duration || '').match(/\d+/);
+  return {
+    title: r.title,
+    slug: r.slug,
+    days: m ? Number(m[0]) : undefined,
+    transport: r.transport || undefined,
+    style: r.style || undefined,
+  };
+}
+
 export async function getStaticPaths() {
-  const [entries, allStreken, allWijnhuizen] = await Promise.all([
+  const [entries, allStreken, allWijnhuizen, allRoutes] = await Promise.all([
     loadLanden(),
     loadStreken(),
     loadWijnhuizen(),
+    loadRoutes(),
   ]);
   if (entries.length > 0) {
     return entries.map(entry => {
       const landStreken = strekenForLand(entry, allStreken);
       const streekSlugs = new Set(landStreken.map(s => s.slug));
       const landWijnhuizen = allWijnhuizen.filter(w => w.streekSlug && streekSlugs.has(w.streekSlug));
+      // LAT-1199: routes van dit land via routes.streek_id→streek→land-keten
+      // (streekSlug uit M2O of M2M-fallback in loadRoutes).
+      const landRoutes = allRoutes.filter(r => r.streekSlug && streekSlugs.has(r.streekSlug));
       return {
         params: { slug: entry.slug },
         props: {
           entry,
           strekenCards: landStreken.map(streekToCard),
           wijnhuisCards: landWijnhuizen.slice(0, 6).map(wijnhuisToCard),
+          routeCards: landRoutes.map(routeToCard),
         },
       };
     });
   }
   // Showcase fallback slugs when no CMS data
+  const empty = { entry: null, strekenCards: [], wijnhuisCards: [], routeCards: [] };
   return [
-    { params: { slug: 'italie' }, props: { entry: null, strekenCards: [], wijnhuisCards: [] } },
-    { params: { slug: 'duitsland' }, props: { entry: null, strekenCards: [], wijnhuisCards: [] } },
-    { params: { slug: 'frankrijk' }, props: { entry: null, strekenCards: [], wijnhuisCards: [] } },
-    { params: { slug: 'spanje' }, props: { entry: null, strekenCards: [], wijnhuisCards: [] } },
-    { params: { slug: 'portugal' }, props: { entry: null, strekenCards: [], wijnhuisCards: [] } },
-    { params: { slug: 'oostenrijk' }, props: { entry: null, strekenCards: [], wijnhuisCards: [] } },
+    { params: { slug: 'italie' }, props: { ...empty } },
+    { params: { slug: 'duitsland' }, props: { ...empty } },
+    { params: { slug: 'frankrijk' }, props: { ...empty } },
+    { params: { slug: 'spanje' }, props: { ...empty } },
+    { params: { slug: 'portugal' }, props: { ...empty } },
+    { params: { slug: 'oostenrijk' }, props: { ...empty } },
   ];
 }
 
 const { slug } = Astro.params;
-const { entry, strekenCards, wijnhuisCards } = Astro.props as {
+const { entry, strekenCards, wijnhuisCards, routeCards } = Astro.props as {
   entry: Land | null;
   strekenCards: StreekCard[];
   wijnhuisCards: WijnhuisCard[];
+  routeCards: RouteCard[];
 };
 
 // ── Showcase data for Italië (V3 design example) ─────────
@@ -214,9 +234,10 @@ const pageData = entry
       streken: strekenCards.length > 0 ? strekenCards : (showcase?.streken ?? []),
       topWijnhuizen: wijnhuisCards.length > 0 ? wijnhuisCards : (showcase?.topWijnhuizen ?? []),
       druiven: showcase?.druiven ?? [],
-      // TODO(LAT-1199/LAT-1198): routes data-driven via routes.streek_id→land-keten
-      // zodra LAT-1198 het schema + de dump levert. Tot dan showcase als interim.
-      routes: showcase?.routes ?? [],
+      // LAT-1199: routes data-driven via routes.streek_id→land-keten (LAT-1198),
+      // met M2M-junction routes_streken als fallback zolang streek_id leeg is.
+      // Showcase blijft enkel redactionele fallback als de relatie nog leeg is.
+      routes: routeCards.length > 0 ? routeCards : (showcase?.routes ?? []),
       practical: showcase?.practical ?? [],
     }
   : showcase ?? {

@@ -6,10 +6,11 @@ import RelatedArticles from '../../components/RelatedArticles.astro';
 import Stay22Stay from '../../components/Stay22Stay.astro';
 import { loadStreken, type Streek } from '../../lib/streken';
 import { loadWijnhuizen, type Wijnhuis } from '../../lib/wijnhuizen';
+import { loadRoutes, type WijnRoute } from '../../lib/routes';
 import { streekSchema, streekMetaTitle, streekMetaDescription, breadcrumbSchema } from '../../lib/seo';
 
 export async function getStaticPaths() {
-  const [entries, wijnhuizen] = await Promise.all([loadStreken(), loadWijnhuizen()]);
+  const [entries, wijnhuizen, routes] = await Promise.all([loadStreken(), loadWijnhuizen(), loadRoutes()]);
   const byStreek = new Map<string, Wijnhuis[]>();
   for (const wh of wijnhuizen) {
     if (!wh.streekSlug) continue;
@@ -17,13 +18,26 @@ export async function getStaticPaths() {
     list.push(wh);
     byStreek.set(wh.streekSlug, list);
   }
+  // LAT-1199: wijnroutes per streek via routes.streek_id (M2M-junction fallback
+  // in loadRoutes zolang de FK nog leeg is).
+  const routesByStreek = new Map<string, WijnRoute[]>();
+  for (const route of routes) {
+    if (!route.streekSlug) continue;
+    const list = routesByStreek.get(route.streekSlug) ?? [];
+    list.push(route);
+    routesByStreek.set(route.streekSlug, list);
+  }
   return entries.map(entry => ({
     params: { slug: entry.slug },
-    props: { entry, wijnhuizen: byStreek.get(entry.slug) ?? [] },
+    props: {
+      entry,
+      wijnhuizen: byStreek.get(entry.slug) ?? [],
+      routes: routesByStreek.get(entry.slug) ?? [],
+    },
   }));
 }
 
-const { entry, wijnhuizen } = Astro.props as { entry: Streek; wijnhuizen: Wijnhuis[] };
+const { entry, wijnhuizen, routes } = Astro.props as { entry: Streek; wijnhuizen: Wijnhuis[]; routes: WijnRoute[] };
 const pageUrl = new URL(`/streken/${entry.slug}/`, Astro.site ?? 'https://vinomartino.com').href;
 const stay22Location = entry.country ? `${entry.name}, ${entry.country}` : entry.name;
 
@@ -190,6 +204,27 @@ const hasStats = Boolean(
       </section>
     )}
 
+    {routes.length > 0 && (
+      <section class="streek-routes">
+        <div class="container">
+          <span class="section-label">Wijnroutes in {entry.name}</span>
+          <div class="route-grid">
+            {routes.map(route => (
+              <a class="route-card" href={`/wijnroutes/${route.slug}/`}>
+                <span class="route-card__name">{route.title}</span>
+                {route.description && <span class="route-card__desc">{route.description}</span>}
+                <div class="route-card__meta">
+                  {route.duration && <span class="route-card__tag">{route.duration}</span>}
+                  {route.transport && <span class="route-card__tag">{route.transport}</span>}
+                </div>
+                <span class="route-card__cta">Bekijk route &rarr;</span>
+              </a>
+            ))}
+          </div>
+        </div>
+      </section>
+    )}
+
     <section class="streek-insurance">
       <div class="container">
         <AffiliatePlaceholder type="insurance" partner="reisverzekering" region={entry.name} placement="footer" context="streek-insurance" />
@@ -316,9 +351,68 @@ const hasStats = Boolean(
     font-weight: 600;
     margin: 2rem 0 0.75rem;
   }
-  .streek-subregions, .streek-appellations, .streek-accommodation, .streek-insurance, .streek-wijnhuizen {
+  .streek-subregions, .streek-appellations, .streek-accommodation, .streek-insurance, .streek-wijnhuizen, .streek-routes {
     padding: 3rem 0;
     border-bottom: 1px solid var(--rule);
+  }
+  .route-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    margin-top: var(--space-3);
+  }
+  .route-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    text-decoration: none;
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    padding: 1.25rem;
+    transition: box-shadow 0.15s;
+  }
+  .route-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+  .route-card__name {
+    font-family: var(--font-display);
+    font-size: 1.375rem;
+    font-weight: 500;
+    color: var(--ink);
+  }
+  .route-card__desc {
+    font-family: var(--font-body);
+    font-size: 0.9375rem;
+    line-height: 1.5;
+    color: var(--inkSoft);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .route-card__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .route-card__tag {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    background: var(--paperDeep);
+    color: var(--inkSoft);
+    padding: 0.25rem 0.625rem;
+    border-radius: 1px;
+  }
+  .route-card__cta {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--burgundy);
+    margin-top: auto;
+  }
+  @media (max-width: 640px) {
+    .route-grid { grid-template-columns: 1fr; }
   }
   .wijnhuis-grid {
     display: grid;
