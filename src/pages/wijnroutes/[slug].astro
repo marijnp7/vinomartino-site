@@ -3,18 +3,49 @@ import SiteLayout from '../../layouts/SiteLayout.astro';
 import RelatedArticles from '../../components/RelatedArticles.astro';
 import Stay22Stay from '../../components/Stay22Stay.astro';
 import { loadRoutes, type WijnRoute } from '../../lib/routes';
+import { loadStreken } from '../../lib/streken';
 import { wijnrouteSchema, wijnrouteMetaTitle, wijnrouteMetaDescription, breadcrumbSchema } from '../../lib/seo';
 
 export async function getStaticPaths() {
-  const entries = await loadRoutes();
-  return entries.map(entry => ({
-    params: { slug: entry.slug },
-    props: { entry },
-  }));
+  const [entries, streken] = await Promise.all([loadRoutes(), loadStreken()]);
+  const streekBySlug = new Map(streken.map(s => [s.slug, s]));
+  return entries.map(entry => {
+    // LAT-1199: leid de keten Land → Streek af via routes.streek_id → streek→land
+    // voor de verticale kruimel (route kent zelf geen land).
+    const streek = entry.streekSlug ? streekBySlug.get(entry.streekSlug) : undefined;
+    return {
+      params: { slug: entry.slug },
+      props: {
+        entry,
+        streekName: streek?.name ?? '',
+        landSlug: streek?.landSlug ?? '',
+        landName: streek?.country ?? '',
+      },
+    };
+  });
 }
 
-const { entry } = Astro.props as { entry: WijnRoute };
+const { entry, streekName, landSlug, landName } = Astro.props as {
+  entry: WijnRoute; streekName: string; landSlug: string; landName: string;
+};
 const pageUrl = new URL(`/wijnroutes/${entry.slug}/`, Astro.site ?? 'https://vinomartino.com').href;
+
+// LAT-1199: verticale kruimel Land → Streek → Route, met graceful fallback op de
+// laterale Wijnroutes-index wanneer de keten (nog) onbekend is.
+const hasParentLand = Boolean(landSlug && landName);
+const hasParentStreek = Boolean(entry.streekSlug && streekName);
+
+const crumbs = [{ name: 'Home', url: '/' }];
+if (hasParentLand) {
+  crumbs.push({ name: 'Landen', url: '/landen/' });
+  crumbs.push({ name: landName, url: `/landen/${landSlug}/` });
+} else {
+  crumbs.push({ name: 'Wijnroutes', url: '/wijnroutes/' });
+}
+if (hasParentStreek) {
+  crumbs.push({ name: streekName, url: `/streken/${entry.streekSlug}/` });
+}
+crumbs.push({ name: entry.title, url: pageUrl });
 
 const schema = [
   wijnrouteSchema({
@@ -25,11 +56,7 @@ const schema = [
     stops: entry.highlights.length > 0 ? entry.highlights : entry.stops,
     pageUrl,
   }),
-  breadcrumbSchema([
-    { name: 'Home', url: '/' },
-    { name: 'Wijnroutes', url: '/wijnroutes/' },
-    { name: entry.title, url: pageUrl },
-  ]),
+  breadcrumbSchema(crumbs),
 ];
 ---
 
@@ -51,7 +78,10 @@ const schema = [
       <div class="page-main">
         <header class="page-header">
           <nav class="breadcrumb" aria-label="Breadcrumb">
-            <a href="/">Home</a> / <a href="/wijnroutes/">Wijnroutes</a> / <span>{entry.title}</span>
+            {crumbs.slice(0, -1).map(c => (
+              <><a href={c.url}>{c.name}</a> / </>
+            ))}
+            <span>{entry.title}</span>
           </nav>
           <div class="page-meta-row">
             {entry.duration && <span class="page-badge">{entry.duration}</span>}

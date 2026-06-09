@@ -7,6 +7,7 @@ export interface WijnRoute {
     duration: string;
     transport: string;
     style: string;
+    streekSlug: string;
     highlights: string[];
     stops: string[];
     heroImage: string | null;
@@ -113,6 +114,7 @@ function mapRoute(
         duration: String(r.duration || ''),
         transport: String(r.transport || ''),
         style: String(r.style || ''),
+        streekSlug: '',
         highlights: parseJsonField(r.highlights),
         stops: parseJsonField(r.stops),
         heroImage: heroImagePath,
@@ -131,12 +133,16 @@ async function fetchRoutesItems(url: string, token: string): Promise<Record<stri
     const withOg = `${baseFields},og_image`;
     // LAT-1098: reverse-relation via M2M articles.related_routes (junction `articles_routes`).
     const withRelations = `${withOg},related_articles.articles_id.slug,related_articles.articles_id.title`;
+    // LAT-1199: canonieke M2O streek_id (LAT-1198). Additieve top-tier; bij 400/403
+    // (veld/permissie ontbreekt) valt de bestaande keten terug zonder streek_id en
+    // levert de M2M-junction (loadRouteStreekJunction) de mapping alsnog.
+    const withStreek = `${withRelations},streek_id.slug`;
     const filterSort = `${statusFilterQuery(env)}&sort=title`;
     const headers = { Authorization: `Bearer ${token}` };
     const signal = AbortSignal.timeout(15000);
     let res: Response;
     try {
-        res = await fetch(`${url}/items/routes?limit=-1&fields=${withRelations}${filterSort}`, { headers, signal });
+        res = await fetch(`${url}/items/routes?limit=-1&fields=${withStreek}${filterSort}`, { headers, signal });
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         assetDebug.push({ kind: 'query', url, error: msg });
@@ -197,8 +203,40 @@ async function fetchRoutesItems(url: string, token: string): Promise<Record<stri
     throw new Error(`[loadRoutes] Directus returned ${res.status} ${res.statusText}: ${body.slice(0, 300)}`);
 }
 
+// LAT-1199: M2M-junction `routes_streken` als fallback voor routes.streek_id zolang
+// die M2O nog niet gepopuleerd is (populatie = ZA-migratie, buiten LAT-1198). Leest
+// de junction-collectie direct; degradeert stil naar lege map bij permissie/HTTP-fout
+// zodat een ontbrekende read-rechten de routes-build niet breekt.
+async function loadRouteStreekJunction(url: string, token: string): Promise<Map<number, string>> {
+    const map = new Map<number, string>();
+    try {
+        const res = await fetch(
+            `${url}/items/routes_streken?limit=-1&fields=routes_id,streken_id.slug`,
+            { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(15000) },
+        );
+        if (!res.ok) {
+            console.warn(`[loadRoutes] routes_streken junction niet leesbaar (HTTP ${res.status}); route→streek fallback overgeslagen.`);
+            return map;
+        }
+        const json = await res.json();
+        for (const row of (json.data || []) as Record<string, unknown>[]) {
+            const rid = Number(row.routes_id);
+            const streek = row.streken_id;
+            const slug = streek && typeof streek === 'object' ? String((streek as Record<string, unknown>).slug || '') : '';
+            if (rid && slug) map.set(rid, slug);
+        }
+    } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn(`[loadRoutes] routes_streken junction fetch faalde: ${msg}`);
+    }
+    return map;
+}
+
 async function loadFromDirectus(url: string, token: string): Promise<WijnRoute[]> {
-    const data = await fetchRoutesItems(url, token);
+    const [data, junction] = await Promise.all([
+        fetchRoutesItems(url, token),
+        loadRouteStreekJunction(url, token),
+    ]);
     const items = await Promise.all(
         data.map(async (r) => {
             const bodyHtml = r.body ? await markdownToHtml(String(r.body)) : '';
@@ -208,7 +246,13 @@ async function loadFromDirectus(url: string, token: string): Promise<WijnRoute[]
             const ogImagePath = r.og_image
                 ? await downloadAsset(String(r.og_image), url, token, 'og-')
                 : null;
-            return mapRoute(r, heroImagePath, ogImagePath, bodyHtml);
+            const route = mapRoute(r, heroImagePath, ogImagePath, bodyHtml);
+            // Prefer canonieke M2O streek_id; val terug op de M2M-junction.
+            const m2o = r.streek_id && typeof r.streek_id === 'object'
+                ? String((r.streek_id as Record<string, unknown>).slug || '')
+                : '';
+            route.streekSlug = m2o || junction.get(Number(r.id)) || '';
+            return route;
         }),
     );
     console.log(`[loadRoutes] fetched ${items.length} routes from Directus`);

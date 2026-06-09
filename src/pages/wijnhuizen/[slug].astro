@@ -3,18 +3,50 @@ import SiteLayout from '../../layouts/SiteLayout.astro';
 import WijnhuisPageContent from '../../components/pages/WijnhuisPageContent.astro';
 import RelatedArticles from '../../components/RelatedArticles.astro';
 import { loadWijnhuizen, type Wijnhuis } from '../../lib/wijnhuizen';
+import { loadStreken } from '../../lib/streken';
 import { wijnhuisSchema, wijnhuisMetaTitle, wijnhuisMetaDescription, breadcrumbSchema } from '../../lib/seo';
 
 export async function getStaticPaths() {
-  const entries = await loadWijnhuizen();
-  return entries.map(entry => ({
-    params: { slug: entry.slug },
-    props: { entry },
-  }));
+  const [entries, streken] = await Promise.all([loadWijnhuizen(), loadStreken()]);
+  const streekBySlug = new Map(streken.map(s => [s.slug, s]));
+  return entries.map(entry => {
+    // LAT-1199: leid de parent-Land af via de streek→land relatie voor de
+    // verticale kruimel (wijnhuis kent zelf geen land).
+    const streek = entry.streekSlug ? streekBySlug.get(entry.streekSlug) : undefined;
+    return {
+      params: { slug: entry.slug },
+      props: {
+        entry,
+        landSlug: streek?.landSlug ?? '',
+        landName: streek?.country ?? '',
+      },
+    };
+  });
 }
 
-const { entry } = Astro.props as { entry: Wijnhuis };
+const { entry, landSlug, landName } = Astro.props as { entry: Wijnhuis; landSlug: string; landName: string };
 const pageUrl = new URL(`/wijnhuizen/${entry.slug}/`, Astro.site ?? 'https://vinomartino.com').href;
+
+// LAT-1199: verticale kruimel Land → Streek → Wijnhuis, met graceful fallback
+// op de laterale Wijnhuizen-index wanneer de keten (nog) onbekend is.
+const hasParentLand = Boolean(landSlug && landName);
+const hasParentStreek = Boolean(entry.streekSlug && entry.region);
+
+const crumbs = [{ name: 'Home', url: '/' }];
+if (hasParentLand) {
+  crumbs.push({ name: 'Landen', url: '/landen/' });
+  crumbs.push({ name: landName, url: `/landen/${landSlug}/` });
+} else {
+  crumbs.push({ name: 'Wijnhuizen', url: '/wijnhuizen/' });
+}
+if (hasParentStreek) {
+  crumbs.push({ name: entry.region, url: `/streken/${entry.streekSlug}/` });
+}
+crumbs.push({ name: entry.name, url: pageUrl });
+
+// Visible breadcrumb chain for WijnhuisPageContent (component appends the
+// current wijnhuis name itself, so omit the trailing crumb here).
+const visibleBreadcrumb = crumbs.slice(0, -1).map(c => ({ label: c.name, href: c.url }));
 
 const schema = [
   wijnhuisSchema({
@@ -29,11 +61,7 @@ const schema = [
     established: entry.established ?? undefined,
     pageUrl,
   }),
-  breadcrumbSchema([
-    { name: 'Home', url: '/' },
-    { name: 'Wijnhuizen', url: '/wijnhuizen/' },
-    { name: entry.name, url: pageUrl },
-  ]),
+  breadcrumbSchema(crumbs),
 ];
 ---
 
@@ -47,6 +75,7 @@ const schema = [
   <WijnhuisPageContent
     name={entry.name}
     subtitle={entry.description}
+    breadcrumb={visibleBreadcrumb}
     region={[entry.region, entry.country].filter(Boolean).join(' · ')}
     regionHref={entry.streekSlug ? `/streken/${entry.streekSlug}/` : undefined}
     since={entry.established ? String(entry.established) : undefined}

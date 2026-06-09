@@ -22,8 +22,8 @@ interface LandWijnhuis {
 interface LandRoute {
   title: string;
   slug: string;
-  days: number;
-  transport: string;
+  days?: number;
+  transport?: string;
   style?: string;
 }
 
@@ -210,8 +210,8 @@ const {
           <a href={`/wijnroutes/${route.slug}/`} class="land-route-card">
             <div class="land-route-card__img">
               <div class="land-route-card__badges">
-                <span class="land-badge land-badge--days">{route.days}d</span>
-                <span class="land-badge land-badge--transport">{route.transport}</span>
+                {route.days && <span class="land-badge land-badge--days">{route.days}d</span>}
+                {route.transport && <span class="land-badge land-badge--transport">{route.transport}</span>}
               </div>
             </div>
             <div class="land-route-card__body">

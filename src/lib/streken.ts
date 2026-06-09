@@ -5,6 +5,7 @@ export interface Streek {
     name: string;
     description: string;
     country: string;
+    landSlug: string;
     climate: string;
     soil: string;
     mainGrapes: string[];
@@ -117,6 +118,7 @@ function mapStreek(
         name: normalizeEmDashes(String(r.name)),
         description: normalizeEmDashes(String(r.description || '')),
         country: String(r.country || r.land_name || ''),
+        landSlug: String(r.land_slug || ''),
         climate: String(r.climate || ''),
         soil: String(r.soil || ''),
         mainGrapes: parseJsonField(r.main_grapes),
@@ -136,7 +138,7 @@ function mapStreek(
 
 async function fetchStrekenItems(url: string, token: string): Promise<Record<string, unknown>[]> {
     const env = readDirectusEnv();
-    const baseFields = 'id,slug,name,description,body,climate,soil,main_grapes,sub_regions,vineyard_area,altitude,appellations,hero_image,status,meta_title,meta_description,land_id.name';
+    const baseFields = 'id,slug,name,description,body,climate,soil,main_grapes,sub_regions,vineyard_area,altitude,appellations,hero_image,status,meta_title,meta_description,land_id.name,land_id.slug';
     const withOg = `${baseFields},og_image`;
     // LAT-1098: reverse-relation auto-aangemaakt door Directus M2M op articles
     // (LAT-1097). Junction `articles_streken` → `articles_id.{slug,title}`.
@@ -215,6 +217,7 @@ async function loadFromDirectus(url: string, token: string): Promise<Streek[]> {
         data.map(async (r) => {
             const land = r.land_id as Record<string, unknown> | null;
             if (land && land.name) r.land_name = land.name;
+            if (land && land.slug) r.land_slug = land.slug;
             const bodyHtml = r.body ? await markdownToHtml(String(r.body)) : '';
             const heroImagePath = r.hero_image
                 ? await downloadAsset(String(r.hero_image), url, token)

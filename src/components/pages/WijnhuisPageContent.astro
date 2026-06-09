@@ -59,13 +59,18 @@ const {
 <section class="wh-hero">
   <div class="container">
     <nav class="wh-breadcrumb" aria-label="Breadcrumb">
-      <a href="/wijnhuizen/">Wijnhuizen</a>
-      {breadcrumb.map((crumb) => (
-        <>
-          <span class="wh-breadcrumb__sep">›</span>
-          <a href={crumb.href}>{crumb.label}</a>
-        </>
-      ))}
+      {/* LAT-1199: render de verticale keten (Home → Land → Streek) wanneer
+          de pagina die meegeeft; val anders terug op de laterale index. */}
+      {breadcrumb.length > 0 ? (
+        breadcrumb.map((crumb, i) => (
+          <>
+            {i > 0 && <span class="wh-breadcrumb__sep">›</span>}
+            <a href={crumb.href}>{crumb.label}</a>
+          </>
+        ))
+      ) : (
+        <a href="/wijnhuizen/">Wijnhuizen</a>
+      )}
       <span class="wh-breadcrumb__sep">›</span>
       <span class="wh-breadcrumb__current">{name}</span>
     </nav>

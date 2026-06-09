@@ -3,29 +3,65 @@ import SiteLayout from '../../layouts/SiteLayout.astro';
 import LandPageContent from '../../components/pages/LandPageContent.astro';
 import RelatedArticles from '../../components/RelatedArticles.astro';
 import { loadLanden, type Land } from '../../lib/landen';
+import { loadStreken } from '../../lib/streken';
+import { loadWijnhuizen } from '../../lib/wijnhuizen';
+import { loadRoutes } from '../../lib/routes';
 import { breadcrumbSchema, landSchema, landMetaTitle, landMetaDescription } from '../../lib/seo';
+import {
+  strekenForLand,
+  streekToCard,
+  wijnhuisToCard,
+  routeToCard,
+  type StreekCard,
+  type WijnhuisCard,
+  type RouteCard,
+} from '../../lib/landen-cards';
 
 export async function getStaticPaths() {
-  const entries = await loadLanden();
+  const [entries, allStreken, allWijnhuizen, allRoutes] = await Promise.all([
+    loadLanden(),
+    loadStreken(),
+    loadWijnhuizen(),
+    loadRoutes(),
+  ]);
   if (entries.length > 0) {
-    return entries.map(entry => ({
-      params: { slug: entry.slug },
-      props: { entry },
-    }));
+    return entries.map(entry => {
+      const landStreken = strekenForLand(entry, allStreken);
+      const streekSlugs = new Set(landStreken.map(s => s.slug));
+      const landWijnhuizen = allWijnhuizen.filter(w => w.streekSlug && streekSlugs.has(w.streekSlug));
+      // LAT-1199: routes van dit land via routes.streek_id→streek→land-keten
+      // (streekSlug uit M2O of M2M-fallback in loadRoutes).
+      const landRoutes = allRoutes.filter(r => r.streekSlug && streekSlugs.has(r.streekSlug));
+      return {
+        params: { slug: entry.slug },
+        props: {
+          entry,
+          strekenCards: landStreken.map(streekToCard),
+          wijnhuisCards: landWijnhuizen.slice(0, 6).map(wijnhuisToCard),
+          routeCards: landRoutes.map(routeToCard),
+        },
+      };
+    });
   }
   // Showcase fallback slugs when no CMS data
+  const empty = { entry: null, strekenCards: [], wijnhuisCards: [], routeCards: [] };
   return [
-    { params: { slug: 'italie' }, props: { entry: null } },
-    { params: { slug: 'duitsland' }, props: { entry: null } },
-    { params: { slug: 'frankrijk' }, props: { entry: null } },
-    { params: { slug: 'spanje' }, props: { entry: null } },
-    { params: { slug: 'portugal' }, props: { entry: null } },
-    { params: { slug: 'oostenrijk' }, props: { entry: null } },
+    { params: { slug: 'italie' }, props: { ...empty } },
+    { params: { slug: 'duitsland' }, props: { ...empty } },
+    { params: { slug: 'frankrijk' }, props: { ...empty } },
+    { params: { slug: 'spanje' }, props: { ...empty } },
+    { params: { slug: 'portugal' }, props: { ...empty } },
+    { params: { slug: 'oostenrijk' }, props: { ...empty } },
   ];
 }
 
 const { slug } = Astro.params;
-const { entry } = Astro.props as { entry: Land | null };
+const { entry, strekenCards, wijnhuisCards, routeCards } = Astro.props as {
+  entry: Land | null;
+  strekenCards: StreekCard[];
+  wijnhuisCards: WijnhuisCard[];
+  routeCards: RouteCard[];
+};
 
 // ── Showcase data for Italië (V3 design example) ─────────
 const showcaseData: Record<string, {
@@ -147,10 +183,16 @@ const pageData = entry
         }),
       ],
       climate: entry.climate || showcase?.climate || undefined,
-      streken: showcase?.streken ?? [],
-      topWijnhuizen: showcase?.topWijnhuizen ?? [],
+      // LAT-1199: Directus relaties zijn nu de bron voor streken + topwijnhuizen
+      // (kern-gat #2). Showcase blijft alleen optionele redactionele fallback
+      // zolang de relatie nog leeg is.
+      streken: strekenCards.length > 0 ? strekenCards : (showcase?.streken ?? []),
+      topWijnhuizen: wijnhuisCards.length > 0 ? wijnhuisCards : (showcase?.topWijnhuizen ?? []),
       druiven: showcase?.druiven ?? [],
-      routes: showcase?.routes ?? [],
+      // LAT-1199: routes data-driven via routes.streek_id→land-keten (LAT-1198),
+      // met M2M-junction routes_streken als fallback zolang streek_id leeg is.
+      // Showcase blijft enkel redactionele fallback als de relatie nog leeg is.
+      routes: routeCards.length > 0 ? routeCards : (showcase?.routes ?? []),
       practical: showcase?.practical ?? [],
     }
   : showcase ?? {
