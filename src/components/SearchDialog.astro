@@ -1,0 +1,530 @@
+---
+// LAT-1202: site-wide search. Accessible command-palette (⌘K / Ctrl-K) overlay
+// that fetches the static /search-index.json once on first open and scores
+// results client-side. Trigger lives in SiteHeader; this renders the overlay.
+---
+
+<div class="vm-search" data-search hidden>
+  <div class="vm-search__backdrop" data-search-backdrop></div>
+  <div
+    class="vm-search__panel"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="vm-search-label"
+  >
+    <h2 id="vm-search-label" class="vm-search__sr">Zoeken op VinoMartino</h2>
+
+    <div class="vm-search__field">
+      <svg class="vm-search__icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6">
+        <circle cx="11" cy="11" r="7"></circle>
+        <line x1="16.5" y1="16.5" x2="21" y2="21" stroke-linecap="round"></line>
+      </svg>
+      <input
+        type="text"
+        class="vm-search__input"
+        data-search-input
+        placeholder="Zoek een streek, wijnhuis of route…"
+        autocomplete="off"
+        autocapitalize="off"
+        autocorrect="off"
+        spellcheck="false"
+        role="combobox"
+        aria-expanded="false"
+        aria-controls="vm-search-results"
+        aria-autocomplete="list"
+        aria-label="Zoekterm"
+      />
+      <button type="button" class="vm-search__close" data-search-close aria-label="Sluiten">Esc</button>
+    </div>
+
+    <div class="vm-search__results" id="vm-search-results" role="listbox" data-search-results aria-label="Zoekresultaten"></div>
+
+    <div class="vm-search__footer" aria-hidden="true">
+      <span><kbd>↑</kbd><kbd>↓</kbd> navigeren</span>
+      <span><kbd>↵</kbd> openen</span>
+      <span><kbd>esc</kbd> sluiten</span>
+    </div>
+  </div>
+</div>
+
+<!-- is:global omdat de resultaat-items client-side via innerHTML worden
+     geïnjecteerd; Astro's scoped styles (data-astro-*) raken die elementen
+     niet. Alle selectors zijn genamespaced onder .vm-search → geen leakage. -->
+<style is:global>
+  .vm-search[hidden] { display: none; }
+  .vm-search {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: clamp(3rem, 12vh, 9rem) 1rem 2rem;
+  }
+  .vm-search__backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 11, 9, 0.55);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    animation: vm-search-fade var(--duration-fast, 150ms) var(--ease-out, ease);
+  }
+  .vm-search__panel {
+    position: relative;
+    width: min(40rem, 100%);
+    max-height: min(70vh, 40rem);
+    display: flex;
+    flex-direction: column;
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-lg, 4px);
+    box-shadow: 0 24px 60px -12px rgba(15, 11, 9, 0.45);
+    overflow: hidden;
+    animation: vm-search-rise var(--duration-base, 250ms) var(--ease-out, ease);
+  }
+  .vm-search__sr {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+  .vm-search__field {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.875rem 1rem;
+    border-bottom: 1px solid var(--ruleSoft);
+  }
+  .vm-search__icon {
+    width: 1.25rem;
+    height: 1.25rem;
+    color: var(--inkFaint);
+    flex-shrink: 0;
+  }
+  .vm-search__input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    background: transparent;
+    font-family: var(--font-body);
+    font-size: 1.0625rem;
+    color: var(--ink);
+    line-height: 1.4;
+  }
+  .vm-search__input::placeholder { color: var(--inkFaint); }
+  .vm-search__input:focus { outline: none; }
+  .vm-search__close {
+    flex-shrink: 0;
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--inkSoft);
+    background: transparent;
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-sm, 2px);
+    padding: 0.25rem 0.4375rem;
+    cursor: pointer;
+    line-height: 1;
+  }
+  .vm-search__close:hover { color: var(--burgundy); border-color: var(--burgundy); }
+
+  .vm-search__results {
+    flex: 1;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 0.375rem;
+  }
+  .vm-search__group-label {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--inkFaint);
+    padding: 0.75rem 0.75rem 0.375rem;
+  }
+  .vm-search__item {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    padding: 0.625rem 0.75rem;
+    border-radius: var(--radius-sm, 2px);
+    cursor: pointer;
+    text-decoration: none;
+    color: var(--ink);
+    scroll-margin: 0.5rem;
+  }
+  .vm-search__item[aria-selected='true'] {
+    background: var(--burgundy-10, #f2eaeb);
+  }
+  [data-theme='cellar'] .vm-search__item[aria-selected='true'] {
+    background: var(--paperShade);
+  }
+  .vm-search__item-body { min-width: 0; flex: 1; }
+  .vm-search__item-title {
+    font-family: var(--font-ui);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--ink);
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .vm-search__item-excerpt {
+    font-size: 0.8125rem;
+    color: var(--inkSoft);
+    line-height: 1.4;
+    margin-top: 0.125rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .vm-search__item mark {
+    background: transparent;
+    color: var(--burgundy);
+    font-weight: 700;
+  }
+  [data-theme='cellar'] .vm-search__item mark { color: var(--gold); }
+  .vm-search__item-type {
+    flex-shrink: 0;
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--inkSoft);
+    border: 1px solid var(--ruleSoft);
+    border-radius: var(--radius-sm, 2px);
+    padding: 0.1875rem 0.375rem;
+    line-height: 1;
+    align-self: center;
+  }
+  .vm-search__empty {
+    padding: 2.25rem 1rem;
+    text-align: center;
+    color: var(--inkSoft);
+    font-family: var(--font-body);
+    font-size: 0.9375rem;
+  }
+  .vm-search__empty strong { color: var(--ink); font-weight: 600; }
+  .vm-search__ex {
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    color: var(--inkSoft);
+  }
+
+  .vm-search__footer {
+    display: flex;
+    gap: 1.25rem;
+    padding: 0.625rem 1rem;
+    border-top: 1px solid var(--ruleSoft);
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.04em;
+    color: var(--inkFaint);
+  }
+  .vm-search__footer kbd {
+    font-family: var(--font-mono);
+    background: var(--paperDeep);
+    border: 1px solid var(--ruleSoft);
+    border-radius: var(--radius-sm, 2px);
+    padding: 0.0625rem 0.25rem;
+    margin-right: 0.1875rem;
+    font-size: 0.625rem;
+    color: var(--inkSoft);
+  }
+
+  @keyframes vm-search-fade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes vm-search-rise {
+    from { opacity: 0; transform: translateY(-8px) scale(0.985); }
+    to { opacity: 1; transform: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .vm-search__backdrop, .vm-search__panel { animation: none; }
+  }
+  @media (max-width: 640px) {
+    .vm-search { padding-top: 1rem; }
+    .vm-search__footer { display: none; }
+  }
+</style>
+
+<script>
+  interface SearchRecord {
+    type: string;
+    title: string;
+    subtitle: string;
+    url: string;
+    excerpt: string;
+    keywords: string[];
+    body: string;
+  }
+  interface IndexedRecord extends SearchRecord {
+    _title: string;
+    _keywords: string;
+    _subtitle: string;
+    _excerpt: string;
+    _body: string;
+  }
+
+  const TYPE_ORDER = ['Streek', 'Wijnroute', 'Wijnhuis', 'Land', 'Artikel'];
+  const MAX_RESULTS = 24;
+
+  const root = document.querySelector<HTMLElement>('[data-search]');
+  const input = document.querySelector<HTMLInputElement>('[data-search-input]');
+  const resultsEl = document.querySelector<HTMLElement>('[data-search-results]');
+  const backdrop = document.querySelector<HTMLElement>('[data-search-backdrop]');
+  const closeBtn = document.querySelector<HTMLElement>('[data-search-close]');
+
+  if (root && input && resultsEl) {
+    let records: IndexedRecord[] | null = null;
+    let loading = false;
+    let active = -1;
+    let lastFocused: HTMLElement | null = null;
+
+    const norm = (s: string): string =>
+      (s || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '');
+
+    async function ensureIndex(): Promise<void> {
+      if (records || loading) return;
+      loading = true;
+      try {
+        const res = await fetch('/search-index.json');
+        const data = await res.json();
+        records = (data.records as SearchRecord[]).map((r) => ({
+          ...r,
+          _title: norm(r.title),
+          _keywords: norm((r.keywords || []).join(' ')),
+          _subtitle: norm(r.subtitle),
+          _excerpt: norm(r.excerpt),
+          _body: norm(r.body),
+        }));
+      } catch (e) {
+        records = [];
+      } finally {
+        loading = false;
+        if (root && !root.hidden) render(input!.value);
+      }
+    }
+
+    // Subsequence match (fuzzy) — returns true if all chars of q appear in order in s.
+    function subseq(q: string, s: string): boolean {
+      let i = 0;
+      for (let j = 0; j < s.length && i < q.length; j++) {
+        if (s[j] === q[i]) i++;
+      }
+      return i === q.length;
+    }
+
+    function scoreRecord(rec: IndexedRecord, tokens: string[], full: string): number {
+      let score = 0;
+      // Strong bonus for a contiguous match of the full query in the title.
+      if (full.length > 1) {
+        const idx = rec._title.indexOf(full);
+        if (idx === 0) score += 120;
+        else if (idx > 0) score += 70;
+        else if (rec._keywords.indexOf(full) >= 0) score += 40;
+        else if (rec._subtitle.indexOf(full) >= 0) score += 30;
+      }
+      for (const t of tokens) {
+        let best = 0;
+        const ti = rec._title.indexOf(t);
+        if (ti === 0) best = Math.max(best, 30);
+        else if (ti > 0) best = Math.max(best, rec._title[ti - 1] === ' ' ? 24 : 16);
+        if (rec._keywords.indexOf(t) >= 0) best = Math.max(best, 14);
+        if (rec._subtitle.indexOf(t) >= 0) best = Math.max(best, 12);
+        if (rec._excerpt.indexOf(t) >= 0) best = Math.max(best, 6);
+        if (rec._body.indexOf(t) >= 0) best = Math.max(best, 3);
+        if (best === 0 && t.length >= 3 && subseq(t, rec._title)) best = 2;
+        if (best === 0) return -1; // every token must match somewhere
+        score += best;
+      }
+      return score;
+    }
+
+    function search(query: string): IndexedRecord[] {
+      const q = norm(query).trim();
+      if (!q || !records) return [];
+      const tokens = q.split(/\s+/).filter(Boolean);
+      const scored: { rec: IndexedRecord; s: number }[] = [];
+      for (const rec of records) {
+        const s = scoreRecord(rec, tokens, q);
+        if (s > 0) scored.push({ rec, s });
+      }
+      scored.sort((a, b) => b.s - a.s || a.rec.title.localeCompare(b.rec.title));
+      return scored.slice(0, MAX_RESULTS).map((x) => x.rec);
+    }
+
+    function escapeHtml(s: string): string {
+      return s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string));
+    }
+
+    function highlight(text: string, tokens: string[]): string {
+      let html = escapeHtml(text);
+      const uniq = [...new Set(tokens.filter((t) => t.length >= 1))].sort((a, b) => b.length - a.length);
+      for (const t of uniq) {
+        const esc = t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        // Match diacritic-insensitive by building a tolerant pattern is complex;
+        // fall back to a case-insensitive literal match on the escaped HTML.
+        try {
+          html = html.replace(new RegExp(`(${esc})`, 'gi'), '<mark>$1</mark>');
+        } catch (e) { /* ignore bad pattern */ }
+      }
+      return html;
+    }
+
+    function render(query: string): void {
+      if (!resultsEl) return;
+      const q = query.trim();
+      input!.setAttribute('aria-expanded', q ? 'true' : 'false');
+
+      if (!q) {
+        active = -1;
+        resultsEl.innerHTML =
+          '<div class="vm-search__empty">Begin met typen — bijv. <span class="vm-search__ex">Barolo</span>, <span class="vm-search__ex">Mosel</span> of <span class="vm-search__ex">Priorat</span>.</div>';
+        return;
+      }
+      if (!records) {
+        resultsEl.innerHTML = '<div class="vm-search__empty">Zoekindex laden…</div>';
+        return;
+      }
+
+      const tokens = norm(q).split(/\s+/).filter(Boolean);
+      const hits = search(q);
+      active = hits.length ? 0 : -1;
+
+      if (!hits.length) {
+        resultsEl.innerHTML = `<div class="vm-search__empty">Geen resultaten voor '<strong>${escapeHtml(q)}</strong>'.<br/>Probeer een streek, wijnhuis of land.</div>`;
+        return;
+      }
+
+      const byType = new Map<string, IndexedRecord[]>();
+      for (const rec of hits) {
+        if (!byType.has(rec.type)) byType.set(rec.type, []);
+        byType.get(rec.type)!.push(rec);
+      }
+      const rank = (t: string): number => {
+        const i = TYPE_ORDER.indexOf(t);
+        return i < 0 ? TYPE_ORDER.length : i;
+      };
+      const orderedTypes = [...byType.keys()].sort((a, b) => rank(a) - rank(b));
+
+      let html = '';
+      let i = 0;
+      for (const type of orderedTypes) {
+        html += `<div class="vm-search__group-label" role="presentation">${escapeHtml(type)}</div>`;
+        for (const rec of byType.get(type)!) {
+          const sub = rec.subtitle ? `${rec.subtitle} — ` : '';
+          html += `<a class="vm-search__item" role="option" id="vm-search-opt-${i}" data-idx="${i}" href="${escapeHtml(rec.url)}" aria-selected="${i === 0 ? 'true' : 'false'}">
+            <span class="vm-search__item-body">
+              <span class="vm-search__item-title">${highlight(rec.title, tokens)}</span>
+              <span class="vm-search__item-excerpt">${escapeHtml(sub)}${highlight(rec.excerpt, tokens)}</span>
+            </span>
+            <span class="vm-search__item-type">${escapeHtml(rec.type)}</span>
+          </a>`;
+          i++;
+        }
+      }
+      resultsEl.innerHTML = html;
+      syncActive();
+    }
+
+    function items(): HTMLAnchorElement[] {
+      return Array.from(resultsEl!.querySelectorAll<HTMLAnchorElement>('.vm-search__item'));
+    }
+
+    function syncActive(): void {
+      const els = items();
+      els.forEach((el, idx) => el.setAttribute('aria-selected', idx === active ? 'true' : 'false'));
+      const el = els[active];
+      if (el) {
+        el.scrollIntoView({ block: 'nearest' });
+        input!.setAttribute('aria-activedescendant', el.id);
+      } else {
+        input!.removeAttribute('aria-activedescendant');
+      }
+    }
+
+    function move(delta: number): void {
+      const n = items().length;
+      if (!n) return;
+      active = (active + delta + n) % n;
+      syncActive();
+    }
+
+    function open(): void {
+      if (!root) return;
+      lastFocused = document.activeElement as HTMLElement;
+      root.hidden = false;
+      document.documentElement.style.overflow = 'hidden';
+      void ensureIndex();
+      render(input!.value);
+      requestAnimationFrame(() => { input!.focus(); input!.select(); });
+    }
+
+    function close(): void {
+      if (!root) return;
+      root.hidden = true;
+      document.documentElement.style.overflow = '';
+      input!.removeAttribute('aria-activedescendant');
+      if (lastFocused && typeof lastFocused.focus === 'function') lastFocused.focus();
+    }
+
+    function isOpen(): boolean { return !!root && !root.hidden; }
+
+    input.addEventListener('input', () => render(input!.value));
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowDown') { e.preventDefault(); move(1); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); move(-1); }
+      else if (e.key === 'Enter') {
+        e.preventDefault();
+        const el = items()[active];
+        if (el) window.location.href = el.href;
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        close();
+      } else if (e.key === 'Home') { e.preventDefault(); active = 0; syncActive(); }
+      else if (e.key === 'End') { e.preventDefault(); active = items().length - 1; syncActive(); }
+    });
+
+    resultsEl.addEventListener('mousemove', (e) => {
+      const el = (e.target as HTMLElement).closest<HTMLElement>('.vm-search__item');
+      if (!el) return;
+      const idx = Number(el.dataset.idx);
+      if (!Number.isNaN(idx) && idx !== active) { active = idx; syncActive(); }
+    });
+
+    backdrop?.addEventListener('click', close);
+    closeBtn?.addEventListener('click', close);
+
+    document.addEventListener('keydown', (e) => {
+      const k = e.key.toLowerCase();
+      if ((e.metaKey || e.ctrlKey) && k === 'k') {
+        e.preventDefault();
+        isOpen() ? close() : open();
+      } else if (k === '/' && !isOpen()) {
+        const t = e.target as HTMLElement;
+        const tag = t?.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || t?.isContentEditable) return;
+        e.preventDefault();
+        open();
+      }
+    });
+
+    // Header triggers (and any element with data-search-open) open the dialog.
+    document.querySelectorAll('[data-search-open]').forEach((btn) => {
+      btn.addEventListener('click', (e) => { e.preventDefault(); open(); });
+    });
+
+    // Allow opening via URL hash (#zoeken) for deep links / accessibility menus.
+    if (window.location.hash === '#zoeken') open();
+  }
+</script>
