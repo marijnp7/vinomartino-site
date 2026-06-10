@@ -58,8 +58,6 @@ export interface AtlasAppellatie {
   name: string;
   slug?: string;
   classification?: string;
-  /** Klikbaar alleen als de appellatie-/streek-pagina gepubliceerd is (404-veilig). */
-  linkable?: boolean;
   /** SVG-path d in de land-viewBox; leeg = val terug op de streek-zone. */
   zonePath?: string;
   zoneColor?: AccentColor;
@@ -310,10 +308,11 @@ const strokeScale = Math.max(innerW, innerH) / 600; // schaal lijndikte met view
               (z.appellaties ?? []).map((ap) => {
                 const d = ap.zonePath && ap.zonePath.trim() ? ap.zonePath : z.zonePath!;
                 const a = labelAnchor(d, z.labelOffset);
-                // Drill-down alleen als de adapter de appellatie als gepubliceerd
-                // markeerde (404-veilig). Doel = eigen slug, anders parent-streek.
-                const linkable = Boolean(ap.linkable) && Boolean(ap.slug || z.linkable);
-                const href = ap.slug ? `/streken/${ap.slug}/` : `/streken/${z.slug}/`;
+                // Appellaties hebben GEEN eigen /streken/-pagina; de drill-down
+                // gaat altijd naar de parent-streek. Klikbaar iff die streek
+                // gepubliceerd is (404-veilig).
+                const linkable = Boolean(z.linkable);
+                const href = `/streken/${z.slug}/`;
                 const Tag = linkable ? 'a' : 'g';
                 const linkProps = linkable ? { href } : {};
                 return (

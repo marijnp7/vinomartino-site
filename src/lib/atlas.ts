@@ -102,16 +102,11 @@ export function mapConfigToProps(mc: Rec | null | undefined): AtlasMapConfig {
   };
 }
 
-function appellatieToProps(r: Rec, published: Set<string>): AtlasAppellatie {
-  const slug = str(r.slug);
-  const parent = streekKey(r);
+function appellatieToProps(r: Rec): AtlasAppellatie {
   return {
     name: str(pick(r, 'name', 'label')) || String(r.slug ?? ''),
-    slug,
+    slug: str(r.slug),
     classification: str(pick(r, 'classification', 'classificatie')),
-    // 404-veilig: klikbaar als de eigen appellatie-pagina bestaat, of (zonder
-    // eigen pagina) de parent-streek gepubliceerd is.
-    linkable: (slug ? published.has(slug) : false) || (!slug && !!parent && published.has(parent)),
     zonePath: str(pick(r, 'zone_path', 'zonePath')),
     zoneColor: accent(pick(r, 'zone_color', 'zoneColor')),
   };
@@ -136,7 +131,7 @@ export function buildZones(
     const key = streekKey(ap);
     if (!key) continue;
     const list = byStreek.get(key) ?? [];
-    list.push(appellatieToProps(ap, published));
+    list.push(appellatieToProps(ap));
     byStreek.set(key, list);
   }
   return streken.map((r) => {
