@@ -82,10 +82,7 @@ const EXISTING_STREKEN_UPDATES = [
     sort_order: 1,
     dominant_grape: 'Nebbiolo',
     main_grapes: ["Nebbiolo", "Barbera", "Dolcetto", "Moscato Bianco", "Cortese", "Arneis"],
-    wine_style:
-      'Tanninrijke rode bewaarwijnen (Barolo, Barbaresco) van Nebbiolo — lang rijpend, hoge zuurgraad. ' +
-      'Toegankelijkere Barbera (donker fruit, volle zuurgraad) en dagelijkse Dolcetto (amandelbitter, soepel). ' +
-      'Zoet mousserend Moscato d\'Asti (5–5,5% alc). Droge witte Gavi (Cortese) en Arneis uit Roero.',
+    wine_style: 'Tanninrijk, lang rijpend',
   },
   {
     id: 4,
@@ -94,11 +91,7 @@ const EXISTING_STREKEN_UPDATES = [
     sort_order: 2,
     dominant_grape: 'Sangiovese',
     main_grapes: ["Sangiovese", "Cabernet Sauvignon", "Merlot", "Vernaccia di San Gimignano"],
-    wine_style:
-      'Sangiovese-gedomineerde rode wijnen in diverse appellaties: Brunello di Montalcino (100% Brunello, ' +
-      'min. 5 jaar rijping), Chianti Classico (min. 80% Sangiovese), Vino Nobile di Montepulciano, ' +
-      'Morellino di Scansano. Super Tuscans op Cabernet-basis (Bolgheri, Sassicaia, Ornellaia). ' +
-      'Droge witte Vernaccia di San Gimignano (eerste DOC van Italië, 1966).',
+    wine_style: 'Gestructureerd, bewaarwijn',
   },
   {
     id: 5,
@@ -107,11 +100,7 @@ const EXISTING_STREKEN_UPDATES = [
     sort_order: 7,
     dominant_grape: 'Nerello Mascalese',
     main_grapes: ["Nerello Mascalese", "Carricante", "Nero d'Avola", "Frappato", "Catarratto", "Grillo", "Inzolia"],
-    wine_style:
-      'Vulkanische wijnen van Etna: Nerello Mascalese (rood, dunne schil, hoge tannine en zuurgraad, ' +
-      '500–1000m hoogte op basaltbodem) en Carricante (wit, mineraal, lang houdbaar). ' +
-      "Rijpe rode Nero d'Avola uit het zuiden (kersen, cacao). " +
-      'Licht Frappato van Vittoria. Enige DOCG: Cerasuolo di Vittoria (50% Nero d\'Avola + 50% Frappato).',
+    wine_style: 'Vulkanisch, mineraal',
   },
 ];
 
@@ -125,11 +114,7 @@ const NEW_STREKEN = [
     sort_order: 3,
     dominant_grape: 'Corvina Veronese',
     main_grapes: ["Corvina Veronese", "Corvinone", "Rondinella", "Garganega", "Glera"],
-    wine_style:
-      'Amarone della Valpolicella (appassimento van gedroogde Corvina-druiven, 14–17% alc, droog-complex). ' +
-      'Droge witte Soave (Garganega, amandelachtig, bloemenig). ' +
-      'Fruitig mousserende Prosecco (Glera, Charmat-methode) uit Conegliano Valdobbiadene. ' +
-      'Zoete Recioto-versies (Valpolicella en Soave).',
+    wine_style: 'Appassimento, moussend',
   },
   {
     name: 'Friuli-Venezia Giulia',
@@ -139,10 +124,7 @@ const NEW_STREKEN = [
     sort_order: 4,
     dominant_grape: 'Friulano',
     main_grapes: ["Friulano", "Ribolla Gialla", "Pinot Grigio", "Refosco dal Peduncolo Rosso"],
-    wine_style:
-      'Droge witte wijnen: Friulano (amandelbitter, laag zuur) en Pinot Grigio (droger dan de ' +
-      'massaproductie-variant). Oranjewijnen van Ribolla Gialla — langdurig vellencontact, ' +
-      'oxidatief potentieel (Gravner, Radikon). Inheemse rode Refosco dal Peduncolo Rosso (donker, tannineus).',
+    wine_style: 'Droog wit, oranjewijnen',
   },
   {
     name: 'Trentino-Alto Adige',
@@ -152,11 +134,7 @@ const NEW_STREKEN = [
     sort_order: 5,
     dominant_grape: 'Gewürztraminer',
     main_grapes: ["Gewürztraminer", "Pinot Bianco", "Pinot Grigio", "Lagrein", "Teroldego Rotaliano", "Schiava"],
-    wine_style:
-      'Aromatische witte Gewürztraminer — haar bakermat ligt in Tramin/Termeno (Zuid-Tirol). ' +
-      'Helder Pinot Bianco met hoge zuurgraad door koele bergklimaat (600–900m). ' +
-      'Krachtige inheemse rode Lagrein (pruim, chocolade) en Teroldego Rotaliano (Campo Rotaliano-vlakte). ' +
-      'Lichte lokale Schiava (Vernatsch) — het terrasdrankje van de regio.',
+    wine_style: 'Aromatisch, bergklimaat',
   },
   {
     name: 'Emilia-Romagna',
@@ -166,11 +144,7 @@ const NEW_STREKEN = [
     sort_order: 6,
     dominant_grape: 'Lambrusco',
     main_grapes: ["Lambrusco", "Sangiovese di Romagna", "Albana"],
-    wine_style:
-      'Mousserende Lambrusco in stijlen van frisroze tot donkerrood, droog (secco) tot zoet (dolce) — ' +
-      'klassieke pairingwijn bij Parmigiano Reggiano en prosciutto di Parma. ' +
-      'Fruitige Sangiovese di Romagna (lichter dan Toscaans Sangiovese). ' +
-      'Witte Albana: eerste witte DOCG van Italië (1987), droog, semi-zoet en passito-stijl.',
+    wine_style: 'Moussend, pairing',
   },
   {
     name: 'Campania',
@@ -180,12 +154,7 @@ const NEW_STREKEN = [
     sort_order: 8,
     dominant_grape: 'Aglianico',
     main_grapes: ["Aglianico", "Greco di Tufo", "Fiano di Avellino", "Falanghina"],
-    wine_style:
-      "Tanninrijke Taurasi DOCG van Aglianico — 'Barolo van het Zuiden', min. 85% Aglianico, " +
-      'min. 3 jaar rijping (4 voor Riserva). Late rijping (oogst in oktober). ' +
-      'Mineralige witte Greco di Tufo op vulkanische tufsteen (Irpinia). ' +
-      'Geurige, lang houdbare Fiano di Avellino (honing, hazelnoot). ' +
-      'Frisse Falanghina — toegankelijkste wit van de regio.',
+    wine_style: 'Tanninrijk, zuidelijk',
   },
   {
     name: 'Puglia',
@@ -195,11 +164,7 @@ const NEW_STREKEN = [
     sort_order: 9,
     dominant_grape: 'Primitivo',
     main_grapes: ["Primitivo", "Negroamaro", "Nero di Troia", "Malvasia Nera"],
-    wine_style:
-      'Primitivo di Manduria: rijp en jam-achtig (DNA-identiek aan Californische Zinfandel), ' +
-      '14–17% alcohol. Donkere Negroamaro ("zwart-bitter") voor Salice Salentino. ' +
-      "Nero di Troia (Uva di Troia) in renaissance — basis voor Castel del Monte DOCG's. " +
-      'Malvasia Nera als blending-partner voor diepere kleur.',
+    wine_style: 'Rijp, krachtig',
   },
   {
     name: 'Sardegna',
@@ -209,11 +174,7 @@ const NEW_STREKEN = [
     sort_order: 10,
     dominant_grape: 'Vermentino',
     main_grapes: ["Vermentino", "Cannonau", "Carignano", "Nuragus"],
-    wine_style:
-      'Aromatische witte Vermentino di Gallura DOCG (enige DOCG van Sardegna, min. 95% Vermentino) — ' +
-      'bloemenig, citrus, licht bitterheid. ' +
-      'Volle rode Cannonau di Sardegna DOC (= Grenache/Garnacha) — gastronomisch, mediterraan. ' +
-      'Krachtige Carignano del Sulcis op old-vine-percelen van het Sulcis-schiereiland.',
+    wine_style: 'Aromatisch, mediterraan',
   },
 ];
 
