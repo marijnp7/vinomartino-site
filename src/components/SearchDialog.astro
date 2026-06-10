@@ -276,7 +276,6 @@
     let records: IndexedRecord[] | null = null;
     let loading = false;
     let active = -1;
-    let current: { rec: IndexedRecord }[] = [];
     let lastFocused: HTMLElement | null = null;
 
     const norm = (s: string): string =>
@@ -379,7 +378,6 @@
       input!.setAttribute('aria-expanded', q ? 'true' : 'false');
 
       if (!q) {
-        current = [];
         active = -1;
         resultsEl.innerHTML =
           '<div class="vm-search__empty">Begin met typen om wijnstreken, wijnhuizen, routes en artikelen te doorzoeken.</div>';
@@ -392,7 +390,6 @@
 
       const tokens = norm(q).split(/\s+/).filter(Boolean);
       const hits = search(q);
-      current = hits.map((rec) => ({ rec }));
       active = hits.length ? 0 : -1;
 
       if (!hits.length) {
@@ -405,9 +402,11 @@
         if (!byType.has(rec.type)) byType.set(rec.type, []);
         byType.get(rec.type)!.push(rec);
       }
-      const orderedTypes = [...byType.keys()].sort(
-        (a, b) => (TYPE_ORDER.indexOf(a) + 99 * (TYPE_ORDER.indexOf(a) < 0 ? 1 : 0)) - (TYPE_ORDER.indexOf(b) + 99 * (TYPE_ORDER.indexOf(b) < 0 ? 1 : 0)),
-      );
+      const rank = (t: string): number => {
+        const i = TYPE_ORDER.indexOf(t);
+        return i < 0 ? TYPE_ORDER.length : i;
+      };
+      const orderedTypes = [...byType.keys()].sort((a, b) => rank(a) - rank(b));
 
       let html = '';
       let i = 0;
@@ -426,11 +425,6 @@
         }
       }
       resultsEl.innerHTML = html;
-      // Re-map current to DOM order (matches `i` ordering above).
-      current = hits
-        .slice()
-        .sort((a, b) => orderedTypes.indexOf(a.type) - orderedTypes.indexOf(b.type))
-        .map((rec) => ({ rec }));
       syncActive();
     }
 
