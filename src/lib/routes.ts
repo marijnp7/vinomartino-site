@@ -1,4 +1,4 @@
-import type { RelatedRef } from './articles';
+import { stripEditorialHeader, type RelatedRef } from './articles';
 
 export interface WijnRoute {
     slug: string;
@@ -239,7 +239,7 @@ async function loadFromDirectus(url: string, token: string): Promise<WijnRoute[]
     ]);
     const items = await Promise.all(
         data.map(async (r) => {
-            const bodyHtml = r.body ? await markdownToHtml(String(r.body)) : '';
+            const bodyHtml = r.body ? await markdownToHtml(stripEditorialHeader(String(r.body))) : '';
             const heroImagePath = r.hero_image
                 ? await downloadAsset(String(r.hero_image), url, token)
                 : null;

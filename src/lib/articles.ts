@@ -106,6 +106,13 @@ function stripLegacyMetaDescriptionLine(markdown: string): { body: string; extra
     return { body: markdown, extracted: '' };
 }
 
+// LAT-1208: routes/[slug] rendert de Directus `body` rechtstreeks en miste de
+// redactionele-header strip die artikelen al hadden. Exporteer een dunne helper
+// zodat routes.ts dezelfde EDITORIAL_KEYS-logica hergebruikt.
+export function stripEditorialHeader(markdown: string): string {
+    return stripMetaDescriptionFromBody(markdown).body;
+}
+
 function stripMetaDescriptionFromBody(markdown: string): { body: string; extracted: string } {
     const paragraphs = markdown.split(/\n\s*\n/);
     const kept: string[] = [];
