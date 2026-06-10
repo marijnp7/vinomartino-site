@@ -4,11 +4,22 @@ import RelatedArticles from '../../components/RelatedArticles.astro';
 import Stay22Stay from '../../components/Stay22Stay.astro';
 import { loadRoutes, type WijnRoute } from '../../lib/routes';
 import { loadStreken } from '../../lib/streken';
+import { loadWijnhuizen, type Wijnhuis } from '../../lib/wijnhuizen';
 import { wijnrouteSchema, wijnrouteMetaTitle, wijnrouteMetaDescription, breadcrumbSchema } from '../../lib/seo';
 
 export async function getStaticPaths() {
-  const [entries, streken] = await Promise.all([loadRoutes(), loadStreken()]);
+  const [entries, streken, wijnhuizen] = await Promise.all([loadRoutes(), loadStreken(), loadWijnhuizen()]);
   const streekBySlug = new Map(streken.map(s => [s.slug, s]));
+  // LAT-1201: wijnhuizen per streek zodat een route → wijnhuizen-selectie afgeleid
+  // wordt uit routes.streek_id (route kent zelf geen wijnhuis-relatie). Zelfde
+  // transition-safe keten als de streek-pagina's "Wijnhuizen in <streek>".
+  const wijnhuizenByStreek = new Map<string, Wijnhuis[]>();
+  for (const wh of wijnhuizen) {
+    if (!wh.streekSlug) continue;
+    const list = wijnhuizenByStreek.get(wh.streekSlug) ?? [];
+    list.push(wh);
+    wijnhuizenByStreek.set(wh.streekSlug, list);
+  }
   return entries.map(entry => {
     // LAT-1199: leid de keten Land → Streek af via routes.streek_id → streek→land
     // voor de verticale kruimel (route kent zelf geen land).
@@ -20,13 +31,14 @@ export async function getStaticPaths() {
         streekName: streek?.name ?? '',
         landSlug: streek?.landSlug ?? '',
         landName: streek?.country ?? '',
+        wijnhuizen: entry.streekSlug ? (wijnhuizenByStreek.get(entry.streekSlug) ?? []) : [],
       },
     };
   });
 }
 
-const { entry, streekName, landSlug, landName } = Astro.props as {
-  entry: WijnRoute; streekName: string; landSlug: string; landName: string;
+const { entry, streekName, landSlug, landName, wijnhuizen } = Astro.props as {
+  entry: WijnRoute; streekName: string; landSlug: string; landName: string; wijnhuizen: Wijnhuis[];
 };
 const pageUrl = new URL(`/wijnroutes/${entry.slug}/`, Astro.site ?? 'https://vinomartino.com').href;
 
@@ -92,6 +104,21 @@ const schema = [
         </header>
 
         {entry.bodyHtml && <div class="page-prose" set:html={entry.bodyHtml} />}
+
+        {wijnhuizen.length > 0 && (
+          <section class="route-wijnhuizen">
+            <span class="section-label">Wijnhuizen op deze route</span>
+            <div class="wijnhuis-grid">
+              {wijnhuizen.map(wh => (
+                <a class="wijnhuis-card" href={`/wijnhuizen/${wh.slug}/`}>
+                  <span class="wijnhuis-card__name">{wh.name}</span>
+                  {wh.description && <span class="wijnhuis-card__desc">{wh.description}</span>}
+                  <span class="wijnhuis-card__cta">Lees portret &rarr;</span>
+                </a>
+              ))}
+            </div>
+          </section>
+        )}
       </div>
 
       <aside class="page-sidebar">
@@ -241,7 +268,59 @@ const schema = [
     border-bottom: 1px solid var(--ruleSoft);
   }
   .sidebar-highlights li:last-child { border-bottom: none; }
+  .route-wijnhuizen {
+    margin-top: var(--space-10);
+    padding-top: var(--space-8);
+    border-top: 1px solid var(--rule);
+  }
+  .route-wijnhuizen .section-label {
+    display: block;
+    margin-bottom: var(--space-4);
+  }
+  .wijnhuis-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+  .wijnhuis-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    text-decoration: none;
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    padding: 1.25rem;
+    transition: box-shadow 0.15s;
+  }
+  .wijnhuis-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+  .wijnhuis-card__name {
+    font-family: var(--font-display);
+    font-size: 1.375rem;
+    font-weight: 500;
+    color: var(--ink);
+  }
+  .wijnhuis-card__desc {
+    font-family: var(--font-body);
+    font-size: 0.9375rem;
+    line-height: 1.5;
+    color: var(--inkSoft);
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .wijnhuis-card__cta {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--burgundy);
+    margin-top: auto;
+  }
   @media (max-width: 900px) {
     .page-layout { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 640px) {
+    .wijnhuis-grid { grid-template-columns: 1fr; }
   }
 </style>
