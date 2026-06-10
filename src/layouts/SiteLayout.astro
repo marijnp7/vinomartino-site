@@ -1,6 +1,7 @@
 ---
 import SiteHeader from '../components/SiteHeader.astro';
 import SiteFooter from '../components/SiteFooter.astro';
+import SearchDialog from '../components/SearchDialog.astro';
 import '../styles/tokens.css';
 
 type OgType = 'website' | 'article' | 'profile' | 'place';
@@ -132,6 +133,7 @@ const articleTags = article?.tags?.filter((tag): tag is string => Boolean(tag &&
       <slot />
     </main>
     <SiteFooter />
+    <SearchDialog />
     <script>
       import { initAffiliateTracker } from '../lib/click-tracker';
       initAffiliateTracker();
