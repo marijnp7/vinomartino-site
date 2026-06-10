@@ -47,7 +47,10 @@
   </div>
 </div>
 
-<style>
+<!-- is:global omdat de resultaat-items client-side via innerHTML worden
+     geïnjecteerd; Astro's scoped styles (data-astro-*) raken die elementen
+     niet. Alle selectors zijn genamespaced onder .vm-search → geen leakage. -->
+<style is:global>
   .vm-search[hidden] { display: none; }
   .vm-search {
     position: fixed;
