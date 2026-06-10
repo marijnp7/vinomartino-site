@@ -23,7 +23,7 @@
         type="text"
         class="vm-search__input"
         data-search-input
-        placeholder="Zoek wijnstreken, wijnhuizen, routes, artikelen…"
+        placeholder="Zoek een streek, wijnhuis of route…"
         autocomplete="off"
         autocapitalize="off"
         autocorrect="off"
@@ -209,6 +209,11 @@
     font-size: 0.9375rem;
   }
   .vm-search__empty strong { color: var(--ink); font-weight: 600; }
+  .vm-search__ex {
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    color: var(--inkSoft);
+  }
 
   .vm-search__footer {
     display: flex;
@@ -263,7 +268,7 @@
     _body: string;
   }
 
-  const TYPE_ORDER = ['Wijnstreek', 'Streek', 'Wijnhuis', 'Wijnroute', 'Land', 'Artikel'];
+  const TYPE_ORDER = ['Streek', 'Wijnroute', 'Wijnhuis', 'Land', 'Artikel'];
   const MAX_RESULTS = 24;
 
   const root = document.querySelector<HTMLElement>('[data-search]');
@@ -380,7 +385,7 @@
       if (!q) {
         active = -1;
         resultsEl.innerHTML =
-          '<div class="vm-search__empty">Begin met typen om wijnstreken, wijnhuizen, routes en artikelen te doorzoeken.</div>';
+          '<div class="vm-search__empty">Begin met typen — bijv. <span class="vm-search__ex">Barolo</span>, <span class="vm-search__ex">Mosel</span> of <span class="vm-search__ex">Priorat</span>.</div>';
         return;
       }
       if (!records) {
@@ -393,7 +398,7 @@
       active = hits.length ? 0 : -1;
 
       if (!hits.length) {
-        resultsEl.innerHTML = `<div class="vm-search__empty">Geen resultaten voor <strong>${escapeHtml(q)}</strong>.<br/>Probeer een andere zoekterm.</div>`;
+        resultsEl.innerHTML = `<div class="vm-search__empty">Geen resultaten voor '<strong>${escapeHtml(q)}</strong>'.<br/>Probeer een streek, wijnhuis of land.</div>`;
         return;
       }
 
