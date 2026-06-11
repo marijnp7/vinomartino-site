@@ -1,0 +1,670 @@
+---
+/**
+ * <InfographicAtlasInteractive> — interactieve landen-atlas (LAT-1122)
+ *
+ * Bouwt voort op <InfographicAtlas> (LAT-1107/1108) en de web-native,
+ * script-light aanpak van <InfographicCardMinimal> (Stijl 1, LAT-1110).
+ *
+ * Verschillen t.o.v. de statische <InfographicAtlas>:
+ *   • Web-first: schaalt mee met de container, geen vaste social-crop canvas.
+ *   • Facts-box bovenaan met kerngetallen per land.
+ *   • 3 toggle-lagen via een segmented control:
+ *       1) Regio's & streken   (zone_path + zone_color)
+ *       2) Druiven & wijnstijlen (grape_color + dominant_grape + wine_style)
+ *       3) Appellaties & classificaties (appellaties[].zone_path | streek-zone)
+ *   • Hover/focus = facts-tooltip per zone.
+ *   • Klik = échte navigatie (<a href="/streken/{slug}/">) — geen JS-trap, geen 404.
+ *   • Mobiel: gestapelde legenda/lijst-fallback (zelfde container-query patroon
+ *     als de InfographicCard fallback, LAT-1108).
+ *
+ * Data-contract mapt 1:1 op het Directus-schema van LAT-1120:
+ *   landen.map_config / infographic_kicker / facts_override
+ *   streken.zone_path / zone_color / zone_label_offset / grape_color /
+ *           dominant_grape / wine_style / sort_order
+ *   appellaties.name / classification / zone_path / zone_color / sort_order
+ *
+ * Renderer is data-agnostisch: ontbrekende geometrie of lagen worden netjes
+ * weggelaten i.p.v. te crashen, zodat de component al bruikbaar is vóór
+ * LAT-1121 (cartografie) de definitieve d-strings levert.
+ */
+export type AccentColor = 'burgundy' | 'rust' | 'vine';
+
+export interface DataPair {
+  label: string;
+  value: string;
+}
+
+/**
+ * Niet-interactieve onderlaag (LAT-1121 base_layers): landmassa-contour +
+ * stadsmarkeringen. Wordt onder de klikbare streek-zones getekend in elke laag.
+ */
+export type AtlasBaseLayer = AtlasBaseZone | AtlasBasePoint;
+export interface AtlasBaseZone { kind: 'zone'; role?: string; d: string; color?: AccentColor }
+export interface AtlasBasePoint { kind: 'point'; type?: string; x: number; y: number; label?: string }
+
+export interface AtlasMapConfig {
+  /** "minX minY width height" — gedeelde land-viewBox (LAT-1121). */
+  viewBox: string;
+  /** NW, NE, SE, SW coord-labels (mono, in de hoeken). */
+  bbox?: [string, string, string, string];
+  compass?: boolean;
+  scaleBar?: { kmTo: number; pxLength: number };
+  backgroundPattern?: 'contour' | 'vine-rows' | 'hatch' | 'none';
+  /** Landmassa-contour + steden (niet klikbaar, puur context). */
+  baseLayers?: AtlasBaseLayer[];
+}
+
+export interface AtlasAppellatie {
+  name: string;
+  slug?: string;
+  classification?: string;
+  /** SVG-path d in de land-viewBox; leeg = val terug op de streek-zone. */
+  zonePath?: string;
+  zoneColor?: AccentColor;
+}
+
+export interface AtlasZone {
+  /** streek-slug → /streken/{slug}/ (drill-down doel). */
+  slug: string;
+  name: string;
+  /**
+   * Pas drill-down aanzetten als de streek-pagina bestaat (gepubliceerd in
+   * Directus). Onbevestigde zones renderen als niet-klikbare <g> i.p.v. een
+   * <a> die op een 404 uitkomt — hard 404-trap-vereiste uit LAT-1122.
+   */
+  linkable?: boolean;
+  /** SVG-path d in de land-viewBox (laag 1). Leeg = zone niet getekend. */
+  zonePath?: string;
+  zoneColor?: AccentColor;
+  labelOffset?: { x: number; y: number };
+  /** Laag 2 — druiven & wijnstijlen. */
+  grapeColor?: AccentColor;
+  dominantGrape?: string;
+  wineStyle?: string;
+  /** Facts-tooltip per zone. */
+  facts?: DataPair[];
+  /** Laag 3 — appellaties binnen deze streek. */
+  appellaties?: AtlasAppellatie[];
+}
+
+export interface Props {
+  kicker: string;
+  title: string;
+  subtitle?: string;
+  intro?: string;
+  map: AtlasMapConfig;
+  zones: AtlasZone[];
+  /** Kerngetallen-box bovenaan (aantal streken, kern-druiven, appellaties, seizoen). */
+  facts: DataPair[];
+  source: string;
+  domain?: string;
+  /** Verplicht — aria-label voor het hele blok. */
+  alt: string;
+  class?: string;
+}
+
+const {
+  kicker,
+  title,
+  subtitle,
+  intro,
+  map,
+  zones,
+  facts = [],
+  source,
+  domain = 'VINOMARTINO.COM',
+  alt,
+  class: className,
+} = Astro.props;
+
+const blockId = `vmatlasx-${Math.random().toString(36).slice(2, 9)}`;
+
+const COLOR_HEX: Record<AccentColor, string> = {
+  burgundy: '#5A1A1F',
+  rust: '#A14F2A',
+  vine: '#5C6B3F',
+};
+const hex = (c?: AccentColor) => COLOR_HEX[c ?? 'burgundy'];
+
+const vb = map.viewBox.split(/\s+/).map(Number);
+const innerW = vb[2] || 960;
+const innerH = vb[3] || 640;
+
+const bgPattern = map.backgroundPattern ?? 'contour';
+const showCompass = map.compass ?? true;
+
+// Alleen zones met geometrie zijn tekenbaar; de rest valt terug op de lijst.
+const drawable = zones.filter((z) => z.zonePath && z.zonePath.trim().length > 0);
+const baseLayers = map.baseLayers ?? [];
+const hasMap = drawable.length > 0 || baseLayers.length > 0;
+
+// Layer-beschikbaarheid bepaalt welke segmented-control-knoppen verschijnen.
+const hasGrapeLayer = zones.some((z) => z.dominantGrape || z.grapeColor);
+const hasAppellatieLayer = zones.some((z) => z.appellaties && z.appellaties.length > 0);
+
+type LayerDef = { key: 'regio' | 'druiven' | 'appellaties'; label: string };
+const layers: LayerDef[] = [
+  { key: 'regio', label: "Regio's & streken" },
+  ...(hasGrapeLayer ? [{ key: 'druiven', label: 'Druiven & wijnstijlen' } as LayerDef] : []),
+  ...(hasAppellatieLayer ? [{ key: 'appellaties', label: 'Appellaties & classificaties' } as LayerDef] : []),
+];
+
+// Centroid-benadering voor labelplaatsing: gemiddelde van de eerste paar
+// coördinaten in de d-string. Goed genoeg voor een leesbaar label-anker; de
+// redactie kan finetunen via streken.zone_label_offset.
+function labelAnchor(d: string, off?: { x: number; y: number }) {
+  const nums = (d.match(/-?\d+(?:\.\d+)?/g) || []).map(Number);
+  const xs: number[] = [];
+  const ys: number[] = [];
+  for (let i = 0; i + 1 < nums.length; i += 2) {
+    xs.push(nums[i]);
+    ys.push(nums[i + 1]);
+  }
+  const avg = (a: number[]) => (a.length ? a.reduce((s, n) => s + n, 0) / a.length : 0);
+  return { x: avg(xs) + (off?.x ?? 0), y: avg(ys) + (off?.y ?? 0) };
+}
+
+const strokeScale = Math.max(innerW, innerH) / 600; // schaal lijndikte met viewBox
+---
+
+<figure
+  class:list={['vm-atlas-x', className]}
+  data-block-id={blockId}
+  data-layer="regio"
+  aria-label={alt}
+>
+  <header class="ax-head">
+    <p class="ax-kicker">{kicker}</p>
+    <h2 class="ax-title">{title}</h2>
+    {subtitle && <p class="ax-subtitle">{subtitle}</p>}
+    {intro && <p class="ax-intro">{intro}</p>}
+  </header>
+
+  {facts.length > 0 && (
+    <dl class="ax-facts" aria-label="Kerngetallen">
+      {facts.map((f) => (
+        <div class="ax-fact">
+          <dt>{f.label}</dt>
+          <dd>{f.value}</dd>
+        </div>
+      ))}
+    </dl>
+  )}
+
+  {layers.length > 1 && (
+    <div class="ax-controls" role="tablist" aria-label="Kaartlagen">
+      {layers.map((l, i) => (
+        <button
+          type="button"
+          role="tab"
+          class="ax-seg"
+          data-layer-target={l.key}
+          aria-selected={i === 0 ? 'true' : 'false'}
+        >{l.label}</button>
+      ))}
+    </div>
+  )}
+
+  <div class="ax-map-wrap">
+    {hasMap ? (
+      <svg
+        viewBox={map.viewBox}
+        class="ax-map"
+        role="img"
+        aria-label={alt}
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <title>{title}</title>
+        <defs>
+          {bgPattern === 'contour' && (
+            <pattern id={`${blockId}-pat`} patternUnits="userSpaceOnUse" width="80" height="80">
+              <g fill="none" stroke="#C9B98F" stroke-width="0.35" opacity="0.35">
+                <path d="M0 40 Q20 20 40 40 T80 40" />
+                <path d="M0 60 Q20 40 40 60 T80 60" />
+                <path d="M0 20 Q20 0 40 20 T80 20" />
+              </g>
+            </pattern>
+          )}
+          {bgPattern === 'vine-rows' && (
+            <pattern id={`${blockId}-pat`} patternUnits="userSpaceOnUse" width="24" height="24">
+              <line x1="0" y1="0" x2="0" y2="24" stroke="#5C6B3F" stroke-width="0.5" opacity="0.25" />
+            </pattern>
+          )}
+          {bgPattern === 'hatch' && (
+            <pattern id={`${blockId}-pat`} patternUnits="userSpaceOnUse" width="6" height="6">
+              <line x1="0" y1="0" x2="6" y2="6" stroke="#1F1A16" stroke-width="0.3" opacity="0.18" />
+            </pattern>
+          )}
+        </defs>
+
+        <rect x={vb[0] || 0} y={vb[1] || 0} width={innerW} height={innerH} fill="var(--paperDeep, #F0E6D0)" />
+        {bgPattern !== 'none' && (
+          <rect x={vb[0] || 0} y={vb[1] || 0} width={innerW} height={innerH} fill={`url(#${blockId}-pat)`} />
+        )}
+
+        {/* ── Onderlaag: landmassa-contour + steden (niet klikbaar) ─── */}
+        {baseLayers.length > 0 && (
+          <g class="ax-base" aria-hidden="true">
+            {baseLayers.map((b) =>
+              b.kind === 'zone' ? (
+                <path d={b.d} class="ax-base-land" fill={hex(b.color ?? 'vine')} />
+              ) : (
+                <g class="ax-base-city" transform={`translate(${b.x}, ${b.y})`}>
+                  <circle r={2.6 * strokeScale} />
+                  {b.label && (
+                    <text x={4.5 * strokeScale} y={3 * strokeScale} class="ax-mono ax-base-city-label" font-size={9 * strokeScale}>{b.label}</text>
+                  )}
+                </g>
+              ),
+            )}
+          </g>
+        )}
+
+        {/* ── Laag 1 + 2: streek-zones (klikbaar mits gepubliceerd) ── */}
+        <g class="ax-zones">
+          {drawable.map((z) => {
+            const a = labelAnchor(z.zonePath!, z.labelOffset);
+            const factTip = (z.facts ?? []).map((f) => `${f.label}: ${f.value}`).join(' · ');
+            const Tag = z.linkable ? 'a' : 'g';
+            const linkProps = z.linkable
+              ? { href: `/streken/${z.slug}/` }
+              : { tabindex: '0', role: 'img', 'aria-label': z.name };
+            return (
+              <Tag
+                {...linkProps}
+                class:list={['ax-zone', !z.linkable && 'ax-zone--static']}
+                data-regio-color={hex(z.zoneColor)}
+                data-druiven-color={hex(z.grapeColor ?? z.zoneColor)}
+                data-name={z.name}
+                data-grape={z.dominantGrape ?? ''}
+                data-style={z.wineStyle ?? ''}
+                data-facts={factTip}
+              >
+                <title>{z.name}{factTip ? `: ${factTip}` : ''}</title>
+                <path d={z.zonePath} class="ax-zone-fill" />
+                <text
+                  x={a.x}
+                  y={a.y}
+                  text-anchor="middle"
+                  class="ax-zone-label ax-label-regio"
+                  font-size={13 * strokeScale}
+                >{z.name}</text>
+                <text
+                  x={a.x}
+                  y={a.y}
+                  text-anchor="middle"
+                  class="ax-zone-label ax-label-druiven"
+                  font-size={13 * strokeScale}
+                >{z.dominantGrape || z.name}</text>
+              </Tag>
+            );
+          })}
+        </g>
+
+        {/* ── Laag 3: appellatie-subzones ─────────────────────── */}
+        {hasAppellatieLayer && (
+          <g class="ax-appellaties">
+            {drawable.map((z) =>
+              (z.appellaties ?? []).map((ap) => {
+                const d = ap.zonePath && ap.zonePath.trim() ? ap.zonePath : z.zonePath!;
+                const a = labelAnchor(d, z.labelOffset);
+                // Appellaties hebben GEEN eigen /streken/-pagina; de drill-down
+                // gaat altijd naar de parent-streek. Klikbaar iff die streek
+                // gepubliceerd is (404-veilig).
+                const linkable = Boolean(z.linkable);
+                const href = `/streken/${z.slug}/`;
+                const Tag = linkable ? 'a' : 'g';
+                const linkProps = linkable ? { href } : {};
+                return (
+                  <Tag {...linkProps} class="ax-appel" data-color={hex(ap.zoneColor ?? z.zoneColor)}>
+                    <title>{ap.name}{ap.classification ? ` (${ap.classification})` : ''}</title>
+                    <path d={d} class="ax-appel-fill" />
+                    {ap.classification && (
+                      <text x={a.x} y={a.y} text-anchor="middle" class="ax-appel-label" font-size={11 * strokeScale}>{ap.classification}</text>
+                    )}
+                  </Tag>
+                );
+              }),
+            )}
+          </g>
+        )}
+
+        {showCompass && (
+          <g transform={`translate(${(vb[0] || 0) + innerW - 34}, ${(vb[1] || 0) + 34})`} class="ax-compass">
+            <circle r={12 * strokeScale} fill="none" stroke="#5A1A1F" stroke-width={0.8 * strokeScale} />
+            <path d={`M0 ${-10 * strokeScale} L${3.5 * strokeScale} 0 L0 ${10 * strokeScale} L${-3.5 * strokeScale} 0 Z`} fill="#5A1A1F" />
+            <text y={-16 * strokeScale} text-anchor="middle" class="ax-mono" font-size={9 * strokeScale} fill="#5A1A1F">N</text>
+          </g>
+        )}
+
+        {map.scaleBar && (
+          <g transform={`translate(${(vb[0] || 0) + 20}, ${(vb[1] || 0) + innerH - 20})`}>
+            <line x1="0" y1="0" x2={map.scaleBar.pxLength} y2="0" stroke="#1F1A16" stroke-width={1.2 * strokeScale} />
+            <line x1="0" y1={-4 * strokeScale} x2="0" y2={4 * strokeScale} stroke="#1F1A16" stroke-width={1.2 * strokeScale} />
+            <line x1={map.scaleBar.pxLength} y1={-4 * strokeScale} x2={map.scaleBar.pxLength} y2={4 * strokeScale} stroke="#1F1A16" stroke-width={1.2 * strokeScale} />
+            <text x="0" y={-8 * strokeScale} class="ax-mono" font-size={9 * strokeScale} letter-spacing="0.18em" fill="#5A4F45">{map.scaleBar.kmTo} KM</text>
+          </g>
+        )}
+
+        {map.bbox && (
+          <g class="ax-coords" aria-hidden="true">
+            <text x={(vb[0] || 0) + 8} y={(vb[1] || 0) + 14} class="ax-mono" font-size={9 * strokeScale} fill="#8A7E70">{map.bbox[0]}</text>
+            <text x={(vb[0] || 0) + innerW - 8} y={(vb[1] || 0) + 14} text-anchor="end" class="ax-mono" font-size={9 * strokeScale} fill="#8A7E70">{map.bbox[1]}</text>
+            <text x={(vb[0] || 0) + innerW - 8} y={(vb[1] || 0) + innerH - 8} text-anchor="end" class="ax-mono" font-size={9 * strokeScale} fill="#8A7E70">{map.bbox[2]}</text>
+            <text x={(vb[0] || 0) + 8} y={(vb[1] || 0) + innerH - 8} class="ax-mono" font-size={9 * strokeScale} fill="#8A7E70">{map.bbox[3]}</text>
+          </g>
+        )}
+      </svg>
+    ) : (
+      <p class="ax-nogeo">Kaartgeometrie volgt. Zie de streken-lijst hieronder.</p>
+    )}
+
+    {/* Hover/focus tooltip-overlay (gevuld door het scriptje) */}
+    <div class="ax-tooltip" role="status" aria-live="polite" hidden>
+      <p class="ax-tip-name"></p>
+      <p class="ax-tip-meta"></p>
+    </div>
+  </div>
+
+  {/* ── Gestapelde legenda/lijst — primair op mobiel, legenda op desktop ── */}
+  <ul class="ax-legend" aria-label="Streken">
+    {zones.map((z) => {
+      const Tag = z.linkable ? 'a' : 'span';
+      const linkProps = z.linkable ? { href: `/streken/${z.slug}/` } : {};
+      return (
+        <li class="ax-legend-item">
+          <Tag {...linkProps} class:list={['ax-legend-link', !z.linkable && 'ax-legend-link--static']}>
+            <span class="ax-swatch" style={`--regio:${hex(z.zoneColor)}; --druiven:${hex(z.grapeColor ?? z.zoneColor)};`} aria-hidden="true"></span>
+            <span class="ax-legend-text">
+              <span class="ax-legend-name">{z.name}</span>
+              {(z.dominantGrape || z.wineStyle) && (
+                <span class="ax-legend-sub">{[z.dominantGrape, z.wineStyle].filter(Boolean).join(' · ')}</span>
+              )}
+            </span>
+          </Tag>
+        </li>
+      );
+    })}
+  </ul>
+
+  <footer class="ax-source">
+    <span class="ax-source-label">Bron</span>
+    <span class="ax-source-value">{source}</span>
+    <span class="ax-source-domain">{domain}</span>
+  </footer>
+</figure>
+
+<style>
+  .vm-atlas-x {
+    --paper: #FAF5E9;
+    --paperDeep: #F0E6D0;
+    --rule: #C9B98F;
+    --ruleSoft: #E0D2B0;
+    --ink: #1F1A16;
+    --ink-soft: #5A4F45;
+    --ink-faint: #8A7E70;
+    --burgundy: #5A1A1F;
+
+    margin: clamp(2rem, 5vw, 4rem) 0;
+    padding: clamp(1.25rem, 3vw, 2.5rem);
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Source Serif 4', Georgia, serif;
+    container-type: inline-size;
+  }
+
+  .ax-head { max-width: 44rem; margin: 0 0 clamp(1.25rem, 3vw, 2rem); }
+  .ax-kicker {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 0.75rem; letter-spacing: 0.22em; text-transform: uppercase;
+    color: var(--burgundy); margin: 0 0 0.6rem;
+  }
+  .ax-title {
+    font-family: 'Cormorant Garamond', 'EB Garamond', Georgia, serif;
+    font-size: clamp(2rem, 4.5vw, 3.25rem); font-style: italic; font-weight: 500;
+    line-height: 1.05; margin: 0 0 0.35rem;
+  }
+  .ax-subtitle {
+    font-family: 'Cormorant Garamond', 'EB Garamond', Georgia, serif;
+    font-size: clamp(1.1rem, 2vw, 1.5rem); color: var(--ink-soft); margin: 0 0 0.75rem;
+  }
+  .ax-intro { font-size: clamp(0.98rem, 1.4vw, 1.08rem); line-height: 1.6; color: var(--ink-soft); margin: 0; }
+
+  /* Facts-box ------------------------------------------------ */
+  .ax-facts {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px;
+    margin: 0 0 clamp(1.25rem, 3vw, 2rem); padding: 0;
+    background: var(--rule); border: 1px solid var(--rule);
+  }
+  @container (min-width: 640px) {
+    .ax-facts { grid-template-columns: repeat(4, 1fr); }
+  }
+  .ax-fact { background: var(--paper); padding: 0.85rem 1rem; }
+  .ax-fact dt {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 0.65rem; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--ink-faint); margin: 0 0 0.3rem;
+  }
+  .ax-fact dd {
+    margin: 0; font-family: 'Cormorant Garamond', 'EB Garamond', Georgia, serif;
+    font-size: clamp(1.1rem, 2vw, 1.5rem); line-height: 1.1; color: var(--ink);
+  }
+
+  /* Segmented control --------------------------------------- */
+  .ax-controls {
+    display: flex; flex-wrap: wrap; gap: 0.4rem;
+    margin: 0 0 1rem; padding: 0.3rem; border: 1px solid var(--rule);
+    background: var(--paperDeep); border-radius: 2px;
+  }
+  .ax-seg {
+    flex: 1 1 auto; min-width: max-content;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 0.6rem 0.9rem; border: 0; background: transparent; color: var(--ink-soft);
+    cursor: pointer; border-radius: 1px; transition: background 160ms ease, color 160ms ease;
+  }
+  .ax-seg:hover { color: var(--ink); }
+  .ax-seg[aria-selected='true'] { background: var(--burgundy); color: var(--paper); }
+  .ax-seg:focus-visible { outline: 2px solid var(--burgundy); outline-offset: 2px; }
+
+  /* Map ------------------------------------------------------ */
+  .ax-map-wrap { position: relative; border: 1px solid var(--rule); background: var(--paperDeep); }
+  .ax-map { width: 100%; height: auto; display: block; }
+  .ax-nogeo {
+    margin: 0; padding: 2rem 1rem; text-align: center; font-style: italic; color: var(--ink-faint);
+    font-size: 0.95rem;
+  }
+
+  .ax-mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+
+  /* Onderlaag: landmassa + steden ---------------------------- */
+  .ax-base { pointer-events: none; }
+  .ax-base-land { fill-opacity: 0.08; stroke: var(--ink-faint); stroke-width: 0.8; stroke-opacity: 0.4; }
+  .ax-base-city circle { fill: var(--ink-soft); }
+  .ax-base-city-label { fill: var(--ink-soft); letter-spacing: 0.08em; }
+
+  .ax-zone { cursor: pointer; }
+  .ax-zone--static { cursor: default; }
+  g.ax-zone:focus-visible { outline: 2px solid var(--burgundy); outline-offset: 2px; }
+  .ax-zone-fill {
+    fill: var(--regio, #5A1A1F); fill-opacity: 0.14;
+    stroke: var(--regio, #5A1A1F); stroke-width: 1.2; stroke-opacity: 0.65;
+    transition: fill-opacity 160ms ease, stroke-opacity 160ms ease;
+  }
+  .ax-zone:hover .ax-zone-fill,
+  .ax-zone:focus-visible .ax-zone-fill { fill-opacity: 0.3; stroke-opacity: 1; }
+  .ax-zone:focus-visible { outline: none; }
+  .ax-zone-label {
+    font-family: 'Cormorant Garamond', 'EB Garamond', Georgia, serif;
+    font-style: italic; fill: var(--ink); pointer-events: none;
+    paint-order: stroke; stroke: var(--paper); stroke-width: 3px; stroke-linejoin: round;
+  }
+  /* Per-laag kleuring + label-zichtbaarheid via data-layer op de figure */
+  .ax-label-druiven { display: none; }
+  .vm-atlas-x[data-layer='regio']   .ax-zone-fill { fill: var(--regio); stroke: var(--regio); }
+  .vm-atlas-x[data-layer='druiven'] .ax-zone-fill { fill: var(--druiven); stroke: var(--druiven); }
+  .vm-atlas-x[data-layer='druiven'] .ax-label-regio { display: none; }
+  .vm-atlas-x[data-layer='druiven'] .ax-label-druiven { display: block; }
+  .vm-atlas-x[data-layer='appellaties'] .ax-zones .ax-zone-fill { fill-opacity: 0.05; stroke-opacity: 0.3; }
+  .vm-atlas-x[data-layer='appellaties'] .ax-zone-label { display: none; }
+
+  /* Appellatie-laag standaard verborgen, alleen in laag 3 zichtbaar */
+  .ax-appellaties { display: none; }
+  .vm-atlas-x[data-layer='appellaties'] .ax-appellaties { display: block; }
+  .ax-appel { cursor: pointer; }
+  .ax-appel-fill {
+    fill: var(--color, #5A1A1F); fill-opacity: 0.18;
+    stroke: var(--color, #5A1A1F); stroke-width: 1.4; stroke-dasharray: 5 3; stroke-opacity: 0.85;
+    transition: fill-opacity 160ms ease;
+  }
+  .ax-appel:hover .ax-appel-fill { fill-opacity: 0.32; }
+  .ax-appel-label {
+    font-family: 'JetBrains Mono', ui-monospace, monospace; letter-spacing: 0.12em;
+    fill: var(--ink); pointer-events: none; paint-order: stroke; stroke: var(--paper);
+    stroke-width: 3px; stroke-linejoin: round;
+  }
+
+  /* Tooltip -------------------------------------------------- */
+  .ax-tooltip {
+    position: absolute; top: 0; left: 0; transform: translate(-50%, -115%);
+    pointer-events: none; z-index: 5; max-width: 16rem;
+    background: var(--paper); border: 1px solid var(--burgundy);
+    box-shadow: 0 4px 14px rgba(31, 26, 22, 0.18);
+    padding: 0.55rem 0.75rem;
+  }
+  .ax-tooltip[hidden] { display: none; }
+  .ax-tip-name {
+    margin: 0; font-family: 'Cormorant Garamond', 'EB Garamond', Georgia, serif;
+    font-style: italic; font-size: 1.05rem; color: var(--ink);
+  }
+  .ax-tip-meta {
+    margin: 0.15rem 0 0; font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 0.68rem; letter-spacing: 0.04em; color: var(--ink-soft); line-height: 1.4;
+  }
+
+  /* Legend / list ------------------------------------------- */
+  .ax-legend {
+    list-style: none; margin: 1rem 0 0; padding: 0;
+    display: grid; grid-template-columns: 1fr; gap: 1px; background: var(--rule);
+    border: 1px solid var(--rule);
+  }
+  @container (min-width: 640px) {
+    .ax-legend { grid-template-columns: repeat(2, 1fr); }
+  }
+  @container (min-width: 920px) {
+    .ax-legend { grid-template-columns: repeat(3, 1fr); }
+  }
+  .ax-legend-item { background: var(--paper); }
+  .ax-legend-link {
+    display: flex; align-items: center; gap: 0.7rem; padding: 0.7rem 0.85rem;
+    text-decoration: none; color: var(--ink);
+    transition: background 140ms ease;
+  }
+  .ax-legend-link:hover { background: var(--paperDeep); }
+  .ax-legend-link:focus-visible { outline: 2px solid var(--burgundy); outline-offset: -2px; }
+  .ax-legend-link--static { cursor: default; }
+  .ax-legend-link--static:hover { background: transparent; }
+  .ax-swatch {
+    flex: 0 0 auto; width: 14px; height: 14px; border-radius: 2px;
+    background: var(--regio); transition: background 160ms ease;
+  }
+  .vm-atlas-x[data-layer='druiven'] .ax-swatch { background: var(--druiven); }
+  .ax-legend-text { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
+  .ax-legend-name {
+    font-family: 'Cormorant Garamond', 'EB Garamond', Georgia, serif;
+    font-style: italic; font-size: 1.05rem; line-height: 1.1;
+  }
+  .ax-legend-sub {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 0.62rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint);
+  }
+
+  /* Source --------------------------------------------------- */
+  .ax-source {
+    margin-top: clamp(1.25rem, 3vw, 2rem); padding-top: 0.9rem;
+    border-top: 1px solid var(--ruleSoft);
+    display: flex; flex-wrap: wrap; gap: 0.5rem 0.75rem; align-items: baseline;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 0.65rem; letter-spacing: 0.16em; text-transform: uppercase;
+  }
+  .ax-source-label { color: var(--ink-faint); }
+  .ax-source-value { color: var(--ink-soft); }
+  .ax-source-domain { margin-left: auto; color: var(--burgundy); letter-spacing: 0.22em; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ax-zone-fill, .ax-appel-fill, .ax-seg, .ax-swatch, .ax-legend-link { transition: none; }
+  }
+</style>
+
+<script>
+  // Interactiviteit: laag-toggle + hover/focus-tooltip. Geen bundel, idempotent.
+  (function () {
+    if (typeof window === 'undefined') return;
+    const blocks = document.querySelectorAll('.vm-atlas-x:not([data-wired])');
+    blocks.forEach((block) => {
+      block.setAttribute('data-wired', 'true');
+      const fig = block as HTMLElement;
+
+      // ── Segmented control ─────────────────────────────
+      const segs = Array.from(fig.querySelectorAll('.ax-seg')) as HTMLElement[];
+      segs.forEach((seg) => {
+        seg.addEventListener('click', () => {
+          const target = seg.getAttribute('data-layer-target') || 'regio';
+          fig.setAttribute('data-layer', target);
+          segs.forEach((s) => s.setAttribute('aria-selected', s === seg ? 'true' : 'false'));
+        });
+      });
+
+      // ── Per-zone accentkleur (CSS custom props) ───────
+      const zones = Array.from(fig.querySelectorAll('.ax-zone')) as HTMLElement[];
+      zones.forEach((z) => {
+        const regio = z.getAttribute('data-regio-color');
+        const druiven = z.getAttribute('data-druiven-color');
+        if (regio) z.style.setProperty('--regio', regio);
+        if (druiven) z.style.setProperty('--druiven', druiven);
+      });
+      const appels = Array.from(fig.querySelectorAll('.ax-appel')) as HTMLElement[];
+      appels.forEach((a) => {
+        const c = a.getAttribute('data-color');
+        if (c) a.style.setProperty('--color', c);
+      });
+
+      // ── Tooltip ───────────────────────────────────────
+      const wrap = fig.querySelector('.ax-map-wrap') as HTMLElement | null;
+      const tip = fig.querySelector('.ax-tooltip') as HTMLElement | null;
+      const tipName = fig.querySelector('.ax-tip-name') as HTMLElement | null;
+      const tipMeta = fig.querySelector('.ax-tip-meta') as HTMLElement | null;
+      if (wrap && tip && tipName && tipMeta) {
+        const show = (z: HTMLElement, clientX: number, clientY: number) => {
+          const layer = fig.getAttribute('data-layer') || 'regio';
+          const name = z.getAttribute('data-name') || '';
+          const grape = z.getAttribute('data-grape') || '';
+          const style = z.getAttribute('data-style') || '';
+          const factTip = z.getAttribute('data-facts') || '';
+          tipName.textContent = name;
+          if (layer === 'druiven' && (grape || style)) {
+            tipMeta.textContent = [grape, style].filter(Boolean).join(' · ');
+          } else {
+            tipMeta.textContent = factTip;
+          }
+          tipMeta.style.display = tipMeta.textContent ? '' : 'none';
+          const rect = wrap.getBoundingClientRect();
+          tip.style.left = `${clientX - rect.left}px`;
+          tip.style.top = `${clientY - rect.top}px`;
+          tip.hidden = false;
+        };
+        const hide = () => { tip.hidden = true; };
+        zones.forEach((z) => {
+          z.addEventListener('pointerenter', (e) => show(z, (e as PointerEvent).clientX, (e as PointerEvent).clientY));
+          z.addEventListener('pointermove', (e) => show(z, (e as PointerEvent).clientX, (e as PointerEvent).clientY));
+          z.addEventListener('pointerleave', hide);
+          z.addEventListener('focus', () => {
+            const b = z.getBoundingClientRect();
+            show(z, b.left + b.width / 2, b.top + b.height / 2);
+          });
+          z.addEventListener('blur', hide);
+        });
+      }
+    });
+  })();
+</script>

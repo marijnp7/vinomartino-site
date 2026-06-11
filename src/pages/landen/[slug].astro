@@ -2,6 +2,8 @@
 import SiteLayout from '../../layouts/SiteLayout.astro';
 import LandPageContent from '../../components/pages/LandPageContent.astro';
 import RelatedArticles from '../../components/RelatedArticles.astro';
+import InfographicAtlasInteractive from '../../components/InfographicAtlasInteractive.astro';
+import { loadAtlasForLand, type AtlasData } from '../../lib/atlas-data';
 import { loadLanden, type Land } from '../../lib/landen';
 import { loadStreken } from '../../lib/streken';
 import { loadWijnhuizen } from '../../lib/wijnhuizen';
@@ -25,26 +27,30 @@ export async function getStaticPaths() {
     loadRoutes(),
   ]);
   if (entries.length > 0) {
-    return entries.map(entry => {
+    return Promise.all(entries.map(async entry => {
       const landStreken = strekenForLand(entry, allStreken);
       const streekSlugs = new Set(landStreken.map(s => s.slug));
       const landWijnhuizen = allWijnhuizen.filter(w => w.streekSlug && streekSlugs.has(w.streekSlug));
       // LAT-1199: routes van dit land via routes.streek_id→streek→land-keten
       // (streekSlug uit M2O of M2M-fallback in loadRoutes).
       const landRoutes = allRoutes.filter(r => r.streekSlug && streekSlugs.has(r.streekSlug));
+      // LAT-1122: interactieve atlas (alléén landen met map_config-geometrie).
+      // Geïsoleerde loader; faalt zacht naar null → pagina rendert zonder atlas.
+      const atlas = await loadAtlasForLand(entry.slug).catch(() => null);
       return {
         params: { slug: entry.slug },
         props: {
           entry,
+          atlas,
           strekenCards: landStreken.map(streekToCard),
           wijnhuisCards: landWijnhuizen.slice(0, 6).map(wijnhuisToCard),
           routeCards: landRoutes.map(routeToCard),
         },
       };
-    });
+    }));
   }
   // Showcase fallback slugs when no CMS data
-  const empty = { entry: null, strekenCards: [], wijnhuisCards: [], routeCards: [] };
+  const empty = { entry: null, atlas: null, strekenCards: [], wijnhuisCards: [], routeCards: [] };
   return [
     { params: { slug: 'italie' }, props: { ...empty } },
     { params: { slug: 'duitsland' }, props: { ...empty } },
@@ -56,8 +62,9 @@ export async function getStaticPaths() {
 }
 
 const { slug } = Astro.params;
-const { entry, strekenCards, wijnhuisCards, routeCards } = Astro.props as {
+const { entry, atlas, strekenCards, wijnhuisCards, routeCards } = Astro.props as {
   entry: Land | null;
+  atlas: AtlasData | null;
   strekenCards: StreekCard[];
   wijnhuisCards: WijnhuisCard[];
   routeCards: RouteCard[];
@@ -263,5 +270,18 @@ const schema = [
     practical={pageData.practical}
     climate={pageData.climate}
   />
+  {atlas && atlas.zones.length > 0 && (
+    <InfographicAtlasInteractive
+      kicker={atlas.kicker ?? `Wijnatlas · ${pageData.name}`}
+      title={`${pageData.name} in kaart`}
+      subtitle="Streken, druiven en appellaties op één kaart"
+      intro="Drie lagen over dezelfde geografie. Kies een laag, beweeg over een zone voor de kerngetallen en klik door naar de streekgids."
+      map={atlas.map}
+      zones={atlas.zones}
+      facts={atlas.facts}
+      source="VinoMartino redactie"
+      alt={`Interactieve kaart van ${pageData.name} met schakelbare lagen voor streken, druiven en appellaties; zones tonen kerngetallen bij hover en linken naar de streekgids.`}
+    />
+  )}
   {entry && <RelatedArticles items={entry.relatedArticles} />}
 </SiteLayout>
