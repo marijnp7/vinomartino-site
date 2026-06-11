@@ -101,6 +101,12 @@ export interface Props {
   /** Verplicht — aria-label voor het hele blok. */
   alt: string;
   class?: string;
+  /**
+   * 'full' (default) = standalone paneel zoals /atlas-italie-interactief/.
+   * 'compact' = ingetogen 2-koloms strip voor de landenpagina (LAT-1295):
+   * gecapte kaart links, lean tekstkolom rechts, dubbele facts/survey-ruis weg.
+   */
+  variant?: 'full' | 'compact';
 }
 
 const {
@@ -115,6 +121,7 @@ const {
   domain = 'VINOMARTINO.COM',
   alt,
   class: className,
+  variant = 'full',
 } = Astro.props;
 
 const blockId = `vmatlasx-${Math.random().toString(36).slice(2, 9)}`;
@@ -168,7 +175,7 @@ const strokeScale = Math.max(innerW, innerH) / 600; // schaal lijndikte met view
 ---
 
 <figure
-  class:list={['vm-atlas-x', className]}
+  class:list={['vm-atlas-x', variant === 'compact' && 'vm-atlas-x--compact', className]}
   data-block-id={blockId}
   data-layer="regio"
   aria-label={alt}
@@ -338,7 +345,7 @@ const strokeScale = Math.max(innerW, innerH) / 600; // schaal lijndikte met view
         )}
 
         {map.scaleBar && (
-          <g transform={`translate(${(vb[0] || 0) + 20}, ${(vb[1] || 0) + innerH - 20})`}>
+          <g class="ax-scalebar" transform={`translate(${(vb[0] || 0) + 20}, ${(vb[1] || 0) + innerH - 20})`}>
             <line x1="0" y1="0" x2={map.scaleBar.pxLength} y2="0" stroke="#1F1A16" stroke-width={1.2 * strokeScale} />
             <line x1="0" y1={-4 * strokeScale} x2="0" y2={4 * strokeScale} stroke="#1F1A16" stroke-width={1.2 * strokeScale} />
             <line x1={map.scaleBar.pxLength} y1={-4 * strokeScale} x2={map.scaleBar.pxLength} y2={4 * strokeScale} stroke="#1F1A16" stroke-width={1.2 * strokeScale} />
@@ -593,6 +600,67 @@ const strokeScale = Math.max(innerW, innerH) / 600; // schaal lijndikte met view
 
   @media (prefers-reduced-motion: reduce) {
     .ax-zone-fill, .ax-appel-fill, .ax-seg, .ax-swatch, .ax-legend-link { transition: none; }
+  }
+
+  /* ── Compact variant — landenpagina (LAT-1295) ─────────────
+     De omhullende .land-atlas-sectie levert wit + witruimte; het paneel zelf
+     wordt chroomloos. Kaart gecapt tot card-formaat, dubbele facts/titel-hero
+     en survey-ruis (kompas/coords/schaalbalk) weg. */
+  .vm-atlas-x--compact { margin: 0; padding: 0; background: transparent; }
+
+  /* dedup t.o.v. hero-stats */
+  .vm-atlas-x--compact .ax-facts { display: none; }
+
+  /* titel terug naar sectie-niveau, geen tweede hero */
+  .vm-atlas-x--compact .ax-title {
+    font-size: clamp(1.6rem, 1rem + 2vw, 2.25rem);
+    font-style: normal;
+    line-height: 1.1;
+  }
+  .vm-atlas-x--compact .ax-subtitle { font-size: 1.05rem; }
+
+  /* survey-ruis weg */
+  .vm-atlas-x--compact :is(.ax-compass, .ax-coords, .ax-scalebar) { display: none; }
+
+  /* luchtiger kaartvlak + subtielere zones */
+  .vm-atlas-x--compact .ax-map-wrap { background: var(--paper); }
+  .vm-atlas-x--compact .ax-zone-fill { fill-opacity: 0.10; stroke-opacity: 0.5; }
+  .vm-atlas-x--compact .ax-zone:hover .ax-zone-fill,
+  .vm-atlas-x--compact .ax-zone:focus-visible .ax-zone-fill { fill-opacity: 0.24; stroke-opacity: 1; }
+
+  /* on-map labels weg op klein formaat: legenda + tooltip dragen de namen */
+  .vm-atlas-x--compact .ax-zone-label { display: none; }
+
+  /* legenda als rustige 1-koloms index rechts */
+  .vm-atlas-x--compact .ax-legend { grid-template-columns: 1fr; margin-top: 0; }
+
+  /* mobiel/smal: gecapte portret-kaart, gecentreerd, duwt de pagina niet weg */
+  .vm-atlas-x--compact .ax-map { max-height: 60vh; }
+  .vm-atlas-x--compact .ax-map-wrap { max-width: 420px; margin-inline: auto; }
+
+  /* 2 kolommen vanaf 720px containerbreedte: kaart links, tekst rechts */
+  @container (min-width: 720px) {
+    .vm-atlas-x--compact {
+      display: grid;
+      grid-template-columns: minmax(300px, 380px) 1fr;
+      grid-template-areas:
+        "map head"
+        "map controls"
+        "map legend"
+        "map source";
+      column-gap: clamp(2rem, 4vw, 3.5rem);
+      row-gap: 1rem;
+      align-items: start;
+    }
+    .vm-atlas-x--compact .ax-map-wrap {
+      grid-area: map; position: sticky; top: 2rem;
+      max-width: none; margin-inline: 0;
+    }
+    .vm-atlas-x--compact .ax-map { max-height: 70vh; }
+    .vm-atlas-x--compact .ax-head     { grid-area: head; margin: 0; }
+    .vm-atlas-x--compact .ax-controls { grid-area: controls; }
+    .vm-atlas-x--compact .ax-legend   { grid-area: legend; }
+    .vm-atlas-x--compact .ax-source   { grid-area: source; margin-top: 0; }
   }
 </style>
 
