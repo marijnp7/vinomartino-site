@@ -269,19 +269,22 @@ const schema = [
     routes={pageData.routes}
     practical={pageData.practical}
     climate={pageData.climate}
-  />
-  {atlas && atlas.zones.length > 0 && (
-    <InfographicAtlasInteractive
-      kicker={atlas.kicker ?? `Wijnatlas · ${pageData.name}`}
-      title={`${pageData.name} in kaart`}
-      subtitle="Streken, druiven en appellaties op één kaart"
-      intro="Drie lagen over dezelfde geografie. Kies een laag, beweeg over een zone voor de kerngetallen en klik door naar de streekgids."
-      map={atlas.map}
-      zones={atlas.zones}
-      facts={atlas.facts}
-      source="VinoMartino redactie"
-      alt={`Interactieve kaart van ${pageData.name} met schakelbare lagen voor streken, druiven en appellaties; zones tonen kerngetallen bij hover en linken naar de streekgids.`}
-    />
-  )}
+  >
+    {atlas && atlas.zones.length > 0 && (
+      <InfographicAtlasInteractive
+        slot="atlas"
+        variant="compact"
+        kicker={atlas.kicker ?? `Wijnatlas · ${pageData.name}`}
+        title={`${pageData.name} in kaart`}
+        subtitle="Streken, druiven en appellaties op één kaart"
+        intro="Drie lagen over dezelfde geografie. Kies een laag, beweeg over een zone voor de kerngetallen en klik door naar de streekgids."
+        map={atlas.map}
+        zones={atlas.zones}
+        facts={atlas.facts}
+        source="VinoMartino redactie"
+        alt={`Interactieve kaart van ${pageData.name} met schakelbare lagen voor streken, druiven en appellaties; zones tonen kerngetallen bij hover en linken naar de streekgids.`}
+      />
+    )}
+  </LandPageContent>
   {entry && <RelatedArticles items={entry.relatedArticles} />}
 </SiteLayout>

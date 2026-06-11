@@ -101,6 +101,12 @@ export interface Props {
   /** Verplicht — aria-label voor het hele blok. */
   alt: string;
   class?: string;
+  /**
+   * 'full' (default) = standalone paneel zoals /atlas-italie-interactief/.
+   * 'compact' = ingetogen 2-koloms strip voor de landenpagina (LAT-1295):
+   * gecapte kaart links, lean tekstkolom rechts, dubbele facts/survey-ruis weg.
+   */
+  variant?: 'full' | 'compact';
 }
 
 const {
@@ -115,6 +121,7 @@ const {
   domain = 'VINOMARTINO.COM',
   alt,
   class: className,
+  variant = 'full',
 } = Astro.props;
 
 const blockId = `vmatlasx-${Math.random().toString(36).slice(2, 9)}`;
@@ -168,7 +175,7 @@ const strokeScale = Math.max(innerW, innerH) / 600; // schaal lijndikte met view
 ---
 
 <figure
-  class:list={['vm-atlas-x', className]}
+  class:list={['vm-atlas-x', variant === 'compact' && 'vm-atlas-x--compact', className]}
   data-block-id={blockId}
   data-layer="regio"
   aria-label={alt}
@@ -237,9 +244,9 @@ const strokeScale = Math.max(innerW, innerH) / 600; // schaal lijndikte met view
           )}
         </defs>
 
-        <rect x={vb[0] || 0} y={vb[1] || 0} width={innerW} height={innerH} fill="var(--paperDeep, #F0E6D0)" />
+        <rect class="ax-bg-base" x={vb[0] || 0} y={vb[1] || 0} width={innerW} height={innerH} fill="var(--paperDeep, #F0E6D0)" />
         {bgPattern !== 'none' && (
-          <rect x={vb[0] || 0} y={vb[1] || 0} width={innerW} height={innerH} fill={`url(#${blockId}-pat)`} />
+          <rect class="ax-bg-pattern" x={vb[0] || 0} y={vb[1] || 0} width={innerW} height={innerH} fill={`url(#${blockId}-pat)`} />
         )}
 
         {/* ── Onderlaag: landmassa-contour + steden (niet klikbaar) ─── */}
@@ -338,7 +345,7 @@ const strokeScale = Math.max(innerW, innerH) / 600; // schaal lijndikte met view
         )}
 
         {map.scaleBar && (
-          <g transform={`translate(${(vb[0] || 0) + 20}, ${(vb[1] || 0) + innerH - 20})`}>
+          <g class="ax-scalebar" transform={`translate(${(vb[0] || 0) + 20}, ${(vb[1] || 0) + innerH - 20})`}>
             <line x1="0" y1="0" x2={map.scaleBar.pxLength} y2="0" stroke="#1F1A16" stroke-width={1.2 * strokeScale} />
             <line x1="0" y1={-4 * strokeScale} x2="0" y2={4 * strokeScale} stroke="#1F1A16" stroke-width={1.2 * strokeScale} />
             <line x1={map.scaleBar.pxLength} y1={-4 * strokeScale} x2={map.scaleBar.pxLength} y2={4 * strokeScale} stroke="#1F1A16" stroke-width={1.2 * strokeScale} />
@@ -593,6 +600,115 @@ const strokeScale = Math.max(innerW, innerH) / 600; // schaal lijndikte met view
 
   @media (prefers-reduced-motion: reduce) {
     .ax-zone-fill, .ax-appel-fill, .ax-seg, .ax-swatch, .ax-legend-link { transition: none; }
+  }
+
+  /* ── Compact variant — landenpagina (LAT-1295) ─────────────
+     Ingetogen overzichts-band per Design-Lead-spec: lean tekst/legenda links,
+     gecapte kaart rechts (≤ ~halve viewport). Tonale rust-zones i.p.v. bont,
+     ghost-toggle, rustige achtergrond. De dark-hero .land-stats blijft de
+     facts-box; hier niet dupliceren (dedup hero). */
+  .vm-atlas-x--compact { margin: 0; padding: 0; background: transparent; }
+
+  /* dedup t.o.v. hero-stats — de hero draagt de kerngetallen al */
+  .vm-atlas-x--compact .ax-facts { display: none; }
+  .vm-atlas-x--compact .ax-head { max-width: none; margin: 0; }
+
+  /* titel terug naar sectie-niveau, geen tweede hero */
+  .vm-atlas-x--compact .ax-title {
+    font-size: clamp(1.6rem, 1rem + 2vw, 2.25rem);
+    font-style: normal;
+    line-height: 1.1;
+  }
+  .vm-atlas-x--compact .ax-subtitle { font-size: 1.05rem; }
+
+  /* survey-ruis weg op klein formaat */
+  .vm-atlas-x--compact :is(.ax-compass, .ax-coords, .ax-scalebar) { display: none; }
+
+  /* kaartvlak zweeft op --paper: geen card/paneel, geen schaduw, fijne onderlijn */
+  .vm-atlas-x--compact .ax-map-wrap {
+    background: transparent; border: 0; border-bottom: 1px solid var(--rule);
+    max-width: 440px; margin-inline: auto;
+  }
+  /* mobiel: gecapte portret-kaart, nooit een muur */
+  .vm-atlas-x--compact .ax-map { max-height: clamp(300px, 60vw, 420px); }
+
+  /* rustige achtergrond: contour/golfjes faint, basisvlak = paper */
+  .vm-atlas-x--compact .ax-bg-base { fill: var(--paper); }
+  .vm-atlas-x--compact .ax-bg-pattern { opacity: 0.04; }
+
+  /* tonale zones — één rust-familie, differentieer met lichtheid niet hue */
+  .vm-atlas-x--compact[data-layer] .ax-zone-fill {
+    fill: var(--rust); fill-opacity: 0.10;
+    stroke: var(--rule); stroke-width: 1; stroke-opacity: 1;
+  }
+  .vm-atlas-x--compact[data-layer] .ax-zone:hover .ax-zone-fill,
+  .vm-atlas-x--compact[data-layer] .ax-zone:focus-visible .ax-zone-fill {
+    fill-opacity: 0.22; stroke: var(--burgundy); stroke-width: 1.5;
+  }
+  .vm-atlas-x--compact[data-layer='appellaties'] .ax-appel-fill {
+    fill: var(--rust); fill-opacity: 0.16; stroke: var(--burgundy); stroke-opacity: 0.5;
+  }
+
+  /* on-map labels weg op klein formaat: legenda + tooltip dragen de namen */
+  .vm-atlas-x--compact .ax-zone-label { display: none; }
+
+  /* ghost segmented-control: tekstknoppen + onderlijn, rechts boven de kaart */
+  .vm-atlas-x--compact .ax-controls {
+    border: 0; background: transparent; border-radius: 0;
+    padding: 0; gap: 1.1rem; justify-content: flex-end; margin: 0 0 0.75rem;
+  }
+  .vm-atlas-x--compact .ax-seg {
+    flex: 0 0 auto; min-width: 0;
+    font-family: var(--font-ui), 'Inter', system-ui, sans-serif;
+    font-size: 0.8125rem; letter-spacing: 0.01em; text-transform: none;
+    padding: 0.15rem 0; color: var(--inkSoft); background: transparent;
+    border: 0; border-bottom: 2px solid transparent; border-radius: 0;
+  }
+  .vm-atlas-x--compact .ax-seg:hover { background: transparent; color: var(--ink); }
+  .vm-atlas-x--compact .ax-seg[aria-selected='true'] {
+    background: transparent; color: var(--burgundy); border-bottom-color: var(--burgundy);
+  }
+
+  /* tooltip klein & rustig: paper + rule, geen schaduw */
+  .vm-atlas-x--compact .ax-tooltip { border-color: var(--rule); box-shadow: none; }
+  .vm-atlas-x--compact .ax-tip-name { font-size: 0.95rem; }
+
+  /* legenda als rustige 1-koloms index; faint rust-bullet i.p.v. kleur-key */
+  .vm-atlas-x--compact .ax-legend { grid-template-columns: 1fr; margin-top: 0; }
+  .vm-atlas-x--compact .ax-swatch,
+  .vm-atlas-x--compact[data-layer='druiven'] .ax-swatch {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--rust); opacity: 0.5;
+  }
+
+  /* 2 kolommen vanaf 760px container: tekst/legenda links, kaart rechts (~44%) */
+  @container (min-width: 760px) {
+    .vm-atlas-x--compact {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) clamp(320px, 38vw, 440px);
+      grid-template-areas:
+        "head    controls"
+        "head    map"
+        "legend  map"
+        "source  map";
+      column-gap: clamp(2rem, 4vw, 3.5rem);
+      row-gap: 1rem;
+      align-items: start;
+    }
+    .vm-atlas-x--compact .ax-head     { grid-area: head; }
+    .vm-atlas-x--compact .ax-controls { grid-area: controls; align-self: end; }
+    .vm-atlas-x--compact .ax-map-wrap {
+      grid-area: map; position: sticky; top: 2rem;
+      max-width: 440px; margin-inline: 0;
+    }
+    .vm-atlas-x--compact .ax-map { max-height: clamp(380px, 52vh, 520px); }
+    .vm-atlas-x--compact .ax-legend   { grid-area: legend; }
+    .vm-atlas-x--compact .ax-source   { grid-area: source; margin-top: 0; }
+  }
+
+  /* smal scherm (<520px container): lijst-fallback, kaart + toggle weg */
+  @container (max-width: 520px) {
+    .vm-atlas-x--compact .ax-map-wrap,
+    .vm-atlas-x--compact .ax-controls { display: none; }
   }
 </style>
 
