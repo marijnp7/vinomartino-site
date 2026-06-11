@@ -180,6 +180,7 @@ const strokeScale = Math.max(innerW, innerH) / 600; // schaal lijndikte met view
   data-layer="regio"
   aria-label={alt}
 >
+  <div class="ax-grid">
   <header class="ax-head">
     <p class="ax-kicker">{kicker}</p>
     <h2 class="ax-title">{title}</h2>
@@ -399,6 +400,7 @@ const strokeScale = Math.max(innerW, innerH) / 600; // schaal lijndikte met view
     <span class="ax-source-value">{source}</span>
     <span class="ax-source-domain">{domain}</span>
   </footer>
+  </div>
 </figure>
 
 <style>
@@ -680,9 +682,12 @@ const strokeScale = Math.max(innerW, innerH) / 600; // schaal lijndikte met view
     width: 8px; height: 8px; border-radius: 50%; background: var(--rust); opacity: 0.5;
   }
 
-  /* 2 kolommen vanaf 760px container: tekst/legenda links, kaart rechts (~44%) */
+  /* 2 kolommen vanaf 760px container: tekst/legenda links, kaart rechts (~44%).
+     Het grid zit op de .ax-grid-wrapper (een descendant), NIET op .vm-atlas-x--compact
+     zelf — die is de container-query-container en kan zichzelf niet via @container
+     herindelen (anders blijft de band 1-koloms met dode ruimte rechts). */
   @container (min-width: 760px) {
-    .vm-atlas-x--compact {
+    .vm-atlas-x--compact .ax-grid {
       display: grid;
       grid-template-columns: minmax(0, 1fr) clamp(320px, 38vw, 440px);
       grid-template-areas:
