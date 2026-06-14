@@ -34,7 +34,7 @@ Fijn, persistent schuim. Geelgoud. De neus geeft toast en hazelnoot als eerste i
 
 *Mijn gok: Champagne. Chardonnay-dominant, vermoedelijk Côte des Blancs. De bitterheid doet me denken aan kalkhoudend terroir.*
 
-*Onthulling: Gramona III Lustros 2014. Tachtig procent Xarel·lo, twintig procent Chardonnay. Vier jaar op de gist. Corpinnat.*
+*Onthulling: Gramona III Lustros 2014. Vijfenzeventig procent Xarel·lo, vijfentwintig procent Macabeo. Zevenentachtig maanden op de gist. Corpinnat.*
 
 Die amandelschilbitterheid is typisch voor Xarel·lo bij langere rijping. Ik had het herkend maar het op kalk-Chardonnay geschoven. Fout.
 
@@ -54,7 +54,7 @@ Brioche. Onmiddellijk, overtuigend. Dan beurre blanc en een aardse ondertoon —
 
 *Mijn gok: Champagne. Pinot-dominant, Montagne de Reims.*
 
-*Onthulling: Laherte Frères "Ultradition" NV. Negentig procent Meunier, tien procent Pinot Noir. Juist.*
+*Onthulling: Laherte Frères "Ultradition" NV. Zestig procent Meunier, dertig procent Chardonnay, tien procent Pinot Noir. Juist.*
 
 ## Glas 4 — het moment waarop ik mijn notitieboekje weglegde
 
@@ -62,7 +62,7 @@ Diepst geel van de zes. Fijnste mousse — het soort dat drukt als miniatuurpare
 
 *Mijn gok: Champagne. Blanc de blancs, hoge precisie — misschien premier-cru terrein aan de Côte des Blancs.*
 
-*Onthulling: Recaredo Terrers Brut Nature 2016. Honderd procent Xarel·lo. Zesenveertig maanden op de gist. Corpinnat.*
+*Onthulling: Recaredo Terrers Brut Nature 2016. Xarel·lo, Macabeo en Parellada. Zesenveertig maanden op de gist. Corpinnat.*
 
 Sophie had naast me meegeproefd zonder officieel mee te doen — formalistische blindproeverijen zijn haar ding niet, maar uit nieuwsgierigheid drinkt ze graag mee. Zonder mijn commentaar af te wachten zei ze: "Dit is de beste van de zes."
 
@@ -80,7 +80,7 @@ Einduitslag: vier van de zes correct geïdentificeerd. De twee missers waren de 
 
 ## Wat de uitkomst zegt
 
-De blindproeverij bevestigt Evans' analyse. Corpinnat-producenten die serieus rijpen — achttien maanden is het minimum, bij Gramona vier jaar, bij Recaredo bijna vier jaar op de lees — produceren op een kwaliteitsniveau dat je niet kunt wegwuiven met "maar het is toch Cava."
+De blindproeverij bevestigt Evans' analyse. Corpinnat-producenten die serieus rijpen — achttien maanden is het minimum, bij Gramona zevenentachtig maanden (ruim zeven jaar), bij Recaredo bijna vier jaar op de lees — produceren op een kwaliteitsniveau dat je niet kunt wegwuiven met "maar het is toch Cava."
 
 Het essentiële verschil met Champagne zit niet in het niveau maar in het druivenkarakter. Xarel·lo draagt een specifieke kruidig-bittere elegantie die Chardonnay niet heeft. De beste Corpinnat-wijnen zijn geen kopieën van Champagne — het zijn zelfstandige wijnen op een niveau waarop de vergelijking rechtvaardig is.
 
