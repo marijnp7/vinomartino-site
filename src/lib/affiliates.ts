@@ -64,6 +64,57 @@ export const AFFILIATE_BLOCKS: Record<string, AffiliateBlockConfig[]> = {
   // deliverable op de Etna streekpagina — niet via deze artikel-affiliate-lookup.
   // Content Writer past LAT-884 Etna-draft aan. Geen affiliate-blok op
   // `etna-wijnreis-drie-dagen-vulkaan` voor M1.
+
+  // === LAT-923 Booking.com CJ deeplinks — curated accommodations ===
+  // CJ Publisher ID: 101734849 | Evergreen Link ID: 15734897
+  // Advertiser: Booking.com BENELUX (4347407) | Regio: NL / EUR | Commissie: 4%
+  // Template: https://www.kqzyfj.com/click-101734849-15734897?url={ENCODED}&sid={SID}
+  // CJ-constraint (mail 12 jun): contextuele, redactionele links — geen push-marketing.
+  // Eén placement = één route (niet dubbel linken met Stay22 op dezelfde accommodatie).
+
+  // Toscane — Brolio Agriroom ✅ Marijn verbleef er mei 2024 (bevestigd, eerste
+  // accommodation-item in Directus). Artikel: wijnreizen-toscane-voorbij-de-toeristische-chianti-route
+  'wijnreizen-toscane-voorbij-de-toeristische-chianti-route': [
+    {
+      location: 'accommodation',
+      producent: 'Brolio Agriroom (Castello di Brolio)',
+      bezoekMaand: 'Mei',
+      bezoekJaar: 2024,
+      linkBron: 'Booking.com',
+      href: 'https://www.kqzyfj.com/click-101734849-15734897?url=https%3A%2F%2Fwww.booking.com%2Fhotel%2Fit%2Fbrolio-agriroom.html&sid=accommodation-brolio-agriroom',
+      ctaLabel: 'Bekijk beschikbaarheid',
+      description: 'Vier kamers boven het Eroica Caffè op het domein van Barone Ricasoli. Wij liepen er \'s ochtends door de wijngaarden naar de kasteelmuren.',
+    },
+  ],
+
+  // Piemonte — Locanda del Pilone (La Morra) + Palazzo Finati (Alba) ✅
+  // Artikel-narratief bevestigt beide verblijven (article id 6: "We overnachtten in
+  // La Morra (Locanda del Pilone) ... verplaatsten daarna naar Alba zelf (Palazzo Finati)").
+  // Jaar geschat op 2021 obv canonieke Piemonte-trip juli 2021 — Lead Editor mag corrigeren.
+  // Locanda del Pilone = accommodation-blok (eerste helft trip, Langhe-context).
+  // Palazzo Finati = sidebar-blok (tweede helft, Alba).
+  'een-week-in-piemonte-barolo-barbaresco-en-alles-daartussenin': [
+    {
+      location: 'accommodation',
+      producent: 'Locanda del Pilone',
+      bezoekMaand: 'Juli',
+      bezoekJaar: 2021,
+      linkBron: 'Booking.com',
+      href: 'https://www.kqzyfj.com/click-101734849-15734897?url=https%3A%2F%2Fwww.booking.com%2Fhotel%2Fit%2Flocanda-del-pilone.html&sid=accommodation-locanda-pilone',
+      ctaLabel: 'Bekijk beschikbaarheid',
+      description: 'Modern boutique-hotel boven de Langhe bij La Morra, €140 per nacht. Panoramisch uitzicht over de wijngaarden.',
+    },
+    {
+      location: 'sidebar',
+      producent: 'Palazzo Finati',
+      bezoekMaand: 'Juli',
+      bezoekJaar: 2021,
+      linkBron: 'Booking.com',
+      href: 'https://www.kqzyfj.com/click-101734849-15734897?url=https%3A%2F%2Fwww.booking.com%2Fhotel%2Fit%2Fpalazzo-finati-alba2.html&sid=accommodation-palazzo-finati',
+      ctaLabel: 'Bekijk beschikbaarheid',
+      description: 'Historisch palazzo in het centrum van Alba, €135 per nacht. Beste vertrekpunt voor de restaurantavonden.',
+    },
+  ],
 };
 
 export function getAffiliateBlocks(slug: string): AffiliateBlockConfig[] {
