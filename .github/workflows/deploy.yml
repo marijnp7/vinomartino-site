@@ -381,3 +381,22 @@ jobs:
 
       - name: Done
         run: echo "::notice::Deploy naar ${{ steps.env.outputs.target }} voltooid (${{ github.sha }})"
+
+      # ── 9. Staging-cleanup (altijd) ──────────────────────────────────────
+      # LAT-1326: de `rm -rf "$STAGE"` in stap 7 wordt alleen bereikt op het
+      # success-pad. Faalt de build of de SSH-sync (zie de historie van
+      # transient SSH-timeouts), dan blijft /srv/vino-builds/<run_id> staan —
+      # mét een volledige node_modules omdat `npm ci` in de bind-mount draait.
+      # Per gefaalde run lekt dat honderden MB en vult de VPS-schijf.
+      # Deze always()-stap ruimt de huidige run altijd op en pruimt verweesde
+      # stages ouder dan 1 dag (1440 min). `|| true` zodat een falende cleanup
+      # de run-status niet maskeert.
+      - name: Cleanup VPS staging
+        if: always()
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          STAGE: /srv/vino-builds/${{ github.run_id }}
+        run: |
+          ssh -o StrictHostKeyChecking=accept-new "$VPS" \
+            "rm -rf '$STAGE'; find /srv/vino-builds -mindepth 1 -maxdepth 1 -type d -mmin +1440 -exec rm -rf {} + 2>/dev/null; df -h / | tail -1" \
+            || echo "::warning::Staging-cleanup overgeslagen (SSH niet beschikbaar)"

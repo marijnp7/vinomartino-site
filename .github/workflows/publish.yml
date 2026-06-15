@@ -167,6 +167,20 @@ jobs:
           fi
           echo "::notice::Preview smoke OK (HTTP $code) — door naar promote"
 
+      # LAT-1326: stage-dirs lekken bij gefaalde runs (build/SSH-timeout vóór
+      # de rm -rf in de swap-stap); elke stage bevat een volledige node_modules
+      # (npm ci in bind-mount). Ruim de huidige run altijd op + prune stages
+      # ouder dan 1 dag zodat de VPS-schijf niet volloopt.
+      - name: Cleanup VPS staging
+        if: always()
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          STAGE: /srv/vino-builds/${{ github.run_id }}
+        run: |
+          ssh -o StrictHostKeyChecking=accept-new "$VPS" \
+            "rm -rf '$STAGE'; find /srv/vino-builds -mindepth 1 -maxdepth 1 -type d -mmin +1440 -exec rm -rf {} + 2>/dev/null; df -h / | tail -1" \
+            || echo "::warning::Staging-cleanup overgeslagen (SSH niet beschikbaar)"
+
   promote-prod:
     needs: build-preview
     runs-on: ubuntu-latest
