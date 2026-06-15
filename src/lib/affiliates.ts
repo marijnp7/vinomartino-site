@@ -1,10 +1,9 @@
 // LAT-1029 — Affiliate block config per article (M1-Optie B).
-// Accommodatie-bookinglinks horen NIET in deze file (PROJECT_BRIEF par. 3.0).
-// booking_url per accommodatie leeft in Directus accommodations.booking_url
-// (plain Booking.com URL). CJ-wrapper wordt at render time toegepast via
-// buildCjBookingLink(). Zie LAT-923 voor architectuur.
-//
-// Wat hier WEL staat: activity/directe-link-blokken (geen Booking.com-afhankelijkheid).
+// Architectuur (PROJECT_BRIEF par. 3.0 + LAT-923):
+//   - booking_url per accommodatie leeft in Directus accommodations.booking_url (plain URL)
+//   - CJ-wrapper wordt at render time toegepast via buildCjBookingLink()
+//   - affiliates.ts bevat: CJ-config, editorial metadata, accommodationId-verwijzingen
+//   - Geen losse Booking.com-URLs in deze file
 
 export type AffiliateLocation = 'accommodation' | 'activity' | 'sidebar';
 export type AffiliateLinkBron = 'Booking.com' | 'GetYourGuide' | 'directe link';
@@ -15,7 +14,8 @@ export interface AffiliateBlockConfig {
   bezoekMaand: string;
   bezoekJaar: number;
   linkBron: AffiliateLinkBron;
-  href: string;
+  href?: string;           // voor directe-link entries
+  accommodationId?: number; // voor Booking.com entries — resolved from Directus at build time
   ctaLabel?: string;
   description?: string;
 }
@@ -33,16 +33,40 @@ export function buildCjBookingLink(plainBookingUrl: string, sid: string): string
   return `https://www.kqzyfj.com/click-${CJ_CONFIG.publisherId}-${CJ_CONFIG.evergreenLinkId}?url=${encoded}&sid=${sid}`;
 }
 
+// Fetches booking_url from Directus accommodations by ID and wraps with CJ.
+// Called at build time from the article template.
+export async function resolveAccommodationHref(
+  accommodationId: number,
+  articleSlug: string,
+): Promise<string | undefined> {
+  const url = (process.env['DIRECTUS_URL'] || '').trim();
+  const token = (process.env['DIRECTUS_TOKEN'] || '').trim();
+  if (!url || !token) return undefined;
+
+  try {
+    const res = await fetch(`${url}/items/accommodations/${accommodationId}?fields=booking_url`, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) return undefined;
+    const data = (await res.json()) as { data?: { booking_url?: string } };
+    const bookingUrl = data?.data?.booking_url;
+    if (!bookingUrl) return undefined;
+    return buildCjBookingLink(bookingUrl, `accommodation-${articleSlug}`);
+  } catch {
+    return undefined;
+  }
+}
+
 export const AFFILIATE_BLOCKS: Record<string, AffiliateBlockConfig[]> = {
-  // === M1 ENTRIES — activity/directe-link blokken ===
+  // === M1 ENTRIES ===
   // Activation governance: Content Writer ([LAT-1030](/LAT/issues/LAT-1030)) verifieert
   // bezoek-doc per producent; Lead Editor maakt finale call. Geen affiliate-blok zonder
   // bevestigd bezoek-bewijs (Lead Editor regel #2 van /over-ons).
-  //
-  // Booking.com-accommodaties: worden via Directus accommodations.booking_url + CJ-wrapper
-  // gerenderd zodra LAT-1328 de 403 op accommodations-collectie oplost. Niet hier.
 
-  // Langhe — Produttori del Barbaresco (Piemonte-pillar, Oktober 2024-trip)
+  // Langhe — Piemonte-pillar (Oktober 2024-trip).
+  // Locanda del Pilone (accommodationId=11) + Palazzo Finati (accommodationId=12):
+  // booking_url in Directus, CJ-wrapper at render time (LAT-923).
   'een-week-in-piemonte-barolo-barbaresco-en-alles-daartussenin': [
     {
       location: 'activity',
@@ -53,14 +77,34 @@ export const AFFILIATE_BLOCKS: Record<string, AffiliateBlockConfig[]> = {
       href: 'https://www.produttoridelbarbaresco.com',
       ctaLabel: 'Plan je bezoek',
     },
+    {
+      location: 'accommodation',
+      producent: 'Locanda del Pilone',
+      bezoekMaand: 'Juli',
+      bezoekJaar: 2021,
+      linkBron: 'Booking.com',
+      accommodationId: 11,
+      ctaLabel: 'Bekijk beschikbaarheid',
+      description: 'Modern boutique-hotel boven de Langhe bij La Morra, €140 per nacht. Panoramisch uitzicht over de wijngaarden.',
+    },
+    {
+      location: 'sidebar',
+      producent: 'Palazzo Finati',
+      bezoekMaand: 'Juli',
+      bezoekJaar: 2021,
+      linkBron: 'Booking.com',
+      accommodationId: 12,
+      ctaLabel: 'Bekijk beschikbaarheid',
+      description: 'Historisch palazzo in het centrum van Alba, €135 per nacht. Beste vertrekpunt voor de restaurantavonden.',
+    },
   ],
 
   // Etna — Benanti ❌ Lead Editor: portret-link vervalt. Streekpagina-vermelding
   // op /streken/etna/ blijft (enoteca-tasting format) MET wijnwinkel-affiliate-link.
-  // Dat is een aparte deliverable op de Etna streekpagina. Geen blok op
-  // `etna-wijnreis-drie-dagen-vulkaan` voor M1.
+  // Geen affiliate-blok op `etna-wijnreis-drie-dagen-vulkaan` voor M1.
 
-  // Toscane — Tenuta di Capezzana (activity, ✅ Lead Editor go LAT-1030 comment 27226cc5)
+  // Toscane — Tenuta di Capezzana (activity, ✅ Lead Editor go LAT-1030 comment 27226cc5).
+  // Brolio Agriroom (accommodationId=1): booking_url in Directus, CJ-wrapper at render time (LAT-923).
   'wijnreizen-toscane-voorbij-de-toeristische-chianti-route': [
     {
       location: 'activity',
@@ -70,6 +114,16 @@ export const AFFILIATE_BLOCKS: Record<string, AffiliateBlockConfig[]> = {
       linkBron: 'directe link',
       href: 'https://www.capezzana.it/visita-e-degustazioni/',
       ctaLabel: 'Reserveer proeverij',
+    },
+    {
+      location: 'accommodation',
+      producent: 'Brolio Agriroom (Castello di Brolio)',
+      bezoekMaand: 'Mei',
+      bezoekJaar: 2024,
+      linkBron: 'Booking.com',
+      accommodationId: 1,
+      ctaLabel: 'Bekijk beschikbaarheid',
+      description: "Vier kamers boven het Eroica Caffè op het domein van Barone Ricasoli. Wij liepen er 's ochtends door de wijngaarden naar de kasteelmuren.",
     },
   ],
 
