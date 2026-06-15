@@ -1,6 +1,9 @@
 // LAT-1029 — Affiliate block config per article (M1-Optie B).
-// Lead Editor (LAT-1028) drops verified producer entries here as they're cleared.
-// One entry per (slug, location). Empty location → no block rendered at that slot.
+// Architectuur (PROJECT_BRIEF par. 3.0 + LAT-923):
+//   - booking_url per accommodatie leeft in Directus accommodations.booking_url (plain URL)
+//   - CJ-wrapper wordt at render time toegepast via buildCjBookingLink()
+//   - affiliates.ts bevat: CJ-config, editorial metadata, accommodationId-verwijzingen
+//   - Geen losse Booking.com-URLs in deze file
 
 export type AffiliateLocation = 'accommodation' | 'activity' | 'sidebar';
 export type AffiliateLinkBron = 'Booking.com' | 'GetYourGuide' | 'directe link';
@@ -11,9 +14,49 @@ export interface AffiliateBlockConfig {
   bezoekMaand: string;
   bezoekJaar: number;
   linkBron: AffiliateLinkBron;
-  href: string;
+  href?: string;           // voor directe-link entries
+  accommodationId?: number; // voor Booking.com entries — resolved from Directus at build time
   ctaLabel?: string;
   description?: string;
+}
+
+// CJ Booking.com wrapper (LAT-923).
+// booking_url = plain Booking.com URL uit Directus accommodations.booking_url.
+// sid = 'accommodation-{article-slug}' voor CJ-rapportage.
+export const CJ_CONFIG = {
+  publisherId: '101734849',
+  evergreenLinkId: '15734897',
+} as const;
+
+export function buildCjBookingLink(plainBookingUrl: string, sid: string): string {
+  const encoded = encodeURIComponent(plainBookingUrl);
+  return `https://www.kqzyfj.com/click-${CJ_CONFIG.publisherId}-${CJ_CONFIG.evergreenLinkId}?url=${encoded}&sid=${sid}`;
+}
+
+// Fetches booking_url + slug from Directus accommodations by ID and wraps with CJ.
+// SID = 'accommodation-{accommodation-slug}' for per-property attribution in CJ reports.
+// Called at build time from the article template.
+export async function resolveAccommodationHref(
+  accommodationId: number,
+): Promise<string | undefined> {
+  const url = (process.env['DIRECTUS_URL'] || '').trim();
+  const token = (process.env['DIRECTUS_TOKEN'] || '').trim();
+  if (!url || !token) return undefined;
+
+  try {
+    const res = await fetch(`${url}/items/accommodations/${accommodationId}?fields=slug,booking_url`, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) return undefined;
+    const data = (await res.json()) as { data?: { slug?: string; booking_url?: string } };
+    const bookingUrl = data?.data?.booking_url;
+    const slug = data?.data?.slug;
+    if (!bookingUrl || !slug) return undefined;
+    return buildCjBookingLink(bookingUrl, `accommodation-${slug}`);
+  } catch {
+    return undefined;
+  }
 }
 
 export const AFFILIATE_BLOCKS: Record<string, AffiliateBlockConfig[]> = {
@@ -22,30 +65,9 @@ export const AFFILIATE_BLOCKS: Record<string, AffiliateBlockConfig[]> = {
   // bezoek-doc per producent; Lead Editor maakt finale call. Geen affiliate-blok zonder
   // bevestigd bezoek-bewijs (Lead Editor regel #2 van /over-ons).
 
-  // Toscane — Tenuta di Capezzana ✅ Lead Editor go (LAT-1030 comment 27226cc5).
-  // Production article `wijnreizen-toscane-voorbij-de-toeristische-chianti-route`
-  // beschrijft het bezoek: "drie weken van tevoren gemaild ... ontvangen door een
-  // neef van de eigenaar ... cantina: grote fusti 2.000–5.000 L". Sluit precies
-  // aan op CW-verificatie (LAT-1030 comment c367f942). Bezoek = Oktober 2024.
-  // GetYourGuide partner-URL nog niet rond; tijdelijk directe link naar
-  // capezzana.it/visita-e-degustazioni/ (Lead Editor original).
-  'wijnreizen-toscane-voorbij-de-toeristische-chianti-route': [
-    {
-      location: 'activity',
-      producent: 'Tenuta di Capezzana',
-      bezoekMaand: 'Oktober',
-      bezoekJaar: 2024,
-      linkBron: 'directe link',
-      href: 'https://www.capezzana.it/visita-e-degustazioni/',
-      ctaLabel: 'Reserveer proeverij',
-    },
-  ],
-
-  // Langhe — Produttori del Barbaresco (Cascina delle Rose-vervanger per LAT-1030
-  // comment 27226cc5). Production article `een-week-in-piemonte-barolo-barbaresco-
-  // en-alles-daartussenin` is de Piemonte-pillar (Oktober 2024-trip): "In oktober
-  // zijn die heuvelruggen geel en oranje", coöperatief-passage met €18 ex-cellar.
-  // Disclosure-jaar = 2024 (matcht "2024-prijs" voor truffel in artikel-body).
+  // Langhe — Piemonte-pillar (Oktober 2024-trip).
+  // Locanda del Pilone (accommodationId=11) + Palazzo Finati (accommodationId=12):
+  // booking_url in Directus, CJ-wrapper at render time (LAT-923).
   'een-week-in-piemonte-barolo-barbaresco-en-alles-daartussenin': [
     {
       location: 'activity',
@@ -56,14 +78,68 @@ export const AFFILIATE_BLOCKS: Record<string, AffiliateBlockConfig[]> = {
       href: 'https://www.produttoridelbarbaresco.com',
       ctaLabel: 'Plan je bezoek',
     },
+    {
+      location: 'accommodation',
+      producent: 'Locanda del Pilone',
+      bezoekMaand: 'Juli',
+      bezoekJaar: 2021,
+      linkBron: 'Booking.com',
+      accommodationId: 11,
+      ctaLabel: 'Bekijk beschikbaarheid',
+      description: 'Modern boutique-hotel boven de Langhe bij La Morra, €140 per nacht. Panoramisch uitzicht over de wijngaarden.',
+    },
+    {
+      location: 'sidebar',
+      producent: 'Palazzo Finati',
+      bezoekMaand: 'Juli',
+      bezoekJaar: 2021,
+      linkBron: 'Booking.com',
+      accommodationId: 12,
+      ctaLabel: 'Bekijk beschikbaarheid',
+      description: 'Historisch palazzo in het centrum van Alba, €135 per nacht. Beste vertrekpunt voor de restaurantavonden.',
+    },
   ],
 
   // Etna — Benanti ❌ Lead Editor: portret-link vervalt. Streekpagina-vermelding
-  // op /streken/etna/ blijft (enoteca-tasting format) MET wijnwinkel-affiliate-link
-  // (Vincourage/Grapedistrict voor Pietramarina Carricante). Dat is een aparte
-  // deliverable op de Etna streekpagina — niet via deze artikel-affiliate-lookup.
-  // Content Writer past LAT-884 Etna-draft aan. Geen affiliate-blok op
-  // `etna-wijnreis-drie-dagen-vulkaan` voor M1.
+  // op /streken/etna/ blijft (enoteca-tasting format) MET wijnwinkel-affiliate-link.
+  // Geen affiliate-blok op `etna-wijnreis-drie-dagen-vulkaan` voor M1.
+
+  // Toscane — Tenuta di Capezzana (activity, ✅ Lead Editor go LAT-1030 comment 27226cc5).
+  // Brolio Agriroom (accommodationId=1): booking_url in Directus, CJ-wrapper at render time (LAT-923).
+  'wijnreizen-toscane-voorbij-de-toeristische-chianti-route': [
+    {
+      location: 'activity',
+      producent: 'Tenuta di Capezzana',
+      bezoekMaand: 'Oktober',
+      bezoekJaar: 2024,
+      linkBron: 'directe link',
+      href: 'https://www.capezzana.it/visita-e-degustazioni/',
+      ctaLabel: 'Reserveer proeverij',
+    },
+    {
+      location: 'accommodation',
+      producent: 'Brolio Agriroom (Castello di Brolio)',
+      bezoekMaand: 'Mei',
+      bezoekJaar: 2024,
+      linkBron: 'Booking.com',
+      accommodationId: 1,
+      ctaLabel: 'Bekijk beschikbaarheid',
+      description: "Vier kamers boven het Eroica Caffè op het domein van Barone Ricasoli. Wij liepen er 's ochtends door de wijngaarden naar de kasteelmuren.",
+    },
+  ],
+
+  // Langhe 4-daagse route — Produttori del Barbaresco activity (LAT-1030)
+  'langhe-piemonte-4-dagen-route': [
+    {
+      location: 'activity',
+      producent: 'Produttori del Barbaresco',
+      bezoekMaand: 'Februari',
+      bezoekJaar: 2026,
+      linkBron: 'directe link',
+      href: 'https://www.produttoridelbarbaresco.com',
+      ctaLabel: 'Plan je bezoek',
+    },
+  ],
 };
 
 export function getAffiliateBlocks(slug: string): AffiliateBlockConfig[] {

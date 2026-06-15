@@ -4,6 +4,7 @@ import AffiliatePlaceholder from '../../components/AffiliatePlaceholder.astro';
 import AffiliateDisclosure from '../../components/AffiliateDisclosure.astro';
 import RelatedArticles from '../../components/RelatedArticles.astro';
 import Stay22Stay from '../../components/Stay22Stay.astro';
+import CuratedStayMap from '../../components/CuratedStayMap.astro';
 import { loadStreken, type Streek } from '../../lib/streken';
 import { loadWijnhuizen, type Wijnhuis } from '../../lib/wijnhuizen';
 import { loadRoutes, type WijnRoute } from '../../lib/routes';
@@ -41,9 +42,9 @@ const { entry, wijnhuizen, routes } = Astro.props as { entry: Streek; wijnhuizen
 const pageUrl = new URL(`/streken/${entry.slug}/`, Astro.site ?? 'https://vinomartino.com').href;
 const stay22Location = entry.country ? `${entry.name}, ${entry.country}` : entry.name;
 
-// LAT-1199: verticale kruimel Land → Streek. Toon de parent-Land wanneer de
-// streek→land relatie bekend is; val anders terug op de laterale Streken-index.
+// LAT-1199: verticale kruimel Land → Streek.
 const hasParentLand = Boolean(entry.landSlug && entry.country);
+const hasCuratedStays = entry.accommodaties.length > 0;
 
 const schema = [
   streekSchema({
@@ -147,7 +148,11 @@ const hasStats = Boolean(
 
     <section class="streek-accommodation">
       <div class="container">
-        <Stay22Stay location={stay22Location} context={`streek-${entry.slug}`} placement="sidebar" heading={`Waar te slapen in ${entry.name}`} />
+        {hasCuratedStays ? (
+          <CuratedStayMap streek={entry.name} slug={entry.slug} accommodaties={entry.accommodaties} wijnhuizen={entry.wijnhuizen} />
+        ) : (
+          <Stay22Stay location={stay22Location} context={`streek-${entry.slug}`} placement="sidebar" heading={`Waar te slapen in ${entry.name}`} />
+        )}
         <AffiliatePlaceholder type="accommodation" partner="booking.com" region={entry.name} placement="sidebar" context="streek-accommodation" />
       </div>
     </section>

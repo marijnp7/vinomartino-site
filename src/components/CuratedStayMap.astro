@@ -1,0 +1,616 @@
+---
+// LAT-1127 — Curated "Waar te slapen" block (Marijn-spec 2026-06-07, ronde 2).
+//
+// We render our OWN map (not the Stay22 embed, which showed Stay22's full
+// inventory) from the curated Directus dataset (LAT-1136): exactly the 9
+// hand-picked accommodaties (numbered pins per tier) + the wijnhuizen mentioned
+// in the piece. Stay22 supplies only the per-address booking deep-link — not
+// the map UI.
+//
+// Ronde 2: the hand-projected SVG lacked geographic context. This now uses
+// Leaflet with Carto Positron raster tiles (free, no API key, "Minimaal & Wit").
+// Leaflet + tiles load lazily (IntersectionObserver) and only on pages that
+// carry a curated dataset. Each pin and each text-card links to its Stay22
+// Allez boeklink (AID vinomartino, campaign = streek-slug) for the commission.
+
+import type { Accommodation, WijnhuisPin } from '../lib/streken';
+import { allezSearchUrl } from '../lib/stay22';
+
+interface Props {
+  streek: string;
+  slug: string;
+  accommodaties: Accommodation[];
+  wijnhuizen?: WijnhuisPin[];
+}
+
+const { streek, slug, accommodaties, wijnhuizen = [] } = Astro.props;
+
+type TierKey = 'slim_geboekt' | 'prijs_kwaliteit' | 'pure_luxe';
+const TIER_ORDER: TierKey[] = ['slim_geboekt', 'prijs_kwaliteit', 'pure_luxe'];
+const TIER_META: Record<TierKey, { label: string; color: string }> = {
+  slim_geboekt: { label: 'Slim geboekt', color: '#A14F2A' },
+  prijs_kwaliteit: { label: 'Prijs-kwaliteit', color: '#5C6B3F' },
+  pure_luxe: { label: 'Pure luxe', color: '#5A1A1F' },
+};
+
+// Stable numbering across tiers (1..N), tier order first.
+const ordered = TIER_ORDER.flatMap((t) => accommodaties.filter((a) => a.tier === t));
+const numbered = ordered.map((acc, i) => ({ acc, n: i + 1 }));
+
+function bookingHref(acc: Accommodation): string {
+  if (acc.boeklink && /^https?:\/\//.test(acc.boeklink)) return acc.boeklink;
+  return allezSearchUrl({ location: `${acc.naam}, ${streek}`, campaign: slug });
+}
+
+function priceLabel(acc: Accommodation): string | null {
+  if (acc.prijsLaag != null && acc.prijsHoog != null) return `€${acc.prijsLaag}–${acc.prijsHoog}`;
+  if (acc.prijsLaag != null) return `vanaf €${acc.prijsLaag}`;
+  if (acc.prijsHoog != null) return `tot €${acc.prijsHoog}`;
+  return null;
+}
+
+const usedTiers = TIER_ORDER.filter((t) => accommodaties.some((a) => a.tier === t));
+
+const mapId = `staymap-${slug}`.replace(/[^a-z0-9-]/gi, '');
+
+// Only the geolocated subset can be plotted; cards still list every address.
+const geoAcc = numbered.filter(({ acc }) => acc.lat != null && acc.lng != null);
+const geoWijn = wijnhuizen.filter((w) => w.lat != null && w.lng != null);
+const hasMap = geoAcc.length >= 1;
+
+// Client payload — keep it small and presentation-ready.
+const mapData = {
+  slug,
+  accommodaties: geoAcc.map(({ acc, n }) => ({
+    n,
+    naam: acc.naam,
+    tier: acc.tier,
+    tierLabel: TIER_META[acc.tier].label,
+    color: TIER_META[acc.tier].color,
+    price: priceLabel(acc),
+    boeklink: bookingHref(acc),
+    lat: acc.lat,
+    lng: acc.lng,
+  })),
+  wijnhuizen: geoWijn.map((w) => ({ naam: w.naam, lat: w.lat, lng: w.lng })),
+};
+---
+
+<section class="curated-stay" data-staymap id={mapId} aria-labelledby={`${mapId}-title`}>
+  <header class="curated-stay__head">
+    <span class="curated-stay__kicker">Waar te slapen</span>
+    <h2 id={`${mapId}-title`} class="curated-stay__title">Onze adressen in {streek}</h2>
+    <p class="curated-stay__intro">
+      Een handgekozen selectie — geen willekeurig hotelaanbod, maar {accommodaties.length} verblijven
+      die we zelf zouden boeken, in drie prijsklassen. De kaart toont precies deze adressen
+      {geoWijn.length > 0 && <> plus de wijnhuizen uit dit stuk</>}.
+    </p>
+  </header>
+
+  {hasMap && (
+    <figure class="curated-stay__map">
+      <div class="curated-stay__map-canvas" data-staymap-canvas role="application" aria-label={`Kaart met onze adressen in ${streek}`}></div>
+      <script type="application/json" data-staymap-data set:html={JSON.stringify(mapData)} />
+
+      <figcaption class="curated-stay__legend">
+        {usedTiers.map((t) => (
+          <span class="curated-stay__legend-item">
+            <span class="curated-stay__swatch" style={`background:${TIER_META[t].color}`}></span>
+            {TIER_META[t].label}
+          </span>
+        ))}
+        {geoWijn.length > 0 && (
+          <span class="curated-stay__legend-item">
+            <span class="curated-stay__swatch curated-stay__swatch--wijn">🍷</span>
+            Wijnhuizen
+          </span>
+        )}
+      </figcaption>
+    </figure>
+  )}
+
+  <div class="curated-stay__tiers">
+    {usedTiers.map((t) => (
+      <div class="curated-stay__tier">
+        <h3 class="curated-stay__tier-title">
+          <span class="curated-stay__tier-dot" style={`background:${TIER_META[t].color}`}></span>
+          {TIER_META[t].label}
+        </h3>
+        <div class="curated-stay__cards">
+          {numbered.filter(({ acc }) => acc.tier === t).map(({ acc, n }) => (
+            <article
+              class="stay-card"
+              id={`${mapId}-card-${n}`}
+              data-stay-card={acc.lat != null && acc.lng != null ? n : undefined}
+              tabindex={acc.lat != null && acc.lng != null ? 0 : undefined}
+            >
+              <div class="stay-card__head">
+                <span class="stay-card__num" style={`background:${TIER_META[t].color}`}>{n}</span>
+                <h4 class="stay-card__name">{acc.naam}</h4>
+                {priceLabel(acc) && <span class="stay-card__price">{priceLabel(acc)}<span class="stay-card__price-unit"> / nacht</span></span>}
+              </div>
+              {acc.whyThisOne && <p class="stay-card__why">{acc.whyThisOne}</p>}
+              <div class="stay-card__foot">
+                <a
+                  class="stay-card__cta"
+                  href={bookingHref(acc)}
+                  target="_blank"
+                  rel="sponsored noopener"
+                  data-affiliate-track
+                  data-affiliate-partner="stay22"
+                  data-affiliate-placement="stay-card"
+                  data-affiliate-context={`streek-${slug}`}
+                >
+                  Boek via Stay22 →
+                </a>
+                <span class="stay-card__note">Prijzen variëren per seizoen</span>
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
+    ))}
+  </div>
+
+  <p class="curated-stay__disclosure">
+    Affiliate-links · we kunnen een commissie ontvangen als je via deze links boekt — jij betaalt niets extra.
+  </p>
+</section>
+
+<script>
+  import 'leaflet/dist/leaflet.css';
+
+  type AccPin = {
+    n: number; naam: string; tier: string; tierLabel: string; color: string;
+    price: string | null; boeklink: string; lat: number; lng: number;
+  };
+  type WijnPin = { naam: string; lat: number; lng: number };
+  type MapData = { slug: string; accommodaties: AccPin[]; wijnhuizen: WijnPin[] };
+
+  let leafletPromise: Promise<any> | null = null;
+  function loadLeaflet(): Promise<any> {
+    if (!leafletPromise) {
+      leafletPromise = import('leaflet').then((m: any) => m.default ?? m);
+    }
+    return leafletPromise;
+  }
+
+  function esc(s: string): string {
+    return s.replace(/[&<>"]/g, (c) => (
+      { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string
+    ));
+  }
+
+  async function initSection(section: HTMLElement): Promise<void> {
+    const canvas = section.querySelector<HTMLElement>('[data-staymap-canvas]');
+    const dataEl = section.querySelector<HTMLElement>('[data-staymap-data]');
+    if (!canvas || !dataEl || canvas.dataset.ready === '1') return;
+    canvas.dataset.ready = '1';
+
+    let data: MapData;
+    try {
+      data = JSON.parse(dataEl.textContent || '{}');
+    } catch {
+      return;
+    }
+    if (!data.accommodaties?.length) return;
+
+    const L = await loadLeaflet();
+
+    const map = L.map(canvas, {
+      scrollWheelZoom: false,
+      zoomControl: true,
+      attributionControl: true,
+    });
+
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      subdomains: 'abcd',
+      maxZoom: 19,
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    }).addTo(map);
+
+    const markersByN = new Map<number, any>();
+    const latlngs: [number, number][] = [];
+
+    // Wijnhuis pins (wine-glass icon, no number) — drawn under accommodation pins.
+    for (const w of data.wijnhuizen || []) {
+      const icon = L.divIcon({
+        className: '',
+        html: '<span class="csm-pin csm-pin--wijn" aria-hidden="true">🍷</span>',
+        iconSize: [26, 26],
+        iconAnchor: [13, 13],
+      });
+      L.marker([w.lat, w.lng], { icon, keyboard: false })
+        .addTo(map)
+        .bindPopup(
+          `<div class="csm-popup"><span class="csm-popup__tier csm-popup__tier--wijn">Wijnhuis</span><h4 class="csm-popup__name">${esc(w.naam)}</h4></div>`,
+        );
+      latlngs.push([w.lat, w.lng]);
+    }
+
+    // Accommodation pins (numbered, tier-coloured) — link to Stay22 boeklink.
+    for (const a of data.accommodaties) {
+      const icon = L.divIcon({
+        className: '',
+        html: `<span class="csm-pin csm-pin--acc" style="background:${a.color}">${a.n}</span>`,
+        iconSize: [30, 30],
+        iconAnchor: [15, 15],
+      });
+      const priceHtml = a.price
+        ? `<span class="csm-popup__price">${esc(a.price)} / nacht</span>`
+        : '';
+      const popupHtml =
+        `<div class="csm-popup">` +
+        `<span class="csm-popup__tier" style="color:${a.color}">${esc(a.tierLabel)}</span>` +
+        `<h4 class="csm-popup__name">${esc(a.naam)}</h4>` +
+        priceHtml +
+        `<a class="csm-popup__cta" href="${esc(a.boeklink)}" target="_blank" rel="sponsored noopener"` +
+        ` data-affiliate-track data-affiliate-partner="stay22" data-affiliate-placement="map-popup"` +
+        ` data-affiliate-context="streek-${esc(data.slug)}">Bekijk &amp; boek →</a>` +
+        `</div>`;
+
+      const marker = L.marker([a.lat, a.lng], {
+        icon,
+        title: a.naam,
+        riseOnHover: true,
+      })
+        .addTo(map)
+        .bindPopup(popupHtml, { minWidth: 180, autoPanPadding: [24, 24] });
+
+      // Pin click -> scroll to the matching card + highlight it.
+      marker.on('click', () => highlightCard(section, a.n));
+      markersByN.set(a.n, marker);
+      latlngs.push([a.lat, a.lng]);
+    }
+
+    if (latlngs.length === 1) {
+      map.setView(latlngs[0], 13);
+    } else {
+      map.fitBounds(latlngs, { padding: [40, 40], maxZoom: 13 });
+    }
+    setTimeout(() => map.invalidateSize(), 0);
+
+    // Card click/keyboard -> pan to its pin + open popup.
+    section.querySelectorAll<HTMLElement>('[data-stay-card]').forEach((card) => {
+      const n = Number(card.dataset.stayCard);
+      const marker = markersByN.get(n);
+      if (!marker) return;
+      const focus = (e: Event) => {
+        if ((e.target as HTMLElement).closest('a')) return; // let the booking CTA work
+        map.panTo(marker.getLatLng());
+        marker.openPopup();
+      };
+      card.addEventListener('click', focus);
+      card.addEventListener('keydown', (e: KeyboardEvent) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          map.panTo(marker.getLatLng());
+          marker.openPopup();
+        }
+      });
+    });
+  }
+
+  function highlightCard(section: HTMLElement, n: number): void {
+    const card = section.querySelector<HTMLElement>(`[data-stay-card="${n}"]`);
+    if (!card) return;
+    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    card.classList.add('stay-card--active');
+    window.setTimeout(() => card.classList.remove('stay-card--active'), 1800);
+  }
+
+  function ready(): void {
+    const sections = Array.from(
+      document.querySelectorAll<HTMLElement>('section.curated-stay[data-staymap]'),
+    ).filter((s) => s.querySelector('[data-staymap-canvas]'));
+    if (!sections.length) return;
+
+    if (!('IntersectionObserver' in window)) {
+      sections.forEach((s) => initSection(s));
+      return;
+    }
+    const io = new IntersectionObserver(
+      (entries, obs) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            obs.unobserve(entry.target);
+            initSection(entry.target as HTMLElement);
+          }
+        }
+      },
+      { rootMargin: '200px' },
+    );
+    sections.forEach((s) => io.observe(s));
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', ready);
+  } else {
+    ready();
+  }
+</script>
+
+<style>
+  .curated-stay {
+    margin: 2.5rem 0;
+  }
+  .curated-stay__kicker {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: var(--burgundy, #5A1A1F);
+  }
+  .curated-stay__title {
+    font-family: var(--font-display, Georgia, serif);
+    font-size: clamp(1.75rem, 1.2rem + 2vw, 2.5rem);
+    font-weight: 500;
+    color: var(--ink, #1F1A16);
+    margin: 0.4rem 0 0.5rem;
+  }
+  .curated-stay__intro {
+    font-family: var(--font-body, Georgia, serif);
+    font-size: 1.0625rem;
+    line-height: 1.55;
+    color: var(--inkSoft, #5A4F45);
+    max-width: 52ch;
+    margin: 0 0 1.75rem;
+  }
+
+  .curated-stay__map {
+    margin: 0 0 2rem;
+  }
+  .curated-stay__map-canvas {
+    width: 100%;
+    height: 440px;
+    min-height: 380px;
+    border-radius: 2px;
+    border: 1px solid var(--rule, #C9B98F);
+    background: #F0E6D0;
+    z-index: 0;
+  }
+
+  .curated-stay__legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.25rem;
+    margin-top: 0.875rem;
+  }
+  .curated-stay__legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-family: var(--font-mono, monospace);
+    font-size: 0.6875rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--inkSoft, #5A4F45);
+  }
+  .curated-stay__swatch {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .curated-stay__swatch--wijn {
+    background: transparent;
+    border-radius: 0;
+    width: auto;
+    font-size: 0.95rem;
+    line-height: 1;
+  }
+
+  .curated-stay__tier { margin-bottom: 2rem; }
+  .curated-stay__tier-title {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-family: var(--font-ui, sans-serif);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--ink, #1F1A16);
+    margin: 0 0 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--rule, #C9B98F);
+  }
+  .curated-stay__tier-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .curated-stay__cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.25rem;
+  }
+
+  .stay-card {
+    border: 1px solid var(--ruleSoft, #E0D2B0);
+    border-radius: 3px;
+    background: var(--paper, #FBF7EE);
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    scroll-margin-top: 5rem;
+    transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  }
+  .stay-card[data-stay-card] { cursor: pointer; }
+  .stay-card[data-stay-card]:hover,
+  .stay-card[data-stay-card]:focus-visible {
+    border-color: var(--burgundy, #5A1A1F);
+    outline: none;
+  }
+  .stay-card--active {
+    border-color: var(--burgundy, #5A1A1F);
+    box-shadow: 0 0 0 2px var(--burgundy, #5A1A1F);
+  }
+  .stay-card__head {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-areas: "num name" "num price";
+    column-gap: 0.75rem;
+    align-items: start;
+    margin-bottom: 0.75rem;
+  }
+  .stay-card__num {
+    grid-area: num;
+    align-self: start;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    color: #FAF5E9;
+    font-family: var(--font-mono, monospace);
+    font-size: 0.875rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .stay-card__name {
+    grid-area: name;
+    font-family: var(--font-display, Georgia, serif);
+    font-size: 1.25rem;
+    font-weight: 500;
+    line-height: 1.15;
+    color: var(--ink, #1F1A16);
+    margin: 0;
+  }
+  .stay-card__price {
+    grid-area: price;
+    font-family: var(--font-mono, monospace);
+    font-size: 0.8125rem;
+    color: var(--burgundy, #5A1A1F);
+    margin-top: 0.25rem;
+  }
+  .stay-card__price-unit { color: var(--inkFaint, #8A7D6E); }
+  .stay-card__why {
+    font-family: var(--font-body, Georgia, serif);
+    font-size: 0.9375rem;
+    line-height: 1.55;
+    color: var(--inkSoft, #5A4F45);
+    margin: 0 0 1rem;
+    flex: 1;
+  }
+  .stay-card__foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+  .stay-card__cta {
+    font-family: var(--font-ui, sans-serif);
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--paper, #FBF7EE);
+    background: var(--burgundy, #5A1A1F);
+    padding: 0.5rem 0.9rem;
+    border-radius: 2px;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: opacity 0.15s ease;
+  }
+  .stay-card__cta:hover { opacity: 0.9; }
+  .stay-card__note {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.625rem;
+    font-style: italic;
+    color: var(--inkFaint, #8A7D6E);
+  }
+
+  .curated-stay__disclosure {
+    font-family: var(--font-body, Georgia, serif);
+    font-size: 0.75rem;
+    font-style: italic;
+    color: var(--inkFaint, #8A7D6E);
+    margin: 0.5rem 0 0;
+  }
+
+  @media (max-width: 640px) {
+    .curated-stay__cards { grid-template-columns: 1fr; }
+  }
+</style>
+
+<style is:global>
+  /* Leaflet-injected DOM (markers, popups) can't carry Astro's scoped attribute,
+     so these must be global. */
+  .csm-pin {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    line-height: 1;
+  }
+  .csm-pin--acc {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 2px solid #FAF5E9;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+    color: #FAF5E9;
+    font-size: 0.8125rem;
+    font-weight: 600;
+  }
+  .csm-pin--wijn {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #FAF5E9;
+    border: 1.5px solid #1F1A16;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    font-size: 0.9rem;
+  }
+
+  .csm-popup .leaflet-popup-content,
+  .leaflet-popup-content .csm-popup {
+    margin: 0;
+  }
+  .csm-popup {
+    font-family: var(--font-body, Georgia, serif);
+    min-width: 160px;
+  }
+  .csm-popup__tier {
+    display: block;
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-size: 0.625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-weight: 600;
+    margin-bottom: 0.2rem;
+  }
+  .csm-popup__tier--wijn { color: #5A4F45; }
+  .csm-popup__name {
+    font-family: var(--font-display, Georgia, serif);
+    font-size: 1.0625rem;
+    font-weight: 500;
+    color: #1F1A16;
+    margin: 0 0 0.25rem;
+    line-height: 1.2;
+  }
+  .csm-popup__price {
+    display: block;
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-size: 0.75rem;
+    color: #5A1A1F;
+    margin-bottom: 0.6rem;
+  }
+  .csm-popup__cta {
+    display: inline-block;
+    margin-top: 0.35rem;
+    font-family: var(--font-ui, sans-serif);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #FBF7EE;
+    background: #5A1A1F;
+    padding: 0.4rem 0.75rem;
+    border-radius: 2px;
+    text-decoration: none;
+  }
+  .csm-popup__cta:hover { opacity: 0.9; }
+</style>
