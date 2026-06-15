@@ -21,10 +21,10 @@ const sidebarBlock = getAffiliateBlock(article.slug, 'sidebar');
 // Resolve Directus booking_url + CJ wrapper for accommodation/sidebar blocks.
 const [accommodationHref, sidebarHref] = await Promise.all([
   accommodationBlock?.accommodationId
-    ? resolveAccommodationHref(accommodationBlock.accommodationId, article.slug)
+    ? resolveAccommodationHref(accommodationBlock.accommodationId)
     : Promise.resolve(accommodationBlock?.href),
   sidebarBlock?.accommodationId
-    ? resolveAccommodationHref(sidebarBlock.accommodationId, article.slug)
+    ? resolveAccommodationHref(sidebarBlock.accommodationId)
     : Promise.resolve(sidebarBlock?.href),
 ]);
 

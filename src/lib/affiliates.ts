@@ -33,26 +33,27 @@ export function buildCjBookingLink(plainBookingUrl: string, sid: string): string
   return `https://www.kqzyfj.com/click-${CJ_CONFIG.publisherId}-${CJ_CONFIG.evergreenLinkId}?url=${encoded}&sid=${sid}`;
 }
 
-// Fetches booking_url from Directus accommodations by ID and wraps with CJ.
+// Fetches booking_url + slug from Directus accommodations by ID and wraps with CJ.
+// SID = 'accommodation-{accommodation-slug}' for per-property attribution in CJ reports.
 // Called at build time from the article template.
 export async function resolveAccommodationHref(
   accommodationId: number,
-  articleSlug: string,
 ): Promise<string | undefined> {
   const url = (process.env['DIRECTUS_URL'] || '').trim();
   const token = (process.env['DIRECTUS_TOKEN'] || '').trim();
   if (!url || !token) return undefined;
 
   try {
-    const res = await fetch(`${url}/items/accommodations/${accommodationId}?fields=booking_url`, {
+    const res = await fetch(`${url}/items/accommodations/${accommodationId}?fields=slug,booking_url`, {
       headers: { Authorization: `Bearer ${token}` },
       signal: AbortSignal.timeout(10000),
     });
     if (!res.ok) return undefined;
-    const data = (await res.json()) as { data?: { booking_url?: string } };
+    const data = (await res.json()) as { data?: { slug?: string; booking_url?: string } };
     const bookingUrl = data?.data?.booking_url;
-    if (!bookingUrl) return undefined;
-    return buildCjBookingLink(bookingUrl, `accommodation-${articleSlug}`);
+    const slug = data?.data?.slug;
+    if (!bookingUrl || !slug) return undefined;
+    return buildCjBookingLink(bookingUrl, `accommodation-${slug}`);
   } catch {
     return undefined;
   }
