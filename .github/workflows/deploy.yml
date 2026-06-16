@@ -12,13 +12,16 @@
 # Branches:
 #   • preview → /root/vinomartino-site/preview-dist (paperclip-vinomartino-preview-1)
 #   • main    → /root/vinomartino-site/dist          (paperclip-vinomartino-prod-1)
-#             → eerst Telegram-approval via Paperclip CoS bridge
+#
+# Deploy-posture (LAT-1368, board-besluit Optie 2):
+#   main → prod is AUTO-DEPLOY. Een merge naar `main` triggert direct build +
+#   atomic DIST-swap + nginx-reload + smoke-test, ZONDER approval-pauze aan de
+#   prod-zijde. Een gefaalde build aborteert de swap (prod blijft op de oude dist).
+#   De menselijke gate zit in de PR-review + merge (R2-governance), niet hier.
+#   Er is GEEN required-reviewers gate op de `production` environment.
 #
 # Vereiste secrets (slechts 3):
 #   VPS_HOST, VPS_USER, VPS_SSH_PRIVATE_KEY
-#
-# Optioneel:
-#   COS_APPROVAL_URL  (default: https://approval.vinomartino.com/approval)
 
 name: Deploy VinoMartino
 
@@ -73,9 +76,10 @@ jobs:
           echo "::notice::Deploying to $target → $dist_dir ($container)"
 
       # ── 2. Code ophalen ───────────────────────────────────────────────────
-      # NB: productie-approval gebeurt VOOR deze stap door de GHA
-      # environment-gate ("production" environment heeft required reviewers).
-      # Preview-pushes hebben geen reviewers en lopen direct door.
+      # NB: geen prod-side approval-pauze; main -> prod is auto-deploy
+      # (LAT-1368). De menselijke gate is PR-review/merge (R2); de `production`
+      # environment heeft GEEN required reviewers. Build + atomic swap lopen
+      # direct door; een gefaalde build aborteert de swap.
       - name: Checkout
         uses: actions/checkout@v4
 
