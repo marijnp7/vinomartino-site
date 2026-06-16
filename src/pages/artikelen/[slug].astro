@@ -3,18 +3,36 @@ import SiteLayout from '../../layouts/SiteLayout.astro';
 import AffiliatePlaceholder from '../../components/AffiliatePlaceholder.astro';
 import RelatedEntities from '../../components/RelatedEntities.astro';
 import Stay22Stay from '../../components/Stay22Stay.astro';
+import AccommodatieRoundup from '../../components/AccommodatieRoundup.astro';
 import { loadArticles, type Article } from '../../lib/articles';
+import { loadAccommodatieRoundupsByStreek } from '../../lib/accommodaties-loader';
+import type { AccommodatieRoundup as AccommodatieRoundupData } from '../../lib/accommodaties';
 import { articleSchema, breadcrumbSchema } from '../../lib/seo';
 import { getAffiliateBlock, resolveAccommodationHref } from '../../lib/affiliates';
 import { deriveArticleLocation } from '../../lib/stay22';
 import { getAuthorByByline } from '../../lib/authors';
 
+type ArticleRoundup = { slug: string; roundup: AccommodatieRoundupData };
+
 export async function getStaticPaths() {
-  const articles = await loadArticles();
-  return articles.map((a) => ({ params: { slug: a.slug }, props: { article: a } }));
+  const [articles, accRoundupsByStreek] = await Promise.all([
+    loadArticles(),
+    loadAccommodatieRoundupsByStreek(),
+  ]);
+  return articles.map((a) => {
+    // LAT-1364: koppel de reisjunk-roundup aan het artikel via related_streken,
+    // zodat reisartikelen met curated properties dezelfde CJ-kaart krijgen als
+    // de streek-pagina's i.p.v. de generieke Stay22-widget.
+    const accRoundups: ArticleRoundup[] = a.relatedStreken
+      .map((s) => ({ slug: s.slug, roundup: accRoundupsByStreek.get(s.slug) }))
+      .filter((x): x is ArticleRoundup =>
+        Boolean(x.roundup && x.roundup.subgroepen.some((g) => g.kaarten.length > 0)));
+    return { params: { slug: a.slug }, props: { article: a, accRoundups } };
+  });
 }
 
-const { article } = Astro.props as { article: Article };
+const { article, accRoundups } = Astro.props as { article: Article; accRoundups: ArticleRoundup[] };
+const hasReisjunkRoundup = accRoundups.length > 0;
 const accommodationBlock = getAffiliateBlock(article.slug, 'accommodation');
 const activity = getAffiliateBlock(article.slug, 'activity');
 const sidebarBlock = getAffiliateBlock(article.slug, 'sidebar');
@@ -177,7 +195,13 @@ const schema = [
           />
         )}
 
-        <Stay22Stay location={stay22Location} context={article.slug} placement="inline-end" />
+        {hasReisjunkRoundup ? (
+          accRoundups.map(({ slug, roundup }) => (
+            <AccommodatieRoundup roundup={roundup} context={slug} />
+          ))
+        ) : (
+          <Stay22Stay location={stay22Location} context={article.slug} placement="inline-end" />
+        )}
       </div>
 
       <aside class="article-sidebar">
