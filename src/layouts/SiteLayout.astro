@@ -113,17 +113,13 @@ const articleTags = article?.tags?.filter((tag): tag is string => Boolean(tag &&
         } catch (e) {}
       })();
     </script>
-    <!-- Stay22 "Let Me Allez" affiliate loader (LAT-1126). We renderen overal expliciete
-         stay22.com/allez-links (Stay22Stay), dus LinkSwap-auto-conversie is overbodig én
-         schadelijk: het herschreef onze CJ-booking-deeplinks (.acc-kaart__cta) client-side
-         naar Stay22 en kaapte de CJ-conversie (LAT-1369). disableLinkSwap zet die rewrite
-         globaal uit; de click-interceptor negeert onze links al via rel="sponsored". -->
+    <!-- Stay22 "Let Me Allez" affiliate loader (LAT-1126). LinkSwap auto-converteert
+         bestaande hotel/activiteit-links naar Stay22-affiliate-links. AID: vinomartino. -->
     <script is:inline>
       (function (s, t, a, y, twenty, two) {
         s.Stay22 = s.Stay22 || {};
         s.Stay22.params = {
           lmaID: '6a22c22f543a519eadd2cd2e',
-          disableLinkSwap: true,
           nova: { ignoreElements: ['.affiliate-block__cta', '.acc-kaart__cta'] },
         };
         twenty = t.createElement(a);
@@ -132,6 +128,45 @@ const articleTags = article?.tags?.filter((tag): tag is string => Boolean(tag &&
         twenty.src = y;
         two.parentNode.insertBefore(twenty, two);
       })(window, document, 'script', 'https://scripts.stay22.com/letmeallez.js');
+    </script>
+    <!-- CJ-CTA guard (LAT-1369). LinkSwap herschrijft de href van onze CJ-booking-CTA's
+         (.acc-kaart__cta) client-side naar Stay22 — dat kaapt de CJ-conversie. LinkSwap
+         kent geen per-element opt-out (nova.ignoreElements stuurt alleen de overlay, niet
+         de rewrite), dus herstellen we de canonieke CJ-URL uit data-cj-href en houden we
+         hem vast met een MutationObserver. Zo blijft globale LinkSwap aan voor losse
+         booking-links elders, terwijl onze gecureerde CJ-deeplinks intact blijven. -->
+    <script is:inline>
+      (function () {
+        function restore(el) {
+          var cj = el.getAttribute('data-cj-href');
+          if (!cj) return;
+          if (el.getAttribute('href') !== cj) el.setAttribute('href', cj);
+          if (el.hasAttribute('onclick')) el.removeAttribute('onclick');
+          if (el.hasAttribute('data-modified-href')) el.removeAttribute('data-modified-href');
+          if (el.hasAttribute('data-s22url')) el.removeAttribute('data-s22url');
+          if (el.getAttribute('target') !== '_blank') el.setAttribute('target', '_blank');
+        }
+        function sweep() {
+          var els = document.querySelectorAll('a.acc-kaart__cta[data-cj-href]');
+          for (var i = 0; i < els.length; i++) restore(els[i]);
+        }
+        function start() {
+          sweep();
+          try {
+            new MutationObserver(function (muts) {
+              for (var i = 0; i < muts.length; i++) {
+                var n = muts[i].target;
+                if (n.nodeType === 1 && n.classList && n.classList.contains('acc-kaart__cta')) restore(n);
+              }
+            }).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['href', 'onclick'] });
+          } catch (e) {}
+          window.addEventListener('load', sweep);
+          setTimeout(sweep, 1500);
+          setTimeout(sweep, 4000);
+        }
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+        else start();
+      })();
     </script>
   </head>
   <body>
