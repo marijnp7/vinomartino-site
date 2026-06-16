@@ -113,14 +113,18 @@ const articleTags = article?.tags?.filter((tag): tag is string => Boolean(tag &&
         } catch (e) {}
       })();
     </script>
-    <!-- Stay22 "Let Me Allez" affiliate loader (LAT-1126). LinkSwap auto-converteert
-         bestaande hotel/activiteit-links naar Stay22-affiliate-links. AID: vinomartino. -->
+    <!-- Stay22 "Let Me Allez" affiliate loader (LAT-1126). We renderen overal expliciete
+         stay22.com/allez-links (Stay22Stay), dus LinkSwap-auto-conversie is overbodig én
+         schadelijk: het herschreef onze CJ-booking-deeplinks (.acc-kaart__cta) client-side
+         naar Stay22 en kaapte de CJ-conversie (LAT-1369). disableLinkSwap zet die rewrite
+         globaal uit; de click-interceptor negeert onze links al via rel="sponsored". -->
     <script is:inline>
       (function (s, t, a, y, twenty, two) {
         s.Stay22 = s.Stay22 || {};
         s.Stay22.params = {
           lmaID: '6a22c22f543a519eadd2cd2e',
-          nova: { ignoreElements: ['.affiliate-block__cta'] },
+          disableLinkSwap: true,
+          nova: { ignoreElements: ['.affiliate-block__cta', '.acc-kaart__cta'] },
         };
         twenty = t.createElement(a);
         two = t.getElementsByTagName(a)[0];
