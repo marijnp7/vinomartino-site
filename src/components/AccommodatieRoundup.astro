@@ -1,0 +1,177 @@
+---
+// LAT-1332 — Per-regio accommodatie-roundup (reisjunk-model, EPIC LAT-1330).
+// Sprong-navigatie (pills per sub-bestemming) + sectie-headers
+// "LEUKE HOTELS IN [PLAATS]" + responsive kaart-grid + disclosure-blok.
+// VinoMartino-huisstijl op tokens.css (DESIGN_SPECS.md / LAT-784).
+
+import type { AccommodatieRoundup } from '../lib/accommodaties';
+import AccommodatieKaart from './AccommodatieKaart.astro';
+
+interface Props {
+  roundup: AccommodatieRoundup;
+  /** Context-slug voor affiliate-tracking, bv. de regio-slug. */
+  context?: string;
+}
+
+const { roundup, context } = Astro.props;
+
+// Alleen sub-bestemmingen met daadwerkelijke kaarten tonen.
+const groepen = roundup.subgroepen.filter((g) => g.kaarten.length > 0);
+const heeftNav = groepen.length > 1;
+const sectionId = `acc-roundup-${(context || roundup.regio).toLowerCase().replace(/[^a-z0-9-]/gi, '-')}`;
+---
+
+{groepen.length > 0 && (
+  <section class="acc-roundup" id={sectionId} aria-labelledby={`${sectionId}-title`}>
+    <header class="acc-roundup__head">
+      <span class="acc-roundup__kicker">Waar te slapen</span>
+      <h2 id={`${sectionId}-title`} class="acc-roundup__title">Leuke hotels in {roundup.regio}</h2>
+      <p class="acc-roundup__intro">
+        Een handgekozen selectie verblijven per bestemming — geen willekeurig hotelaanbod, maar adressen
+        die we zelf zouden boeken. Prijzen zijn indicatief "vanaf"-tarieven en variëren per seizoen.
+      </p>
+    </header>
+
+    {heeftNav && (
+      <nav class="acc-roundup__nav" aria-label="Spring naar een bestemming">
+        <span class="acc-roundup__nav-label">Voor welke bestemming zoek je een accommodatie?</span>
+        <ul class="acc-roundup__pills">
+          {groepen.map((g) => (
+            <li>
+              <a class="acc-roundup__pill" href={`#${sectionId}-${g.slug}`}>{g.plaats}</a>
+            </li>
+          ))}
+        </ul>
+      </nav>
+    )}
+
+    {groepen.map((g) => (
+      <div class="acc-roundup__groep" id={`${sectionId}-${g.slug}`}>
+        <h3 class="acc-roundup__groep-title">Leuke hotels in {g.plaats}</h3>
+        <div class="acc-roundup__grid">
+          {g.kaarten.map((kaart) => (
+            <AccommodatieKaart kaart={kaart} context={context || roundup.regio} />
+          ))}
+        </div>
+      </div>
+    ))}
+
+    <p class="acc-roundup__disclosure">
+      Affiliate-links · we kunnen een commissie ontvangen als je via deze links boekt — jij betaalt niets extra.
+      We tonen alleen accommodaties en foto's die onder ons affiliate-/licentieprogramma zijn toegestaan.
+    </p>
+  </section>
+)}
+
+<style>
+  .acc-roundup {
+    margin: 3rem 0;
+  }
+  .acc-roundup__kicker {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: var(--burgundy, #5A1A1F);
+  }
+  .acc-roundup__title {
+    font-family: var(--font-display, Georgia, serif);
+    font-size: clamp(1.875rem, 1.2rem + 2.4vw, 2.75rem);
+    font-weight: 500;
+    color: var(--ink, #1F1A16);
+    margin: 0.4rem 0 0.6rem;
+  }
+  .acc-roundup__intro {
+    font-family: var(--font-body, Georgia, serif);
+    font-size: 1.0625rem;
+    line-height: 1.6;
+    color: var(--inkSoft, #5A4F45);
+    max-width: 54ch;
+    margin: 0 0 1.75rem;
+  }
+
+  /* Sprong-navigatie — sticky pill-rij. */
+  .acc-roundup__nav {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--paper, #FAF5E9);
+    padding: 0.85rem 0;
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid var(--ruleSoft, #E0D2B0);
+  }
+  .acc-roundup__nav-label {
+    display: block;
+    font-family: var(--font-ui, sans-serif);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--ink, #1F1A16);
+    margin-bottom: 0.6rem;
+  }
+  .acc-roundup__pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .acc-roundup__pill {
+    display: inline-block;
+    font-family: var(--font-ui, sans-serif);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--burgundy, #5A1A1F);
+    background: var(--burgundy-10, #F2EAEB);
+    border: 1px solid var(--burgundy-20, #E4D4D5);
+    padding: 0.35rem 0.85rem;
+    border-radius: 999px;
+    text-decoration: none;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+  .acc-roundup__pill:hover,
+  .acc-roundup__pill:focus-visible {
+    background: var(--burgundy, #5A1A1F);
+    color: var(--paper, #FAF5E9);
+    outline: none;
+  }
+
+  .acc-roundup__groep {
+    margin-bottom: 2.5rem;
+    scroll-margin-top: 6rem;
+  }
+  .acc-roundup__groep-title {
+    font-family: var(--font-ui, sans-serif);
+    font-size: 0.9375rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--ink, #1F1A16);
+    margin: 0 0 1.1rem;
+    padding-bottom: 0.55rem;
+    border-bottom: 1px solid var(--rule, #C9B98F);
+  }
+  .acc-roundup__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .acc-roundup__disclosure {
+    font-family: var(--font-body, Georgia, serif);
+    font-style: italic;
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: var(--inkFaint, #8A7E70);
+    margin: 0.5rem 0 0;
+    max-width: 60ch;
+  }
+
+  @media (max-width: 640px) {
+    .acc-roundup__grid { grid-template-columns: 1fr; }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    html { scroll-behavior: smooth; }
+  }
+</style>

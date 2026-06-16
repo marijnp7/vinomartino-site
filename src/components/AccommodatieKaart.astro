@@ -1,0 +1,193 @@
+---
+// LAT-1332 — VinoMartino accommodatie-kaart (reisjunk-model, EPIC LAT-1330).
+// Foto + naam + "Locatie: [plaats]" + 2-4 zinnen + prijsblok (laag/hoogseizoen)
+// + CJ-deeplink-CTA. Eigen VinoMartino-huisstijl op tokens.css (DESIGN_SPECS.md,
+// LAT-784) — NIET de reisjunk-terracotta kopiëren. Foto's komen rechten-bewust
+// uit DAM; ontbreekt er één, dan rendert SmartImg een nette placeholder.
+
+import type { AccommodatieKaart } from '../lib/accommodaties';
+import { accommodatieBookingHref } from '../lib/accommodaties';
+import SmartImg from './SmartImg.astro';
+
+interface Props {
+  kaart: AccommodatieKaart;
+  /** Context-slug voor affiliate-tracking, bv. "piemonte". */
+  context?: string;
+}
+
+const { kaart, context } = Astro.props;
+const href = accommodatieBookingHref(kaart);
+const altText = kaart.fotoAlt || `${kaart.naam} — ${kaart.plaats}`;
+const heeftPrijs = kaart.prijsLaag != null || kaart.prijsHoog != null;
+---
+
+<article class="acc-kaart" id={`acc-${kaart.slug}`}>
+  <div class="acc-kaart__media">
+    <SmartImg src={kaart.foto ?? undefined} alt={altText} theme="winery" class="acc-kaart__img" />
+  </div>
+
+  <div class="acc-kaart__body">
+    <h4 class="acc-kaart__naam">{kaart.naam}</h4>
+    <p class="acc-kaart__locatie"><span class="acc-kaart__locatie-label">Locatie:</span> {kaart.plaats}</p>
+    <p class="acc-kaart__beschrijving">{kaart.beschrijving}</p>
+
+    {heeftPrijs && (
+      <dl class="acc-kaart__prijzen">
+        {kaart.prijsLaag != null && (
+          <div class="acc-kaart__prijs">
+            <dt class="acc-kaart__seizoen">Laagseizoen</dt>
+            <dd class="acc-kaart__bedrag">Kamer vanaf €{kaart.prijsLaag}</dd>
+          </div>
+        )}
+        {kaart.prijsHoog != null && (
+          <div class="acc-kaart__prijs">
+            <dt class="acc-kaart__seizoen">Hoogseizoen</dt>
+            <dd class="acc-kaart__bedrag">vanaf €{kaart.prijsHoog}</dd>
+          </div>
+        )}
+      </dl>
+    )}
+
+    <div class="acc-kaart__foot">
+      {href ? (
+        <a
+          class="acc-kaart__cta"
+          href={href}
+          target="_blank"
+          rel="sponsored noopener"
+          data-affiliate-track
+          data-affiliate-partner="booking.com"
+          data-affiliate-placement="accommodatie-kaart"
+          data-affiliate-context={context ? `accommodatie-${context}` : 'accommodatie'}
+        >
+          Bekijk beschikbaarheid →
+        </a>
+      ) : (
+        <span class="acc-kaart__cta acc-kaart__cta--disabled" aria-disabled="true">Binnenkort boekbaar</span>
+      )}
+      <p class="acc-kaart__disclosure">Affiliate-link · prijs voor jou identiek</p>
+    </div>
+  </div>
+</article>
+
+<style>
+  .acc-kaart {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--ruleSoft, #E0D2B0);
+    border-radius: 4px;
+    background: var(--paper, #FAF5E9);
+    overflow: hidden;
+    scroll-margin-top: 5rem;
+    transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+  }
+  .acc-kaart:hover {
+    border-color: var(--rule, #C9B98F);
+    box-shadow: 0 6px 22px rgba(31, 26, 22, 0.1);
+    transform: translateY(-2px);
+  }
+
+  .acc-kaart__media {
+    aspect-ratio: 3 / 2;
+    background: var(--paperDeep, #F0E6D0);
+    overflow: hidden;
+  }
+  .acc-kaart__img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .acc-kaart__body {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    padding: 1.25rem 1.25rem 1.1rem;
+  }
+
+  .acc-kaart__naam {
+    font-family: var(--font-display, Georgia, serif);
+    font-size: 1.375rem;
+    font-weight: 500;
+    line-height: 1.15;
+    color: var(--ink, #1F1A16);
+    margin: 0 0 0.3rem;
+  }
+  .acc-kaart__locatie {
+    font-family: var(--font-ui, sans-serif);
+    font-size: 0.8125rem;
+    color: var(--inkSoft, #5A4F45);
+    margin: 0 0 0.7rem;
+  }
+  .acc-kaart__locatie-label {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 600;
+    color: var(--rust, #A14F2A);
+  }
+  .acc-kaart__beschrijving {
+    font-family: var(--font-body, Georgia, serif);
+    font-size: 0.9375rem;
+    line-height: 1.6;
+    color: var(--inkSoft, #5A4F45);
+    margin: 0 0 1rem;
+    flex: 1;
+  }
+
+  .acc-kaart__prijzen {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1.5rem;
+    margin: 0 0 1rem;
+    padding: 0.7rem 0 0;
+    border-top: 1px solid var(--ruleSoft, #E0D2B0);
+  }
+  .acc-kaart__prijs { margin: 0; }
+  .acc-kaart__seizoen {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--inkFaint, #8A7E70);
+    margin: 0 0 0.15rem;
+  }
+  .acc-kaart__bedrag {
+    font-family: var(--font-body, Georgia, serif);
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--burgundy, #5A1A1F);
+    margin: 0;
+  }
+
+  .acc-kaart__foot {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    margin-top: auto;
+  }
+  .acc-kaart__cta {
+    align-self: flex-start;
+    font-family: var(--font-ui, sans-serif);
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--paper, #FAF5E9);
+    background: var(--burgundy, #5A1A1F);
+    padding: 0.55rem 1rem;
+    border-radius: 3px;
+    text-decoration: none;
+    transition: background 0.15s ease;
+  }
+  .acc-kaart__cta:hover { background: var(--burgundyDeep, #3D1115); }
+  .acc-kaart__cta--disabled {
+    background: var(--paperDeep, #F0E6D0);
+    color: var(--inkFaint, #8A7E70);
+    cursor: not-allowed;
+  }
+  .acc-kaart__disclosure {
+    font-family: var(--font-body, Georgia, serif);
+    font-style: italic;
+    font-size: 0.6875rem;
+    color: var(--inkFaint, #8A7E70);
+    margin: 0;
+  }
+</style>
