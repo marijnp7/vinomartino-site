@@ -118,7 +118,10 @@ const articleTags = article?.tags?.filter((tag): tag is string => Boolean(tag &&
     <script is:inline>
       (function (s, t, a, y, twenty, two) {
         s.Stay22 = s.Stay22 || {};
-        s.Stay22.params = { lmaID: '6a22c22f543a519eadd2cd2e' };
+        s.Stay22.params = {
+          lmaID: '6a22c22f543a519eadd2cd2e',
+          nova: { ignoreElements: ['.affiliate-block__cta'] },
+        };
         twenty = t.createElement(a);
         two = t.getElementsByTagName(a)[0];
         twenty.async = 1;
