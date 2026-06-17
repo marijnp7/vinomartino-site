@@ -164,7 +164,11 @@ const schema = [
           </aside>
         )}
 
-        {accommodation && (
+        {/* LAT-1381: als de reisjunk-roundup (CJ-kaarten) er is, bezit die de
+            accommodatie-route. Onderdruk het losse inline accommodatie-blok zodat
+            een property niet dubbel verschijnt (EPIC LAT-1330: één placement = één route).
+            Mirror van de streek-template. */}
+        {!hasReisjunkRoundup && accommodation && (
           <AffiliatePlaceholder
             type="accommodation"
             context={article.slug}
