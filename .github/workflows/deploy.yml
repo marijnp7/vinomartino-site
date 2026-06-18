@@ -286,12 +286,18 @@ jobs:
       #
       # Deze step verifieert dat de live container matcht met de spec uit
       # docker-compose.vinomartino-prod.yml (image, mounts, network, traefik
-      # labels, restart policy). Bij drift: snapshot + auto-reconcile via
-      # `docker compose up -d --force-recreate --no-deps`. Alleen voor
-      # productie — preview heeft geen SLA en geen externe traffic.
+      # labels, restart policy). Alleen voor productie — preview heeft geen
+      # SLA en geen externe traffic.
+      #
+      # LAT-1409: deze step is nu DETECTIE-ONLY en non-fataal. De vroegere
+      # auto-reconcile (`docker compose up -d --force-recreate`) is verwijderd:
+      # hij markeerde elke geslaagde content-deploy als failed (false
+      # failure-mails) en veroorzaakte een prod-outage (522) toen de
+      # force-recreate mislukte (LAT-1382). Drift wordt nu enkel als warning
+      # gelogd; container-recreate doe je handmatig via het runbook.
       #
       # Runbook voor handmatige recovery: docs/runbooks/vinomartino-prod-recreate.md
-      - name: Verify prod container matches compose spec (LAT-914)
+      - name: Drift check prod container vs compose spec (detect-only, LAT-1409)
         if: steps.env.outputs.target == 'production'
         env:
           VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
@@ -368,35 +374,27 @@ jobs:
 
             result=$(inspect_drift)
 
+            # LAT-1409: deze stap is bewust DETECTIE-ONLY en strikt non-fataal.
+            # Op dit punt is de content-deploy (rsync dist + nginx reload, stap 7)
+            # al geslaagd; drift t.o.v. de compose-spec is enkel informatief.
+            # De auto `docker compose up -d --force-recreate` is VERWIJDERD omdat
+            # hij (a) overbodig is voor content-deploys — een draaiende nginx
+            # serveert de ge-rsyncte dist/ direct, de container hoeft niet
+            # herbouwd — en (b) een echte prod-outage (522) veroorzaakte toen de
+            # force-recreate mislukte (LAT-1382). Hij markeerde bovendien elke
+            # geslaagde deploy als failed (false failure-mails, LAT-914/LAT-1409).
+            # Echte container-recreate gebeurt nu handmatig via het runbook:
+            # docs/runbooks/vinomartino-prod-recreate.md
             if [ "$result" = "ok" ]; then
               echo "::notice::Container $CONTAINER in sync met $COMPOSE_FILE"
-              exit 0
-            fi
-
-            if [ "$result" = "container_missing" ]; then
-              echo "::warning::Container $CONTAINER bestaat niet — recreate via compose"
+            elif [ "$result" = "container_missing" ]; then
+              echo "::warning::Container $CONTAINER bestaat niet — handmatige recreate via runbook (LAT-1409, geen auto-reconcile)"
             else
-              echo "::warning::Drift gedetecteerd voor $CONTAINER vs $COMPOSE_FILE:"
+              echo "::warning::Drift gedetecteerd voor $CONTAINER vs $COMPOSE_FILE (informatief, non-fataal — LAT-1409):"
               echo "$result" | sed 's/^/  /'
-              SNAPSHOT="/tmp/prod-rollback-$(date +%s).json"
-              docker inspect "$CONTAINER" > "$SNAPSHOT" 2>/dev/null \
-                && echo "::notice::Pre-reconcile spec snapshot → $SNAPSHOT (rollback-bewijs)"
+              echo "::warning::Geen auto-reconcile. Beoordeel handmatig; recreate indien nodig via docs/runbooks/vinomartino-prod-recreate.md (zie LAT-1382)"
             fi
-
-            echo "::notice::Reconcile: docker compose -f $COMPOSE_FILE up -d --force-recreate --no-deps $SERVICE"
-            docker compose -f "$COMPOSE_FILE" up -d --force-recreate --no-deps "$SERVICE"
-
-            sleep 3
-            recheck=$(inspect_drift)
-            if [ "$recheck" = "ok" ]; then
-              echo "::notice::Drift opgelost — container nu in sync met compose"
-              exit 0
-            fi
-
-            echo "::error::Reconcile gefaald — drift na force-recreate:"
-            echo "$recheck" | sed 's/^/  /'
-            echo "::error::Volg docs/runbooks/vinomartino-prod-recreate.md voor handmatige recovery"
-            exit 1
+            exit 0
         run: |
           printf '%s\n' "$DRIFT_SCRIPT" \
             | ssh "$VPS" "CONTAINER='$CONTAINER' bash -s"
