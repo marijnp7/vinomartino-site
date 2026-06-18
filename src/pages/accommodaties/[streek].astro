@@ -1,0 +1,106 @@
+---
+// LAT-1383 (Track B, EPIC LAT-1330) — reisjunk-stijl accommodatie-overzicht per
+// regio. Hergebruikt AccommodatieRoundup (LAT-1332) + de Directus-loader
+// (LAT-1331). Route-conventie: top-level /accommodaties/<streek-slug>/.
+import SiteLayout from '../../layouts/SiteLayout.astro';
+import AccommodatieRoundup from '../../components/AccommodatieRoundup.astro';
+import { loadAccommodatieRoundupsByStreek } from '../../lib/accommodaties-loader';
+import { filterRoundupOpFotos, roundupKaartAantal, type AccommodatieRoundup as Roundup } from '../../lib/accommodaties';
+import { loadStreken, type Streek } from '../../lib/streken';
+import { organizationSchema, breadcrumbSchema } from '../../lib/seo';
+
+export async function getStaticPaths() {
+  const [roundups, streken] = await Promise.all([loadAccommodatieRoundupsByStreek(), loadStreken()]);
+  const streekBySlug = new Map(streken.map((s) => [s.slug, s]));
+  const paths = [];
+  for (const [streekSlug, raw] of roundups) {
+    // LAT-1371: alleen regio's met ≥1 echte DAM-foto verschijnen.
+    const roundup = filterRoundupOpFotos(raw);
+    if (roundupKaartAantal(roundup) === 0) continue;
+    paths.push({ params: { streek: streekSlug }, props: { roundup, streek: streekBySlug.get(streekSlug) ?? null, streekSlug } });
+  }
+  return paths;
+}
+
+const { roundup, streek, streekSlug } = Astro.props as { roundup: Roundup; streek: Streek | null; streekSlug: string };
+const regio = roundup.regio || streek?.name || streekSlug;
+
+const schema = [
+  organizationSchema(),
+  breadcrumbSchema([
+    { name: 'Home', url: '/' },
+    { name: 'Accommodaties', url: '/accommodaties/' },
+    { name: regio, url: `/accommodaties/${streekSlug}/` },
+  ]),
+];
+---
+
+<SiteLayout
+  title={`Waar slapen in ${regio}? Handgekozen verblijven | VinoMartino`}
+  description={`Een persoonlijke selectie verblijven in ${regio}, met echte foto's, locatie en prijsindicatie. Geen willekeurig hotelaanbod, maar adressen die we zelf zouden boeken.`}
+  schema={schema}
+  activeNav="accommodaties"
+>
+  <section class="hero-sm">
+    <div class="container">
+      <nav class="crumbs" aria-label="Kruimelpad">
+        <a href="/accommodaties/">Accommodaties</a>
+        <span aria-hidden="true">/</span>
+        <span>{regio}</span>
+      </nav>
+      <span class="section-label">Waar slapen</span>
+      <h1>Verblijven in {regio}</h1>
+      <p class="hero-desc">Handgekozen adressen per bestemming, geen willekeurig hotelaanbod. Plekken die we zelf zouden boeken, met echte foto's en een eerlijke prijsindicatie.</p>
+      {streek && (
+        <p class="hero-link"><a href={`/streken/${streek.slug}/`}>Lees de wijngids over {regio} →</a></p>
+      )}
+    </div>
+  </section>
+
+  <div class="container">
+    <AccommodatieRoundup roundup={roundup} context={streekSlug} hideHead />
+  </div>
+</SiteLayout>
+
+<style>
+  .hero-sm {
+    background: var(--paperDeep);
+    padding: var(--space-12) 0 var(--space-8);
+    text-align: center;
+  }
+  .crumbs {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--inkSoft);
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+    margin-bottom: var(--space-3);
+  }
+  .crumbs a { color: var(--rust); text-decoration: none; }
+  .hero-sm h1 {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 1.6rem + 1.5vw, 3rem);
+    font-weight: 400;
+    font-style: italic;
+    color: var(--ink);
+    margin-top: var(--space-3);
+  }
+  .hero-desc {
+    font-family: var(--font-body);
+    font-size: 1rem;
+    color: var(--inkSoft);
+    margin-top: var(--space-3);
+    max-width: 36rem;
+    margin-inline: auto;
+  }
+  .hero-link {
+    margin-top: var(--space-4);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+  }
+  .hero-link a { color: var(--rust); text-decoration: none; }
+</style>
