@@ -26,7 +26,7 @@ export async function getStaticPaths() {
     const accRoundups: ArticleRoundup[] = a.relatedStreken
       .map((s) => ({ slug: s.slug, roundup: accRoundupsByStreek.get(s.slug) }))
       .filter((x): x is ArticleRoundup =>
-        Boolean(x.roundup && x.roundup.subgroepen.some((g) => g.kaarten.length > 0)));
+        Boolean(x.roundup && x.roundup.clusters.some((c) => c.kaarten.length > 0)));
     return { params: { slug: a.slug }, props: { article: a, accRoundups } };
   });
 }

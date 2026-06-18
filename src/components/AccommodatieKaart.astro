@@ -7,6 +7,7 @@
 
 import type { AccommodatieKaart } from '../lib/accommodaties';
 import { accommodatieBookingHref } from '../lib/accommodaties';
+import { STAY_TIER_META } from '../lib/stay-tier';
 import SmartImg from './SmartImg.astro';
 
 interface Props {
@@ -19,11 +20,16 @@ const { kaart, context } = Astro.props;
 const href = accommodatieBookingHref(kaart);
 const altText = kaart.fotoAlt || `${kaart.naam} — ${kaart.plaats}`;
 const heeftPrijs = kaart.prijsLaag != null || kaart.prijsHoog != null;
+// LAT-1406: tier-badge — alleen tonen als het verblijf gecureerd is.
+const tier = kaart.tier ? STAY_TIER_META[kaart.tier] : null;
 ---
 
 <article class="acc-kaart" id={`acc-${kaart.slug}`}>
   <div class="acc-kaart__media">
     <SmartImg src={kaart.foto ?? undefined} alt={altText} theme="winery" class="acc-kaart__img" />
+    {tier && (
+      <span class="acc-kaart__tier" style={`--tier-color: ${tier.color}`}>{tier.label}</span>
+    )}
   </div>
 
   <div class="acc-kaart__body">
@@ -89,9 +95,26 @@ const heeftPrijs = kaart.prijsLaag != null || kaart.prijsHoog != null;
   }
 
   .acc-kaart__media {
+    position: relative;
     aspect-ratio: 3 / 2;
     background: var(--paperDeep, #F0E6D0);
     overflow: hidden;
+  }
+  .acc-kaart__tier {
+    position: absolute;
+    top: 0.6rem;
+    left: 0.6rem;
+    z-index: 1;
+    font-family: var(--font-mono, monospace);
+    font-size: 0.625rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--paper, #FAF5E9);
+    background: var(--tier-color, #5A1A1F);
+    padding: 0.3rem 0.6rem;
+    border-radius: 3px;
+    box-shadow: 0 1px 4px rgba(31, 26, 22, 0.25);
   }
   .acc-kaart__img {
     width: 100%;

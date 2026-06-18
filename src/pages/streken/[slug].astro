@@ -55,7 +55,7 @@ const hasParentLand = Boolean(entry.landSlug && entry.country);
 // ook die, dan rendert er geen overnachten-blok (LAT-1640: geen generieke
 // Stay22-zoekwidget meer).
 const hasCuratedStays = entry.accommodaties.length > 0;
-const hasReisjunkRoundup = Boolean(accRoundup && accRoundup.subgroepen.some(g => g.kaarten.length > 0));
+const hasReisjunkRoundup = Boolean(accRoundup && accRoundup.clusters.some(c => c.kaarten.length > 0));
 
 // LAT-1592 — unified streek "money page": bouw de vier POI-categorieën voor de
 // gedeelde kaart + genummerde blokken. Categorieën zonder data renderen niet.

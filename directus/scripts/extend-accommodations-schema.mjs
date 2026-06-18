@@ -20,6 +20,11 @@
  *                              (LAT-1334 sets this; rights-aware ingest only)
  *   - streek_id      (m2o → streken) so accommodations group per wine region,
  *                              mirroring wijnhuizen.streek_id
+ *   - tier           (string)  curatie-tier (LAT-1406/LAT-1404): slim_geboekt /
+ *                              prijs_kwaliteit / pure_luxe — drives the badge
+ *   - lat, lng       (float)   coordinates that feed the 40-min-clustering
+ *                              (LAT-1406); single-linkage groups stays within
+ *                              ~40 min drive into one block
  *
  * Already present, left untouched: description, booking_url (CJ-deeplink, PID
  * 101734849 + unieke SID per property — LAT-923), hero_image.
@@ -108,6 +113,34 @@ const FIELDS = [
     meta: { interface: 'select-dropdown-m2o', width: 'half', note: 'Wijnregio waar deze accommodatie onder valt (groepeert de reisjunk-kaart per streek)' },
     schema: { is_nullable: true },
   },
+  // LAT-1406 — curatieregel (LAT-1404): tier-badge + 40-min-clustering.
+  {
+    field: 'tier',
+    type: 'string',
+    meta: {
+      interface: 'select-dropdown',
+      width: 'half',
+      options: { choices: [
+        { text: 'Budget (slim geboekt)', value: 'slim_geboekt' },
+        { text: 'Prijs-kwaliteit', value: 'prijs_kwaliteit' },
+        { text: 'Luxe (pure luxe)', value: 'pure_luxe' },
+      ] },
+      note: 'Curatie-tier (LAT-1404): per regio 3 budget + 3 prijs-kwaliteit + 3 luxe. Stuurt de tier-badge.',
+    },
+    schema: { is_nullable: true },
+  },
+  {
+    field: 'lat',
+    type: 'float',
+    meta: { interface: 'input', width: 'half', note: 'Breedtegraad — voedt de 40-min-clustering (LAT-1406). Decimaal, bv. 43.4682.' },
+    schema: { is_nullable: true },
+  },
+  {
+    field: 'lng',
+    type: 'float',
+    meta: { interface: 'input', width: 'half', note: 'Lengtegraad — voedt de 40-min-clustering (LAT-1406). Decimaal, bv. 11.2375.' },
+    schema: { is_nullable: true },
+  },
 ];
 
 async function main() {
@@ -152,7 +185,7 @@ async function main() {
   }
 
   console.log(`\nDone — created: ${created}, skipped: ${skipped}${DRY_RUN ? ' (dry-run)' : ''}`);
-  console.log('\nNext: Content Writer fills location/price_low/price_high/booking_url, DAM ingest sets dam_image_ref + hero_image, set streek_id per property.');
+  console.log('\nNext: Content Writer fills location/price_low/price_high/booking_url + tier + lat/lng (LAT-1406), DAM ingest sets dam_image_ref + hero_image, set streek_id per property.');
 }
 
 main().catch(err => {
