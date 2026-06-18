@@ -9,6 +9,7 @@ const FALLBACK_ITEMS: NavItem[] = [
     { label: 'Landen', href: '/landen/', key: 'landen', order: 10 },
     { label: 'Streken', href: '/streken/', key: 'streken', order: 20 },
     { label: 'Wijnhuizen', href: '/wijnhuizen/', key: 'wijnhuizen', order: 30 },
+    { label: 'Accommodaties', href: '/accommodaties/', key: 'accommodaties', order: 35 },
     { label: 'Wijnroutes', href: '/wijnroutes/', key: 'wijnroutes', order: 40 },
     { label: 'Artikelen', href: '/artikelen/', key: 'artikelen', order: 50 },
     { label: 'De Brief', href: '/de-brief/', key: 'de-brief', order: 60 },

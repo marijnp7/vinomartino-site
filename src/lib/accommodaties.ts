@@ -60,3 +60,20 @@ export function accommodatieBookingHref(kaart: AccommodatieKaart): string | null
   }
   return null;
 }
+
+/**
+ * LAT-1371: op een overzichtspagina mag GEEN placeholder/AI-foto staan — alleen
+ * kaarten met een echte (gedownloade) DAM-foto. Filtert de roundup tot kaarten
+ * met `foto` en laat sub-groepen vallen die daardoor leeg raken.
+ */
+export function filterRoundupOpFotos(roundup: AccommodatieRoundup): AccommodatieRoundup {
+  const subgroepen = roundup.subgroepen
+    .map((g) => ({ ...g, kaarten: g.kaarten.filter((k) => Boolean(k.foto)) }))
+    .filter((g) => g.kaarten.length > 0);
+  return { ...roundup, subgroepen };
+}
+
+/** Aantal foto-gedekte kaarten in een roundup. */
+export function roundupKaartAantal(roundup: AccommodatieRoundup): number {
+  return roundup.subgroepen.reduce((n, g) => n + g.kaarten.filter((k) => Boolean(k.foto)).length, 0);
+}
