@@ -129,12 +129,14 @@ const articleTags = article?.tags?.filter((tag): tag is string => Boolean(tag &&
         two.parentNode.insertBefore(twenty, two);
       })(window, document, 'script', 'https://scripts.stay22.com/letmeallez.js');
     </script>
-    <!-- CJ-CTA guard (LAT-1369). LinkSwap herschrijft de href van onze CJ-booking-CTA's
-         (.acc-kaart__cta) client-side naar Stay22 — dat kaapt de CJ-conversie. LinkSwap
-         kent geen per-element opt-out (nova.ignoreElements stuurt alleen de overlay, niet
-         de rewrite), dus herstellen we de canonieke CJ-URL uit data-cj-href en houden we
-         hem vast met een MutationObserver. Zo blijft globale LinkSwap aan voor losse
-         booking-links elders, terwijl onze gecureerde CJ-deeplinks intact blijven. -->
+    <!-- CJ-CTA guard (LAT-1369 → LAT-1400). LinkSwap herschrijft de href van onze
+         CJ-booking-CTA's client-side naar Stay22 — dat kaapt de CJ-conversie. Sinds
+         LAT-1400 zijn onze CTA's directe booking.com-deeplinks (i.p.v. de oude kqzyfj-hop),
+         dus LinkSwap ziet ze nu OOK als booking.com-doelen en zou ze rewriten. We beschermen
+         daarom elke a[data-cj-href] (zowel .acc-kaart__cta als .affiliate-block__cta) door de
+         canonieke CJ-URL uit data-cj-href te herstellen en met een MutationObserver vast te
+         houden. LinkSwap kent geen per-element opt-out (nova.ignoreElements stuurt alleen de
+         overlay, niet de rewrite). Globale LinkSwap blijft aan voor losse links elders. -->
     <script is:inline>
       (function () {
         function restore(el) {
@@ -147,7 +149,7 @@ const articleTags = article?.tags?.filter((tag): tag is string => Boolean(tag &&
           if (el.getAttribute('target') !== '_blank') el.setAttribute('target', '_blank');
         }
         function sweep() {
-          var els = document.querySelectorAll('a.acc-kaart__cta[data-cj-href]');
+          var els = document.querySelectorAll('a[data-cj-href]');
           for (var i = 0; i < els.length; i++) restore(els[i]);
         }
         function start() {
@@ -156,7 +158,7 @@ const articleTags = article?.tags?.filter((tag): tag is string => Boolean(tag &&
             new MutationObserver(function (muts) {
               for (var i = 0; i < muts.length; i++) {
                 var n = muts[i].target;
-                if (n.nodeType === 1 && n.classList && n.classList.contains('acc-kaart__cta')) restore(n);
+                if (n.nodeType === 1 && n.hasAttribute && n.hasAttribute('data-cj-href')) restore(n);
               }
             }).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['href', 'onclick'] });
           } catch (e) {}
