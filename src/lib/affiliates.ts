@@ -20,17 +20,42 @@ export interface AffiliateBlockConfig {
   description?: string;
 }
 
-// CJ Booking.com wrapper (LAT-923).
+// CJ Booking.com deeplink (LAT-923 → LAT-1400).
 // booking_url = plain Booking.com URL uit Directus accommodations.booking_url.
-// sid = 'accommodation-{article-slug}' voor CJ-rapportage.
+// sid = 'accommodation-{article-slug}' voor CJ-rapportage (gaat in het label als clkid).
+//
+// LAT-1400: we linken NIET meer via het CJ-tracker-domein www.kqzyfj.com. Dat domein
+// staat op ad-blocker/Brave/Safari-tracker-lijsten, waardoor de target=_blank-tab bij
+// die bezoekers leeg bleef (booking.com werd nooit bereikt = geen klik, geen commissie).
+// In plaats daarvan bouwen we — net als reisjunk.nl — een DIRECTE booking.com-deeplink
+// met de Booking-affiliate-`aid` + een CJ-`label` dat publisher/site/clkid draagt. Geen
+// blokkeerbaar tussendomein, dus de link werkt ook met een actieve ad-blocker.
 export const CJ_CONFIG = {
-  publisherId: '101734849',
-  evergreenLinkId: '15734897',
+  /** CJ publisher (PID) — verschijnt als `pub-...` in het label. */
+  cjPublisherId: '7938753',
+  /** CJ website/site-id (property 101734849) — verschijnt als `site-...` in het label. */
+  cjWebsiteId: '101734849',
+  /** Booking.com affiliate-id dat de CJ→Booking-redirect aan de finale URL hing. */
+  bookingAid: '818285',
+  /** Legacy CJ ad/link-id van de oude kqzyfj-hop — bewaard voor traceerbaarheid. */
+  legacyEvergreenLinkId: '15734897',
 } as const;
 
+// Bouwt het CJ-label dat Booking aan de boeking koppelt: pub-{PID}_site-{siteId}_clkid-{sid}.
+function buildCjLabel(sid: string): string {
+  return `pub-${CJ_CONFIG.cjPublisherId}_site-${CJ_CONFIG.cjWebsiteId}_clkid-${sid}`;
+}
+
 export function buildCjBookingLink(plainBookingUrl: string, sid: string): string {
-  const encoded = encodeURIComponent(plainBookingUrl);
-  return `https://www.kqzyfj.com/click-${CJ_CONFIG.publisherId}-${CJ_CONFIG.evergreenLinkId}?url=${encoded}&sid=${sid}`;
+  try {
+    const u = new URL(plainBookingUrl);
+    u.searchParams.set('aid', CJ_CONFIG.bookingAid);
+    u.searchParams.set('label', buildCjLabel(sid));
+    return u.toString();
+  } catch {
+    // Niet-parseerbare URL → ongewijzigd teruggeven i.p.v. de build breken.
+    return plainBookingUrl;
+  }
 }
 
 // Fetches booking_url + slug from Directus accommodations by ID and wraps with CJ.

@@ -13,8 +13,9 @@
  * LAT-1334).
  *
  * Booking-CTA: de kale Booking.com-URL uit Directus gaat als `bookingUrl` de
- * kaart in; het component wikkelt die at-render met de CJ-deeplink (PID
- * 101734849 + unieke SID per property, LAT-923) via accommodatieBookingHref.
+ * kaart in; het component bouwt at-render een DIRECTE booking.com-deeplink met
+ * Booking-`aid` + CJ-`label` (ad-blocker-bestendig, LAT-1400; unieke clkid per
+ * property, LAT-923) via accommodatieBookingHref.
  */
 
 import type {
