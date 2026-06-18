@@ -37,9 +37,26 @@ const TIER_META: Record<TierKey, { label: string; color: string }> = {
 const ordered = TIER_ORDER.flatMap((t) => accommodaties.filter((a) => a.tier === t));
 const numbered = ordered.map((acc, i) => ({ acc, n: i + 1 }));
 
+// LAT-1414: link-type-agnostic. The per-stay booking URL comes from Directus
+// (Stay22 Allez, CJ/booking.com deeplink, or a direct link — config, not code).
+// We only fall back to a Stay22 search when no per-stay URL exists yet, and we
+// derive the affiliate-partner label from the URL host so a board change to the
+// booking-link type (LAT-1413 vs HARDE REGEL 6/LAT-1404) needs no template edit.
 function bookingHref(acc: Accommodation): string {
   if (acc.boeklink && /^https?:\/\//.test(acc.boeklink)) return acc.boeklink;
   return allezSearchUrl({ location: `${acc.naam}, ${streek}`, campaign: slug });
+}
+
+function affiliatePartner(href: string): string {
+  try {
+    const host = new URL(href).hostname.toLowerCase();
+    if (host.includes('booking.com')) return 'booking.com';
+    if (host.includes('stay22')) return 'stay22';
+    if (host.includes('kqzyfj') || host.includes('.cj') || host.includes('anrdoezrs') || host.includes('jdoqocy')) return 'cj';
+    return 'direct';
+  } catch {
+    return 'direct';
+  }
 }
 
 function priceLabel(acc: Accommodation): string | null {
@@ -69,6 +86,7 @@ const mapData = {
     color: TIER_META[acc.tier].color,
     price: priceLabel(acc),
     boeklink: bookingHref(acc),
+    partner: affiliatePartner(bookingHref(acc)),
     lat: acc.lat,
     lng: acc.lng,
   })),
@@ -134,14 +152,15 @@ const mapData = {
                 <a
                   class="stay-card__cta"
                   href={bookingHref(acc)}
+                  data-cj-href={bookingHref(acc)}
                   target="_blank"
                   rel="sponsored noopener"
                   data-affiliate-track
-                  data-affiliate-partner="stay22"
+                  data-affiliate-partner={affiliatePartner(bookingHref(acc))}
                   data-affiliate-placement="stay-card"
                   data-affiliate-context={`streek-${slug}`}
                 >
-                  Boek via Stay22 →
+                  Bekijk &amp; boek →
                 </a>
                 <span class="stay-card__note">Prijzen variëren per seizoen</span>
               </div>
@@ -162,7 +181,7 @@ const mapData = {
 
   type AccPin = {
     n: number; naam: string; tier: string; tierLabel: string; color: string;
-    price: string | null; boeklink: string; lat: number; lng: number;
+    price: string | null; boeklink: string; partner: string; lat: number; lng: number;
   };
   type WijnPin = { naam: string; lat: number; lng: number };
   type MapData = { slug: string; accommodaties: AccPin[]; wijnhuizen: WijnPin[] };
@@ -245,8 +264,8 @@ const mapData = {
         `<span class="csm-popup__tier" style="color:${a.color}">${esc(a.tierLabel)}</span>` +
         `<h4 class="csm-popup__name">${esc(a.naam)}</h4>` +
         priceHtml +
-        `<a class="csm-popup__cta" href="${esc(a.boeklink)}" target="_blank" rel="sponsored noopener"` +
-        ` data-affiliate-track data-affiliate-partner="stay22" data-affiliate-placement="map-popup"` +
+        `<a class="csm-popup__cta" href="${esc(a.boeklink)}" data-cj-href="${esc(a.boeklink)}" target="_blank" rel="sponsored noopener"` +
+        ` data-affiliate-track data-affiliate-partner="${esc(a.partner)}" data-affiliate-placement="map-popup"` +
         ` data-affiliate-context="streek-${esc(data.slug)}">Bekijk &amp; boek →</a>` +
         `</div>`;
 
