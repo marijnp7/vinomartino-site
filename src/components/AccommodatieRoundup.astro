@@ -11,9 +11,15 @@ interface Props {
   roundup: AccommodatieRoundup;
   /** Context-slug voor affiliate-tracking, bv. de regio-slug. */
   context?: string;
+  /**
+   * Onderdruk de eigen kop/intro wanneer de pagina al een hero met dezelfde
+   * boodschap levert (bv. de dedicated /accommodaties/<streek>/-pagina), om
+   * dubbele koppen te voorkomen. Sprong-nav, groepen en disclosure blijven.
+   */
+  hideHead?: boolean;
 }
 
-const { roundup, context } = Astro.props;
+const { roundup, context, hideHead = false } = Astro.props;
 
 // Alleen sub-bestemmingen met daadwerkelijke kaarten tonen.
 const groepen = roundup.subgroepen.filter((g) => g.kaarten.length > 0);
@@ -22,15 +28,22 @@ const sectionId = `acc-roundup-${(context || roundup.regio).toLowerCase().replac
 ---
 
 {groepen.length > 0 && (
-  <section class="acc-roundup" id={sectionId} aria-labelledby={`${sectionId}-title`}>
-    <header class="acc-roundup__head">
-      <span class="acc-roundup__kicker">Waar te slapen</span>
-      <h2 id={`${sectionId}-title`} class="acc-roundup__title">Leuke hotels in {roundup.regio}</h2>
-      <p class="acc-roundup__intro">
-        Een handgekozen selectie verblijven per bestemming — geen willekeurig hotelaanbod, maar adressen
-        die we zelf zouden boeken. Prijzen zijn indicatief "vanaf"-tarieven en variëren per seizoen.
-      </p>
-    </header>
+  <section
+    class:list={['acc-roundup', { 'acc-roundup--headless': hideHead }]}
+    id={sectionId}
+    aria-labelledby={hideHead ? undefined : `${sectionId}-title`}
+    aria-label={hideHead ? `Verblijven in ${roundup.regio}` : undefined}
+  >
+    {!hideHead && (
+      <header class="acc-roundup__head">
+        <span class="acc-roundup__kicker">Waar te slapen</span>
+        <h2 id={`${sectionId}-title`} class="acc-roundup__title">Leuke hotels in {roundup.regio}</h2>
+        <p class="acc-roundup__intro">
+          Een handgekozen selectie verblijven per bestemming — geen willekeurig hotelaanbod, maar adressen
+          die we zelf zouden boeken. Prijzen zijn indicatief "vanaf"-tarieven en variëren per seizoen.
+        </p>
+      </header>
+    )}
 
     {heeftNav && (
       <nav class="acc-roundup__nav" aria-label="Spring naar een bestemming">
@@ -66,6 +79,10 @@ const sectionId = `acc-roundup-${(context || roundup.regio).toLowerCase().replac
 <style>
   .acc-roundup {
     margin: 3rem 0;
+  }
+  /* Geen eigen kop → de pagina-hero levert de bovenruimte al. */
+  .acc-roundup--headless {
+    margin-top: 0;
   }
   .acc-roundup__kicker {
     font-family: var(--font-mono, monospace);
