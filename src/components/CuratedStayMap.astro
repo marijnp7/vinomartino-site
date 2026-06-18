@@ -15,6 +15,7 @@
 
 import type { Accommodation, WijnhuisPin } from '../lib/streken';
 import { allezSearchUrl } from '../lib/stay22';
+import { buildCjBookingLink } from '../lib/affiliates';
 
 interface Props {
   streek: string;
@@ -37,13 +38,28 @@ const TIER_META: Record<TierKey, { label: string; color: string }> = {
 const ordered = TIER_ORDER.flatMap((t) => accommodaties.filter((a) => a.tier === t));
 const numbered = ordered.map((acc, i) => ({ acc, n: i + 1 }));
 
+function slugifyNaam(naam: string): string {
+  return naam.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'verblijf';
+}
+
 // LAT-1414: link-type-agnostic. The per-stay booking URL comes from Directus
-// (Stay22 Allez, CJ/booking.com deeplink, or a direct link — config, not code).
-// We only fall back to a Stay22 search when no per-stay URL exists yet, and we
-// derive the affiliate-partner label from the URL host so a board change to the
-// booking-link type (LAT-1413 vs HARDE REGEL 6/LAT-1404) needs no template edit.
+// (Stay22 Allez, booking.com deeplink, or a direct link — config, not code).
+// Board-beslissing (Optie A, orchestrator 2026-06-18): per verblijf een directe
+// booking.com-link met unieke SID + CJ-label, geen kqzyfj. We passen die wrap
+// daarom toe op booking.com-URLs (idempotent: aid+label worden gezet); andere
+// hosts gaan ongewijzigd door, dus de keuze blijft volledig data-config. Stay22-
+// zoeklink is alleen de interim fallback als er nog geen per-verblijf-URL is.
 function bookingHref(acc: Accommodation): string {
-  if (acc.boeklink && /^https?:\/\//.test(acc.boeklink)) return acc.boeklink;
+  const raw = acc.boeklink;
+  if (raw && /^https?:\/\//.test(raw)) {
+    try {
+      if (new URL(raw).hostname.toLowerCase().includes('booking.com')) {
+        return buildCjBookingLink(raw, `accommodation-${slugifyNaam(acc.naam)}`);
+      }
+    } catch { /* val terug op passthrough */ }
+    return raw;
+  }
   return allezSearchUrl({ location: `${acc.naam}, ${streek}`, campaign: slug });
 }
 
