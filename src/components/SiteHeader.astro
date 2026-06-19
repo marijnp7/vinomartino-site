@@ -1,5 +1,6 @@
 ---
 import { loadNavigation } from '../lib/navigation';
+import { loadLandenNav } from '../lib/landen';
 
 interface Props {
   activeNav?: string;
@@ -8,6 +9,17 @@ interface Props {
 const { activeNav } = Astro.props;
 
 const nav = await loadNavigation();
+
+// "Ontdek" mega-dropdown (reisjunk-stijl): alle landen, gegroepeerd per continent.
+const landen = await loadLandenNav();
+const ontdekLanden = [...landen].sort((a, b) => a.name.localeCompare(b.name, 'nl'));
+const ontdekGroups = ontdekLanden.reduce<Record<string, typeof ontdekLanden>>((acc, land) => {
+  const continent = land.continent || 'Overig';
+  (acc[continent] ??= []).push(land);
+  return acc;
+}, {});
+const ontdekContinents = Object.keys(ontdekGroups).sort((a, b) => a.localeCompare(b, 'nl'));
+const hasOntdek = ontdekLanden.length > 0;
 ---
 
 <header class="site-header">
@@ -24,6 +36,39 @@ const nav = await loadNavigation();
       </a>
 
       <nav class="header-nav" aria-label="Hoofdnavigatie">
+        {hasOntdek && (
+          <div class="nav-dropdown" data-nav-dropdown>
+            <button
+              type="button"
+              class="nav-link nav-dropdown-trigger"
+              aria-haspopup="true"
+              aria-expanded="false"
+              aria-controls="ontdek-menu"
+            >
+              Ontdek
+              <svg class="nav-chevron" width="10" height="6" viewBox="0 0 10 6" aria-hidden="true">
+                <path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </button>
+            <div class="nav-dropdown-panel" id="ontdek-menu">
+              <div class="ontdek-grid">
+                {ontdekContinents.map(continent => (
+                  <div class="ontdek-col">
+                    <span class="ontdek-col-label">{continent}</span>
+                    <ul class="ontdek-list">
+                      {ontdekGroups[continent].map(land => (
+                        <li>
+                          <a class="ontdek-link" href={`/landen/${land.slug}/`}>{land.name}</a>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+              <a class="ontdek-all" href="/landen/">Alle landen<span aria-hidden="true"> &rarr;</span></a>
+            </div>
+          </div>
+        )}
         {nav.map(item => (
           <a
             href={item.href}
@@ -77,6 +122,32 @@ const nav = await loadNavigation();
         </svg>
         Zoeken
       </button>
+      {hasOntdek && (
+        <div class="mobile-dropdown" data-mobile-dropdown>
+          <button
+            type="button"
+            class="mobile-nav-link mobile-dropdown-trigger"
+            aria-expanded="false"
+            aria-controls="mobile-ontdek"
+          >
+            Ontdek
+            <svg class="nav-chevron" width="12" height="7" viewBox="0 0 10 6" aria-hidden="true">
+              <path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </button>
+          <div class="mobile-dropdown-panel" id="mobile-ontdek" hidden>
+            {ontdekContinents.map(continent => (
+              <div class="mobile-ontdek-group">
+                <span class="ontdek-col-label">{continent}</span>
+                {ontdekGroups[continent].map(land => (
+                  <a href={`/landen/${land.slug}/`} class="mobile-ontdek-link">{land.name}</a>
+                ))}
+              </div>
+            ))}
+            <a href="/landen/" class="mobile-ontdek-link mobile-ontdek-all">Alle landen &rarr;</a>
+          </div>
+        </div>
+      )}
       {nav.map(item => (
         <a href={item.href} class="mobile-nav-link">{item.label}</a>
       ))}
@@ -152,6 +223,111 @@ const nav = await loadNavigation();
   .nav-link:hover, .nav-link--active {
     color: var(--burgundy);
     border-bottom-color: var(--burgundy);
+  }
+
+  /* --- "Ontdek" hover-dropdown (reisjunk-stijl) --- */
+  .nav-dropdown {
+    position: relative;
+    display: inline-flex;
+  }
+  .nav-dropdown-trigger {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    font-family: var(--font-ui);
+  }
+  .nav-chevron {
+    transition: transform var(--duration-fast) var(--ease-out);
+  }
+  .nav-dropdown[data-open] .nav-chevron,
+  .nav-dropdown:hover .nav-chevron {
+    transform: rotate(180deg);
+  }
+  .nav-dropdown-panel {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 10px;
+    min-width: 18rem;
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.1);
+    padding: 1.25rem 1.5rem;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-6px);
+    transition: opacity var(--duration-fast) var(--ease-out),
+                transform var(--duration-fast) var(--ease-out),
+                visibility var(--duration-fast) var(--ease-out);
+    z-index: 200;
+  }
+  /* Hover-bridge zodat de muis de gap naar het paneel kan oversteken. */
+  .nav-dropdown-panel::before {
+    content: '';
+    position: absolute;
+    top: -10px;
+    left: 0;
+    right: 0;
+    height: 10px;
+  }
+  .nav-dropdown:hover .nav-dropdown-panel,
+  .nav-dropdown:focus-within .nav-dropdown-panel,
+  .nav-dropdown[data-open] .nav-dropdown-panel {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+  }
+  .ontdek-grid {
+    display: flex;
+    gap: 2rem;
+  }
+  .ontdek-col-label {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--vine);
+    margin-bottom: 0.625rem;
+  }
+  .ontdek-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+  }
+  .ontdek-link {
+    display: block;
+    font-family: var(--font-ui);
+    font-size: 0.9375rem;
+    color: var(--ink);
+    text-decoration: none;
+    padding: 0.25rem 0;
+    transition: color var(--duration-fast) var(--ease-out);
+  }
+  .ontdek-link:hover,
+  .ontdek-link:focus-visible {
+    color: var(--burgundy);
+  }
+  .ontdek-all {
+    display: inline-block;
+    margin-top: 1rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--ruleSoft);
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--inkSoft);
+    text-decoration: none;
+    transition: color var(--duration-fast) var(--ease-out);
+  }
+  .ontdek-all:hover,
+  .ontdek-all:focus-visible {
+    color: var(--burgundy);
   }
 
   .header-actions {
@@ -257,6 +433,44 @@ const nav = await loadNavigation();
     text-decoration: none;
     border-bottom: 1px solid var(--ruleSoft);
   }
+  .mobile-dropdown-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    width: 100%;
+    background: none;
+    border: none;
+    border-bottom: 1px solid var(--ruleSoft);
+    cursor: pointer;
+    text-align: left;
+  }
+  .mobile-dropdown-trigger[aria-expanded='true'] .nav-chevron {
+    transform: rotate(180deg);
+  }
+  .mobile-dropdown-panel {
+    padding: 0.5rem 0 0.5rem 0.75rem;
+  }
+  .mobile-dropdown-panel[hidden] { display: none; }
+  .mobile-ontdek-group { margin-bottom: 0.75rem; }
+  .mobile-ontdek-group .ontdek-col-label { margin: 0.5rem 0 0.25rem; }
+  .mobile-ontdek-link {
+    display: block;
+    padding: 0.5rem 0;
+    font-family: var(--font-ui);
+    font-size: 0.9375rem;
+    color: var(--ink);
+    text-decoration: none;
+  }
+  .mobile-ontdek-link:hover { color: var(--burgundy); }
+  .mobile-ontdek-all {
+    margin-top: 0.25rem;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--inkSoft);
+  }
 
   @media (max-width: 900px) {
     .header-nav, .header-utility { display: none; }
@@ -278,6 +492,46 @@ const nav = await loadNavigation();
     mobileToggle.setAttribute('aria-expanded', expanded ? 'false' : 'true');
     mobileMenu.hidden = expanded;
   });
+
+  // "Ontdek" desktop dropdown — keyboard/click toggle (hover is pure CSS).
+  const ontdek = document.querySelector('[data-nav-dropdown]') as HTMLElement | null;
+  const ontdekTrigger = ontdek?.querySelector('.nav-dropdown-trigger') as HTMLButtonElement | null;
+  if (ontdek && ontdekTrigger) {
+    const closeOntdek = () => {
+      ontdek.removeAttribute('data-open');
+      ontdekTrigger.setAttribute('aria-expanded', 'false');
+    };
+    ontdekTrigger.addEventListener('click', () => {
+      const open = ontdek.hasAttribute('data-open');
+      if (open) {
+        closeOntdek();
+      } else {
+        ontdek.setAttribute('data-open', '');
+        ontdekTrigger.setAttribute('aria-expanded', 'true');
+      }
+    });
+    ontdek.addEventListener('keydown', (e) => {
+      if ((e as KeyboardEvent).key === 'Escape') {
+        closeOntdek();
+        ontdekTrigger.focus();
+      }
+    });
+    document.addEventListener('click', (e) => {
+      if (!ontdek.contains(e.target as Node)) closeOntdek();
+    });
+  }
+
+  // "Ontdek" mobile accordion.
+  const mobileDropdown = document.querySelector('[data-mobile-dropdown]') as HTMLElement | null;
+  const mobileDropdownTrigger = mobileDropdown?.querySelector('.mobile-dropdown-trigger') as HTMLButtonElement | null;
+  const mobileDropdownPanel = mobileDropdown?.querySelector('.mobile-dropdown-panel') as HTMLElement | null;
+  if (mobileDropdownTrigger && mobileDropdownPanel) {
+    mobileDropdownTrigger.addEventListener('click', () => {
+      const expanded = mobileDropdownTrigger.getAttribute('aria-expanded') === 'true';
+      mobileDropdownTrigger.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+      mobileDropdownPanel.hidden = expanded;
+    });
+  }
 
   const cellarToggle = document.querySelector('[data-cellar-toggle]') as HTMLButtonElement;
   cellarToggle?.addEventListener('click', () => {
