@@ -83,6 +83,8 @@ for (const pin of entry.wijnhuizen) {
     lng: pin.lng,
     beschrijving: detail?.description ?? '',
     detailUrl: detail ? `/wijnhuizen/${detail.slug}/` : null,
+    foto: detail?.heroImage ?? null,
+    fotoAlt: detail?.name ?? pin.naam,
   });
 }
 for (const detail of wijnhuizen) {
@@ -93,6 +95,8 @@ for (const detail of wijnhuizen) {
     lng: null,
     beschrijving: detail.description ?? '',
     detailUrl: `/wijnhuizen/${detail.slug}/`,
+    foto: detail.heroImage ?? null,
+    fotoAlt: detail.name,
   });
 }
 
@@ -150,6 +154,8 @@ const overnachtenInput: StreekPoiInput[] = stayClusters.flatMap(cluster =>
       clusterSlug: cluster.slug,
       clusterTitel: cluster.titel,
       partner: 'booking',
+      foto: acc.foto ?? null,
+      fotoAlt: acc.naam,
     }];
   }),
 );

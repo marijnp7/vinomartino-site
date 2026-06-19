@@ -1,0 +1,193 @@
+---
+// LAT-1593 — Intern KPI-dashboard: affiliate-clicks per regio/partner/plaatsing
+// + CJ-reconciliatie. Snapshot per build (SSG), achter nginx basic-auth (/intern/).
+// noindex: nooit in de sitemap of zoekresultaten (zie astro.config sitemap-filter).
+import '../../styles/tokens.css';
+import { loadClicksDashboard } from '../../lib/clicks-dashboard';
+
+const d = await loadClicksDashboard();
+const generated = new Date(d.generatedAt).toLocaleString('nl-NL', { dateStyle: 'medium', timeStyle: 'short' });
+const hasData = d.status === 'ok';
+const topN = <T,>(arr: T[], n = 15): T[] => arr.slice(0, n);
+---
+
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex,nofollow" />
+    <title>KPI-dashboard · VinoMartino intern</title>
+  </head>
+  <body>
+    <main class="dash">
+      <header class="dash__head">
+        <span class="dash__kicker">VinoMartino · intern</span>
+        <h1 class="dash__title">Affiliate KPI-dashboard</h1>
+        <p class="dash__meta">
+          Snapshot van {generated}. Statische build, vernieuwt bij elke deploy.
+        </p>
+      </header>
+
+      {!hasData && (
+        <div class:list={['dash__notice', `dash__notice--${d.status}`]}>
+          <strong>
+            {d.status === 'empty' && 'Nog geen clicks geregistreerd.'}
+            {d.status === 'unconfigured' && 'Directus niet geconfigureerd in deze build.'}
+            {d.status === 'unavailable' && 'Click-data niet beschikbaar.'}
+          </strong>
+          {d.message && <p>{d.message}</p>}
+        </div>
+      )}
+
+      <section class="dash__kpis" aria-label="Kerncijfers">
+        <div class="kpi">
+          <span class="kpi__num">{d.totalClicks}</span>
+          <span class="kpi__label">Clicks totaal</span>
+        </div>
+        <div class="kpi">
+          <span class="kpi__num">{d.clicks30d}</span>
+          <span class="kpi__label">Laatste 30 dagen</span>
+        </div>
+        <div class="kpi">
+          <span class="kpi__num">{d.clicks7d}</span>
+          <span class="kpi__label">Laatste 7 dagen</span>
+        </div>
+      </section>
+
+      {hasData && (
+        <div class="dash__grid">
+          <section class="panel">
+            <h2 class="panel__title">Per partner</h2>
+            <table class="tbl">
+              <thead><tr><th>Partner</th><th class="num">Clicks</th></tr></thead>
+              <tbody>
+                {topN(d.byPartner).map((b) => (
+                  <tr><td>{b.label}</td><td class="num">{b.count}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+
+          <section class="panel">
+            <h2 class="panel__title">Per plaatsing</h2>
+            <table class="tbl">
+              <thead><tr><th>Plaatsing</th><th class="num">Clicks</th></tr></thead>
+              <tbody>
+                {topN(d.byPlacement).map((b) => (
+                  <tr><td>{b.label}</td><td class="num">{b.count}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+
+          <section class="panel">
+            <h2 class="panel__title">Per regio</h2>
+            <table class="tbl">
+              <thead><tr><th>Regio / context</th><th class="num">Clicks</th></tr></thead>
+              <tbody>
+                {topN(d.byRegio).map((b) => (
+                  <tr><td>{b.label}</td><td class="num">{b.count}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+
+          <section class="panel">
+            <h2 class="panel__title">CJ-reconciliatie</h2>
+            <p class="panel__note">
+              Geregistreerde clicks per CJ/Booking-partner naast de door CJ
+              gerapporteerde cijfers. De CJ-kolommen worden ingevuld zodra de
+              CJ-rapportage-import (follow-up) is gekoppeld.
+            </p>
+            <table class="tbl">
+              <thead>
+                <tr><th>Partner</th><th class="num">Tracker-clicks</th><th class="num">CJ-clicks</th><th class="num">Commissie</th></tr>
+              </thead>
+              <tbody>
+                {d.cjReconciliation.length > 0 ? d.cjReconciliation.map((r) => (
+                  <tr><td>{r.partner}</td><td class="num">{r.trackedClicks}</td><td class="num">—</td><td class="num">—</td></tr>
+                )) : (
+                  <tr><td colspan="4" class="muted">Geen CJ/Booking-clicks in dit venster.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </section>
+        </div>
+      )}
+    </main>
+
+    <style>
+      :root { color-scheme: light; }
+      body {
+        margin: 0;
+        background: var(--paperDeep, #F0E6D0);
+        color: var(--ink, #1F1A16);
+        font-family: var(--font-ui, system-ui, sans-serif);
+      }
+      .dash { max-width: 1100px; margin: 0 auto; padding: 2.5rem 1.5rem 4rem; }
+      .dash__kicker {
+        font-family: var(--font-mono, monospace);
+        font-size: 0.6875rem;
+        text-transform: uppercase;
+        letter-spacing: 0.2em;
+        color: var(--burgundy, #5A1A1F);
+      }
+      .dash__title {
+        font-family: var(--font-display, Georgia, serif);
+        font-size: clamp(1.75rem, 1.2rem + 2vw, 2.5rem);
+        font-weight: 500;
+        margin: 0.3rem 0 0.4rem;
+      }
+      .dash__meta { font-size: 0.875rem; color: var(--inkSoft, #5A4F45); margin: 0 0 1.75rem; }
+      .dash__notice {
+        border: 1px solid var(--rule, #C9B98F);
+        border-left: 4px solid var(--rust, #A14F2A);
+        background: var(--paper, #FBF7EE);
+        padding: 0.9rem 1.1rem;
+        border-radius: 3px;
+        margin-bottom: 1.75rem;
+      }
+      .dash__notice p { margin: 0.4rem 0 0; font-size: 0.875rem; color: var(--inkSoft, #5A4F45); }
+      .dash__kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 2rem; }
+      .kpi {
+        background: var(--paper, #FBF7EE);
+        border: 1px solid var(--ruleSoft, #E0D2B0);
+        border-radius: 4px;
+        padding: 1.2rem 1.25rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+      }
+      .kpi__num { font-family: var(--font-display, Georgia, serif); font-size: 2.25rem; font-weight: 500; color: var(--burgundy, #5A1A1F); line-height: 1; }
+      .kpi__label { font-family: var(--font-mono, monospace); font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--inkSoft, #5A4F45); }
+      .dash__grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.25rem; }
+      .panel {
+        background: var(--paper, #FBF7EE);
+        border: 1px solid var(--ruleSoft, #E0D2B0);
+        border-radius: 4px;
+        padding: 1.25rem 1.35rem 1.4rem;
+      }
+      .panel__title {
+        font-family: var(--font-ui, sans-serif);
+        font-size: 0.8125rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        margin: 0 0 0.9rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid var(--rule, #C9B98F);
+      }
+      .panel__note { font-size: 0.8125rem; color: var(--inkSoft, #5A4F45); margin: 0 0 0.9rem; line-height: 1.5; }
+      .tbl { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+      .tbl th, .tbl td { text-align: left; padding: 0.45rem 0.5rem; border-bottom: 1px solid var(--ruleSoft, #E0D2B0); }
+      .tbl th { font-family: var(--font-mono, monospace); font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--inkFaint, #8A7E70); }
+      .tbl .num { text-align: right; font-variant-numeric: tabular-nums; }
+      .tbl .muted { color: var(--inkFaint, #8A7E70); font-style: italic; }
+      @media (max-width: 760px) {
+        .dash__kpis { grid-template-columns: 1fr; }
+        .dash__grid { grid-template-columns: 1fr; }
+      }
+    </style>
+  </body>
+</html>

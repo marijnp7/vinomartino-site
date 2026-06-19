@@ -10,6 +10,8 @@
 // (data-affiliate-*, LAT-1019/1029). Blokken renderen alleen als er data is —
 // nooit "coming soon" (Martin-stem, plan 4b).
 
+import PoiCard, { type PoiCardTheme } from './PoiCard.astro';
+
 export interface StreekPoiInput {
   naam: string;
   lat: number | null;
@@ -39,6 +41,12 @@ export interface StreekPoiInput {
   clusterTitel?: string | null;
   /** Affiliate-partner voor click-tracking (bv. 'stay22', 'getyourguide'). */
   partner?: string;
+  /** Foto-URL (DAM, buildtime). Leeg = SmartImg-placeholder. */
+  foto?: string | null;
+  /** Alt-tekst voor de foto. */
+  fotoAlt?: string | null;
+  /** SmartImg-placeholder-thema wanneer er geen foto is. */
+  fotoTheme?: PoiCardTheme;
 }
 
 interface Props {
@@ -63,11 +71,11 @@ const {
 
 type CatKey = 'wijnhuizen' | 'eten' | 'overnachten' | 'activiteiten';
 
-const CATEGORY_META: Record<CatKey, { label: string; color: string }> = {
-  wijnhuizen: { label: 'Wijnhuizen', color: '#5A1A1F' },
-  eten: { label: 'Eten', color: '#A14F2A' },
-  overnachten: { label: 'Overnachten', color: '#5C6B3F' },
-  activiteiten: { label: 'Activiteiten', color: '#2F6B7A' },
+const CATEGORY_META: Record<CatKey, { label: string; color: string; theme: PoiCardTheme }> = {
+  wijnhuizen: { label: 'Wijnhuizen', color: '#5A1A1F', theme: 'winery' },
+  eten: { label: 'Eten', color: '#A14F2A', theme: 'region' },
+  overnachten: { label: 'Overnachten', color: '#5C6B3F', theme: 'winery' },
+  activiteiten: { label: 'Activiteiten', color: '#2F6B7A', theme: 'vineyard' },
 };
 // Volgorde van de blokken én van de gedeelde nummering (plan 2C).
 const CATEGORY_ORDER: CatKey[] = ['wijnhuizen', 'eten', 'overnachten', 'activiteiten'];
@@ -245,44 +253,27 @@ const usedCats = sections.map((s) => s.key);
               const it = row as NumberedPoi;
               const plotted = it.lat != null && it.lng != null;
               return (
-                <article
-                  class="skz-card"
-                  id={`${mapId}-card-${it.n}`}
-                  data-skz-card={plotted ? it.n : undefined}
-                  tabindex={plotted ? 0 : undefined}
-                >
-                  <span class="skz-card__num" style={`background:${it.color}`}>{it.n}</span>
-                  <div class="skz-card__body">
-                    <div class="skz-card__head">
-                      <h4 class="skz-card__name">
-                        {it.detailUrl ? <a href={it.detailUrl}>{it.naam}</a> : it.naam}
-                      </h4>
-                      {it.badge && (
-                        <span class="skz-card__badge" style={`color:${it.color};border-color:${it.color}`}>{it.badge}</span>
-                      )}
-                    </div>
-                    {it.beschrijving && <p class="skz-card__desc">{it.beschrijving}</p>}
-                    <div class="skz-card__foot">
-                      {it.prijs && <span class="skz-card__price">{it.prijs}</span>}
-                      {it.boeklink ? (
-                        <a
-                          class="skz-card__cta"
-                          href={it.boeklink}
-                          target="_blank"
-                          rel="sponsored noopener"
-                          data-affiliate-track
-                          data-affiliate-partner={it.partner || ''}
-                          data-affiliate-placement={`streek-poi-${it.category}`}
-                          data-affiliate-context={`streek-${slug}`}
-                        >
-                          {ctaLabel(it.category)} &rarr;
-                        </a>
-                      ) : it.detailUrl ? (
-                        <a class="skz-card__cta skz-card__cta--ghost" href={it.detailUrl}>Lees meer &rarr;</a>
-                      ) : null}
-                    </div>
-                  </div>
-                </article>
+                <PoiCard
+                  poi={{
+                    n: it.n,
+                    color: it.color,
+                    naam: it.naam,
+                    foto: it.foto ?? null,
+                    fotoAlt: it.fotoAlt ?? null,
+                    fotoTheme: it.fotoTheme ?? CATEGORY_META[it.category].theme,
+                    badge: it.badge ?? null,
+                    beschrijving: it.beschrijving ?? null,
+                    prijs: it.prijs ?? null,
+                    boeklink: it.boeklink ?? null,
+                    detailUrl: it.detailUrl ?? null,
+                    cta: ctaLabel(it.category),
+                    partner: it.partner || '',
+                    placement: `streek-poi-${it.category}`,
+                    context: `streek-${slug}`,
+                    cardId: `${mapId}-card-${it.n}`,
+                    plotted,
+                  }}
+                />
               );
             })}
           </div>
@@ -428,8 +419,8 @@ const usedCats = sections.map((s) => s.key);
     const card = section.querySelector<HTMLElement>(`[data-skz-card="${n}"]`);
     if (!card) return;
     card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    card.classList.add('skz-card--active');
-    window.setTimeout(() => card.classList.remove('skz-card--active'), 1800);
+    card.classList.add('poi-card--active');
+    window.setTimeout(() => card.classList.remove('poi-card--active'), 1800);
   }
 
   function initSticky(): void {
@@ -602,91 +593,6 @@ const usedCats = sections.map((s) => s.key);
     text-transform: none;
     letter-spacing: 0;
     color: var(--inkFaint, #8A7E70);
-  }
-
-  .skz-card {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    gap: 0.85rem;
-    border: 1px solid var(--ruleSoft, #E0D2B0);
-    border-radius: 3px;
-    background: var(--paper, #FBF7EE);
-    padding: 1.1rem 1.2rem;
-    scroll-margin-top: 5rem;
-    transition: box-shadow 0.2s ease, border-color 0.2s ease;
-  }
-  .skz-card[data-skz-card] { cursor: pointer; }
-  .skz-card[data-skz-card]:hover,
-  .skz-card[data-skz-card]:focus-visible { border-color: var(--burgundy, #5A1A1F); outline: none; }
-  .skz-card--active { border-color: var(--burgundy, #5A1A1F); box-shadow: 0 0 0 2px var(--burgundy, #5A1A1F); }
-  .skz-card__num {
-    width: 28px; height: 28px;
-    border-radius: 50%;
-    color: #FAF5E9;
-    font-family: var(--font-mono, monospace);
-    font-size: 0.875rem;
-    font-weight: 600;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-  }
-  .skz-card__body { display: flex; flex-direction: column; min-width: 0; }
-  .skz-card__head { display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap; }
-  .skz-card__name {
-    font-family: var(--font-display, Georgia, serif);
-    font-size: 1.2rem;
-    font-weight: 500;
-    line-height: 1.15;
-    color: var(--ink, #1F1A16);
-    margin: 0;
-  }
-  .skz-card__name a { color: inherit; text-decoration: none; }
-  .skz-card__name a:hover { text-decoration: underline; }
-  .skz-card__badge {
-    font-family: var(--font-mono, monospace);
-    font-size: 0.5625rem;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    border: 1px solid;
-    border-radius: 1px;
-    padding: 0.15rem 0.4rem;
-  }
-  .skz-card__desc {
-    font-family: var(--font-body, Georgia, serif);
-    font-size: 0.9375rem;
-    line-height: 1.5;
-    color: var(--inkSoft, #5A4F45);
-    margin: 0.5rem 0 0.85rem;
-    flex: 1;
-    display: -webkit-box;
-    -webkit-line-clamp: 4;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-  .skz-card__foot { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; }
-  .skz-card__price {
-    font-family: var(--font-mono, monospace);
-    font-size: 0.8125rem;
-    color: var(--burgundy, #5A1A1F);
-  }
-  .skz-card__cta {
-    font-family: var(--font-ui, sans-serif);
-    font-size: 0.8125rem;
-    font-weight: 600;
-    color: var(--paper, #FBF7EE);
-    background: var(--burgundy, #5A1A1F);
-    padding: 0.45rem 0.85rem;
-    border-radius: 2px;
-    text-decoration: none;
-    white-space: nowrap;
-    transition: opacity 0.15s ease;
-  }
-  .skz-card__cta:hover { opacity: 0.9; }
-  .skz-card__cta--ghost {
-    color: var(--burgundy, #5A1A1F);
-    background: transparent;
-    padding: 0.45rem 0;
   }
 
   .streekkaart__disclosure {

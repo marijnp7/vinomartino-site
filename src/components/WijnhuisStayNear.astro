@@ -1,0 +1,146 @@
+---
+// LAT-1593 — "Slaap in de buurt"-balk op een wijnhuis-portret (plan sectie 2D/3).
+// Hoogste commerciële intentie: een lezer die net een portret las, plant het
+// bezoek. Een vaste onderbalk met een Stay22 Allez-deeplink naar de streek plus,
+// indien gecontracteerd, een inline wijnretail-affiliate-link.
+//
+// Affiliate-CTA's dragen de cookieless click-tracker-attributen (data-affiliate-*,
+// LAT-1019/1029) zodat het KPI-dashboard clicks per partner/plaatsing/streek ziet.
+// Disclosure is ACM-compliant (LAT-1029/1595): vooraf, naast de link, eerlijk.
+
+import { allezSearchUrl } from '../lib/stay22';
+import { wineRetailLink } from '../lib/wine-retail';
+
+interface Props {
+  /** Wijnhuis-naam (producent), voor de wijnretail-zoekterm + label. */
+  naam: string;
+  /** Streek-naam voor de Stay22-bestemming. */
+  region?: string;
+  /** Land voor een specifiekere Stay22-bestemming. */
+  country?: string;
+  /** Wijnhuis-slug voor de affiliate-context. */
+  slug: string;
+}
+
+const { naam, region = '', country = '', slug } = Astro.props;
+
+// Bestemming: streek (+ land) als anker; val terug op de wijnhuis-naam.
+const destination = [region, country].filter(Boolean).join(', ') || naam;
+const stayHref = allezSearchUrl({ location: destination, campaign: `wijnhuis-${slug}` });
+const stayLabel = region ? `Slaap in de buurt van ${region}` : 'Slaap in de buurt';
+
+const retail = wineRetailLink(naam);
+---
+
+<aside class="wh-staynear" data-wh-staynear hidden aria-label="Plan je bezoek">
+  <div class="wh-staynear__inner">
+    <div class="wh-staynear__copy">
+      <span class="wh-staynear__label">Plan je bezoek aan {naam}</span>
+      <span class="wh-staynear__disclosure">Affiliate-links &middot; jij betaalt niets extra</span>
+    </div>
+    <div class="wh-staynear__actions">
+      {retail && (
+        <a
+          class="wh-staynear__cta wh-staynear__cta--ghost"
+          href={retail.href}
+          target="_blank"
+          rel="sponsored noopener"
+          data-affiliate-track
+          data-affiliate-partner={retail.partner}
+          data-affiliate-placement="wijnhuis-wijnretail"
+          data-affiliate-context={`wijnhuis-${slug}`}
+        >
+          {retail.label} &rarr;
+        </a>
+      )}
+      <a
+        class="wh-staynear__cta"
+        href={stayHref}
+        target="_blank"
+        rel="sponsored noopener"
+        data-affiliate-track
+        data-affiliate-partner="stay22"
+        data-affiliate-placement="wijnhuis-staynear"
+        data-affiliate-context={`wijnhuis-${slug}`}
+      >
+        {stayLabel} &rarr;
+      </a>
+    </div>
+  </div>
+</aside>
+
+<script>
+  // Toon de balk pas na de hero, zodat hij niet over de eerste viewport valt.
+  function ready(): void {
+    const bar = document.querySelector<HTMLElement>('[data-wh-staynear]');
+    if (!bar) return;
+    if (!('IntersectionObserver' in window)) { bar.hidden = false; return; }
+    const hero = document.querySelector<HTMLElement>('.wh-hero');
+    if (!hero) { bar.hidden = false; return; }
+    new IntersectionObserver((entries) => {
+      for (const e of entries) {
+        bar.hidden = !(!e.isIntersecting && e.boundingClientRect.top < 0);
+      }
+    }, { threshold: 0 }).observe(hero);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ready);
+  else ready();
+</script>
+
+<style>
+  .wh-staynear {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    z-index: 40;
+    background: var(--ink, #1F1A16);
+    border-top: 2px solid var(--burgundy, #5A1A1F);
+    box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.18);
+  }
+  .wh-staynear[hidden] { display: none; }
+  .wh-staynear__inner {
+    max-width: var(--max-width, 1200px);
+    margin: 0 auto;
+    padding: 0.7rem var(--gutter, 1.25rem);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .wh-staynear__copy { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
+  .wh-staynear__label {
+    font-family: var(--font-ui, sans-serif);
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: var(--paper, #FBF7EE);
+  }
+  .wh-staynear__disclosure {
+    font-family: var(--font-body, Georgia, serif);
+    font-style: italic;
+    font-size: 0.6875rem;
+    color: var(--rule, #C9B98F);
+  }
+  .wh-staynear__actions { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+  .wh-staynear__cta {
+    font-family: var(--font-ui, sans-serif);
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--ink, #1F1A16);
+    background: var(--paper, #FBF7EE);
+    padding: 0.55rem 1.1rem;
+    border-radius: 2px;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  .wh-staynear__cta:hover { opacity: 0.92; }
+  .wh-staynear__cta--ghost {
+    background: transparent;
+    color: var(--paper, #FBF7EE);
+    border: 1px solid var(--rule, #C9B98F);
+  }
+  @media (max-width: 640px) {
+    .wh-staynear__inner { padding: 0.6rem var(--gutter, 1rem); }
+    .wh-staynear__label { font-size: 0.8125rem; }
+    .wh-staynear__cta { font-size: 0.8125rem; padding: 0.5rem 0.85rem; }
+  }
+</style>
