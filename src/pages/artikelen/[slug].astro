@@ -2,6 +2,8 @@
 import SiteLayout from '../../layouts/SiteLayout.astro';
 import AffiliatePlaceholder from '../../components/AffiliatePlaceholder.astro';
 import RelatedEntities from '../../components/RelatedEntities.astro';
+import ArtikelGerelateerdeStukken from '../../components/ArtikelGerelateerdeStukken.astro';
+import ArtikelMeerOver from '../../components/ArtikelMeerOver.astro';
 import Stay22Stay from '../../components/Stay22Stay.astro';
 import AccommodatieRoundup from '../../components/AccommodatieRoundup.astro';
 import { loadArticles, type Article } from '../../lib/articles';
@@ -236,8 +238,11 @@ const schema = [
             description={sidebar.description}
           />
         )}
+        <ArtikelGerelateerdeStukken items={article.relatedArtikelen} />
       </aside>
     </div>
+
+    <ArtikelMeerOver items={article.meerOver} topic={article.tags?.[0] ?? undefined} />
 
     <RelatedEntities
       streken={article.relatedStreken}

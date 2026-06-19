@@ -29,6 +29,11 @@ export interface Article {
     relatedWijnhuizen: RelatedRef[];
     relatedWijnroutes: RelatedRef[];
     relatedLanden: RelatedRef[];
+    // LAT-1619: redactioneel gekozen artikel→artikel cross-links.
+    // relatedArtikelen → rechterzijbalk "Gerelateerde stukken" (max 3).
+    // meerOver → voetblok "Meer over [druif/regio]" (max 3).
+    relatedArtikelen: RelatedRef[];
+    meerOver: RelatedRef[];
 }
 
 const META_DESC_RE = /^\s*\*{0,2}Meta-description:?\*{0,2}\s*/i;
@@ -260,6 +265,10 @@ function mapArticle(
           relatedWijnhuizen: mapRelatedRefs(a.related_wijnhuizen, 'wijnhuizen_id', 'name'),
           relatedWijnroutes: mapRelatedRefs(a.related_routes, 'routes_id', 'title'),
           relatedLanden: mapRelatedRefs(a.related_landen, 'landen_id', 'name'),
+          // LAT-1619: zelf-referentiële M2M; junction-FK naar de doel-article is
+          // `related_articles_id` voor beide velden (related_articles, meer_over).
+          relatedArtikelen: mapRelatedRefs(a.related_articles, 'related_articles_id', 'title').slice(0, 3),
+          meerOver: mapRelatedRefs(a.meer_over, 'related_articles_id', 'title').slice(0, 3),
     };
 }
 
@@ -286,6 +295,14 @@ async function fetchArticlesItems(url: string, token: string): Promise<Record<st
         ',related_wijnhuizen.wijnhuizen_id.slug,related_wijnhuizen.wijnhuizen_id.name' +
         ',related_routes.routes_id.slug,related_routes.routes_id.title' +
         ',related_landen.landen_id.slug,related_landen.landen_id.name';
+    // LAT-1619: artikel→artikel cross-links (zelf-referentiële M2M). Junctions
+    // `articles_related` + `articles_meer_over`, beide met FK `related_articles_id`
+    // naar de doel-article. Eigen degradatie-tier bovenop LAT-1098 zodat de
+    // bestaande entiteit-cross-links blijven werken zolang LAT-1619-schema nog
+    // niet live is.
+    const withArticleRelations = `${withRelations}` +
+        ',related_articles.related_articles_id.slug,related_articles.related_articles_id.title' +
+        ',meer_over.related_articles_id.slug,meer_over.related_articles_id.title';
     // LAT-1053: scheduled publish — verberg artikelen waarvan pub_date in de toekomst
     // ligt, ook als status=published. Directus's $NOW resolvet server-side; pub_date
     // null wordt eveneens getoond (legacy/onbekend) zodat bestaande artikelen niet
@@ -293,45 +310,44 @@ async function fetchArticlesItems(url: string, token: string): Promise<Record<st
     const futureGate = '&filter[_or][0][pub_date][_lte]=$NOW&filter[_or][1][pub_date][_null]=true';
     const filterSort = `${statusFilterQuery(env)}${futureGate}&sort=-pub_date`;
     const headers = { Authorization: `Bearer ${token}` };
-    const signal = AbortSignal.timeout(15000);
-    let res: Response;
-    try {
-          res = await fetch(`${url}/items/articles?limit=-1&fields=${withRelations}${filterSort}`, { headers, signal });
-    } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
-          throw new Error(`[loadArticles] Directus unreachable at ${url}: ${msg}`);
-    }
-    if (res.ok) {
-          const json = await res.json();
-          return (json.data || []) as Record<string, unknown>[];
-    }
-    // 400 = veld bestaat niet in Directus (pre-migratie); 403 = veld bestaat wel
-    // maar de build-rol heeft geen read-permissie. Beide gevallen: degraderen
-    // door relations te droppen, dan updated_at, zodat de build nooit hard breekt.
-    if (res.status === 400 || res.status === 403) {
-          const body = await res.text().catch(() => '');
-          console.warn(`[loadArticles] Directus rejected fields=…,related_* (HTTP ${res.status}) — retrying without LAT-1098 relations. Run LAT-1097 (Directus M2M schema) en/of geef de build-rol read-permissie op related_*.`);
-          const retryRel = await fetch(`${url}/items/articles?limit=-1&fields=${withUpdatedAt}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
-          if (retryRel.ok) {
-                const json = await retryRel.json();
+
+    // Degradatie-tiers van rijk → arm. Een 400 (veld bestaat niet, pre-migratie)
+    // of 403 (veld bestaat maar build-rol mist read-permissie) zakt naar de
+    // volgende tier i.p.v. de build te breken. Elke tier laat alleen zijn eigen
+    // velden vallen, zodat bv. LAT-1619 artikel-links degraderen zonder de
+    // LAT-1098 entiteit-links mee te slepen.
+    const tiers: { fields: string; drop: string; hint: string }[] = [
+        { fields: withArticleRelations, drop: 'related_articles/meer_over', hint: 'Run LAT-1619 Directus M2M-schema (directus/scripts/add-related-articles-fields.mjs) en/of geef de build-rol read-permissie op related_articles + meer_over.' },
+        { fields: withRelations, drop: 'related_* (LAT-1098)', hint: 'Run LAT-1097 (Directus M2M schema) en/of geef de build-rol read-permissie op related_*.' },
+        { fields: withUpdatedAt, drop: 'updated_at', hint: 'Run directus/scripts/add-seo-meta-fields.mjs en/of geef de build-rol read-permissie op articles.updated_at.' },
+        { fields: baseFields, drop: '(none)', hint: '' },
+    ];
+
+    let lastStatus = 0;
+    let lastBody = '';
+    for (let i = 0; i < tiers.length; i++) {
+          const tier = tiers[i];
+          let res: Response;
+          try {
+                res = await fetch(`${url}/items/articles?limit=-1&fields=${tier.fields}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
+          } catch (err) {
+                const msg = err instanceof Error ? err.message : String(err);
+                throw new Error(`[loadArticles] Directus unreachable at ${url}: ${msg}`);
+          }
+          if (res.ok) {
+                const json = await res.json();
                 return (json.data || []) as Record<string, unknown>[];
           }
-          if (retryRel.status === 400 || retryRel.status === 403) {
-                const rbody1 = await retryRel.text().catch(() => '');
-                console.warn(`[loadArticles] Directus rejected fields=…,updated_at (HTTP ${retryRel.status}) — retrying without updated_at. Run directus/scripts/add-seo-meta-fields.mjs en/of geef de build-rol read-permissie op articles.updated_at.`);
-                const retry = await fetch(`${url}/items/articles?limit=-1&fields=${baseFields}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
-                if (retry.ok) {
-                      const json = await retry.json();
-                      return (json.data || []) as Record<string, unknown>[];
-                }
-                const rbody2 = await retry.text().catch(() => '');
-                throw new Error(`[loadArticles] Directus retry without updated_at failed: ${retry.status} ${retry.statusText}: ${rbody2.slice(0, 300)} | retryRel ${retryRel.status} body: ${rbody1.slice(0, 200)} | original ${res.status} body: ${body.slice(0, 200)}`);
+          lastStatus = res.status;
+          lastBody = await res.text().catch(() => '');
+          const nextTier = tiers[i + 1];
+          if ((res.status === 400 || res.status === 403) && nextTier) {
+                console.warn(`[loadArticles] Directus rejected fields incl. ${tier.drop} (HTTP ${res.status}) — retrying without them. ${tier.hint}`);
+                continue;
           }
-          const rbody = await retryRel.text().catch(() => '');
-          throw new Error(`[loadArticles] Directus retry without relations failed: ${retryRel.status} ${retryRel.statusText}: ${rbody.slice(0, 300)} | original ${res.status} body: ${body.slice(0, 200)}`);
+          break;
     }
-    const body = await res.text().catch(() => '');
-    throw new Error(`[loadArticles] Directus returned ${res.status} ${res.statusText} for /items/articles: ${body.slice(0, 300)}`);
+    throw new Error(`[loadArticles] Directus returned ${lastStatus} for /items/articles after all field-tier fallbacks: ${lastBody.slice(0, 300)}`);
 }
 
 async function loadFromDirectus(url: string, token: string): Promise<Article[]> {
