@@ -17,6 +17,15 @@ export interface Accommodation {
     boeklink: string;
     adres: string;
     rating: string;
+    /**
+     * LAT-1536: Directus file-UUID van de per-verblijf foto (`hero_image` in de
+     * accommodaties-JSON). Dit is de geïmporteerde Directus-asset-UUID, NIET de
+     * rauwe DAM-ref. DevOps: importeer DAM-ref → nieuwe Directus-UUID → zet die
+     * hier. Leeg = geen foto (kaart rendert dan zonder afbeelding, zoals nu).
+     */
+    fotoRef: string | null;
+    /** Op buildtijd gedownloade self-hosted foto-URL (`/images/accommodaties/<uuid>.jpg`). */
+    foto: string | null;
 }
 
 export interface WijnhuisPin {
@@ -114,6 +123,39 @@ async function downloadAsset(assetId: string, directusUrl: string, token: string
     }
 }
 
+// LAT-1536: per-verblijf foto's voor de CuratedStayMap-kaarten. Schrijft naar
+// dezelfde self-hosted map als de accommodaties-loader (LAT-1372), zodat een
+// gedeelde Directus-UUID maar één keer wordt gedownload en de bron identiek is.
+async function downloadAccommodatieAsset(assetId: string, directusUrl: string, token: string): Promise<string | null> {
+    const { writeFileSync, mkdirSync, existsSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const outDir = join(process.cwd(), 'public', 'images', 'accommodaties');
+    const fileName = `${assetId}.jpg`;
+    const outPath = join(outDir, fileName);
+    if (existsSync(outPath)) return `/images/accommodaties/${fileName}`;
+    try {
+        const res = await fetch(`${directusUrl}/assets/${assetId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+            signal: AbortSignal.timeout(15000),
+        });
+        if (!res.ok) {
+            console.warn(`[loadStreken] kon accommodatie-foto ${assetId} niet ophalen: ${res.status}`);
+            assetDebug.push({ kind: 'accommodatie-foto', assetId, status: res.status });
+            return null;
+        }
+        const buf = Buffer.from(await res.arrayBuffer());
+        mkdirSync(outDir, { recursive: true });
+        writeFileSync(outPath, buf);
+        assetDebug.push({ kind: 'accommodatie-foto', assetId, status: 200, bytes: buf.byteLength });
+        return `/images/accommodaties/${fileName}`;
+    } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn(`[loadStreken] accommodatie-foto download faalde voor ${assetId}: ${msg}`);
+        assetDebug.push({ kind: 'accommodatie-foto', assetId, error: msg });
+        return null;
+    }
+}
+
 async function writeAssetDebug(pathTaken: string): Promise<void> {
     const { writeFileSync, mkdirSync } = await import('node:fs');
     const { join } = await import('node:path');
@@ -193,6 +235,12 @@ function parseAccommodaties(val: unknown): Accommodation[] {
             boeklink,
             adres: firstString(r, ['adres', 'address']),
             rating: firstString(r, ['rating', 'score']),
+            // LAT-1536: foto-ref draagveld in de accommodaties-JSON. `hero_image`
+            // is het canonieke veld (gelijk aan de accommodaties-collectie); de
+            // overige zijn tolerante aliassen zodat een naming-drift de foto niet
+            // stilletjes laat vallen.
+            fotoRef: firstString(r, ['hero_image', 'fotoRef', 'foto_ref', 'foto', 'image', 'hero_image_uuid']) || null,
+            foto: null,
         };
     }).filter((a) => a.naam);
 }
@@ -325,7 +373,17 @@ async function loadFromDirectus(url: string, token: string): Promise<Streek[]> {
             const ogImagePath = r.og_image
                 ? await downloadAsset(String(r.og_image), url, token, 'og-')
                 : null;
-            return mapStreek(r, heroImagePath, ogImagePath, bodyHtml);
+            const streek = mapStreek(r, heroImagePath, ogImagePath, bodyHtml);
+            // LAT-1536: download per-verblijf foto's en hang de self-hosted URL
+            // aan elke accommodatie. fotoRef leeg → foto blijft null (kaart toont
+            // dan geen afbeelding; bestaande streken breken niet).
+            await Promise.all(
+                streek.accommodaties.map(async (acc) => {
+                    if (!acc.fotoRef) return;
+                    acc.foto = await downloadAccommodatieAsset(acc.fotoRef, url, token);
+                }),
+            );
+            return streek;
         }),
     );
     console.log(`[loadStreken] fetched ${items.length} streken from Directus`);
