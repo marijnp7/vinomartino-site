@@ -131,7 +131,7 @@ const articleTags = article?.tags?.filter((tag): tag is string => Boolean(tag &&
     </script>
     <!-- CJ-CTA guard (LAT-1369 → LAT-1400). LinkSwap herschrijft de href van onze
          CJ-booking-CTA's client-side naar Stay22 — dat kaapt de CJ-conversie. Sinds
-         LAT-1400 zijn onze CTA's directe booking.com-deeplinks (i.p.v. de oude kqzyfj-hop),
+         LAT-1400 zijn onze CTA's directe booking.com-deeplinks (i.p.v. de oude CJ-redirect-hop),
          dus LinkSwap ziet ze nu OOK als booking.com-doelen en zou ze rewriten. We beschermen
          daarom elke a[data-cj-href] (zowel .acc-kaart__cta als .affiliate-block__cta) door de
          canonieke CJ-URL uit data-cj-href te herstellen en met een MutationObserver vast te
