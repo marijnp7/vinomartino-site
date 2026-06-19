@@ -48,8 +48,22 @@ function send(payload: AffiliateClickPayload): void {
   }).catch(() => { /* best-effort */ });
 }
 
+// LAT-1592 — ACM/AVG-compliant opt-out: respecteer Do-Not-Track in al zijn
+// browser-varianten plus Global Privacy Control. Eén signaal = niet tracken.
+function trackingOptedOut(): boolean {
+  const nav = navigator as Navigator & {
+    msDoNotTrack?: string;
+    globalPrivacyControl?: boolean;
+  };
+  const win = window as Window & { doNotTrack?: string };
+  const dnt = nav.doNotTrack ?? win.doNotTrack ?? nav.msDoNotTrack;
+  if (dnt === '1' || dnt === 'yes') return true;
+  if (nav.globalPrivacyControl === true) return true;
+  return false;
+}
+
 export function initAffiliateTracker(): void {
-  if (navigator.doNotTrack === '1') return;
+  if (trackingOptedOut()) return;
   document.addEventListener('click', (event) => {
     const target = event.target as HTMLElement | null;
     if (!target) return;
