@@ -36,6 +36,21 @@ export interface WijnhuisPin {
     lng: number | null;
 }
 
+// LAT-1592 — Eten/Activiteiten leven in de pilot als genummerde POI-blokken op
+// de streek-pagina (geen eigen detailroutes, plan 4a). Tolerant JSON op streken,
+// optioneel; ontbreekt het veld of is het leeg dan rendert het blok niet
+// ("coming soon" is verboden). De affiliate-boeklink (bv. GetYourGuide voor
+// activiteiten) wordt alleen getoond als die bestaat.
+export interface StreekPoi {
+    naam: string;
+    beschrijving: string;
+    prijs: string;
+    lat: number | null;
+    lng: number | null;
+    /** Externe affiliate-link (bv. GetYourGuide). Leeg = geen CTA. */
+    boeklink: string;
+}
+
 export interface Streek {
     slug: string;
     name: string;
@@ -58,6 +73,8 @@ export interface Streek {
     relatedArticles: RelatedRef[];
     accommodaties: Accommodation[];
     wijnhuizen: WijnhuisPin[];
+    eten: StreekPoi[];
+    activiteiten: StreekPoi[];
 }
 
 // LAT-1098: reverse M2M `streken.related_articles` → `articles_id.{slug,title}`.
@@ -256,6 +273,20 @@ function parseWijnhuizen(val: unknown): WijnhuisPin[] {
     })).filter((w) => w.naam);
 }
 
+// LAT-1592 — tolerante mapper voor eten/activiteiten POI-blokken. Prijs is een
+// vrije tekst-label ('vanaf €45', '€€') zodat we geen muntconversie hoeven te
+// doen; boeklink is optioneel (alleen renderen als die bestaat).
+function parseStreekPois(val: unknown): StreekPoi[] {
+    return parseJsonObjects(val).map((r) => ({
+        naam: firstString(r, ['naam', 'name', 'title']),
+        beschrijving: firstString(r, ['beschrijving', 'description', 'why_this_one', 'whyThisOne', 'blurb', 'why']),
+        prijs: firstString(r, ['prijs', 'price', 'prijs_label', 'price_label', 'prijsindicatie']),
+        lat: firstNumber(r, ['lat', 'latitude']),
+        lng: firstNumber(r, ['lng', 'lon', 'long', 'longitude']),
+        boeklink: firstString(r, ['boeklink', 'link', 'url', 'affiliate_link', 'getyourguide', 'gyg_link']),
+    })).filter((p) => p.naam);
+}
+
 function mapStreek(
     r: Record<string, unknown>,
     heroImagePath: string | null,
@@ -283,6 +314,8 @@ function mapStreek(
         bodyHtml,
         accommodaties: parseAccommodaties(r.accommodaties),
         wijnhuizen: parseWijnhuizen(r.wijnhuizen),
+        eten: parseStreekPois(r.eten),
+        activiteiten: parseStreekPois(r.activiteiten),
         relatedArticles: mapRelatedArticles(r.related_articles),
     };
 }
@@ -294,12 +327,17 @@ async function fetchStrekenItems(url: string, token: string): Promise<Record<str
     // LAT-1098: reverse-relation auto-aangemaakt door Directus M2M op articles
     // (LAT-1097). Junction `articles_streken` → `articles_id.{slug,title}`.
     const withRelations = `${withOg},related_articles.articles_id.slug,related_articles.articles_id.title`;
+    // LAT-1592: eten/activiteiten zijn nieuwe streek-velden. Bestaat het veld nog
+    // niet (of mist de build-rol read-permissie) dan degradeert deze top-tier naar
+    // `withRelations`, zodat related_articles (LAT-1098) NIET sneuvelt op het
+    // moment dat alleen de POI-velden ontbreken.
+    const withPoi = `${withRelations},eten,activiteiten`;
     const filterSort = `${statusFilterQuery(env)}&sort=name`;
     const headers = { Authorization: `Bearer ${token}` };
     const signal = AbortSignal.timeout(15000);
     let res: Response;
     try {
-        res = await fetch(`${url}/items/streken?limit=-1&fields=${withRelations}${filterSort}`, { headers, signal });
+        res = await fetch(`${url}/items/streken?limit=-1&fields=${withPoi}${filterSort}`, { headers, signal });
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         assetDebug.push({ kind: 'query', url, error: msg });
@@ -307,8 +345,25 @@ async function fetchStrekenItems(url: string, token: string): Promise<Record<str
     }
     if (res.ok) {
         const json = await res.json();
-        assetDebug.push({ kind: 'query', url, status: 200, count: (json.data || []).length });
+        assetDebug.push({ kind: 'query', url, status: 200, count: (json.data || []).length, tier: 'withPoi' });
         return (json.data || []) as Record<string, unknown>[];
+    }
+    if (res.status === 400 || res.status === 403) {
+        const poiBody = await res.text().catch(() => '');
+        console.warn(`[loadStreken] Directus rejected fields=…,eten,activiteiten (HTTP ${res.status}) — retrying without LAT-1592 POI-velden. Maak streken.eten/streken.activiteiten aan en/of geef de build-rol read-permissie.`);
+        assetDebug.push({ kind: 'query', url, status: res.status, body: poiBody.slice(0, 300), retryWithoutPoi: true });
+        try {
+            res = await fetch(`${url}/items/streken?limit=-1&fields=${withRelations}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            assetDebug.push({ kind: 'query-retry-poi', url, error: msg });
+            throw new Error(`[loadStreken] Directus retry without POI fields threw: ${msg}`);
+        }
+        if (res.ok) {
+            const json = await res.json();
+            assetDebug.push({ kind: 'query-retry-poi', url, status: 200, count: (json.data || []).length, tier: 'withRelations' });
+            return (json.data || []) as Record<string, unknown>[];
+        }
     }
     if (res.status === 400 || res.status === 403) {
         const body = await res.text().catch(() => '');
