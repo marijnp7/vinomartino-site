@@ -11,6 +11,8 @@ export interface Accommodation {
     whyThisOne: string;
     prijsLaag: number | null;
     prijsHoog: number | null;
+    /** ISO/symbol currency for the prices (bv. 'ZAR'). Leeg = euro. */
+    valuta: string;
     lat: number | null;
     lng: number | null;
     /** Stay22 Allez deeplink (affiliate). */
@@ -230,6 +232,7 @@ function parseAccommodaties(val: unknown): Accommodation[] {
             whyThisOne: firstString(r, ['why_this_one', 'whyThisOne', 'blurb', 'why', 'beschrijving']),
             prijsLaag: firstNumber(r, ['prijs_laag', 'prijsLaag', 'price_low', 'prijs_van']),
             prijsHoog: firstNumber(r, ['prijs_hoog', 'prijsHoog', 'price_high', 'prijs_tot']),
+            valuta: firstString(r, ['prijs_valuta', 'valuta', 'currency']),
             lat: firstNumber(r, ['lat', 'latitude']),
             lng: firstNumber(r, ['lng', 'lon', 'long', 'longitude']),
             boeklink,

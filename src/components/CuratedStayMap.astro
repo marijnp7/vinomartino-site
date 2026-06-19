@@ -75,10 +75,23 @@ function affiliatePartner(href: string): string {
   }
 }
 
+// Valuta-symbool per verblijf (default euro). Constantia e.a. niet-eurozones
+// dragen `prijs_valuta` mee (bv. 'ZAR'); zonder veld blijft het € — bestaande
+// eurozone-streken renderen dus byte-identiek.
+function curSym(valuta: string | undefined): string {
+  switch ((valuta || '').toUpperCase()) {
+    case 'ZAR': case 'R': return 'R ';
+    case 'GBP': case '£': return '£';
+    case 'USD': case '$': return '$';
+    default: return '€';
+  }
+}
+
 function priceLabel(acc: Accommodation): string | null {
-  if (acc.prijsLaag != null && acc.prijsHoog != null) return `€${acc.prijsLaag}–${acc.prijsHoog}`;
-  if (acc.prijsLaag != null) return `vanaf €${acc.prijsLaag}`;
-  if (acc.prijsHoog != null) return `tot €${acc.prijsHoog}`;
+  const c = curSym(acc.valuta);
+  if (acc.prijsLaag != null && acc.prijsHoog != null) return `${c}${acc.prijsLaag}–${acc.prijsHoog}`;
+  if (acc.prijsLaag != null) return `vanaf ${c}${acc.prijsLaag}`;
+  if (acc.prijsHoog != null) return `tot ${c}${acc.prijsHoog}`;
   return null;
 }
 
