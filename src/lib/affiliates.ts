@@ -46,15 +46,56 @@ function buildCjLabel(sid: string): string {
   return `pub-${CJ_CONFIG.cjPublisherId}_site-${CJ_CONFIG.cjWebsiteId}_clkid-${sid}`;
 }
 
-export function buildCjBookingLink(plainBookingUrl: string, sid: string): string {
+// CJ-redirectdomeinen (de blokkeerbare tussenhops). Een legacy boeklink kan nog
+// in dit formaat in Directus staan: `https://www.kqzyfj.com/click-PID-ADID?url=<booking.com>`.
+// LAT-1549: we pellen die hop er at-render-time af zodat de uiteindelijke link
+// ALTIJD een directe booking.com-deeplink wordt — onafhankelijk van wat de data bevat.
+const CJ_REDIRECT_HOSTS = [
+  'kqzyfj.com', 'anrdoezrs.net', 'jdoqocy.com', 'dpbolvw.net', 'tkqlhce.com',
+  'ftjcfx.com', 'lduhtrp.net', 'emjcd.com', 'qksrv.net', 'awltovhc.com', 'cj.dotomi.com',
+];
+
+export function unwrapCjRedirect(raw: string): string {
   try {
-    const u = new URL(plainBookingUrl);
+    const u = new URL(raw);
+    const host = u.hostname.toLowerCase().replace(/^www\./, '');
+    const isCjHop = CJ_REDIRECT_HOSTS.some((h) => host === h || host.endsWith(`.${h}`));
+    if (!isCjHop) return raw;
+    const target = u.searchParams.get('url');
+    if (!target) return raw;
+    try { return decodeURIComponent(target); } catch { return target; }
+  } catch {
+    return raw;
+  }
+}
+
+export function buildCjBookingLink(plainBookingUrl: string, sid: string): string {
+  // Pel een eventuele CJ-redirecthop af vóór we de directe deeplink opbouwen.
+  const direct = unwrapCjRedirect(plainBookingUrl);
+  try {
+    const u = new URL(direct);
     u.searchParams.set('aid', CJ_CONFIG.bookingAid);
     u.searchParams.set('label', buildCjLabel(sid));
     return u.toString();
   } catch {
     // Niet-parseerbare URL → ongewijzigd teruggeven i.p.v. de build breken.
-    return plainBookingUrl;
+    return direct;
+  }
+}
+
+// LAT-1549: directe booking.com-zoekdeeplink op adres, mét affiliate-aid + CJ-label.
+// Gebruikt als fallback wanneer een verblijf (nog) geen eigen booking.com-property-URL
+// in Directus heeft. Dit is een DIRECTE booking.com-link (geen kqzyfj-hop, geen
+// Stay22-tussendomein), dus ad-blocker-bestendig én CJ-geattribueerd.
+export function buildBookingSearchLink(query: string, sid: string): string {
+  try {
+    const u = new URL('https://www.booking.com/searchresults.html');
+    u.searchParams.set('ss', query);
+    u.searchParams.set('aid', CJ_CONFIG.bookingAid);
+    u.searchParams.set('label', buildCjLabel(sid));
+    return u.toString();
+  } catch {
+    return 'https://www.booking.com/';
   }
 }
 

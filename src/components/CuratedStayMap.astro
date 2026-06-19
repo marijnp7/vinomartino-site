@@ -14,8 +14,7 @@
 // Allez boeklink (AID vinomartino, campaign = streek-slug) for the commission.
 
 import type { Accommodation, WijnhuisPin } from '../lib/streken';
-import { allezSearchUrl } from '../lib/stay22';
-import { buildCjBookingLink } from '../lib/affiliates';
+import { buildCjBookingLink, buildBookingSearchLink, unwrapCjRedirect } from '../lib/affiliates';
 
 interface Props {
   streek: string;
@@ -43,24 +42,28 @@ function slugifyNaam(naam: string): string {
     .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'verblijf';
 }
 
-// LAT-1414: link-type-agnostic. The per-stay booking URL comes from Directus
-// (Stay22 Allez, booking.com deeplink, or a direct link — config, not code).
-// Board-beslissing (Optie A, orchestrator 2026-06-18): per verblijf een directe
-// booking.com-link met unieke SID + CJ-label, geen kqzyfj. We passen die wrap
-// daarom toe op booking.com-URLs (idempotent: aid+label worden gezet); andere
-// hosts gaan ongewijzigd door, dus de keuze blijft volledig data-config. Stay22-
-// zoeklink is alleen de interim fallback als er nog geen per-verblijf-URL is.
+// LAT-1414 + LAT-1549: link-type-agnostic, maar altijd ad-blocker-bestendig.
+// Board-beslissing (Optie A, orchestrator 2026-06-18): per verblijf een DIRECTE
+// booking.com-link met unieke SID + CJ-label, nooit een kqzyfj-tussenhop.
+//  1. boeklink is een (legacy) CJ-redirect → pel de hop af → directe booking.com-deeplink.
+//  2. boeklink is een booking.com-URL → idempotent aid+label erop.
+//  3. andere host (bewuste data-config, bv. directe domeinlink) → ongewijzigd door.
+//  4. geen per-verblijf-URL → directe booking.com-zoekdeeplink op adres
+//     (vervangt de oude Stay22-allez-fallback zodat ook ongecureerde streken een
+//     directe, CJ-geattribueerde booking.com-link tonen).
 function bookingHref(acc: Accommodation): string {
+  const sid = `accommodation-${slugifyNaam(acc.naam)}`;
   const raw = acc.boeklink;
   if (raw && /^https?:\/\//.test(raw)) {
+    const direct = unwrapCjRedirect(raw);
     try {
-      if (new URL(raw).hostname.toLowerCase().includes('booking.com')) {
-        return buildCjBookingLink(raw, `accommodation-${slugifyNaam(acc.naam)}`);
+      if (new URL(direct).hostname.toLowerCase().includes('booking.com')) {
+        return buildCjBookingLink(direct, sid);
       }
     } catch { /* val terug op passthrough */ }
-    return raw;
+    return direct;
   }
-  return allezSearchUrl({ location: `${acc.naam}, ${streek}`, campaign: slug });
+  return buildBookingSearchLink(acc.adres || `${acc.naam}, ${streek}`, sid);
 }
 
 function affiliatePartner(href: string): string {
