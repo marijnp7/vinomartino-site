@@ -5,12 +5,15 @@ export interface NavItem {
     order: number;
 }
 
+// LAT-1591: vaste topnav die NIET meegroeit met content. Landen, Streken en
+// Wijnroutes verdwijnen als losse topnav-items en leven voortaan in de
+// /ontdek-atlas-hub. Een land of streek toevoegen = bubbel erbij op /ontdek,
+// geen nav-item erbij. De pagina's /landen/, /streken/ en /wijnroutes/ blijven
+// bestaan en bereikbaar — alleen niet langer in de hoofdnav.
 const FALLBACK_ITEMS: NavItem[] = [
-    { label: 'Landen', href: '/landen/', key: 'landen', order: 10 },
-    { label: 'Streken', href: '/streken/', key: 'streken', order: 20 },
+    { label: 'Ontdek', href: '/ontdek/', key: 'ontdek', order: 5 },
     { label: 'Wijnhuizen', href: '/wijnhuizen/', key: 'wijnhuizen', order: 30 },
-    { label: 'Accommodaties', href: '/accommodaties/', key: 'accommodaties', order: 35 },
-    { label: 'Wijnroutes', href: '/wijnroutes/', key: 'wijnroutes', order: 40 },
+    { label: 'Slapen', href: '/accommodaties/', key: 'accommodaties', order: 35 },
     { label: 'Artikelen', href: '/artikelen/', key: 'artikelen', order: 50 },
     { label: 'De Brief', href: '/de-brief/', key: 'de-brief', order: 60 },
     { label: 'Over ons', href: '/over-ons/', key: 'over-ons', order: 70 },
