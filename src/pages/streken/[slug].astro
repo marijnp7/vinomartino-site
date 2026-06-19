@@ -49,18 +49,16 @@ const stay22Location = entry.country ? `${entry.name}, ${entry.country}` : entry
 
 // LAT-1199: verticale kruimel Land → Streek.
 const hasParentLand = Boolean(entry.landSlug && entry.country);
-// LAT-1592: reisjunk-rijke roundup (accommodations-collectie) blijft de
-// rijke overnachten-bron naast de unified POI-kaart; zonder enige curated POI
-// valt de pagina terug op de generieke Stay22.
+// LAT-1607: de afgesproken 3x3x3 gouden-standaard (LAT-1413/LAT-1599) wint.
+// Heeft de streek een curated accommodatie-set (Accommodation Scout → Directus,
+// 9 verblijven in 3 tiers), dan rendert het overnachten-blok als die 3x3x3-grid.
+// Pas zonder curated set valt de pagina terug op de reisjunk-roundup en, als ook
+// die ontbreekt, op de generieke Stay22.
+const hasCuratedStays = entry.accommodaties.length > 0;
 const hasReisjunkRoundup = Boolean(accRoundup && accRoundup.subgroepen.some(g => g.kaarten.length > 0));
 
 // LAT-1592 — unified streek "money page": bouw de vier POI-categorieën voor de
 // gedeelde kaart + genummerde blokken. Categorieën zonder data renderen niet.
-const TIER_LABEL: Record<Accommodation['tier'], string> = {
-  slim_geboekt: 'Slim geboekt',
-  prijs_kwaliteit: 'Prijs-kwaliteit',
-  pure_luxe: 'Pure luxe',
-};
 const normName = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
 
 // Wijnhuizen: pin-coördinaten (entry.wijnhuizen) gekoppeld aan de detailpagina's
@@ -101,18 +99,20 @@ function accBoeklink(acc: Accommodation): string {
   if (acc.boeklink && /^https?:\/\//.test(acc.boeklink)) return acc.boeklink;
   return allezSearchUrl({ location: `${acc.naam}, ${entry.name}`, campaign: entry.slug });
 }
-// Bij een reisjunk-roundup (rijkere accommodations-collectie) blijft overnachten
-// in dat blok; de unified kaart laat overnachten dan weg om dubbeling te vermijden.
-const overnachtenInput: StreekPoiInput[] = hasReisjunkRoundup ? [] : entry.accommodaties.map(acc => ({
+// LAT-1607: de curated set voedt het overnachten-blok als 3x3x3-grid. De tier
+// stuurt de Slim geboekt / Prijs-kwaliteit / Pure luxe-subkoppen in StreekKaart;
+// een aparte badge is dan overbodig. Ontbreekt de curated set, dan blijft
+// overnachten leeg in de unified kaart en neemt de roundup/Stay22 het over.
+const overnachtenInput: StreekPoiInput[] = hasCuratedStays ? entry.accommodaties.map(acc => ({
   naam: acc.naam,
   lat: acc.lat,
   lng: acc.lng,
   beschrijving: acc.whyThisOne,
   prijs: accPrice(acc),
   boeklink: accBoeklink(acc),
-  badge: TIER_LABEL[acc.tier],
+  tier: acc.tier,
   partner: 'stay22',
-}));
+})) : [];
 
 const etenInput: StreekPoiInput[] = entry.eten.map(p => ({
   naam: p.naam,
@@ -237,8 +237,10 @@ const hasStats = Boolean(
 
     {/* LAT-1592 — unified POI "geld-pagina": dubbele kaart + genummerde blokken
         over alle vier categorieën (wijnhuizen, eten, overnachten, activiteiten).
-        Reisjunk-roundup blijft de rijke overnachten-bron; zonder enige curated
-        data valt het terug op de generieke Stay22. */}
+        LAT-1607: het overnachten-blok groepeert de gecureerde 9 in de 3x3x3
+        gouden-standaard (slim_geboekt / prijs_kwaliteit / pure_luxe). Heeft een
+        streek geen gecureerde accommodaties, dan valt het terug op de reisjunk-
+        roundup, en pas daarna op de generieke Stay22. */}
     <section class="streek-poi">
       <div class="container">
         {hasUnifiedPoi && (
@@ -252,7 +254,7 @@ const hasStats = Boolean(
             activiteiten={activiteitenInput}
           />
         )}
-        {hasReisjunkRoundup && (
+        {!hasCuratedStays && hasReisjunkRoundup && (
           <AccommodatieRoundup roundup={accRoundup!} context={entry.slug} />
         )}
         {!hasUnifiedPoi && !hasReisjunkRoundup && (
