@@ -35,6 +35,14 @@
   --color-border: var(--rule);
   --color-border-light: var(--ruleSoft);
 
+  /* Fixed tones — deliberately NOT redefined in Kelder-modus.
+     Use for text/icons that sit on a permanently dark or saturated
+     brand surface (--fixed-cream) and for dark text on a permanently
+     light surface such as the gold button (--fixed-ink). Plain
+     --paper/--ink flip with the theme and must not be used there. */
+  --fixed-cream: #FAF5E9;
+  --fixed-ink: #1F1A16;
+
   /* Backward-compat aliases for existing components */
   --charcoal: var(--ink);
   --deep-night: #0D0A07;
