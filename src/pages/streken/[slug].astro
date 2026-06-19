@@ -6,6 +6,7 @@ import RelatedArticles from '../../components/RelatedArticles.astro';
 import Stay22Stay from '../../components/Stay22Stay.astro';
 import AccommodatieRoundup from '../../components/AccommodatieRoundup.astro';
 import StreekKaart, { type StreekPoiInput } from '../../components/StreekKaart.astro';
+import RouteMap from '../../components/RouteMap.astro';
 import { allezSearchUrl } from '../../lib/stay22';
 import { loadStreken, type Streek, type Accommodation } from '../../lib/streken';
 import { loadWijnhuizen, type Wijnhuis } from '../../lib/wijnhuizen';
@@ -261,6 +262,36 @@ const hasStats = Boolean(
       </div>
     </section>
 
+    {/* LAT-1608 — routes prominenter: direct na de POI-kaart, met een visueel
+        van-naar kaartje per route i.p.v. onderaan de pagina. */}
+    {routes.length > 0 && (
+      <section class="streek-routes">
+        <div class="container">
+          <div class="streek-routes__head">
+            <span class="section-label">Wijnroutes</span>
+            <h2 class="streek-routes__title">Rijd {entry.name}</h2>
+            <p class="streek-routes__intro">Uitgestippelde routes door de streek — van waar naar waar, met de mooiste stops onderweg.</p>
+          </div>
+          <div class="route-grid">
+            {routes.map(route => (
+              <a class="route-card" href={`/wijnroutes/${route.slug}/`}>
+                <span class="route-card__name">{route.title}</span>
+                {route.stops.length >= 2 && (
+                  <RouteMap stops={route.stops} variant="mini" />
+                )}
+                {route.description && <span class="route-card__desc">{route.description}</span>}
+                <div class="route-card__meta">
+                  {route.duration && <span class="route-card__tag">{route.duration}</span>}
+                  {route.transport && <span class="route-card__tag">{route.transport}</span>}
+                </div>
+                <span class="route-card__cta">Bekijk route &rarr;</span>
+              </a>
+            ))}
+          </div>
+        </div>
+      </section>
+    )}
+
     {entry.bodyHtml && (
       <section class="streek-body">
         <div class="streek-body__inner">
@@ -292,27 +323,6 @@ const hasStats = Boolean(
           <div class="appellation-grid">
             {entry.appellations.map(app => (
               <div class="appellation-chip">{app}</div>
-            ))}
-          </div>
-        </div>
-      </section>
-    )}
-
-    {routes.length > 0 && (
-      <section class="streek-routes">
-        <div class="container">
-          <span class="section-label">Wijnroutes in {entry.name}</span>
-          <div class="route-grid">
-            {routes.map(route => (
-              <a class="route-card" href={`/wijnroutes/${route.slug}/`}>
-                <span class="route-card__name">{route.title}</span>
-                {route.description && <span class="route-card__desc">{route.description}</span>}
-                <div class="route-card__meta">
-                  {route.duration && <span class="route-card__tag">{route.duration}</span>}
-                  {route.transport && <span class="route-card__tag">{route.transport}</span>}
-                </div>
-                <span class="route-card__cta">Bekijk route &rarr;</span>
-              </a>
             ))}
           </div>
         </div>
@@ -448,6 +458,29 @@ const hasStats = Boolean(
   .streek-subregions, .streek-appellations, .streek-poi, .streek-insurance, .streek-routes {
     padding: 3rem 0;
     border-bottom: 1px solid var(--rule);
+  }
+  .streek-routes {
+    background: var(--paperDeep);
+    padding: 4rem 0;
+  }
+  .streek-routes__head {
+    margin-bottom: var(--space-5);
+  }
+  .streek-routes__title {
+    font-family: var(--font-display);
+    font-size: clamp(1.75rem, 1.4rem + 1.5vw, 2.5rem);
+    font-weight: 500;
+    color: var(--ink);
+    margin: 0.5rem 0 0;
+  }
+  .streek-routes__intro {
+    font-family: var(--font-body);
+    font-size: 1.0625rem;
+    line-height: 1.5;
+    font-style: italic;
+    color: var(--inkSoft);
+    margin: 0.75rem 0 0;
+    max-width: 52ch;
   }
   .route-grid {
     display: grid;
