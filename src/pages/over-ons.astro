@@ -62,8 +62,8 @@ const visited = [
           We zijn geen pure wijnkenners of professionals. We zijn wijnfanaten met een enorme passie die we graag delen, zodat ook jij dezelfde reizen en gebieden kunt ontdekken.
         </p>
       </div>
-      <div class="hero-image" aria-hidden="true">
-        <span class="placeholder-tag">foto · Martin in de wijngaard</span>
+      <div class="hero-image">
+        <img src="/over-ons-hero.jpg" alt="Martin proeft een glas wijn met de wijngaarden van Stellenbosch op de achtergrond" width="800" height="1000" loading="eager" decoding="async" />
       </div>
     </div>
   </section>
@@ -195,6 +195,12 @@ const visited = [
     display: flex;
     align-items: center;
     justify-content: center;
+  }
+  .hero-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
   }
   .placeholder-tag {
     font-family: var(--font-mono);
