@@ -1,5 +1,6 @@
 ---
 import SiteLayout from '../../layouts/SiteLayout.astro';
+import DiscoverMapEurope from '../../components/DiscoverMapEurope.astro';
 import { loadLanden } from '../../lib/landen';
 import { loadStreken } from '../../lib/streken';
 import { organizationSchema, breadcrumbSchema } from '../../lib/seo';
@@ -65,6 +66,11 @@ const schema = [
   </section>
 
   <section class="section container">
+    {bubbles.length > 0 && (
+      <DiscoverMapEurope
+        countries={bubbles.map(b => ({ slug: b.slug, name: b.name, color: b.color, regionCount: b.regions.length }))}
+      />
+    )}
     {bubbles.length > 0 ? (
       <div class="atlas-grid">
         {bubbles.map(b => (
