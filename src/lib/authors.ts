@@ -10,11 +10,11 @@ export interface Author {
 export const AUTHORS: readonly Author[] = [
   {
     slug: 'martin',
-    name: 'Martin',
-    bio: "Martin reist zes tot acht lange weekenden per jaar op zoek naar wijnen die hij nog niet kent. Hij heeft een WSET Level 4 Diploma, woont in Amsterdam-centrum en bewaart zijn flessen in een koelkast die te klein is voor zijn ambities. Op VinoMartino schrijft hij over de plekken, wijnmakers en alinea's in zijn notitieboekje die hij eigenlijk voor zichzelf bewaart.",
+    name: 'Marijn',
+    bio: "Marijn, internationaal ook wel Martino genoemd, reist zes tot acht lange weekenden per jaar op zoek naar wijnen die hij nog niet kent. Hij bewaart zijn flessen in een koelkast die te klein is voor zijn ambities. Op VinoMartino schrijft hij over de plekken, wijnmakers en alinea's in zijn notitieboekje die hij eigenlijk voor zichzelf bewaart.",
     portrait: '/images/auteurs/martin.svg',
-    portraitAlt: 'Martin, van achteren gefotografeerd, met een glas wijn in de hand',
-    matches: ['martin'],
+    portraitAlt: 'Marijn, van achteren gefotografeerd, met een glas wijn in de hand',
+    matches: ['martin', 'marijn', 'martino'],
   },
   {
     slug: 'sophie',
