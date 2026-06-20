@@ -1,0 +1,161 @@
+---
+// LAT-1609 — Reisjunk-stijl cross-link teaser. Vervangt de oude harde
+// "Waar te slapen" Stay22-widget op route- en artikelpagina's door een curated
+// selectie van max. 3 verblijven die intern doorklikt naar de regio-pagina
+// (/accommodaties/<streek>/). Geen externe affiliate-widget meer: dit is een
+// interne cross-link naar onze eigen handgekozen accommodatie-roundup.
+import type { AccommodatieRoundup } from '../lib/accommodaties';
+import { filterRoundupOpFotos } from '../lib/accommodaties';
+import SmartImg from './SmartImg.astro';
+
+interface Props {
+  roundup: AccommodatieRoundup;
+  /** Streek-slug → /accommodaties/<streekSlug>/. */
+  streekSlug: string;
+  /** Regio-naam voor de kop; valt terug op roundup.regio. */
+  regio?: string;
+  /** Tracking/anker-context, bv. "route-<slug>". */
+  context?: string;
+  placement?: 'sidebar' | 'inline';
+  max?: number;
+}
+
+const { roundup, streekSlug, regio, context, placement = 'sidebar', max = 3 } = Astro.props;
+
+// Alleen kaarten met een echte DAM-foto — gelijk aan de regel die bepaalt of de
+// /accommodaties/<streek>/-pagina überhaupt bestaat (LAT-1371). Zonder foto's is
+// er geen doel om naartoe te linken, dus rendert dit blok niets.
+const fotoRoundup = filterRoundupOpFotos(roundup);
+const kaarten = fotoRoundup.subgroepen.flatMap((g) => g.kaarten).slice(0, max);
+const regioNaam = regio || roundup.regio || streekSlug;
+const regioHref = `/accommodaties/${streekSlug}/`;
+---
+
+{kaarten.length > 0 && (
+  <aside class:list={['stays-teaser', `stays-teaser--${placement}`]} data-context={context}>
+    <span class="stays-teaser__kicker">Slapen in de buurt</span>
+    <h3 class="stays-teaser__title">Verblijven in {regioNaam}</h3>
+    <ul class="stays-teaser__list">
+      {kaarten.map((kaart) => (
+        <li>
+          <a class="stays-teaser__item" href={`${regioHref}#acc-${kaart.slug}`}>
+            <span class="stays-teaser__thumb">
+              <SmartImg src={kaart.foto ?? undefined} alt={kaart.fotoAlt || `${kaart.naam} — ${kaart.plaats}`} theme="winery" class="stays-teaser__img" />
+            </span>
+            <span class="stays-teaser__text">
+              <span class="stays-teaser__naam">{kaart.naam}</span>
+              <span class="stays-teaser__plaats">{kaart.plaats}</span>
+            </span>
+          </a>
+        </li>
+      ))}
+    </ul>
+    <a class="stays-teaser__cta" href={regioHref}>Alle verblijven in {regioNaam} &rarr;</a>
+  </aside>
+)}
+
+<style>
+  .stays-teaser {
+    background: var(--paperDeep);
+    border-radius: var(--radius-sm);
+    padding: 1.25rem;
+    margin-bottom: var(--space-4);
+  }
+  .stays-teaser--inline {
+    margin: var(--space-8) 0;
+  }
+  .stays-teaser__kicker {
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: var(--rust);
+    display: block;
+    margin-bottom: 0.25rem;
+  }
+  .stays-teaser__title {
+    font-family: var(--font-display);
+    font-size: 1.125rem;
+    font-weight: 500;
+    font-style: italic;
+    color: var(--ink);
+    margin: 0 0 var(--space-4);
+  }
+  .stays-teaser__list {
+    list-style: none;
+    margin: 0 0 var(--space-4);
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  .stays-teaser__item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    text-decoration: none;
+    color: inherit;
+  }
+  .stays-teaser__thumb {
+    flex-shrink: 0;
+    width: 56px;
+    height: 56px;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    background: var(--paper);
+  }
+  .stays-teaser__img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .stays-teaser__text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .stays-teaser__naam {
+    font-family: var(--font-display);
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: var(--ink);
+    line-height: 1.2;
+  }
+  .stays-teaser__item:hover .stays-teaser__naam { color: var(--burgundy); }
+  .stays-teaser__plaats {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--inkSoft);
+    margin-top: 0.15rem;
+  }
+  .stays-teaser__cta {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--burgundy);
+    text-decoration: none;
+  }
+  .stays-teaser__cta:hover { text-decoration: underline; }
+
+  /* Inline-variant op grotere schermen: kaartjes naast elkaar. */
+  @media (min-width: 641px) {
+    .stays-teaser--inline .stays-teaser__list {
+      flex-direction: row;
+      flex-wrap: wrap;
+    }
+    .stays-teaser--inline .stays-teaser__item {
+      flex-direction: column;
+      align-items: flex-start;
+      width: calc(33.333% - 0.5rem);
+    }
+    .stays-teaser--inline .stays-teaser__thumb {
+      width: 100%;
+      height: 120px;
+    }
+  }
+</style>

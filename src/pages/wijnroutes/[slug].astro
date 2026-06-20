@@ -2,14 +2,16 @@
 import SiteLayout from '../../layouts/SiteLayout.astro';
 import RelatedArticles from '../../components/RelatedArticles.astro';
 import RouteMap from '../../components/RouteMap.astro';
-import Stay22Stay from '../../components/Stay22Stay.astro';
+import StaysTeaser from '../../components/StaysTeaser.astro';
 import { loadRoutes, type WijnRoute } from '../../lib/routes';
 import { loadStreken } from '../../lib/streken';
 import { loadWijnhuizen, type Wijnhuis } from '../../lib/wijnhuizen';
+import { loadAccommodatieRoundupsByStreek } from '../../lib/accommodaties-loader';
+import { filterRoundupOpFotos, roundupKaartAantal, type AccommodatieRoundup as AccommodatieRoundupData } from '../../lib/accommodaties';
 import { wijnrouteSchema, wijnrouteMetaTitle, wijnrouteMetaDescription, breadcrumbSchema } from '../../lib/seo';
 
 export async function getStaticPaths() {
-  const [entries, streken, wijnhuizen] = await Promise.all([loadRoutes(), loadStreken(), loadWijnhuizen()]);
+  const [entries, streken, wijnhuizen, accRoundupsByStreek] = await Promise.all([loadRoutes(), loadStreken(), loadWijnhuizen(), loadAccommodatieRoundupsByStreek()]);
   const streekBySlug = new Map(streken.map(s => [s.slug, s]));
   // LAT-1201: wijnhuizen per streek zodat een route → wijnhuizen-selectie afgeleid
   // wordt uit routes.streek_id (route kent zelf geen wijnhuis-relatie). Zelfde
@@ -25,6 +27,13 @@ export async function getStaticPaths() {
     // LAT-1199: leid de keten Land → Streek af via routes.streek_id → streek→land
     // voor de verticale kruimel (route kent zelf geen land).
     const streek = entry.streekSlug ? streekBySlug.get(entry.streekSlug) : undefined;
+    // LAT-1609: curated verblijven voor de streek van deze route. Alleen kaarten
+    // met echte DAM-foto tellen — gelijk aan de regel die bepaalt of
+    // /accommodaties/<streek>/ bestaat (LAT-1371). Geen foto's → geen teaser.
+    const rawRoundup = entry.streekSlug ? accRoundupsByStreek.get(entry.streekSlug) : undefined;
+    const staysRoundup = rawRoundup && roundupKaartAantal(filterRoundupOpFotos(rawRoundup)) > 0
+      ? filterRoundupOpFotos(rawRoundup)
+      : null;
     return {
       params: { slug: entry.slug },
       props: {
@@ -33,13 +42,15 @@ export async function getStaticPaths() {
         landSlug: streek?.landSlug ?? '',
         landName: streek?.country ?? '',
         wijnhuizen: entry.streekSlug ? (wijnhuizenByStreek.get(entry.streekSlug) ?? []) : [],
+        staysRoundup,
       },
     };
   });
 }
 
-const { entry, streekName, landSlug, landName, wijnhuizen } = Astro.props as {
+const { entry, streekName, landSlug, landName, wijnhuizen, staysRoundup } = Astro.props as {
   entry: WijnRoute; streekName: string; landSlug: string; landName: string; wijnhuizen: Wijnhuis[];
+  staysRoundup: AccommodatieRoundupData | null;
 };
 const pageUrl = new URL(`/wijnroutes/${entry.slug}/`, Astro.site ?? 'https://vinomartino.com').href;
 
@@ -132,7 +143,15 @@ const schema = [
       </div>
 
       <aside class="page-sidebar">
-        <Stay22Stay location={entry.title} context={`route-${entry.slug}`} placement="sidebar" heading="Waar te slapen op deze route" />
+        {staysRoundup && entry.streekSlug && (
+          <StaysTeaser
+            roundup={staysRoundup}
+            streekSlug={entry.streekSlug}
+            regio={streekName}
+            context={`route-${entry.slug}`}
+            placement="sidebar"
+          />
+        )}
 
         <div class="sidebar-card">
           <h3>Route info</h3>
