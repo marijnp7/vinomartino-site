@@ -23,6 +23,13 @@ export interface StreekPoiInput {
   detailUrl?: string | null;
   /** Korte badge, bv. tier-label voor overnachten. */
   badge?: string | null;
+  /**
+   * LAT-1607: prijs-tier voor overnachten ('slim_geboekt' | 'prijs_kwaliteit' |
+   * 'pure_luxe'). Aanwezig → het overnachten-blok groepeert in de 3x3x3
+   * gouden-standaard (Slim geboekt / Prijs-kwaliteit / Pure luxe). Andere
+   * categorieën negeren dit veld.
+   */
+  tier?: string | null;
   /** Affiliate-partner voor click-tracking (bv. 'stay22', 'getyourguide'). */
   partner?: string;
 }
@@ -58,10 +65,38 @@ const CATEGORY_META: Record<CatKey, { label: string; color: string }> = {
 // Volgorde van de blokken én van de gedeelde nummering (plan 2C).
 const CATEGORY_ORDER: CatKey[] = ['wijnhuizen', 'eten', 'overnachten', 'activiteiten'];
 
+// LAT-1607 — overnachten houdt de afgesproken 3x3x3 gouden-standaard (LAT-1413/
+// LAT-1599): het blok groepeert in drie prijs-tiers. De pins op de kaart en de
+// gedeelde nummering blijven ongewijzigd; alleen de lijst eronder krijgt
+// tier-subkoppen.
+const STAY_TIER_ORDER = ['slim_geboekt', 'prijs_kwaliteit', 'pure_luxe'] as const;
+const STAY_TIER_LABEL: Record<string, string> = {
+  slim_geboekt: 'Slim geboekt',
+  prijs_kwaliteit: 'Prijs-kwaliteit',
+  pure_luxe: 'Pure luxe',
+};
+const STAY_TIER_COLOR: Record<string, string> = {
+  slim_geboekt: '#A14F2A',
+  prijs_kwaliteit: '#5C6B3F',
+  pure_luxe: '#5A1A1F',
+};
+function normStayTier(t?: string | null): string {
+  const v = (t || '').toLowerCase().replace(/[\s-]+/g, '_');
+  return (STAY_TIER_ORDER as readonly string[]).includes(v) ? v : 'slim_geboekt';
+}
+
+// LAT-1607: sorteer overnachten op tier-volgorde vóór de nummering, zodat de
+// genummerde pins en de lijst binnen elke 3x3x3-tier oplopend (1,2,3…) lezen.
+const overnachtenSorted = [...overnachten].sort(
+  (a, b) =>
+    STAY_TIER_ORDER.indexOf(normStayTier(a.tier) as (typeof STAY_TIER_ORDER)[number]) -
+    STAY_TIER_ORDER.indexOf(normStayTier(b.tier) as (typeof STAY_TIER_ORDER)[number]),
+);
+
 const rawByCat: Record<CatKey, StreekPoiInput[]> = {
   wijnhuizen,
   eten,
-  overnachten,
+  overnachten: overnachtenSorted,
   activiteiten,
 };
 
@@ -189,7 +224,23 @@ const usedCats = sections.map((s) => s.key);
             {s.label}
           </h3>
           <div class="streekkaart__cards">
-            {s.items.map((it) => {
+            {(s.key === 'overnachten'
+              ? STAY_TIER_ORDER.flatMap((t) => {
+                  const its = s.items.filter((it) => normStayTier(it.tier) === t);
+                  return its.length ? [{ tierHeader: t }, ...its] : [];
+                })
+              : s.items
+            ).map((row) => {
+              if ('tierHeader' in row) {
+                const t = (row as { tierHeader: string }).tierHeader;
+                return (
+                  <h4 class="skz-tier-head" style={`color:${STAY_TIER_COLOR[t]}`}>
+                    <span class="skz-tier-head__dot" style={`background:${STAY_TIER_COLOR[t]}`}></span>
+                    {STAY_TIER_LABEL[t]}
+                  </h4>
+                );
+              }
+              const it = row as NumberedPoi;
               const plotted = it.lat != null && it.lng != null;
               return (
                 <article
@@ -521,6 +572,27 @@ const usedCats = sections.map((s) => s.key);
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 1.25rem;
+  }
+
+  /* LAT-1607 — 3x3x3 tier-subkop in het overnachten-blok (gouden standaard). */
+  .skz-tier-head {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0.5rem 0 -0.25rem;
+    font-family: var(--font-ui, sans-serif);
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+  }
+  .skz-tier-head:first-child { margin-top: 0; }
+  .skz-tier-head__dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
   }
 
   .skz-card {
