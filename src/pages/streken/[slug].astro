@@ -7,7 +7,7 @@ import Stay22Stay from '../../components/Stay22Stay.astro';
 import AccommodatieRoundup from '../../components/AccommodatieRoundup.astro';
 import StreekKaart, { type StreekPoiInput } from '../../components/StreekKaart.astro';
 import RouteMap from '../../components/RouteMap.astro';
-import { allezSearchUrl } from '../../lib/stay22';
+import { buildCjBookingLink, buildBookingSearchLink, unwrapCjRedirect } from '../../lib/affiliates';
 import { loadStreken, type Streek, type Accommodation } from '../../lib/streken';
 import { loadWijnhuizen, type Wijnhuis } from '../../lib/wijnhuizen';
 import { loadAccommodatieRoundupsByStreek } from '../../lib/accommodaties-loader';
@@ -96,9 +96,25 @@ function accPrice(acc: Accommodation): string | null {
   if (acc.prijsHoog != null) return `tot ${sym}${acc.prijsHoog} / nacht`;
   return null;
 }
+// LAT-1634: het 3x3x3-grid linkte via Stay22 Allez (allezSearchUrl), wat bij
+// verblijven zonder eigen property-URL op een generieke stad-/zoekpagina landde
+// (3 van 4 fout). We volgen nu dezelfde regel als de artikel-affiliateblokken
+// (LAT-1549/1400): ALTIJD een directe, ad-blocker-bestendige booking.com-deeplink
+// mét affiliate-aid + CJ-label, onafhankelijk van wat de data bevat.
+function accSid(acc: Accommodation): string {
+  const namePart = acc.naam.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  return `streek-${entry.slug}-${namePart}`;
+}
 function accBoeklink(acc: Accommodation): string {
-  if (acc.boeklink && /^https?:\/\//.test(acc.boeklink)) return acc.boeklink;
-  return allezSearchUrl({ location: `${acc.naam}, ${entry.name}`, campaign: entry.slug });
+  const sid = accSid(acc);
+  const direct = acc.boeklink ? unwrapCjRedirect(acc.boeklink.trim()) : '';
+  // Echte booking.com-hotelpagina in de data → directe CJ-deeplink naar exact dat hotel.
+  if (/^https?:\/\/(www\.)?booking\.com\/hotel\//i.test(direct)) {
+    return buildCjBookingLink(direct, sid);
+  }
+  // Geen specifieke property-URL (leeg, Stay22-zoeklink, stad/zoekpagina) → directe
+  // booking.com-zoekdeeplink op de exacte hotelnaam, mét aid + label.
+  return buildBookingSearchLink(`${acc.naam}, ${entry.name}`, sid);
 }
 // LAT-1607: de curated set voedt het overnachten-blok als 3x3x3-grid. De tier
 // stuurt de Slim geboekt / Prijs-kwaliteit / Pure luxe-subkoppen in StreekKaart;
@@ -112,7 +128,7 @@ const overnachtenInput: StreekPoiInput[] = hasCuratedStays ? entry.accommodaties
   prijs: accPrice(acc),
   boeklink: accBoeklink(acc),
   tier: acc.tier,
-  partner: 'stay22',
+  partner: 'booking',
 })) : [];
 
 const etenInput: StreekPoiInput[] = entry.eten.map(p => ({
