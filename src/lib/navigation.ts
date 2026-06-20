@@ -19,7 +19,7 @@ const NAV_ITEMS: NavItem[] = [
     { label: 'Wijnhuizen', href: '/wijnhuizen/', key: 'wijnhuizen', order: 30 },
     { label: 'Slapen', href: '/accommodaties/', key: 'accommodaties', order: 35 },
     { label: 'Artikelen', href: '/artikelen/', key: 'artikelen', order: 50 },
-    { label: 'De Brief', href: '/de-brief/', key: 'de-brief', order: 60 },
+    { label: 'De brief', href: '/de-brief/', key: 'de-brief', order: 60 },
     { label: 'Over ons', href: '/over-ons/', key: 'over-ons', order: 70 },
 ];
 
