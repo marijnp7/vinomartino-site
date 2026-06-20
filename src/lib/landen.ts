@@ -230,3 +230,39 @@ export async function loadLanden(): Promise<Land[]> {
     assertDirectusConfigured('loadLanden', env);
     return loadFromDirectus(env.url, env.token);
 }
+
+export interface NavLand {
+    slug: string;
+    name: string;
+    continent: string;
+}
+
+/**
+ * Lightweight landen-loader voor de "Ontdek" nav-dropdown (LAT-1604). Haalt
+ * alleen slug/name/continent op — geen body-render, geen asset-download — zodat
+ * de globale header op elke pagina goedkoop blijft. Volgt het fail-loud-contract
+ * (LAT-1078): zonder Directus-config gooit dit, net als loadLanden().
+ */
+export async function loadLandenNav(): Promise<NavLand[]> {
+    const env = readDirectusEnv();
+    assertDirectusConfigured('loadLandenNav', env);
+    const fields = 'slug,name,continent,status';
+    const url = `${env.url}/items/landen?limit=-1&fields=${fields}${statusFilterQuery(env)}&sort=name`;
+    const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${env.token}` },
+        signal: AbortSignal.timeout(15000),
+    });
+    if (!res.ok) {
+        const body = await res.text().catch(() => '');
+        throw new Error(`[loadLandenNav] Directus returned ${res.status} ${res.statusText}: ${body.slice(0, 300)}`);
+    }
+    const json = await res.json();
+    const data = (json.data || []) as Record<string, unknown>[];
+    return data
+        .filter((r) => r.slug && r.name)
+        .map((r) => ({
+            slug: String(r.slug),
+            name: normalizeEmDashes(String(r.name)),
+            continent: String(r.continent || ''),
+        }));
+}
