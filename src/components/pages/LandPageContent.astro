@@ -3,6 +3,7 @@ import SmartImg from '../SmartImg.astro';
 import AffiliatePlaceholder from '../AffiliatePlaceholder.astro';
 import AffiliateDisclosure from '../AffiliateDisclosure.astro';
 import Stay22Stay from '../Stay22Stay.astro';
+import RouteMap from '../RouteMap.astro';
 
 interface LandStreek {
   name: string;
@@ -25,6 +26,7 @@ interface LandRoute {
   days?: number;
   transport?: string;
   style?: string;
+  stops?: string[];
 }
 
 interface LandDruif {
@@ -228,6 +230,11 @@ const {
             </div>
             <div class="land-route-card__body">
               <h3 class="land-route-card__title">{route.title}</h3>
+              {route.stops && route.stops.length >= 2 && (
+                <div class="land-route-card__strip">
+                  <RouteMap stops={route.stops} variant="mini" />
+                </div>
+              )}
               {route.style && <span class="land-route-card__style">{route.style}</span>}
             </div>
           </a>
@@ -646,6 +653,8 @@ const {
     color: var(--ink);
     margin: 0 0 0.375rem;
   }
+
+  .land-route-card__strip { margin: 0 0 0.625rem; }
 
   .land-route-card__style {
     font-family: var(--font-mono);

@@ -1,6 +1,7 @@
 ---
 import SiteLayout from '../../layouts/SiteLayout.astro';
 import RelatedArticles from '../../components/RelatedArticles.astro';
+import RouteMap from '../../components/RouteMap.astro';
 import Stay22Stay from '../../components/Stay22Stay.astro';
 import { loadRoutes, type WijnRoute } from '../../lib/routes';
 import { loadStreken } from '../../lib/streken';
@@ -103,6 +104,15 @@ const schema = [
           <h1>{entry.title}</h1>
         </header>
 
+        <div class="page-routemap">
+          <RouteMap
+            stops={entry.stops.length > 0 ? entry.stops : entry.highlights}
+            duration={entry.duration}
+            transport={entry.transport}
+            variant="full"
+          />
+        </div>
+
         {entry.bodyHtml && <div class="page-prose" set:html={entry.bodyHtml} />}
 
         {wijnhuizen.length > 0 && (
@@ -201,6 +211,9 @@ const schema = [
     font-style: italic;
     color: var(--ink);
     line-height: 1.15;
+    margin-bottom: var(--space-8);
+  }
+  .page-routemap {
     margin-bottom: var(--space-8);
   }
   .page-prose {
