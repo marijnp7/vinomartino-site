@@ -19,6 +19,7 @@ export interface Article {
     heroImage: string | null;
     ogImage: string | null;
     status: string;
+    featured: boolean;
     metaTitle: string;
     metaDescription: string;
     bodyHtml: string;
@@ -255,6 +256,7 @@ function mapArticle(
           heroImage: heroImagePath,
           ogImage: ogImagePath,
           status: String(a.status || 'draft'),
+          featured: a.featured === true || a.featured === 1 || a.featured === '1',
           metaTitle: normalizeEmDashes(String(a.meta_title || a.title)),
           metaDescription: normalizeEmDashes(String(a.meta_description || a.description || '')),
           bodyHtml,
@@ -285,7 +287,11 @@ function mapArticle(
 async function fetchArticlesItems(url: string, token: string): Promise<Record<string, unknown>[]> {
     const env = readDirectusEnv();
     const baseFields = 'id,slug,title,description,body,pub_date,author,category,tags,hero_image,og_image,status,meta_title,meta_description';
-    const withUpdatedAt = `${baseFields},updated_at`;
+    // LAT-1611: `featured` markeert het "verhaal van de week" op de homepage.
+    // Bewust NIET in baseFields (de laatste fallback) zodat een pre-migratie
+    // Directus zonder dit veld graceful degradeert naar nieuwste-artikel ipv
+    // hard te breken. Zodra DevOps het veld toevoegt, leest withUpdatedAt het.
+    const withUpdatedAt = `${baseFields},updated_at,featured`;
     // LAT-1098: 4 forward relations toegevoegd aan articles. Junction-tabellen
     // volgen Directus-conventie `articles_<entity>` met FK `<entity>_id`.
     // Faalt graceful met 400/403 retry naar withUpdatedAt zolang LAT-1097
