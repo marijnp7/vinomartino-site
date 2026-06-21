@@ -47,6 +47,7 @@ interface Props {
   description: string;
   heroImage?: string;
   stats?: { label: string; value: string }[];
+  bodyHtml?: string;
   streken?: LandStreek[];
   topWijnhuizen?: LandWijnhuis[];
   routes?: LandRoute[];
@@ -62,6 +63,7 @@ const {
   description,
   heroImage,
   stats = [],
+  bodyHtml,
   streken = [],
   topWijnhuizen = [],
   routes = [],
@@ -116,6 +118,17 @@ const {
   <section class="land-atlas">
     <div class="container">
       <slot name="atlas" />
+    </div>
+  </section>
+)}
+
+<!-- ── LONG-FORM EDITORIAL (LAT-1657): Directus `body` markdown → bodyHtml. -->
+<!-- Direct ná hero/stats/atlas, bóven de streek-cards. Rendert niet als er -->
+<!-- geen body is, zodat showcase-fallback-landen geen lege band krijgen. ─ -->
+{bodyHtml && (
+  <section class="land-body">
+    <div class="land-body__inner">
+      <div class="land-prose" set:html={bodyHtml} />
     </div>
   </section>
 )}
@@ -409,6 +422,42 @@ const {
     background: var(--paper);
     border-bottom: 1px solid var(--rule);
   }
+
+  /* ── Long-form editorial (LAT-1657) ── */
+  .land-body {
+    padding: clamp(3.5rem, 7vw, 6rem) 0;
+    background: var(--paper);
+    border-bottom: 1px solid var(--rule);
+  }
+  .land-body__inner {
+    max-width: var(--max-width-narrow);
+    margin: 0 auto;
+    padding: 0 var(--gutter);
+  }
+  .land-prose {
+    font-family: var(--font-body);
+    font-size: 1.125rem;
+    line-height: 1.7;
+    color: var(--ink);
+  }
+  .land-prose :global(p) { margin-bottom: 1.25rem; }
+  .land-prose :global(h2) {
+    font-family: var(--font-display);
+    font-size: 1.75rem;
+    font-weight: 500;
+    margin: 2.5rem 0 1rem;
+  }
+  .land-prose :global(h3) {
+    font-family: var(--font-ui);
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin: 2rem 0 0.75rem;
+  }
+  .land-prose :global(a) { color: var(--burgundy); }
+  .land-prose :global(ul), .land-prose :global(ol) {
+    margin: 0 0 1.25rem 1.25rem;
+  }
+  .land-prose :global(li) { margin-bottom: 0.5rem; }
 
   /* ── Streken ── */
   .land-streken {
