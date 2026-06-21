@@ -21,8 +21,15 @@ export async function getStaticPaths() {
   // 40-min-clustering als /streken. Zo is de cluster-layout identiek op beide
   // surfaces i.p.v. de oude, incomplete per-plaats-rijen uit de losse collectie.
   for (const streek of streken) {
-    const roundup = filterRoundupOpFotos(roundupFromCuratedStays(streek));
-    if (roundupKaartAantal(roundup) === 0) continue; // LAT-1371: ≥1 echte foto.
+    // LAT-1644: gelijk aan /streken/<slug>/ — de gecureerde set is de canonieke,
+    // complete (3+3+3) bron en wordt hier NIET op foto's gefilterd. De curated
+    // stays dragen nog geen DAM-foto (fotoRef leeg); zou de foto-gate hier wél
+    // gelden, dan viel de surface terug op de oude, incomplete per-plaats-
+    // collectie en faalde de DoD (beide surfaces moeten alle 9 in cluster-layout
+    // tonen). De kaart rendert netjes zonder afbeelding, identiek aan /streken.
+    const roundup = roundupFromCuratedStays(streek);
+    const aantal = roundup.clusters.reduce((n, c) => n + c.kaarten.length, 0);
+    if (aantal === 0) continue;
     paths.push({ params: { streek: streek.slug }, props: { roundup, streek, streekSlug: streek.slug } });
     seen.add(streek.slug);
   }
