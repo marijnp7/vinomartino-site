@@ -2,7 +2,6 @@
 import SmartImg from '../SmartImg.astro';
 import AffiliatePlaceholder from '../AffiliatePlaceholder.astro';
 import AffiliateDisclosure from '../AffiliateDisclosure.astro';
-import Stay22Stay from '../Stay22Stay.astro';
 import RouteMap from '../RouteMap.astro';
 
 interface LandStreek {
@@ -248,7 +247,9 @@ const {
 <section class="land-travel">
   <div class="container">
     <h2 class="land-section-title">Plan je reis</h2>
-    <Stay22Stay location={name} context={`land-${name.toLowerCase()}`} placement="sidebar" heading={`Waar te slapen in ${name}`} />
+    {/* LAT-1640: generieke Stay22 "Waar te slapen"-widget weg (geen externe
+        zoekwidget meer). Gecureerde verblijven leven per streek; de landpagina
+        linkt daar via de streekkaarten naartoe. */}
     <div class="land-travel__grid">
       <AffiliatePlaceholder type="accommodation" partner="booking.com" region={name} placement="sidebar" context="land-accommodation" />
       <AffiliatePlaceholder type="flight" partner="skyscanner" region={name} placement="sidebar" context="land-flight" />

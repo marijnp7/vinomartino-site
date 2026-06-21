@@ -3,7 +3,6 @@ import SiteLayout from '../../layouts/SiteLayout.astro';
 import AffiliatePlaceholder from '../../components/AffiliatePlaceholder.astro';
 import AffiliateDisclosure from '../../components/AffiliateDisclosure.astro';
 import RelatedArticles from '../../components/RelatedArticles.astro';
-import Stay22Stay from '../../components/Stay22Stay.astro';
 import AccommodatieRoundup from '../../components/AccommodatieRoundup.astro';
 import StreekKaart, { type StreekPoiInput } from '../../components/StreekKaart.astro';
 import RouteMap from '../../components/RouteMap.astro';
@@ -46,15 +45,15 @@ export async function getStaticPaths() {
 
 const { entry, wijnhuizen, routes, accRoundup } = Astro.props as { entry: Streek; wijnhuizen: Wijnhuis[]; routes: WijnRoute[]; accRoundup: AccommodatieRoundupData | null };
 const pageUrl = new URL(`/streken/${entry.slug}/`, Astro.site ?? 'https://vinomartino.com').href;
-const stay22Location = entry.country ? `${entry.name}, ${entry.country}` : entry.name;
 
 // LAT-1199: verticale kruimel Land → Streek.
 const hasParentLand = Boolean(entry.landSlug && entry.country);
 // LAT-1607: de afgesproken 3x3x3 gouden-standaard (LAT-1413/LAT-1599) wint.
 // Heeft de streek een curated accommodatie-set (Accommodation Scout → Directus,
 // 9 verblijven in 3 tiers), dan rendert het overnachten-blok als die 3x3x3-grid.
-// Pas zonder curated set valt de pagina terug op de reisjunk-roundup en, als ook
-// die ontbreekt, op de generieke Stay22.
+// Pas zonder curated set valt de pagina terug op de reisjunk-roundup; ontbreekt
+// ook die, dan rendert er geen overnachten-blok (LAT-1640: geen generieke
+// Stay22-zoekwidget meer).
 const hasCuratedStays = entry.accommodaties.length > 0;
 const hasReisjunkRoundup = Boolean(accRoundup && accRoundup.subgroepen.some(g => g.kaarten.length > 0));
 
@@ -257,28 +256,28 @@ const hasStats = Boolean(
         LAT-1607: het overnachten-blok groepeert de gecureerde 9 in de 3x3x3
         gouden-standaard (slim_geboekt / prijs_kwaliteit / pure_luxe). Heeft een
         streek geen gecureerde accommodaties, dan valt het terug op de reisjunk-
-        roundup, en pas daarna op de generieke Stay22. */}
-    <section class="streek-poi">
-      <div class="container">
-        {hasUnifiedPoi && (
-          <StreekKaart
-            streek={entry.name}
-            slug={entry.slug}
-            country={entry.country}
-            wijnhuizen={wijnhuizenInput}
-            overnachten={overnachtenInput}
-            eten={etenInput}
-            activiteiten={activiteitenInput}
-          />
-        )}
-        {!hasCuratedStays && hasReisjunkRoundup && (
-          <AccommodatieRoundup roundup={accRoundup!} context={entry.slug} />
-        )}
-        {!hasUnifiedPoi && !hasReisjunkRoundup && (
-          <Stay22Stay location={stay22Location} context={`streek-${entry.slug}`} placement="sidebar" heading={`Waar te slapen in ${entry.name}`} />
-        )}
-      </div>
-    </section>
+        roundup. LAT-1640: zonder gecureerde data rendert er geen blok meer
+        (geen generieke Stay22-zoekwidget). */}
+    {(hasUnifiedPoi || (!hasCuratedStays && hasReisjunkRoundup)) && (
+      <section class="streek-poi">
+        <div class="container">
+          {hasUnifiedPoi && (
+            <StreekKaart
+              streek={entry.name}
+              slug={entry.slug}
+              country={entry.country}
+              wijnhuizen={wijnhuizenInput}
+              overnachten={overnachtenInput}
+              eten={etenInput}
+              activiteiten={activiteitenInput}
+            />
+          )}
+          {!hasCuratedStays && hasReisjunkRoundup && (
+            <AccommodatieRoundup roundup={accRoundup!} context={entry.slug} />
+          )}
+        </div>
+      </section>
+    )}
 
     {/* LAT-1608 — routes prominenter: direct na de POI-kaart, met een visueel
         van-naar kaartje per route i.p.v. onderaan de pagina. */}
