@@ -36,6 +36,11 @@ const ontdekLandGroups = (landenMetStreken.length > 0 ? landenMetStreken : sorte
   .map(l => ({ land: l, streken: strekenByLand[l.slug] ?? [] }));
 const hasOntdek = ontdekLandGroups.length > 0;
 
+// De "Ontdek"-dropdown-trigger ís de Ontdek-nav-ingang. Verberg het losse
+// "Ontdek"-nav-item zodat het niet dubbel naast de trigger staat; bij geen
+// dropdown (geen landen) blijft de gewone "Ontdek"-link wel staan.
+const navItems = hasOntdek ? nav.filter(item => item.key !== 'ontdek') : nav;
+
 // Vast redactioneel promo-blok naast de landenkolommen.
 const ontdekPromo = {
   kicker: 'Zelf gereisd',
@@ -60,9 +65,9 @@ const ontdekPromo = {
       <nav class="header-nav" aria-label="Hoofdnavigatie">
         {hasOntdek && (
           <div class="nav-dropdown" data-nav-dropdown>
-            <button
-              type="button"
-              class="nav-link nav-dropdown-trigger"
+            <a
+              href="/ontdek/"
+              class={`nav-link nav-dropdown-trigger ${activeNav === 'ontdek' ? 'nav-link--active' : ''}`}
               aria-haspopup="true"
               aria-expanded="false"
               aria-controls="ontdek-menu"
@@ -71,7 +76,7 @@ const ontdekPromo = {
               <svg class="nav-chevron" width="10" height="6" viewBox="0 0 10 6" aria-hidden="true">
                 <path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
               </svg>
-            </button>
+            </a>
             <div class="nav-dropdown-panel" id="ontdek-menu">
               <div class="ontdek-mega">
                 <aside class="ontdek-promo">
@@ -106,7 +111,7 @@ const ontdekPromo = {
             </div>
           </div>
         )}
-        {nav.map(item => (
+        {navItems.map(item => (
           <a
             href={item.href}
             class={`nav-link ${activeNav === item.key ? 'nav-link--active' : ''}`}
@@ -194,11 +199,11 @@ const ontdekPromo = {
                 ))}
               </div>
             ))}
-            <a href="/landen/" class="mobile-ontdek-link mobile-ontdek-all">Alle landen &rarr;</a>
+            <a href="/ontdek/" class="mobile-ontdek-link mobile-ontdek-all">Naar de Ontdek-atlas &rarr;</a>
           </div>
         </div>
       )}
-      {nav.map(item => (
+      {navItems.map(item => (
         <a href={item.href} class="mobile-nav-link">{item.label}</a>
       ))}
     </nav>
@@ -290,8 +295,8 @@ const ontdekPromo = {
   .nav-chevron {
     transition: transform var(--duration-fast) var(--ease-out);
   }
-  .nav-dropdown[data-open] .nav-chevron,
-  .nav-dropdown:hover .nav-chevron {
+  .nav-dropdown:hover .nav-chevron,
+  .nav-dropdown:focus-within .nav-chevron {
     transform: rotate(180deg);
   }
   .nav-dropdown-panel {
@@ -323,8 +328,7 @@ const ontdekPromo = {
     height: 10px;
   }
   .nav-dropdown:hover .nav-dropdown-panel,
-  .nav-dropdown:focus-within .nav-dropdown-panel,
-  .nav-dropdown[data-open] .nav-dropdown-panel {
+  .nav-dropdown:focus-within .nav-dropdown-panel {
     opacity: 1;
     visibility: visible;
     transform: translateY(0);
@@ -622,31 +626,24 @@ const ontdekPromo = {
     mobileMenu.hidden = expanded;
   });
 
-  // "Ontdek" desktop dropdown — keyboard/click toggle (hover is pure CSS).
+  // "Ontdek" desktop dropdown — de trigger is een link naar /ontdek/ (klik =
+  // naar de atlas-hub, hover/focus = mega-dropdown via pure CSS). We houden
+  // alleen aria-expanded in sync en sluiten op Escape.
   const ontdek = document.querySelector('[data-nav-dropdown]') as HTMLElement | null;
-  const ontdekTrigger = ontdek?.querySelector('.nav-dropdown-trigger') as HTMLButtonElement | null;
+  const ontdekTrigger = ontdek?.querySelector('.nav-dropdown-trigger') as HTMLAnchorElement | null;
   if (ontdek && ontdekTrigger) {
-    const closeOntdek = () => {
-      ontdek.removeAttribute('data-open');
-      ontdekTrigger.setAttribute('aria-expanded', 'false');
-    };
-    ontdekTrigger.addEventListener('click', () => {
-      const open = ontdek.hasAttribute('data-open');
-      if (open) {
-        closeOntdek();
-      } else {
-        ontdek.setAttribute('data-open', '');
-        ontdekTrigger.setAttribute('aria-expanded', 'true');
-      }
+    const setExpanded = (v: boolean) => ontdekTrigger.setAttribute('aria-expanded', v ? 'true' : 'false');
+    ontdek.addEventListener('mouseenter', () => setExpanded(true));
+    ontdek.addEventListener('mouseleave', () => setExpanded(false));
+    ontdek.addEventListener('focusin', () => setExpanded(true));
+    ontdek.addEventListener('focusout', (e) => {
+      if (!ontdek.contains((e as FocusEvent).relatedTarget as Node)) setExpanded(false);
     });
     ontdek.addEventListener('keydown', (e) => {
       if ((e as KeyboardEvent).key === 'Escape') {
-        closeOntdek();
-        ontdekTrigger.focus();
+        setExpanded(false);
+        ontdekTrigger.blur();
       }
-    });
-    document.addEventListener('click', (e) => {
-      if (!ontdek.contains(e.target as Node)) closeOntdek();
     });
   }
 
