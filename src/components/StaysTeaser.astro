@@ -26,7 +26,7 @@ const { roundup, streekSlug, regio, context, placement = 'sidebar', max = 3 } = 
 // /accommodaties/<streek>/-pagina überhaupt bestaat (LAT-1371). Zonder foto's is
 // er geen doel om naartoe te linken, dus rendert dit blok niets.
 const fotoRoundup = filterRoundupOpFotos(roundup);
-const kaarten = fotoRoundup.subgroepen.flatMap((g) => g.kaarten).slice(0, max);
+const kaarten = fotoRoundup.clusters.flatMap((c) => c.kaarten).slice(0, max);
 const regioNaam = regio || roundup.regio || streekSlug;
 const regioHref = `/accommodaties/${streekSlug}/`;
 ---
