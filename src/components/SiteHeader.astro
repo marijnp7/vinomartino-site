@@ -1,6 +1,7 @@
 ---
 import { loadNavigation } from '../lib/navigation';
 import { loadLandenNav } from '../lib/landen';
+import { loadStrekenNav } from '../lib/streken';
 
 interface Props {
   activeNav?: string;
@@ -10,28 +11,30 @@ const { activeNav } = Astro.props;
 
 const nav = await loadNavigation();
 
-// "Ontdek" mega-dropdown (reisjunk-stijl): alle landen, gegroepeerd per continent.
-// Toont alleen continenten waar daadwerkelijk landen voor bestaan; schaalt
-// automatisch mee zodra er landen aan Directus worden toegevoegd (LAT-1604).
-const landen = await loadLandenNav();
-const ontdekLanden = [...landen].sort((a, b) => a.name.localeCompare(b.name, 'nl'));
-const ontdekGroups = ontdekLanden.reduce<Record<string, typeof ontdekLanden>>((acc, land) => {
-  const continent = (land.continent || '').trim() || 'Overig';
-  (acc[continent] ??= []).push(land);
+// "Ontdek" mega-dropdown (reisjunk-stijl, LAT-1604): elk LAND is een (oranje)
+// klikbare kop naar de landenpagina, met de STREKEN van dat land eronder als
+// lijst naar de streekpagina's. Geen continent-groepering. Schaalt automatisch
+// mee zodra er landen/streken aan Directus worden toegevoegd.
+const [landen, streken] = await Promise.all([loadLandenNav(), loadStrekenNav()]);
+
+// Streken per land-slug, alfabetisch.
+const strekenByLand = streken.reduce<Record<string, typeof streken>>((acc, s) => {
+  if (!s.landSlug) return acc;
+  (acc[s.landSlug] ??= []).push(s);
   return acc;
 }, {});
+for (const slug of Object.keys(strekenByLand)) {
+  strekenByLand[slug].sort((a, b) => a.name.localeCompare(b.name, 'nl'));
+}
 
-// Vaste continent-volgorde (reisjunk-referentie); onbekende continenten achteraan.
-const CONTINENT_ORDER = ['Azië', 'Midden-Amerika', 'Zuid-Amerika', 'Europa', 'Afrika', 'Midden-Oosten', 'Oceanië'];
-const normContinent = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-const continentRank = (c: string) => {
-  const i = CONTINENT_ORDER.findIndex(o => normContinent(o) === normContinent(c));
-  return i === -1 ? CONTINENT_ORDER.length : i;
-};
-const ontdekContinents = Object.keys(ontdekGroups)
-  .filter(c => ontdekGroups[c].length > 0)
-  .sort((a, b) => continentRank(a) - continentRank(b) || a.localeCompare(b, 'nl'));
-const hasOntdek = ontdekLanden.length > 0;
+// Bouw land→streken-groepen. Toon bij voorkeur alleen landen met ≥1 streek
+// (geen lege landen/streken). Maar als nog géén land streken heeft, val terug op
+// alle landen als kop — anders is "Ontdek" leeg vóórdat de streek-data gevuld is.
+const sortedLanden = [...landen].sort((a, b) => a.name.localeCompare(b.name, 'nl'));
+const landenMetStreken = sortedLanden.filter(l => (strekenByLand[l.slug]?.length ?? 0) > 0);
+const ontdekLandGroups = (landenMetStreken.length > 0 ? landenMetStreken : sortedLanden)
+  .map(l => ({ land: l, streken: strekenByLand[l.slug] ?? [] }));
+const hasOntdek = ontdekLandGroups.length > 0;
 
 // Vast redactioneel promo-blok naast de landenkolommen.
 const ontdekPromo = {
@@ -84,16 +87,18 @@ const ontdekPromo = {
                   <a class="ontdek-promo-link" href="/landen/">Alle landen<span aria-hidden="true"> &rarr;</span></a>
                 </aside>
                 <div class="ontdek-columns">
-                  {ontdekContinents.map(continent => (
+                  {ontdekLandGroups.map(({ land, streken }) => (
                     <div class="ontdek-group">
-                      <span class="ontdek-continent">{continent}</span>
-                      <ul class="ontdek-list">
-                        {ontdekGroups[continent].map(land => (
-                          <li>
-                            <a class="ontdek-link" href={`/landen/${land.slug}/`}>{land.name}</a>
-                          </li>
-                        ))}
-                      </ul>
+                      <a class="ontdek-land" href={`/landen/${land.slug}/`}>{land.name}</a>
+                      {streken.length > 0 && (
+                        <ul class="ontdek-list">
+                          {streken.map(streek => (
+                            <li>
+                              <a class="ontdek-link" href={`/streken/${streek.slug}/`}>{streek.name}</a>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -181,11 +186,11 @@ const ontdekPromo = {
               <h2 class="ontdek-promo-title">{ontdekPromo.title}</h2>
               <p class="ontdek-promo-body">{ontdekPromo.body}</p>
             </div>
-            {ontdekContinents.map(continent => (
+            {ontdekLandGroups.map(({ land, streken }) => (
               <div class="mobile-ontdek-group">
-                <span class="ontdek-continent">{continent}</span>
-                {ontdekGroups[continent].map(land => (
-                  <a href={`/landen/${land.slug}/`} class="mobile-ontdek-link">{land.name}</a>
+                <a href={`/landen/${land.slug}/`} class="ontdek-land">{land.name}</a>
+                {streken.map(streek => (
+                  <a href={`/streken/${streek.slug}/`} class="mobile-ontdek-link">{streek.name}</a>
                 ))}
               </div>
             ))}
@@ -388,12 +393,12 @@ const ontdekPromo = {
   .ontdek-promo-link:hover,
   .ontdek-promo-link:focus-visible { color: var(--burgundy); }
 
-  /* Continent-kolommen: groepen stromen en stapelen in maximaal ~3 kolommen. */
+  /* Land-kolommen: elk land (kop + streken) stroomt en stapelt in meerdere kolommen. */
   .ontdek-columns {
     display: flex;
     flex-flow: column wrap;
     gap: 0.5rem 2.5rem;
-    max-height: 22rem;
+    max-height: 24rem;
     align-content: flex-start;
   }
   .ontdek-group {
@@ -401,16 +406,23 @@ const ontdekPromo = {
     margin-bottom: 1.25rem;
     break-inside: avoid;
   }
-  .ontdek-continent {
+  /* Land-kop: oranje (rust), klikbaar naar de landenpagina. */
+  .ontdek-land {
     display: block;
     font-family: var(--font-mono);
-    font-size: 0.625rem;
+    font-size: 0.6875rem;
     text-transform: uppercase;
     letter-spacing: 0.12em;
     color: var(--rust);
+    text-decoration: none;
     padding-bottom: 0.4375rem;
     margin-bottom: 0.5rem;
     border-bottom: 1px solid var(--ruleSoft);
+    transition: color var(--duration-fast) var(--ease-out);
+  }
+  .ontdek-land:hover,
+  .ontdek-land:focus-visible {
+    color: var(--burgundy);
   }
   .ontdek-list {
     list-style: none;
@@ -571,7 +583,7 @@ const ontdekPromo = {
     margin-bottom: 1rem;
   }
   .mobile-ontdek-group { margin-bottom: 1rem; padding-left: 0.25rem; }
-  .mobile-ontdek-group .ontdek-continent { margin-bottom: 0.375rem; }
+  .mobile-ontdek-group .ontdek-land { margin-bottom: 0.375rem; }
   .mobile-ontdek-link {
     display: block;
     padding: 0.5rem 0;
