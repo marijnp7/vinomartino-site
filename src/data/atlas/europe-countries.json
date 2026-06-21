@@ -1,0 +1,54 @@
+{
+  "_meta": {
+    "description": "LAT-1624 — versimpelde, stilistische SVG-geometrie van (West-)Europa voor de klikbare wijnkaart op /ontdek/. Gekeyd op land-slug. Paths leven in de gedeelde viewBox uit `viewBox`. Niet geografisch exact: een atlas-achtige verstilde kaart. Landen met een gepubliceerde /landen/{slug}/-pagina worden klikbaar; de rest is gedempte context. Nieuw wijnland = entry erbij (LAT-1121-achtige eenmalige cartografie-inspanning).",
+    "viewBox": "0 0 800 700"
+  },
+  "countries": {
+    "portugal": {
+      "name": "Portugal",
+      "d": "M86 360 L120 356 L128 398 L124 444 L110 472 L88 466 L80 430 L80 392 Z",
+      "labelOffset": { "x": 0, "y": 0 }
+    },
+    "spanje": {
+      "name": "Spanje",
+      "d": "M128 358 L168 336 L246 332 L292 356 L296 398 L268 446 L206 474 L142 466 L126 432 L128 392 Z",
+      "labelOffset": { "x": 0, "y": 0 }
+    },
+    "frankrijk": {
+      "name": "Frankrijk",
+      "d": "M214 322 L202 262 L240 214 L304 200 L362 210 L398 246 L388 296 L344 326 L284 338 L242 332 Z",
+      "labelOffset": { "x": 0, "y": 0 }
+    },
+    "italie": {
+      "name": "Italië",
+      "d": "M420 262 L466 250 L498 272 L482 308 L458 332 L474 384 L504 444 L518 502 L506 538 L486 528 L480 482 L452 422 L432 362 L416 302 Z",
+      "labelOffset": { "x": -14, "y": -40 }
+    },
+    "duitsland": {
+      "name": "Duitsland",
+      "d": "M408 242 L402 176 L424 130 L464 116 L504 132 L512 182 L498 236 L452 252 Z",
+      "labelOffset": { "x": 0, "y": 0 }
+    },
+    "oostenrijk": {
+      "name": "Oostenrijk",
+      "d": "M480 252 L524 242 L584 247 L606 266 L584 284 L522 280 L484 272 Z",
+      "labelOffset": { "x": 0, "y": 0 }
+    },
+    "zwitserland": {
+      "name": "Zwitserland",
+      "d": "M402 260 L444 252 L466 270 L444 288 L408 282 Z"
+    },
+    "belgie": {
+      "name": "België",
+      "d": "M372 132 L412 124 L424 150 L404 168 L376 162 Z"
+    },
+    "nederland": {
+      "name": "Nederland",
+      "d": "M406 96 L444 92 L456 120 L432 134 L408 126 Z"
+    },
+    "verenigd-koninkrijk": {
+      "name": "Verenigd Koninkrijk",
+      "d": "M262 92 L302 86 L314 130 L294 172 L268 182 L252 142 L256 112 Z"
+    }
+  }
+}
