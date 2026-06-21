@@ -297,8 +297,7 @@ const ontdekPromo = {
     top: 100%;
     left: 0;
     margin-top: 10px;
-    width: max-content;
-    max-width: min(92vw, 52rem);
+    width: min(46rem, calc(100vw - 2rem));
     background: var(--paper);
     border: 1px solid var(--rule);
     border-radius: var(--radius-lg);
@@ -330,12 +329,12 @@ const ontdekPromo = {
   }
   .ontdek-mega {
     display: flex;
-    gap: 2.5rem;
-    align-items: stretch;
+    gap: 2rem;
+    align-items: flex-start;
   }
   /* Vast redactioneel promo-blok (sage/groen), links naast de landenkolommen. */
   .ontdek-promo {
-    flex: 0 0 14rem;
+    flex: 0 0 13rem;
     display: flex;
     flex-direction: column;
     background: var(--vine-10);
@@ -391,17 +390,17 @@ const ontdekPromo = {
   .ontdek-promo-link:hover,
   .ontdek-promo-link:focus-visible { color: var(--burgundy); }
 
-  /* Land-kolommen: elk land (kop + streken) stroomt en stapelt in meerdere kolommen. */
+  /* Land-kolommen: CSS multicol houdt de inhoud BINNEN het paneel (geen
+     horizontale overflow) en balanceert de kolomhoogtes automatisch. Elk land
+     (kop + streken) blijft als blok bijeen via break-inside: avoid. */
   .ontdek-columns {
-    display: flex;
-    flex-flow: column wrap;
-    gap: 0.5rem 2.5rem;
-    max-height: 24rem;
-    align-content: flex-start;
+    flex: 1 1 auto;
+    min-width: 0;
+    columns: 11rem 2;
+    column-gap: 2rem;
   }
   .ontdek-group {
-    min-width: 9.5rem;
-    margin-bottom: 1.25rem;
+    margin-bottom: 0.85rem;
     break-inside: avoid;
   }
   /* Land-kop: oranje (rust), klikbaar naar de landenpagina. */
