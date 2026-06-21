@@ -455,3 +455,51 @@ export async function loadStreken(): Promise<Streek[]> {
     await writeAssetDebug('directus');
     return items;
 }
+
+export interface NavStreek {
+    slug: string;
+    name: string;
+    landSlug: string;
+}
+
+/**
+ * Lightweight streken-loader voor de "Ontdek" nav-dropdown (LAT-1604). Haalt
+ * alleen slug/name/land_slug op — geen body-render, geen asset-download — zodat
+ * de globale header op elke pagina goedkoop blijft. Volgt het fail-loud-contract
+ * (LAT-1078): zonder Directus-config gooit dit, net als loadStreken().
+ */
+export async function loadStrekenNav(): Promise<NavStreek[]> {
+    const env = readDirectusEnv();
+    assertDirectusConfigured('loadStrekenNav', env);
+    const filterSort = `${statusFilterQuery(env)}&sort=name`;
+    const headers = { Authorization: `Bearer ${env.token}` };
+    let res = await fetch(`${env.url}/items/streken?limit=-1&fields=slug,name,land_id.slug${filterSort}`, {
+        headers,
+        signal: AbortSignal.timeout(15000),
+    });
+    // land_id-veld/permissie ontbreekt (pre-migratie) → degradeer naar slug/name
+    // zonder land-koppeling; de header valt dan terug op landen-only.
+    if (res.status === 400 || res.status === 403) {
+        console.warn(`[loadStrekenNav] Directus rejected land_id.slug (HTTP ${res.status}) — retry zonder land-koppeling.`);
+        res = await fetch(`${env.url}/items/streken?limit=-1&fields=slug,name${filterSort}`, {
+            headers,
+            signal: AbortSignal.timeout(15000),
+        });
+    }
+    if (!res.ok) {
+        const body = await res.text().catch(() => '');
+        throw new Error(`[loadStrekenNav] Directus returned ${res.status} ${res.statusText}: ${body.slice(0, 300)}`);
+    }
+    const json = await res.json();
+    const data = (json.data || []) as Record<string, unknown>[];
+    return data
+        .filter((r) => r.slug && r.name)
+        .map((r) => {
+            const land = r.land_id as Record<string, unknown> | null;
+            return {
+                slug: String(r.slug),
+                name: normalizeEmDashes(String(r.name)),
+                landSlug: land && land.slug ? String(land.slug) : '',
+            };
+        });
+}

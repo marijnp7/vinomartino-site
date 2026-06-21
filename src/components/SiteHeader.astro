@@ -1,5 +1,7 @@
 ---
 import { loadNavigation } from '../lib/navigation';
+import { loadLandenNav } from '../lib/landen';
+import { loadStrekenNav } from '../lib/streken';
 
 interface Props {
   activeNav?: string;
@@ -8,6 +10,43 @@ interface Props {
 const { activeNav } = Astro.props;
 
 const nav = await loadNavigation();
+
+// "Ontdek" mega-dropdown (reisjunk-stijl, LAT-1604): elk LAND is een (oranje)
+// klikbare kop naar de landenpagina, met de STREKEN van dat land eronder als
+// lijst naar de streekpagina's. Geen continent-groepering. Schaalt automatisch
+// mee zodra er landen/streken aan Directus worden toegevoegd.
+const [landen, streken] = await Promise.all([loadLandenNav(), loadStrekenNav()]);
+
+// Streken per land-slug, alfabetisch.
+const strekenByLand = streken.reduce<Record<string, typeof streken>>((acc, s) => {
+  if (!s.landSlug) return acc;
+  (acc[s.landSlug] ??= []).push(s);
+  return acc;
+}, {});
+for (const slug of Object.keys(strekenByLand)) {
+  strekenByLand[slug].sort((a, b) => a.name.localeCompare(b.name, 'nl'));
+}
+
+// Bouw land→streken-groepen. Toon bij voorkeur alleen landen met ≥1 streek
+// (geen lege landen/streken). Maar als nog géén land streken heeft, val terug op
+// alle landen als kop — anders is "Ontdek" leeg vóórdat de streek-data gevuld is.
+const sortedLanden = [...landen].sort((a, b) => a.name.localeCompare(b.name, 'nl'));
+const landenMetStreken = sortedLanden.filter(l => (strekenByLand[l.slug]?.length ?? 0) > 0);
+const ontdekLandGroups = (landenMetStreken.length > 0 ? landenMetStreken : sortedLanden)
+  .map(l => ({ land: l, streken: strekenByLand[l.slug] ?? [] }));
+const hasOntdek = ontdekLandGroups.length > 0;
+
+// De "Ontdek"-dropdown-trigger ís de Ontdek-nav-ingang. Verberg het losse
+// "Ontdek"-nav-item zodat het niet dubbel naast de trigger staat; bij geen
+// dropdown (geen landen) blijft de gewone "Ontdek"-link wel staan.
+const navItems = hasOntdek ? nav.filter(item => item.key !== 'ontdek') : nav;
+
+// Vast redactioneel promo-blok naast de landenkolommen.
+const ontdekPromo = {
+  kicker: 'Zelf gereisd',
+  title: 'Met liefde geselecteerd',
+  body: 'Elke landengids hier komt voort uit een eigen wijnreis — geen bureautips, maar streken, telers en flessen die we zelf bezochten en proefden.',
+};
 ---
 
 <header class="site-header">
@@ -24,7 +63,55 @@ const nav = await loadNavigation();
       </a>
 
       <nav class="header-nav" aria-label="Hoofdnavigatie">
-        {nav.map(item => (
+        {hasOntdek && (
+          <div class="nav-dropdown" data-nav-dropdown>
+            <a
+              href="/ontdek/"
+              class={`nav-link nav-dropdown-trigger ${activeNav === 'ontdek' ? 'nav-link--active' : ''}`}
+              aria-haspopup="true"
+              aria-expanded="false"
+              aria-controls="ontdek-menu"
+            >
+              Ontdek
+              <svg class="nav-chevron" width="10" height="6" viewBox="0 0 10 6" aria-hidden="true">
+                <path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </a>
+            <div class="nav-dropdown-panel" id="ontdek-menu">
+              <div class="ontdek-mega">
+                <aside class="ontdek-promo">
+                  <span class="ontdek-promo-icon" aria-hidden="true">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M21 10c0 6-9 12-9 12s-9-6-9-12a9 9 0 0 1 18 0z" />
+                      <circle cx="12" cy="10" r="3" />
+                    </svg>
+                  </span>
+                  <span class="ontdek-promo-kicker">{ontdekPromo.kicker}</span>
+                  <h2 class="ontdek-promo-title">{ontdekPromo.title}</h2>
+                  <p class="ontdek-promo-body">{ontdekPromo.body}</p>
+                  <a class="ontdek-promo-link" href="/landen/">Alle landen<span aria-hidden="true"> &rarr;</span></a>
+                </aside>
+                <div class="ontdek-columns">
+                  {ontdekLandGroups.map(({ land, streken }) => (
+                    <div class="ontdek-group">
+                      <a class="ontdek-land" href={`/landen/${land.slug}/`}>{land.name}</a>
+                      {streken.length > 0 && (
+                        <ul class="ontdek-list">
+                          {streken.map(streek => (
+                            <li>
+                              <a class="ontdek-link" href={`/streken/${streek.slug}/`}>{streek.name}</a>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        {navItems.map(item => (
           <a
             href={item.href}
             class={`nav-link ${activeNav === item.key ? 'nav-link--active' : ''}`}
@@ -79,7 +166,44 @@ const nav = await loadNavigation();
         </svg>
         Zoeken
       </button>
-      {nav.map(item => (
+      {hasOntdek && (
+        <div class="mobile-dropdown" data-mobile-dropdown>
+          <button
+            type="button"
+            class="mobile-nav-link mobile-dropdown-trigger"
+            aria-expanded="false"
+            aria-controls="mobile-ontdek"
+          >
+            Ontdek
+            <svg class="nav-chevron" width="12" height="7" viewBox="0 0 10 6" aria-hidden="true">
+              <path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </button>
+          <div class="mobile-dropdown-panel" id="mobile-ontdek" hidden>
+            <div class="ontdek-promo ontdek-promo--mobile">
+              <span class="ontdek-promo-icon" aria-hidden="true">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 10c0 6-9 12-9 12s-9-6-9-12a9 9 0 0 1 18 0z" />
+                  <circle cx="12" cy="10" r="3" />
+                </svg>
+              </span>
+              <span class="ontdek-promo-kicker">{ontdekPromo.kicker}</span>
+              <h2 class="ontdek-promo-title">{ontdekPromo.title}</h2>
+              <p class="ontdek-promo-body">{ontdekPromo.body}</p>
+            </div>
+            {ontdekLandGroups.map(({ land, streken }) => (
+              <div class="mobile-ontdek-group">
+                <a href={`/landen/${land.slug}/`} class="ontdek-land">{land.name}</a>
+                {streken.map(streek => (
+                  <a href={`/streken/${streek.slug}/`} class="mobile-ontdek-link">{streek.name}</a>
+                ))}
+              </div>
+            ))}
+            <a href="/ontdek/" class="mobile-ontdek-link mobile-ontdek-all">Naar de Ontdek-atlas &rarr;</a>
+          </div>
+        </div>
+      )}
+      {navItems.map(item => (
         <a href={item.href} class="mobile-nav-link">{item.label}</a>
       ))}
     </nav>
@@ -154,6 +278,175 @@ const nav = await loadNavigation();
   .nav-link:hover, .nav-link--active {
     color: var(--burgundy);
     border-bottom-color: var(--burgundy);
+  }
+
+  /* --- "Ontdek" hover-dropdown (reisjunk-stijl) --- */
+  .nav-dropdown {
+    position: relative;
+    display: inline-flex;
+  }
+  .nav-dropdown-trigger {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    font-family: var(--font-ui);
+  }
+  .nav-chevron {
+    transition: transform var(--duration-fast) var(--ease-out);
+  }
+  .nav-dropdown:hover .nav-chevron,
+  .nav-dropdown:focus-within .nav-chevron {
+    transform: rotate(180deg);
+  }
+  .nav-dropdown-panel {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 10px;
+    width: min(46rem, calc(100vw - 2rem));
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    padding: 1.75rem;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-6px);
+    transition: opacity var(--duration-fast) var(--ease-out),
+                transform var(--duration-fast) var(--ease-out),
+                visibility var(--duration-fast) var(--ease-out);
+    z-index: 200;
+  }
+  /* Hover-bridge zodat de muis de gap naar het paneel kan oversteken. */
+  .nav-dropdown-panel::before {
+    content: '';
+    position: absolute;
+    top: -10px;
+    left: 0;
+    right: 0;
+    height: 10px;
+  }
+  .nav-dropdown:hover .nav-dropdown-panel,
+  .nav-dropdown:focus-within .nav-dropdown-panel {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+  }
+  .ontdek-mega {
+    display: flex;
+    gap: 2rem;
+    align-items: flex-start;
+  }
+  /* Vast redactioneel promo-blok (sage/groen), links naast de landenkolommen. */
+  .ontdek-promo {
+    flex: 0 0 13rem;
+    display: flex;
+    flex-direction: column;
+    background: var(--vine-10);
+    border: 1px solid color-mix(in srgb, var(--vine) 30%, transparent);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem;
+  }
+  .ontdek-promo-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--vine) 16%, transparent);
+    color: var(--vine);
+    margin-bottom: 0.875rem;
+  }
+  .ontdek-promo-kicker {
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--vine);
+  }
+  .ontdek-promo-title {
+    font-family: var(--font-display);
+    font-size: 1.375rem;
+    font-style: italic;
+    font-weight: 500;
+    line-height: 1.2;
+    color: var(--ink);
+    margin: 0.375rem 0 0.625rem;
+  }
+  .ontdek-promo-body {
+    font-family: var(--font-body);
+    font-size: 0.8125rem;
+    line-height: 1.55;
+    color: var(--inkSoft);
+    margin: 0;
+  }
+  .ontdek-promo-link {
+    margin-top: auto;
+    padding-top: 0.875rem;
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--vine);
+    text-decoration: none;
+    transition: color var(--duration-fast) var(--ease-out);
+  }
+  .ontdek-promo-link:hover,
+  .ontdek-promo-link:focus-visible { color: var(--burgundy); }
+
+  /* Land-kolommen: CSS multicol houdt de inhoud BINNEN het paneel (geen
+     horizontale overflow) en balanceert de kolomhoogtes automatisch. Elk land
+     (kop + streken) blijft als blok bijeen via break-inside: avoid. */
+  .ontdek-columns {
+    flex: 1 1 auto;
+    min-width: 0;
+    columns: 11rem 2;
+    column-gap: 2rem;
+  }
+  .ontdek-group {
+    margin-bottom: 0.85rem;
+    break-inside: avoid;
+  }
+  /* Land-kop: oranje (rust), klikbaar naar de landenpagina. */
+  .ontdek-land {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--rust);
+    text-decoration: none;
+    padding-bottom: 0.4375rem;
+    margin-bottom: 0.5rem;
+    border-bottom: 1px solid var(--ruleSoft);
+    transition: color var(--duration-fast) var(--ease-out);
+  }
+  .ontdek-land:hover,
+  .ontdek-land:focus-visible {
+    color: var(--burgundy);
+  }
+  .ontdek-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.0625rem;
+  }
+  .ontdek-link {
+    display: block;
+    font-family: var(--font-ui);
+    font-size: 0.9375rem;
+    color: var(--ink);
+    text-decoration: none;
+    padding: 0.1875rem 0;
+    transition: color var(--duration-fast) var(--ease-out);
+  }
+  .ontdek-link:hover,
+  .ontdek-link:focus-visible {
+    color: var(--burgundy);
   }
 
   .header-actions {
@@ -269,6 +562,48 @@ const nav = await loadNavigation();
     text-decoration: none;
     border-bottom: 1px solid var(--ruleSoft);
   }
+  .mobile-dropdown-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    width: 100%;
+    background: none;
+    border: none;
+    border-bottom: 1px solid var(--ruleSoft);
+    cursor: pointer;
+    text-align: left;
+  }
+  .mobile-dropdown-trigger[aria-expanded='true'] .nav-chevron {
+    transform: rotate(180deg);
+  }
+  .mobile-dropdown-panel {
+    padding: 0.75rem 0 0.5rem;
+  }
+  .mobile-dropdown-panel[hidden] { display: none; }
+  .ontdek-promo--mobile {
+    flex: none;
+    margin-bottom: 1rem;
+  }
+  .mobile-ontdek-group { margin-bottom: 1rem; padding-left: 0.25rem; }
+  .mobile-ontdek-group .ontdek-land { margin-bottom: 0.375rem; }
+  .mobile-ontdek-link {
+    display: block;
+    padding: 0.5rem 0;
+    font-family: var(--font-ui);
+    font-size: 0.9375rem;
+    color: var(--ink);
+    text-decoration: none;
+  }
+  .mobile-ontdek-link:hover { color: var(--burgundy); }
+  .mobile-ontdek-all {
+    margin-top: 0.25rem;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--vine);
+  }
 
   @media (max-width: 900px) {
     .header-nav, .header-utility { display: none; }
@@ -290,6 +625,39 @@ const nav = await loadNavigation();
     mobileToggle.setAttribute('aria-expanded', expanded ? 'false' : 'true');
     mobileMenu.hidden = expanded;
   });
+
+  // "Ontdek" desktop dropdown — de trigger is een link naar /ontdek/ (klik =
+  // naar de atlas-hub, hover/focus = mega-dropdown via pure CSS). We houden
+  // alleen aria-expanded in sync en sluiten op Escape.
+  const ontdek = document.querySelector('[data-nav-dropdown]') as HTMLElement | null;
+  const ontdekTrigger = ontdek?.querySelector('.nav-dropdown-trigger') as HTMLAnchorElement | null;
+  if (ontdek && ontdekTrigger) {
+    const setExpanded = (v: boolean) => ontdekTrigger.setAttribute('aria-expanded', v ? 'true' : 'false');
+    ontdek.addEventListener('mouseenter', () => setExpanded(true));
+    ontdek.addEventListener('mouseleave', () => setExpanded(false));
+    ontdek.addEventListener('focusin', () => setExpanded(true));
+    ontdek.addEventListener('focusout', (e) => {
+      if (!ontdek.contains((e as FocusEvent).relatedTarget as Node)) setExpanded(false);
+    });
+    ontdek.addEventListener('keydown', (e) => {
+      if ((e as KeyboardEvent).key === 'Escape') {
+        setExpanded(false);
+        ontdekTrigger.blur();
+      }
+    });
+  }
+
+  // "Ontdek" mobile accordion.
+  const mobileDropdown = document.querySelector('[data-mobile-dropdown]') as HTMLElement | null;
+  const mobileDropdownTrigger = mobileDropdown?.querySelector('.mobile-dropdown-trigger') as HTMLButtonElement | null;
+  const mobileDropdownPanel = mobileDropdown?.querySelector('.mobile-dropdown-panel') as HTMLElement | null;
+  if (mobileDropdownTrigger && mobileDropdownPanel) {
+    mobileDropdownTrigger.addEventListener('click', () => {
+      const expanded = mobileDropdownTrigger.getAttribute('aria-expanded') === 'true';
+      mobileDropdownTrigger.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+      mobileDropdownPanel.hidden = expanded;
+    });
+  }
 
   const cellarToggle = document.querySelector('[data-cellar-toggle]') as HTMLButtonElement;
   const syncCellarLabel = (isCellar: boolean) => {
