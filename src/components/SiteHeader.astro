@@ -130,12 +130,14 @@ const ontdekPromo = {
         <button
           class="cellar-toggle"
           type="button"
-          aria-label="Wissel Kelder-modus"
+          aria-label="Ga naar de kelder (donkere modus)"
           aria-pressed="false"
           data-cellar-toggle
         >
-          <span class="cellar-icon" aria-hidden="true">🌙</span>
-          <span class="cellar-label">Kelder</span>
+          <span class="cellar-icon cellar-icon--enter" aria-hidden="true">🌙</span>
+          <span class="cellar-icon cellar-icon--exit" aria-hidden="true">☀️</span>
+          <span class="cellar-label cellar-label--enter">Naar de kelder</span>
+          <span class="cellar-label cellar-label--exit">Naar buiten</span>
         </button>
 
         <button class="mobile-toggle" aria-label="Menu openen" aria-expanded="false" aria-controls="mobile-menu">
@@ -503,6 +505,16 @@ const ontdekPromo = {
   }
   .cellar-icon { font-size: 0.75rem; }
 
+  /* State-afhankelijk label + icoon: lichte modus nodigt uit "naar de kelder",
+     kelder/donkere modus nodigt uit "naar buiten". CSS-gestuurd zodat het ook
+     bij de pre-paint thema-init meteen klopt (geen flits). */
+  .cellar-icon--exit,
+  .cellar-label--exit { display: none; }
+  [data-theme='cellar'] .cellar-icon--enter,
+  [data-theme='cellar'] .cellar-label--enter { display: none; }
+  [data-theme='cellar'] .cellar-icon--exit { display: inline; }
+  [data-theme='cellar'] .cellar-label--exit { display: inline; }
+
   .mobile-toggle {
     display: none;
     flex-direction: column;
@@ -640,20 +652,27 @@ const ontdekPromo = {
   }
 
   const cellarToggle = document.querySelector('[data-cellar-toggle]') as HTMLButtonElement;
+  const syncCellarLabel = (isCellar: boolean) => {
+    if (!cellarToggle) return;
+    cellarToggle.setAttribute('aria-pressed', isCellar ? 'true' : 'false');
+    cellarToggle.setAttribute(
+      'aria-label',
+      isCellar ? 'Ga naar buiten (lichte modus)' : 'Ga naar de kelder (donkere modus)',
+    );
+  };
   cellarToggle?.addEventListener('click', () => {
     const isCellar = document.documentElement.getAttribute('data-theme') === 'cellar';
     if (isCellar) {
       document.documentElement.removeAttribute('data-theme');
       localStorage.setItem('vm-theme', 'paper');
-      cellarToggle.setAttribute('aria-pressed', 'false');
     } else {
       document.documentElement.setAttribute('data-theme', 'cellar');
       localStorage.setItem('vm-theme', 'cellar');
-      cellarToggle.setAttribute('aria-pressed', 'true');
     }
+    syncCellarLabel(!isCellar);
   });
 
-  if (cellarToggle && document.documentElement.getAttribute('data-theme') === 'cellar') {
-    cellarToggle.setAttribute('aria-pressed', 'true');
+  if (cellarToggle) {
+    syncCellarLabel(document.documentElement.getAttribute('data-theme') === 'cellar');
   }
 </script>
