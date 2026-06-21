@@ -1,5 +1,6 @@
 ---
 import SiteLayout from '../../layouts/SiteLayout.astro';
+import SmartImg from '../../components/SmartImg.astro';
 import DiscoverMapEurope from '../../components/DiscoverMapEurope.astro';
 import { loadLanden } from '../../lib/landen';
 import { loadStreken } from '../../lib/streken';
@@ -20,25 +21,44 @@ for (const list of strekenByLand.values()) {
   list.sort((a, b) => a.name.localeCompare(b.name, 'nl'));
 }
 
-// Bubbel per land. Kleur is data-gedreven (vaste merk-agnostische palet,
-// deterministisch per land) — nieuw land = bubbel erbij, geen nav-item erbij.
+// Foto-rijke land-tegel. Kleur is data-gedreven (vaste merk-agnostische palet,
+// deterministisch per land) — nieuw land = tegel erbij, geen nav-item erbij.
 const PALETTE = ['#5A1A1F', '#A14F2A', '#5C6B3F', '#B86030', '#6B3A4A', '#7A6A2C'];
 
-interface Bubble {
+interface Tile {
   slug: string;
   name: string;
   continent: string;
   color: string;
+  heroImage: string | null;
   regions: { slug: string; name: string }[];
 }
 
-const bubbles: Bubble[] = landen.map((land, i) => ({
+const tiles: Tile[] = landen.map((land, i) => ({
   slug: land.slug,
   name: land.name,
-  continent: land.continent,
+  continent: land.continent || 'Overig',
   color: PALETTE[i % PALETTE.length] as string,
+  heroImage: land.heroImage,
   regions: strekenByLand.get(land.slug) ?? [],
 }));
+
+// Groepeer per continent (reisjunk-patroon: continent-sectiekop + foto-tegels).
+// Europa eerst — dat is de wijnkern — daarna de overige continenten alfabetisch.
+const CONTINENT_ORDER = ['Europa'];
+const continentGroups = [...new Set(tiles.map(t => t.continent))]
+  .sort((a, b) => {
+    const ia = CONTINENT_ORDER.indexOf(a);
+    const ib = CONTINENT_ORDER.indexOf(b);
+    if (ia !== -1 || ib !== -1) return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+    return a.localeCompare(b, 'nl');
+  })
+  .map(continent => ({
+    continent,
+    landen: tiles
+      .filter(t => t.continent === continent)
+      .sort((a, b) => a.name.localeCompare(b.name, 'nl')),
+  }));
 
 const totaalStreken = streken.length;
 
@@ -65,47 +85,60 @@ const schema = [
     </div>
   </section>
 
-  <section class="section container">
-    {bubbles.length > 0 && (
+  {tiles.length > 0 && (
+    <section class="section container map-hero">
       <DiscoverMapEurope
-        countries={bubbles.map(b => ({ slug: b.slug, name: b.name, color: b.color, regionCount: b.regions.length }))}
+        countries={tiles.map(t => ({ slug: t.slug, name: t.name, color: t.color, regionCount: t.regions.length }))}
       />
-    )}
-    {bubbles.length > 0 ? (
-      <div class="atlas-grid">
-        {bubbles.map(b => (
-          <article class="bubble" style={`--bubble: ${b.color};`}>
-            <a href={`/landen/${b.slug}/`} class="bubble-head">
-              {b.continent && <span class="bubble-continent">{b.continent}</span>}
-              <h2 class="bubble-title">{b.name}</h2>
-            </a>
-            {b.regions.length > 0 ? (
-              <ul class="region-list">
-                {b.regions.map(r => (
-                  <li>
-                    <a href={`/streken/${r.slug}/`} class="region-link">{r.name}</a>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p class="region-empty">
-                <a href={`/landen/${b.slug}/`}>Bekijk het land &rsaquo;</a>
-              </p>
-            )}
-          </article>
-        ))}
-      </div>
-    ) : (
+    </section>
+  )}
+
+  {tiles.length > 0 ? (
+    continentGroups.map(group => (
+      <section class="section container continent-block">
+        <header class="continent-head">
+          <span class="continent-label">{group.continent}</span>
+          <span class="continent-count">{group.landen.length} {group.landen.length === 1 ? 'land' : 'landen'}</span>
+        </header>
+        <div class="tile-grid">
+          {group.landen.map(t => (
+            <article class="tile" style={`--accent: ${t.color};`}>
+              <a href={`/landen/${t.slug}/`} class="tile-img-link" aria-label={`Ontdek ${t.name}`}>
+                <div class="tile-img-wrap">
+                  <SmartImg src={t.heroImage || undefined} alt={t.name} theme="region" class="tile-img" />
+                  <span class="tile-name">{t.name}</span>
+                </div>
+              </a>
+              {t.regions.length > 0 ? (
+                <ul class="region-list">
+                  {t.regions.map(r => (
+                    <li>
+                      <a href={`/streken/${r.slug}/`} class="region-link">{r.name}</a>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p class="region-empty">
+                  <a href={`/landen/${t.slug}/`}>Bekijk het land &rsaquo;</a>
+                </p>
+              )}
+            </article>
+          ))}
+        </div>
+      </section>
+    ))
+  ) : (
+    <section class="section container">
       <div class="empty-state">
         <h2>De atlas vult zich</h2>
         <p>We werken aan de eerste wijnlandgidsen. Begin ondertussen bij de <a href="/artikelen/">artikelen</a>.</p>
       </div>
-    )}
-  </section>
+    </section>
+  )}
 
-  {bubbles.length > 0 && (
+  {tiles.length > 0 && (
     <section class="section container atlas-foot">
-      <p>{bubbles.length} {bubbles.length === 1 ? 'wijnland' : 'wijnlanden'} &middot; {totaalStreken} {totaalStreken === 1 ? 'streek' : 'streken'} in de atlas. Elke streek is een eigen gids over terroir, druiven en reizen.</p>
+      <p>{tiles.length} {tiles.length === 1 ? 'wijnland' : 'wijnlanden'} &middot; {totaalStreken} {totaalStreken === 1 ? 'streek' : 'streken'} in de atlas. Elke streek is een eigen gids over terroir, druiven en reizen.</p>
     </section>
   )}
 </SiteLayout>
@@ -132,47 +165,95 @@ const schema = [
     max-width: 40rem;
     margin-inline: auto;
   }
-  .atlas-grid {
+  .map-hero {
+    padding-bottom: var(--space-6);
+  }
+  .continent-block {
+    padding-top: var(--space-6);
+    padding-bottom: var(--space-6);
+  }
+  .continent-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding-bottom: var(--space-4);
+    margin-bottom: var(--space-6);
+    border-bottom: 1px solid var(--ruleSoft);
+  }
+  .continent-label {
+    font-family: var(--font-display);
+    font-size: clamp(1.5rem, 1.2rem + 1vw, 2rem);
+    font-weight: 400;
+    font-style: italic;
+    color: var(--ink);
+  }
+  .continent-count {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--inkFaint);
+    white-space: nowrap;
+  }
+  .tile-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
     gap: var(--space-6);
   }
   @media (max-width: 420px) {
-    .atlas-grid { grid-template-columns: 1fr; }
+    .tile-grid { grid-template-columns: 1fr; }
   }
-  .bubble {
+  .tile {
     border: 1px solid var(--ruleSoft);
-    border-top: 4px solid var(--bubble);
+    border-top: 4px solid var(--accent);
     background: var(--paper);
     display: flex;
     flex-direction: column;
   }
-  .bubble-head {
+  .tile-img-link {
     display: block;
     text-decoration: none;
-    padding: 1.25rem 1.25rem 1rem;
-    background: color-mix(in srgb, var(--bubble) 8%, var(--paper));
-    border-bottom: 1px solid var(--ruleSoft);
-    transition: background var(--duration-fast) var(--ease-out);
   }
-  .bubble-head:hover {
-    background: color-mix(in srgb, var(--bubble) 16%, var(--paper));
+  .tile-img-wrap {
+    position: relative;
+    aspect-ratio: 16 / 11;
+    overflow: hidden;
+    background: var(--paperShade);
   }
-  .bubble-continent {
-    font-family: var(--font-mono);
-    font-size: 0.5625rem;
-    text-transform: uppercase;
-    letter-spacing: 0.15em;
-    color: var(--bubble);
-    display: block;
-    margin-bottom: var(--space-2);
+  .tile-img-wrap :global(img),
+  .tile-img-wrap :global(.smart-img-placeholder) {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform var(--duration-image) var(--ease-out);
   }
-  .bubble-title {
+  .tile-img-link:hover .tile-img-wrap :global(img),
+  .tile-img-link:hover .tile-img-wrap :global(.smart-img-placeholder) {
+    transform: scale(1.03);
+  }
+  .tile-img-wrap::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top,
+      color-mix(in srgb, var(--accent) 78%, #1a1208) 0%,
+      color-mix(in srgb, var(--accent) 30%, transparent) 42%,
+      transparent 72%);
+    pointer-events: none;
+  }
+  .tile-name {
+    position: absolute;
+    left: 1.125rem;
+    right: 1.125rem;
+    bottom: 0.875rem;
+    z-index: 1;
     font-family: var(--font-display);
     font-size: 1.5rem;
     font-weight: 500;
-    color: var(--ink);
-    line-height: 1.2;
+    line-height: 1.15;
+    color: #FBF6EC;
+    text-shadow: 0 1px 6px rgba(20, 12, 6, 0.45);
   }
   .region-list {
     list-style: none;
@@ -195,7 +276,7 @@ const schema = [
   }
   .region-list li:last-child .region-link { border-bottom: none; }
   .region-link:hover {
-    color: var(--bubble);
+    color: var(--accent);
     padding-left: 0.375rem;
   }
   .region-empty {
@@ -204,7 +285,7 @@ const schema = [
     font-size: 0.9375rem;
   }
   .region-empty a {
-    color: var(--bubble);
+    color: var(--accent);
     text-decoration: none;
   }
   .region-empty a:hover { text-decoration: underline; }
