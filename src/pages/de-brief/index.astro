@@ -4,14 +4,14 @@ import { organizationSchema, breadcrumbSchema } from '../../lib/seo';
 
 // Capture-backend = MailerLite (LAT-1188): nieuwe aanmeldingen landen rechtstreeks
 // in de groep "Newsletter Subscribers" (1896876) en starten de welkomstserie.
-// Override zonder code-wijziging via PUBLIC_MAILERLITE_FORM_ACTION (build-time env).
+// Form-ID door Marijn bevestigd (LAT-1631). Override via PUBLIC_MAILERLITE_FORM_ACTION.
 const FORM_ACTION =
   import.meta.env.PUBLIC_MAILERLITE_FORM_ACTION ||
-  'https://assets.mailerlite.com/jsonp/2415940/forms/knEpPA/subscribe';
+  'https://assets.mailerlite.com/jsonp/2415940/forms/189828746131277541/subscribe';
 
 const INSTAGRAM_URL =
   import.meta.env.PUBLIC_INSTAGRAM_URL || 'https://instagram.com/vinomartino';
-// Substack-URL nog te bevestigen door Marijn; tot die tijd tonen we alleen Instagram.
+// Substack bewust verborgen (Marijn LAT-1631): alleen Instagram als tussentijds kanaal.
 const SUBSTACK_URL = import.meta.env.PUBLIC_SUBSTACK_URL || '';
 
 const schema = [
