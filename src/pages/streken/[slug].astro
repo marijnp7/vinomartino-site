@@ -8,6 +8,8 @@ import StreekKaart, { type StreekPoiInput } from '../../components/StreekKaart.a
 import RouteMap from '../../components/RouteMap.astro';
 import { buildCjBookingLink, buildBookingSearchLink, unwrapCjRedirect } from '../../lib/affiliates';
 import { loadStreken, type Streek, type Accommodation } from '../../lib/streken';
+import { clustersFromCuratedStays, staySlug } from '../../lib/curated-stays';
+import { STAY_TIER_META } from '../../lib/stay-tier';
 import { loadWijnhuizen, type Wijnhuis } from '../../lib/wijnhuizen';
 import { loadAccommodatieRoundupsByStreek } from '../../lib/accommodaties-loader';
 import type { AccommodatieRoundup as AccommodatieRoundupData } from '../../lib/accommodaties';
@@ -115,20 +117,34 @@ function accBoeklink(acc: Accommodation): string {
   // booking.com-zoekdeeplink op de exacte hotelnaam, mét aid + label.
   return buildBookingSearchLink(`${acc.naam}, ${entry.name}`, sid);
 }
-// LAT-1607: de curated set voedt het overnachten-blok als 3x3x3-grid. De tier
-// stuurt de Slim geboekt / Prijs-kwaliteit / Pure luxe-subkoppen in StreekKaart;
-// een aparte badge is dan overbodig. Ontbreekt de curated set, dan blijft
-// overnachten leeg in de unified kaart en neemt de roundup/Stay22 het over.
-const overnachtenInput: StreekPoiInput[] = hasCuratedStays ? entry.accommodaties.map(acc => ({
-  naam: acc.naam,
-  lat: acc.lat,
-  lng: acc.lng,
-  beschrijving: acc.whyThisOne,
-  prijs: accPrice(acc),
-  boeklink: accBoeklink(acc),
-  tier: acc.tier,
-  partner: 'booking',
-})) : [];
+// LAT-1644: de curated set voedt het overnachten-blok, maar gegroepeerd op
+// 40-min-cluster (LAT-1406) i.p.v. op tier. De tiers staan GEMENGD binnen een
+// cluster en blijven als badge per kaart zichtbaar (STAY_TIER_META). Zo toont
+// /streken dezelfde geografische cluster-layout als /accommodaties i.p.v. de
+// oude Slim geboekt / Prijs-kwaliteit / Pure luxe tier-secties. We bouwen de
+// POI's in clustervolgorde (binnen cluster al op tier gesorteerd) zodat de
+// gedeelde nummering 1..N per cluster oploopt.
+const stayClusters = hasCuratedStays ? clustersFromCuratedStays(entry) : [];
+const accBySlug = new Map(entry.accommodaties.map(acc => [staySlug(acc.naam), acc]));
+const overnachtenInput: StreekPoiInput[] = stayClusters.flatMap(cluster =>
+  cluster.kaarten.flatMap(kaart => {
+    const acc = accBySlug.get(kaart.slug);
+    if (!acc) return [];
+    return [{
+      naam: acc.naam,
+      lat: acc.lat,
+      lng: acc.lng,
+      beschrijving: acc.whyThisOne,
+      prijs: accPrice(acc),
+      boeklink: accBoeklink(acc),
+      tier: acc.tier,
+      badge: STAY_TIER_META[acc.tier]?.label ?? null,
+      clusterSlug: cluster.slug,
+      clusterTitel: cluster.titel,
+      partner: 'booking',
+    }];
+  }),
+);
 
 const etenInput: StreekPoiInput[] = entry.eten.map(p => ({
   naam: p.naam,

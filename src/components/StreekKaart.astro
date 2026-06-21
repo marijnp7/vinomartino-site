@@ -24,12 +24,19 @@ export interface StreekPoiInput {
   /** Korte badge, bv. tier-label voor overnachten. */
   badge?: string | null;
   /**
-   * LAT-1607: prijs-tier voor overnachten ('slim_geboekt' | 'prijs_kwaliteit' |
-   * 'pure_luxe'). Aanwezig → het overnachten-blok groepeert in de 3x3x3
-   * gouden-standaard (Slim geboekt / Prijs-kwaliteit / Pure luxe). Andere
-   * categorieën negeren dit veld.
+   * LAT-1607/LAT-1644: prijs-tier voor overnachten ('slim_geboekt' |
+   * 'prijs_kwaliteit' | 'pure_luxe'). De tier stuurt nu enkel de badge per kaart;
+   * de groepering loopt via clusterSlug. Andere categorieën negeren dit veld.
    */
   tier?: string | null;
+  /**
+   * LAT-1644: 40-min-cluster-anker voor overnachten. POI's met dezelfde
+   * clusterSlug komen in één cluster-blok (tiers gemengd). Leeg → impliciet
+   * "overig"-cluster. Andere categorieën negeren deze velden.
+   */
+  clusterSlug?: string | null;
+  /** LAT-1644: leesbare cluster-titel (bv. "Bolgheri · Castagneto Carducci"). */
+  clusterTitel?: string | null;
   /** Affiliate-partner voor click-tracking (bv. 'stay22', 'getyourguide'). */
   partner?: string;
 }
@@ -65,38 +72,33 @@ const CATEGORY_META: Record<CatKey, { label: string; color: string }> = {
 // Volgorde van de blokken én van de gedeelde nummering (plan 2C).
 const CATEGORY_ORDER: CatKey[] = ['wijnhuizen', 'eten', 'overnachten', 'activiteiten'];
 
-// LAT-1607 — overnachten houdt de afgesproken 3x3x3 gouden-standaard (LAT-1413/
-// LAT-1599): het blok groepeert in drie prijs-tiers. De pins op de kaart en de
-// gedeelde nummering blijven ongewijzigd; alleen de lijst eronder krijgt
-// tier-subkoppen.
-const STAY_TIER_ORDER = ['slim_geboekt', 'prijs_kwaliteit', 'pure_luxe'] as const;
-const STAY_TIER_LABEL: Record<string, string> = {
-  slim_geboekt: 'Slim geboekt',
-  prijs_kwaliteit: 'Prijs-kwaliteit',
-  pure_luxe: 'Pure luxe',
-};
-const STAY_TIER_COLOR: Record<string, string> = {
-  slim_geboekt: '#A14F2A',
-  prijs_kwaliteit: '#5C6B3F',
-  pure_luxe: '#5A1A1F',
-};
-function normStayTier(t?: string | null): string {
-  const v = (t || '').toLowerCase().replace(/[\s-]+/g, '_');
-  return (STAY_TIER_ORDER as readonly string[]).includes(v) ? v : 'slim_geboekt';
+// LAT-1644 — overnachten groepeert op 40-min-cluster (LAT-1406) i.p.v. op tier.
+// De aanroeper levert de POI's al in clustervolgorde aan (binnen cluster op tier
+// gesorteerd) met clusterSlug/clusterTitel; de tier blijft als badge per kaart.
+// Eén verblijf zonder clusterSlug valt in een impliciet "overig"-cluster zodat
+// de lijst nooit data verliest. De pins/kaart en de gedeelde nummering blijven
+// ongewijzigd.
+type StayCluster = { slug: string; titel: string; items: NumberedPoi[] };
+function groepeerOpCluster(items: NumberedPoi[]): StayCluster[] {
+  const order: string[] = [];
+  const bySlug = new Map<string, StayCluster>();
+  for (const it of items) {
+    const slug = it.clusterSlug || 'overig';
+    let g = bySlug.get(slug);
+    if (!g) {
+      g = { slug, titel: it.clusterTitel || '', items: [] };
+      bySlug.set(slug, g);
+      order.push(slug);
+    }
+    g.items.push(it);
+  }
+  return order.map((s) => bySlug.get(s)!);
 }
-
-// LAT-1607: sorteer overnachten op tier-volgorde vóór de nummering, zodat de
-// genummerde pins en de lijst binnen elke 3x3x3-tier oplopend (1,2,3…) lezen.
-const overnachtenSorted = [...overnachten].sort(
-  (a, b) =>
-    STAY_TIER_ORDER.indexOf(normStayTier(a.tier) as (typeof STAY_TIER_ORDER)[number]) -
-    STAY_TIER_ORDER.indexOf(normStayTier(b.tier) as (typeof STAY_TIER_ORDER)[number]),
-);
 
 const rawByCat: Record<CatKey, StreekPoiInput[]> = {
   wijnhuizen,
   eten,
-  overnachten: overnachtenSorted,
+  overnachten,
   activiteiten,
 };
 
@@ -225,18 +227,18 @@ const usedCats = sections.map((s) => s.key);
           </h3>
           <div class="streekkaart__cards">
             {(s.key === 'overnachten'
-              ? STAY_TIER_ORDER.flatMap((t) => {
-                  const its = s.items.filter((it) => normStayTier(it.tier) === t);
-                  return its.length ? [{ tierHeader: t }, ...its] : [];
-                })
+              ? groepeerOpCluster(s.items).flatMap((g, _gi, arr) =>
+                  arr.length > 1 ? [{ clusterHeader: g.titel }, ...g.items] : g.items,
+                )
               : s.items
             ).map((row) => {
-              if ('tierHeader' in row) {
-                const t = (row as { tierHeader: string }).tierHeader;
+              if ('clusterHeader' in row) {
+                const titel = (row as { clusterHeader: string }).clusterHeader;
                 return (
-                  <h4 class="skz-tier-head" style={`color:${STAY_TIER_COLOR[t]}`}>
-                    <span class="skz-tier-head__dot" style={`background:${STAY_TIER_COLOR[t]}`}></span>
-                    {STAY_TIER_LABEL[t]}
+                  <h4 class="skz-tier-head" style={`color:${CATEGORY_META.overnachten.color}`}>
+                    <span class="skz-tier-head__dot" style={`background:${CATEGORY_META.overnachten.color}`}></span>
+                    {titel || 'Verblijven in de buurt'}
+                    <span class="skz-cluster-head__note">binnen ~40 min rijden</span>
                   </h4>
                 );
               }
@@ -574,7 +576,7 @@ const usedCats = sections.map((s) => s.key);
     gap: 1.25rem;
   }
 
-  /* LAT-1607 — 3x3x3 tier-subkop in het overnachten-blok (gouden standaard). */
+  /* LAT-1644 — 40-min-cluster-subkop in het overnachten-blok. */
   .skz-tier-head {
     grid-column: 1 / -1;
     display: flex;
@@ -593,6 +595,13 @@ const usedCats = sections.map((s) => s.key);
     height: 10px;
     border-radius: 50%;
     flex-shrink: 0;
+  }
+  .skz-cluster-head__note {
+    font-weight: 400;
+    font-style: italic;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--inkFaint, #8A7E70);
   }
 
   .skz-card {

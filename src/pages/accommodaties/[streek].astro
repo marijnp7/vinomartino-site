@@ -7,14 +7,29 @@ import AccommodatieRoundup from '../../components/AccommodatieRoundup.astro';
 import { loadAccommodatieRoundupsByStreek } from '../../lib/accommodaties-loader';
 import { filterRoundupOpFotos, roundupKaartAantal, type AccommodatieRoundup as Roundup } from '../../lib/accommodaties';
 import { loadStreken, type Streek } from '../../lib/streken';
+import { roundupFromCuratedStays } from '../../lib/curated-stays';
 import { organizationSchema, breadcrumbSchema } from '../../lib/seo';
 
 export async function getStaticPaths() {
-  const [roundups, streken] = await Promise.all([loadAccommodatieRoundupsByStreek(), loadStreken()]);
+  const [collectionRoundups, streken] = await Promise.all([loadAccommodatieRoundupsByStreek(), loadStreken()]);
   const streekBySlug = new Map(streken.map((s) => [s.slug, s]));
   const paths = [];
-  for (const [streekSlug, raw] of roundups) {
-    // LAT-1371: alleen regio's met ≥1 echte DAM-foto verschijnen.
+  const seen = new Set<string>();
+
+  // LAT-1644: de gecureerde streek-set (LAT-1133) is de enige bron die compleet
+  // is (3+3+3) én lat/lng draagt, dus die voedt /accommodaties via dezelfde
+  // 40-min-clustering als /streken. Zo is de cluster-layout identiek op beide
+  // surfaces i.p.v. de oude, incomplete per-plaats-rijen uit de losse collectie.
+  for (const streek of streken) {
+    const roundup = filterRoundupOpFotos(roundupFromCuratedStays(streek));
+    if (roundupKaartAantal(roundup) === 0) continue; // LAT-1371: ≥1 echte foto.
+    paths.push({ params: { streek: streek.slug }, props: { roundup, streek, streekSlug: streek.slug } });
+    seen.add(streek.slug);
+  }
+
+  // Fallback: streken zónder gecureerde set vallen terug op de reisjunk-collectie.
+  for (const [streekSlug, raw] of collectionRoundups) {
+    if (seen.has(streekSlug)) continue;
     const roundup = filterRoundupOpFotos(raw);
     if (roundupKaartAantal(roundup) === 0) continue;
     paths.push({ params: { streek: streekSlug }, props: { roundup, streek: streekBySlug.get(streekSlug) ?? null, streekSlug } });
