@@ -5,6 +5,7 @@ import AffiliateDisclosure from '../../components/AffiliateDisclosure.astro';
 import RelatedArticles from '../../components/RelatedArticles.astro';
 import AccommodatieRoundup from '../../components/AccommodatieRoundup.astro';
 import StreekKaart, { type StreekPoiInput } from '../../components/StreekKaart.astro';
+import WijnFactBox from '../../components/WijnFactBox.astro';
 import RouteMap from '../../components/RouteMap.astro';
 import { buildCjBookingLink, buildBookingSearchLink, unwrapCjRedirect } from '../../lib/affiliates';
 import { loadStreken, type Streek, type Accommodation } from '../../lib/streken';
@@ -203,6 +204,15 @@ const hasStats = Boolean(
   entry.vineyardArea ||
   entry.altitude,
 );
+// LAT-1676 — render de fact-box-sectie alleen als er minstens één gevuld veld is.
+const hasFactBox = Boolean(
+  entry.mainGrapes.length ||
+  entry.appellations.length ||
+  entry.bestVintages ||
+  entry.harvestPeriod ||
+  entry.minVisitTime ||
+  entry.tastingBudget,
+);
 ---
 
 <SiteLayout
@@ -273,6 +283,23 @@ const hasStats = Boolean(
         </div>
       )}
     </section>
+
+    {/* LAT-1676 — WijnFactBox: compacte WSET-feiten bovenaan. Rendert alleen als
+        er gevulde velden zijn (geen lege box op streken zonder fact-data). */}
+    {hasFactBox && (
+      <section class="streek-factbox-section">
+        <div class="container">
+          <WijnFactBox
+            dominantGrapes={entry.mainGrapes}
+            appellations={entry.appellations}
+            bestVintages={entry.bestVintages}
+            harvestPeriod={entry.harvestPeriod}
+            minVisitTime={entry.minVisitTime}
+            tastingBudget={entry.tastingBudget}
+          />
+        </div>
+      </section>
+    )}
 
     {/* LAT-1592 — unified POI "geld-pagina": dubbele kaart + genummerde blokken
         over alle vier categorieën (wijnhuizen, eten, overnachten, activiteiten).
@@ -498,6 +525,10 @@ const hasStats = Boolean(
   .streek-subregions, .streek-appellations, .streek-poi, .streek-insurance, .streek-routes {
     padding: 3rem 0;
     border-bottom: 1px solid var(--rule);
+  }
+  /* LAT-1676 — fact-box zit strak onder de hero, geen eigen onderrand. */
+  .streek-factbox-section {
+    padding: 2rem 0 0;
   }
   .streek-routes {
     background: var(--paperDeep);

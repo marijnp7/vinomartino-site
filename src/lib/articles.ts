@@ -26,6 +26,9 @@ export interface Article {
     wordCount: number;
     readingMinutes: number;
     toc: TocItem[];
+    // LAT-1680: rauwe FAQPage JSON-LD-string uit Directus (SEO/Content Writer input).
+    // De template doet JSON.parse + push in de schema-array; leeg = niets renderen.
+    faqSchema: string | null;
     relatedStreken: RelatedRef[];
     relatedWijnhuizen: RelatedRef[];
     relatedWijnroutes: RelatedRef[];
@@ -263,6 +266,7 @@ function mapArticle(
           wordCount,
           readingMinutes,
           toc,
+          faqSchema: a.faq_schema_json ? String(a.faq_schema_json) : null,
           relatedStreken: mapRelatedRefs(a.related_streken, 'streken_id', 'name'),
           relatedWijnhuizen: mapRelatedRefs(a.related_wijnhuizen, 'wijnhuizen_id', 'name'),
           relatedWijnroutes: mapRelatedRefs(a.related_routes, 'routes_id', 'title'),
@@ -309,6 +313,10 @@ async function fetchArticlesItems(url: string, token: string): Promise<Record<st
     const withArticleRelations = `${withRelations}` +
         ',related_articles.related_articles_id.slug,related_articles.related_articles_id.title' +
         ',meer_over.related_articles_id.slug,meer_over.related_articles_id.title';
+    // LAT-1680: FAQPage JSON-LD-veld. Eigen degradatie-tier bovenop zodat een
+    // pre-migratie Directus (veld bestaat niet) of een build-rol zonder read-perm
+    // graceful terugvalt naar withArticleRelations i.p.v. de build te breken.
+    const withFaqSchema = `${withArticleRelations},faq_schema_json`;
     // LAT-1053: scheduled publish — verberg artikelen waarvan pub_date in de toekomst
     // ligt, ook als status=published. Directus's $NOW resolvet server-side; pub_date
     // null wordt eveneens getoond (legacy/onbekend) zodat bestaande artikelen niet
@@ -323,6 +331,7 @@ async function fetchArticlesItems(url: string, token: string): Promise<Record<st
     // velden vallen, zodat bv. LAT-1619 artikel-links degraderen zonder de
     // LAT-1098 entiteit-links mee te slepen.
     const tiers: { fields: string; drop: string; hint: string }[] = [
+        { fields: withFaqSchema, drop: 'faq_schema_json', hint: 'Run LAT-1680 Directus-schema (directus/scripts/add-faq-schema-field.mjs) en/of geef de build-rol read-permissie op articles.faq_schema_json.' },
         { fields: withArticleRelations, drop: 'related_articles/meer_over', hint: 'Run LAT-1619 Directus M2M-schema (directus/scripts/add-related-articles-fields.mjs) en/of geef de build-rol read-permissie op related_articles + meer_over.' },
         { fields: withRelations, drop: 'related_* (LAT-1098)', hint: 'Run LAT-1097 (Directus M2M schema) en/of geef de build-rol read-permissie op related_*.' },
         { fields: withUpdatedAt, drop: 'updated_at', hint: 'Run directus/scripts/add-seo-meta-fields.mjs en/of geef de build-rol read-permissie op articles.updated_at.' },

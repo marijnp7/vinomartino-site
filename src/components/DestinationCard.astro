@@ -1,0 +1,128 @@
+---
+// LAT-1676 — De speelse template-laag (ReisJunk-les): afgeronde card + hero +
+// tekst-overlay. Eén keer goed gebouwd = overal speels, geen per-afbeelding
+// handwerk. Hero komt uit Directus (self-hosted asset-URL); ontbreekt die, dan
+// valt SmartImg terug op de themed placeholder (geen "coming soon", geen breuk).
+import SmartImg from './SmartImg.astro';
+
+interface Props {
+  /** Doel-URL van de card (bv. `/streken/langhe-piemonte/`). */
+  href: string;
+  /** Titel in de overlay. */
+  title: string;
+  /** Optionele kicker boven de titel (bv. land of regio). */
+  kicker?: string;
+  /** Optionele subtitel/één-regel-samenvatting onder de titel. */
+  subtitle?: string;
+  /** Self-hosted hero-URL uit Directus. Leeg → SmartImg-placeholder. */
+  image?: string | null;
+  /** Placeholder-thema wanneer er geen image is. */
+  theme?: 'vineyard' | 'cellar' | 'bottle' | 'winery' | 'region';
+  /** Eager voor above-the-fold cards; default lazy. */
+  loading?: 'lazy' | 'eager';
+}
+
+const {
+  href,
+  title,
+  kicker,
+  subtitle,
+  image,
+  theme = 'region',
+  loading = 'lazy',
+} = Astro.props;
+---
+
+<a class="vm-dest-card" href={href}>
+  <div class="vm-dest-card__media">
+    <SmartImg src={image ?? undefined} alt={title} theme={theme} loading={loading} class="vm-dest-card__img" />
+    <div class="vm-dest-card__overlay">
+      {kicker && <span class="vm-dest-card__kicker">{kicker}</span>}
+      <h3 class="vm-dest-card__title">{title}</h3>
+      {subtitle && <p class="vm-dest-card__subtitle">{subtitle}</p>}
+    </div>
+  </div>
+</a>
+
+<style>
+  .vm-dest-card {
+    display: block;
+    position: relative;
+    overflow: hidden;
+    border-radius: var(--radius-lg, 4px);
+    box-shadow: var(--shadow-sm, 0 1px 4px rgba(31, 26, 22, 0.06));
+    text-decoration: none;
+    color: inherit;
+    transition:
+      transform var(--duration-base, 250ms) var(--ease-out, ease),
+      box-shadow var(--duration-base, 250ms) var(--ease-out, ease);
+  }
+
+  .vm-dest-card:hover,
+  .vm-dest-card:focus-visible {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-card-hover, 0 8px 32px rgba(90, 26, 31, 0.12));
+  }
+
+  .vm-dest-card__media {
+    position: relative;
+    aspect-ratio: 4 / 3;
+  }
+
+  .vm-dest-card :global(.vm-dest-card__img),
+  .vm-dest-card__media :global(.smart-img-placeholder) {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform var(--duration-slow, 400ms) var(--ease-out, ease);
+  }
+
+  .vm-dest-card:hover :global(.vm-dest-card__img),
+  .vm-dest-card:focus-visible :global(.vm-dest-card__img) {
+    transform: scale(1.04);
+  }
+
+  /* Donker verloop onderaan zodat witte tekst altijd leesbaar is op elke foto. */
+  .vm-dest-card__overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: 0.2rem;
+    padding: 1rem 1.1rem;
+    background: linear-gradient(
+      to top,
+      rgba(31, 26, 22, 0.82) 0%,
+      rgba(31, 26, 22, 0.45) 38%,
+      rgba(31, 26, 22, 0) 70%
+    );
+  }
+
+  .vm-dest-card__kicker {
+    font-family: var(--font-ui, system-ui, sans-serif);
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--gold, #e5c99b);
+  }
+
+  .vm-dest-card__title {
+    margin: 0;
+    font-family: var(--font-display, Georgia, serif);
+    font-size: 1.5rem;
+    line-height: 1.1;
+    color: var(--paper, #faf5e9);
+  }
+
+  .vm-dest-card__subtitle {
+    margin: 0;
+    font-family: var(--font-body, Georgia, serif);
+    font-size: 0.9rem;
+    line-height: 1.35;
+    color: rgba(250, 245, 233, 0.86);
+  }
+</style>

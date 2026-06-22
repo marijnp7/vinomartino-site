@@ -80,6 +80,18 @@ const schema = [
     { name: article.title, url: pageUrl },
   ]),
 ];
+
+// LAT-1680: optionele FAQPage JSON-LD uit Directus (faq_schema_json). Empty-safe:
+// alleen pushen als het veld een geldig JSON-object bevat. Ongeldige JSON wordt
+// gelogd en overgeslagen i.p.v. de build te breken.
+if (article.faqSchema) {
+  try {
+    const faq = JSON.parse(article.faqSchema);
+    if (faq && typeof faq === 'object') schema.push(faq);
+  } catch (err) {
+    console.warn(`[artikel] ongeldige faq_schema_json voor ${article.slug}: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
 ---
 
 <SiteLayout
