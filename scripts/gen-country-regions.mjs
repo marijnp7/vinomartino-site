@@ -52,23 +52,120 @@ const COUNTRIES = {
       Lazio: { slug: 'lazio-italie', nl: 'Lazio' },
       Campania: { slug: 'campania-italie', nl: 'Campania' },
       Apulia: { slug: 'puglia-italie', nl: 'Puglia' },
-      Sicily: { slug: 'sicilia-italie', nl: 'Sicilië' },
+      // Sicilië wordt op de site ontsloten als de Etna-streek (live slug
+      // /streken/etna-sicilie/). Marijn 06-22: "we hebben een artikel over Etna
+      // maar zie die niet als wijnstreek terug" — de admin-1 region Sicily linkt
+      // dus naar etna-sicilie, niet de (404) sicilia-italie-gok.
+      Sicily: { slug: 'etna-sicilie', nl: 'Sicilië · Etna' },
       Sardegna: { slug: 'sardegna-italie', nl: 'Sardinië' },
+      // Sinds 06-22 ook gepubliceerd (live 200) → klikbaar i.p.v. context.
+      'Emilia-Romagna': { slug: 'emilia-romagna-italie', nl: 'Emilia-Romagna' },
+      'Friuli-Venezia Giulia': { slug: 'friuli-italie', nl: 'Friuli' },
+      'Trentino-Alto Adige': { slug: 'trentino-italie', nl: 'Trentino' },
     },
     // NL-labels voor context-regions (anders valt NE-naam terug).
     ctxLabels: {
       Lombardia: 'Lombardije',
-      'Emilia-Romagna': 'Emilia-Romagna',
       Marche: 'Marche',
       Calabria: 'Calabrië',
       Liguria: 'Ligurië',
-      'Friuli-Venezia Giulia': 'Friuli',
       Abruzzo: 'Abruzzo',
-      'Trentino-Alto Adige': 'Trentino',
       Molise: 'Molise',
       Basilicata: 'Basilicata',
       Umbria: 'Umbrië',
       "Valle d'Aosta": "Valle d'Aosta",
+    },
+  },
+
+  frankrijk: {
+    admin: 'France',
+    label: 'Frankrijk',
+    projection: () => d3.geoConicConformal().parallels([44, 49]).rotate([-2.5, 0]),
+    // NE groepeert départements op de moderne `region`. De wijnstreken vallen in
+    // de samengevoegde régions: Bourgogne in Bourgogne-Franche-Comté, Champagne
+    // in Grand Est. Grovere granulariteit (zoals Sicilië = heel het eiland).
+    regionMap: {
+      'Bourgogne-Franche-Comté': { slug: 'bourgogne', nl: 'Bourgogne' },
+      'Grand Est': { slug: 'champagne', nl: 'Champagne' },
+    },
+    ctxLabels: {
+      'Nouvelle-Aquitaine': 'Bordeaux / Zuidwest',
+      Occitanie: 'Languedoc',
+      "Provence-Alpes-Côte-d'Azur": 'Provence',
+      'Centre-Val de Loire': 'Loire',
+      'Auvergne-Rhône-Alpes': 'Rhône',
+      Corse: 'Corsica',
+      'Pays de la Loire': 'Pays de la Loire',
+      Bretagne: 'Bretagne',
+      Normandie: 'Normandië',
+      'Hauts-de-France': 'Hauts-de-France',
+      'Île-de-France': 'Île-de-France',
+    },
+    // Overzeese départements (DOM) zouden de projectie wereldwijd uitzoomen.
+    exclude: new Set(['Guadeloupe', 'Guyane française', 'Martinique', 'Mayotte', 'Réunion']),
+  },
+
+  spanje: {
+    admin: 'Spain',
+    label: 'Spanje',
+    projection: () => d3.geoConicConformal().parallels([37, 43]).rotate([3.5, 0]),
+    regionMap: {
+      Andalucía: { slug: 'jerez', nl: 'Jerez · Andalusië' },
+      Cataluña: { slug: 'priorat-catalonie', nl: 'Catalonië · Priorat' },
+    },
+    ctxLabels: {
+      'La Rioja': 'Rioja',
+      'Castilla y León': 'Castilië-León',
+      Galicia: 'Galicië',
+      'País Vasco': 'Baskenland',
+      Aragón: 'Aragón',
+      'Castilla-La Mancha': 'Castilië-La Mancha',
+      Valenciana: 'Valencia',
+      Extremadura: 'Extremadura',
+      Murcia: 'Murcia',
+      Madrid: 'Madrid',
+      'Foral de Navarra': 'Navarra',
+      Asturias: 'Asturië',
+      Cantabria: 'Cantabrië',
+    },
+    exclude: new Set(['Canary Is.', 'Ceuta', 'Melilla', 'Islas Baleares']),
+  },
+
+  portugal: {
+    admin: 'Portugal',
+    label: 'Portugal',
+    projection: () => d3.geoConicConformal().parallels([38, 42]).rotate([8, 0]),
+    regionMap: {
+      Norte: { slug: 'douro-portugal', nl: 'Douro · Norte' },
+    },
+    ctxLabels: {
+      Centro: 'Centro',
+      Lisbon: 'Lissabon',
+      Alentejo: 'Alentejo',
+      Algarve: 'Algarve',
+      'Norte, Centro': 'Centro',
+    },
+    exclude: new Set(['Madeira', 'Azores']),
+  },
+
+  oostenrijk: {
+    admin: 'Austria',
+    label: 'Oostenrijk',
+    // NE heeft geen `region` voor Oostenrijk → groepering valt terug op `name`
+    // (de Bundesländer). Wachau ligt in Niederösterreich.
+    projection: () => d3.geoConicConformal().parallels([46, 49]).rotate([-14, 0]),
+    regionMap: {
+      Burgenland: { slug: 'burgenland', nl: 'Burgenland' },
+      Niederösterreich: { slug: 'wachau', nl: 'Wachau · Neder-Oostenrijk' },
+    },
+    ctxLabels: {
+      Steiermark: 'Stiermarken',
+      Wien: 'Wenen',
+      Oberösterreich: 'Opper-Oostenrijk',
+      Kärnten: 'Karinthië',
+      Tirol: 'Tirol',
+      Salzburg: 'Salzburg',
+      Vorarlberg: 'Vorarlberg',
     },
   },
 };
@@ -139,10 +236,12 @@ function buildCountry(slug, cfg, all) {
   const provinces = all.features.filter((f) => f.properties.admin === cfg.admin);
   if (!provinces.length) throw new Error(`geen provincies voor admin="${cfg.admin}"`);
 
-  // Groepeer op NE `region`.
+  // Groepeer op NE `region` (valt terug op `name` als region ontbreekt, bv. AT).
+  // `exclude` dropt overzeese gebieden die de projectie zouden uitzoomen.
   const byRegion = new Map();
   for (const f of provinces) {
     const reg = f.properties.region || f.properties.name;
+    if (cfg.exclude?.has(reg)) continue;
     if (!byRegion.has(reg)) byRegion.set(reg, []);
     byRegion.get(reg).push(f);
   }
