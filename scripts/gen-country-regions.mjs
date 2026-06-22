@@ -40,15 +40,20 @@ const COUNTRIES = {
     label: 'Italië',
     // d3.geoConicConformal centraal op de laars.
     projection: () => d3.geoConicConformal().parallels([38, 44]).rotate([-12, 0]),
+    // slug = de LIVE /streken/{slug}/-slug (Directus), NIET de seed-slug. Anders
+    // matcht meta[key] niet en rendert de kaart leeg (LAT-1662 regressie 06-22).
+    // langhe-piemonte/toscane-italie/veneto-italie/campania-italie/puglia-italie/
+    // sardegna-italie zijn geverifieerd 200 op prod. lazio/sicilie zijn nog niet
+    // gepubliceerd (404) → blijven grijze context tot publicatie; -italie-gok.
     regionMap: {
-      Piemonte: { slug: 'langhe', nl: 'Piemonte' },
-      Veneto: { slug: 'veneto', nl: 'Veneto' },
-      Toscana: { slug: 'toscane', nl: 'Toscane' },
-      Lazio: { slug: 'lazio', nl: 'Lazio' },
-      Campania: { slug: 'campania', nl: 'Campania' },
-      Apulia: { slug: 'puglia', nl: 'Puglia' },
-      Sicily: { slug: 'sicilie', nl: 'Sicilië' },
-      Sardegna: { slug: 'sardinie', nl: 'Sardinië' },
+      Piemonte: { slug: 'langhe-piemonte', nl: 'Piemonte' },
+      Veneto: { slug: 'veneto-italie', nl: 'Veneto' },
+      Toscana: { slug: 'toscane-italie', nl: 'Toscane' },
+      Lazio: { slug: 'lazio-italie', nl: 'Lazio' },
+      Campania: { slug: 'campania-italie', nl: 'Campania' },
+      Apulia: { slug: 'puglia-italie', nl: 'Puglia' },
+      Sicily: { slug: 'sicilia-italie', nl: 'Sicilië' },
+      Sardegna: { slug: 'sardegna-italie', nl: 'Sardinië' },
     },
     // NL-labels voor context-regions (anders valt NE-naam terug).
     ctxLabels: {
