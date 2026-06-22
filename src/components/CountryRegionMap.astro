@@ -47,10 +47,24 @@ export interface Props {
   landName: string;
   /** Streek-slug → metadata. Geometrie-keys hierbuiten = inerte context. */
   meta?: Record<string, RegionMeta>;
+  /** Bovenschrift links naast de kaart. */
+  kicker?: string;
+  /** Kop links naast de kaart. */
+  title?: string;
+  /** Introtekst links naast de kaart. */
+  intro?: string;
   class?: string;
 }
 
-const { landSlug, landName, meta = {}, class: className } = Astro.props;
+const {
+  landSlug,
+  landName,
+  meta = {},
+  kicker = landName ? `Wijnatlas · ${landName}` : 'Wijnatlas',
+  title,
+  intro,
+  class: className,
+} = Astro.props;
 
 const PALETTE = ['#5A1A1F', '#A14F2A', '#5C6B3F'];
 
@@ -109,10 +123,38 @@ if (file) {
 
 const wineRegions = drawn.filter((d) => d.wine);
 const contextRegions = drawn.filter((d) => !d.wine);
+
+const headTitle = title ?? `De wijnstreken van ${landName}`;
+const headIntro =
+  intro ??
+  `Elke streek in échte geografie. Beweeg over een gebied voor de kerndruif en klik door naar de streekgids.`;
 ---
 
 {file && wineRegions.length > 0 && (
   <div class:list={['crm', className]}>
+    <div class="crm-intro">
+      {kicker && <p class="crm-kicker">{kicker}</p>}
+      <h2 class="crm-title">{headTitle}</h2>
+      <p class="crm-lede">{headIntro}</p>
+      <ul class="crm-legend">
+        {wineRegions.map((d) => {
+          const Tag = d.linkable ? 'a' : 'span';
+          const linkProps = d.linkable ? { href: `/streken/${d.key}/` } : {};
+          return (
+            <li class="crm-legend__item">
+              <Tag
+                {...linkProps}
+                class:list={['crm-legend__link', { 'crm-legend__link--flat': !d.linkable }]}
+              >
+                <span class="crm-legend__swatch" style={`--c: ${d.color};`} aria-hidden="true"></span>
+                <span class="crm-legend__name">{d.name}</span>
+                {d.badge && <span class="crm-legend__badge">{d.badge}</span>}
+              </Tag>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
     <nav class="crm-mapwrap" aria-label={`Wijngebieden van ${landName}`}>
       <div class="crm-wrap" style={`--map-aspect: ${aspect};`}>
         <svg
@@ -177,8 +219,69 @@ const contextRegions = drawn.filter((d) => !d.wine);
   /* Kaart = enhancement; verbergt zich op smal/mobiel (card-grid blijft fallback). */
   .crm { display: none; }
   @media (min-width: 760px) {
-    .crm { display: block; margin-bottom: var(--space-8); }
+    .crm {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: var(--space-6);
+      margin-bottom: var(--space-8);
+    }
   }
+  /* Tekst links, kaart rechts (Marijn LAT-1662): de portret-kaart 'zweeft' niet
+     meer gecentreerd in een lege band, maar staat rechts met redactionele
+     context + klikbare streek-legenda ernaast. */
+  @media (min-width: 960px) {
+    .crm {
+      grid-template-columns: 1fr minmax(300px, 440px);
+      gap: var(--space-8);
+      align-items: start;
+    }
+  }
+
+  .crm-intro { min-width: 0; }
+  .crm-kicker {
+    margin: 0 0 0.4rem;
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.68rem; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--inkSoft);
+  }
+  .crm-title {
+    margin: 0 0 0.6rem;
+    font-family: var(--font-display, 'Cormorant Garamond', Georgia, serif);
+    font-size: clamp(1.5rem, 3vw, 2.1rem); line-height: 1.1; color: var(--ink);
+  }
+  .crm-lede {
+    margin: 0 0 1.2rem;
+    max-width: 38ch; color: var(--inkSoft); line-height: 1.55;
+  }
+  .crm-legend { list-style: none; margin: 0; padding: 0; }
+  .crm-legend__item { margin: 0; }
+  .crm-legend__link {
+    display: flex; align-items: baseline; gap: 0.6rem;
+    padding: 0.45rem 0; border-bottom: 1px solid var(--ruleSoft);
+    color: var(--ink); text-decoration: none;
+    transition: color var(--duration-fast, 160ms) var(--ease-out, ease);
+  }
+  .crm-legend__item:last-child .crm-legend__link { border-bottom: 0; }
+  .crm-legend__link:hover .crm-legend__name,
+  .crm-legend__link:focus-visible .crm-legend__name { color: var(--c, #5A1A1F); }
+  .crm-legend__link--flat { cursor: default; color: var(--inkSoft); }
+  .crm-legend__swatch {
+    flex: none; width: 0.8rem; height: 0.8rem; border-radius: 2px;
+    align-self: center;
+    background: var(--c, #5A1A1F); opacity: 0.55;
+    border: 1px solid var(--c, #5A1A1F);
+  }
+  .crm-legend__name {
+    font-family: var(--font-display, 'Cormorant Garamond', Georgia, serif);
+    font-size: 1.1rem;
+  }
+  .crm-legend__badge {
+    margin-left: auto;
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.64rem; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--inkSoft);
+  }
+
   .crm-mapwrap { min-width: 0; }
   .crm-wrap {
     position: relative;
