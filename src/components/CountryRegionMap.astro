@@ -37,8 +37,6 @@ interface RegionsFile {
 
 /** Per-streek metadata uit de pagina (atlas-zones of streek-cards). */
 export interface RegionMeta {
-  /** Weergavenaam (valt terug op de geometrie-naam). */
-  name?: string;
   /** Accent-hex; default = burgundy. */
   color?: string;
   /** Badge onder de naam in de tooltip (bv. kern-druif). */
@@ -111,7 +109,11 @@ if (file) {
       entry,
       wine: isWine,
       linkable: isWine && m?.linkable !== false,
-      name: m?.name ?? entry.name,
+      // Geometrie-naam is de gecureerde cartografische label van het silhouet
+      // (regionMap.nl: Piemonte, Sicilië, Sardinië…). De Directus-streeknaam is
+      // appellatie-niveau (Etna, Langhe) en mag het regio-silhouet NIET
+      // overschrijven (Marijn 06-22: "ik zie etna staan niet sicilie").
+      name: entry.name,
       color,
       badge: m?.badge,
     });
@@ -140,7 +142,7 @@ const markers: DrawnMarker[] = (file?.markers ?? []).map((mk) => {
     slug: mk.slug,
     x: mk.x,
     y: mk.y,
-    name: m?.name ?? mk.name,
+    name: mk.name,
     color: m?.color ?? PALETTE[colorIdx++ % PALETTE.length],
     badge: m?.badge ?? mk.badge ?? undefined,
     linkable: Boolean(m) && m?.linkable !== false,

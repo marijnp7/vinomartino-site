@@ -231,14 +231,13 @@ const ACCENT_HEX: Record<string, string> = {
 const regionMeta: Record<string, RegionMeta> = {};
 for (const z of atlas?.zones ?? []) {
   regionMeta[z.slug] = {
-    name: z.name,
     color: z.zoneColor ? ACCENT_HEX[z.zoneColor] : undefined,
     badge: z.dominantGrape || undefined,
     linkable: z.linkable !== false,
   };
 }
 for (const c of strekenCards) {
-  if (!regionMeta[c.slug]) regionMeta[c.slug] = { name: c.name, badge: c.badge || undefined, linkable: true };
+  if (!regionMeta[c.slug]) regionMeta[c.slug] = { badge: c.badge || undefined, linkable: true };
 }
 
 // Prefer Directus o2m join `entry.wijnstreken` (LAT-1008). Fall back to showcase-derived
