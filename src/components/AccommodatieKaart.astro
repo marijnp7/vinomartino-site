@@ -8,20 +8,24 @@
 import type { AccommodatieKaart } from '../lib/accommodaties';
 import { accommodatieBookingHref } from '../lib/accommodaties';
 import { STAY_TIER_META } from '../lib/stay-tier';
+import { currencySymbol } from '../lib/currency';
 import SmartImg from './SmartImg.astro';
 
 interface Props {
   kaart: AccommodatieKaart;
   /** Context-slug voor affiliate-tracking, bv. "piemonte". */
   context?: string;
+  /** Valutacode van de regio (bv. 'ZAR'). Leeg = euro (LAT-1664). */
+  valuta?: string | null;
 }
 
-const { kaart, context } = Astro.props;
+const { kaart, context, valuta } = Astro.props;
 const href = accommodatieBookingHref(kaart);
 const altText = kaart.fotoAlt || `${kaart.naam} — ${kaart.plaats}`;
 const heeftPrijs = kaart.prijsLaag != null || kaart.prijsHoog != null;
 // LAT-1406: tier-badge — alleen tonen als het verblijf gecureerd is.
 const tier = kaart.tier ? STAY_TIER_META[kaart.tier] : null;
+const sym = currencySymbol(valuta);
 ---
 
 <article class="acc-kaart" id={`acc-${kaart.slug}`}>
@@ -42,13 +46,13 @@ const tier = kaart.tier ? STAY_TIER_META[kaart.tier] : null;
         {kaart.prijsLaag != null && (
           <div class="acc-kaart__prijs">
             <dt class="acc-kaart__seizoen">Laagseizoen</dt>
-            <dd class="acc-kaart__bedrag">Kamer vanaf €{kaart.prijsLaag}</dd>
+            <dd class="acc-kaart__bedrag">Kamer vanaf {sym}{kaart.prijsLaag}</dd>
           </div>
         )}
         {kaart.prijsHoog != null && (
           <div class="acc-kaart__prijs">
             <dt class="acc-kaart__seizoen">Hoogseizoen</dt>
-            <dd class="acc-kaart__bedrag">vanaf €{kaart.prijsHoog}</dd>
+            <dd class="acc-kaart__bedrag">vanaf {sym}{kaart.prijsHoog}</dd>
           </div>
         )}
       </dl>

@@ -14,6 +14,7 @@ import { loadWijnhuizen, type Wijnhuis } from '../../lib/wijnhuizen';
 import { loadAccommodatieRoundupsByStreek } from '../../lib/accommodaties-loader';
 import type { AccommodatieRoundup as AccommodatieRoundupData } from '../../lib/accommodaties';
 import { loadRoutes, type WijnRoute } from '../../lib/routes';
+import { currencyForLand, currencySymbol } from '../../lib/currency';
 import { streekSchema, streekMetaTitle, streekMetaDescription, breadcrumbSchema } from '../../lib/seo';
 
 export async function getStaticPaths() {
@@ -47,6 +48,9 @@ export async function getStaticPaths() {
 
 const { entry, wijnhuizen, routes, accRoundup } = Astro.props as { entry: Streek; wijnhuizen: Wijnhuis[]; routes: WijnRoute[]; accRoundup: AccommodatieRoundupData | null };
 const pageUrl = new URL(`/streken/${entry.slug}/`, Astro.site ?? 'https://vinomartino.com').href;
+// LAT-1664: valuta volgt het land van de streek (Zuid-Afrika → ZAR), zodat
+// Rand-bedragen niet als euro worden gelabeld. Per-accommodatie valuta wint.
+const streekValuta = currencyForLand(entry.landSlug);
 
 // LAT-1199: verticale kruimel Land → Streek.
 const hasParentLand = Boolean(entry.landSlug && entry.country);
@@ -91,7 +95,7 @@ for (const detail of wijnhuizen) {
 }
 
 function accPrice(acc: Accommodation): string | null {
-  const sym = acc.valuta ? `${acc.valuta} ` : '€';
+  const sym = currencySymbol(acc.valuta || streekValuta);
   if (acc.prijsLaag != null && acc.prijsHoog != null) return `${sym}${acc.prijsLaag}–${acc.prijsHoog} / nacht`;
   if (acc.prijsLaag != null) return `vanaf ${sym}${acc.prijsLaag} / nacht`;
   if (acc.prijsHoog != null) return `tot ${sym}${acc.prijsHoog} / nacht`;
@@ -289,7 +293,7 @@ const hasStats = Boolean(
             />
           )}
           {!hasCuratedStays && hasReisjunkRoundup && (
-            <AccommodatieRoundup roundup={accRoundup!} context={entry.slug} />
+            <AccommodatieRoundup roundup={accRoundup!} context={entry.slug} valuta={streekValuta} />
           )}
         </div>
       </section>

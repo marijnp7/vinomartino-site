@@ -17,9 +17,11 @@ interface Props {
    * dubbele koppen te voorkomen. Sprong-nav, groepen en disclosure blijven.
    */
   hideHead?: boolean;
+  /** Valutacode van de regio (bv. 'ZAR'). Leeg = euro (LAT-1664). */
+  valuta?: string | null;
 }
 
-const { roundup, context, hideHead = false } = Astro.props;
+const { roundup, context, hideHead = false, valuta } = Astro.props;
 
 // Alleen clusters met daadwerkelijke kaarten tonen (LAT-1406).
 const groepen = roundup.clusters.filter((c) => c.kaarten.length > 0);
@@ -68,7 +70,7 @@ const sectionId = `acc-roundup-${(context || roundup.regio).toLowerCase().replac
         )}
         <div class="acc-roundup__grid">
           {g.kaarten.map((kaart) => (
-            <AccommodatieKaart kaart={kaart} context={context || roundup.regio} />
+            <AccommodatieKaart kaart={kaart} context={context || roundup.regio} valuta={valuta} />
           ))}
         </div>
       </div>

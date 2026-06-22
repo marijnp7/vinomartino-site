@@ -8,6 +8,7 @@ import { loadAccommodatieRoundupsByStreek } from '../../lib/accommodaties-loader
 import { filterRoundupOpFotos, roundupKaartAantal, type AccommodatieRoundup as Roundup } from '../../lib/accommodaties';
 import { loadStreken, type Streek } from '../../lib/streken';
 import { roundupFromCuratedStays } from '../../lib/curated-stays';
+import { currencyForLand } from '../../lib/currency';
 import { organizationSchema, breadcrumbSchema } from '../../lib/seo';
 
 export async function getStaticPaths() {
@@ -46,6 +47,7 @@ export async function getStaticPaths() {
 
 const { roundup, streek, streekSlug } = Astro.props as { roundup: Roundup; streek: Streek | null; streekSlug: string };
 const regio = roundup.regio || streek?.name || streekSlug;
+const valuta = currencyForLand(streek?.landSlug);
 
 const schema = [
   organizationSchema(),
@@ -80,7 +82,7 @@ const schema = [
   </section>
 
   <div class="container">
-    <AccommodatieRoundup roundup={roundup} context={streekSlug} hideHead />
+    <AccommodatieRoundup roundup={roundup} context={streekSlug} valuta={valuta} hideHead />
   </div>
 </SiteLayout>
 
