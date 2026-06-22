@@ -15,15 +15,22 @@
 
 import type { Accommodation, WijnhuisPin } from '../lib/streken';
 import { buildCjBookingLink, buildBookingSearchLink, unwrapCjRedirect } from '../lib/affiliates';
+import { currencyForLand, formatMoney } from '../lib/currency';
 
 interface Props {
   streek: string;
   slug: string;
+  /** Land-slug van de streek (bv. 'zuid-afrika'); bepaalt de bron-valuta (LAT-1664). */
+  landSlug?: string | null;
   accommodaties: Accommodation[];
   wijnhuizen?: WijnhuisPin[];
 }
 
-const { streek, slug, accommodaties, wijnhuizen = [] } = Astro.props;
+const { streek, slug, landSlug, accommodaties, wijnhuizen = [] } = Astro.props;
+// LAT-1664: bron-valuta volgt het land (Zuid-Afrika → ZAR), maar prijzen worden
+// site-breed naar EUR geconverteerd voor weergave (board-besluit). acc.valuta
+// wint per verblijf als bron over de land-default.
+const streekValuta = currencyForLand(landSlug);
 
 type TierKey = 'slim_geboekt' | 'prijs_kwaliteit' | 'pure_luxe';
 const TIER_ORDER: TierKey[] = ['slim_geboekt', 'prijs_kwaliteit', 'pure_luxe'];
@@ -78,23 +85,14 @@ function affiliatePartner(href: string): string {
   }
 }
 
-// Valuta-symbool per verblijf (default euro). Constantia e.a. niet-eurozones
-// dragen `prijs_valuta` mee (bv. 'ZAR'); zonder veld blijft het € — bestaande
-// eurozone-streken renderen dus byte-identiek.
-function curSym(valuta: string | undefined): string {
-  switch ((valuta || '').toUpperCase()) {
-    case 'ZAR': case 'R': return 'R ';
-    case 'GBP': case '£': return '£';
-    case 'USD': case '$': return '$';
-    default: return '€';
-  }
-}
-
 function priceLabel(acc: Accommodation): string | null {
-  const c = curSym(acc.valuta);
-  if (acc.prijsLaag != null && acc.prijsHoog != null) return `${c}${acc.prijsLaag}–${acc.prijsHoog}`;
-  if (acc.prijsLaag != null) return `vanaf ${c}${acc.prijsLaag}`;
-  if (acc.prijsHoog != null) return `tot ${c}${acc.prijsHoog}`;
+  // LAT-1664: bron-valuta (acc.valuta of land-default) → display EUR.
+  const bron = acc.valuta || streekValuta;
+  const laag = formatMoney(acc.prijsLaag, bron);
+  const hoog = formatMoney(acc.prijsHoog, bron);
+  if (laag && hoog) return `${laag}–${hoog}`;
+  if (laag) return `vanaf ${laag}`;
+  if (hoog) return `tot ${hoog}`;
   return null;
 }
 

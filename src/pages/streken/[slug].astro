@@ -14,6 +14,7 @@ import { loadWijnhuizen, type Wijnhuis } from '../../lib/wijnhuizen';
 import { loadAccommodatieRoundupsByStreek } from '../../lib/accommodaties-loader';
 import type { AccommodatieRoundup as AccommodatieRoundupData } from '../../lib/accommodaties';
 import { loadRoutes, type WijnRoute } from '../../lib/routes';
+import { currencyForLand, formatMoney } from '../../lib/currency';
 import { streekSchema, streekMetaTitle, streekMetaDescription, breadcrumbSchema } from '../../lib/seo';
 
 export async function getStaticPaths() {
@@ -47,6 +48,10 @@ export async function getStaticPaths() {
 
 const { entry, wijnhuizen, routes, accRoundup } = Astro.props as { entry: Streek; wijnhuizen: Wijnhuis[]; routes: WijnRoute[]; accRoundup: AccommodatieRoundupData | null };
 const pageUrl = new URL(`/streken/${entry.slug}/`, Astro.site ?? 'https://vinomartino.com').href;
+// LAT-1664: bron-valuta volgt het land van de streek (Zuid-Afrika → ZAR);
+// bedragen worden naar EUR geconverteerd voor weergave (board-besluit). Een
+// per-accommodatie valuta (acc.valuta) wint als bron over de land-default.
+const streekValuta = currencyForLand(entry.landSlug);
 
 // LAT-1199: verticale kruimel Land → Streek.
 const hasParentLand = Boolean(entry.landSlug && entry.country);
@@ -91,10 +96,12 @@ for (const detail of wijnhuizen) {
 }
 
 function accPrice(acc: Accommodation): string | null {
-  const sym = acc.valuta ? `${acc.valuta} ` : '€';
-  if (acc.prijsLaag != null && acc.prijsHoog != null) return `${sym}${acc.prijsLaag}–${acc.prijsHoog} / nacht`;
-  if (acc.prijsLaag != null) return `vanaf ${sym}${acc.prijsLaag} / nacht`;
-  if (acc.prijsHoog != null) return `tot ${sym}${acc.prijsHoog} / nacht`;
+  const bron = acc.valuta || streekValuta;
+  const laag = formatMoney(acc.prijsLaag, bron);
+  const hoog = formatMoney(acc.prijsHoog, bron);
+  if (laag && hoog) return `${laag}–${hoog} / nacht`;
+  if (laag) return `vanaf ${laag} / nacht`;
+  if (hoog) return `tot ${hoog} / nacht`;
   return null;
 }
 // LAT-1634: het 3x3x3-grid linkte via Stay22 Allez (allezSearchUrl), wat bij
@@ -289,7 +296,7 @@ const hasStats = Boolean(
             />
           )}
           {!hasCuratedStays && hasReisjunkRoundup && (
-            <AccommodatieRoundup roundup={accRoundup!} context={entry.slug} />
+            <AccommodatieRoundup roundup={accRoundup!} context={entry.slug} bronValuta={streekValuta} />
           )}
         </div>
       </section>
