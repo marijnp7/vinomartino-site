@@ -1,21 +1,23 @@
 ---
 /**
- * <DiscoverMapEurope> — klikbare Europa-wijnkaart op /ontdek/ (LAT-1624)
+ * <DiscoverMapWorld> — klikbare wereld-wijnkaart op /ontdek/ (LAT-1659)
  *
- * Ontwerp + scope: LAT-1605 plan. Renderingsmodel volgt 1:1 de regels van
- * <InfographicAtlasInteractive> (LAT-1122):
+ * Ontwerp + scope: LAT-1605/LAT-1659 plan. Renderingsmodel volgt 1:1 de regels
+ * van <InfographicAtlasInteractive> (LAT-1122):
  *   • Klik = échte navigatie (<a href="/landen/{slug}/">) — geen JS, geen 404-trap.
- *   • Alleen landen met een gepubliceerde /landen/{slug}/ zijn klikbaar; de rest
- *     wordt gedempt/inert (aria-hidden) als geografische context getekend.
+ *   • Elk land met een gepubliceerde /landen/{slug}/ is klikbaar — óók buiten
+ *     Europa (Zuid-Afrika!). Alle overige landen worden gedempt/inert
+ *     (aria-hidden) als geografische context getekend.
  *   • Hover/focus → tooltip (land + aantal streken). JS verrijkt alleen; de
  *     native <title> geeft dezelfde info zonder JS.
  *
  * Geometrie komt uit het gedeelde, statische databestand
- * `src/data/atlas/europe-countries.json` (gekeyd op land-slug). De kaart is een
- * *enhancement* boven het bubbel-grid; het grid blijft de canonieke a11y- en
- * mobiele fallback (de kaart verbergt zich op smalle viewports).
+ * `src/data/atlas/world-countries.json` (wijnlanden gekeyd op land-slug, overige
+ * landen op een `ctx:`-prefix key). De kaart vult het hele paneel (geen lege
+ * marges) en is een *enhancement* boven het bubbel-grid; het grid blijft de
+ * canonieke a11y- en mobiele fallback (de kaart verbergt zich op smalle viewports).
  */
-import geo from '../data/atlas/europe-countries.json';
+import geo from '../data/atlas/world-countries.json';
 
 export interface MapCountry {
   slug: string;
@@ -45,6 +47,9 @@ const innerW = vb[2] || 800;
 const innerH = vb[3] || 700;
 const maxX = minX + innerW;
 const maxY = minY + innerH;
+// Paneel-vulling: container krijgt exact de viewBox-verhouding zodat de SVG
+// 100%×100% vult zonder letterbox-marges (Marijn-feedback LAT-1659).
+const aspect = innerH > 0 ? innerW / innerH : 2;
 
 const byLand = new Map(countries.map((c) => [c.slug, c]));
 
@@ -52,20 +57,20 @@ const byLand = new Map(countries.map((c) => [c.slug, c]));
 // Fail-loud conform content-loader-conventie: waarschuw maar render door.
 for (const land of countries) {
   if (!entries[land.slug]) {
-    console.warn(`[DiscoverMapEurope] gepubliceerd land '${land.slug}' heeft geen geometrie-entry in europe-countries.json — niet op de kaart, alleen in het bubbel-grid. Voeg een path toe (LAT-1624).`);
+    console.warn(`[DiscoverMapWorld] gepubliceerd land '${land.slug}' heeft geen geometrie-entry in world-countries.json — niet op de kaart, alleen in het bubbel-grid. Voeg een entry toe in scripts/gen-world-atlas.mjs (LAT-1659).`);
   }
 }
 for (const [slug, entry] of Object.entries(entries)) {
   const nums = (entry.d.match(/-?\d+(?:\.\d+)?/g) || []).map(Number);
   if (nums.length < 6 || nums.length % 2 !== 0) {
-    console.warn(`[DiscoverMapEurope] geometrie '${slug}' parset niet als coördinaten-paren (${nums.length} getallen).`);
+    console.warn(`[DiscoverMapWorld] geometrie '${slug}' parset niet als coördinaten-paren (${nums.length} getallen).`);
     continue;
   }
   for (let i = 0; i + 1 < nums.length; i += 2) {
     const x = nums[i];
     const y = nums[i + 1];
     if (x < minX || x > maxX || y < minY || y > maxY) {
-      console.warn(`[DiscoverMapEurope] geometrie '${slug}' valt buiten viewBox-bounds (${x},${y} niet in ${minX}..${maxX} / ${minY}..${maxY}).`);
+      console.warn(`[DiscoverMapWorld] geometrie '${slug}' valt buiten viewBox-bounds (${x},${y} niet in ${minX}..${maxX} / ${minY}..${maxY}).`);
       break;
     }
   }
@@ -97,30 +102,23 @@ const linkableCount = drawn.filter((d) => d.land).length;
 ---
 
 {linkableCount > 0 && (
-  <nav class:list={['dme', className]} aria-label="Wijnkaart van Europa">
-    <div class="dme-wrap">
+  <nav class:list={['dme', className]} aria-label="Wijnkaart van de wereld">
+    <div class="dme-wrap" style={`--map-aspect: ${aspect};`}>
       <svg
         viewBox={viewBox}
         class="dme-map"
         role="img"
-        aria-label="Klikbare wijnkaart van Europa"
+        aria-label="Klikbare wereld-wijnkaart"
         xmlns="http://www.w3.org/2000/svg"
       >
-        <title>Wijnkaart van Europa</title>
+        <title>Wijnkaart van de wereld</title>
 
-        {/* ── Context-onderlaag: landen zonder pagina (inert) ── */}
+        {/* ── Context-onderlaag: landen zonder pagina (inert, geen label) ── */}
         <g class="dme-context" aria-hidden="true">
           {drawn.filter((d) => !d.land).map((d) => (
             <g class="dme-country dme-country--static">
               <title>{d.entry.name}</title>
               <path d={d.entry.d} class="dme-fill" />
-              <text
-                x={d.a.x}
-                y={d.a.y}
-                text-anchor="middle"
-                class="dme-label dme-label--static"
-                font-size={11 * strokeScale}
-              >{d.entry.name}</text>
             </g>
           ))}
         </g>
@@ -172,14 +170,16 @@ const linkableCount = drawn.filter((d) => d.land).length;
 
   .dme-wrap {
     position: relative;
+    box-sizing: border-box;
     border: 1px solid var(--ruleSoft);
     background: var(--paperDeep);
-    padding: clamp(1rem, 3vw, 2rem);
+    /* Container = exact viewBox-verhouding → SVG vult volledig, geen marges. */
+    aspect-ratio: var(--map-aspect, 2.1);
+    overflow: hidden;
   }
   .dme-map {
     width: 100%;
-    height: auto;
-    max-height: 520px;
+    height: 100%;
     display: block;
   }
 
@@ -221,12 +221,6 @@ const linkableCount = drawn.filter((d) => d.land).length;
     stroke-width: 3px;
     stroke-linejoin: round;
   }
-  .dme-label--static {
-    font-style: normal;
-    fill: var(--inkFaint, #8A7E70);
-    font-size: inherit;
-  }
-
   /* Tooltip ------------------------------------------------- */
   .dme-tooltip {
     position: absolute; top: 0; left: 0;

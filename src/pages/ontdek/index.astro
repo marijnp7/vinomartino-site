@@ -1,7 +1,7 @@
 ---
 import SiteLayout from '../../layouts/SiteLayout.astro';
 import SmartImg from '../../components/SmartImg.astro';
-import DiscoverMapEurope from '../../components/DiscoverMapEurope.astro';
+import DiscoverMapWorld from '../../components/DiscoverMapWorld.astro';
 import { loadLanden } from '../../lib/landen';
 import { loadStreken } from '../../lib/streken';
 import { organizationSchema, breadcrumbSchema } from '../../lib/seo';
@@ -81,13 +81,13 @@ const schema = [
     <div class="container">
       <span class="section-label">Wijnatlas</span>
       <h1>Ontdek per land en streek</h1>
-      <p class="hero-desc">Blader door de wijnlanden van Europa. Kies een land, duik in de streken eronder en lees de gids van de regio die je trekt. Hoe meer we toevoegen, hoe rijker de atlas, zonder dat het menu meegroeit.</p>
+      <p class="hero-desc">Blader door de wijnlanden van de wereld. Kies een land, duik in de streken eronder en lees de gids van de regio die je trekt. Hoe meer we toevoegen, hoe rijker de atlas, zonder dat het menu meegroeit.</p>
     </div>
   </section>
 
   {tiles.length > 0 && (
     <section class="section container map-hero">
-      <DiscoverMapEurope
+      <DiscoverMapWorld
         countries={tiles.map(t => ({ slug: t.slug, name: t.name, color: t.color, regionCount: t.regions.length }))}
       />
     </section>
