@@ -167,6 +167,57 @@ const COUNTRIES = {
       Vorarlberg: 'Vorarlberg',
     },
   },
+
+  duitsland: {
+    admin: 'Germany',
+    label: 'Duitsland',
+    projection: () => d3.geoConicConformal().parallels([48, 54]).rotate([-10, 0]),
+    // Mosel én Pfalz liggen beide in de Bundesland Rheinland-Pfalz → niet als
+    // aparte admin-1 silhouetten te onderscheiden. Daarom puntmarkers binnen het
+    // nationale silhouet (alle Bundesländer = inerte context).
+    regionMap: {},
+    ctxLabels: {
+      'Rheinland-Pfalz': 'Rijnland-Palts',
+      Bayern: 'Beieren',
+      Niedersachsen: 'Nedersaksen',
+      Sachsen: 'Saksen',
+      'Sachsen-Anhalt': 'Saksen-Anhalt',
+      'Nordrhein-Westfalen': 'Noordrijn-Westfalen',
+      'Schleswig-Holstein': 'Sleeswijk-Holstein',
+      'Mecklenburg-Vorpommern': 'Mecklenburg-Voor-Pommeren',
+      Berlin: 'Berlijn',
+    },
+    markers: [
+      { slug: 'mosel-duitsland', nl: 'Mosel', lon: 7.0, lat: 49.9 },
+      { slug: 'pfalz', nl: 'Pfalz', lon: 8.13, lat: 49.35 },
+    ],
+  },
+
+  'zuid-afrika': {
+    admin: 'South Africa',
+    label: 'Zuid-Afrika',
+    // Alle ZA-wijnstreken liggen dicht opeen in de West-Kaap rond Kaapstad →
+    // geen aparte admin-1 silhouetten. We zoomen in op de Kaapse wijnlanden
+    // (fitBounds) en tekenen elke streek als puntmarker op het West-Kaap-
+    // silhouet; de kustlijn levert herkenbare geografische context.
+    projection: () => d3.geoConicConformal().parallels([-32, -35]).rotate([-19, 0]),
+    fitBounds: [[17.6, -34.9], [20.4, -32.8]],
+    regionMap: {},
+    // Alleen de West-Kaap als kust-context; overige provincies buiten frame.
+    exclude: new Set([
+      'KwaZulu-Natal', 'Free State', 'Limpopo', 'North West',
+      'Mpumalanga', 'Gauteng', 'Northern Cape', 'Eastern Cape',
+    ]),
+    ctxLabels: { 'Western Cape': 'West-Kaap' },
+    markers: [
+      { slug: 'swartland', nl: 'Swartland', lon: 18.73, lat: -33.46 },
+      { slug: 'paarl', nl: 'Paarl', lon: 18.97, lat: -33.73 },
+      { slug: 'stellenbosch', nl: 'Stellenbosch', lon: 18.86, lat: -33.93 },
+      { slug: 'franschhoek', nl: 'Franschhoek', lon: 19.12, lat: -33.91 },
+      { slug: 'constantia', nl: 'Constantia', lon: 18.42, lat: -34.03 },
+      { slug: 'hemel-en-aarde', nl: 'Hemel-en-Aarde', lon: 19.25, lat: -34.41 },
+    ],
+  },
 };
 
 const FIT = 1000; // doel-breedte projectie-extent
@@ -260,10 +311,22 @@ function buildCountry(slug, cfg, all) {
   }
 
   const projection = cfg.projection();
-  projection.fitExtent([[PAD, PAD], [FIT - PAD, FIT - PAD]], {
-    type: 'FeatureCollection',
-    features: dissolved.map((d) => ({ type: 'Feature', geometry: d.geom })),
-  });
+  if (cfg.fitBounds) {
+    // Zoom op een vaste geografische bbox i.p.v. de volledige geometrie. Het
+    // silhouet dat buiten de box valt wordt door de SVG-viewBox geclipt. Nodig
+    // voor dichtopeen geclusterde streken (bv. de Kaapse wijnlanden) zodat de
+    // puntmarkers spreiden i.p.v. samen te klonteren.
+    const [[w, s], [e, n]] = cfg.fitBounds;
+    projection.fitExtent([[PAD, PAD], [FIT - PAD, FIT - PAD]], {
+      type: 'Feature',
+      geometry: { type: 'Polygon', coordinates: [[[w, s], [w, n], [e, n], [e, s], [w, s]]] },
+    });
+  } else {
+    projection.fitExtent([[PAD, PAD], [FIT - PAD, FIT - PAD]], {
+      type: 'FeatureCollection',
+      features: dissolved.map((d) => ({ type: 'Feature', geometry: d.geom })),
+    });
+  }
   const project = (r) => r.map((p) => projection(p)).filter((xy) => xy && isFinite(xy[0]) && isFinite(xy[1]));
 
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -291,9 +354,21 @@ function buildCountry(slug, cfg, all) {
     built.push({ ...d, rings });
   }
 
-  const vbMinX = Math.floor(minX - PAD), vbMinY = Math.floor(minY - PAD);
-  const vbW = Math.ceil(maxX - minX + 2 * PAD), vbH = Math.ceil(maxY - minY + 2 * PAD);
-  const viewBox = `${vbMinX} ${vbMinY} ${vbW} ${vbH}`;
+  let viewBox;
+  if (cfg.fitBounds) {
+    // viewBox = de geprojecteerde bbox-hoeken (geometrie buiten de box clipt).
+    const [[w, s], [e, n]] = cfg.fitBounds;
+    const corners = [[w, s], [w, n], [e, n], [e, s]].map((c) => projection(c));
+    const xs = corners.map((c) => c[0]), ys = corners.map((c) => c[1]);
+    const bx = Math.floor(Math.min(...xs)), by = Math.floor(Math.min(...ys));
+    const bw = Math.ceil(Math.max(...xs) - Math.min(...xs));
+    const bh = Math.ceil(Math.max(...ys) - Math.min(...ys));
+    viewBox = `${bx} ${by} ${bw} ${bh}`;
+  } else {
+    const vbMinX = Math.floor(minX - PAD), vbMinY = Math.floor(minY - PAD);
+    const vbW = Math.ceil(maxX - minX + 2 * PAD), vbH = Math.ceil(maxY - minY + 2 * PAD);
+    viewBox = `${vbMinX} ${vbMinY} ${vbW} ${vbH}`;
+  }
 
   const out = {
     _meta: {
