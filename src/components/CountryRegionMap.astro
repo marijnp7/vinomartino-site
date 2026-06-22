@@ -1,0 +1,296 @@
+---
+/**
+ * <CountryRegionMap> — wijngebieden per land in échte geometrie (LAT-1662)
+ *
+ * Eén niveau dieper dan <DiscoverMapEurope> (LAT-1659): waar die de landen op
+ * /ontdek/ in echte geometrie tekent, tekent deze component de WIJNSTREKEN
+ * binnen één land in echte geometrie — i.p.v. de oude hand-getekende blobs van
+ * <InfographicAtlasInteractive>. Marijn (LAT-1659, 2026-06-22): "per land met
+ * deze stijl ook de wijngebieden ingetekend".
+ *
+ * Renderingsmodel volgt 1:1 <DiscoverMapEurope>:
+ *   • Klik = échte navigatie (<a href="/streken/{slug}/>) — geen JS, geen 404-trap.
+ *   • Een streek is alléén klikbaar als de streekpagina bestaat (linkable).
+ *   • Regions zonder gepubliceerde streek = gedempte, inerte context (samen
+ *     vormen ze het nationale silhouet).
+ *   • Hover/focus → tooltip (streek + druif/badge). JS verrijkt alleen.
+ *
+ * Geometrie: src/data/atlas/regions/{land-slug}.json — Natural Earth admin-1
+ * (provincies) gedissolved tot region-silhouetten via topojson, geprojecteerd
+ * met d3 (zie scripts/gen-country-regions.mjs). Ontbreekt de geometrie voor een
+ * land, dan rendert deze component niets en valt de pagina terug op de oude
+ * atlas / het card-grid (geen regressie).
+ */
+const regionGeo = import.meta.glob<{ default: RegionsFile }>(
+  '../data/atlas/regions/*.json',
+  { eager: true },
+);
+
+interface RegionEntry { name: string; d: string; wine: boolean; labelAt: { x: number; y: number } }
+interface RegionsFile { _meta?: { viewBox?: string; country?: string }; regions: Record<string, RegionEntry> }
+
+/** Per-streek metadata uit de pagina (atlas-zones of streek-cards). */
+export interface RegionMeta {
+  /** Weergavenaam (valt terug op de geometrie-naam). */
+  name?: string;
+  /** Accent-hex; default = burgundy. */
+  color?: string;
+  /** Badge onder de naam in de tooltip (bv. kern-druif). */
+  badge?: string;
+  /** Drill-down aanzetten alleen als /streken/{slug}/ bestaat. */
+  linkable?: boolean;
+}
+
+export interface Props {
+  /** Land-slug — kiest src/data/atlas/regions/{landSlug}.json. */
+  landSlug: string;
+  landName: string;
+  /** Streek-slug → metadata. Geometrie-keys hierbuiten = inerte context. */
+  meta?: Record<string, RegionMeta>;
+  class?: string;
+}
+
+const { landSlug, landName, meta = {}, class: className } = Astro.props;
+
+const PALETTE = ['#5A1A1F', '#A14F2A', '#5C6B3F'];
+
+const file = regionGeo[`../data/atlas/regions/${landSlug}.json`]?.default;
+const viewBox = file?._meta?.viewBox ?? '0 0 1000 1000';
+const vb = viewBox.split(/\s+/).map(Number);
+const minX = vb[0] || 0;
+const minY = vb[1] || 0;
+const innerW = vb[2] || 1000;
+const innerH = vb[3] || 1000;
+const maxX = minX + innerW;
+const maxY = minY + innerH;
+const aspect = innerH > 0 ? innerW / innerH : 1;
+const strokeScale = Math.max(innerW, innerH) / 600;
+
+interface Drawn {
+  key: string;
+  entry: RegionEntry;
+  wine: boolean;
+  linkable: boolean;
+  name: string;
+  color: string;
+  badge?: string;
+}
+
+const drawn: Drawn[] = [];
+let colorIdx = 0;
+if (file) {
+  for (const [key, entry] of Object.entries(file.regions)) {
+    const m = meta[key];
+    // Wijnstreek alleen als de geometrie 'm als wine markeert én er een streek
+    // bekend is; anders inerte context (vormt mee het nationale silhouet).
+    const isWine = entry.wine && Boolean(m);
+    const color = m?.color ?? PALETTE[colorIdx % PALETTE.length];
+    if (isWine) colorIdx++;
+    drawn.push({
+      key,
+      entry,
+      wine: isWine,
+      linkable: isWine && m?.linkable !== false,
+      name: m?.name ?? entry.name,
+      color,
+      badge: m?.badge,
+    });
+
+    // Numerieke validatie (fail-loud conform DiscoverMapEurope-conventie).
+    const nums = (entry.d.match(/-?\d+(?:\.\d+)?/g) || []).map(Number);
+    for (let i = 0; i + 1 < nums.length; i += 2) {
+      if (nums[i] < minX - 1 || nums[i] > maxX + 1 || nums[i + 1] < minY - 1 || nums[i + 1] > maxY + 1) {
+        console.warn(`[CountryRegionMap] geometrie '${key}' (${landSlug}) valt buiten viewBox-bounds.`);
+        break;
+      }
+    }
+  }
+}
+
+const wineRegions = drawn.filter((d) => d.wine);
+const contextRegions = drawn.filter((d) => !d.wine);
+---
+
+{file && wineRegions.length > 0 && (
+  <div class:list={['crm', className]}>
+    <nav class="crm-mapwrap" aria-label={`Wijngebieden van ${landName}`}>
+      <div class="crm-wrap" style={`--map-aspect: ${aspect};`}>
+        <svg
+          viewBox={viewBox}
+          class="crm-map"
+          role="img"
+          aria-label={`Klikbare kaart met de wijngebieden van ${landName}`}
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <title>Wijngebieden van {landName}</title>
+
+          {/* ── Context-onderlaag: regions zonder gepubliceerde streek ── */}
+          <g class="crm-context" aria-hidden="true">
+            {contextRegions.map((d) => (
+              <g class="crm-region crm-region--static">
+                <title>{d.name}</title>
+                <path d={d.entry.d} class="crm-fill" />
+              </g>
+            ))}
+          </g>
+
+          {/* ── Klikbare wijnstreken ── */}
+          <g class="crm-regions">
+            {wineRegions.map((d) => {
+              const tip = d.badge ? `${d.name} — ${d.badge}` : d.name;
+              const Tag = d.linkable ? 'a' : 'g';
+              const linkProps = d.linkable ? { href: `/streken/${d.key}/` } : {};
+              return (
+                <Tag
+                  {...linkProps}
+                  class:list={['crm-region', { 'crm-region--flat': !d.linkable }]}
+                  style={`--c: ${d.color};`}
+                  data-name={d.name}
+                  data-meta={d.badge ?? ''}
+                  aria-label={tip}
+                >
+                  <title>{tip}</title>
+                  <path d={d.entry.d} class="crm-fill" />
+                  <text
+                    x={d.entry.labelAt.x}
+                    y={d.entry.labelAt.y}
+                    text-anchor="middle"
+                    class="crm-label"
+                    font-size={13 * strokeScale}
+                  >{d.name}</text>
+                </Tag>
+              );
+            })}
+          </g>
+        </svg>
+
+        <div class="crm-tooltip" role="status" aria-live="polite" hidden>
+          <p class="crm-tip-name"></p>
+          <p class="crm-tip-meta"></p>
+        </div>
+      </div>
+    </nav>
+  </div>
+)}
+
+<style>
+  /* Kaart = enhancement; verbergt zich op smal/mobiel (card-grid blijft fallback). */
+  .crm { display: none; }
+  @media (min-width: 760px) {
+    .crm { display: block; margin-bottom: var(--space-8); }
+  }
+  .crm-mapwrap { min-width: 0; }
+  .crm-wrap {
+    position: relative;
+    box-sizing: border-box;
+    border: 1px solid var(--ruleSoft);
+    background: var(--paperDeep);
+    aspect-ratio: var(--map-aspect, 1);
+    max-height: 72vh;
+    margin-inline: auto;
+    overflow: hidden;
+  }
+  .crm-map { width: 100%; height: 100%; display: block; }
+
+  .crm-region { cursor: pointer; }
+  .crm-region--static,
+  .crm-region--flat { cursor: default; }
+  .crm-region--static { pointer-events: none; }
+  .crm-region:focus-visible { outline: none; }
+  .crm-region:focus-visible .crm-fill { stroke-opacity: 1; fill-opacity: 0.4; }
+
+  .crm-fill {
+    fill: var(--c, #5A1A1F);
+    fill-opacity: 0.2;
+    stroke: var(--c, #5A1A1F);
+    stroke-width: 1.4;
+    stroke-opacity: 0.75;
+    transition: fill-opacity var(--duration-fast, 160ms) var(--ease-out, ease),
+                stroke-opacity var(--duration-fast, 160ms) var(--ease-out, ease);
+  }
+  .crm-region:hover .crm-fill,
+  .crm-region:focus-visible .crm-fill { fill-opacity: 0.4; stroke-opacity: 1; }
+
+  /* Context (geen streekpagina) — gedempt, vormt het nationale silhouet */
+  .crm-region--static .crm-fill {
+    fill: var(--inkFaint, #8A7E70);
+    fill-opacity: 0.05;
+    stroke: var(--inkFaint, #8A7E70);
+    stroke-width: 0.9;
+    stroke-opacity: 0.35;
+  }
+
+  .crm-label {
+    font-family: var(--font-display, 'Cormorant Garamond', Georgia, serif);
+    font-style: italic;
+    fill: var(--ink, #1F1A16);
+    pointer-events: none;
+    paint-order: stroke;
+    stroke: var(--paperDeep, #F0E6D0);
+    stroke-width: 3px;
+    stroke-linejoin: round;
+  }
+
+  .crm-tooltip {
+    position: absolute; top: 0; left: 0;
+    transform: translate(-50%, -115%);
+    pointer-events: none; z-index: 5; max-width: 16rem;
+    background: var(--paper); border: 1px solid var(--ruleSoft);
+    box-shadow: 0 4px 14px rgba(31, 26, 22, 0.18);
+    padding: 0.5rem 0.7rem;
+  }
+  .crm-tooltip[hidden] { display: none; }
+  .crm-tip-name {
+    margin: 0;
+    font-family: var(--font-display, 'Cormorant Garamond', Georgia, serif);
+    font-style: italic; font-size: 1.05rem; color: var(--ink);
+  }
+  .crm-tip-meta {
+    margin: 0.1rem 0 0;
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.68rem; letter-spacing: 0.06em; color: var(--inkSoft);
+  }
+  .crm-tip-meta:empty { display: none; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .crm-fill { transition: none; }
+  }
+</style>
+
+<script>
+  // Hover/focus-tooltip — verrijking; navigatie + native <title> werken zonder JS.
+  (function () {
+    if (typeof window === 'undefined') return;
+    document.querySelectorAll('.crm:not([data-wired])').forEach((root) => {
+      root.setAttribute('data-wired', 'true');
+      const nav = root as HTMLElement;
+      const wrap = nav.querySelector('.crm-wrap') as HTMLElement | null;
+      const tip = nav.querySelector('.crm-tooltip') as HTMLElement | null;
+      const tipName = nav.querySelector('.crm-tip-name') as HTMLElement | null;
+      const tipMeta = nav.querySelector('.crm-tip-meta') as HTMLElement | null;
+      if (!wrap || !tip || !tipName || !tipMeta) return;
+
+      const show = (el: HTMLElement, clientX: number, clientY: number) => {
+        tipName.textContent = el.getAttribute('data-name') || '';
+        tipMeta.textContent = el.getAttribute('data-meta') || '';
+        const rect = wrap.getBoundingClientRect();
+        tip.style.left = `${clientX - rect.left}px`;
+        tip.style.top = `${clientY - rect.top}px`;
+        tip.hidden = false;
+      };
+      const hide = () => { tip.hidden = true; };
+
+      nav.querySelectorAll('.crm-regions .crm-region').forEach((node) => {
+        const el = node as HTMLElement;
+        el.addEventListener('pointerenter', (e) => show(el, (e as PointerEvent).clientX, (e as PointerEvent).clientY));
+        el.addEventListener('pointermove', (e) => show(el, (e as PointerEvent).clientX, (e as PointerEvent).clientY));
+        el.addEventListener('pointerleave', hide);
+        el.addEventListener('focus', () => {
+          const b = el.getBoundingClientRect();
+          show(el, b.left + b.width / 2, b.top + b.height / 2);
+        });
+        el.addEventListener('blur', hide);
+      });
+    });
+  })();
+</script>

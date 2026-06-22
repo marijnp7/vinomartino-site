@@ -3,6 +3,7 @@ import SiteLayout from '../../layouts/SiteLayout.astro';
 import LandPageContent from '../../components/pages/LandPageContent.astro';
 import RelatedArticles from '../../components/RelatedArticles.astro';
 import InfographicAtlasInteractive from '../../components/InfographicAtlasInteractive.astro';
+import CountryRegionMap, { type RegionMeta } from '../../components/CountryRegionMap.astro';
 import { loadAtlasForLand, type AtlasData } from '../../lib/atlas-data';
 import { loadLanden, type Land } from '../../lib/landen';
 import { loadStreken } from '../../lib/streken';
@@ -211,6 +212,35 @@ const pageData = entry
 
 const pageUrl = new URL(`/landen/${slug}/`, Astro.site ?? 'https://vinomartino.com').href;
 
+// ── LAT-1662: wijngebieden in échte geometrie ───────────────
+// Vervangt op landen mét region-geometrie de oude blob-atlas door
+// <CountryRegionMap>. Detecteer of er een src/data/atlas/regions/{slug}.json is.
+const regionGeoKeys = Object.keys(
+  import.meta.glob('../../data/atlas/regions/*.json'),
+);
+const hasRegionGeo = regionGeoKeys.includes(`../../data/atlas/regions/${slug}.json`);
+
+// Streek-metadata (naam/kleur/badge/klikbaar) voor de region-kaart. Bron =
+// atlas-zones (zelfde slugs + statusfilter als de /streken/-generator), met de
+// streek-cards als aanvulling. Region-keys hierbuiten = inerte context.
+const ACCENT_HEX: Record<string, string> = {
+  burgundy: '#5A1A1F',
+  rust: '#A14F2A',
+  vine: '#5C6B3F',
+};
+const regionMeta: Record<string, RegionMeta> = {};
+for (const z of atlas?.zones ?? []) {
+  regionMeta[z.slug] = {
+    name: z.name,
+    color: z.zoneColor ? ACCENT_HEX[z.zoneColor] : undefined,
+    badge: z.dominantGrape || undefined,
+    linkable: z.linkable !== false,
+  };
+}
+for (const c of strekenCards) {
+  if (!regionMeta[c.slug]) regionMeta[c.slug] = { name: c.name, badge: c.badge || undefined, linkable: true };
+}
+
 // Prefer Directus o2m join `entry.wijnstreken` (LAT-1008). Fall back to showcase-derived
 // names so JSON-LD stays populated until editors fill the relation.
 const landStrekenForSchema: Array<string | { name: string; slug?: string }> =
@@ -271,7 +301,11 @@ const schema = [
     practical={pageData.practical}
     climate={pageData.climate}
   >
-    {atlas && atlas.zones.length > 0 && (
+    {hasRegionGeo ? (
+      <div slot="atlas">
+        <CountryRegionMap landSlug={slug!} landName={pageData.name} meta={regionMeta} />
+      </div>
+    ) : atlas && atlas.zones.length > 0 ? (
       <InfographicAtlasInteractive
         slot="atlas"
         variant="compact"
@@ -285,7 +319,7 @@ const schema = [
         source="VinoMartino redactie"
         alt={`Interactieve kaart van ${pageData.name} met schakelbare lagen voor streken, druiven en appellaties; zones tonen kerngetallen bij hover en linken naar de streekgids.`}
       />
-    )}
+    ) : null}
   </LandPageContent>
   {entry && <RelatedArticles items={entry.relatedArticles} />}
 </SiteLayout>
