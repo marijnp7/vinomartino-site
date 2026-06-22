@@ -27,7 +27,13 @@ const regionGeo = import.meta.glob<{ default: RegionsFile }>(
 );
 
 interface RegionEntry { name: string; d: string; wine: boolean; labelAt: { x: number; y: number } }
-interface RegionsFile { _meta?: { viewBox?: string; country?: string }; regions: Record<string, RegionEntry> }
+/** Puntmarker = streek zonder eigen silhouet (bv. Etna binnen Sicilië). */
+interface MarkerEntry { slug: string; name: string; x: number; y: number; badge?: string | null }
+interface RegionsFile {
+  _meta?: { viewBox?: string; country?: string };
+  regions: Record<string, RegionEntry>;
+  markers?: MarkerEntry[];
+}
 
 /** Per-streek metadata uit de pagina (atlas-zones of streek-cards). */
 export interface RegionMeta {
@@ -124,20 +130,44 @@ if (file) {
 const wineRegions = drawn.filter((d) => d.wine);
 const contextRegions = drawn.filter((d) => !d.wine);
 
+// Puntmarkers: een streek die te klein is voor een eigen admin-1 silhouet
+// (bv. Etna binnen Sicilië). Net als regions alléén klikbaar als de
+// streekpagina bestaat (meta[slug] uit de live Directus-data).
+interface DrawnMarker { slug: string; x: number; y: number; name: string; color: string; badge?: string; linkable: boolean }
+const markers: DrawnMarker[] = (file?.markers ?? []).map((mk) => {
+  const m = meta[mk.slug];
+  return {
+    slug: mk.slug,
+    x: mk.x,
+    y: mk.y,
+    name: m?.name ?? mk.name,
+    color: m?.color ?? PALETTE[colorIdx++ % PALETTE.length],
+    badge: m?.badge ?? mk.badge ?? undefined,
+    linkable: Boolean(m) && m?.linkable !== false,
+  };
+});
+
+const markerRadius = 5 * strokeScale;
+// Legenda combineert vlak-streken én puntmarkers (zelfde stijl).
+const legendItems = [
+  ...wineRegions.map((d) => ({ key: d.key, name: d.name, color: d.color, badge: d.badge, linkable: d.linkable })),
+  ...markers.map((d) => ({ key: d.slug, name: d.name, color: d.color, badge: d.badge, linkable: d.linkable })),
+];
+
 const headTitle = title ?? `De wijnstreken van ${landName}`;
 const headIntro =
   intro ??
   `Elke streek in échte geografie. Beweeg over een gebied voor de kerndruif en klik door naar de streekgids.`;
 ---
 
-{file && wineRegions.length > 0 && (
+{file && legendItems.length > 0 && (
   <div class:list={['crm', className]}>
     <div class="crm-intro">
       {kicker && <p class="crm-kicker">{kicker}</p>}
       <h2 class="crm-title">{headTitle}</h2>
       <p class="crm-lede">{headIntro}</p>
       <ul class="crm-legend">
-        {wineRegions.map((d) => {
+        {legendItems.map((d) => {
           const Tag = d.linkable ? 'a' : 'span';
           const linkProps = d.linkable ? { href: `/streken/${d.key}/` } : {};
           return (
@@ -204,6 +234,37 @@ const headIntro =
               );
             })}
           </g>
+
+          {/* ── Puntmarkers (bv. Etna binnen Sicilië) ── */}
+          {markers.length > 0 && (
+            <g class="crm-markers">
+              {markers.map((d) => {
+                const tip = d.badge ? `${d.name} — ${d.badge}` : d.name;
+                const Tag = d.linkable ? 'a' : 'g';
+                const linkProps = d.linkable ? { href: `/streken/${d.slug}/` } : {};
+                return (
+                  <Tag
+                    {...linkProps}
+                    class:list={['crm-region', 'crm-marker', { 'crm-region--flat': !d.linkable }]}
+                    style={`--c: ${d.color};`}
+                    data-name={d.name}
+                    data-meta={d.badge ?? ''}
+                    aria-label={tip}
+                  >
+                    <title>{tip}</title>
+                    <circle cx={d.x} cy={d.y} r={markerRadius} class="crm-dot" />
+                    <text
+                      x={d.x}
+                      y={d.y - markerRadius - 3 * strokeScale}
+                      text-anchor="middle"
+                      class="crm-label crm-marker-label"
+                      font-size={13 * strokeScale}
+                    >{d.name}</text>
+                  </Tag>
+                );
+              })}
+            </g>
+          )}
         </svg>
 
         <div class="crm-tooltip" role="status" aria-live="polite" hidden>
@@ -334,6 +395,18 @@ const headIntro =
     stroke-linejoin: round;
   }
 
+  /* Puntmarker (bv. Etna): klein gevuld stipje binnen het regio-silhouet. */
+  .crm-dot {
+    fill: var(--c, #5A1A1F);
+    fill-opacity: 0.9;
+    stroke: var(--paperDeep, #F0E6D0);
+    stroke-width: 1.5;
+    transition: r var(--duration-fast, 160ms) var(--ease-out, ease);
+  }
+  .crm-marker:hover .crm-dot,
+  .crm-marker:focus-visible .crm-dot { fill-opacity: 1; }
+  .crm-marker-label { font-style: normal; font-weight: 600; }
+
   .crm-tooltip {
     position: absolute; top: 0; left: 0;
     transform: translate(-50%, -115%);
@@ -383,7 +456,7 @@ const headIntro =
       };
       const hide = () => { tip.hidden = true; };
 
-      nav.querySelectorAll('.crm-regions .crm-region').forEach((node) => {
+      nav.querySelectorAll('.crm-regions .crm-region, .crm-markers .crm-region').forEach((node) => {
         const el = node as HTMLElement;
         el.addEventListener('pointerenter', (e) => show(el, (e as PointerEvent).clientX, (e as PointerEvent).clientY));
         el.addEventListener('pointermove', (e) => show(el, (e as PointerEvent).clientX, (e as PointerEvent).clientY));

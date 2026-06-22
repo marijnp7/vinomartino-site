@@ -52,19 +52,26 @@ const COUNTRIES = {
       Lazio: { slug: 'lazio-italie', nl: 'Lazio' },
       Campania: { slug: 'campania-italie', nl: 'Campania' },
       Apulia: { slug: 'puglia-italie', nl: 'Puglia' },
-      // Sicilië wordt op de site ontsloten als de Etna-streek (live slug
-      // /streken/etna-sicilie/). Marijn 06-22: "we hebben een artikel over Etna
-      // maar zie die niet als wijnstreek terug" — de admin-1 region Sicily linkt
-      // dus naar etna-sicilie, niet de (404) sicilia-italie-gok.
-      Sicily: { slug: 'etna-sicilie', nl: 'Sicilië · Etna' },
+      // Sicilië = de hele admin-1 region; het hele eiland is GEEN wijnstreek.
+      // Etna is een klein gebied op de oostflank van de vulkaan binnen Sicilië
+      // (Marijn 06-22: "Etna is Sicilië. Niet andersom."). Daarom blijft het
+      // eiland inerte context (zie ctxLabels) en wordt Etna als puntmarker
+      // binnen Sicilië getekend (zie `markers`) i.p.v. het hele eiland te
+      // vullen/linken als "Etna".
       Sardegna: { slug: 'sardegna-italie', nl: 'Sardinië' },
       // Sinds 06-22 ook gepubliceerd (live 200) → klikbaar i.p.v. context.
       'Emilia-Romagna': { slug: 'emilia-romagna-italie', nl: 'Emilia-Romagna' },
       'Friuli-Venezia Giulia': { slug: 'friuli-italie', nl: 'Friuli' },
       'Trentino-Alto Adige': { slug: 'trentino-italie', nl: 'Trentino' },
     },
+    // Etna = puntmarker binnen Sicilië (oostflank vulkaan, wijndorpen rond
+    // Castiglione di Sicilia/Linguaglossa). Linkt naar /streken/etna-sicilie/.
+    markers: [
+      { slug: 'etna-sicilie', nl: 'Etna', lon: 15.0, lat: 37.8, badge: 'Nerello Mascalese' },
+    ],
     // NL-labels voor context-regions (anders valt NE-naam terug).
     ctxLabels: {
+      Sicily: 'Sicilië',
       Lombardia: 'Lombardije',
       Marche: 'Marche',
       Calabria: 'Calabrië',
@@ -321,7 +328,20 @@ function buildCountry(slug, cfg, all) {
     };
   }
 
-  return { out, wineCount: built.filter((b) => b.wine).length, total: built.length, viewBox };
+  // Puntmarkers: streken die geen eigen admin-1 silhouet krijgen (bv. Etna =
+  // klein gebied binnen Sicilië). Geprojecteerd met dezelfde gefitte projectie.
+  const markers = [];
+  for (const mk of cfg.markers || []) {
+    const xy = projection([mk.lon, mk.lat]);
+    if (!xy || !isFinite(xy[0]) || !isFinite(xy[1])) {
+      console.warn(`[markers] projectie faalde voor ${mk.slug} (${slug})`);
+      continue;
+    }
+    markers.push({ slug: mk.slug, name: mk.nl, x: r1(xy[0]), y: r1(xy[1]), badge: mk.badge ?? null });
+  }
+  if (markers.length) out.markers = markers;
+
+  return { out, wineCount: built.filter((b) => b.wine).length, total: built.length, markerCount: markers.length, viewBox };
 }
 
 const only = process.argv[2];
@@ -331,8 +351,8 @@ mkdirSync(OUT_DIR, { recursive: true });
 for (const slug of targets) {
   const cfg = COUNTRIES[slug];
   if (!cfg) { console.warn('onbekend land:', slug); continue; }
-  const { out, wineCount, total, viewBox } = buildCountry(slug, cfg, all);
+  const { out, wineCount, total, markerCount, viewBox } = buildCountry(slug, cfg, all);
   const file = resolve(OUT_DIR, `${slug}.json`);
   writeFileSync(file, JSON.stringify(out, null, 2) + '\n');
-  console.log(`geschreven: ${file} | regions ${total} | wijnstreken ${wineCount} | viewBox ${viewBox}`);
+  console.log(`geschreven: ${file} | regions ${total} | wijnstreken ${wineCount} | markers ${markerCount} | viewBox ${viewBox}`);
 }
