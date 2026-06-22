@@ -17,6 +17,9 @@ export interface Article {
     category: string;
     tags: string[];
     heroImage: string | null;
+    // LAT-1687: ruwe Directus file-UUID van de hero, zodat de beeldcredit-registry
+    // (lib/image-credits) de attributie aan het beeld kan koppelen.
+    heroImageId: string | null;
     ogImage: string | null;
     status: string;
     featured: boolean;
@@ -257,6 +260,7 @@ function mapArticle(
           category: String(a.category || ''),
           tags: (a.tags as string[]) || [],
           heroImage: heroImagePath,
+          heroImageId: a.hero_image ? String(a.hero_image) : null,
           ogImage: ogImagePath,
           status: String(a.status || 'draft'),
           featured: a.featured === true || a.featured === 1 || a.featured === '1',
