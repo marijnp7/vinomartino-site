@@ -1,7 +1,7 @@
 ---
 import SiteLayout from '../../layouts/SiteLayout.astro';
 import SmartImg from '../../components/SmartImg.astro';
-import DiscoverMapWorld from '../../components/DiscoverMapWorld.astro';
+import DiscoverMapEurope from '../../components/DiscoverMapEurope.astro';
 import { loadLanden } from '../../lib/landen';
 import { loadStreken } from '../../lib/streken';
 import { organizationSchema, breadcrumbSchema } from '../../lib/seo';
@@ -87,7 +87,7 @@ const schema = [
 
   {tiles.length > 0 && (
     <section class="section container map-hero">
-      <DiscoverMapWorld
+      <DiscoverMapEurope
         countries={tiles.map(t => ({ slug: t.slug, name: t.name, color: t.color, regionCount: t.regions.length }))}
       />
     </section>
