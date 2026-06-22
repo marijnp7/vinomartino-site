@@ -1,21 +1,30 @@
 ---
 /**
- * <DiscoverMapEurope> — klikbare Europa-wijnkaart op /ontdek/ (LAT-1624)
+ * <DiscoverMapEurope> — klikbare wijnkaart op /ontdek/ (LAT-1659)
  *
- * Ontwerp + scope: LAT-1605 plan. Renderingsmodel volgt 1:1 de regels van
- * <InfographicAtlasInteractive> (LAT-1122):
+ * Ontwerp + scope: LAT-1605/LAT-1659 plan. Renderingsmodel volgt 1:1 de regels
+ * van <InfographicAtlasInteractive> (LAT-1122):
  *   • Klik = échte navigatie (<a href="/landen/{slug}/">) — geen JS, geen 404-trap.
- *   • Alleen landen met een gepubliceerde /landen/{slug}/ zijn klikbaar; de rest
- *     wordt gedempt/inert (aria-hidden) als geografische context getekend.
+ *   • Elk land met een gepubliceerde /landen/{slug}/ is klikbaar; landen zonder
+ *     pagina worden gedempt/inert (aria-hidden) als geografische context getekend.
  *   • Hover/focus → tooltip (land + aantal streken). JS verrijkt alleen; de
  *     native <title> geeft dezelfde info zonder JS.
  *
- * Geometrie komt uit het gedeelde, statische databestand
- * `src/data/atlas/europe-countries.json` (gekeyd op land-slug). De kaart is een
- * *enhancement* boven het bubbel-grid; het grid blijft de canonieke a11y- en
- * mobiele fallback (de kaart verbergt zich op smalle viewports).
+ * Marijn-feedback (LAT-1659, 2026-06-22): de FOCUS is een kaart van Europa
+ * (grote, goed-aanklikbare landen). Wijnlanden búiten Europa — nu Zuid-Afrika,
+ * later Argentinië/Chili/Australië — krijgen een eigen plek "aan de zijkant":
+ * kaartjes met de échte landsilhouet, elk klikbaar. De wereldkaart maakte Europa
+ * te klein; die is hier vervangen door deze Europa-focus + zijbalk.
+ *
+ * Geometrie:
+ *   • Europa: src/data/atlas/europe-countries.json (d3 geoConicConformal).
+ *   • Overzee: src/data/atlas/overseas-countries.json (per land genormaliseerd
+ *     silhouet, gegenereerd uit world-countries.json).
+ * De kaart is een *enhancement* boven het bubbel-grid; het grid blijft de
+ * canonieke a11y- en mobiele fallback (de kaart verbergt zich op smalle viewports).
  */
-import geo from '../data/atlas/europe-countries.json';
+import europeGeo from '../data/atlas/europe-countries.json';
+import overseasGeo from '../data/atlas/overseas-countries.json';
 
 export interface MapCountry {
   slug: string;
@@ -35,8 +44,8 @@ export interface Props {
 const { countries, class: className } = Astro.props;
 
 interface GeoEntry { name: string; d: string; labelOffset?: { x: number; y: number } }
-const viewBox = (geo._meta?.viewBox as string) || '0 0 800 700';
-const entries = geo.countries as Record<string, GeoEntry>;
+const viewBox = (europeGeo._meta?.viewBox as string) || '0 0 800 700';
+const entries = europeGeo.countries as Record<string, GeoEntry>;
 
 const vb = viewBox.split(/\s+/).map(Number);
 const minX = vb[0] || 0;
@@ -45,14 +54,23 @@ const innerW = vb[2] || 800;
 const innerH = vb[3] || 700;
 const maxX = minX + innerW;
 const maxY = minY + innerH;
+const aspect = innerH > 0 ? innerW / innerH : 1;
 
 const byLand = new Map(countries.map((c) => [c.slug, c]));
 
-// ── Validatie numeriek (LAT-1624 scope #5; we hebben geen lokale visuele QA) ──
-// Fail-loud conform content-loader-conventie: waarschuw maar render door.
+// ── Overzeese wijnlanden (zijbalk): alleen gepubliceerde mét silhouet ──
+interface OverseasGeo { name: string; viewBox: string; d: string }
+const overseasEntries = overseasGeo.countries as Record<string, OverseasGeo>;
+const overseas = countries
+  .filter((c) => overseasEntries[c.slug])
+  .map((c) => ({ land: c, geo: overseasEntries[c.slug]! }));
+
+// ── Validatie numeriek (fail-loud conform content-loader-conventie) ──
+// Een gepubliceerd land hoort óf op de Europa-kaart óf in de overzee-zijbalk te
+// staan; mist het beide, dan valt het terug op het bubbel-grid.
 for (const land of countries) {
-  if (!entries[land.slug]) {
-    console.warn(`[DiscoverMapEurope] gepubliceerd land '${land.slug}' heeft geen geometrie-entry in europe-countries.json — niet op de kaart, alleen in het bubbel-grid. Voeg een path toe (LAT-1624).`);
+  if (!entries[land.slug] && !overseasEntries[land.slug]) {
+    console.warn(`[DiscoverMapEurope] gepubliceerd land '${land.slug}' heeft geen geometrie (europe-countries.json/overseas-countries.json) — niet op de kaart, alleen in het bubbel-grid (LAT-1659).`);
   }
 }
 for (const [slug, entry] of Object.entries(entries)) {
@@ -86,8 +104,6 @@ function labelAnchor(d: string, off?: { x: number; y: number }) {
 
 const strokeScale = Math.max(innerW, innerH) / 600;
 
-// Klikbare landen eerst tekenen onder context? Nee — context onderlaag eerst,
-// dan klikbare landen erbovenop zodat hun stroke/labels niet weggedrukt worden.
 const drawn = Object.entries(entries).map(([slug, entry]) => {
   const land = byLand.get(slug);
   const a = labelAnchor(entry.d, entry.labelOffset);
@@ -97,69 +113,92 @@ const linkableCount = drawn.filter((d) => d.land).length;
 ---
 
 {linkableCount > 0 && (
-  <nav class:list={['dme', className]} aria-label="Wijnkaart van Europa">
-    <div class="dme-wrap">
-      <svg
-        viewBox={viewBox}
-        class="dme-map"
-        role="img"
-        aria-label="Klikbare wijnkaart van Europa"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <title>Wijnkaart van Europa</title>
+  <div class:list={['dme', className]}>
+    <nav class="dme-mapwrap" aria-label="Wijnkaart van Europa">
+      <div class="dme-wrap" style={`--map-aspect: ${aspect};`}>
+        <svg
+          viewBox={viewBox}
+          class="dme-map"
+          role="img"
+          aria-label="Klikbare wijnkaart van Europa"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <title>Wijnkaart van Europa</title>
 
-        {/* ── Context-onderlaag: landen zonder pagina (inert) ── */}
-        <g class="dme-context" aria-hidden="true">
-          {drawn.filter((d) => !d.land).map((d) => (
-            <g class="dme-country dme-country--static">
-              <title>{d.entry.name}</title>
-              <path d={d.entry.d} class="dme-fill" />
-              <text
-                x={d.a.x}
-                y={d.a.y}
-                text-anchor="middle"
-                class="dme-label dme-label--static"
-                font-size={11 * strokeScale}
-              >{d.entry.name}</text>
-            </g>
-          ))}
-        </g>
+          {/* ── Context-onderlaag: landen zonder pagina (inert, geen label) ── */}
+          <g class="dme-context" aria-hidden="true">
+            {drawn.filter((d) => !d.land).map((d) => (
+              <g class="dme-country dme-country--static">
+                <title>{d.entry.name}</title>
+                <path d={d.entry.d} class="dme-fill" />
+              </g>
+            ))}
+          </g>
 
-        {/* ── Klikbare wijnlanden (gepubliceerd) ── */}
-        <g class="dme-countries">
-          {drawn.filter((d) => d.land).map((d) => {
-            const land = d.land!;
-            const tip = `${land.name} — ${land.regionCount} ${land.regionCount === 1 ? 'streek' : 'streken'}`;
-            return (
+          {/* ── Klikbare wijnlanden (gepubliceerd) ── */}
+          <g class="dme-countries">
+            {drawn.filter((d) => d.land).map((d) => {
+              const land = d.land!;
+              const tip = `${land.name} — ${land.regionCount} ${land.regionCount === 1 ? 'streek' : 'streken'}`;
+              return (
+                <a
+                  href={`/landen/${land.slug}/`}
+                  class="dme-country"
+                  style={`--c: ${land.color};`}
+                  data-name={land.name}
+                  data-meta={`${land.regionCount} ${land.regionCount === 1 ? 'streek' : 'streken'}`}
+                  aria-label={tip}
+                >
+                  <title>{tip}</title>
+                  <path d={d.entry.d} class="dme-fill" />
+                  <text
+                    x={d.a.x}
+                    y={d.a.y}
+                    text-anchor="middle"
+                    class="dme-label"
+                    font-size={13 * strokeScale}
+                  >{land.name}</text>
+                </a>
+              );
+            })}
+          </g>
+        </svg>
+
+        <div class="dme-tooltip" role="status" aria-live="polite" hidden>
+          <p class="dme-tip-name"></p>
+          <p class="dme-tip-meta"></p>
+        </div>
+      </div>
+    </nav>
+
+    {overseas.length > 0 && (
+      <aside class="dme-rail" aria-label="Wijnlanden buiten Europa">
+        <p class="dme-rail-head">Wijnlanden overzee</p>
+        <ul class="dme-rail-list">
+          {overseas.map(({ land, geo }) => (
+            <li>
               <a
                 href={`/landen/${land.slug}/`}
-                class="dme-country"
+                class="dme-card"
                 style={`--c: ${land.color};`}
-                data-name={land.name}
-                data-meta={`${land.regionCount} ${land.regionCount === 1 ? 'streek' : 'streken'}`}
-                aria-label={tip}
+                aria-label={`${land.name} — ${land.regionCount} ${land.regionCount === 1 ? 'streek' : 'streken'}`}
               >
-                <title>{tip}</title>
-                <path d={d.entry.d} class="dme-fill" />
-                <text
-                  x={d.a.x}
-                  y={d.a.y}
-                  text-anchor="middle"
-                  class="dme-label"
-                  font-size={13 * strokeScale}
-                >{land.name}</text>
+                <span class="dme-card-shape">
+                  <svg viewBox={geo.viewBox} role="img" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+                    <path d={geo.d} class="dme-fill" />
+                  </svg>
+                </span>
+                <span class="dme-card-text">
+                  <span class="dme-card-name">{land.name}</span>
+                  <span class="dme-card-meta">{land.regionCount} {land.regionCount === 1 ? 'streek' : 'streken'}</span>
+                </span>
               </a>
-            );
-          })}
-        </g>
-      </svg>
-
-      <div class="dme-tooltip" role="status" aria-live="polite" hidden>
-        <p class="dme-tip-name"></p>
-        <p class="dme-tip-meta"></p>
-      </div>
-    </div>
-  </nav>
+            </li>
+          ))}
+        </ul>
+      </aside>
+    )}
+  </div>
 )}
 
 <style>
@@ -167,21 +206,34 @@ const linkableCount = drawn.filter((d) => d.land).length;
      het grid blijft de canonieke a11y/mobiele fallback (LAT-1605 plan). */
   .dme { display: none; }
   @media (min-width: 760px) {
-    .dme { display: block; margin-bottom: var(--space-8); }
+    .dme {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 14rem;
+      gap: var(--space-6);
+      align-items: start;
+      margin-bottom: var(--space-8);
+    }
+  }
+  /* Onder ~960px: zijbalk onder de kaart i.p.v. ernaast (smalle kolom oogt krap). */
+  @media (min-width: 760px) and (max-width: 960px) {
+    .dme { grid-template-columns: 1fr; }
+    .dme-rail-list { flex-direction: row; flex-wrap: wrap; }
+    .dme-card { width: calc(50% - var(--space-3) / 2); }
   }
 
+  .dme-mapwrap { min-width: 0; }
   .dme-wrap {
     position: relative;
+    box-sizing: border-box;
     border: 1px solid var(--ruleSoft);
     background: var(--paperDeep);
-    padding: clamp(1rem, 3vw, 2rem);
+    aspect-ratio: var(--map-aspect, 1);
+    /* Portret-Europa niet eindeloos hoog laten worden naast de zijbalk. */
+    max-height: 70vh;
+    margin-inline: auto;
+    overflow: hidden;
   }
-  .dme-map {
-    width: 100%;
-    height: auto;
-    max-height: 520px;
-    display: block;
-  }
+  .dme-map { width: 100%; height: 100%; display: block; }
 
   /* Klikbare landen ----------------------------------------- */
   .dme-country { cursor: pointer; }
@@ -221,10 +273,50 @@ const linkableCount = drawn.filter((d) => d.land).length;
     stroke-width: 3px;
     stroke-linejoin: round;
   }
-  .dme-label--static {
-    font-style: normal;
-    fill: var(--inkFaint, #8A7E70);
-    font-size: inherit;
+
+  /* Zijbalk: overzeese wijnlanden --------------------------- */
+  .dme-rail { min-width: 0; }
+  .dme-rail-head {
+    margin: 0 0 var(--space-3);
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--inkFaint, #8A7E70);
+  }
+  .dme-rail-list {
+    list-style: none; margin: 0; padding: 0;
+    display: flex; flex-direction: column; gap: var(--space-3);
+  }
+  .dme-card {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 0.7rem;
+    border: 1px solid var(--ruleSoft);
+    border-left: 3px solid var(--c, #5A1A1F);
+    background: var(--paper);
+    text-decoration: none;
+    transition: background var(--duration-fast, 160ms) var(--ease-out, ease),
+                transform var(--duration-fast, 160ms) var(--ease-out, ease);
+  }
+  .dme-card:hover { background: var(--paperDeep); transform: translateX(2px); }
+  .dme-card-shape {
+    flex: 0 0 auto;
+    width: 2.5rem; height: 2.5rem;
+    display: grid; place-items: center;
+  }
+  .dme-card-shape svg { width: 100%; height: 100%; display: block; }
+  .dme-card:hover .dme-fill { fill-opacity: 0.34; stroke-opacity: 1; }
+  .dme-card-text { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
+  .dme-card-name {
+    font-family: var(--font-display, 'Cormorant Garamond', Georgia, serif);
+    font-size: 1.05rem; font-style: italic; color: var(--ink, #1F1A16);
+    line-height: 1.1;
+  }
+  .dme-card-meta {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.625rem; letter-spacing: 0.06em; color: var(--inkSoft, #5C5247);
   }
 
   /* Tooltip ------------------------------------------------- */
@@ -250,7 +342,7 @@ const linkableCount = drawn.filter((d) => d.land).length;
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .dme-fill { transition: none; }
+    .dme-fill, .dme-card { transition: none; }
   }
 </style>
 
