@@ -52,26 +52,18 @@ const COUNTRIES = {
       Lazio: { slug: 'lazio-italie', nl: 'Lazio' },
       Campania: { slug: 'campania-italie', nl: 'Campania' },
       Apulia: { slug: 'puglia-italie', nl: 'Puglia' },
-      // Sicilië = de hele admin-1 region; het hele eiland is GEEN wijnstreek.
-      // Etna is een klein gebied op de oostflank van de vulkaan binnen Sicilië
-      // (Marijn 06-22: "Etna is Sicilië. Niet andersom."). Daarom blijft het
-      // eiland inerte context (zie ctxLabels) en wordt Etna als puntmarker
-      // binnen Sicilië getekend (zie `markers`) i.p.v. het hele eiland te
-      // vullen/linken als "Etna".
+      // Het wijngebied heet "Sicilië" (Marijn 06-22: "het wijngebied van etna
+      // heet sicilie"). Het hele eiland-silhouet is de klikbare wijnstreek,
+      // gelabeld "Sicilië", linkend naar de Directus-streek /streken/etna-sicilie/.
+      Sicily: { slug: 'etna-sicilie', nl: 'Sicilië' },
       Sardegna: { slug: 'sardegna-italie', nl: 'Sardinië' },
       // Sinds 06-22 ook gepubliceerd (live 200) → klikbaar i.p.v. context.
       'Emilia-Romagna': { slug: 'emilia-romagna-italie', nl: 'Emilia-Romagna' },
       'Friuli-Venezia Giulia': { slug: 'friuli-italie', nl: 'Friuli' },
       'Trentino-Alto Adige': { slug: 'trentino-italie', nl: 'Trentino' },
     },
-    // Etna = puntmarker binnen Sicilië (oostflank vulkaan, wijndorpen rond
-    // Castiglione di Sicilia/Linguaglossa). Linkt naar /streken/etna-sicilie/.
-    markers: [
-      { slug: 'etna-sicilie', nl: 'Etna', lon: 15.0, lat: 37.8, badge: 'Nerello Mascalese' },
-    ],
     // NL-labels voor context-regions (anders valt NE-naam terug).
     ctxLabels: {
-      Sicily: 'Sicilië',
       Lombardia: 'Lombardije',
       Marche: 'Marche',
       Calabria: 'Calabrië',
