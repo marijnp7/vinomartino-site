@@ -8,24 +8,28 @@
 import type { AccommodatieKaart } from '../lib/accommodaties';
 import { accommodatieBookingHref } from '../lib/accommodaties';
 import { STAY_TIER_META } from '../lib/stay-tier';
-import { currencySymbol } from '../lib/currency';
+import { formatMoney } from '../lib/currency';
 import SmartImg from './SmartImg.astro';
 
 interface Props {
   kaart: AccommodatieKaart;
   /** Context-slug voor affiliate-tracking, bv. "piemonte". */
   context?: string;
-  /** Valutacode van de regio (bv. 'ZAR'). Leeg = euro (LAT-1664). */
-  valuta?: string | null;
+  /** Bron-valuta van de prijzen (bv. 'ZAR' voor Zuid-Afrika). Leeg = EUR (LAT-1664). */
+  bronValuta?: string | null;
+  /** Display-valuta; default EUR. Hook voor een latere valuta-switcher (LAT-1664). */
+  displayValuta?: string;
 }
 
-const { kaart, context, valuta } = Astro.props;
+const { kaart, context, bronValuta, displayValuta = 'EUR' } = Astro.props;
 const href = accommodatieBookingHref(kaart);
 const altText = kaart.fotoAlt || `${kaart.naam} — ${kaart.plaats}`;
 const heeftPrijs = kaart.prijsLaag != null || kaart.prijsHoog != null;
 // LAT-1406: tier-badge — alleen tonen als het verblijf gecureerd is.
 const tier = kaart.tier ? STAY_TIER_META[kaart.tier] : null;
-const sym = currencySymbol(valuta);
+// LAT-1664: converteer bron-valuta → display (EUR). Geen los €-symbool meer.
+const prijsLaagFmt = formatMoney(kaart.prijsLaag, bronValuta, displayValuta);
+const prijsHoogFmt = formatMoney(kaart.prijsHoog, bronValuta, displayValuta);
 ---
 
 <article class="acc-kaart" id={`acc-${kaart.slug}`}>
@@ -43,16 +47,16 @@ const sym = currencySymbol(valuta);
 
     {heeftPrijs && (
       <dl class="acc-kaart__prijzen">
-        {kaart.prijsLaag != null && (
+        {prijsLaagFmt && (
           <div class="acc-kaart__prijs">
             <dt class="acc-kaart__seizoen">Laagseizoen</dt>
-            <dd class="acc-kaart__bedrag">Kamer vanaf {sym}{kaart.prijsLaag}</dd>
+            <dd class="acc-kaart__bedrag">Kamer vanaf {prijsLaagFmt}</dd>
           </div>
         )}
-        {kaart.prijsHoog != null && (
+        {prijsHoogFmt && (
           <div class="acc-kaart__prijs">
             <dt class="acc-kaart__seizoen">Hoogseizoen</dt>
-            <dd class="acc-kaart__bedrag">vanaf {sym}{kaart.prijsHoog}</dd>
+            <dd class="acc-kaart__bedrag">vanaf {prijsHoogFmt}</dd>
           </div>
         )}
       </dl>

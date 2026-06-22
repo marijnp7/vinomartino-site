@@ -47,7 +47,9 @@ export async function getStaticPaths() {
 
 const { roundup, streek, streekSlug } = Astro.props as { roundup: Roundup; streek: Streek | null; streekSlug: string };
 const regio = roundup.regio || streek?.name || streekSlug;
-const valuta = currencyForLand(streek?.landSlug);
+// LAT-1664: bron-valuta volgt het land van de streek (Zuid-Afrika → ZAR); de
+// roundup converteert naar EUR voor weergave. Display blijft EUR (board-besluit).
+const bronValuta = currencyForLand(streek?.landSlug);
 
 const schema = [
   organizationSchema(),
@@ -82,7 +84,7 @@ const schema = [
   </section>
 
   <div class="container">
-    <AccommodatieRoundup roundup={roundup} context={streekSlug} valuta={valuta} hideHead />
+    <AccommodatieRoundup roundup={roundup} context={streekSlug} bronValuta={bronValuta} hideHead />
   </div>
 </SiteLayout>
 
