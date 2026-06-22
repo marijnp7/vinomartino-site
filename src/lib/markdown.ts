@@ -82,7 +82,14 @@ export async function markdownToHtmlWithToc(
   const { fromMarkdown } = await import('mdast-util-from-markdown');
   const { toHast } = await import('mdast-util-to-hast');
   const { toHtml } = await import('hast-util-to-html');
-  const mdast = fromMarkdown(normalizeEmDashes(markdown)) as { children: MdastHeading[] };
+  const { gfm } = await import('micromark-extension-gfm');
+  const { gfmFromMarkdown } = await import('mdast-util-gfm');
+  // LAT-1675: GFM-extensies aanzetten (tabellen, autolink-literal, strikethrough,
+  // task-list, footnotes). Zonder dit rendert een pipe-tabel als rauwe tekst.
+  const mdast = fromMarkdown(normalizeEmDashes(markdown), {
+    extensions: [gfm()],
+    mdastExtensions: [gfmFromMarkdown()],
+  }) as { children: MdastHeading[] };
   if (options.stripFirstH1) {
     const firstIdx = mdast.children.findIndex((node) => node.type !== 'thematicBreak');
     if (firstIdx >= 0) {
