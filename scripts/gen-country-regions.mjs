@@ -55,7 +55,6 @@ const COUNTRIES = {
     // overige Italiaanse streken volgen zodra Marijn de aanpak bevestigt.
     regionMap: {
       Veneto: { slug: 'veneto-italie', nl: 'Veneto' },
-      Toscana: { slug: 'toscane-italie', nl: 'Toscane' },
       Lazio: { slug: 'lazio-italie', nl: 'Lazio' },
       Campania: { slug: 'campania-italie', nl: 'Campania' },
       Apulia: { slug: 'puglia-italie', nl: 'Puglia' },
@@ -97,9 +96,28 @@ const COUNTRIES = {
           43489, // Treiso
         ],
       },
+      // Toscane = de kern-DOCG-comuni samengevoegd (Marijn 06-23 koos optie B:
+      // "alle DOC(G)-comuni van de streek"). Vlaggenschip-appellaties verspreid
+      // over Toscane: Chianti Classico-kern + Brunello (Montalcino) + Vino Nobile
+      // (Montepulciano) + Vernaccia (San Gimignano) + Bolgheri (Castagneto
+      // Carducci) + Carmignano. Levert een meer-clusterig silhouet i.p.v. de hele
+      // regione. comune-relatie-ids via Overpass admin_level=8 binnen Toscana.
+      'toscane-italie': {
+        nl: 'Toscane',
+        osmRelations: [
+          // Chianti Classico-kern
+          42412, 42441, 42442, 42446, 42447, 42503, 42535, 9171189,
+          42262, // Montalcino (Brunello)
+          42308, // Montepulciano (Vino Nobile)
+          42458, // San Gimignano (Vernaccia)
+          42336, // Castagneto Carducci (Bolgheri)
+          42618, // Carmignano
+        ],
+      },
     },
     ctxLabels: {
       Piemonte: 'Piemonte',
+      Toscana: 'Toscane',
       Lombardia: 'Lombardije',
       Marche: 'Marche',
       Calabria: 'Calabrië',
