@@ -45,8 +45,15 @@ const COUNTRIES = {
     // langhe-piemonte/toscane-italie/veneto-italie/campania-italie/puglia-italie/
     // sardegna-italie zijn geverifieerd 200 op prod. lazio/sicilie zijn nog niet
     // gepubliceerd (404) → blijven grijze context tot publicatie; -italie-gok.
+    // PRECISIE (Marijn 06-23: "hij pakt steeds de provincies en niet
+    // wijngebieden … de gebieden zijn te groot"). De admin-1 region (héél
+    // Piemonte) is veel groter dan het echte wijngebied. Daarom tekenen we de
+    // Langhe niet meer als de provincie, maar als het ECHTE appellatie-silhouet:
+    // de gemeenten (comuni) van de Langhe/Barolo/Barbaresco-zone, opgehaald uit
+    // OSM en gedissolved (zie `communeStreken` onderaan deze config). Piemonte
+    // zelf zakt terug naar inerte context. Dit is de proof-of-concept; de
+    // overige Italiaanse streken volgen zodra Marijn de aanpak bevestigt.
     regionMap: {
-      Piemonte: { slug: 'langhe-piemonte', nl: 'Piemonte' },
       Veneto: { slug: 'veneto-italie', nl: 'Veneto' },
       Toscana: { slug: 'toscane-italie', nl: 'Toscane' },
       Lazio: { slug: 'lazio-italie', nl: 'Lazio' },
@@ -63,7 +70,36 @@ const COUNTRIES = {
       'Trentino-Alto Adige': { slug: 'trentino-italie', nl: 'Trentino' },
     },
     // NL-labels voor context-regions (anders valt NE-naam terug).
+    // Echte appellatie-geometrie via comune-aggregatie. De gemeenten van de
+    // wijnstreek worden uit OSM gehaald (Nominatim lookup op relatie-id) en
+    // gedissolved tot één silhouet — veel nauwkeuriger dan de hele provincie.
+    // osmRelations = de admin_level=8 comune-relaties (geverifieerd via Overpass
+    // op naam binnen Piemonte). Langhe = Barolo- + Barbaresco-kern.
+    communeStreken: {
+      'langhe-piemonte': {
+        nl: 'Langhe',
+        osmRelations: [
+          43376, // Barolo
+          43400, // La Morra
+          43398, // Castiglione Falletto
+          43353, // Serralunga d'Alba
+          43318, // Monforte d'Alba
+          43329, // Novello
+          43469, // Verduno
+          43442, // Grinzane Cavour
+          43418, // Diano d'Alba
+          43446, // Roddi
+          43425, // Alba
+          43374, // Cherasco
+          43255, // Dogliani
+          43503, // Barbaresco
+          43505, // Neive
+          43489, // Treiso
+        ],
+      },
+    },
     ctxLabels: {
+      Piemonte: 'Piemonte',
       Lombardia: 'Lombardije',
       Marche: 'Marche',
       Calabria: 'Calabrië',
@@ -276,13 +312,42 @@ async function loadSource() {
   return res.json();
 }
 
-// Dissolve alle provincies van een region tot één GeoJSON-geometrie.
-function dissolveRegion(features) {
-  const topo = topology({ r: { type: 'GeometryCollection', geometries: features.map((f) => f.geometry) } });
+// Dissolve een set GeoJSON-geometrieën (provincies óf comuni) tot één silhouet.
+// Quantisatie snapt bijna-coïncidente randpunten zodat aangrenzende gemeenten
+// hun gedeelde grens echt weg-dissolven i.p.v. interne lijntjes te laten staan.
+function dissolveRegion(features, quantization = 1e5) {
+  const topo = topology(
+    { r: { type: 'GeometryCollection', geometries: features.map((f) => f.geometry) } },
+    quantization,
+  );
   return merge(topo, topo.objects.r.geometries);
 }
 
-function buildCountry(slug, cfg, all) {
+// Echte appellatie-geometrie: haal de comune-grenzen (OSM admin_level=8) op via
+// Nominatim `lookup` (levert kant-en-klare GeoJSON-polygonen per relatie-id) en
+// dissolve ze tot één wijngebied-silhouet. Veel nauwkeuriger dan de hele
+// provincie (Marijn 06-23: "de gebieden zijn te groot").
+async function fetchCommuneGeom(ids) {
+  const osmIds = ids.map((id) => `R${id}`).join(',');
+  const url =
+    `https://nominatim.openstreetmap.org/lookup?osm_ids=${osmIds}` +
+    `&format=json&polygon_geojson=1`;
+  const res = await fetch(url, {
+    headers: { 'User-Agent': 'vinomartino-atlas/1.0 (m.petermeijer@otolift.com)' },
+  });
+  if (!res.ok) throw new Error(`Nominatim lookup faalde: HTTP ${res.status}`);
+  const data = await res.json();
+  const feats = data
+    .filter((x) => x.geojson && (x.geojson.type === 'Polygon' || x.geojson.type === 'MultiPolygon'))
+    .map((x) => ({ type: 'Feature', geometry: x.geojson }));
+  if (feats.length !== ids.length) {
+    console.warn(`[communeStreken] ${feats.length}/${ids.length} comuni met geometrie opgehaald`);
+  }
+  if (!feats.length) throw new Error('geen comune-geometrie opgehaald');
+  return dissolveRegion(feats);
+}
+
+async function buildCountry(slug, cfg, all) {
   const provinces = all.features.filter((f) => f.properties.admin === cfg.admin);
   if (!provinces.length) throw new Error(`geen provincies voor admin="${cfg.admin}"`);
 
@@ -329,9 +394,20 @@ function buildCountry(slug, cfg, all) {
   }
   const project = (r) => r.map((p) => projection(p)).filter((xy) => xy && isFinite(xy[0]) && isFinite(xy[1]));
 
+  // Comune-gebaseerde wijnstreken: ECHTE appellatie-geometrie i.p.v. de hele
+  // admin-1 provincie. Projectie blijft op het landsilhouet gefit (hierboven),
+  // dus de comune-zone valt klein en op de juiste plek bínnen het land. Deze
+  // entries renderen ná de context (wine=true → bovenlaag in de component).
+  const communeEntries = [];
+  for (const [streekSlug, cs] of Object.entries(cfg.communeStreken || {})) {
+    const geom = await fetchCommuneGeom(cs.osmRelations);
+    communeEntries.push({ region: streekSlug, geom, key: streekSlug, name: cs.nl, wine: true });
+  }
+  const allRegions = [...dissolved, ...communeEntries];
+
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   const built = [];
-  for (const d of dissolved) {
+  for (const d of allRegions) {
     const g = d.geom;
     const polys = g.type === 'Polygon' ? [g.coordinates] : g.coordinates;
     const rings = [];
@@ -418,7 +494,7 @@ mkdirSync(OUT_DIR, { recursive: true });
 for (const slug of targets) {
   const cfg = COUNTRIES[slug];
   if (!cfg) { console.warn('onbekend land:', slug); continue; }
-  const { out, wineCount, total, markerCount, viewBox } = buildCountry(slug, cfg, all);
+  const { out, wineCount, total, markerCount, viewBox } = await buildCountry(slug, cfg, all);
   const file = resolve(OUT_DIR, `${slug}.json`);
   writeFileSync(file, JSON.stringify(out, null, 2) + '\n');
   console.log(`geschreven: ${file} | regions ${total} | wijnstreken ${wineCount} | markers ${markerCount} | viewBox ${viewBox}`);
