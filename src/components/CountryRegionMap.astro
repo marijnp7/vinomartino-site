@@ -135,11 +135,17 @@ const contextRegions = drawn.filter((d) => !d.wine);
 // Puntmarkers: een streek die te klein is voor een eigen admin-1 silhouet
 // (bv. Etna binnen Sicilië). Net als regions alléén klikbaar als de
 // streekpagina bestaat (meta[slug] uit de live Directus-data).
-interface DrawnMarker { slug: string; x: number; y: number; name: string; color: string; badge?: string; linkable: boolean }
-const markers: DrawnMarker[] = (file?.markers ?? []).map((mk) => {
+// Puntmarkers krijgen een volgnummer (1, 2, 3…). Op de kaart staat alléén dat
+// nummer in de stip; de volledige streeknaam staat in de genummerde legenda
+// links. Zo overlappen labels niet meer als streken dicht opeen liggen — bv. de
+// Kaapse cluster (Stellenbosch/Franschhoek/Paarl/Constantia) in Zuid-Afrika.
+// Marijn (LAT-1662, 2026-06-23): "werk optie 3 uit" = genummerde stippen.
+interface DrawnMarker { slug: string; n: number; x: number; y: number; name: string; color: string; badge?: string; linkable: boolean }
+const markers: DrawnMarker[] = (file?.markers ?? []).map((mk, i) => {
   const m = meta[mk.slug];
   return {
     slug: mk.slug,
+    n: i + 1,
     x: mk.x,
     y: mk.y,
     name: mk.name,
@@ -149,11 +155,13 @@ const markers: DrawnMarker[] = (file?.markers ?? []).map((mk) => {
   };
 });
 
-const markerRadius = 5 * strokeScale;
-// Legenda combineert vlak-streken én puntmarkers (zelfde stijl).
+// Genummerde stip moet het cijfer bevatten → iets ruimer dan een kale punt.
+const markerRadius = 9 * strokeScale;
+// Legenda combineert vlak-streken én puntmarkers. Markers dragen hun volgnummer
+// (n) zodat de legenda de cijfers op de kaart verklaart.
 const legendItems = [
-  ...wineRegions.map((d) => ({ key: d.key, name: d.name, color: d.color, badge: d.badge, linkable: d.linkable })),
-  ...markers.map((d) => ({ key: d.slug, name: d.name, color: d.color, badge: d.badge, linkable: d.linkable })),
+  ...wineRegions.map((d) => ({ key: d.key, name: d.name, color: d.color, badge: d.badge, linkable: d.linkable, n: undefined as number | undefined })),
+  ...markers.map((d) => ({ key: d.slug, name: d.name, color: d.color, badge: d.badge, linkable: d.linkable, n: d.n })),
 ];
 
 const headTitle = title ?? `De wijnstreken van ${landName}`;
@@ -178,7 +186,9 @@ const headIntro =
                 {...linkProps}
                 class:list={['crm-legend__link', { 'crm-legend__link--flat': !d.linkable }]}
               >
-                <span class="crm-legend__swatch" style={`--c: ${d.color};`} aria-hidden="true"></span>
+                {d.n != null
+                  ? <span class="crm-legend__num" style={`--c: ${d.color};`} aria-hidden="true">{d.n}</span>
+                  : <span class="crm-legend__swatch" style={`--c: ${d.color};`} aria-hidden="true"></span>}
                 <span class="crm-legend__name">{d.name}</span>
                 {d.badge && <span class="crm-legend__badge">{d.badge}</span>}
               </Tag>
@@ -257,11 +267,12 @@ const headIntro =
                     <circle cx={d.x} cy={d.y} r={markerRadius} class="crm-dot" />
                     <text
                       x={d.x}
-                      y={d.y - markerRadius - 3 * strokeScale}
+                      y={d.y}
                       text-anchor="middle"
-                      class="crm-label crm-marker-label"
-                      font-size={13 * strokeScale}
-                    >{d.name}</text>
+                      dominant-baseline="central"
+                      class="crm-marker-num"
+                      font-size={10 * strokeScale}
+                    >{d.n}</text>
                   </Tag>
                 );
               })}
@@ -333,6 +344,15 @@ const headIntro =
     align-self: center;
     background: var(--c, #5A1A1F); opacity: 0.55;
     border: 1px solid var(--c, #5A1A1F);
+  }
+  /* Genummerde stip in de legenda — matcht de cijfers op de kaart (optie 3). */
+  .crm-legend__num {
+    flex: none; align-self: center;
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 1.25rem; height: 1.25rem; border-radius: 50%;
+    background: var(--c, #5A1A1F); color: var(--paperDeep, #F0E6D0);
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.7rem; font-weight: 700; line-height: 1;
   }
   .crm-legend__name {
     font-family: var(--font-display, 'Cormorant Garamond', Georgia, serif);
@@ -407,7 +427,13 @@ const headIntro =
   }
   .crm-marker:hover .crm-dot,
   .crm-marker:focus-visible .crm-dot { fill-opacity: 1; }
-  .crm-marker-label { font-style: normal; font-weight: 600; }
+  /* Volgnummer ín de stip (optie 3): voorkomt label-overlap bij dichte clusters. */
+  .crm-marker-num {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-weight: 700;
+    fill: var(--paperDeep, #F0E6D0);
+    pointer-events: none;
+  }
 
   .crm-tooltip {
     position: absolute; top: 0; left: 0;
