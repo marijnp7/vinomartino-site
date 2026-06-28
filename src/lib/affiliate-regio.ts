@@ -71,16 +71,19 @@ export function affiliateLabel(type: AffiliateType, regio: string): string {
   return `${slugFragment(type)}-${slugFragment(regio)}`;
 }
 
-// Placeholder-id's. Overschrijfbaar via env zodra M&G de sign-ups rond heeft.
+// AWIN_AFFID blijft placeholder tot M&G de Awin-sign-up rond heeft.
 const AWIN_AFFID = (process.env['AWIN_AFFID'] || 'VINOMARTINO_AWIN_PENDING').trim();
 const AWIN_BOOKING_MID = (process.env['AWIN_BOOKING_MID'] || '5818').trim(); // Booking.com Awin merchant-id
-const GETYOURGUIDE_PARTNER_ID = (process.env['GETYOURGUIDE_PARTNER_ID'] || 'VINOMARTINO_GYG_PENDING').trim();
+// GetYourGuide partner_id is publiek (verschijnt in de affiliate-URL), geen secret.
+// Default = het echte actieve account CRMZDZ6 (LAT-1688); env kan nog overschrijven.
+const GETYOURGUIDE_PARTNER_ID = (process.env['GETYOURGUIDE_PARTNER_ID'] || 'CRMZDZ6').trim();
 
 function buildGetYourGuideLink(label: string, query?: string): string {
   // GetYourGuide partner-deeplink: partner_id + cmp (campagne = ons label).
   // q stuurt de zoekterm; zonder q → algemene landingspagina met tracking.
   const u = new URL('https://www.getyourguide.com/');
   u.searchParams.set('partner_id', GETYOURGUIDE_PARTNER_ID);
+  u.searchParams.set('utm_medium', 'online_publisher');
   u.searchParams.set('cmp', label);
   if (query && query.trim()) u.searchParams.set('q', query.trim());
   return u.toString();
