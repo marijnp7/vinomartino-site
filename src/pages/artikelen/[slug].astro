@@ -5,6 +5,8 @@ import RelatedEntities from '../../components/RelatedEntities.astro';
 import ArtikelGerelateerdeStukken from '../../components/ArtikelGerelateerdeStukken.astro';
 import ArtikelMeerOver from '../../components/ArtikelMeerOver.astro';
 import AccommodatieRoundup from '../../components/AccommodatieRoundup.astro';
+import RhoneMap from '../../components/RhoneMap.astro';
+import { splitBodyForRhoneMap } from '../../lib/rhone-maps';
 import { loadArticles, type Article } from '../../lib/articles';
 import { loadAccommodatieRoundupsByStreek } from '../../lib/accommodaties-loader';
 import type { AccommodatieRoundup as AccommodatieRoundupData } from '../../lib/accommodaties';
@@ -59,6 +61,11 @@ const pageUrl = new URL(`/artikelen/${article.slug}/`, Astro.site ?? 'https://vi
 const authorProfile = getAuthorByByline(article.author);
 
 const modifiedTime = article.updatedAt || article.pubDate;
+
+// LAT-1719: de twee Rhône-artikelen krijgen een interactieve Leaflet-kaart inline
+// in de body. splitBodyForRhoneMap() knipt de bodyHtml op een vast anker; null
+// voor alle andere artikelen (dan rendert de body ongewijzigd).
+const rhoneMap = splitBodyForRhoneMap(article.bodyHtml, article.slug);
 
 // LAT-1687: verplichte beeldcredit (bv. Wikimedia Commons CC BY-SA) bij de hero.
 const heroCredit = getImageCredit(article.heroImageId);
@@ -164,7 +171,15 @@ if (article.faqSchema) {
           </details>
         )}
 
-        <div class="article-prose" set:html={article.bodyHtml} />
+        {rhoneMap ? (
+          <Fragment>
+            <div class="article-prose" set:html={rhoneMap.before} />
+            <RhoneMap slug={article.slug} {...rhoneMap.config} />
+            <div class="article-prose" set:html={rhoneMap.after} />
+          </Fragment>
+        ) : (
+          <div class="article-prose" set:html={article.bodyHtml} />
+        )}
 
         {authorProfile && (
           <aside class="article-author-card" aria-label={`Over de auteur — ${authorProfile.name}`}>
