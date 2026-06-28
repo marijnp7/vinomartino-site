@@ -24,6 +24,22 @@ export const AUTHORS: readonly Author[] = [
     portraitAlt: 'Sophie, in zijaanzicht bij avondlicht, kijkend naar een glas oranje wijn',
     matches: ['sophie'],
   },
+  {
+    slug: 'charly',
+    name: 'Charlotte van Doorn',
+    bio: "Charlotte — Charly voor wie haar kent — reisde 25 jaar lang voor Nederlandse lifestylebladen en stopte met het woord 'gepensioneerd' nog voordat ze het op zichzelf kon plakken. Ze reist nu vier, vijf keer per jaar, altijd langzamer en langer dan de rest, en kiest haar verblijven met de zekerheid van iemand die weet dat een brede badkuip meer zegt dan een sterrenrating. Op VinoMartino schrijft ze over slow stays, vrouwelijke wijnmakers en de logistiek die een reis moeiteloos maakt voor wie hetzelfde wil doen.",
+    portrait: '/images/auteurs/charly.svg',
+    portraitAlt: 'Charly, silhouet op een terras bij avondlicht met een glas wijn in de hand',
+    matches: ['charlotte van doorn', 'charlotte', 'charly'],
+  },
+  {
+    slug: 'hugo',
+    name: 'Hugo Verlinden',
+    bio: "Hugo importeerde achttien jaar lang wijn voor de Benelux voordat hij vervroegd stopte en het schrijven tot obsessie maakte. Met een WSET Diploma en een kelder vol aantekeningen — datum, temperatuur, luchtdruk — proeft hij het liefst verticaal: dezelfde wijn over de jaargangen heen, vroeger naast nu. Op VinoMartino schrijft hij over Bourgogne, Bordeaux en Riesling met het geduld van iemand die weet dat de beste flessen nog tien jaar nodig hebben voor ze zeggen wat ze te zeggen hebben.",
+    portrait: '/images/auteurs/hugo.svg',
+    portraitAlt: 'Hugo, silhouet in een schemerige kelder met een fles wijn',
+    matches: ['hugo verlinden', 'hugo'],
+  },
 ];
 
 export function getAuthorBySlug(slug: string): Author | null {
