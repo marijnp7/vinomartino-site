@@ -1,0 +1,273 @@
+---
+// LAT-1719 — interactieve Rhône-kaart (Leaflet, Carto Positron warm/licht).
+//
+// Eén component voor beide Rhône-kaarten. Variant 'route' tekent een bordeaux
+// routelijn met gecategoriseerde pins (wijnhuis/hotel/bezienswaardigheid);
+// variant 'benchmark' toont 10 genummerde appellatie-pins, gekleurd per
+// sub-regio. Data + coördinaten komen uit lib/rhone-maps.ts. Zelfde lazy-load +
+// IntersectionObserver-patroon als RouteGeoMap/CuratedStayMap, scrollWheelZoom
+// uit zodat de kaart niet meescrollt op mobiel.
+import type { RhoneMapConfig } from '../lib/rhone-maps';
+
+export interface Props extends RhoneMapConfig {
+  slug: string;
+}
+
+const { slug, variant, title, caption, pois, kindMeta, routeLine = null } = Astro.props;
+
+const mapId = `rhonemap-${slug}`.replace(/[^a-z0-9-]/gi, '');
+const colorByKind: Record<string, string> = Object.fromEntries(kindMeta.map((m) => [m.kind, m.color]));
+
+const mapData = {
+  variant,
+  pois: pois.map((p) => ({ ...p, color: colorByKind[p.kind] ?? '#5A1A1F' })),
+  routeLine,
+};
+---
+
+<figure class="rhonemap" data-rhonemap id={mapId} aria-labelledby={`${mapId}-cap`}>
+  <figcaption class="rhonemap__cap" id={`${mapId}-cap`}>
+    <span class="rhonemap__label">Kaart</span>
+    <span class="rhonemap__title">{caption}</span>
+  </figcaption>
+  <div class="rhonemap__canvas" data-rhonemap-canvas role="application" aria-label={`Kaart: ${title}`}></div>
+  <script type="application/json" data-rhonemap-data set:html={JSON.stringify(mapData)} />
+  <ul class="rhonemap__legend" aria-label="Legenda">
+    {kindMeta.map((m) => (
+      <li class="rhonemap__legend-item">
+        <span class="rhonemap__swatch" style={`background:${m.color}`} aria-hidden="true"></span>
+        {m.label}
+      </li>
+    ))}
+    {routeLine && (
+      <li class="rhonemap__legend-item">
+        <span class="rhonemap__swatch rhonemap__swatch--line" aria-hidden="true"></span>
+        Route noord → zuid
+      </li>
+    )}
+  </ul>
+</figure>
+
+<script>
+  import 'leaflet/dist/leaflet.css';
+
+  type Poi = { n: number; naam: string; lat: number; lng: number; kind: string; detail?: string; color: string };
+  type MapData = { variant: 'route' | 'benchmark'; pois: Poi[]; routeLine: [number, number][] | null };
+
+  let leafletPromise: Promise<any> | null = null;
+  function loadLeaflet(): Promise<any> {
+    if (!leafletPromise) leafletPromise = import('leaflet').then((m: any) => m.default ?? m);
+    return leafletPromise;
+  }
+
+  function esc(s: string): string {
+    return s.replace(/[&<>"]/g, (c) => (
+      { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string
+    ));
+  }
+
+  async function initSection(section: HTMLElement): Promise<void> {
+    const canvas = section.querySelector<HTMLElement>('[data-rhonemap-canvas]');
+    const dataEl = section.querySelector<HTMLElement>('[data-rhonemap-data]');
+    if (!canvas || !dataEl || canvas.dataset.ready === '1') return;
+    canvas.dataset.ready = '1';
+
+    let data: MapData;
+    try {
+      data = JSON.parse(dataEl.textContent || '{}');
+    } catch {
+      return;
+    }
+    if (!data.pois || data.pois.length === 0) return;
+
+    const L = await loadLeaflet();
+
+    const map = L.map(canvas, {
+      scrollWheelZoom: false,
+      zoomControl: true,
+      attributionControl: true,
+    });
+
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      subdomains: 'abcd',
+      maxZoom: 19,
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    }).addTo(map);
+
+    if (data.routeLine && data.routeLine.length >= 2) {
+      L.polyline(data.routeLine, {
+        color: '#5A1A1F',
+        weight: 3,
+        opacity: 0.8,
+        dashArray: '1 8',
+        lineCap: 'round',
+      }).addTo(map);
+    }
+
+    const bounds: [number, number][] = [];
+    for (const p of data.pois) {
+      bounds.push([p.lat, p.lng]);
+      const icon = L.divIcon({
+        className: '',
+        html: `<span class="rhm-pin" style="background:${p.color}">${p.n}</span>`,
+        iconSize: [28, 28],
+        iconAnchor: [14, 14],
+      });
+      const detail = p.detail ? `<span class="rhm-popup__detail">${esc(p.detail)}</span>` : '';
+      L.marker([p.lat, p.lng], { icon, title: p.naam, riseOnHover: true })
+        .addTo(map)
+        .bindPopup(
+          `<div class="rhm-popup"><span class="rhm-popup__n">${p.n}</span><h4 class="rhm-popup__name">${esc(p.naam)}</h4>${detail}</div>`,
+          { minWidth: 160, autoPanPadding: [24, 24] },
+        );
+    }
+
+    map.fitBounds(bounds, { padding: [38, 38], maxZoom: 11 });
+    setTimeout(() => map.invalidateSize(), 0);
+  }
+
+  function ready(): void {
+    const sections = Array.from(document.querySelectorAll<HTMLElement>('figure.rhonemap[data-rhonemap]'))
+      .filter((s) => s.querySelector('[data-rhonemap-canvas]'));
+    if (!sections.length) return;
+
+    if (!('IntersectionObserver' in window)) {
+      sections.forEach((s) => initSection(s));
+      return;
+    }
+    const io = new IntersectionObserver(
+      (entries, obs) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            obs.unobserve(entry.target);
+            initSection(entry.target as HTMLElement);
+          }
+        }
+      },
+      { rootMargin: '200px' },
+    );
+    sections.forEach((s) => io.observe(s));
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', ready);
+  } else {
+    ready();
+  }
+</script>
+
+<style>
+  .rhonemap {
+    margin: var(--space-8, 2rem) 0;
+    max-width: var(--article-body-max, 40rem);
+  }
+  .rhonemap__cap {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.6rem;
+  }
+  .rhonemap__label {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: var(--burgundy, #5A1A1F);
+  }
+  .rhonemap__title {
+    font-family: var(--font-display, Georgia, serif);
+    font-size: 1.0625rem;
+    color: var(--ink, #1F1A16);
+  }
+  .rhonemap__canvas {
+    width: 100%;
+    height: 440px;
+    min-height: 340px;
+    border-radius: 2px;
+    border: 1px solid var(--rule, #C9B98F);
+    background: #F0E6D0;
+    z-index: 0;
+  }
+  .rhonemap__legend {
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.1rem;
+    margin: 0.75rem 0 0;
+    padding: 0;
+  }
+  .rhonemap__legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-family: var(--font-mono, monospace);
+    font-size: 0.6875rem;
+    letter-spacing: 0.04em;
+    color: var(--inkSoft, #5A4F45);
+  }
+  .rhonemap__swatch {
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    border: 2px solid #FAF5E9;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.12);
+    flex: none;
+  }
+  .rhonemap__swatch--line {
+    width: 18px;
+    height: 0;
+    border-radius: 0;
+    border: none;
+    border-top: 3px dotted #5A1A1F;
+    box-shadow: none;
+  }
+  @media (max-width: 640px) {
+    .rhonemap__canvas { height: 380px; }
+  }
+</style>
+
+<style is:global>
+  /* Leaflet-injected DOM kan Astro's scope-attribuut niet dragen → globaal. */
+  .rhm-pin {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2px solid #FAF5E9;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+    color: #FAF5E9;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1;
+  }
+  .rhm-popup { font-family: var(--font-body, Georgia, serif); min-width: 150px; }
+  .rhm-popup__n {
+    display: inline-block;
+    min-width: 1.4em;
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-size: 0.625rem;
+    font-weight: 600;
+    color: #A14F2A;
+    letter-spacing: 0.08em;
+  }
+  .rhm-popup__name {
+    font-family: var(--font-display, Georgia, serif);
+    font-size: 1.0625rem;
+    font-weight: 500;
+    color: #1F1A16;
+    margin: 0.1rem 0 0.2rem;
+    line-height: 1.2;
+  }
+  .rhm-popup__detail {
+    display: block;
+    font-size: 0.8125rem;
+    color: #5A4F45;
+    line-height: 1.4;
+  }
+</style>
