@@ -90,7 +90,7 @@ Koperroze. Donkerder dan de eerste drie, de kleur van oud roze goud. De neus: vi
 
 Mourvèdre is de reden. Tempier werkt met een blend van zestig procent Mourvèdre of meer in hun rosé, en die druif overdraagt in lichte maceratie precies wat hij ook in rode wijn doet: structuur, kruidigheid, een aardse serieuze kwaliteit die vraagt om context. Dit glas vraagt om een maaltijd. Een zomerse tafelgenoot, niet een terrasdrankje.
 
-Bandol als appellatie-logica verschilt van Côtes de Provence: andere bodem, ander druifenprofiel, andere wijnmakij-philosophie. Dat verschil is in het glas voelbaar als je het naast glas 1 en 3 zet.
+Bandol als appellatie-logica verschilt van Côtes de Provence: andere bodem, ander druifenprofiel, andere wijnmakerij-filosofie. Dat verschil is in het glas voelbaar als je het naast glas 1 en 3 zet.
 
 Sophie zette haar glas neer. "Te zwaar voor mij voor een zomermiddag, maar ik begrijp het. Dit is serieuze wijn." Haar vaste voorkeur voor oranje wijn heeft haar goed getraind in herkenning van wat serieus is, ook als het niet haar stijl is.
 
@@ -120,7 +120,7 @@ Mijn notitie: *Massa-Provence. Goedkoop segment. Geen terroir-statement.*
 
 Koperroze, donkerder dan glas 1 en 3, lichter dan glas 4. Een kleur die aankondiging doet van wat er in zit. Neus: granaatappel, wilde kruiden, aardse mineraliteit, een vleugel van droge silex die ik associeer met Rhône-kalkbodem. Op het gehemelte: breed, vol, een zuurgraad die horizontaal duwt in plaats van verticaal springt. De fruitconcentratie is hoog maar niet overrijp. Afdronk die lang aanhoudt, iets warm, een droge naslag.
 
-Tavel is de oudste AOC van de Rhône, al in de zeventiende eeuw serieus genomen als tafelwijn. De enige appellatie in Frankrijk die uitsluitend rosé produceert. Grenache als basis, Cinsault en een handvol anderen als aanvulling. Château d'Aqueria werkt met rijping in eiken voudres, waardoor de textuur iets ronder is dan rechtstreeks bottelen zou geven. Dit glas heeft meer van alles dan glas 1 en 3, en het is tegelijk coherenter van karakter dan zijn volume laat vermoeden.
+Tavel is de oudste AOC van de Rhône, al in de zeventiende eeuw serieus genomen als tafelwijn. De enige appellatie in Frankrijk die uitsluitend rosé produceert. Grenache als basis, Cinsault en een handvol anderen als aanvulling. Château d'Aqueria werkt met rijping in eiken foudres, waardoor de textuur iets ronder is dan rechtstreeks bottelen zou geven. Dit glas heeft meer van alles dan glas 1 en 3, en het is tegelijk coherenter van karakter dan zijn volume laat vermoeden.
 
 Sophie: "Dit is meer wijn dan rosé." Precies de juiste omschrijving van Tavel. Ze hield het glas vast en keek er even in voor ze verder dronk. Dat was voor haar een ongewoon gebaar.
 
