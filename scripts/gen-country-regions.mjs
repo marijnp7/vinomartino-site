@@ -19,7 +19,7 @@
  *   node scripts/gen-country-regions.mjs            # alle landen
  *   node scripts/gen-country-regions.mjs italie     # één land
  */
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { writeFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import * as d3 from 'd3-geo';
@@ -46,16 +46,18 @@ const COUNTRIES = {
     // sardegna-italie zijn geverifieerd 200 op prod. lazio/sicilie zijn nog niet
     // gepubliceerd (404) → blijven grijze context tot publicatie; -italie-gok.
     regionMap: {
-      Piemonte: { slug: 'langhe-piemonte', nl: 'Piemonte' },
+      // Langhe = deelgebied van Piemonte (Cuneo + Asti), niet heel Piemonte
+      // (Marijn 06-28: "het moet de regio zijn, niet de provincie"). Piemonte
+      // zelf blijft als gedempte context-onderlaag zichtbaar.
+      Piemonte: { slug: 'langhe-piemonte', nl: 'Langhe', provinces: ['Cuneo', 'Asti'], parentNl: 'Piemonte' },
       Veneto: { slug: 'veneto-italie', nl: 'Veneto' },
       Toscana: { slug: 'toscane-italie', nl: 'Toscane' },
       Lazio: { slug: 'lazio-italie', nl: 'Lazio' },
       Campania: { slug: 'campania-italie', nl: 'Campania' },
       Apulia: { slug: 'puglia-italie', nl: 'Puglia' },
-      // Het wijngebied heet "Sicilië" (Marijn 06-22: "het wijngebied van etna
-      // heet sicilie"). Het hele eiland-silhouet is de klikbare wijnstreek,
-      // gelabeld "Sicilië", linkend naar de Directus-streek /streken/etna-sicilie/.
-      Sicily: { slug: 'etna-sicilie', nl: 'Sicilië' },
+      // Etna = wijngebied rond de vulkaan (provincie Catania), niet heel Sicilië.
+      // Sicilië blijft als gedempte context-onderlaag (Marijn 06-28).
+      Sicily: { slug: 'etna-sicilie', nl: 'Etna', provinces: ['Catania'], parentNl: 'Sicilië' },
       Sardegna: { slug: 'sardegna-italie', nl: 'Sardinië' },
       // Sinds 06-22 ook gepubliceerd (live 200) → klikbaar i.p.v. context.
       'Emilia-Romagna': { slug: 'emilia-romagna-italie', nl: 'Emilia-Romagna' },
@@ -84,8 +86,21 @@ const COUNTRIES = {
     // de samengevoegde régions: Bourgogne in Bourgogne-Franche-Comté, Champagne
     // in Grand Est. Grovere granulariteit (zoals Sicilië = heel het eiland).
     regionMap: {
-      'Bourgogne-Franche-Comté': { slug: 'bourgogne', nl: 'Bourgogne' },
-      'Grand Est': { slug: 'champagne', nl: 'Champagne' },
+      // Bourgogne-wijngebied = Côte-d'Or + Saône-et-Loire + Yonne (de échte
+      // Bourgogne-départements), niet de hele bestuurlijke régio
+      // Bourgogne-Franche-Comté (die ook de Jura/Franche-Comté omvat).
+      'Bourgogne-Franche-Comté': {
+        slug: 'bourgogne', nl: 'Bourgogne',
+        provinces: ["Côte-d'Or", 'Saône-et-Loire', 'Yonne'],
+        parentNl: 'Bourgogne-Franche-Comté',
+      },
+      // Champagne = Marne + Aube (het wijngebied), niet de hele régio Grand Est
+      // (die ook de Elzas/Lotharingen omvat).
+      'Grand Est': {
+        slug: 'champagne', nl: 'Champagne',
+        provinces: ['Marne', 'Aube'],
+        parentNl: 'Grand Est',
+      },
     },
     ctxLabels: {
       'Nouvelle-Aquitaine': 'Bordeaux / Zuidwest',
@@ -109,8 +124,10 @@ const COUNTRIES = {
     label: 'Spanje',
     projection: () => d3.geoConicConformal().parallels([37, 43]).rotate([3.5, 0]),
     regionMap: {
-      Andalucía: { slug: 'jerez', nl: 'Jerez · Andalusië' },
-      Cataluña: { slug: 'priorat-catalonie', nl: 'Catalonië · Priorat' },
+      // Jerez = sherry-driehoek in provincie Cádiz, niet heel Andalusië.
+      Andalucía: { slug: 'jerez', nl: 'Jerez', provinces: ['Cádiz'], parentNl: 'Andalusië' },
+      // Priorat = DOQ in provincie Tarragona, niet heel Catalonië.
+      Cataluña: { slug: 'priorat-catalonie', nl: 'Priorat', provinces: ['Tarragona'], parentNl: 'Catalonië' },
     },
     ctxLabels: {
       'La Rioja': 'Rioja',
@@ -135,7 +152,9 @@ const COUNTRIES = {
     label: 'Portugal',
     projection: () => d3.geoConicConformal().parallels([38, 42]).rotate([8, 0]),
     regionMap: {
-      Norte: { slug: 'douro-portugal', nl: 'Douro · Norte' },
+      // Douro-vallei = districten Vila Real + Bragança (oostelijk Norte), niet
+      // heel Norte (dat ook Porto en de kust omvat).
+      Norte: { slug: 'douro-portugal', nl: 'Douro', provinces: ['Vila Real', 'Bragança'], parentNl: 'Norte' },
     },
     ctxLabels: {
       Centro: 'Centro',
@@ -153,11 +172,15 @@ const COUNTRIES = {
     // NE heeft geen `region` voor Oostenrijk → groepering valt terug op `name`
     // (de Bundesländer). Wachau ligt in Niederösterreich.
     projection: () => d3.geoConicConformal().parallels([46, 49]).rotate([-14, 0]),
+    // Burgenland = eigen Bundesland én wijngebied → blijft heel-silhouet.
+    // Wachau is een kleine Donau-strook binnen Niederösterreich; NE heeft geen
+    // sub-provincies voor Oostenrijk, dus geen deel-silhouet mogelijk → puntmarker
+    // (zoals Mosel/Pfalz). Niederösterreich zelf = gedempte context.
     regionMap: {
       Burgenland: { slug: 'burgenland', nl: 'Burgenland' },
-      Niederösterreich: { slug: 'wachau', nl: 'Wachau · Neder-Oostenrijk' },
     },
     ctxLabels: {
+      Niederösterreich: 'Neder-Oostenrijk',
       Steiermark: 'Stiermarken',
       Wien: 'Wenen',
       Oberösterreich: 'Opper-Oostenrijk',
@@ -166,6 +189,9 @@ const COUNTRIES = {
       Salzburg: 'Salzburg',
       Vorarlberg: 'Vorarlberg',
     },
+    markers: [
+      { slug: 'wachau', nl: 'Wachau', lon: 15.45, lat: 48.38 },
+    ],
   },
 
   duitsland: {
@@ -271,6 +297,9 @@ function ringCentroid(r) {
 }
 
 async function loadSource() {
+  // NE_LOCAL = pad naar een lokaal gecachete ne_10m_admin_1_states_provinces.geojson
+  // (vermijdt de ~40MB fetch bij herhaald genereren / offline build).
+  if (process.env.NE_LOCAL) return JSON.parse(readFileSync(process.env.NE_LOCAL, 'utf8'));
   const res = await fetch(SOURCE);
   if (!res.ok) throw new Error(`bron-fetch faalde: HTTP ${res.status}`);
   return res.json();
@@ -299,8 +328,36 @@ function buildCountry(slug, cfg, all) {
   // Dissolve elke region en bouw één FeatureCollection voor de gedeelde projectie.
   const dissolved = [];
   for (const [reg, feats] of byRegion) {
-    const geom = dissolveRegion(feats);
     const wine = cfg.regionMap[reg];
+    // Sub-region-streek: de wijnstreek is een DEELGEBIED van de admin-regio
+    // (bv. Langhe = Cuneo+Asti binnen Piemonte, niet heel Piemonte). Marijn
+    // (LAT-1659, 06-28): "je pakt nu nog de hele provincie, het moet de regio
+    // zijn". We tekenen dan de hele admin-regio als gedempte CONTEXT-onderlaag
+    // en het wijn-deelgebied (gedissolvede subset van provincies) als de
+    // ingekleurde, klikbare streek erbovenop.
+    if (wine && wine.provinces) {
+      const subFeats = feats.filter((f) => wine.provinces.includes(f.properties.name));
+      const missing = wine.provinces.filter((p) => !feats.some((f) => f.properties.name === p));
+      if (missing.length) throw new Error(`provincies ontbreken in region "${reg}": ${missing.join(', ')}`);
+      // Gedempte context = de hele admin-regio eromheen.
+      dissolved.push({
+        region: reg,
+        geom: dissolveRegion(feats),
+        key: `ctx:${slugify(reg)}`,
+        name: wine.parentNl || cfg.ctxLabels?.[reg] || reg,
+        wine: false,
+      });
+      // Ingekleurde wijnstreek = alleen de provincies van het wijngebied.
+      dissolved.push({
+        region: `${reg}:${wine.slug}`,
+        geom: dissolveRegion(subFeats),
+        key: wine.slug,
+        name: wine.nl,
+        wine: true,
+      });
+      continue;
+    }
+    const geom = dissolveRegion(feats);
     dissolved.push({
       region: reg,
       geom,
