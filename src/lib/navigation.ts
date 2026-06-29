@@ -17,10 +17,10 @@ export interface NavItem {
 const NAV_ITEMS: NavItem[] = [
     { label: 'Ontdek', href: '/ontdek/', key: 'ontdek', order: 5 },
     { label: 'Wijnhuizen', href: '/wijnhuizen/', key: 'wijnhuizen', order: 30 },
-    { label: 'Slapen', href: '/accommodaties/', key: 'accommodaties', order: 35 },
+    { label: 'Overnachten', href: '/accommodaties/', key: 'accommodaties', order: 35 },
     { label: 'Artikelen', href: '/artikelen/', key: 'artikelen', order: 50 },
     { label: 'De brief', href: '/de-brief/', key: 'de-brief', order: 60 },
-    { label: 'Over ons', href: '/over-ons/', key: 'over-ons', order: 70 },
+    { label: 'Ons verhaal', href: '/over-ons/', key: 'over-ons', order: 70 },
 ];
 
 export async function loadNavigation(): Promise<NavItem[]> {
