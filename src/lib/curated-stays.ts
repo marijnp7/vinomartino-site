@@ -8,6 +8,7 @@
 
 import type { AccommodatieCluster, AccommodatieKaart, AccommodatieRoundup } from './accommodaties';
 import { clusterKaarten } from './accommodatie-cluster';
+import { isBookingDeeplink } from './affiliates';
 import type { Accommodation, Streek } from './streken';
 
 /** Stabiele slug uit een naam — anker-id + match-sleutel tussen POI en cluster. */
@@ -38,6 +39,12 @@ export function plaatsFromAdres(adres: string): string {
 /** Eén gecureerd verblijf → reisjunk-kaartcontract (LAT-1332). */
 export function curatedStayToKaart(acc: Accommodation): AccommodatieKaart {
   const boeklink = acc.boeklink && /^https?:\/\//.test(acc.boeklink) ? acc.boeklink : null;
+  // LAT-1794: een booking.com-boeklink (kaal of via een legacy CJ-hop) draagt nog
+  // GEEN aid/label, dus reiken we hem als `bookingUrl` aan zodat
+  // accommodatieBookingHref hem via buildCjBookingLink attribueert (aid + per-
+  // property CJ-label `accommodation-{slug}`). Reeds-geattribueerde deeplinks
+  // (Stay22 e.a.) blijven ongemoeid via `cjHref`.
+  const isBooking = boeklink ? isBookingDeeplink(boeklink) : false;
   return {
     naam: acc.naam,
     slug: staySlug(acc.naam),
@@ -50,10 +57,8 @@ export function curatedStayToKaart(acc: Accommodation): AccommodatieKaart {
     fotoAlt: null,
     prijsLaag: acc.prijsLaag,
     prijsHoog: acc.prijsHoog,
-    // De gecureerde boeklink is al een (Stay22-)affiliate-deeplink → direct als
-    // cjHref gebruiken zodat accommodatieBookingHref hem ongewijzigd doorlaat.
-    cjHref: boeklink,
-    bookingUrl: null,
+    cjHref: isBooking ? null : boeklink,
+    bookingUrl: isBooking ? boeklink : null,
   };
 }
 
