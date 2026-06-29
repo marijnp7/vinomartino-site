@@ -196,12 +196,15 @@ const pageData = entry
       // zolang de relatie nog leeg is.
       streken: strekenCards.length > 0 ? strekenCards : (showcase?.streken ?? []),
       topWijnhuizen: wijnhuisCards.length > 0 ? wijnhuisCards : (showcase?.topWijnhuizen ?? []),
-      druiven: showcase?.druiven ?? [],
+      // LAT-1760: proefprofiel data-driven via Directus landen.druiven.
+      // Showcase blijft redactionele fallback zolang het veld leeg is.
+      druiven: entry.druiven.length > 0 ? entry.druiven : (showcase?.druiven ?? []),
       // LAT-1199: routes data-driven via routes.streek_id→land-keten (LAT-1198),
       // met M2M-junction routes_streken als fallback zolang streek_id leeg is.
       // Showcase blijft enkel redactionele fallback als de relatie nog leeg is.
       routes: routeCards.length > 0 ? routeCards : (showcase?.routes ?? []),
-      practical: showcase?.practical ?? [],
+      // LAT-1760: praktische tips data-driven via Directus landen.practical.
+      practical: entry.practical.length > 0 ? entry.practical : (showcase?.practical ?? []),
     }
   : showcase ?? {
       name: slug ? slug.charAt(0).toUpperCase() + slug.slice(1) : 'Wijnland',
