@@ -4,6 +4,66 @@ import SmartImg from '../../components/SmartImg.astro';
 import { loadArticles } from '../../lib/articles';
 
 const articles = await loadArticles();
+
+// LAT-1753: facet-filtering op het artikelenoverzicht. We bouwen de facetten
+// dynamisch uit de geladen artikelen, zodat een facet-groep automatisch
+// verdwijnt zodra er <2 onderscheidende waarden zijn (graceful bij dunne data).
+function slugify(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+}
+
+type Facet = { value: string; label: string; count: number };
+
+function buildSingleFacet(values: (string | undefined | null)[]): Facet[] {
+  const map = new Map<string, Facet>();
+  for (const raw of values) {
+    const label = (raw || '').trim();
+    if (!label) continue;
+    const value = slugify(label);
+    if (!value) continue;
+    const existing = map.get(value);
+    if (existing) existing.count++;
+    else map.set(value, { value, label, count: 1 });
+  }
+  return [...map.values()].sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'nl'));
+}
+
+function buildRefFacet(refLists: { slug: string; name: string }[][]): Facet[] {
+  const map = new Map<string, Facet>();
+  for (const refs of refLists) {
+    for (const ref of refs) {
+      if (!ref?.slug) continue;
+      const existing = map.get(ref.slug);
+      if (existing) existing.count++;
+      else map.set(ref.slug, { value: ref.slug, label: ref.name || ref.slug, count: 1 });
+    }
+  }
+  return [...map.values()].sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'nl'));
+}
+
+const categoryFacets = buildSingleFacet(articles.map((a) => a.category));
+const landFacets = buildRefFacet(articles.map((a) => a.relatedLanden));
+const streekFacets = buildRefFacet(articles.map((a) => a.relatedStreken));
+
+// Een facet-groep tonen we alleen als hij ≥2 keuzes biedt — anders voegt het
+// filter niets toe.
+const filterGroups = [
+  { key: 'rubriek', label: 'Rubriek', facets: categoryFacets },
+  { key: 'land', label: 'Land', facets: landFacets },
+  { key: 'streek', label: 'Streek', facets: streekFacets },
+].filter((g) => g.facets.length >= 2);
+
+const hasFilters = filterGroups.length > 0;
+
+// Per artikel de filter-waarden als data-attributen, zodat de client-side
+// filter puur op DOM-attributen werkt (geen netwerk, deelbaar via URL).
+function cardData(a: typeof articles[number]) {
+  return {
+    rubriek: a.category ? slugify(a.category) : '',
+    land: a.relatedLanden.map((l) => l.slug).join(' '),
+    streek: a.relatedStreken.map((s) => s.slug).join(' '),
+  };
+}
 ---
 
 <SiteLayout
@@ -21,22 +81,74 @@ const articles = await loadArticles();
 
   <section class="section container">
     {articles.length > 0 ? (
-      <div class="article-grid">
-        {articles.map(article => (
-          <a href={`/artikelen/${article.slug}/`} class="article-card card">
-            <div class="article-img-wrap">
-              <SmartImg src={article.heroImage || undefined} alt={article.title} theme="vineyard" class="article-img" />
+      <div class="articles-layout" data-articles-root>
+        {hasFilters && (
+          <div class="filters" data-filters>
+            <div class="filters-head">
+              <button type="button" class="filters-toggle" data-filters-toggle aria-expanded="false" aria-controls="filter-panel">
+                <span>Filteren</span>
+                <span class="filters-toggle-count" data-active-pill hidden></span>
+              </button>
+              <span class="filters-result" data-result-count aria-live="polite"></span>
             </div>
-            <div class="article-body">
-              {article.category && <span class="article-cat">{article.category}</span>}
-              <h2 class="article-title">{article.title}</h2>
-              <p class="article-desc">{article.description}</p>
-              <span class="article-meta">
-                {article.author} · {new Date(article.pubDate).toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' })}
-              </span>
+            <div class="filters-panel" id="filter-panel" data-filters-panel>
+              {filterGroups.map((group) => (
+                <div class="filter-group" data-group={group.key}>
+                  <span class="filter-group-label">{group.label}</span>
+                  <div class="filter-chips">
+                    {group.facets.map((facet) => (
+                      <button
+                        type="button"
+                        class="filter-chip"
+                        data-filter-key={group.key}
+                        data-filter-value={facet.value}
+                        aria-pressed="false"
+                      >
+                        {facet.label}
+                        <span class="chip-count">{facet.count}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              <button type="button" class="filters-clear" data-filters-clear hidden>Wis filters</button>
             </div>
-          </a>
-        ))}
+          </div>
+        )}
+
+        <div class="article-grid" data-article-grid>
+          {articles.map((article) => {
+            const d = cardData(article);
+            return (
+              <a
+                href={`/artikelen/${article.slug}/`}
+                class="article-card card"
+                data-article
+                data-rubriek={d.rubriek}
+                data-land={d.land}
+                data-streek={d.streek}
+              >
+                <div class="article-img-wrap">
+                  <SmartImg src={article.heroImage || undefined} alt={article.title} theme="vineyard" class="article-img" />
+                </div>
+                <div class="article-body">
+                  {article.category && <span class="article-cat">{article.category}</span>}
+                  <h2 class="article-title">{article.title}</h2>
+                  <p class="article-desc">{article.description}</p>
+                  <span class="article-meta">
+                    {article.author} · {new Date(article.pubDate).toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' })}
+                  </span>
+                </div>
+              </a>
+            );
+          })}
+        </div>
+
+        <div class="filter-empty" data-filter-empty hidden>
+          <h2>Geen artikelen voor deze filters</h2>
+          <p>Pas je selectie aan of wis de filters om alles te zien.</p>
+          <button type="button" class="filters-clear-inline" data-filters-clear-inline>Wis filters</button>
+        </div>
       </div>
     ) : (
       <div class="empty-state">
@@ -46,6 +158,137 @@ const articles = await loadArticles();
     )}
   </section>
 </SiteLayout>
+
+<script>
+  // LAT-1753: client-side facet-filtering met deelbare URL-state.
+  // - AND tussen groepen, OR binnen een groep (standaard facet-gedrag).
+  // - State leeft in de querystring (?rubriek=...&land=...&streek=...).
+  // - Geen netwerk: filtert puur op de data-attributen van de kaarten.
+  (function () {
+    const root = document.querySelector('[data-articles-root]');
+    if (!root) return;
+    const grid = root.querySelector('[data-article-grid]');
+    if (!grid) return;
+    const cards = Array.from(root.querySelectorAll('[data-article]'));
+    const chips = Array.from(root.querySelectorAll('[data-filter-chip], .filter-chip'));
+    const resultCount = root.querySelector('[data-result-count]');
+    const emptyEl = root.querySelector('[data-filter-empty]');
+    const clearBtns = Array.from(root.querySelectorAll('[data-filters-clear], [data-filters-clear-inline]'));
+    const activePill = root.querySelector('[data-active-pill]');
+    const toggleBtn = root.querySelector('[data-filters-toggle]');
+    const panel = root.querySelector('[data-filters-panel]');
+
+    const groups = ['rubriek', 'land', 'streek'];
+    const selected = {};
+    groups.forEach((g) => (selected[g] = new Set()));
+
+    function readUrl() {
+      const params = new URLSearchParams(window.location.search);
+      groups.forEach((g) => {
+        selected[g].clear();
+        const raw = params.get(g);
+        if (raw) raw.split(',').filter(Boolean).forEach((v) => selected[g].add(v));
+      });
+    }
+
+    function writeUrl(push) {
+      const params = new URLSearchParams(window.location.search);
+      groups.forEach((g) => {
+        if (selected[g].size) params.set(g, Array.from(selected[g]).join(','));
+        else params.delete(g);
+      });
+      const qs = params.toString();
+      const url = window.location.pathname + (qs ? '?' + qs : '');
+      if (push) window.history.pushState({}, '', url);
+      else window.history.replaceState({}, '', url);
+    }
+
+    function cardMatches(card) {
+      return groups.every((g) => {
+        if (!selected[g].size) return true;
+        const vals = (card.getAttribute('data-' + g) || '').split(/\s+/).filter(Boolean);
+        return vals.some((v) => selected[g].has(v));
+      });
+    }
+
+    function totalSelected() {
+      return groups.reduce((n, g) => n + selected[g].size, 0);
+    }
+
+    function render() {
+      let visible = 0;
+      cards.forEach((card) => {
+        const show = cardMatches(card);
+        card.hidden = !show;
+        if (show) visible++;
+      });
+
+      chips.forEach((chip) => {
+        const key = chip.getAttribute('data-filter-key');
+        const val = chip.getAttribute('data-filter-value');
+        const on = !!(key && selected[key] && selected[key].has(val));
+        chip.setAttribute('aria-pressed', on ? 'true' : 'false');
+        chip.classList.toggle('is-active', on);
+      });
+
+      const count = totalSelected();
+      if (activePill) {
+        if (count > 0) {
+          activePill.hidden = false;
+          activePill.textContent = String(count);
+        } else {
+          activePill.hidden = true;
+        }
+      }
+      clearBtns.forEach((b) => (b.hidden = count === 0));
+
+      if (resultCount) {
+        if (count > 0) {
+          resultCount.textContent = visible + ' van ' + cards.length + ' artikelen';
+        } else {
+          resultCount.textContent = cards.length + ' artikelen';
+        }
+      }
+      if (emptyEl) emptyEl.hidden = visible !== 0;
+      if (grid) grid.hidden = visible === 0;
+    }
+
+    chips.forEach((chip) => {
+      chip.addEventListener('click', () => {
+        const key = chip.getAttribute('data-filter-key');
+        const val = chip.getAttribute('data-filter-value');
+        if (!key || !val || !selected[key]) return;
+        if (selected[key].has(val)) selected[key].delete(val);
+        else selected[key].add(val);
+        writeUrl(true);
+        render();
+      });
+    });
+
+    clearBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        groups.forEach((g) => selected[g].clear());
+        writeUrl(true);
+        render();
+      });
+    });
+
+    if (toggleBtn && panel) {
+      toggleBtn.addEventListener('click', () => {
+        const open = root.classList.toggle('filters-open');
+        toggleBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      });
+    }
+
+    window.addEventListener('popstate', () => {
+      readUrl();
+      render();
+    });
+
+    readUrl();
+    render();
+  })();
+</script>
 
 <style>
   .hero-sm {
@@ -69,6 +312,119 @@ const articles = await loadArticles();
     max-width: 36rem;
     margin-inline: auto;
   }
+
+  /* LAT-1753 filterbalk */
+  .filters {
+    margin-bottom: var(--space-6);
+    border-bottom: 1px solid var(--lineSoft, rgba(0, 0, 0, 0.08));
+    padding-bottom: var(--space-5);
+  }
+  .filters-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+  }
+  .filters-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--ink);
+  }
+  /* Op desktop is de toggle puur informatief; het paneel staat altijd open. */
+  .filters-toggle { pointer-events: none; }
+  .filters-toggle-count {
+    display: inline-grid;
+    place-items: center;
+    min-width: 1.25rem;
+    height: 1.25rem;
+    padding: 0 0.35rem;
+    border-radius: 999px;
+    background: var(--rust);
+    color: #fff;
+    font-size: 0.625rem;
+  }
+  .filters-result {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    color: var(--inkFaint);
+  }
+  .filters-panel {
+    margin-top: var(--space-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+  .filter-group {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.5rem 0.75rem;
+  }
+  .filter-group-label {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--inkFaint);
+    min-width: 4.5rem;
+  }
+  .filter-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.35rem 0.7rem;
+    border: 1px solid var(--lineSoft, rgba(0, 0, 0, 0.12));
+    border-radius: 999px;
+    background: var(--paper, #fff);
+    cursor: pointer;
+    font-family: var(--font-body);
+    font-size: 0.8125rem;
+    color: var(--inkSoft);
+    transition: border-color var(--duration-fast, 0.15s) ease, color var(--duration-fast, 0.15s) ease, background var(--duration-fast, 0.15s) ease;
+  }
+  .filter-chip:hover {
+    border-color: var(--rust);
+    color: var(--ink);
+  }
+  .filter-chip.is-active {
+    background: var(--rust);
+    border-color: var(--rust);
+    color: #fff;
+  }
+  .chip-count {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    opacity: 0.7;
+  }
+  .filters-clear,
+  .filters-clear-inline {
+    align-self: flex-start;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--rust);
+    text-decoration: underline;
+  }
+
   .article-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -84,6 +440,7 @@ const articles = await loadArticles();
     color: inherit;
     display: block;
   }
+  .article-card[hidden] { display: none; }
   .article-img-wrap {
     aspect-ratio: 16 / 10;
     overflow: hidden;
@@ -132,6 +489,23 @@ const articles = await loadArticles();
     font-size: 0.6875rem;
     color: var(--inkFaint);
   }
+  .filter-empty {
+    text-align: center;
+    padding: var(--space-12) var(--space-4);
+  }
+  .filter-empty h2 {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-weight: 400;
+    font-style: italic;
+    color: var(--ink);
+    margin-bottom: var(--space-3);
+  }
+  .filter-empty p {
+    font-size: 0.9375rem;
+    color: var(--inkSoft);
+    margin-bottom: var(--space-4);
+  }
   .empty-state {
     text-align: center;
     padding: var(--space-16) var(--space-4);
@@ -147,5 +521,18 @@ const articles = await loadArticles();
   .empty-state p {
     font-size: 1rem;
     color: var(--inkSoft);
+  }
+
+  /* Mobiel: paneel inklapbaar achter de "Filteren"-knop. */
+  @media (max-width: 640px) {
+    .filters-toggle {
+      pointer-events: auto;
+      border: 1px solid var(--lineSoft, rgba(0, 0, 0, 0.12));
+      border-radius: 999px;
+      padding: 0.4rem 0.85rem;
+    }
+    .filters-panel { display: none; }
+    .filters-open .filters-panel { display: flex; }
+    .filter-group { flex-direction: column; align-items: flex-start; gap: 0.4rem; }
   }
 </style>
