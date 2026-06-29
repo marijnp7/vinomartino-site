@@ -8,6 +8,7 @@
 
 import type { AccommodatieCluster, AccommodatieKaart, AccommodatieRoundup } from './accommodaties';
 import { clusterKaarten } from './accommodatie-cluster';
+import { accommodatieBookingDeeplink } from './affiliates';
 import type { Accommodation, Streek } from './streken';
 
 /** Stabiele slug uit een naam — anker-id + match-sleutel tussen POI en cluster. */
@@ -36,11 +37,11 @@ export function plaatsFromAdres(adres: string): string {
 }
 
 /** Eén gecureerd verblijf → reisjunk-kaartcontract (LAT-1332). */
-export function curatedStayToKaart(acc: Accommodation): AccommodatieKaart {
-  const boeklink = acc.boeklink && /^https?:\/\//.test(acc.boeklink) ? acc.boeklink : null;
+export function curatedStayToKaart(acc: Accommodation, regio: string): AccommodatieKaart {
+  const slug = staySlug(acc.naam);
   return {
     naam: acc.naam,
-    slug: staySlug(acc.naam),
+    slug,
     plaats: plaatsFromAdres(acc.adres),
     tier: acc.tier,
     lat: acc.lat,
@@ -50,10 +51,14 @@ export function curatedStayToKaart(acc: Accommodation): AccommodatieKaart {
     fotoAlt: null,
     prijsLaag: acc.prijsLaag,
     prijsHoog: acc.prijsHoog,
-    // De gecureerde boeklink is al een (Stay22-)affiliate-deeplink → direct als
-    // cjHref gebruiken zodat accommodatieBookingHref hem ongewijzigd doorlaat.
-    cjHref: boeklink,
+    // LAT-1775: de gecureerde boeklink is een KALE booking.com-URL (geen aid/label,
+    // resolvet niet). Bouw at-render een echte, boekbare booking.com-searchresults-
+    // deeplink mét aid=818285 + CJ-label — gelijk aan /streken/<slug>/ (accBoeklink).
+    cjHref: accommodatieBookingDeeplink(acc.naam, regio, acc.boeklink, `accommodation-${slug}`),
     bookingUrl: null,
+    // LAT-1775: prijs-bronvaluta volgt het verblijf zelf (leeg = EUR), niet langer een
+    // land-aanname. Voorkomt dat EUR-prijzen als ZAR door ~20 worden gedeeld.
+    bronValuta: acc.valuta || 'EUR',
   };
 }
 
@@ -63,7 +68,7 @@ export function curatedStayToKaart(acc: Accommodation): AccommodatieKaart {
  */
 export function clustersFromCuratedStays(streek: Streek): AccommodatieCluster[] {
   if (!streek.accommodaties.length) return [];
-  return clusterKaarten(streek.accommodaties.map(curatedStayToKaart), streek.name);
+  return clusterKaarten(streek.accommodaties.map((acc) => curatedStayToKaart(acc, streek.name)), streek.name);
 }
 
 /** Reisjunk-roundup uit de gecureerde streek-set (LAT-1644). */
