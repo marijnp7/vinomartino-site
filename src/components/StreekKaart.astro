@@ -142,11 +142,10 @@ const hasSticky = Boolean(bookableSection);
 const stickyTargetId = bookableSection ? `${mapId}-${bookableSection.key}` : '';
 
 function ctaLabel(category: CatKey): string {
-  // COPY-GATE (LAT-1592): definitieve CTA-teksten via Lead Editor + Martin-check.
   if (category === 'overnachten') return 'Bekijk & boek';
-  if (category === 'activiteiten') return 'Boek via GetYourGuide';
+  if (category === 'activiteiten') return 'Reserveer een plek';
   if (category === 'eten') return 'Reserveer';
-  return 'Bekijk';
+  return 'Plan een bezoek';
 }
 
 const mapData = {
