@@ -8,7 +8,7 @@
 import type { AccommodatieKaart } from '../lib/accommodaties';
 import { accommodatieBookingHref } from '../lib/accommodaties';
 import { STAY_TIER_META } from '../lib/stay-tier';
-import { formatMoney } from '../lib/currency';
+import { formatNightlyPrice } from '../lib/currency';
 import SmartImg from './SmartImg.astro';
 
 interface Props {
@@ -24,12 +24,17 @@ interface Props {
 const { kaart, context, bronValuta, displayValuta = 'EUR' } = Astro.props;
 const href = accommodatieBookingHref(kaart);
 const altText = kaart.fotoAlt || `${kaart.naam} — ${kaart.plaats}`;
-const heeftPrijs = kaart.prijsLaag != null || kaart.prijsHoog != null;
 // LAT-1406: tier-badge — alleen tonen als het verblijf gecureerd is.
 const tier = kaart.tier ? STAY_TIER_META[kaart.tier] : null;
-// LAT-1664: converteer bron-valuta → display (EUR). Geen los €-symbool meer.
-const prijsLaagFmt = formatMoney(kaart.prijsLaag, bronValuta, displayValuta);
-const prijsHoogFmt = formatMoney(kaart.prijsHoog, bronValuta, displayValuta);
+// LAT-1664/1775: converteer bron-valuta → display (EUR). De per-kaart bron-valuta
+// (uit de gecureerde set) heeft voorrang op de pagina-brede waarde, zodat EUR-prijzen
+// niet als ZAR worden gedeeld. formatNightlyPrice onderdrukt absurde uitschieters.
+const prijsBron = kaart.bronValuta ?? bronValuta;
+const prijsLaagFmt = formatNightlyPrice(kaart.prijsLaag, prijsBron, displayValuta, `${kaart.naam} (laag)`);
+const prijsHoogFmt = formatNightlyPrice(kaart.prijsHoog, prijsBron, displayValuta, `${kaart.naam} (hoog)`);
+// Toon het prijsblok alleen als er minstens één plausibele prijs is (onderdrukte
+// absurde waarden tellen niet → geen lege prijs-dl).
+const heeftPrijs = prijsLaagFmt != null || prijsHoogFmt != null;
 ---
 
 <article class="acc-kaart" id={`acc-${kaart.slug}`}>
