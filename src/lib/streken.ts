@@ -1,4 +1,5 @@
 import type { RelatedRef } from './articles';
+import { getCtaStructure, type CtaStructure } from './cta-blocks';
 
 // LAT-1127 — curated accommodation tiers (Marijn-spec 2026-06-07). Stored as
 // cast-json on streken (LAT-1136 import). The site renders its own map + cards
@@ -81,6 +82,8 @@ export interface Streek {
     wijnhuizen: WijnhuisPin[];
     eten: StreekPoi[];
     activiteiten: StreekPoi[];
+    // LAT-1784/LAT-1795 — gestandaardiseerde 3-CTA-structuur (Directus `cta_blocks`).
+    cta: CtaStructure;
 }
 
 // LAT-1098: reverse M2M `streken.related_articles` → `articles_id.{slug,title}`.
@@ -329,6 +332,7 @@ function mapStreek(
         eten: parseStreekPois(r.eten),
         activiteiten: parseStreekPois(r.activiteiten),
         relatedArticles: mapRelatedArticles(r.related_articles),
+        cta: getCtaStructure(r),
     };
 }
 
@@ -350,20 +354,24 @@ async function fetchStrekenItems(url: string, token: string): Promise<Record<str
     // niets tot de velden bestaan en gevuld zijn.
     const factFields = 'best_vintages,harvest_period,min_visit_time,tasting_budget';
     const withFacts = `${withPoi},${factFields}`;
+    // LAT-1784/LAT-1795: cta_blocks als hoogste tier. Bestaat het veld niet of
+    // mist de build-rol read-permissie, dan degradeert deze fetch naar withPoi
+    // (de bestaande fallback) — de CTA-componenten renderen dan simpelweg niets.
+    const withCta = `${withFacts},cta_blocks`;
     const filterSort = `${statusFilterQuery(env)}&sort=name`;
     const headers = { Authorization: `Bearer ${token}` };
     const signal = AbortSignal.timeout(15000);
 
     // Top-tier poging mét fact-box-velden; val bij 400/403 stil terug op withPoi.
     try {
-        const factsRes = await fetch(`${url}/items/streken?limit=-1&fields=${withFacts}${filterSort}`, { headers, signal });
+        const factsRes = await fetch(`${url}/items/streken?limit=-1&fields=${withCta}${filterSort}`, { headers, signal });
         if (factsRes.ok) {
             const json = await factsRes.json();
-            assetDebug.push({ kind: 'query', url, status: 200, count: (json.data || []).length, tier: 'withFacts' });
+            assetDebug.push({ kind: 'query', url, status: 200, count: (json.data || []).length, tier: 'withCta' });
             return (json.data || []) as Record<string, unknown>[];
         }
         if (factsRes.status === 400 || factsRes.status === 403) {
-            console.warn(`[loadStreken] Directus rejected fields=…,${factFields} (HTTP ${factsRes.status}) — retrying without LAT-1676 WijnFactBox-velden. Maak streken.best_vintages/harvest_period/min_visit_time/tasting_budget aan en/of geef de build-rol read-permissie.`);
+            console.warn(`[loadStreken] Directus rejected fields=…,${factFields},cta_blocks (HTTP ${factsRes.status}) — retrying without LAT-1676/LAT-1784 velden. Maak streken.best_vintages/harvest_period/min_visit_time/tasting_budget/cta_blocks aan en/of geef de build-rol read-permissie.`);
             assetDebug.push({ kind: 'query', url, status: factsRes.status, retryWithoutFacts: true });
         } else {
             // Andere status (bv. 5xx/timeout): laat de bestaande withPoi-pad de

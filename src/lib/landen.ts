@@ -1,5 +1,6 @@
 import { normalizeEmDashes } from './markdown';
 import type { RelatedRef } from './articles';
+import { getCtaStructure, type CtaStructure } from './cta-blocks';
 
 export interface LandDruif {
     name: string;
@@ -36,6 +37,8 @@ export interface Land {
     metaDescription: string;
     bodyHtml: string;
     relatedArticles: RelatedRef[];
+    // LAT-1784/LAT-1795 — gestandaardiseerde 3-CTA-structuur (Directus `cta_blocks`).
+    cta: CtaStructure;
 }
 
 function mapRelatedArticles(val: unknown): RelatedRef[] {
@@ -202,6 +205,7 @@ function mapLand(
         metaDescription: String(r.meta_description || r.description || ''),
         bodyHtml,
         relatedArticles: mapRelatedArticles(r.related_articles),
+        cta: getCtaStructure(r),
     };
 }
 
@@ -217,12 +221,15 @@ async function fetchLandenItems(url: string, token: string): Promise<Record<stri
     // toevoegen. Deze tier mag NOOIT in baseFields — dat is het last-resort tier
     // waarvan een 400 de hele /landen/* build op [] zet.
     const withTasting = `${withRelations},druiven,practical`;
+    // LAT-1784/LAT-1795: cta_blocks als hoogste tier; degradeert zacht naar
+    // withTasting (de bestaande fallback) als veld/permissie ontbreekt.
+    const withCta = `${withTasting},cta_blocks`;
     const filterSort = `${statusFilterQuery(env)}&sort=name`;
     const headers = { Authorization: `Bearer ${token}` };
     const signal = AbortSignal.timeout(15000);
     let res: Response;
     try {
-        res = await fetch(`${url}/items/landen?limit=-1&fields=${withTasting}${filterSort}`, { headers, signal });
+        res = await fetch(`${url}/items/landen?limit=-1&fields=${withCta}${filterSort}`, { headers, signal });
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         throw new Error(`[loadLanden] Directus unreachable at ${url}: ${msg}`);
@@ -236,8 +243,8 @@ async function fetchLandenItems(url: string, token: string): Promise<Record<stri
     // relations → SeoMeta → baseFields.
     if (res.status === 400 || res.status === 403) {
         const body = await res.text().catch(() => '');
-        console.warn(`[loadLanden] Directus rejected fields=…,druiven,practical (HTTP ${res.status}) — retrying without LAT-1760 tasting fields. Run directus/scripts/add-landen-tasting-fields om landen.druiven/landen.practical toe te voegen.`);
-        const retryTasting = await fetch(`${url}/items/landen?limit=-1&fields=${withRelations}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
+        console.warn(`[loadLanden] Directus rejected fields=…,druiven,practical,cta_blocks (HTTP ${res.status}) — retrying without LAT-1760/LAT-1784 fields. Run directus/scripts/add-landen-tasting-fields en/of maak landen.cta_blocks aan.`);
+        const retryTasting = await fetch(`${url}/items/landen?limit=-1&fields=${withTasting}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
         if (retryTasting.ok) {
             const json = await retryTasting.json();
             return (json.data || []) as Record<string, unknown>[];

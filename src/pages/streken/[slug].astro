@@ -3,6 +3,7 @@ import SiteLayout from '../../layouts/SiteLayout.astro';
 import AffiliatePlaceholder from '../../components/AffiliatePlaceholder.astro';
 import AffiliateDisclosure from '../../components/AffiliateDisclosure.astro';
 import RelatedArticles from '../../components/RelatedArticles.astro';
+import CtaStructure from '../../components/CtaStructure.astro';
 import AccommodatieRoundup from '../../components/AccommodatieRoundup.astro';
 import StreekKaart, { type StreekPoiInput } from '../../components/StreekKaart.astro';
 import WijnFactBox from '../../components/WijnFactBox.astro';
@@ -407,6 +408,8 @@ const hasFactBox = Boolean(
         <AffiliatePlaceholder type="insurance" partner="reisverzekering" region={entry.name} placement="footer" context="streek-insurance" />
       </div>
     </section>
+
+    <CtaStructure data={entry.cta} sid={entry.slug} />
 
     <RelatedArticles items={entry.relatedArticles} />
 
