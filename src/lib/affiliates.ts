@@ -69,6 +69,19 @@ export function unwrapCjRedirect(raw: string): string {
   }
 }
 
+// LAT-1794: herkent of een (mogelijk via een CJ-hop verpakte) deeplink naar
+// booking.com wijst. Gebruikt om een gecureerde boeklink wél via buildCjBookingLink
+// te attribueren (aid + per-property CJ-label) en niet-Booking-deeplinks (Stay22 e.a.)
+// ongemoeid te laten.
+export function isBookingDeeplink(raw: string): boolean {
+  try {
+    const host = new URL(unwrapCjRedirect(raw)).hostname.toLowerCase().replace(/^www\./, '');
+    return host === 'booking.com' || host.endsWith('.booking.com');
+  } catch {
+    return false;
+  }
+}
+
 export function buildCjBookingLink(plainBookingUrl: string, sid: string): string {
   // Pel een eventuele CJ-redirecthop af vóór we de directe deeplink opbouwen.
   const direct = unwrapCjRedirect(plainBookingUrl);
