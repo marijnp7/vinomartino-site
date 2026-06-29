@@ -1,0 +1,248 @@
+---
+// LAT-1593 — Unified POI-kaart. Eén patroon over alle POI-types (wijnhuizen,
+// eten, overnachten, activiteiten): genummerd item (nummer matcht de pin op de
+// kaart), foto, naam, tier-badge, korte omschrijving, prijs/info en de boek-CTA
+// direct op de kaart (hoogste commerciële intentie, plan sectie 2D + 3).
+//
+// Standaardiseert het reisjunk-fotomodel van AccommodatieKaart (LAT-1332) samen
+// met de map-sync van de fase-2 streek-cards (LAT-1592). Foto's komen rechten-
+// bewust uit DAM; ontbreekt er één, dan rendert SmartImg een nette placeholder
+// (nooit "coming soon" — Martin-stem, plan 4b).
+//
+// Affiliate-CTA draagt de cookieless click-tracker-attributen (data-affiliate-*,
+// LAT-1019/1029): partner, placement en context voor het KPI-dashboard.
+
+import SmartImg from './SmartImg.astro';
+
+export type PoiCardTheme = 'winery' | 'vineyard' | 'cellar' | 'region' | 'bottle';
+
+export interface PoiCardData {
+  /** Gedeelde nummering 1..N; matcht de pin op de kaart. null = niet geplot. */
+  n?: number | null;
+  /** Categorie-kleur voor het nummer-badge en accenten. */
+  color?: string;
+  naam: string;
+  foto?: string | null;
+  fotoAlt?: string | null;
+  fotoTheme?: PoiCardTheme;
+  /** Korte badge, bv. tier-label voor overnachten. */
+  badge?: string | null;
+  beschrijving?: string | null;
+  /** Display-label voor de prijs, bv. '€120–180 / nacht'. */
+  prijs?: string | null;
+  /** Externe affiliate-boeklink. Leeg = geen boek-CTA. */
+  boeklink?: string | null;
+  /** Interne detailpagina (bv. /wijnhuizen/{slug}/). */
+  detailUrl?: string | null;
+  /** CTA-tekst (COPY-GATE: definitief via Lead Editor + Martin-check). */
+  cta?: string;
+  /** Affiliate-partner voor click-tracking (bv. 'stay22', 'getyourguide'). */
+  partner?: string;
+  /** Placement-bucket voor het KPI-dashboard (bv. 'streek-poi-overnachten'). */
+  placement?: string;
+  /** Affiliate-context (bv. 'streek-etna'). */
+  context?: string;
+  /** DOM-id voor de kaart-sync (klik op pin scrollt naar deze kaart). */
+  cardId?: string;
+  /** Of de kaart-sync bedraad moet worden (POI staat op de kaart). */
+  plotted?: boolean;
+}
+
+interface Props {
+  poi: PoiCardData;
+}
+
+const { poi } = Astro.props;
+const {
+  n = null,
+  color = 'var(--burgundy, #5A1A1F)',
+  naam,
+  foto = null,
+  fotoAlt = null,
+  fotoTheme = 'region',
+  badge = null,
+  beschrijving = null,
+  prijs = null,
+  boeklink = null,
+  detailUrl = null,
+  cta = 'Plan een bezoek',
+  partner = '',
+  placement = '',
+  context = '',
+  cardId,
+  plotted = false,
+} = poi;
+
+const altText = fotoAlt || naam;
+const hasNumber = n != null;
+---
+
+<article
+  class="poi-card"
+  id={cardId}
+  data-skz-card={plotted && hasNumber ? n : undefined}
+  tabindex={plotted && hasNumber ? 0 : undefined}
+>
+  <div class="poi-card__media">
+    <SmartImg src={foto ?? undefined} alt={altText} theme={fotoTheme} class="poi-card__img" />
+    {hasNumber && (
+      <span class="poi-card__num" style={`background:${color}`}>{n}</span>
+    )}
+  </div>
+
+  <div class="poi-card__body">
+    <div class="poi-card__head">
+      <h4 class="poi-card__name">
+        {detailUrl ? <a href={detailUrl}>{naam}</a> : naam}
+      </h4>
+      {badge && (
+        <span class="poi-card__badge" style={`color:${color};border-color:${color}`}>{badge}</span>
+      )}
+    </div>
+
+    {beschrijving && <p class="poi-card__desc">{beschrijving}</p>}
+
+    <div class="poi-card__foot">
+      {prijs && <span class="poi-card__price">{prijs}</span>}
+      {boeklink ? (
+        <a
+          class="poi-card__cta"
+          href={boeklink}
+          target="_blank"
+          rel="sponsored noopener"
+          data-affiliate-track
+          data-affiliate-partner={partner}
+          data-affiliate-placement={placement}
+          data-affiliate-context={context}
+        >
+          {cta} &rarr;
+        </a>
+      ) : detailUrl ? (
+        <a class="poi-card__cta poi-card__cta--ghost" href={detailUrl}>Lees meer &rarr;</a>
+      ) : null}
+    </div>
+  </div>
+</article>
+
+<style>
+  .poi-card {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--ruleSoft, #E0D2B0);
+    border-radius: 4px;
+    background: var(--paper, #FBF7EE);
+    overflow: hidden;
+    scroll-margin-top: 5rem;
+    transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+  }
+  .poi-card:hover {
+    border-color: var(--rule, #C9B98F);
+    box-shadow: 0 6px 22px rgba(31, 26, 22, 0.1);
+    transform: translateY(-2px);
+  }
+  .poi-card[data-skz-card] { cursor: pointer; }
+  .poi-card[data-skz-card]:hover,
+  .poi-card[data-skz-card]:focus-visible { border-color: var(--burgundy, #5A1A1F); outline: none; }
+  .poi-card--active { border-color: var(--burgundy, #5A1A1F); box-shadow: 0 0 0 2px var(--burgundy, #5A1A1F); }
+
+  .poi-card__media {
+    position: relative;
+    aspect-ratio: 3 / 2;
+    background: var(--paperDeep, #F0E6D0);
+    overflow: hidden;
+  }
+  .poi-card__img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .poi-card__num {
+    position: absolute;
+    top: 0.6rem;
+    left: 0.6rem;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2px solid #FAF5E9;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+    color: #FAF5E9;
+    font-family: var(--font-mono, monospace);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .poi-card__body {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    padding: 1.1rem 1.2rem 1rem;
+  }
+  .poi-card__head { display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap; }
+  .poi-card__name {
+    font-family: var(--font-display, Georgia, serif);
+    font-size: 1.25rem;
+    font-weight: 500;
+    line-height: 1.15;
+    color: var(--ink, #1F1A16);
+    margin: 0;
+  }
+  .poi-card__name a { color: inherit; text-decoration: none; }
+  .poi-card__name a:hover { text-decoration: underline; }
+  .poi-card__badge {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.5625rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border: 1px solid;
+    border-radius: 1px;
+    padding: 0.15rem 0.4rem;
+  }
+  .poi-card__desc {
+    font-family: var(--font-body, Georgia, serif);
+    font-size: 0.9375rem;
+    line-height: 1.55;
+    color: var(--inkSoft, #5A4F45);
+    margin: 0.5rem 0 0.85rem;
+    flex: 1;
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .poi-card__foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-top: auto;
+  }
+  .poi-card__price {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.8125rem;
+    color: var(--burgundy, #5A1A1F);
+  }
+  .poi-card__cta {
+    font-family: var(--font-ui, sans-serif);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--paper, #FBF7EE);
+    background: var(--burgundy, #5A1A1F);
+    padding: 0.45rem 0.85rem;
+    border-radius: 2px;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background 0.15s ease, opacity 0.15s ease;
+  }
+  .poi-card__cta:hover { background: var(--burgundyDeep, #3D1115); }
+  .poi-card__cta--ghost {
+    color: var(--burgundy, #5A1A1F);
+    background: transparent;
+    padding: 0.45rem 0;
+  }
+  .poi-card__cta--ghost:hover { background: transparent; opacity: 0.8; }
+</style>

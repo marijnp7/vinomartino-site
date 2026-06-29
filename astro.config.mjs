@@ -12,6 +12,7 @@ export default defineConfig({
       filter: (page) =>
         !page.includes('/go/') &&
         !page.includes('/admin/') &&
+        !page.includes('/intern/') &&
         !page.includes('/api/') &&
         // LAT-1676: interne noindex component-preview hoort niet in de sitemap.
         !page.includes('/preview/') &&
