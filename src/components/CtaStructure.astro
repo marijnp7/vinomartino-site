@@ -1,0 +1,25 @@
+---
+// LAT-1784 — Orchestrator voor de gestandaardiseerde 3-CTA-structuur.
+// Twee gebruiksmodi:
+//   1. Inline op één plek (money-pages / landen-hub LAT-1786): mount deze
+//      component één keer en de drie CTA's stapelen in volgorde.
+//   2. Verspreid over de pagina (streek-/wijnhuis-templates): importeer in plaats
+//      hiervan de discrete CtaPrimary/CtaComparison/CtaClosing en plaats ze op de
+//      gewenste scrollposities (boven / midden / einde).
+// Data-driven uit Directus via getCtaStructure(); graceful degradation overal.
+import CtaPrimary from './CtaPrimary.astro';
+import CtaComparison from './CtaComparison.astro';
+import CtaClosing from './CtaClosing.astro';
+import type { CtaStructure } from '../lib/cta-blocks';
+
+interface Props {
+  data: CtaStructure;
+  sid: string;
+}
+
+const { data, sid } = Astro.props;
+---
+
+<CtaPrimary data={data.primary} sid={sid} />
+<CtaComparison data={data.comparison} sid={sid} />
+<CtaClosing data={data.closing} sid={sid} />
