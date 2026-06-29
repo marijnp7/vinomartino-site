@@ -71,3 +71,35 @@ export function formatMoney(
   const value = target === 'EUR' ? eur : eur * (EUR_RATES[target] ?? 1);
   return `${currencySymbol(target)}${Math.round(value)}`;
 }
+
+// LAT-1775 — plausibiliteitsgrenzen voor een overnachtingsprijs ná conversie naar EUR.
+// Vangt de twee bekende fout-klassen: (a) een EUR-bedrag dat per ongeluk als ZAR
+// wordt gelezen en door ~20 gedeeld wordt (→ €5/€10, absurd laag); (b) een ZAR-bedrag
+// dat per ongeluk als EUR blijft staan (→ €9000, absurd hoog). Realistische
+// wijnland-tarieven liggen ruim binnen [25, 5000] EUR/nacht.
+const NIGHTLY_EUR_MIN = 25;
+const NIGHTLY_EUR_MAX = 5000;
+
+/**
+ * Format een overnachtingsprijs in de display-valuta, mét plausibiliteitscheck.
+ * Valt het EUR-equivalent buiten [25, 5000], dan is de bron-valuta vrijwel zeker
+ * verkeerd geïnterpreteerd → we tonen GEEN prijs (return null) i.p.v. een absurde
+ * waarde, en loggen een build-waarschuwing zodat de data gecorrigeerd kan worden.
+ */
+export function formatNightlyPrice(
+  amount: number | null | undefined,
+  source: string | null | undefined,
+  display: string = 'EUR',
+  label?: string,
+): string | null {
+  if (amount == null) return null;
+  const eur = convertToEur(amount, source);
+  if (eur < NIGHTLY_EUR_MIN || eur > NIGHTLY_EUR_MAX) {
+    console.warn(
+      `[currency] implausibele nachtprijs onderdrukt: ${amount} ${normalizeCode(source)} → €${Math.round(eur)}` +
+        ` (buiten ${NIGHTLY_EUR_MIN}-${NIGHTLY_EUR_MAX})${label ? ` — ${label}` : ''}`,
+    );
+    return null;
+  }
+  return formatMoney(amount, source, display);
+}

@@ -99,6 +99,29 @@ export function buildBookingSearchLink(query: string, sid: string): string {
   }
 }
 
+// LAT-1775: gedeelde booking-deeplink-resolver voor gecureerde verblijven, gebruikt
+// door zowel /streken/<slug>/ (StreekKaart) als /accommodaties/<slug>/ (curated-stays).
+// De gecureerde `boeklink` in Directus is een KALE booking.com-URL (vaak /hotel/<slug>),
+// zonder aid/label — die resolvet niet en levert geen commissie. NORM (board): aid=818285
+// landt structureel op booking.com searchresults, niet op /hotel/. We bouwen daarom ALTIJD
+// een directe, ad-blocker-bestendige booking.com-searchresults-deeplink op de exacte
+// hotelnaam, mét affiliate-aid + CJ-label. Een eventuele al-gecureerde searchresults-URL
+// blijft behouden (alleen aid/label worden gezet/overschreven).
+export function accommodatieBookingDeeplink(
+  naam: string,
+  regio: string,
+  boeklink: string | null | undefined,
+  sid: string,
+): string {
+  const direct = boeklink ? unwrapCjRedirect(boeklink.trim()) : '';
+  // Al een booking.com-zoekpagina in de data → behoud hem, zet alleen aid + label.
+  if (/^https?:\/\/(www\.)?booking\.com\/searchresults/i.test(direct)) {
+    return buildCjBookingLink(direct, sid);
+  }
+  // Kale /hotel/-URL, lege of Stay22/stad-link → directe zoekdeeplink op de hotelnaam.
+  return buildBookingSearchLink(regio ? `${naam}, ${regio}` : naam, sid);
+}
+
 // Fetches booking_url + slug from Directus accommodations by ID and wraps with CJ.
 // SID = 'accommodation-{accommodation-slug}' for per-property attribution in CJ reports.
 // Called at build time from the article template.
