@@ -91,12 +91,15 @@ export async function markdownToHtmlWithToc(
     mdastExtensions: [gfmFromMarkdown()],
   }) as { children: MdastHeading[] };
   if (options.stripFirstH1) {
-    const firstIdx = mdast.children.findIndex((node) => node.type !== 'thematicBreak');
-    if (firstIdx >= 0) {
-      const first = mdast.children[firstIdx];
-      if (first.type === 'heading' && first.depth === 1) {
-        mdast.children.splice(firstIdx, 1);
-      }
+    // De layout levert de pagina-H1 al; een H1 in de body is altijd een
+    // titel-duplicaat. Strip de eerste H1 ongeacht positie, zodat een
+    // voorafgaand intro-/disclosure-blok (bv. een **Affiliate:**-melding) de
+    // strip niet omzeilt en er geen dubbele H1 op de pagina komt.
+    const h1Idx = mdast.children.findIndex(
+      (node) => node.type === 'heading' && node.depth === 1,
+    );
+    if (h1Idx >= 0) {
+      mdast.children.splice(h1Idx, 1);
     }
   }
   const slug = makeSlugger();

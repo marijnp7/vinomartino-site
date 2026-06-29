@@ -180,17 +180,6 @@ const ontdekPromo = {
             </svg>
           </button>
           <div class="mobile-dropdown-panel" id="mobile-ontdek" hidden>
-            <div class="ontdek-promo ontdek-promo--mobile">
-              <span class="ontdek-promo-icon" aria-hidden="true">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M21 10c0 6-9 12-9 12s-9-6-9-12a9 9 0 0 1 18 0z" />
-                  <circle cx="12" cy="10" r="3" />
-                </svg>
-              </span>
-              <span class="ontdek-promo-kicker">{ontdekPromo.kicker}</span>
-              <h2 class="ontdek-promo-title">{ontdekPromo.title}</h2>
-              <p class="ontdek-promo-body">{ontdekPromo.body}</p>
-            </div>
             {ontdekLandGroups.map(({ land, streken }) => (
               <div class="mobile-ontdek-group">
                 <a href={`/landen/${land.slug}/`} class="ontdek-land">{land.name}</a>
@@ -581,10 +570,6 @@ const ontdekPromo = {
     padding: 0.75rem 0 0.5rem;
   }
   .mobile-dropdown-panel[hidden] { display: none; }
-  .ontdek-promo--mobile {
-    flex: none;
-    margin-bottom: 1rem;
-  }
   .mobile-ontdek-group { margin-bottom: 1rem; padding-left: 0.25rem; }
   .mobile-ontdek-group .ontdek-land { margin-bottom: 0.375rem; }
   .mobile-ontdek-link {
