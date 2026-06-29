@@ -101,13 +101,23 @@ const COUNTRIES = {
         provinces: ['Marne', 'Aube'],
         parentNl: 'Grand Est',
       },
+      // Rhône = noordelijke Rhône-vallei (Rhône + Ardèche + Drôme: Côte-Rôtie,
+      // Condrieu, Cornas, Hermitage/Crozes), niet de hele régio Auvergne-Rhône-
+      // Alpes (die ook Lyon, de Alpen en Auvergne omvat). Zuidelijke Rhône
+      // (Vaucluse) valt in NE-region Provence-Alpes-Côte-d'Azur en is met deze
+      // per-region dissolve niet mee te nemen.
+      'Auvergne-Rhône-Alpes': {
+        slug: 'rhone', nl: 'Rhône',
+        provinces: ['Rhône', 'Ardèche', 'Drôme'],
+        parentNl: 'Auvergne-Rhône-Alpes',
+      },
     },
     ctxLabels: {
       'Nouvelle-Aquitaine': 'Bordeaux / Zuidwest',
       Occitanie: 'Languedoc',
       "Provence-Alpes-Côte-d'Azur": 'Provence',
       'Centre-Val de Loire': 'Loire',
-      'Auvergne-Rhône-Alpes': 'Rhône',
+      'Auvergne-Rhône-Alpes': 'Auvergne-Rhône-Alpes',
       Corse: 'Corsica',
       'Pays de la Loire': 'Pays de la Loire',
       Bretagne: 'Bretagne',
