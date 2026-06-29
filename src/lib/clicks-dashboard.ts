@@ -21,7 +21,7 @@ export interface ClickRow {
   partner: string;
   context: string;
   path: string;
-  date_created: string | null;
+  clicked_at: string | null;
 }
 
 export interface CountBucket {
@@ -90,8 +90,8 @@ function countSince(rows: ClickRow[], days: number): number {
   const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
   let n = 0;
   for (const r of rows) {
-    if (!r.date_created) continue;
-    const t = Date.parse(r.date_created);
+    if (!r.clicked_at) continue;
+    const t = Date.parse(r.clicked_at);
     if (Number.isFinite(t) && t >= cutoff) n++;
   }
   return n;
@@ -106,7 +106,7 @@ export async function loadClicksDashboard(): Promise<ClicksDashboard> {
   let rows: ClickRow[];
   try {
     const res = await fetch(
-      `${env.url}/items/affiliate_clicks?limit=-1&fields=placement,partner,context,path,date_created&sort=-date_created`,
+      `${env.url}/items/affiliate_clicks?limit=-1&fields=placement,partner,context,path,clicked_at&sort=-clicked_at`,
       { headers: { Authorization: `Bearer ${env.token}` }, signal: AbortSignal.timeout(15000) },
     );
     if (res.status === 403 || res.status === 404) {
@@ -125,7 +125,7 @@ export async function loadClicksDashboard(): Promise<ClicksDashboard> {
       partner: String(r.partner ?? ''),
       context: String(r.context ?? ''),
       path: String(r.path ?? ''),
-      date_created: r.date_created ? String(r.date_created) : null,
+      clicked_at: r.clicked_at ? String(r.clicked_at) : null,
     }));
   } catch (err) {
     return emptyDashboard('unavailable', `Kon affiliate_clicks niet laden: ${(err as Error).message}`);
