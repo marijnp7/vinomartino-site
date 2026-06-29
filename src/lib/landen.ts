@@ -1,6 +1,18 @@
 import { normalizeEmDashes } from './markdown';
 import type { RelatedRef } from './articles';
 
+export interface LandDruif {
+    name: string;
+    color: 'rood' | 'wit' | 'rosé';
+    description: string;
+    wines?: string[];
+}
+
+export interface LandPractical {
+    key: string;
+    value: string;
+}
+
 export interface Land {
     slug: string;
     name: string;
@@ -14,6 +26,11 @@ export interface Land {
     heroImage: string | null;
     ogImage: string | null;
     wijnstreken: { name: string; slug?: string }[];
+    // LAT-1760: proefprofiel ("Wat je hier proeft") + praktische tips ("Voor je
+    // gaat") als Directus JSON-velden, zodat alle 7 landen Italië-parity halen
+    // zonder per-land hardcoded showcase. Leeg → template valt terug op showcase.
+    druiven: LandDruif[];
+    practical: LandPractical[];
     status: string;
     metaTitle: string;
     metaDescription: string;
@@ -106,6 +123,42 @@ function parseJsonField(val: unknown): string[] {
     return [];
 }
 
+function parseObjectArray(val: unknown): Record<string, unknown>[] {
+    let arr: unknown = val;
+    if (typeof val === 'string') {
+        try { arr = JSON.parse(val); } catch { return []; }
+    }
+    if (!Array.isArray(arr)) return [];
+    return arr.filter((x): x is Record<string, unknown> => Boolean(x) && typeof x === 'object');
+}
+
+function mapDruiven(val: unknown): LandDruif[] {
+    return parseObjectArray(val)
+        .map((r) => {
+            const rawColor = String(r.color || 'rood').toLowerCase();
+            const color: LandDruif['color'] = rawColor === 'wit' || rawColor === 'rosé' ? rawColor : 'rood';
+            const wines = Array.isArray(r.wines)
+                ? r.wines.map(String).filter((w) => w.trim().length > 0)
+                : undefined;
+            return {
+                name: normalizeEmDashes(String(r.name || '')),
+                color,
+                description: normalizeEmDashes(String(r.description || '')),
+                wines: wines && wines.length > 0 ? wines : undefined,
+            };
+        })
+        .filter((d) => d.name.length > 0);
+}
+
+function mapPractical(val: unknown): LandPractical[] {
+    return parseObjectArray(val)
+        .map((r) => ({
+            key: normalizeEmDashes(String(r.key || '')),
+            value: normalizeEmDashes(String(r.value || '')),
+        }))
+        .filter((p) => p.key.length > 0 && p.value.length > 0);
+}
+
 function mapWijnstreken(val: unknown): { name: string; slug?: string }[] {
     if (!Array.isArray(val)) return [];
     return val
@@ -142,6 +195,8 @@ function mapLand(
         heroImage: heroImagePath,
         ogImage: ogImagePath,
         wijnstreken: mapWijnstreken(r.wijnstreken),
+        druiven: mapDruiven(r.druiven),
+        practical: mapPractical(r.practical),
         status: String(r.status || 'draft'),
         metaTitle: String(r.meta_title || r.name),
         metaDescription: String(r.meta_description || r.description || ''),
@@ -156,12 +211,18 @@ async function fetchLandenItems(url: string, token: string): Promise<Record<stri
     const withSeoMeta = `${baseFields},og_image,wijnstreken.name,wijnstreken.slug`;
     // LAT-1098: reverse-relation via M2M articles.related_landen.
     const withRelations = `${withSeoMeta},related_articles.articles_id.slug,related_articles.articles_id.title`;
+    // LAT-1760: proefprofiel + praktische tips. Richste tier; valt bij 400 (veld
+    // bestaat nog niet) zacht terug op withRelations, zodat de build NIET breekt
+    // zolang DevOps de Directus-velden landen.druiven/landen.practical nog moet
+    // toevoegen. Deze tier mag NOOIT in baseFields — dat is het last-resort tier
+    // waarvan een 400 de hele /landen/* build op [] zet.
+    const withTasting = `${withRelations},druiven,practical`;
     const filterSort = `${statusFilterQuery(env)}&sort=name`;
     const headers = { Authorization: `Bearer ${token}` };
     const signal = AbortSignal.timeout(15000);
     let res: Response;
     try {
-        res = await fetch(`${url}/items/landen?limit=-1&fields=${withRelations}${filterSort}`, { headers, signal });
+        res = await fetch(`${url}/items/landen?limit=-1&fields=${withTasting}${filterSort}`, { headers, signal });
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         throw new Error(`[loadLanden] Directus unreachable at ${url}: ${msg}`);
@@ -171,11 +232,21 @@ async function fetchLandenItems(url: string, token: string): Promise<Record<stri
         return (json.data || []) as Record<string, unknown>[];
     }
     // 400 = veld bestaat niet in Directus (pre-migratie); 403 = veld bestaat wel
-    // maar de build-rol heeft geen read-permissie. Tier-fallback: relations →
-    // SeoMeta → baseFields.
+    // maar de build-rol heeft geen read-permissie. Tier-fallback: tasting →
+    // relations → SeoMeta → baseFields.
     if (res.status === 400 || res.status === 403) {
         const body = await res.text().catch(() => '');
-        console.warn(`[loadLanden] Directus rejected fields=…,related_articles (HTTP ${res.status}) — retrying without LAT-1098 relations.`);
+        console.warn(`[loadLanden] Directus rejected fields=…,druiven,practical (HTTP ${res.status}) — retrying without LAT-1760 tasting fields. Run directus/scripts/add-landen-tasting-fields om landen.druiven/landen.practical toe te voegen.`);
+        const retryTasting = await fetch(`${url}/items/landen?limit=-1&fields=${withRelations}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
+        if (retryTasting.ok) {
+            const json = await retryTasting.json();
+            return (json.data || []) as Record<string, unknown>[];
+        }
+        if (retryTasting.status !== 400 && retryTasting.status !== 403) {
+            const rbody = await retryTasting.text().catch(() => '');
+            throw new Error(`[loadLanden] Directus retry without LAT-1760 fields failed: ${retryTasting.status} ${retryTasting.statusText}: ${rbody.slice(0, 300)} | original ${res.status} body: ${body.slice(0, 200)}`);
+        }
+        console.warn(`[loadLanden] Directus also rejected fields=…,related_articles (HTTP ${retryTasting.status}) — retrying without LAT-1098 relations.`);
         const retryRel = await fetch(`${url}/items/landen?limit=-1&fields=${withSeoMeta}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
         if (retryRel.ok) {
             const json = await retryRel.json();
