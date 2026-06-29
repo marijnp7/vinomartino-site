@@ -20,19 +20,16 @@
 
 import type {
     AccommodatieKaart,
-    AccommodatieSubgroep,
     AccommodatieRoundup,
 } from './accommodaties';
+import { clusterKaarten } from './accommodatie-cluster';
+import { normalizeStayTier } from './stay-tier';
 import { normalizeEmDashes } from './markdown';
 import {
     readDirectusEnv,
     statusFilterQuery,
     assertDirectusConfigured,
 } from './directus-config';
-
-function slugifyPlaats(plaats: string): string {
-    return plaats.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'overig';
-}
 
 async function downloadAsset(assetId: string, directusUrl: string, token: string): Promise<string | null> {
     const { writeFileSync, mkdirSync, existsSync } = await import('node:fs');
@@ -67,8 +64,20 @@ function toIntOrNull(val: unknown): number | null {
     return Number.isFinite(n) ? Math.round(n) : null;
 }
 
-const BASE_FIELDS =
+function toFloatOrNull(val: unknown): number | null {
+    if (val === null || val === undefined || val === '') return null;
+    const n = Number(val);
+    return Number.isFinite(n) ? n : null;
+}
+
+// Kernvelden die de reisjunk-kaart altijd nodig heeft (region-grouping +
+// publish-gate). De curatie-velden (tier/lat/lng, LAT-1406) komen apart erbij
+// zodat de query nog vóór de Directus-migratie netjes degradeert: ontbreken
+// die velden, dan vallen we terug op KERN (streek + status blijven behouden).
+const BASE_FIELDS_CORE =
     'id,slug,name,location,description,price_low,price_high,booking_url,hero_image,dam_image_ref,streek_id.name,streek_id.slug';
+const CURATIE_FIELDS = 'tier,lat,lng';
+const BASE_FIELDS = `${BASE_FIELDS_CORE},${CURATIE_FIELDS}`;
 
 interface RawAcc {
     row: Record<string, unknown>;
@@ -86,10 +95,15 @@ async function fetchAccommodations(url: string, token: string): Promise<RawAcc[]
             signal: AbortSignal.timeout(15000),
         });
 
-    // Voorkeursquery: status-filter + streek-join. Tot DevOps de migratie draait
-    // (extend-accommodations-schema.mjs) degradeert dit netjes i.p.v. de
-    // streek-build te breken.
+    // Voorkeursquery: curatie-velden + status-filter + streek-join. Tot DevOps de
+    // migratie draait (extend-accommodations-schema.mjs) degradeert dit netjes
+    // i.p.v. de streek-build te breken: eerst de nieuwe curatie-velden laten
+    // vallen (streek + status blijven), dan pas status, dan minimaal.
     let res = await tryFetch(`${BASE_FIELDS},status`, true);
+    if (!res.ok && (res.status === 400 || res.status === 403)) {
+        console.warn(`[loadAccommodaties] curatie-velden (${CURATIE_FIELDS}) nog niet in Directus (HTTP ${res.status}) — retry zonder tier/lat/lng.`);
+        res = await tryFetch(`${BASE_FIELDS_CORE},status`, true);
+    }
     if (!res.ok && (res.status === 400 || res.status === 403)) {
         console.warn(`[loadAccommodaties] voorkeursquery geweigerd (HTTP ${res.status}) — retry zonder status/streek-velden.`);
         res = await tryFetch('id,slug,name,location,description,price_low,price_high,booking_url,hero_image,dam_image_ref', false);
@@ -114,8 +128,10 @@ async function fetchAccommodations(url: string, token: string): Promise<RawAcc[]
 
 /**
  * Levert de reisjunk-roundup per streek-slug. Alleen accommodaties met een
- * streek_id worden gegroepeerd; binnen een streek vormen ze subgroepen per
- * plaats (sub-bestemming), gesorteerd op de Directus-naamsortering.
+ * streek_id worden gegroepeerd; binnen een streek vormen ze 40-min-clusters
+ * (LAT-1406): verblijven die binnen ~40 min rijden van elkaar liggen komen in
+ * één blok, plaatsen door elkaar gemengd. Ontbreekt lat/lng nog, dan valt het
+ * cluster terug op groeperen per plaats.
  */
 export async function loadAccommodatieRoundupsByStreek(): Promise<Map<string, AccommodatieRoundup>> {
     const env = readDirectusEnv();
@@ -131,6 +147,9 @@ export async function loadAccommodatieRoundupsByStreek(): Promise<Map<string, Ac
                 naam: normalizeEmDashes(String(row.name || '')),
                 slug: String(row.slug || ''),
                 plaats,
+                tier: normalizeStayTier(row.tier),
+                lat: toFloatOrNull(row.lat),
+                lng: toFloatOrNull(row.lng),
                 beschrijving: normalizeEmDashes(String(row.description || '')),
                 foto,
                 fotoAlt: null,
@@ -142,21 +161,16 @@ export async function loadAccommodatieRoundupsByStreek(): Promise<Map<string, Ac
         }),
     );
 
-    const byStreek = new Map<string, { regio: string; subs: Map<string, AccommodatieSubgroep> }>();
-    for (const { streekSlug, streekName, plaats, kaart } of kaarten) {
+    const byStreek = new Map<string, { regio: string; kaarten: AccommodatieKaart[] }>();
+    for (const { streekSlug, streekName, kaart } of kaarten) {
         if (!streekSlug) continue;
-        if (!byStreek.has(streekSlug)) byStreek.set(streekSlug, { regio: streekName, subs: new Map() });
-        const bucket = byStreek.get(streekSlug)!;
-        const groupKey = plaats || bucket.regio;
-        if (!bucket.subs.has(groupKey)) {
-            bucket.subs.set(groupKey, { plaats: groupKey, slug: slugifyPlaats(groupKey), kaarten: [] });
-        }
-        bucket.subs.get(groupKey)!.kaarten.push(kaart);
+        if (!byStreek.has(streekSlug)) byStreek.set(streekSlug, { regio: streekName, kaarten: [] });
+        byStreek.get(streekSlug)!.kaarten.push(kaart);
     }
 
     const out = new Map<string, AccommodatieRoundup>();
-    for (const [streekSlug, { regio, subs }] of byStreek) {
-        out.set(streekSlug, { regio, subgroepen: [...subs.values()] });
+    for (const [streekSlug, { regio, kaarten: streekKaarten }] of byStreek) {
+        out.set(streekSlug, { regio, clusters: clusterKaarten(streekKaarten, regio) });
     }
     console.log(`[loadAccommodaties] ${kaarten.length} accommodaties → ${out.size} streek-roundups`);
     return out;

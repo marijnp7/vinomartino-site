@@ -1,0 +1,236 @@
+---
+// LAT-1608 — visueel route-kaartje: een schematische "van-naar" weergave van een
+// wijnroute. Er zijn (nog) geen stop-coördinaten in het datamodel (routes.stops is
+// een geordende string[]), dus dit is een schematische strip i.p.v. een geografische
+// kaart. Eerste stop = vertrek (Van), laatste = bestemming (Naar), tussenliggende
+// stops als genummerde knooppunten. variant="mini" geeft een compacte kaart-strip.
+export interface Props {
+  stops: string[];
+  duration?: string | null;
+  transport?: string | null;
+  variant?: 'full' | 'mini';
+}
+
+const { stops = [], duration = null, transport = null, variant = 'full' } = Astro.props;
+
+const clean = stops.map(s => (s ?? '').trim()).filter(Boolean);
+const hasRoute = clean.length >= 2;
+const lastIndex = clean.length - 1;
+
+function nodeRole(i: number): 'van' | 'naar' | 'stop' {
+  if (i === 0) return 'van';
+  if (i === lastIndex) return 'naar';
+  return 'stop';
+}
+---
+
+{hasRoute && variant === 'full' && (
+  <figure class="routemap">
+    <figcaption class="routemap__cap">
+      <span class="routemap__label">Routekaart</span>
+      <span class="routemap__from-to">{clean[0]} <span class="routemap__arrow">&rarr;</span> {clean[lastIndex]}</span>
+    </figcaption>
+    <ol class="routemap__track" aria-label={`Route van ${clean[0]} naar ${clean[lastIndex]}`}>
+      {clean.map((stop, i) => (
+        <li class:list={['routemap__node', `routemap__node--${nodeRole(i)}`]}>
+          <span class="routemap__dot" aria-hidden="true">{i === 0 || i === lastIndex ? '' : i + 1}</span>
+          <span class="routemap__stop">
+            {nodeRole(i) !== 'stop' && (
+              <span class="routemap__endpoint">{nodeRole(i) === 'van' ? 'Van' : 'Naar'}</span>
+            )}
+            {stop}
+          </span>
+        </li>
+      ))}
+    </ol>
+    {(duration || transport) && (
+      <div class="routemap__meta">
+        {duration && <span class="routemap__tag">{duration}</span>}
+        {transport && <span class="routemap__tag">{transport}</span>}
+        {clean.length > 2 && <span class="routemap__tag">{clean.length} stops</span>}
+      </div>
+    )}
+  </figure>
+)}
+
+{hasRoute && variant === 'mini' && (
+  <div class="routemap-mini" aria-label={`Route van ${clean[0]} naar ${clean[lastIndex]}`}>
+    <span class="routemap-mini__end">{clean[0]}</span>
+    <span class="routemap-mini__line" aria-hidden="true">
+      {Array.from({ length: Math.max(0, clean.length - 1) }).map(() => <span class="routemap-mini__seg" />)}
+    </span>
+    <span class="routemap-mini__end routemap-mini__end--to">{clean[lastIndex]}</span>
+  </div>
+)}
+
+<style>
+  /* ---- full variant ---- */
+  .routemap {
+    margin: 0;
+    background: var(--paperDeep);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-sm);
+    padding: 1.5rem 1.75rem;
+  }
+  .routemap__cap {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.5rem 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .routemap__label {
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--burgundy);
+  }
+  .routemap__from-to {
+    font-family: var(--font-display);
+    font-size: 1.0625rem;
+    font-weight: 500;
+    color: var(--ink);
+  }
+  .routemap__arrow { color: var(--rust); padding: 0 0.15rem; }
+
+  .routemap__track {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 0;
+  }
+  .routemap__node {
+    position: relative;
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 0 0.25rem;
+  }
+  /* verbindingslijn: getekend op elk knooppunt behalve het eerste, naar links */
+  .routemap__node::before {
+    content: '';
+    position: absolute;
+    top: 8px;
+    right: 50%;
+    left: -50%;
+    height: 2px;
+    background: var(--rule);
+    z-index: 0;
+  }
+  .routemap__node:first-child::before { display: none; }
+  .routemap__dot {
+    position: relative;
+    z-index: 1;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--paper);
+    border: 2px solid var(--inkFaint);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-mono);
+    font-size: 0.5rem;
+    color: var(--inkSoft);
+    flex: none;
+  }
+  .routemap__node--van .routemap__dot,
+  .routemap__node--naar .routemap__dot {
+    background: var(--burgundy);
+    border-color: var(--burgundy);
+  }
+  .routemap__stop {
+    margin-top: 0.625rem;
+    font-family: var(--font-ui);
+    font-size: 0.8125rem;
+    line-height: 1.3;
+    color: var(--ink);
+  }
+  .routemap__endpoint {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 0.5rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--rust);
+    margin-bottom: 0.2rem;
+  }
+  .routemap__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 1.5rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--ruleSoft, var(--rule));
+  }
+  .routemap__tag {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    background: var(--paper);
+    color: var(--inkSoft);
+    padding: 0.25rem 0.625rem;
+    border-radius: 1px;
+  }
+
+  /* op smalle schermen: verticale timeline i.p.v. horizontale strip */
+  @media (max-width: 640px) {
+    .routemap__track { flex-direction: column; align-items: stretch; gap: 0; }
+    .routemap__node {
+      flex-direction: row;
+      align-items: flex-start;
+      gap: 0.75rem;
+      text-align: left;
+      padding: 0 0 1.25rem 0;
+    }
+    .routemap__node:last-child { padding-bottom: 0; }
+    .routemap__node::before {
+      top: -50%;
+      bottom: 50%;
+      left: 8px;
+      right: auto;
+      width: 2px;
+      height: auto;
+    }
+    .routemap__stop { margin-top: 0; padding-top: 1px; }
+  }
+
+  /* ---- mini variant (kaart-strip) ---- */
+  .routemap-mini {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.04em;
+    color: var(--inkSoft);
+  }
+  .routemap-mini__end {
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 9rem;
+  }
+  .routemap-mini__end--to { color: var(--burgundy); }
+  .routemap-mini__line {
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    min-width: 1.5rem;
+  }
+  .routemap-mini__seg {
+    flex: 1 1 auto;
+    height: 2px;
+    background: var(--rule);
+    border-radius: 1px;
+  }
+</style>

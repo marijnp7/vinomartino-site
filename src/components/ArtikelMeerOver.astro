@@ -1,0 +1,93 @@
+---
+// LAT-1619: voetblok "Meer over [druif/regio]" — onderaan het artikel, boven de
+// footer. Max 3 redactioneel gekozen artikel-cards (Directus-veld `meer_over`).
+// 3-koloms grid op desktop, 1-kolom op mobiel. Leeg → niets renderen.
+import type { RelatedRef } from '../lib/articles';
+
+interface Props {
+  items: RelatedRef[];
+  topic?: string;
+  maxItems?: number;
+}
+
+const { items, topic, maxItems = 3 } = Astro.props;
+const cards = items.slice(0, maxItems);
+const heading = topic ? `Meer over ${topic}` : 'Meer lezen';
+---
+
+{cards.length > 0 && (
+  <section class="meer-over">
+    <div class="container">
+      <span class="mo-label">Verder lezen</span>
+      <h2 class="mo-title">{heading}</h2>
+      <div class="mo-grid">
+        {cards.map((card) => (
+          <a href={`/artikelen/${card.slug}/`} class="mo-card">
+            <span class="mo-meta">Artikel</span>
+            <span class="mo-name">{card.name}</span>
+          </a>
+        ))}
+      </div>
+    </div>
+  </section>
+)}
+
+<style>
+  .meer-over {
+    padding: 3rem 0;
+    border-top: 1px solid var(--rule);
+  }
+  .mo-label {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--burgundy);
+    display: block;
+    margin-bottom: 0.5rem;
+  }
+  .mo-title {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-weight: 500;
+    color: var(--ink);
+    margin: 0 0 1.5rem;
+  }
+  .mo-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+  }
+  .mo-card {
+    text-decoration: none;
+    color: inherit;
+    background: var(--paperDeep);
+    padding: 1rem 1.25rem;
+    border-radius: var(--radius-sm);
+    transition: box-shadow var(--duration-fast) var(--ease-out);
+  }
+  .mo-card:hover {
+    box-shadow: var(--shadow-card-hover);
+  }
+  .mo-meta {
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--rust);
+    display: block;
+    margin-bottom: 0.25rem;
+  }
+  .mo-name {
+    font-family: var(--font-display);
+    font-size: 1.125rem;
+    font-weight: 500;
+    color: var(--ink);
+  }
+  @media (max-width: 900px) {
+    .mo-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 640px) {
+    .mo-grid { grid-template-columns: 1fr; }
+  }
+</style>

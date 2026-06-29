@@ -129,18 +129,28 @@ const articleTags = article?.tags?.filter((tag): tag is string => Boolean(tag &&
         two.parentNode.insertBefore(twenty, two);
       })(window, document, 'script', 'https://scripts.stay22.com/letmeallez.js');
     </script>
-    <!-- CJ-CTA guard (LAT-1369 → LAT-1400). LinkSwap herschrijft de href van onze
-         CJ-booking-CTA's client-side naar Stay22 — dat kaapt de CJ-conversie. Sinds
-         LAT-1400 zijn onze CTA's directe booking.com-deeplinks (i.p.v. de oude CJ-redirect-hop),
-         dus LinkSwap ziet ze nu OOK als booking.com-doelen en zou ze rewriten. We beschermen
-         daarom elke a[data-cj-href] (zowel .acc-kaart__cta als .affiliate-block__cta) door de
-         canonieke CJ-URL uit data-cj-href te herstellen en met een MutationObserver vast te
-         houden. LinkSwap kent geen per-element opt-out (nova.ignoreElements stuurt alleen de
-         overlay, niet de rewrite). Globale LinkSwap blijft aan voor losse links elders. -->
+    <!-- Universele booking-guard (LAT-1369 → LAT-1400 → LAT-1729). LinkSwap herschrijft
+         client-side de href van booking.com-links naar Stay22 (aid 818285 → 1607597) — dat
+         kaapt onze directe CJ-conversie. De oude guard beschermde alléén a[data-cj-href]
+         (gemarkeerde CTA's); elke andere booking.com-link (StreekKaart/CuratedStayMap-pins,
+         controle-kaarten, losse links) lekte nog. LAT-1729 maakt de guard universeel: we
+         stashen bij DOMContentLoaded de server-gerenderde href van ÉLKE a[href*="booking.com"]
+         in data-vm-booking-href (vóór LinkSwap kan rewriten) en herstellen die met een
+         MutationObserver + sweeps. data-cj-href blijft de canonieke bron waar aanwezig.
+         LinkSwap kent geen per-element opt-out (nova.ignoreElements stuurt alleen de overlay,
+         niet de rewrite); globale LinkSwap blijft aan voor niet-booking OTA-links elders. -->
     <script is:inline>
       (function () {
+        function canonical(el) {
+          return el.getAttribute('data-cj-href') || el.getAttribute('data-vm-booking-href');
+        }
+        function stash(el) {
+          if (el.getAttribute('data-cj-href') || el.getAttribute('data-vm-booking-href')) return;
+          var h = el.getAttribute('href') || '';
+          if (h.indexOf('booking.com') !== -1) el.setAttribute('data-vm-booking-href', h);
+        }
         function restore(el) {
-          var cj = el.getAttribute('data-cj-href');
+          var cj = canonical(el);
           if (!cj) return;
           if (el.getAttribute('href') !== cj) el.setAttribute('href', cj);
           if (el.hasAttribute('onclick')) el.removeAttribute('onclick');
@@ -149,8 +159,10 @@ const articleTags = article?.tags?.filter((tag): tag is string => Boolean(tag &&
           if (el.getAttribute('target') !== '_blank') el.setAttribute('target', '_blank');
         }
         function sweep() {
-          var els = document.querySelectorAll('a[data-cj-href]');
-          for (var i = 0; i < els.length; i++) restore(els[i]);
+          var bk = document.querySelectorAll('a[href*="booking.com"]');
+          for (var i = 0; i < bk.length; i++) stash(bk[i]);
+          var els = document.querySelectorAll('a[data-cj-href], a[data-vm-booking-href]');
+          for (var j = 0; j < els.length; j++) restore(els[j]);
         }
         function start() {
           sweep();
@@ -158,7 +170,13 @@ const articleTags = article?.tags?.filter((tag): tag is string => Boolean(tag &&
             new MutationObserver(function (muts) {
               for (var i = 0; i < muts.length; i++) {
                 var n = muts[i].target;
-                if (n.nodeType === 1 && n.hasAttribute && n.hasAttribute('data-cj-href')) restore(n);
+                if (n.nodeType !== 1 || !n.hasAttribute) continue;
+                if (n.hasAttribute('data-cj-href') || n.hasAttribute('data-vm-booking-href')) {
+                  restore(n);
+                } else if (n.tagName === 'A') {
+                  var h = n.getAttribute('href') || '';
+                  if (h.indexOf('booking.com') !== -1) { stash(n); restore(n); }
+                }
               }
             }).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['href', 'onclick'] });
           } catch (e) {}

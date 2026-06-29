@@ -2,15 +2,18 @@
 import SiteLayout from '../../layouts/SiteLayout.astro';
 import AffiliatePlaceholder from '../../components/AffiliatePlaceholder.astro';
 import RelatedEntities from '../../components/RelatedEntities.astro';
-import Stay22Stay from '../../components/Stay22Stay.astro';
+import ArtikelGerelateerdeStukken from '../../components/ArtikelGerelateerdeStukken.astro';
+import ArtikelMeerOver from '../../components/ArtikelMeerOver.astro';
 import AccommodatieRoundup from '../../components/AccommodatieRoundup.astro';
+import RhoneMap from '../../components/RhoneMap.astro';
+import { splitBodyForRhoneMap } from '../../lib/rhone-maps';
 import { loadArticles, type Article } from '../../lib/articles';
 import { loadAccommodatieRoundupsByStreek } from '../../lib/accommodaties-loader';
 import type { AccommodatieRoundup as AccommodatieRoundupData } from '../../lib/accommodaties';
 import { articleSchema, breadcrumbSchema } from '../../lib/seo';
 import { getAffiliateBlock, resolveAccommodationHref } from '../../lib/affiliates';
-import { deriveArticleLocation } from '../../lib/stay22';
 import { getAuthorByByline } from '../../lib/authors';
+import { getImageCredit } from '../../lib/image-credits';
 
 type ArticleRoundup = { slug: string; roundup: AccommodatieRoundupData };
 
@@ -26,7 +29,7 @@ export async function getStaticPaths() {
     const accRoundups: ArticleRoundup[] = a.relatedStreken
       .map((s) => ({ slug: s.slug, roundup: accRoundupsByStreek.get(s.slug) }))
       .filter((x): x is ArticleRoundup =>
-        Boolean(x.roundup && x.roundup.subgroepen.some((g) => g.kaarten.length > 0)));
+        Boolean(x.roundup && x.roundup.clusters.some((c) => c.kaarten.length > 0)));
     return { params: { slug: a.slug }, props: { article: a, accRoundups } };
   });
 }
@@ -53,12 +56,19 @@ const accommodation = accommodationBlock && accommodationHref
 const sidebar = sidebarBlock && sidebarHref
   ? { ...sidebarBlock, href: sidebarHref }
   : (sidebarBlock?.href ? sidebarBlock : undefined);
-const stay22Location = deriveArticleLocation(article);
 
 const pageUrl = new URL(`/artikelen/${article.slug}/`, Astro.site ?? 'https://vinomartino.com').href;
 const authorProfile = getAuthorByByline(article.author);
 
 const modifiedTime = article.updatedAt || article.pubDate;
+
+// LAT-1719: de twee Rhône-artikelen krijgen een interactieve Leaflet-kaart inline
+// in de body. splitBodyForRhoneMap() knipt de bodyHtml op een vast anker; null
+// voor alle andere artikelen (dan rendert de body ongewijzigd).
+const rhoneMap = splitBodyForRhoneMap(article.bodyHtml, article.slug);
+
+// LAT-1687: verplichte beeldcredit (bv. Wikimedia Commons CC BY-SA) bij de hero.
+const heroCredit = getImageCredit(article.heroImageId);
 
 // LAT-1118: TOC alleen op langere stukken (>= 3 h2-koppen); korte artikelen
 // blijven schoon. Volledig afgeleid uit de koppen, geen handmatig onderhoud.
@@ -81,6 +91,18 @@ const schema = [
     { name: article.title, url: pageUrl },
   ]),
 ];
+
+// LAT-1680: optionele FAQPage JSON-LD uit Directus (faq_schema_json). Empty-safe:
+// alleen pushen als het veld een geldig JSON-object bevat. Ongeldige JSON wordt
+// gelogd en overgeslagen i.p.v. de build te breken.
+if (article.faqSchema) {
+  try {
+    const faq = JSON.parse(article.faqSchema);
+    if (faq && typeof faq === 'object') schema.push(faq);
+  } catch (err) {
+    console.warn(`[artikel] ongeldige faq_schema_json voor ${article.slug}: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
 ---
 
 <SiteLayout
@@ -100,9 +122,14 @@ const schema = [
 >
   <article class="article-page">
     {article.heroImage && (
-      <div class="article-hero">
+      <figure class="article-hero">
         <img src={article.heroImage} alt={article.title} class="article-hero-img" />
-      </div>
+        {heroCredit && (
+          <figcaption class="article-hero-credit">
+            {heroCredit.author} — <a href={heroCredit.licenseUrl} rel="license noopener" target="_blank">{heroCredit.licenseLabel}</a>
+          </figcaption>
+        )}
+      </figure>
     )}
 
     <div class="container article-layout">
@@ -144,7 +171,15 @@ const schema = [
           </details>
         )}
 
-        <div class="article-prose" set:html={article.bodyHtml} />
+        {rhoneMap ? (
+          <Fragment>
+            <div class="article-prose" set:html={rhoneMap.before} />
+            <RhoneMap slug={article.slug} {...rhoneMap.config} />
+            <div class="article-prose" set:html={rhoneMap.after} />
+          </Fragment>
+        ) : (
+          <div class="article-prose" set:html={article.bodyHtml} />
+        )}
 
         {authorProfile && (
           <aside class="article-author-card" aria-label={`Over de auteur — ${authorProfile.name}`}>
@@ -199,13 +234,13 @@ const schema = [
           />
         )}
 
-        {hasReisjunkRoundup ? (
-          accRoundups.map(({ slug, roundup }) => (
-            <AccommodatieRoundup roundup={roundup} context={slug} />
-          ))
-        ) : (
-          <Stay22Stay location={stay22Location} context={article.slug} placement="inline-end" />
-        )}
+        {/* LAT-1609: de oude harde "Waar te slapen"-fallback (Stay22-widget) is
+            weggehaald. Met curated verblijven toont de reisjunk-roundup; zonder
+            curated data vervangen de cross-links onderaan (RelatedEntities) het
+            blok i.p.v. een generieke affiliate-widget. */}
+        {hasReisjunkRoundup && accRoundups.map(({ slug, roundup }) => (
+          <AccommodatieRoundup roundup={roundup} context={slug} />
+        ))}
       </div>
 
       <aside class="article-sidebar">
@@ -236,8 +271,11 @@ const schema = [
             description={sidebar.description}
           />
         )}
+        <ArtikelGerelateerdeStukken items={article.relatedArtikelen} />
       </aside>
     </div>
+
+    <ArtikelMeerOver items={article.meerOver} topic={article.tags?.[0] ?? undefined} />
 
     <RelatedEntities
       streken={article.relatedStreken}
@@ -250,14 +288,33 @@ const schema = [
 
 <style>
   .article-hero {
+    position: relative;
     height: 45vh;
     min-height: 300px;
     overflow: hidden;
+    margin: 0;
   }
   .article-hero-img {
     width: 100%;
     height: 100%;
     object-fit: cover;
+  }
+  .article-hero-credit {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    max-width: 100%;
+    padding: 0.25rem 0.625rem;
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    line-height: 1.4;
+    letter-spacing: 0.02em;
+    color: #fff;
+    background: rgba(0, 0, 0, 0.55);
+  }
+  .article-hero-credit a {
+    color: inherit;
+    text-decoration: underline;
   }
   .article-layout {
     display: grid;

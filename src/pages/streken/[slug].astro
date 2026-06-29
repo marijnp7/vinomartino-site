@@ -3,15 +3,19 @@ import SiteLayout from '../../layouts/SiteLayout.astro';
 import AffiliatePlaceholder from '../../components/AffiliatePlaceholder.astro';
 import AffiliateDisclosure from '../../components/AffiliateDisclosure.astro';
 import RelatedArticles from '../../components/RelatedArticles.astro';
-import Stay22Stay from '../../components/Stay22Stay.astro';
 import AccommodatieRoundup from '../../components/AccommodatieRoundup.astro';
 import StreekKaart, { type StreekPoiInput } from '../../components/StreekKaart.astro';
-import { allezSearchUrl } from '../../lib/stay22';
+import WijnFactBox from '../../components/WijnFactBox.astro';
+import RouteMap from '../../components/RouteMap.astro';
+import { buildCjBookingLink, buildBookingSearchLink, unwrapCjRedirect } from '../../lib/affiliates';
 import { loadStreken, type Streek, type Accommodation } from '../../lib/streken';
+import { clustersFromCuratedStays, staySlug } from '../../lib/curated-stays';
+import { STAY_TIER_META } from '../../lib/stay-tier';
 import { loadWijnhuizen, type Wijnhuis } from '../../lib/wijnhuizen';
 import { loadAccommodatieRoundupsByStreek } from '../../lib/accommodaties-loader';
 import type { AccommodatieRoundup as AccommodatieRoundupData } from '../../lib/accommodaties';
 import { loadRoutes, type WijnRoute } from '../../lib/routes';
+import { currencyForLand, formatMoney } from '../../lib/currency';
 import { streekSchema, streekMetaTitle, streekMetaDescription, breadcrumbSchema } from '../../lib/seo';
 
 export async function getStaticPaths() {
@@ -45,22 +49,24 @@ export async function getStaticPaths() {
 
 const { entry, wijnhuizen, routes, accRoundup } = Astro.props as { entry: Streek; wijnhuizen: Wijnhuis[]; routes: WijnRoute[]; accRoundup: AccommodatieRoundupData | null };
 const pageUrl = new URL(`/streken/${entry.slug}/`, Astro.site ?? 'https://vinomartino.com').href;
-const stay22Location = entry.country ? `${entry.name}, ${entry.country}` : entry.name;
+// LAT-1664: bron-valuta volgt het land van de streek (Zuid-Afrika → ZAR);
+// bedragen worden naar EUR geconverteerd voor weergave (board-besluit). Een
+// per-accommodatie valuta (acc.valuta) wint als bron over de land-default.
+const streekValuta = currencyForLand(entry.landSlug);
 
 // LAT-1199: verticale kruimel Land → Streek.
 const hasParentLand = Boolean(entry.landSlug && entry.country);
-// LAT-1592: reisjunk-rijke roundup (accommodations-collectie) blijft de
-// rijke overnachten-bron naast de unified POI-kaart; zonder enige curated POI
-// valt de pagina terug op de generieke Stay22.
-const hasReisjunkRoundup = Boolean(accRoundup && accRoundup.subgroepen.some(g => g.kaarten.length > 0));
+// LAT-1607: de afgesproken 3x3x3 gouden-standaard (LAT-1413/LAT-1599) wint.
+// Heeft de streek een curated accommodatie-set (Accommodation Scout → Directus,
+// 9 verblijven in 3 tiers), dan rendert het overnachten-blok als die 3x3x3-grid.
+// Pas zonder curated set valt de pagina terug op de reisjunk-roundup; ontbreekt
+// ook die, dan rendert er geen overnachten-blok (LAT-1640: geen generieke
+// Stay22-zoekwidget meer).
+const hasCuratedStays = entry.accommodaties.length > 0;
+const hasReisjunkRoundup = Boolean(accRoundup && accRoundup.clusters.some(c => c.kaarten.length > 0));
 
 // LAT-1592 — unified streek "money page": bouw de vier POI-categorieën voor de
 // gedeelde kaart + genummerde blokken. Categorieën zonder data renderen niet.
-const TIER_LABEL: Record<Accommodation['tier'], string> = {
-  slim_geboekt: 'Slim geboekt',
-  prijs_kwaliteit: 'Prijs-kwaliteit',
-  pure_luxe: 'Pure luxe',
-};
 const normName = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
 
 // Wijnhuizen: pin-coördinaten (entry.wijnhuizen) gekoppeld aan de detailpagina's
@@ -91,28 +97,62 @@ for (const detail of wijnhuizen) {
 }
 
 function accPrice(acc: Accommodation): string | null {
-  const sym = acc.valuta ? `${acc.valuta} ` : '€';
-  if (acc.prijsLaag != null && acc.prijsHoog != null) return `${sym}${acc.prijsLaag}–${acc.prijsHoog} / nacht`;
-  if (acc.prijsLaag != null) return `vanaf ${sym}${acc.prijsLaag} / nacht`;
-  if (acc.prijsHoog != null) return `tot ${sym}${acc.prijsHoog} / nacht`;
+  const bron = acc.valuta || streekValuta;
+  const laag = formatMoney(acc.prijsLaag, bron);
+  const hoog = formatMoney(acc.prijsHoog, bron);
+  if (laag && hoog) return `${laag}–${hoog} / nacht`;
+  if (laag) return `vanaf ${laag} / nacht`;
+  if (hoog) return `tot ${hoog} / nacht`;
   return null;
 }
-function accBoeklink(acc: Accommodation): string {
-  if (acc.boeklink && /^https?:\/\//.test(acc.boeklink)) return acc.boeklink;
-  return allezSearchUrl({ location: `${acc.naam}, ${entry.name}`, campaign: entry.slug });
+// LAT-1634: het 3x3x3-grid linkte via Stay22 Allez (allezSearchUrl), wat bij
+// verblijven zonder eigen property-URL op een generieke stad-/zoekpagina landde
+// (3 van 4 fout). We volgen nu dezelfde regel als de artikel-affiliateblokken
+// (LAT-1549/1400): ALTIJD een directe, ad-blocker-bestendige booking.com-deeplink
+// mét affiliate-aid + CJ-label, onafhankelijk van wat de data bevat.
+function accSid(acc: Accommodation): string {
+  const namePart = acc.naam.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  return `streek-${entry.slug}-${namePart}`;
 }
-// Bij een reisjunk-roundup (rijkere accommodations-collectie) blijft overnachten
-// in dat blok; de unified kaart laat overnachten dan weg om dubbeling te vermijden.
-const overnachtenInput: StreekPoiInput[] = hasReisjunkRoundup ? [] : entry.accommodaties.map(acc => ({
-  naam: acc.naam,
-  lat: acc.lat,
-  lng: acc.lng,
-  beschrijving: acc.whyThisOne,
-  prijs: accPrice(acc),
-  boeklink: accBoeklink(acc),
-  badge: TIER_LABEL[acc.tier],
-  partner: 'stay22',
-}));
+function accBoeklink(acc: Accommodation): string {
+  const sid = accSid(acc);
+  const direct = acc.boeklink ? unwrapCjRedirect(acc.boeklink.trim()) : '';
+  // Echte booking.com-hotelpagina in de data → directe CJ-deeplink naar exact dat hotel.
+  if (/^https?:\/\/(www\.)?booking\.com\/hotel\//i.test(direct)) {
+    return buildCjBookingLink(direct, sid);
+  }
+  // Geen specifieke property-URL (leeg, Stay22-zoeklink, stad/zoekpagina) → directe
+  // booking.com-zoekdeeplink op de exacte hotelnaam, mét aid + label.
+  return buildBookingSearchLink(`${acc.naam}, ${entry.name}`, sid);
+}
+// LAT-1644: de curated set voedt het overnachten-blok, maar gegroepeerd op
+// 40-min-cluster (LAT-1406) i.p.v. op tier. De tiers staan GEMENGD binnen een
+// cluster en blijven als badge per kaart zichtbaar (STAY_TIER_META). Zo toont
+// /streken dezelfde geografische cluster-layout als /accommodaties i.p.v. de
+// oude Slim geboekt / Prijs-kwaliteit / Pure luxe tier-secties. We bouwen de
+// POI's in clustervolgorde (binnen cluster al op tier gesorteerd) zodat de
+// gedeelde nummering 1..N per cluster oploopt.
+const stayClusters = hasCuratedStays ? clustersFromCuratedStays(entry) : [];
+const accBySlug = new Map(entry.accommodaties.map(acc => [staySlug(acc.naam), acc]));
+const overnachtenInput: StreekPoiInput[] = stayClusters.flatMap(cluster =>
+  cluster.kaarten.flatMap(kaart => {
+    const acc = accBySlug.get(kaart.slug);
+    if (!acc) return [];
+    return [{
+      naam: acc.naam,
+      lat: acc.lat,
+      lng: acc.lng,
+      beschrijving: acc.whyThisOne,
+      prijs: accPrice(acc),
+      boeklink: accBoeklink(acc),
+      tier: acc.tier,
+      badge: STAY_TIER_META[acc.tier]?.label ?? null,
+      clusterSlug: cluster.slug,
+      clusterTitel: cluster.titel,
+      partner: 'booking',
+    }];
+  }),
+);
 
 const etenInput: StreekPoiInput[] = entry.eten.map(p => ({
   naam: p.naam,
@@ -163,6 +203,15 @@ const hasStats = Boolean(
   entry.soil ||
   entry.vineyardArea ||
   entry.altitude,
+);
+// LAT-1676 — render de fact-box-sectie alleen als er minstens één gevuld veld is.
+const hasFactBox = Boolean(
+  entry.mainGrapes.length ||
+  entry.appellations.length ||
+  entry.bestVintages ||
+  entry.harvestPeriod ||
+  entry.minVisitTime ||
+  entry.tastingBudget,
 );
 ---
 
@@ -235,31 +284,80 @@ const hasStats = Boolean(
       )}
     </section>
 
+    {/* LAT-1676 — WijnFactBox: compacte WSET-feiten bovenaan. Rendert alleen als
+        er gevulde velden zijn (geen lege box op streken zonder fact-data). */}
+    {hasFactBox && (
+      <section class="streek-factbox-section">
+        <div class="container">
+          <WijnFactBox
+            dominantGrapes={entry.mainGrapes}
+            appellations={entry.appellations}
+            bestVintages={entry.bestVintages}
+            harvestPeriod={entry.harvestPeriod}
+            minVisitTime={entry.minVisitTime}
+            tastingBudget={entry.tastingBudget}
+          />
+        </div>
+      </section>
+    )}
+
     {/* LAT-1592 — unified POI "geld-pagina": dubbele kaart + genummerde blokken
         over alle vier categorieën (wijnhuizen, eten, overnachten, activiteiten).
-        Reisjunk-roundup blijft de rijke overnachten-bron; zonder enige curated
-        data valt het terug op de generieke Stay22. */}
-    <section class="streek-poi">
-      <div class="container">
-        {hasUnifiedPoi && (
-          <StreekKaart
-            streek={entry.name}
-            slug={entry.slug}
-            country={entry.country}
-            wijnhuizen={wijnhuizenInput}
-            overnachten={overnachtenInput}
-            eten={etenInput}
-            activiteiten={activiteitenInput}
-          />
-        )}
-        {hasReisjunkRoundup && (
-          <AccommodatieRoundup roundup={accRoundup!} context={entry.slug} />
-        )}
-        {!hasUnifiedPoi && !hasReisjunkRoundup && (
-          <Stay22Stay location={stay22Location} context={`streek-${entry.slug}`} placement="sidebar" heading={`Waar te slapen in ${entry.name}`} />
-        )}
-      </div>
-    </section>
+        LAT-1607: het overnachten-blok groepeert de gecureerde 9 in de 3x3x3
+        gouden-standaard (slim_geboekt / prijs_kwaliteit / pure_luxe). Heeft een
+        streek geen gecureerde accommodaties, dan valt het terug op de reisjunk-
+        roundup. LAT-1640: zonder gecureerde data rendert er geen blok meer
+        (geen generieke Stay22-zoekwidget). */}
+    {(hasUnifiedPoi || (!hasCuratedStays && hasReisjunkRoundup)) && (
+      <section class="streek-poi">
+        <div class="container">
+          {hasUnifiedPoi && (
+            <StreekKaart
+              streek={entry.name}
+              slug={entry.slug}
+              country={entry.country}
+              wijnhuizen={wijnhuizenInput}
+              overnachten={overnachtenInput}
+              eten={etenInput}
+              activiteiten={activiteitenInput}
+            />
+          )}
+          {!hasCuratedStays && hasReisjunkRoundup && (
+            <AccommodatieRoundup roundup={accRoundup!} context={entry.slug} bronValuta={streekValuta} />
+          )}
+        </div>
+      </section>
+    )}
+
+    {/* LAT-1608 — routes prominenter: direct na de POI-kaart, met een visueel
+        van-naar kaartje per route i.p.v. onderaan de pagina. */}
+    {routes.length > 0 && (
+      <section class="streek-routes">
+        <div class="container">
+          <div class="streek-routes__head">
+            <span class="section-label">Wijnroutes</span>
+            <h2 class="streek-routes__title">Rijd {entry.name}</h2>
+            <p class="streek-routes__intro">Uitgestippelde routes door de streek — van waar naar waar, met de mooiste stops onderweg.</p>
+          </div>
+          <div class="route-grid">
+            {routes.map(route => (
+              <a class="route-card" href={`/wijnroutes/${route.slug}/`}>
+                <span class="route-card__name">{route.title}</span>
+                {route.stops.length >= 2 && (
+                  <RouteMap stops={route.stops} variant="mini" />
+                )}
+                {route.description && <span class="route-card__desc">{route.description}</span>}
+                <div class="route-card__meta">
+                  {route.duration && <span class="route-card__tag">{route.duration}</span>}
+                  {route.transport && <span class="route-card__tag">{route.transport}</span>}
+                </div>
+                <span class="route-card__cta">Bekijk route &rarr;</span>
+              </a>
+            ))}
+          </div>
+        </div>
+      </section>
+    )}
 
     {entry.bodyHtml && (
       <section class="streek-body">
@@ -292,27 +390,6 @@ const hasStats = Boolean(
           <div class="appellation-grid">
             {entry.appellations.map(app => (
               <div class="appellation-chip">{app}</div>
-            ))}
-          </div>
-        </div>
-      </section>
-    )}
-
-    {routes.length > 0 && (
-      <section class="streek-routes">
-        <div class="container">
-          <span class="section-label">Wijnroutes in {entry.name}</span>
-          <div class="route-grid">
-            {routes.map(route => (
-              <a class="route-card" href={`/wijnroutes/${route.slug}/`}>
-                <span class="route-card__name">{route.title}</span>
-                {route.description && <span class="route-card__desc">{route.description}</span>}
-                <div class="route-card__meta">
-                  {route.duration && <span class="route-card__tag">{route.duration}</span>}
-                  {route.transport && <span class="route-card__tag">{route.transport}</span>}
-                </div>
-                <span class="route-card__cta">Bekijk route &rarr;</span>
-              </a>
             ))}
           </div>
         </div>
@@ -448,6 +525,33 @@ const hasStats = Boolean(
   .streek-subregions, .streek-appellations, .streek-poi, .streek-insurance, .streek-routes {
     padding: 3rem 0;
     border-bottom: 1px solid var(--rule);
+  }
+  /* LAT-1676 — fact-box zit strak onder de hero, geen eigen onderrand. */
+  .streek-factbox-section {
+    padding: 2rem 0 0;
+  }
+  .streek-routes {
+    background: var(--paperDeep);
+    padding: 4rem 0;
+  }
+  .streek-routes__head {
+    margin-bottom: var(--space-5);
+  }
+  .streek-routes__title {
+    font-family: var(--font-display);
+    font-size: clamp(1.75rem, 1.4rem + 1.5vw, 2.5rem);
+    font-weight: 500;
+    color: var(--ink);
+    margin: 0.5rem 0 0;
+  }
+  .streek-routes__intro {
+    font-family: var(--font-body);
+    font-size: 1.0625rem;
+    line-height: 1.5;
+    font-style: italic;
+    color: var(--inkSoft);
+    margin: 0.75rem 0 0;
+    max-width: 52ch;
   }
   .route-grid {
     display: grid;

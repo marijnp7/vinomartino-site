@@ -7,9 +7,13 @@ import { loadStreken } from '../lib/streken';
 import { organizationSchema } from '../lib/seo';
 
 const articles = await loadArticles();
-const [spotlight, ...rest] = articles;
-const moreArticles = rest.slice(0, 3);
-const wijnhuizen = (await loadWijnhuizen()).slice(0, 3);
+// LAT-1611: het "verhaal van de week" is instelbaar via het `featured`-veld in
+// Directus. Board zet de toggle aan op het gewenste artikel; bij meerdere wint
+// het nieuwste. Geen featured-artikel → val terug op het nieuwste artikel.
+const spotlight = articles.find((a) => a.featured) ?? articles[0];
+const moreArticles = articles.filter((a) => a.slug !== spotlight?.slug).slice(0, 3);
+// LAT-1612: volledige lijst nodig — de homepage shuffelt client-side en toont 3.
+const wijnhuizen = await loadWijnhuizen();
 const routes = (await loadRoutes()).slice(0, 3);
 const streken = (await loadStreken()).slice(0, 3);
 
@@ -175,9 +179,9 @@ function formatDate(value?: string | null) {
           Geen merknamen, wijnmakers met een handschrift. Geportretteerd door iemand die er zelf gestaan heeft.
         </p>
       </header>
-      <div class="cards-grid">
-        {wijnhuizen.map(w => (
-          <a href={`/wijnhuizen/${w.slug}/`} class="card-tile">
+      <div class="cards-grid" data-wijnhuizen-grid>
+        {wijnhuizen.map((w, i) => (
+          <a href={`/wijnhuizen/${w.slug}/`} class:list={['card-tile', { 'is-extra': i >= 3 }]}>
             <div class="card-media">
               {w.heroImage ? (
                 <img src={w.heroImage} alt={`${w.name}, ${w.region ?? ''}`.replace(/, $/, '')} width="600" height="450" loading="lazy" decoding="async" />
@@ -306,6 +310,24 @@ function formatDate(value?: string | null) {
     </div>
   </section>
 </SiteLayout>
+
+<script>
+  // LAT-1612: toon 3 willekeurige wijnhuizen per homepage-load (i.p.v. de alfabetische eerste 3).
+  const grid = document.querySelector('[data-wijnhuizen-grid]');
+  if (grid) {
+    const cards = Array.from(grid.querySelectorAll<HTMLElement>('.card-tile'));
+    if (cards.length > 3) {
+      for (let i = cards.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [cards[i], cards[j]] = [cards[j], cards[i]];
+      }
+      cards.forEach((card, idx) => {
+        card.classList.remove('is-extra');
+        card.classList.toggle('is-hidden', idx >= 3);
+      });
+    }
+  }
+</script>
 
 <style>
   /* ── Hero ─────────────────────────────────────────────── */
@@ -713,6 +735,11 @@ function formatDate(value?: string | null) {
     display: block;
     color: inherit;
     text-decoration: none;
+  }
+  /* LAT-1612: no-JS fallback toont de eerste 3 wijnhuizen; JS shuffelt naar 3 willekeurige per load. */
+  .card-tile.is-extra,
+  .card-tile.is-hidden {
+    display: none;
   }
   .card-media {
     aspect-ratio: 4 / 3;

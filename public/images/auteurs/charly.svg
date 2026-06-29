@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" role="img" aria-label="Charly — silhouet op een terras bij avondlicht met een glas wijn">
+  <defs>
+    <radialGradient id="warmLight3" cx="0.5" cy="0.28" r="0.95">
+      <stop offset="0%" stop-color="#f7e8c8"/>
+      <stop offset="55%" stop-color="#d8a965"/>
+      <stop offset="100%" stop-color="#62401f"/>
+    </radialGradient>
+    <linearGradient id="silhouette3" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#34200f"/>
+      <stop offset="100%" stop-color="#1a0f07"/>
+    </linearGradient>
+    <filter id="grain3" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="21"/>
+      <feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.18 0"/>
+      <feComposite in2="SourceGraphic" operator="in"/>
+    </filter>
+  </defs>
+  <rect width="600" height="600" fill="url(#warmLight3)"/>
+  <g opacity="0.92">
+    <path d="M205 600 V405 C205 355 230 318 262 305 C275 300 282 290 282 278 C282 250 278 228 285 205 C293 178 315 158 335 158 C360 158 382 178 388 205 C393 226 388 250 388 278 C388 292 397 302 412 308 C448 322 472 358 472 408 V600 Z" fill="url(#silhouette3)"/>
+    <ellipse cx="335" cy="240" rx="20" ry="13" fill="#1a0f08" opacity="0.7"/>
+    <path d="M118 432 C118 432 140 426 162 437 C168 440 173 446 170 455 L160 490 C157 500 150 504 143 499 L123 487 C116 483 112 477 112 468 Z" fill="#8a1f33" opacity="0.8"/>
+    <ellipse cx="142" cy="452" rx="15" ry="6" fill="#5a1320" opacity="0.55"/>
+  </g>
+  <rect width="600" height="600" fill="#000000" opacity="0.10" filter="url(#grain3)"/>
+</svg>

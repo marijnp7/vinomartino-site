@@ -1,5 +1,15 @@
 import { stripEditorialHeader, type RelatedRef } from './articles';
 
+// LAT-1635 — een stop mét coördinaten voor de geografische routekaart
+// (RouteGeoMap). Komt uit het Directus-veld routes.stops_geo (JSON-array van
+// {naam,lat,lng}). Onafhankelijk van het bestaande tekstuele `stops`-veld zodat de
+// schematische RouteMap blijft werken als stops_geo (nog) leeg/afwezig is.
+export interface RouteStopGeo {
+    naam: string;
+    lat: number;
+    lng: number;
+}
+
 export interface WijnRoute {
     slug: string;
     title: string;
@@ -10,6 +20,7 @@ export interface WijnRoute {
     streekSlug: string;
     highlights: string[];
     stops: string[];
+    stopsGeo: RouteStopGeo[];
     heroImage: string | null;
     ogImage: string | null;
     status: string;
@@ -101,6 +112,27 @@ function parseJsonField(val: unknown): string[] {
     return [];
 }
 
+// LAT-1635 — tolerant parser voor routes.stops_geo. Accepteert zowel een echte
+// JSON-array als een JSON-string en negeert rijen zonder geldige coördinaten, zodat
+// half-gevulde data de build nooit breekt (RouteGeoMap rendert toch alleen bij ≥2).
+function parseStopsGeo(val: unknown): RouteStopGeo[] {
+    let arr: unknown = val;
+    if (typeof val === 'string') {
+        try { arr = JSON.parse(val); } catch { return []; }
+    }
+    if (!Array.isArray(arr)) return [];
+    const out: RouteStopGeo[] = [];
+    for (const row of arr) {
+        if (!row || typeof row !== 'object') continue;
+        const rec = row as Record<string, unknown>;
+        const lat = Number(rec.lat);
+        const lng = Number(rec.lng);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+        out.push({ naam: normalizeEmDashes(String(rec.naam ?? '')), lat, lng });
+    }
+    return out;
+}
+
 function mapRoute(
     r: Record<string, unknown>,
     heroImagePath: string | null,
@@ -117,6 +149,7 @@ function mapRoute(
         streekSlug: '',
         highlights: parseJsonField(r.highlights),
         stops: parseJsonField(r.stops),
+        stopsGeo: parseStopsGeo(r.stops_geo),
         heroImage: heroImagePath,
         ogImage: ogImagePath,
         status: String(r.status || 'draft'),
@@ -137,12 +170,16 @@ async function fetchRoutesItems(url: string, token: string): Promise<Record<stri
     // (veld/permissie ontbreekt) valt de bestaande keten terug zonder streek_id en
     // levert de M2M-junction (loadRouteStreekJunction) de mapping alsnog.
     const withStreek = `${withRelations},streek_id.slug`;
+    // LAT-1635: additieve top-tier met routes.stops_geo (JSON). Bestaat het veld nog
+    // niet (DevOps-migratie), dan 400/403 → drop alléén stops_geo en val terug op
+    // withStreek (relaties + streek_id blijven behouden). Deploy-safe.
+    const withGeo = `${withStreek},stops_geo`;
     const filterSort = `${statusFilterQuery(env)}&sort=title`;
     const headers = { Authorization: `Bearer ${token}` };
     const signal = AbortSignal.timeout(15000);
     let res: Response;
     try {
-        res = await fetch(`${url}/items/routes?limit=-1&fields=${withStreek}${filterSort}`, { headers, signal });
+        res = await fetch(`${url}/items/routes?limit=-1&fields=${withGeo}${filterSort}`, { headers, signal });
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         assetDebug.push({ kind: 'query', url, error: msg });
@@ -152,6 +189,23 @@ async function fetchRoutesItems(url: string, token: string): Promise<Record<stri
         const json = await res.json();
         assetDebug.push({ kind: 'query', url, status: 200, count: (json.data || []).length });
         return (json.data || []) as Record<string, unknown>[];
+    }
+    if (res.status === 400 || res.status === 403) {
+        const geoBody = await res.text().catch(() => '');
+        console.warn(`[loadRoutes] Directus rejected fields=…,stops_geo (HTTP ${res.status}) — retrying without LAT-1635 stops_geo.`);
+        assetDebug.push({ kind: 'query', url, status: res.status, body: geoBody.slice(0, 500), retryWithoutGeo: true });
+        try {
+            res = await fetch(`${url}/items/routes?limit=-1&fields=${withStreek}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            assetDebug.push({ kind: 'query-retry-geo', url, error: msg });
+            throw new Error(`[loadRoutes] Directus retry without stops_geo threw: ${msg}`);
+        }
+        if (res.ok) {
+            const json = await res.json();
+            assetDebug.push({ kind: 'query-retry-geo', url, status: 200, count: (json.data || []).length });
+            return (json.data || []) as Record<string, unknown>[];
+        }
     }
     if (res.status === 400 || res.status === 403) {
         const body = await res.text().catch(() => '');

@@ -64,6 +64,12 @@ export interface Streek {
     vineyardArea: string;
     altitude: string;
     appellations: string[];
+    // LAT-1676 — WijnFactBox-velden (ReisJunk fact-box-les). Vrije-tekst, gevuld
+    // via Directus; leeg = die rij verschijnt niet in de fact-box.
+    bestVintages: string;
+    harvestPeriod: string;
+    minVisitTime: string;
+    tastingBudget: string;
     heroImage: string | null;
     ogImage: string | null;
     status: string;
@@ -306,6 +312,12 @@ function mapStreek(
         vineyardArea: String(r.vineyard_area || ''),
         altitude: String(r.altitude || ''),
         appellations: parseJsonField(r.appellations),
+        // LAT-1676 — tolerante reads (snake_case canoniek + NL-aliassen) zodat
+        // een naming-drift in Directus de fact-box niet stilletjes leegtrekt.
+        bestVintages: firstString(r, ['best_vintages', 'beste_jaargangen', 'vintages']),
+        harvestPeriod: firstString(r, ['harvest_period', 'oogstperiode', 'harvest']),
+        minVisitTime: firstString(r, ['min_visit_time', 'min_bezoektijd', 'visit_time', 'bezoektijd']),
+        tastingBudget: firstString(r, ['tasting_budget', 'budget_proeverij', 'budget']),
         heroImage: heroImagePath,
         ogImage: ogImagePath,
         status: String(r.status || 'draft'),
@@ -332,12 +344,42 @@ async function fetchStrekenItems(url: string, token: string): Promise<Record<str
     // `withRelations`, zodat related_articles (LAT-1098) NIET sneuvelt op het
     // moment dat alleen de POI-velden ontbreken.
     const withPoi = `${withRelations},eten,activiteiten`;
+    // LAT-1676: WijnFactBox-velden als hoogste tier. Bestaan ze nog niet in het
+    // Directus-schema (DevOps moet ze aanmaken), dan degradeert deze fetch naar
+    // `withPoi` zónder iets anders te verliezen — de fact-box rendert dan gewoon
+    // niets tot de velden bestaan en gevuld zijn.
+    const factFields = 'best_vintages,harvest_period,min_visit_time,tasting_budget';
+    const withFacts = `${withPoi},${factFields}`;
     const filterSort = `${statusFilterQuery(env)}&sort=name`;
     const headers = { Authorization: `Bearer ${token}` };
     const signal = AbortSignal.timeout(15000);
+
+    // Top-tier poging mét fact-box-velden; val bij 400/403 stil terug op withPoi.
+    try {
+        const factsRes = await fetch(`${url}/items/streken?limit=-1&fields=${withFacts}${filterSort}`, { headers, signal });
+        if (factsRes.ok) {
+            const json = await factsRes.json();
+            assetDebug.push({ kind: 'query', url, status: 200, count: (json.data || []).length, tier: 'withFacts' });
+            return (json.data || []) as Record<string, unknown>[];
+        }
+        if (factsRes.status === 400 || factsRes.status === 403) {
+            console.warn(`[loadStreken] Directus rejected fields=…,${factFields} (HTTP ${factsRes.status}) — retrying without LAT-1676 WijnFactBox-velden. Maak streken.best_vintages/harvest_period/min_visit_time/tasting_budget aan en/of geef de build-rol read-permissie.`);
+            assetDebug.push({ kind: 'query', url, status: factsRes.status, retryWithoutFacts: true });
+        } else {
+            // Andere status (bv. 5xx/timeout): laat de bestaande withPoi-pad de
+            // foutafhandeling doen i.p.v. hier te stoppen.
+            const body = await factsRes.text().catch(() => '');
+            assetDebug.push({ kind: 'query', url, status: factsRes.status, body: body.slice(0, 300), tier: 'withFacts' });
+        }
+    } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        assetDebug.push({ kind: 'query-facts', url, error: msg });
+        // Val door naar de withPoi-poging hieronder (die de echte fout opwerpt).
+    }
+
     let res: Response;
     try {
-        res = await fetch(`${url}/items/streken?limit=-1&fields=${withPoi}${filterSort}`, { headers, signal });
+        res = await fetch(`${url}/items/streken?limit=-1&fields=${withPoi}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         assetDebug.push({ kind: 'query', url, error: msg });
@@ -454,4 +496,52 @@ export async function loadStreken(): Promise<Streek[]> {
     const items = await loadFromDirectus(env.url, env.token);
     await writeAssetDebug('directus');
     return items;
+}
+
+export interface NavStreek {
+    slug: string;
+    name: string;
+    landSlug: string;
+}
+
+/**
+ * Lightweight streken-loader voor de "Ontdek" nav-dropdown (LAT-1604). Haalt
+ * alleen slug/name/land_slug op — geen body-render, geen asset-download — zodat
+ * de globale header op elke pagina goedkoop blijft. Volgt het fail-loud-contract
+ * (LAT-1078): zonder Directus-config gooit dit, net als loadStreken().
+ */
+export async function loadStrekenNav(): Promise<NavStreek[]> {
+    const env = readDirectusEnv();
+    assertDirectusConfigured('loadStrekenNav', env);
+    const filterSort = `${statusFilterQuery(env)}&sort=name`;
+    const headers = { Authorization: `Bearer ${env.token}` };
+    let res = await fetch(`${env.url}/items/streken?limit=-1&fields=slug,name,land_id.slug${filterSort}`, {
+        headers,
+        signal: AbortSignal.timeout(15000),
+    });
+    // land_id-veld/permissie ontbreekt (pre-migratie) → degradeer naar slug/name
+    // zonder land-koppeling; de header valt dan terug op landen-only.
+    if (res.status === 400 || res.status === 403) {
+        console.warn(`[loadStrekenNav] Directus rejected land_id.slug (HTTP ${res.status}) — retry zonder land-koppeling.`);
+        res = await fetch(`${env.url}/items/streken?limit=-1&fields=slug,name${filterSort}`, {
+            headers,
+            signal: AbortSignal.timeout(15000),
+        });
+    }
+    if (!res.ok) {
+        const body = await res.text().catch(() => '');
+        throw new Error(`[loadStrekenNav] Directus returned ${res.status} ${res.statusText}: ${body.slice(0, 300)}`);
+    }
+    const json = await res.json();
+    const data = (json.data || []) as Record<string, unknown>[];
+    return data
+        .filter((r) => r.slug && r.name)
+        .map((r) => {
+            const land = r.land_id as Record<string, unknown> | null;
+            return {
+                slug: String(r.slug),
+                name: normalizeEmDashes(String(r.name)),
+                landSlug: land && land.slug ? String(land.slug) : '',
+            };
+        });
 }

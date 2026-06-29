@@ -1,0 +1,385 @@
+---
+/**
+ * <DiscoverMapEurope> — klikbare wijnkaart op /ontdek/ (LAT-1659)
+ *
+ * Ontwerp + scope: LAT-1605/LAT-1659 plan. Renderingsmodel volgt 1:1 de regels
+ * van <InfographicAtlasInteractive> (LAT-1122):
+ *   • Klik = échte navigatie (<a href="/landen/{slug}/">) — geen JS, geen 404-trap.
+ *   • Elk land met een gepubliceerde /landen/{slug}/ is klikbaar; landen zonder
+ *     pagina worden gedempt/inert (aria-hidden) als geografische context getekend.
+ *   • Hover/focus → tooltip (land + aantal streken). JS verrijkt alleen; de
+ *     native <title> geeft dezelfde info zonder JS.
+ *
+ * Marijn-feedback (LAT-1659, 2026-06-22): de FOCUS is een kaart van Europa
+ * (grote, goed-aanklikbare landen). Wijnlanden búiten Europa — nu Zuid-Afrika,
+ * later Argentinië/Chili/Australië — krijgen een eigen plek "aan de zijkant":
+ * kaartjes met de échte landsilhouet, elk klikbaar. De wereldkaart maakte Europa
+ * te klein; die is hier vervangen door deze Europa-focus + zijbalk.
+ *
+ * Geometrie:
+ *   • Europa: src/data/atlas/europe-countries.json (d3 geoConicConformal).
+ *   • Overzee: src/data/atlas/overseas-countries.json (per land genormaliseerd
+ *     silhouet, gegenereerd uit world-countries.json).
+ * De kaart is een *enhancement* boven het bubbel-grid; het grid blijft de
+ * canonieke a11y- en mobiele fallback (de kaart verbergt zich op smalle viewports).
+ */
+import europeGeo from '../data/atlas/europe-countries.json';
+import overseasGeo from '../data/atlas/overseas-countries.json';
+
+export interface MapCountry {
+  slug: string;
+  name: string;
+  /** Deterministische merk-paletkleur — koppelt kaart visueel aan de bubbel. */
+  color: string;
+  /** Aantal gepubliceerde streken onder dit land (tooltip-context). */
+  regionCount: number;
+}
+
+export interface Props {
+  /** Gepubliceerde landen (met /landen/{slug}/). Bepaalt klikbaarheid + kleur. */
+  countries: MapCountry[];
+  class?: string;
+}
+
+const { countries, class: className } = Astro.props;
+
+interface GeoEntry { name: string; d: string; labelOffset?: { x: number; y: number } }
+const viewBox = (europeGeo._meta?.viewBox as string) || '0 0 800 700';
+const entries = europeGeo.countries as Record<string, GeoEntry>;
+
+const vb = viewBox.split(/\s+/).map(Number);
+const minX = vb[0] || 0;
+const minY = vb[1] || 0;
+const innerW = vb[2] || 800;
+const innerH = vb[3] || 700;
+const maxX = minX + innerW;
+const maxY = minY + innerH;
+const aspect = innerH > 0 ? innerW / innerH : 1;
+
+const byLand = new Map(countries.map((c) => [c.slug, c]));
+
+// ── Overzeese wijnlanden (zijbalk): alleen gepubliceerde mét silhouet ──
+interface OverseasGeo { name: string; viewBox: string; d: string }
+const overseasEntries = overseasGeo.countries as Record<string, OverseasGeo>;
+const overseas = countries
+  .filter((c) => overseasEntries[c.slug])
+  .map((c) => ({ land: c, geo: overseasEntries[c.slug]! }));
+
+// ── Validatie numeriek (fail-loud conform content-loader-conventie) ──
+// Een gepubliceerd land hoort óf op de Europa-kaart óf in de overzee-zijbalk te
+// staan; mist het beide, dan valt het terug op het bubbel-grid.
+for (const land of countries) {
+  if (!entries[land.slug] && !overseasEntries[land.slug]) {
+    console.warn(`[DiscoverMapEurope] gepubliceerd land '${land.slug}' heeft geen geometrie (europe-countries.json/overseas-countries.json) — niet op de kaart, alleen in het bubbel-grid (LAT-1659).`);
+  }
+}
+for (const [slug, entry] of Object.entries(entries)) {
+  const nums = (entry.d.match(/-?\d+(?:\.\d+)?/g) || []).map(Number);
+  if (nums.length < 6 || nums.length % 2 !== 0) {
+    console.warn(`[DiscoverMapEurope] geometrie '${slug}' parset niet als coördinaten-paren (${nums.length} getallen).`);
+    continue;
+  }
+  for (let i = 0; i + 1 < nums.length; i += 2) {
+    const x = nums[i];
+    const y = nums[i + 1];
+    if (x < minX || x > maxX || y < minY || y > maxY) {
+      console.warn(`[DiscoverMapEurope] geometrie '${slug}' valt buiten viewBox-bounds (${x},${y} niet in ${minX}..${maxX} / ${minY}..${maxY}).`);
+      break;
+    }
+  }
+}
+
+// Centroid-benadering voor labelplaatsing (zelfde aanpak als InfographicAtlasInteractive).
+function labelAnchor(d: string, off?: { x: number; y: number }) {
+  const nums = (d.match(/-?\d+(?:\.\d+)?/g) || []).map(Number);
+  const xs: number[] = [];
+  const ys: number[] = [];
+  for (let i = 0; i + 1 < nums.length; i += 2) {
+    xs.push(nums[i]);
+    ys.push(nums[i + 1]);
+  }
+  const avg = (a: number[]) => (a.length ? a.reduce((s, n) => s + n, 0) / a.length : 0);
+  return { x: avg(xs) + (off?.x ?? 0), y: avg(ys) + (off?.y ?? 0) };
+}
+
+const strokeScale = Math.max(innerW, innerH) / 600;
+
+const drawn = Object.entries(entries).map(([slug, entry]) => {
+  const land = byLand.get(slug);
+  const a = labelAnchor(entry.d, entry.labelOffset);
+  return { slug, entry, land, a };
+});
+const linkableCount = drawn.filter((d) => d.land).length;
+---
+
+{linkableCount > 0 && (
+  <div class:list={['dme', className]}>
+    <nav class="dme-mapwrap" aria-label="Wijnkaart van Europa">
+      <div class="dme-wrap" style={`--map-aspect: ${aspect};`}>
+        <svg
+          viewBox={viewBox}
+          class="dme-map"
+          role="img"
+          aria-label="Klikbare wijnkaart van Europa"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <title>Wijnkaart van Europa</title>
+
+          {/* ── Context-onderlaag: landen zonder pagina (inert, geen label) ── */}
+          <g class="dme-context" aria-hidden="true">
+            {drawn.filter((d) => !d.land).map((d) => (
+              <g class="dme-country dme-country--static">
+                <title>{d.entry.name}</title>
+                <path d={d.entry.d} class="dme-fill" />
+              </g>
+            ))}
+          </g>
+
+          {/* ── Klikbare wijnlanden (gepubliceerd) ── */}
+          <g class="dme-countries">
+            {drawn.filter((d) => d.land).map((d) => {
+              const land = d.land!;
+              const tip = `${land.name} — ${land.regionCount} ${land.regionCount === 1 ? 'streek' : 'streken'}`;
+              return (
+                <a
+                  href={`/landen/${land.slug}/`}
+                  class="dme-country"
+                  style={`--c: ${land.color};`}
+                  data-name={land.name}
+                  data-meta={`${land.regionCount} ${land.regionCount === 1 ? 'streek' : 'streken'}`}
+                  aria-label={tip}
+                >
+                  <title>{tip}</title>
+                  <path d={d.entry.d} class="dme-fill" />
+                  <text
+                    x={d.a.x}
+                    y={d.a.y}
+                    text-anchor="middle"
+                    class="dme-label"
+                    font-size={13 * strokeScale}
+                  >{land.name}</text>
+                </a>
+              );
+            })}
+          </g>
+        </svg>
+
+        <div class="dme-tooltip" role="status" aria-live="polite" hidden>
+          <p class="dme-tip-name"></p>
+          <p class="dme-tip-meta"></p>
+        </div>
+      </div>
+    </nav>
+
+    {overseas.length > 0 && (
+      <aside class="dme-rail" aria-label="Wijnlanden buiten Europa">
+        <p class="dme-rail-head">Wijnlanden overzee</p>
+        <ul class="dme-rail-list">
+          {overseas.map(({ land, geo }) => (
+            <li>
+              <a
+                href={`/landen/${land.slug}/`}
+                class="dme-card"
+                style={`--c: ${land.color};`}
+                aria-label={`${land.name} — ${land.regionCount} ${land.regionCount === 1 ? 'streek' : 'streken'}`}
+              >
+                <span class="dme-card-shape">
+                  <svg viewBox={geo.viewBox} role="img" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+                    <path d={geo.d} class="dme-fill" />
+                  </svg>
+                </span>
+                <span class="dme-card-text">
+                  <span class="dme-card-name">{land.name}</span>
+                  <span class="dme-card-meta">{land.regionCount} {land.regionCount === 1 ? 'streek' : 'streken'}</span>
+                </span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </aside>
+    )}
+  </div>
+)}
+
+<style>
+  /* Kaart = enhancement boven het bubbel-grid. Verbergt zich op smal/mobiel;
+     het grid blijft de canonieke a11y/mobiele fallback (LAT-1605 plan). */
+  .dme { display: none; }
+  @media (min-width: 760px) {
+    .dme {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 14rem;
+      gap: var(--space-6);
+      align-items: start;
+      margin-bottom: var(--space-8);
+    }
+  }
+  /* Onder ~960px: zijbalk onder de kaart i.p.v. ernaast (smalle kolom oogt krap). */
+  @media (min-width: 760px) and (max-width: 960px) {
+    .dme { grid-template-columns: 1fr; }
+    .dme-rail-list { flex-direction: row; flex-wrap: wrap; }
+    .dme-card { width: calc(50% - var(--space-3) / 2); }
+  }
+
+  .dme-mapwrap { min-width: 0; }
+  .dme-wrap {
+    position: relative;
+    box-sizing: border-box;
+    border: 1px solid var(--ruleSoft);
+    background: var(--paperDeep);
+    aspect-ratio: var(--map-aspect, 1);
+    /* Portret-Europa niet eindeloos hoog laten worden naast de zijbalk. */
+    max-height: 70vh;
+    margin-inline: auto;
+    overflow: hidden;
+  }
+  .dme-map { width: 100%; height: 100%; display: block; }
+
+  /* Klikbare landen ----------------------------------------- */
+  .dme-country { cursor: pointer; }
+  .dme-country--static { cursor: default; pointer-events: none; }
+  .dme-country:focus-visible { outline: none; }
+  .dme-country:focus-visible .dme-fill { stroke-opacity: 1; fill-opacity: 0.34; }
+
+  .dme-fill {
+    fill: var(--c, #5A1A1F);
+    fill-opacity: 0.18;
+    stroke: var(--c, #5A1A1F);
+    stroke-width: 1.4;
+    stroke-opacity: 0.7;
+    transition: fill-opacity var(--duration-fast, 160ms) var(--ease-out, ease),
+                stroke-opacity var(--duration-fast, 160ms) var(--ease-out, ease);
+  }
+  .dme-country:hover .dme-fill,
+  .dme-country:focus-visible .dme-fill { fill-opacity: 0.34; stroke-opacity: 1; }
+
+  /* Context (geen pagina) — gedempt grijs, niet interactief */
+  .dme-country--static .dme-fill {
+    fill: var(--inkFaint, #8A7E70);
+    fill-opacity: 0.05;
+    stroke: var(--inkFaint, #8A7E70);
+    stroke-width: 1;
+    stroke-opacity: 0.3;
+    stroke-dasharray: 4 3;
+  }
+
+  .dme-label {
+    font-family: var(--font-display, 'Cormorant Garamond', Georgia, serif);
+    font-style: italic;
+    fill: var(--ink, #1F1A16);
+    pointer-events: none;
+    paint-order: stroke;
+    stroke: var(--paperDeep, #F0E6D0);
+    stroke-width: 3px;
+    stroke-linejoin: round;
+  }
+
+  /* Zijbalk: overzeese wijnlanden --------------------------- */
+  .dme-rail { min-width: 0; }
+  .dme-rail-head {
+    margin: 0 0 var(--space-3);
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--inkFaint, #8A7E70);
+  }
+  .dme-rail-list {
+    list-style: none; margin: 0; padding: 0;
+    display: flex; flex-direction: column; gap: var(--space-3);
+  }
+  .dme-card {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 0.7rem;
+    border: 1px solid var(--ruleSoft);
+    border-left: 3px solid var(--c, #5A1A1F);
+    background: var(--paper);
+    text-decoration: none;
+    transition: background var(--duration-fast, 160ms) var(--ease-out, ease),
+                transform var(--duration-fast, 160ms) var(--ease-out, ease);
+  }
+  .dme-card:hover { background: var(--paperDeep); transform: translateX(2px); }
+  .dme-card-shape {
+    flex: 0 0 auto;
+    width: 2.5rem; height: 2.5rem;
+    display: grid; place-items: center;
+  }
+  .dme-card-shape svg { width: 100%; height: 100%; display: block; }
+  .dme-card:hover .dme-fill { fill-opacity: 0.34; stroke-opacity: 1; }
+  .dme-card-text { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
+  .dme-card-name {
+    font-family: var(--font-display, 'Cormorant Garamond', Georgia, serif);
+    font-size: 1.05rem; font-style: italic; color: var(--ink, #1F1A16);
+    line-height: 1.1;
+  }
+  .dme-card-meta {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.625rem; letter-spacing: 0.06em; color: var(--inkSoft, #5C5247);
+  }
+
+  /* Tooltip ------------------------------------------------- */
+  .dme-tooltip {
+    position: absolute; top: 0; left: 0;
+    transform: translate(-50%, -115%);
+    pointer-events: none; z-index: 5; max-width: 16rem;
+    background: var(--paper); border: 1px solid var(--bubble, #5A1A1F);
+    border-color: var(--ruleSoft);
+    box-shadow: 0 4px 14px rgba(31, 26, 22, 0.18);
+    padding: 0.5rem 0.7rem;
+  }
+  .dme-tooltip[hidden] { display: none; }
+  .dme-tip-name {
+    margin: 0;
+    font-family: var(--font-display, 'Cormorant Garamond', Georgia, serif);
+    font-style: italic; font-size: 1.05rem; color: var(--ink);
+  }
+  .dme-tip-meta {
+    margin: 0.1rem 0 0;
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.68rem; letter-spacing: 0.06em; color: var(--inkSoft);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .dme-fill, .dme-card { transition: none; }
+  }
+</style>
+
+<script>
+  // Hover/focus-tooltip — verrijking; navigatie + native <title> werken zonder JS.
+  (function () {
+    if (typeof window === 'undefined') return;
+    document.querySelectorAll('.dme:not([data-wired])').forEach((root) => {
+      root.setAttribute('data-wired', 'true');
+      const nav = root as HTMLElement;
+      const wrap = nav.querySelector('.dme-wrap') as HTMLElement | null;
+      const tip = nav.querySelector('.dme-tooltip') as HTMLElement | null;
+      const tipName = nav.querySelector('.dme-tip-name') as HTMLElement | null;
+      const tipMeta = nav.querySelector('.dme-tip-meta') as HTMLElement | null;
+      if (!wrap || !tip || !tipName || !tipMeta) return;
+
+      const show = (el: HTMLElement, clientX: number, clientY: number) => {
+        tipName.textContent = el.getAttribute('data-name') || '';
+        tipMeta.textContent = el.getAttribute('data-meta') || '';
+        const rect = wrap.getBoundingClientRect();
+        tip.style.left = `${clientX - rect.left}px`;
+        tip.style.top = `${clientY - rect.top}px`;
+        tip.hidden = false;
+      };
+      const hide = () => { tip.hidden = true; };
+
+      nav.querySelectorAll('.dme-country:not(.dme-country--static)').forEach((node) => {
+        const el = node as HTMLElement;
+        el.addEventListener('pointerenter', (e) => show(el, (e as PointerEvent).clientX, (e as PointerEvent).clientY));
+        el.addEventListener('pointermove', (e) => show(el, (e as PointerEvent).clientX, (e as PointerEvent).clientY));
+        el.addEventListener('pointerleave', hide);
+        el.addEventListener('focus', () => {
+          const b = el.getBoundingClientRect();
+          show(el, b.left + b.width / 2, b.top + b.height / 2);
+        });
+        el.addEventListener('blur', hide);
+      });
+    });
+  })();
+</script>

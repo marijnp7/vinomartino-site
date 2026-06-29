@@ -8,7 +8,7 @@ import type { WijnRoute } from './routes';
 // isolated scope that only retains imports, not frontmatter helpers.
 export type StreekCard = { name: string; slug: string; badge: string; description: string; image?: string };
 export type WijnhuisCard = { name: string; slug: string; region: string; badge?: string };
-export type RouteCard = { title: string; slug: string; days?: number; transport?: string; style?: string };
+export type RouteCard = { title: string; slug: string; days?: number; transport?: string; style?: string; stops?: string[] };
 
 export function truncate(str: string, max = 150): string {
   if (str.length <= max) return str;
@@ -56,5 +56,6 @@ export function routeToCard(r: WijnRoute): RouteCard {
     days: m ? Number(m[0]) : undefined,
     transport: r.transport || undefined,
     style: r.style || undefined,
+    stops: r.stops && r.stops.length >= 2 ? r.stops : undefined,
   };
 }

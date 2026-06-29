@@ -34,6 +34,31 @@ function buildPayload(el: HTMLElement): AffiliateClickPayload {
   };
 }
 
+// LAT-1676 — Layer 2 (M&G spec): GA4 custom event `affiliate_click`. Fire-and-forget,
+// guarded op `typeof gtag` zodat het een no-op is zolang GA nog niet site-wide geladen is
+// (gtag-injectie = open M&G/DevOps-item). data-affiliate-context = `[type]-[regio]`-label;
+// type komt uit een vaste enum (één token), dus regio = alles ná het eerste koppelteken.
+type Gtag = (command: 'event', action: string, params: Record<string, unknown>) => void;
+
+function sendGA(el: HTMLElement, anchor: HTMLAnchorElement | null): void {
+  const gtag = (window as Window & { gtag?: Gtag }).gtag;
+  if (typeof gtag !== 'function') return;
+  const context = el.dataset.affiliateContext || '';
+  const region = context.includes('-') ? context.slice(context.indexOf('-') + 1) : '';
+  let domain = '';
+  if (anchor?.href) {
+    try { domain = new URL(anchor.href).hostname; } catch { /* ignore */ }
+  }
+  gtag('event', 'affiliate_click', {
+    label: context,
+    partner: el.dataset.affiliatePartner || '',
+    region,
+    placement: el.dataset.affiliatePlacement || '',
+    affiliate_url_domain: domain,
+    timestamp: new Date().toISOString(),
+  });
+}
+
 function send(payload: AffiliateClickPayload): void {
   const body = JSON.stringify(payload);
   if (navigator.sendBeacon) {
@@ -70,5 +95,6 @@ export function initAffiliateTracker(): void {
     const trackEl = target.closest<HTMLElement>('[data-affiliate-track]');
     if (!trackEl) return;
     send(buildPayload(trackEl));
+    sendGA(trackEl, target.closest<HTMLAnchorElement>('a[href]'));
   }, { capture: true });
 }

@@ -17,12 +17,16 @@ interface Props {
    * dubbele koppen te voorkomen. Sprong-nav, groepen en disclosure blijven.
    */
   hideHead?: boolean;
+  /** Bron-valuta van de prijzen (bv. 'ZAR' voor Zuid-Afrika). Leeg = EUR (LAT-1664). */
+  bronValuta?: string | null;
+  /** Display-valuta; default EUR. Hook voor een latere valuta-switcher (LAT-1664). */
+  displayValuta?: string;
 }
 
-const { roundup, context, hideHead = false } = Astro.props;
+const { roundup, context, hideHead = false, bronValuta, displayValuta = 'EUR' } = Astro.props;
 
-// Alleen sub-bestemmingen met daadwerkelijke kaarten tonen.
-const groepen = roundup.subgroepen.filter((g) => g.kaarten.length > 0);
+// Alleen clusters met daadwerkelijke kaarten tonen (LAT-1406).
+const groepen = roundup.clusters.filter((c) => c.kaarten.length > 0);
 const heeftNav = groepen.length > 1;
 const sectionId = `acc-roundup-${(context || roundup.regio).toLowerCase().replace(/[^a-z0-9-]/gi, '-')}`;
 ---
@@ -51,7 +55,7 @@ const sectionId = `acc-roundup-${(context || roundup.regio).toLowerCase().replac
         <ul class="acc-roundup__pills">
           {groepen.map((g) => (
             <li>
-              <a class="acc-roundup__pill" href={`#${sectionId}-${g.slug}`}>{g.plaats}</a>
+              <a class="acc-roundup__pill" href={`#${sectionId}-${g.slug}`}>{g.titel}</a>
             </li>
           ))}
         </ul>
@@ -60,10 +64,15 @@ const sectionId = `acc-roundup-${(context || roundup.regio).toLowerCase().replac
 
     {groepen.map((g) => (
       <div class="acc-roundup__groep" id={`${sectionId}-${g.slug}`}>
-        <h3 class="acc-roundup__groep-title">Leuke hotels in {g.plaats}</h3>
+        <h3 class="acc-roundup__groep-title">
+          {g.plaatsen.length > 1 ? `Leuke hotels rond ${g.titel}` : `Leuke hotels in ${g.titel}`}
+        </h3>
+        {g.plaatsen.length > 1 && (
+          <p class="acc-roundup__groep-note">Allemaal binnen ~40 min rijden van elkaar</p>
+        )}
         <div class="acc-roundup__grid">
           {g.kaarten.map((kaart) => (
-            <AccommodatieKaart kaart={kaart} context={context || roundup.regio} />
+            <AccommodatieKaart kaart={kaart} context={context || roundup.regio} bronValuta={bronValuta} displayValuta={displayValuta} />
           ))}
         </div>
       </div>
@@ -164,9 +173,16 @@ const sectionId = `acc-roundup-${(context || roundup.regio).toLowerCase().replac
     text-transform: uppercase;
     letter-spacing: 0.12em;
     color: var(--ink, #1F1A16);
-    margin: 0 0 1.1rem;
+    margin: 0 0 0.4rem;
     padding-bottom: 0.55rem;
     border-bottom: 1px solid var(--rule, #C9B98F);
+  }
+  .acc-roundup__groep-note {
+    font-family: var(--font-body, Georgia, serif);
+    font-style: italic;
+    font-size: 0.8125rem;
+    color: var(--inkFaint, #8A7E70);
+    margin: 0 0 1.1rem;
   }
   .acc-roundup__grid {
     display: grid;

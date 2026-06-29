@@ -1,0 +1,86 @@
+---
+// LAT-1676 — Subtiele, partner-agnostische affiliate-knop ("Bekijk
+// beschikbaarheid"). Geen banner. Bouwt de link via affiliate-regio.ts met de
+// `[type]-[regio]`-labelconventie en hangt de bestaande click-tracker-hooks
+// (data-affiliate-*) eraan zodat M&G clicks per bestemming meet (LAT-1019/1029).
+import { buildAffiliateLink, type AffiliateType, type AffiliatePartner } from '../lib/affiliate-regio';
+
+interface Props {
+  type: AffiliateType;
+  regio: string;
+  partner?: AffiliatePartner;
+  query?: string;
+  bookingUrl?: string;
+  label?: string;
+  /** Plaatsing-context voor de click-tracker (bv. 'streken-hero', 'verblijf-blok'). */
+  placement?: string;
+}
+
+const {
+  type,
+  regio,
+  partner = 'getyourguide',
+  query,
+  bookingUrl,
+  label = 'Bekijk beschikbaarheid',
+  placement = 'regio-cluster',
+} = Astro.props;
+
+const link = buildAffiliateLink({ type, regio, partner, query, bookingUrl });
+// data-affiliate-context = het tracking-label ([type]-[regio]) zodat de in-house
+// tracker (click-tracker.ts) per bestemming kan rapporteren.
+---
+
+<a
+  class="vm-aff-btn"
+  href={link.href}
+  target="_blank"
+  rel="sponsored nofollow noopener"
+  data-affiliate-track
+  data-affiliate-partner={link.partner}
+  data-affiliate-placement={placement}
+  data-affiliate-context={link.label}
+>
+  <span class="vm-aff-btn__text">{label}</span>
+  <svg class="vm-aff-btn__arrow" width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+  </svg>
+</a>
+
+<style>
+  /* Subtiel, geen banner: ghost-knop in merkkleur, hover vult licht op. */
+  .vm-aff-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 0.9rem;
+    border: 1px solid var(--burgundy, #5a1a1f);
+    border-radius: var(--radius-md, 2px);
+    background: transparent;
+    color: var(--burgundy, #5a1a1f);
+    font-family: var(--font-ui, system-ui, sans-serif);
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    text-decoration: none;
+    line-height: 1;
+    transition:
+      background var(--duration-fast, 150ms) var(--ease-out, ease),
+      color var(--duration-fast, 150ms) var(--ease-out, ease);
+  }
+
+  .vm-aff-btn:hover,
+  .vm-aff-btn:focus-visible {
+    background: var(--burgundy, #5a1a1f);
+    color: var(--paper, #faf5e9);
+  }
+
+  .vm-aff-btn__arrow {
+    transition: transform var(--duration-fast, 150ms) var(--ease-out, ease);
+  }
+
+  .vm-aff-btn:hover .vm-aff-btn__arrow,
+  .vm-aff-btn:focus-visible .vm-aff-btn__arrow {
+    transform: translateX(2px);
+  }
+</style>

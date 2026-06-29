@@ -1,0 +1,500 @@
+---
+/**
+ * <CountryRegionMap> — wijngebieden per land in échte geometrie (LAT-1662)
+ *
+ * Eén niveau dieper dan <DiscoverMapEurope> (LAT-1659): waar die de landen op
+ * /ontdek/ in echte geometrie tekent, tekent deze component de WIJNSTREKEN
+ * binnen één land in echte geometrie — i.p.v. de oude hand-getekende blobs van
+ * <InfographicAtlasInteractive>. Marijn (LAT-1659, 2026-06-22): "per land met
+ * deze stijl ook de wijngebieden ingetekend".
+ *
+ * Renderingsmodel volgt 1:1 <DiscoverMapEurope>:
+ *   • Klik = échte navigatie (<a href="/streken/{slug}/>) — geen JS, geen 404-trap.
+ *   • Een streek is alléén klikbaar als de streekpagina bestaat (linkable).
+ *   • Regions zonder gepubliceerde streek = gedempte, inerte context (samen
+ *     vormen ze het nationale silhouet).
+ *   • Hover/focus → tooltip (streek + druif/badge). JS verrijkt alleen.
+ *
+ * Geometrie: src/data/atlas/regions/{land-slug}.json — Natural Earth admin-1
+ * (provincies) gedissolved tot region-silhouetten via topojson, geprojecteerd
+ * met d3 (zie scripts/gen-country-regions.mjs). Ontbreekt de geometrie voor een
+ * land, dan rendert deze component niets en valt de pagina terug op de oude
+ * atlas / het card-grid (geen regressie).
+ */
+const regionGeo = import.meta.glob<{ default: RegionsFile }>(
+  '../data/atlas/regions/*.json',
+  { eager: true },
+);
+
+interface RegionEntry { name: string; d: string; wine: boolean; labelAt: { x: number; y: number } }
+/** Puntmarker = streek zonder eigen silhouet (bv. Etna binnen Sicilië). */
+interface MarkerEntry { slug: string; name: string; x: number; y: number; badge?: string | null }
+interface RegionsFile {
+  _meta?: { viewBox?: string; country?: string };
+  regions: Record<string, RegionEntry>;
+  markers?: MarkerEntry[];
+}
+
+/** Per-streek metadata uit de pagina (atlas-zones of streek-cards). */
+export interface RegionMeta {
+  /** Accent-hex; default = burgundy. */
+  color?: string;
+  /** Badge onder de naam in de tooltip (bv. kern-druif). */
+  badge?: string;
+  /** Drill-down aanzetten alleen als /streken/{slug}/ bestaat. */
+  linkable?: boolean;
+}
+
+export interface Props {
+  /** Land-slug — kiest src/data/atlas/regions/{landSlug}.json. */
+  landSlug: string;
+  landName: string;
+  /** Streek-slug → metadata. Geometrie-keys hierbuiten = inerte context. */
+  meta?: Record<string, RegionMeta>;
+  /** Bovenschrift links naast de kaart. */
+  kicker?: string;
+  /** Kop links naast de kaart. */
+  title?: string;
+  /** Introtekst links naast de kaart. */
+  intro?: string;
+  class?: string;
+}
+
+const {
+  landSlug,
+  landName,
+  meta = {},
+  kicker = landName ? `Wijnatlas · ${landName}` : 'Wijnatlas',
+  title,
+  intro,
+  class: className,
+} = Astro.props;
+
+const PALETTE = ['#5A1A1F', '#A14F2A', '#5C6B3F'];
+
+const file = regionGeo[`../data/atlas/regions/${landSlug}.json`]?.default;
+const viewBox = file?._meta?.viewBox ?? '0 0 1000 1000';
+const vb = viewBox.split(/\s+/).map(Number);
+const minX = vb[0] || 0;
+const minY = vb[1] || 0;
+const innerW = vb[2] || 1000;
+const innerH = vb[3] || 1000;
+const maxX = minX + innerW;
+const maxY = minY + innerH;
+const aspect = innerH > 0 ? innerW / innerH : 1;
+const strokeScale = Math.max(innerW, innerH) / 600;
+
+interface Drawn {
+  key: string;
+  entry: RegionEntry;
+  wine: boolean;
+  linkable: boolean;
+  name: string;
+  color: string;
+  badge?: string;
+}
+
+const drawn: Drawn[] = [];
+let colorIdx = 0;
+if (file) {
+  for (const [key, entry] of Object.entries(file.regions)) {
+    const m = meta[key];
+    // Wijnstreek alleen als de geometrie 'm als wine markeert én er een streek
+    // bekend is; anders inerte context (vormt mee het nationale silhouet).
+    const isWine = entry.wine && Boolean(m);
+    const color = m?.color ?? PALETTE[colorIdx % PALETTE.length];
+    if (isWine) colorIdx++;
+    drawn.push({
+      key,
+      entry,
+      wine: isWine,
+      linkable: isWine && m?.linkable !== false,
+      // Geometrie-naam is de gecureerde cartografische label van het silhouet
+      // (regionMap.nl: Piemonte, Sicilië, Sardinië…). De Directus-streeknaam is
+      // appellatie-niveau (Etna, Langhe) en mag het regio-silhouet NIET
+      // overschrijven (Marijn 06-22: "ik zie etna staan niet sicilie").
+      name: entry.name,
+      color,
+      badge: m?.badge,
+    });
+
+    // Numerieke validatie (fail-loud conform DiscoverMapEurope-conventie).
+    const nums = (entry.d.match(/-?\d+(?:\.\d+)?/g) || []).map(Number);
+    for (let i = 0; i + 1 < nums.length; i += 2) {
+      if (nums[i] < minX - 1 || nums[i] > maxX + 1 || nums[i + 1] < minY - 1 || nums[i + 1] > maxY + 1) {
+        console.warn(`[CountryRegionMap] geometrie '${key}' (${landSlug}) valt buiten viewBox-bounds.`);
+        break;
+      }
+    }
+  }
+}
+
+const wineRegions = drawn.filter((d) => d.wine);
+const contextRegions = drawn.filter((d) => !d.wine);
+
+// Puntmarkers: een streek die te klein is voor een eigen admin-1 silhouet
+// (bv. Etna binnen Sicilië). Net als regions alléén klikbaar als de
+// streekpagina bestaat (meta[slug] uit de live Directus-data).
+// Puntmarkers krijgen een volgnummer (1, 2, 3…). Op de kaart staat alléén dat
+// nummer in de stip; de volledige streeknaam staat in de genummerde legenda
+// links. Zo overlappen labels niet meer als streken dicht opeen liggen — bv. de
+// Kaapse cluster (Stellenbosch/Franschhoek/Paarl/Constantia) in Zuid-Afrika.
+// Marijn (LAT-1662, 2026-06-23): "werk optie 3 uit" = genummerde stippen.
+interface DrawnMarker { slug: string; n: number; x: number; y: number; name: string; color: string; badge?: string; linkable: boolean }
+const markers: DrawnMarker[] = (file?.markers ?? []).map((mk, i) => {
+  const m = meta[mk.slug];
+  return {
+    slug: mk.slug,
+    n: i + 1,
+    x: mk.x,
+    y: mk.y,
+    name: mk.name,
+    color: m?.color ?? PALETTE[colorIdx++ % PALETTE.length],
+    badge: m?.badge ?? mk.badge ?? undefined,
+    linkable: Boolean(m) && m?.linkable !== false,
+  };
+});
+
+// Genummerde stip moet het cijfer bevatten → iets ruimer dan een kale punt.
+const markerRadius = 9 * strokeScale;
+// Legenda combineert vlak-streken én puntmarkers. Markers dragen hun volgnummer
+// (n) zodat de legenda de cijfers op de kaart verklaart.
+const legendItems = [
+  ...wineRegions.map((d) => ({ key: d.key, name: d.name, color: d.color, badge: d.badge, linkable: d.linkable, n: undefined as number | undefined })),
+  ...markers.map((d) => ({ key: d.slug, name: d.name, color: d.color, badge: d.badge, linkable: d.linkable, n: d.n })),
+];
+
+const headTitle = title ?? `De wijnstreken van ${landName}`;
+const headIntro =
+  intro ??
+  `Elke streek in échte geografie. Beweeg over een gebied voor de kerndruif en klik door naar de streekgids.`;
+---
+
+{file && legendItems.length > 0 && (
+  <div class:list={['crm', className]}>
+    <div class="crm-intro">
+      {kicker && <p class="crm-kicker">{kicker}</p>}
+      <h2 class="crm-title">{headTitle}</h2>
+      <p class="crm-lede">{headIntro}</p>
+      <ul class="crm-legend">
+        {legendItems.map((d) => {
+          const Tag = d.linkable ? 'a' : 'span';
+          const linkProps = d.linkable ? { href: `/streken/${d.key}/` } : {};
+          return (
+            <li class="crm-legend__item">
+              <Tag
+                {...linkProps}
+                class:list={['crm-legend__link', { 'crm-legend__link--flat': !d.linkable }]}
+              >
+                {d.n != null
+                  ? <span class="crm-legend__num" style={`--c: ${d.color};`} aria-hidden="true">{d.n}</span>
+                  : <span class="crm-legend__swatch" style={`--c: ${d.color};`} aria-hidden="true"></span>}
+                <span class="crm-legend__name">{d.name}</span>
+                {d.badge && <span class="crm-legend__badge">{d.badge}</span>}
+              </Tag>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+    <nav class="crm-mapwrap" aria-label={`Wijngebieden van ${landName}`}>
+      <div class="crm-wrap" style={`--map-aspect: ${aspect};`}>
+        <svg
+          viewBox={viewBox}
+          class="crm-map"
+          role="img"
+          aria-label={`Klikbare kaart met de wijngebieden van ${landName}`}
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <title>Wijngebieden van {landName}</title>
+
+          {/* ── Context-onderlaag: regions zonder gepubliceerde streek ── */}
+          <g class="crm-context" aria-hidden="true">
+            {contextRegions.map((d) => (
+              <g class="crm-region crm-region--static">
+                <title>{d.name}</title>
+                <path d={d.entry.d} class="crm-fill" />
+              </g>
+            ))}
+          </g>
+
+          {/* ── Klikbare wijnstreken ── */}
+          <g class="crm-regions">
+            {wineRegions.map((d) => {
+              const tip = d.badge ? `${d.name} — ${d.badge}` : d.name;
+              const Tag = d.linkable ? 'a' : 'g';
+              const linkProps = d.linkable ? { href: `/streken/${d.key}/` } : {};
+              return (
+                <Tag
+                  {...linkProps}
+                  class:list={['crm-region', { 'crm-region--flat': !d.linkable }]}
+                  style={`--c: ${d.color};`}
+                  data-name={d.name}
+                  data-meta={d.badge ?? ''}
+                  aria-label={tip}
+                >
+                  <title>{tip}</title>
+                  <path d={d.entry.d} class="crm-fill" />
+                  <text
+                    x={d.entry.labelAt.x}
+                    y={d.entry.labelAt.y}
+                    text-anchor="middle"
+                    class="crm-label"
+                    font-size={13 * strokeScale}
+                  >{d.name}</text>
+                </Tag>
+              );
+            })}
+          </g>
+
+          {/* ── Puntmarkers (bv. Etna binnen Sicilië) ── */}
+          {markers.length > 0 && (
+            <g class="crm-markers">
+              {markers.map((d) => {
+                const tip = d.badge ? `${d.name} — ${d.badge}` : d.name;
+                const Tag = d.linkable ? 'a' : 'g';
+                const linkProps = d.linkable ? { href: `/streken/${d.slug}/` } : {};
+                return (
+                  <Tag
+                    {...linkProps}
+                    class:list={['crm-region', 'crm-marker', { 'crm-region--flat': !d.linkable }]}
+                    style={`--c: ${d.color};`}
+                    data-name={d.name}
+                    data-meta={d.badge ?? ''}
+                    aria-label={tip}
+                  >
+                    <title>{tip}</title>
+                    <circle cx={d.x} cy={d.y} r={markerRadius} class="crm-dot" />
+                    <text
+                      x={d.x}
+                      y={d.y}
+                      text-anchor="middle"
+                      dominant-baseline="central"
+                      class="crm-marker-num"
+                      font-size={10 * strokeScale}
+                    >{d.n}</text>
+                  </Tag>
+                );
+              })}
+            </g>
+          )}
+        </svg>
+
+        <div class="crm-tooltip" role="status" aria-live="polite" hidden>
+          <p class="crm-tip-name"></p>
+          <p class="crm-tip-meta"></p>
+        </div>
+      </div>
+    </nav>
+  </div>
+)}
+
+<style>
+  /* Kaart = enhancement; verbergt zich op smal/mobiel (card-grid blijft fallback). */
+  .crm { display: none; }
+  @media (min-width: 760px) {
+    .crm {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: var(--space-6);
+      margin-bottom: var(--space-8);
+    }
+  }
+  /* Tekst links, kaart rechts (Marijn LAT-1662): de portret-kaart 'zweeft' niet
+     meer gecentreerd in een lege band, maar staat rechts met redactionele
+     context + klikbare streek-legenda ernaast. */
+  @media (min-width: 960px) {
+    .crm {
+      grid-template-columns: 1fr minmax(300px, 440px);
+      gap: var(--space-8);
+      align-items: start;
+    }
+  }
+
+  .crm-intro { min-width: 0; }
+  .crm-kicker {
+    margin: 0 0 0.4rem;
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.68rem; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--inkSoft);
+  }
+  .crm-title {
+    margin: 0 0 0.6rem;
+    font-family: var(--font-display, 'Cormorant Garamond', Georgia, serif);
+    font-size: clamp(1.5rem, 3vw, 2.1rem); line-height: 1.1; color: var(--ink);
+  }
+  .crm-lede {
+    margin: 0 0 1.2rem;
+    max-width: 38ch; color: var(--inkSoft); line-height: 1.55;
+  }
+  .crm-legend { list-style: none; margin: 0; padding: 0; }
+  .crm-legend__item { margin: 0; }
+  .crm-legend__link {
+    display: flex; align-items: baseline; gap: 0.6rem;
+    padding: 0.45rem 0; border-bottom: 1px solid var(--ruleSoft);
+    color: var(--ink); text-decoration: none;
+    transition: color var(--duration-fast, 160ms) var(--ease-out, ease);
+  }
+  .crm-legend__item:last-child .crm-legend__link { border-bottom: 0; }
+  .crm-legend__link:hover .crm-legend__name,
+  .crm-legend__link:focus-visible .crm-legend__name { color: var(--c, #5A1A1F); }
+  .crm-legend__link--flat { cursor: default; color: var(--inkSoft); }
+  .crm-legend__swatch {
+    flex: none; width: 0.8rem; height: 0.8rem; border-radius: 2px;
+    align-self: center;
+    background: var(--c, #5A1A1F); opacity: 0.55;
+    border: 1px solid var(--c, #5A1A1F);
+  }
+  /* Genummerde stip in de legenda — matcht de cijfers op de kaart (optie 3). */
+  .crm-legend__num {
+    flex: none; align-self: center;
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 1.25rem; height: 1.25rem; border-radius: 50%;
+    background: var(--c, #5A1A1F); color: var(--paperDeep, #F0E6D0);
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.7rem; font-weight: 700; line-height: 1;
+  }
+  .crm-legend__name {
+    font-family: var(--font-display, 'Cormorant Garamond', Georgia, serif);
+    font-size: 1.1rem;
+  }
+  .crm-legend__badge {
+    margin-left: auto;
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.64rem; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--inkSoft);
+  }
+
+  .crm-mapwrap { min-width: 0; }
+  .crm-wrap {
+    position: relative;
+    box-sizing: border-box;
+    border: 1px solid var(--ruleSoft);
+    background: var(--paperDeep);
+    aspect-ratio: var(--map-aspect, 1);
+    max-height: 72vh;
+    margin-inline: auto;
+    overflow: hidden;
+  }
+  .crm-map { width: 100%; height: 100%; display: block; }
+
+  .crm-region { cursor: pointer; }
+  .crm-region--static,
+  .crm-region--flat { cursor: default; }
+  .crm-region--static { pointer-events: none; }
+  .crm-region:focus-visible { outline: none; }
+  .crm-region:focus-visible .crm-fill { stroke-opacity: 1; fill-opacity: 0.4; }
+
+  .crm-fill {
+    fill: var(--c, #5A1A1F);
+    fill-opacity: 0.2;
+    stroke: var(--c, #5A1A1F);
+    stroke-width: 1.4;
+    stroke-opacity: 0.75;
+    transition: fill-opacity var(--duration-fast, 160ms) var(--ease-out, ease),
+                stroke-opacity var(--duration-fast, 160ms) var(--ease-out, ease);
+  }
+  .crm-region:hover .crm-fill,
+  .crm-region:focus-visible .crm-fill { fill-opacity: 0.4; stroke-opacity: 1; }
+
+  /* Context (geen streekpagina) — gedempt, vormt het nationale silhouet */
+  .crm-region--static .crm-fill {
+    fill: var(--inkFaint, #8A7E70);
+    fill-opacity: 0.05;
+    stroke: var(--inkFaint, #8A7E70);
+    stroke-width: 0.9;
+    stroke-opacity: 0.35;
+  }
+
+  .crm-label {
+    font-family: var(--font-display, 'Cormorant Garamond', Georgia, serif);
+    font-style: italic;
+    fill: var(--ink, #1F1A16);
+    pointer-events: none;
+    paint-order: stroke;
+    stroke: var(--paperDeep, #F0E6D0);
+    stroke-width: 3px;
+    stroke-linejoin: round;
+  }
+
+  /* Puntmarker (bv. Etna): klein gevuld stipje binnen het regio-silhouet. */
+  .crm-dot {
+    fill: var(--c, #5A1A1F);
+    fill-opacity: 0.9;
+    stroke: var(--paperDeep, #F0E6D0);
+    stroke-width: 1.5;
+    transition: r var(--duration-fast, 160ms) var(--ease-out, ease);
+  }
+  .crm-marker:hover .crm-dot,
+  .crm-marker:focus-visible .crm-dot { fill-opacity: 1; }
+  /* Volgnummer ín de stip (optie 3): voorkomt label-overlap bij dichte clusters. */
+  .crm-marker-num {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-weight: 700;
+    fill: var(--paperDeep, #F0E6D0);
+    pointer-events: none;
+  }
+
+  .crm-tooltip {
+    position: absolute; top: 0; left: 0;
+    transform: translate(-50%, -115%);
+    pointer-events: none; z-index: 5; max-width: 16rem;
+    background: var(--paper); border: 1px solid var(--ruleSoft);
+    box-shadow: 0 4px 14px rgba(31, 26, 22, 0.18);
+    padding: 0.5rem 0.7rem;
+  }
+  .crm-tooltip[hidden] { display: none; }
+  .crm-tip-name {
+    margin: 0;
+    font-family: var(--font-display, 'Cormorant Garamond', Georgia, serif);
+    font-style: italic; font-size: 1.05rem; color: var(--ink);
+  }
+  .crm-tip-meta {
+    margin: 0.1rem 0 0;
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.68rem; letter-spacing: 0.06em; color: var(--inkSoft);
+  }
+  .crm-tip-meta:empty { display: none; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .crm-fill { transition: none; }
+  }
+</style>
+
+<script>
+  // Hover/focus-tooltip — verrijking; navigatie + native <title> werken zonder JS.
+  (function () {
+    if (typeof window === 'undefined') return;
+    document.querySelectorAll('.crm:not([data-wired])').forEach((root) => {
+      root.setAttribute('data-wired', 'true');
+      const nav = root as HTMLElement;
+      const wrap = nav.querySelector('.crm-wrap') as HTMLElement | null;
+      const tip = nav.querySelector('.crm-tooltip') as HTMLElement | null;
+      const tipName = nav.querySelector('.crm-tip-name') as HTMLElement | null;
+      const tipMeta = nav.querySelector('.crm-tip-meta') as HTMLElement | null;
+      if (!wrap || !tip || !tipName || !tipMeta) return;
+
+      const show = (el: HTMLElement, clientX: number, clientY: number) => {
+        tipName.textContent = el.getAttribute('data-name') || '';
+        tipMeta.textContent = el.getAttribute('data-meta') || '';
+        const rect = wrap.getBoundingClientRect();
+        tip.style.left = `${clientX - rect.left}px`;
+        tip.style.top = `${clientY - rect.top}px`;
+        tip.hidden = false;
+      };
+      const hide = () => { tip.hidden = true; };
+
+      nav.querySelectorAll('.crm-regions .crm-region, .crm-markers .crm-region').forEach((node) => {
+        const el = node as HTMLElement;
+        el.addEventListener('pointerenter', (e) => show(el, (e as PointerEvent).clientX, (e as PointerEvent).clientY));
+        el.addEventListener('pointermove', (e) => show(el, (e as PointerEvent).clientX, (e as PointerEvent).clientY));
+        el.addEventListener('pointerleave', hide);
+        el.addEventListener('focus', () => {
+          const b = el.getBoundingClientRect();
+          show(el, b.left + b.width / 2, b.top + b.height / 2);
+        });
+        el.addEventListener('blur', hide);
+      });
+    });
+  })();
+</script>

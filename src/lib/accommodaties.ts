@@ -9,6 +9,8 @@
 // gedownload uit DAM → Directus zoals bij de bestaande hero_image-loaders.
 
 import { buildCjBookingLink } from './affiliates';
+import { herbouwClusterWeergave } from './accommodatie-cluster';
+import type { StayTier } from './stay-tier';
 
 export interface AccommodatieKaart {
   /** Weergavenaam, bv. "Locanda del Pilone". */
@@ -17,6 +19,15 @@ export interface AccommodatieKaart {
   slug: string;
   /** Plaats voor de "Locatie: [plaats]"-regel, bv. "La Morra". */
   plaats: string;
+  /**
+   * Curatie-tier (LAT-1404): budget / prijs-kwaliteit / luxe. Stuurt de
+   * tier-badge op de kaart. `null` = nog niet gecureerd → geen badge.
+   */
+  tier?: StayTier | null;
+  /** Breedtegraad — gebruikt voor de 40-min-clustering (LAT-1406). */
+  lat?: number | null;
+  /** Lengtegraad — gebruikt voor de 40-min-clustering (LAT-1406). */
+  lng?: number | null;
   /** 2-4 zinnen persoonlijke beschrijving (wat is uniek). */
   beschrijving: string;
   /** Op buildtijd gedownloade foto-URL (DAM → Directus). Leeg = nette placeholder. */
@@ -33,18 +44,28 @@ export interface AccommodatieKaart {
   bookingUrl?: string | null;
 }
 
-export interface AccommodatieSubgroep {
-  /** Sub-bestemming, bv. "Barolo" — toont in sprong-nav + sectie-header. */
-  plaats: string;
+/**
+ * Eén reis-cluster (LAT-1406): verblijven die binnen ~40 min rijden van elkaar
+ * liggen, gemengd over plaatsen heen. Vervangt de oude strikte rij-per-plaats:
+ * een cluster kan meerdere plaatsen omvatten en wordt alleen gesplitst als
+ * delen van de streek écht >40 min uit elkaar liggen.
+ */
+export interface AccommodatieCluster {
+  /** Weergavetitel, bv. "Barolo · La Morra · Monforte" of een enkele plaats. */
+  titel: string;
   /** Anker-id voor de sprong-navigatie. */
   slug: string;
+  /** De afzonderlijke plaatsen binnen dit cluster (voor context/labels). */
+  plaatsen: string[];
+  /** Kaarten, gemengd over plaatsen en gesorteerd op tier (budget→luxe). */
   kaarten: AccommodatieKaart[];
 }
 
 export interface AccommodatieRoundup {
   /** Regio-naam, bv. "Piemonte". */
   regio: string;
-  subgroepen: AccommodatieSubgroep[];
+  /** 40-min-clusters binnen de streek (LAT-1406). */
+  clusters: AccommodatieCluster[];
 }
 
 /**
@@ -67,13 +88,14 @@ export function accommodatieBookingHref(kaart: AccommodatieKaart): string | null
  * met `foto` en laat sub-groepen vallen die daardoor leeg raken.
  */
 export function filterRoundupOpFotos(roundup: AccommodatieRoundup): AccommodatieRoundup {
-  const subgroepen = roundup.subgroepen
-    .map((g) => ({ ...g, kaarten: g.kaarten.filter((k) => Boolean(k.foto)) }))
-    .filter((g) => g.kaarten.length > 0);
-  return { ...roundup, subgroepen };
+  const clusters = roundup.clusters
+    .map((c) => ({ ...c, kaarten: c.kaarten.filter((k) => Boolean(k.foto)) }))
+    .filter((c) => c.kaarten.length > 0)
+    .map(herbouwClusterWeergave);
+  return { ...roundup, clusters };
 }
 
 /** Aantal foto-gedekte kaarten in een roundup. */
 export function roundupKaartAantal(roundup: AccommodatieRoundup): number {
-  return roundup.subgroepen.reduce((n, g) => n + g.kaarten.filter((k) => Boolean(k.foto)).length, 0);
+  return roundup.clusters.reduce((n, c) => n + c.kaarten.filter((k) => Boolean(k.foto)).length, 0);
 }
