@@ -84,6 +84,9 @@ export interface Streek {
     activiteiten: StreekPoi[];
     // LAT-1784/LAT-1795 — gestandaardiseerde 3-CTA-structuur (Directus `cta_blocks`).
     cta: CtaStructure;
+    // LAT-1821 — aparte CTA-structuur voor de accommodatie-surface
+    // (/accommodaties/<slug>/). Andere copy/intentiepubliek dan `cta` (streek).
+    accomCta: CtaStructure;
 }
 
 // LAT-1098: reverse M2M `streken.related_articles` → `articles_id.{slug,title}`.
@@ -333,6 +336,7 @@ function mapStreek(
         activiteiten: parseStreekPois(r.activiteiten),
         relatedArticles: mapRelatedArticles(r.related_articles),
         cta: getCtaStructure(r),
+        accomCta: getCtaStructure(r, 'accom_cta_blocks'),
     };
 }
 
@@ -346,7 +350,9 @@ async function fetchStrekenItems(url: string, token: string): Promise<Record<str
     // hogere POI/facts-tiers. Reden: streken.eten/activiteiten (LAT-1592) ontbreken
     // in dit schema → withPoi/withFacts 400'en, en cta_blocks zou als collateral
     // sneuvelen. Op withRelations (de hoogste tier die slaagt) overleeft de CTA.
-    const withRelations = `${withOg},related_articles.articles_id.slug,related_articles.articles_id.title,cta_blocks`;
+    // LAT-1821: accom_cta_blocks rijdt mee op dezelfde stabiele relations-tier als
+    // cta_blocks (aparte CTA-copy voor /accommodaties/<slug>/).
+    const withRelations = `${withOg},related_articles.articles_id.slug,related_articles.articles_id.title,cta_blocks,accom_cta_blocks`;
     // LAT-1592: eten/activiteiten zijn nieuwe streek-velden. Bestaat het veld nog
     // niet (of mist de build-rol read-permissie) dan degradeert deze top-tier naar
     // `withRelations`, zodat related_articles (LAT-1098) NIET sneuvelt op het

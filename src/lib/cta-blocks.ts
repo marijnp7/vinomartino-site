@@ -183,14 +183,17 @@ export function ctaTrackPartner(link: CtaLink): string {
 }
 
 /**
- * Lees de 3-CTA-structuur uit een Directus-entiteit. Verwacht een JSON-veld
- * `cta_blocks` (DevOps schema-write, LAT-1784-impl). Graceful degradation:
- * ontbrekend of leeg veld → lege structuur, de componenten renderen dan niets.
+ * Lees de 3-CTA-structuur uit een Directus-entiteit. Default-veld `cta_blocks`
+ * (DevOps schema-write, LAT-1784-impl); `field` wijst een alternatief JSON-veld
+ * aan, bv. `accom_cta_blocks` voor de accommodatie-surface (LAT-1821) die andere
+ * copy nodig heeft dan de streek-CTA. Graceful degradation: ontbrekend of leeg
+ * veld → lege structuur, de componenten renderen dan niets.
  */
 export function getCtaStructure(
   entity: Record<string, unknown> | null | undefined,
+  field: string = 'cta_blocks',
 ): CtaStructure {
-  const raw = entity?.['cta_blocks'];
+  const raw = entity?.[field];
   if (!raw) return {};
   try {
     const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
