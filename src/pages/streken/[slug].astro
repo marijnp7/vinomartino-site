@@ -4,7 +4,7 @@ import AffiliatePlaceholder from '../../components/AffiliatePlaceholder.astro';
 import AffiliateDisclosure from '../../components/AffiliateDisclosure.astro';
 import RelatedArticles from '../../components/RelatedArticles.astro';
 import Stay22Stay from '../../components/Stay22Stay.astro';
-import CuratedStayMap from '../../components/CuratedStayMap.astro';
+import CuratedStayTeaser from '../../components/CuratedStayTeaser.astro';
 import { loadStreken, type Streek } from '../../lib/streken';
 import { streekSchema, streekMetaTitle, streekMetaDescription, breadcrumbSchema } from '../../lib/seo';
 
@@ -113,7 +113,7 @@ const hasStats = Boolean(
     <section class="streek-accommodation">
       <div class="container">
         {hasCuratedStays ? (
-          <CuratedStayMap streek={entry.name} slug={entry.slug} accommodaties={entry.accommodaties} wijnhuizen={entry.wijnhuizen} />
+          <CuratedStayTeaser streek={entry.name} slug={entry.slug} accommodaties={entry.accommodaties} introHtml={entry.waarSlapenIntroHtml} />
         ) : (
           <Stay22Stay location={stay22Location} context={`streek-${entry.slug}`} placement="sidebar" heading={`Waar te slapen in ${entry.name}`} />
         )}

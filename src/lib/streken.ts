@@ -43,6 +43,8 @@ export interface Streek {
     metaTitle: string;
     metaDescription: string;
     bodyHtml: string;
+    /** LAT-1155: redactionele "Waar slapen"-intro (markdown → HTML), CMS-veld. */
+    waarSlapenIntroHtml: string | null;
     relatedArticles: RelatedRef[];
     accommodaties: Accommodation[];
     wijnhuizen: WijnhuisPin[];
@@ -209,6 +211,7 @@ function mapStreek(
     heroImagePath: string | null,
     ogImagePath: string | null,
     bodyHtml: string,
+    waarSlapenIntroHtml: string | null,
 ): Streek {
     return {
         slug: String(r.slug),
@@ -228,6 +231,7 @@ function mapStreek(
         metaTitle: String(r.meta_title || r.name),
         metaDescription: String(r.meta_description || r.description || ''),
         bodyHtml,
+        waarSlapenIntroHtml,
         accommodaties: parseAccommodaties(r.accommodaties),
         wijnhuizen: parseWijnhuizen(r.wijnhuizen),
         relatedArticles: mapRelatedArticles(r.related_articles),
@@ -236,7 +240,7 @@ function mapStreek(
 
 async function fetchStrekenItems(url: string, token: string): Promise<Record<string, unknown>[]> {
     const env = readDirectusEnv();
-    const baseFields = 'id,slug,name,description,body,climate,soil,main_grapes,sub_regions,vineyard_area,altitude,appellations,accommodaties,wijnhuizen,hero_image,status,meta_title,meta_description,land_id.name';
+    const baseFields = 'id,slug,name,description,body,climate,soil,main_grapes,sub_regions,vineyard_area,altitude,appellations,accommodaties,wijnhuizen,waar_slapen_intro,hero_image,status,meta_title,meta_description,land_id.name';
     const withOg = `${baseFields},og_image`;
     // LAT-1098: reverse-relation auto-aangemaakt door Directus M2M op articles
     // (LAT-1097). Junction `articles_streken` → `articles_id.{slug,title}`.
@@ -316,13 +320,16 @@ async function loadFromDirectus(url: string, token: string): Promise<Streek[]> {
             const land = r.land_id as Record<string, unknown> | null;
             if (land && land.name) r.land_name = land.name;
             const bodyHtml = r.body ? await markdownToHtml(String(r.body)) : '';
+            const waarSlapenIntroHtml = r.waar_slapen_intro
+                ? await markdownToHtml(String(r.waar_slapen_intro))
+                : null;
             const heroImagePath = r.hero_image
                 ? await downloadAsset(String(r.hero_image), url, token)
                 : null;
             const ogImagePath = r.og_image
                 ? await downloadAsset(String(r.og_image), url, token, 'og-')
                 : null;
-            return mapStreek(r, heroImagePath, ogImagePath, bodyHtml);
+            return mapStreek(r, heroImagePath, ogImagePath, bodyHtml, waarSlapenIntroHtml);
         }),
     );
     console.log(`[loadStreken] fetched ${items.length} streken from Directus`);
