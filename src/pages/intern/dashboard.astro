@@ -9,6 +9,8 @@ const d = await loadClicksDashboard();
 const generated = new Date(d.generatedAt).toLocaleString('nl-NL', { dateStyle: 'medium', timeStyle: 'short' });
 const hasData = d.status === 'ok';
 const topN = <T,>(arr: T[], n = 15): T[] => arr.slice(0, n);
+const eur = (n: number): string => new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR' }).format(n || 0);
+const pct = (n: number): string => new Intl.NumberFormat('nl-NL', { style: 'percent', minimumFractionDigits: 1, maximumFractionDigits: 2 }).format(n || 0);
 ---
 
 <!doctype html>
@@ -56,6 +58,35 @@ const topN = <T,>(arr: T[], n = 15): T[] => arr.slice(0, n);
       </section>
 
       {hasData && (
+        <section class="dash__kpis dash__kpis--comm" aria-label="Commissie-kerncijfers">
+          <div class="kpi">
+            <span class="kpi__num">{eur(d.totalCommissionEur)}</span>
+            <span class="kpi__label">Commissie totaal</span>
+          </div>
+          <div class="kpi">
+            <span class="kpi__num">{d.totalConversions}</span>
+            <span class="kpi__label">CJ-conversies</span>
+          </div>
+          <div class="kpi">
+            <span class="kpi__num">{pct(d.conversionRate)}</span>
+            <span class="kpi__label">Conversieratio</span>
+          </div>
+          <div class="kpi">
+            <span class="kpi__num">{eur(d.revenuePerVisitor)}</span>
+            <span class="kpi__label">Omzet per bezoeker</span>
+          </div>
+        </section>
+      )}
+
+      {hasData && !d.commissionsAvailable && (
+        <div class="dash__notice dash__notice--unavailable">
+          <strong>CJ-commissies nog niet beschikbaar.</strong>
+          <p>De affiliate_commissions-collectie of de lees-permissie voor het build-token ontbreekt.
+            De commissie-cijfers vullen zich zodra de dagelijkse CJ-import (LAT-1789) heeft gedraaid.</p>
+        </div>
+      )}
+
+      {hasData && (
         <div class="dash__grid">
           <section class="panel">
             <h2 class="panel__title">Per partner</h2>
@@ -94,21 +125,63 @@ const topN = <T,>(arr: T[], n = 15): T[] => arr.slice(0, n);
           </section>
 
           <section class="panel">
+            <h2 class="panel__title">Commissie per partner</h2>
+            <table class="tbl">
+              <thead><tr><th>Partner</th><th class="num">Conversies</th><th class="num">Commissie</th></tr></thead>
+              <tbody>
+                {d.commissionByPartner.length > 0 ? topN(d.commissionByPartner).map((b) => (
+                  <tr><td>{b.label}</td><td class="num">{b.conversions}</td><td class="num">{eur(b.commissionEur)}</td></tr>
+                )) : (
+                  <tr><td colspan="3" class="muted">Nog geen commissies geïmporteerd.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </section>
+
+          <section class="panel">
+            <h2 class="panel__title">Commissie per regio</h2>
+            <table class="tbl">
+              <thead><tr><th>Regio</th><th class="num">Conversies</th><th class="num">Commissie</th></tr></thead>
+              <tbody>
+                {d.commissionByRegio.length > 0 ? topN(d.commissionByRegio).map((b) => (
+                  <tr><td>{b.label}</td><td class="num">{b.conversions}</td><td class="num">{eur(b.commissionEur)}</td></tr>
+                )) : (
+                  <tr><td colspan="3" class="muted">Nog geen commissies geïmporteerd.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </section>
+
+          <section class="panel">
+            <h2 class="panel__title">Commissie per plaatsing</h2>
+            <table class="tbl">
+              <thead><tr><th>Plaatsing</th><th class="num">Conversies</th><th class="num">Commissie</th></tr></thead>
+              <tbody>
+                {d.commissionByPlacement.length > 0 ? topN(d.commissionByPlacement).map((b) => (
+                  <tr><td>{b.label}</td><td class="num">{b.conversions}</td><td class="num">{eur(b.commissionEur)}</td></tr>
+                )) : (
+                  <tr><td colspan="3" class="muted">Nog geen commissies geïmporteerd.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </section>
+
+          <section class="panel panel--wide">
             <h2 class="panel__title">CJ-reconciliatie</h2>
             <p class="panel__note">
-              Geregistreerde clicks per CJ/Booking-partner naast de door CJ
-              gerapporteerde cijfers. De CJ-kolommen worden ingevuld zodra de
-              CJ-rapportage-import (follow-up) is gekoppeld.
+              Geregistreerde tracker-clicks per CJ/Booking-partner naast de door CJ
+              gerapporteerde conversies en commissie (dagelijkse CJ Commission Detail
+              import, LAT-1789).
             </p>
             <table class="tbl">
               <thead>
-                <tr><th>Partner</th><th class="num">Tracker-clicks</th><th class="num">CJ-clicks</th><th class="num">Commissie</th></tr>
+                <tr><th>Partner</th><th class="num">Tracker-clicks</th><th class="num">CJ-conversies</th><th class="num">Commissie</th></tr>
               </thead>
               <tbody>
                 {d.cjReconciliation.length > 0 ? d.cjReconciliation.map((r) => (
-                  <tr><td>{r.partner}</td><td class="num">{r.trackedClicks}</td><td class="num">—</td><td class="num">—</td></tr>
+                  <tr><td>{r.partner}</td><td class="num">{r.trackedClicks}</td><td class="num">{r.cjConversions}</td><td class="num">{eur(r.commissionEur)}</td></tr>
                 )) : (
-                  <tr><td colspan="4" class="muted">Geen CJ/Booking-clicks in dit venster.</td></tr>
+                  <tr><td colspan="4" class="muted">Geen CJ/Booking-clicks of -commissies in dit venster.</td></tr>
                 )}
               </tbody>
             </table>
@@ -150,6 +223,7 @@ const topN = <T,>(arr: T[], n = 15): T[] => arr.slice(0, n);
       }
       .dash__notice p { margin: 0.4rem 0 0; font-size: 0.875rem; color: var(--inkSoft, #5A4F45); }
       .dash__kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 2rem; }
+      .dash__kpis--comm { grid-template-columns: repeat(4, 1fr); }
       .kpi {
         background: var(--paper, #FBF7EE);
         border: 1px solid var(--ruleSoft, #E0D2B0);
@@ -162,6 +236,7 @@ const topN = <T,>(arr: T[], n = 15): T[] => arr.slice(0, n);
       .kpi__num { font-family: var(--font-display, Georgia, serif); font-size: 2.25rem; font-weight: 500; color: var(--burgundy, #5A1A1F); line-height: 1; }
       .kpi__label { font-family: var(--font-mono, monospace); font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--inkSoft, #5A4F45); }
       .dash__grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.25rem; }
+      .panel--wide { grid-column: 1 / -1; }
       .panel {
         background: var(--paper, #FBF7EE);
         border: 1px solid var(--ruleSoft, #E0D2B0);
@@ -185,7 +260,7 @@ const topN = <T,>(arr: T[], n = 15): T[] => arr.slice(0, n);
       .tbl .num { text-align: right; font-variant-numeric: tabular-nums; }
       .tbl .muted { color: var(--inkFaint, #8A7E70); font-style: italic; }
       @media (max-width: 760px) {
-        .dash__kpis { grid-template-columns: 1fr; }
+        .dash__kpis, .dash__kpis--comm { grid-template-columns: 1fr; }
         .dash__grid { grid-template-columns: 1fr; }
       }
     </style>
