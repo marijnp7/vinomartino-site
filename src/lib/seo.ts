@@ -10,6 +10,7 @@ export function organizationSchema() {
     name: SITE_NAME,
     url: SITE_URL,
     logo: `${SITE_URL}/favicon.svg`,
+    founder: { '@type': 'Person', name: 'Marijn Petermeijer' },
     sameAs: [],
     description: 'Wijn- en reisplatform voor wijnliefhebbers: ontdek wijnhuizen, routes en streken.',
     inLanguage: 'nl',
