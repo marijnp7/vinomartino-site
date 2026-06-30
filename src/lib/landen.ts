@@ -1,6 +1,7 @@
 import { normalizeEmDashes } from './markdown';
 import type { RelatedRef } from './articles';
 import { getCtaStructure, type CtaStructure } from './cta-blocks';
+import type { FaqItem } from './seo';
 
 export interface LandDruif {
     name: string;
@@ -39,6 +40,11 @@ export interface Land {
     relatedArticles: RelatedRef[];
     // LAT-1784/LAT-1795 — gestandaardiseerde 3-CTA-structuur (Directus `cta_blocks`).
     cta: CtaStructure;
+    // LAT-1823: optionele FAQ (Directus `faq` JSON-veld). Voedt FAQPage JSON-LD op
+    // pillar-hubs. Leeg tot DevOps het veld migreert en de redactie het vult; de
+    // loader degradeert dan zacht (zie fetchLandenItems-fallback) en de schema
+    // blijft weg zolang er geen zichtbare Q&A op de pagina staat.
+    faq: FaqItem[];
 }
 
 function mapRelatedArticles(val: unknown): RelatedRef[] {
@@ -163,6 +169,20 @@ function mapPractical(val: unknown): LandPractical[] {
         .filter((p) => p.key.length > 0 && p.value.length > 0);
 }
 
+function parseFaq(val: unknown): FaqItem[] {
+    return parseObjectArray(val)
+        .map((rec) => {
+            const question = rec.question ?? rec.q ?? rec.vraag;
+            const answer = rec.answer ?? rec.a ?? rec.antwoord;
+            if (!question || !answer) return null;
+            return {
+                question: normalizeEmDashes(String(question)),
+                answer: normalizeEmDashes(String(answer)),
+            };
+        })
+        .filter((f): f is FaqItem => f !== null);
+}
+
 function mapWijnstreken(val: unknown): { name: string; slug?: string }[] {
     if (!Array.isArray(val)) return [];
     return val
@@ -207,6 +227,7 @@ function mapLand(
         bodyHtml,
         relatedArticles: mapRelatedArticles(r.related_articles),
         cta: getCtaStructure(r),
+        faq: parseFaq(r.faq),
     };
 }
 
@@ -225,12 +246,16 @@ async function fetchLandenItems(url: string, token: string): Promise<Record<stri
     // LAT-1784/LAT-1795: cta_blocks als hoogste tier; degradeert zacht naar
     // withTasting (de bestaande fallback) als veld/permissie ontbreekt.
     const withCta = `${withTasting},cta_blocks`;
+    // LAT-1823: pillar-hub FAQ (Directus `faq` JSON) als nieuwe top-tier. Bij 400
+    // (veld nog niet gemigreerd) of 403 vallen we terug op withCta, zodat cta_blocks
+    // én de rest van de keten intact blijven — faq mag nooit andere velden meeslepen.
+    const withFaq = `${withCta},faq`;
     const filterSort = `${statusFilterQuery(env)}&sort=name`;
     const headers = { Authorization: `Bearer ${token}` };
     const signal = AbortSignal.timeout(15000);
     let res: Response;
     try {
-        res = await fetch(`${url}/items/landen?limit=-1&fields=${withCta}${filterSort}`, { headers, signal });
+        res = await fetch(`${url}/items/landen?limit=-1&fields=${withFaq}${filterSort}`, { headers, signal });
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         throw new Error(`[loadLanden] Directus unreachable at ${url}: ${msg}`);
@@ -238,6 +263,18 @@ async function fetchLandenItems(url: string, token: string): Promise<Record<stri
     if (res.ok) {
         const json = await res.json();
         return (json.data || []) as Record<string, unknown>[];
+    }
+    // LAT-1823: drop only the faq field, keep the full LAT-1760/LAT-1784 tier
+    // (withCta) so a not-yet-migrated faq field never sleeps druiven/practical/
+    // cta_blocks. If withCta itself is rejected, fall through to the existing
+    // tier-fallback (withTasting → relations → SeoMeta → baseFields).
+    if (res.status === 400 || res.status === 403) {
+        const faqRetry = await fetch(`${url}/items/landen?limit=-1&fields=${withCta}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
+        if (faqRetry.ok) {
+            const json = await faqRetry.json();
+            return (json.data || []) as Record<string, unknown>[];
+        }
+        res = faqRetry;
     }
     // 400 = veld bestaat niet in Directus (pre-migratie); 403 = veld bestaat wel
     // maar de build-rol heeft geen read-permissie. Tier-fallback: tasting →

@@ -4,6 +4,7 @@ import AffiliatePlaceholder from '../../components/AffiliatePlaceholder.astro';
 import AffiliateDisclosure from '../../components/AffiliateDisclosure.astro';
 import RelatedArticles from '../../components/RelatedArticles.astro';
 import CtaStructure from '../../components/CtaStructure.astro';
+import HubBacklink from '../../components/HubBacklink.astro';
 import AccommodatieRoundup from '../../components/AccommodatieRoundup.astro';
 import StreekKaart, { type StreekPoiInput } from '../../components/StreekKaart.astro';
 import WijnFactBox from '../../components/WijnFactBox.astro';
@@ -410,6 +411,8 @@ const hasFactBox = Boolean(
     <CtaStructure data={entry.cta} sid={entry.slug} />
 
     <RelatedArticles items={entry.relatedArticles} />
+
+    <HubBacklink type="streek" slug={entry.slug} />
 
     <AffiliateDisclosure />
   </article>

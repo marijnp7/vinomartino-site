@@ -1,6 +1,7 @@
 ---
 import SiteLayout from '../../layouts/SiteLayout.astro';
 import RelatedArticles from '../../components/RelatedArticles.astro';
+import HubBacklink from '../../components/HubBacklink.astro';
 import RouteMap from '../../components/RouteMap.astro';
 import RouteGeoMap from '../../components/RouteGeoMap.astro';
 import StaysTeaser from '../../components/StaysTeaser.astro';
@@ -186,6 +187,8 @@ const schema = [
     </div>
 
     <RelatedArticles items={entry.relatedArticles} />
+
+    <HubBacklink type="route" slug={entry.slug} />
   </article>
 </SiteLayout>
 

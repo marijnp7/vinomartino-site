@@ -3,6 +3,7 @@ import SmartImg from '../SmartImg.astro';
 import AffiliatePlaceholder from '../AffiliatePlaceholder.astro';
 import AffiliateDisclosure from '../AffiliateDisclosure.astro';
 import RouteMap from '../RouteMap.astro';
+import type { FaqItem } from '../../lib/seo';
 
 interface LandStreek {
   name: string;
@@ -54,6 +55,7 @@ interface Props {
   druiven?: LandDruif[];
   practical?: LandPractical[];
   climate?: string;
+  faq?: FaqItem[];
 }
 
 const {
@@ -70,6 +72,7 @@ const {
   druiven = [],
   practical = [],
   climate,
+  faq = [],
 } = Astro.props;
 ---
 
@@ -286,6 +289,23 @@ const {
           </div>
         ))}
       </div>
+    </div>
+  </section>
+)}
+
+{faq.length > 0 && (
+  <section class="land-faq">
+    <div class="container">
+      <div class="land-section-label">Veelgestelde vragen</div>
+      <h2 class="land-section-title">Goed om te weten</h2>
+      <dl class="land-faq__list">
+        {faq.map(item => (
+          <div class="land-faq__item">
+            <dt class="land-faq__q">{item.question}</dt>
+            <dd class="land-faq__a">{item.answer}</dd>
+          </div>
+        ))}
+      </dl>
     </div>
   </section>
 )}
@@ -789,5 +809,32 @@ const {
     .land-practical__grid { grid-template-columns: 1fr; }
     .land-druif--border { border-right: none; border-bottom: 1px solid var(--ruleSoft); }
     .land-wh-cell--border-left { border-left: none; border-top: 1px solid var(--ruleSoft); }
+  }
+
+  /* ── FAQ ── */
+  .land-faq {
+    padding: var(--space-12, 4rem) 0;
+    border-top: 1px solid var(--ruleSoft);
+  }
+  .land-faq .land-section-title { margin-bottom: 2rem; }
+  .land-faq__list {
+    margin: 0;
+    max-width: 48rem;
+  }
+  .land-faq__item {
+    padding: 1.25rem 0;
+    border-bottom: 1px solid var(--ruleSoft);
+  }
+  .land-faq__item:first-child { border-top: 1px solid var(--ruleSoft); }
+  .land-faq__q {
+    font-family: var(--font-display);
+    font-size: 1.125rem;
+    color: var(--ink);
+    margin: 0 0 0.5rem;
+  }
+  .land-faq__a {
+    margin: 0;
+    color: var(--inkSoft);
+    line-height: 1.6;
   }
 </style>
