@@ -40,7 +40,14 @@ const schema = [
         fles die indruk maakte. De eerste editie is er nog niet, maar aanmelden kan nu al.
       </p>
 
-      <form class="signup" action={FORM_ACTION} method="post" target="_blank">
+      <form
+        class="signup"
+        action={FORM_ACTION}
+        method="post"
+        target="_blank"
+        data-newsletter-signup
+        data-region-preference="unknown"
+      >
         <label for="ml-email" class="visually-hidden">E-mailadres</label>
         <input
           id="ml-email"
@@ -50,7 +57,7 @@ const schema = [
           placeholder="je@adres.nl"
           required
         />
-        <button type="submit">Stuur me De brief</button>
+        <button type="submit" data-plausible-cta="newsletter_signup">Stuur me De brief</button>
       </form>
 
       <p class="follow">

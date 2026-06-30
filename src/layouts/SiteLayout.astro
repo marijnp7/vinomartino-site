@@ -113,6 +113,24 @@ const articleTags = article?.tags?.filter((tag): tag is string => Boolean(tag &&
         } catch (e) {}
       })();
     </script>
+    <script is:inline define:vars={{
+      plausibleDomain: import.meta.env.PUBLIC_PLAUSIBLE_DOMAIN || 'vinomartino.com',
+      plausibleSrc: import.meta.env.PUBLIC_PLAUSIBLE_SCRIPT_SRC || 'https://plausible.io/js/script.outbound-links.js',
+    }}>
+      (function () {
+        var nav = navigator || {};
+        var dnt = nav.doNotTrack || window.doNotTrack || nav.msDoNotTrack;
+        if (dnt === '1' || dnt === 'yes' || nav.globalPrivacyControl === true) return;
+        window.plausible = window.plausible || function () {
+          (window.plausible.q = window.plausible.q || []).push(arguments);
+        };
+        var script = document.createElement('script');
+        script.defer = true;
+        script.dataset.domain = plausibleDomain;
+        script.src = plausibleSrc;
+        document.head.appendChild(script);
+      })();
+    </script>
     <!-- Stay22 "Let Me Allez" affiliate loader (LAT-1126). LinkSwap auto-converteert
          bestaande hotel/activiteit-links naar Stay22-affiliate-links. AID: vinomartino. -->
     <script is:inline>
@@ -198,7 +216,9 @@ const articleTags = article?.tags?.filter((tag): tag is string => Boolean(tag &&
     <SearchDialog />
     <script>
       import { initAffiliateTracker } from '../lib/click-tracker';
+      import { initPlausibleInteractions } from '../lib/plausible';
       initAffiliateTracker();
+      initPlausibleInteractions();
     </script>
   </body>
 </html>
