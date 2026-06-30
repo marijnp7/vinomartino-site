@@ -1,0 +1,44 @@
+---
+// LAT-1823 — Discrete terugverwijzing van een content-pagina naar zijn
+// landenhub (pillar-hub). Rendert niets wanneer de pagina geen hub-lid is, dus
+// veilig om onvoorwaardelijk in elke template te mounten.
+import { hubBacklinkFor, type HubMemberType } from '../lib/hub-backlinks';
+
+interface Props {
+  type: HubMemberType;
+  slug: string | undefined;
+}
+
+const { type, slug } = Astro.props;
+const target = hubBacklinkFor(type, slug);
+---
+
+{target && (
+  <aside class="vm-hub-backlink">
+    <div class="container">
+      <a href={target.href}>{target.label}<span aria-hidden="true"> &rarr;</span></a>
+    </div>
+  </aside>
+)}
+
+<style>
+  .vm-hub-backlink {
+    margin-block: var(--space-5, 2rem);
+  }
+  .vm-hub-backlink a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--burgundy);
+    text-decoration: none;
+    border-top: 1px solid var(--rule);
+    padding-top: 0.75rem;
+  }
+  .vm-hub-backlink a:hover {
+    text-decoration: underline;
+  }
+</style>

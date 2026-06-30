@@ -2,6 +2,7 @@
 import SiteLayout from '../../layouts/SiteLayout.astro';
 import AffiliatePlaceholder from '../../components/AffiliatePlaceholder.astro';
 import RelatedEntities from '../../components/RelatedEntities.astro';
+import HubBacklink from '../../components/HubBacklink.astro';
 import ArtikelGerelateerdeStukken from '../../components/ArtikelGerelateerdeStukken.astro';
 import ArtikelMeerOver from '../../components/ArtikelMeerOver.astro';
 import AccommodatieRoundup from '../../components/AccommodatieRoundup.astro';
@@ -286,6 +287,8 @@ if (article.faqSchema) {
       wijnroutes={article.relatedWijnroutes}
       landen={article.relatedLanden}
     />
+
+    <HubBacklink type="artikel" slug={article.slug} />
   </article>
 </SiteLayout>
 

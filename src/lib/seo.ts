@@ -3,16 +3,42 @@ const SITE_NAME = 'VinoMartino';
 
 // ─── Organisation (use on homepage) ──────────────────────────────────────────
 
-export function organizationSchema() {
+export function organizationSchema(sameAs: string[] = []) {
   return {
     '@context': 'https://schema.org',
     '@type': 'Organization',
     name: SITE_NAME,
     url: SITE_URL,
     logo: `${SITE_URL}/favicon.svg`,
-    sameAs: [],
+    sameAs,
     description: 'Wijn- en reisplatform voor wijnliefhebbers: ontdek wijnhuizen, routes en streken.',
     inLanguage: 'nl',
+  };
+}
+
+// ─── FAQPage ──────────────────────────────────────────────────────────────────
+// Emit ONLY when the matching Q&A is also visible on the page (Google's
+// structured-data policy). Callers gate on data presence so the schema stays in
+// lockstep with the rendered FAQ copy.
+
+export interface FaqItem {
+  question: string;
+  answer: string;
+}
+
+export function faqPageSchema(items: FaqItem[]) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    inLanguage: 'nl',
+    mainEntity: items.map((item) => ({
+      '@type': 'Question',
+      name: item.question,
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: item.answer,
+      },
+    })),
   };
 }
 

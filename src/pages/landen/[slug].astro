@@ -10,7 +10,7 @@ import { loadLanden, type Land } from '../../lib/landen';
 import { loadStreken } from '../../lib/streken';
 import { loadWijnhuizen } from '../../lib/wijnhuizen';
 import { loadRoutes } from '../../lib/routes';
-import { breadcrumbSchema, landSchema, landMetaTitle, landMetaDescription } from '../../lib/seo';
+import { breadcrumbSchema, landSchema, organizationSchema, faqPageSchema, landMetaTitle, landMetaDescription } from '../../lib/seo';
 import {
   strekenForLand,
   streekToCard,
@@ -258,6 +258,10 @@ const landHeroImage = 'heroImage' in pageData ? pageData.heroImage ?? null : nul
 const landOgImage = entry?.ogImage ?? landHeroImage;
 const landImageForSchema = landOgImage;
 
+// LAT-1823: FAQPage alleen wanneer de redactie een zichtbare FAQ heeft gevuld
+// (Directus `faq`). Google's structured-data-beleid eist dat de schema de
+// zichtbare Q&A op de pagina spiegelt, dus emit niets zolang faq leeg is.
+const landFaq = entry?.faq ?? [];
 const schema = [
   landSchema({
     name: pageData.name,
@@ -274,6 +278,10 @@ const schema = [
     { name: 'Landen', url: '/landen/' },
     { name: pageData.name, url: pageUrl },
   ]),
+  // Organization (publisher). sameAs blijft leeg tot Marketing/Marijn de
+  // geverifieerde social-profiel-URLs aanlevert (LAT-1823 follow-up).
+  organizationSchema(),
+  ...(landFaq.length > 0 ? [faqPageSchema(landFaq)] : []),
 ];
 ---
 

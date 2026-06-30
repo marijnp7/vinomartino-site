@@ -7,6 +7,7 @@ import AccommodatieRoundup from '../../components/AccommodatieRoundup.astro';
 import CtaPrimary from '../../components/CtaPrimary.astro';
 import CtaComparison from '../../components/CtaComparison.astro';
 import CtaClosing from '../../components/CtaClosing.astro';
+import HubBacklink from '../../components/HubBacklink.astro';
 import { loadAccommodatieRoundupsByStreek } from '../../lib/accommodaties-loader';
 import { filterRoundupOpFotos, roundupKaartAantal, type AccommodatieRoundup as Roundup } from '../../lib/accommodaties';
 import { loadStreken, type Streek } from '../../lib/streken';
@@ -102,6 +103,7 @@ const schema = [
   <div class="container">
     <CtaComparison data={accomCta.comparison} sid={streekSlug} />
     <CtaClosing data={accomCta.closing} sid={streekSlug} />
+    <HubBacklink type="accommodatie" slug={streekSlug} />
   </div>
 </SiteLayout>
 
