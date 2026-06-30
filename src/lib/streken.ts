@@ -119,6 +119,7 @@ import {
     readDirectusEnv,
     statusFilterQuery,
     assertDirectusConfigured,
+    assertCollectionReadableOrDegrade,
 } from './directus-config';
 
 const assetDebug: Array<Record<string, unknown>> = [];
@@ -461,9 +462,10 @@ async function fetchStrekenItems(url: string, token: string): Promise<Record<str
         }
         const rbody = await retry.text().catch(() => '');
         assetDebug.push({ kind: 'query-retry', url, status: retry.status, body: rbody.slice(0, 500) });
-        // LAT-1011: collection-level 403/404 → degradeer naar lege lijst.
+        // LAT-1011/LAT-1768: collection-level 403/404 → productie fail-loud,
+        // alleen preview/dev degradeert naar lege lijst.
         if (retry.status === 403 || retry.status === 404) {
-            console.error(`[loadStreken] Directus collection 'streken' ontoegankelijk voor build-rol (HTTP ${retry.status}). /streken/* pages worden NIET gebuild. Fix Directus-permissies in LAT-1013.`);
+            assertCollectionReadableOrDegrade('loadStreken', 'streken', retry.status, env, rbody.slice(0, 200));
             return [];
         }
         throw new Error(`[loadStreken] Directus retry without og_image failed: ${retry.status} ${retry.statusText}: ${rbody.slice(0, 300)}`);
