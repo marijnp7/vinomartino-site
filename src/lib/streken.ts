@@ -37,6 +37,15 @@ export interface WijnhuisPin {
     lng: number | null;
 }
 
+// LAT-1898 — beknopte planningspassage(s) die NÁ de accommodatielijst tonen op
+// /accommodaties/<streek>/. Apart van de affiliate-3-CTA-structuur (LAT-1821):
+// dit zijn redactionele prose-blokken (heading + tekst), gevuld door de Content
+// Writer als `accom_cta_blocks.planning`. Leeg = niets gerenderd.
+export interface AccomPlanningBlock {
+    heading: string;
+    text: string;
+}
+
 // LAT-1592 — Eten/Activiteiten leven in de pilot als genummerde POI-blokken op
 // de streek-pagina (geen eigen detailroutes, plan 4a). Tolerant JSON op streken,
 // optioneel; ontbreekt het veld of is het leeg dan rendert het blok niet
@@ -87,6 +96,11 @@ export interface Streek {
     // LAT-1821 — aparte CTA-structuur voor de accommodatie-surface
     // (/accommodaties/<slug>/). Andere copy/intentiepubliek dan `cta` (streek).
     accomCta: CtaStructure;
+    // LAT-1898 — Piemonte-funnel op /accommodaties/<streek>/: intro-blok 'Slapen
+    // in de Langhe' (markdown→HTML, VÓÓR de lijst) + planningspassage(s) (NÁ de
+    // lijst). Leeg = blok rendert niet (bestaande streken breken niet).
+    waarSlapenIntroHtml: string;
+    accomPlanning: AccomPlanningBlock[];
 }
 
 // LAT-1098: reverse M2M `streken.related_articles` → `articles_id.{slug,title}`.
@@ -286,6 +300,30 @@ function parseWijnhuizen(val: unknown): WijnhuisPin[] {
     })).filter((w) => w.naam);
 }
 
+// LAT-1898 — lees de redactionele planning-passage(s) uit `accom_cta_blocks`.
+// Het veld is gedeeld met de affiliate-3-CTA-structuur (LAT-1821): die blokken
+// (`primary`/`comparison`/`closing`) dragen `why`/`link`/`options`, NIET `text`.
+// Door alleen blokken mét een `text` mee te nemen lezen beide schema's los van
+// elkaar uit hetzelfde veld zonder elkaar te corrumperen. Accepteert object met
+// benoemde blokken ({ planning: { heading, text } }), array, of stringified JSON.
+function parseAccomPlanning(val: unknown): AccomPlanningBlock[] {
+    let data: unknown = val;
+    if (typeof val === 'string') {
+        try { data = JSON.parse(val); } catch { return []; }
+    }
+    if (!data || typeof data !== 'object') return [];
+    const rows = Array.isArray(data) ? data : Object.values(data as Record<string, unknown>);
+    const out: AccomPlanningBlock[] = [];
+    for (const row of rows) {
+        if (!row || typeof row !== 'object') continue;
+        const rec = row as Record<string, unknown>;
+        const text = firstString(rec, ['text', 'tekst', 'body', 'beschrijving']);
+        if (!text) continue;
+        out.push({ heading: firstString(rec, ['heading', 'titel', 'title', 'kop']), text });
+    }
+    return out;
+}
+
 // LAT-1592 — tolerante mapper voor eten/activiteiten POI-blokken. Prijs is een
 // vrije tekst-label ('vanaf €45', '€€') zodat we geen muntconversie hoeven te
 // doen; boeklink is optioneel (alleen renderen als die bestaat).
@@ -305,6 +343,7 @@ function mapStreek(
     heroImagePath: string | null,
     ogImagePath: string | null,
     bodyHtml: string,
+    waarSlapenIntroHtml: string,
 ): Streek {
     return {
         slug: String(r.slug),
@@ -338,6 +377,8 @@ function mapStreek(
         relatedArticles: mapRelatedArticles(r.related_articles),
         cta: getCtaStructure(r),
         accomCta: getCtaStructure(r, 'accom_cta_blocks'),
+        waarSlapenIntroHtml,
+        accomPlanning: parseAccomPlanning(r.accom_cta_blocks),
     };
 }
 
@@ -353,7 +394,10 @@ async function fetchStrekenItems(url: string, token: string): Promise<Record<str
     // sneuvelen. Op withRelations (de hoogste tier die slaagt) overleeft de CTA.
     // LAT-1821: accom_cta_blocks rijdt mee op dezelfde stabiele relations-tier als
     // cta_blocks (aparte CTA-copy voor /accommodaties/<slug>/).
-    const withRelations = `${withOg},related_articles.articles_id.slug,related_articles.articles_id.title,cta_blocks,accom_cta_blocks`;
+    // LAT-1898: waar_slapen_intro (markdown intro vóór de accommodatielijst) rijdt
+    // mee op dezelfde stabiele tier — een content-veld op streken, net als
+    // cta_blocks/accom_cta_blocks dat de build-rol al leest.
+    const withRelations = `${withOg},related_articles.articles_id.slug,related_articles.articles_id.title,cta_blocks,accom_cta_blocks,waar_slapen_intro`;
     // LAT-1592: eten/activiteiten zijn nieuwe streek-velden. Bestaat het veld nog
     // niet (of mist de build-rol read-permissie) dan degradeert deze top-tier naar
     // `withRelations`, zodat related_articles (LAT-1098) NIET sneuvelt op het
@@ -482,13 +526,18 @@ async function loadFromDirectus(url: string, token: string): Promise<Streek[]> {
             if (land && land.name) r.land_name = land.name;
             if (land && land.slug) r.land_slug = land.slug;
             const bodyHtml = r.body ? await markdownToHtml(String(r.body)) : '';
+            // LAT-1898: intro is een los markdown-blok (eigen H2-kop, geen H1 om te
+            // strippen) → render zonder stripFirstH1.
+            const waarSlapenIntroHtml = r.waar_slapen_intro
+                ? await renderMarkdown(String(r.waar_slapen_intro))
+                : '';
             const heroImagePath = r.hero_image
                 ? await downloadAsset(String(r.hero_image), url, token)
                 : null;
             const ogImagePath = r.og_image
                 ? await downloadAsset(String(r.og_image), url, token, 'og-')
                 : null;
-            const streek = mapStreek(r, heroImagePath, ogImagePath, bodyHtml);
+            const streek = mapStreek(r, heroImagePath, ogImagePath, bodyHtml, waarSlapenIntroHtml);
             // LAT-1536: download per-verblijf foto's en hang de self-hosted URL
             // aan elke accommodatie. fotoRef leeg → foto blijft null (kaart toont
             // dan geen afbeelding; bestaande streken breken niet).
