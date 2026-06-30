@@ -1,0 +1,174 @@
+---
+// LAT-1155 — discreet "Waar slapen"-blok voor streek- en regiopagina's
+// (Reisjunk-Florence-patroon: "het mag er iets minder bovenop liggen").
+//
+// GEEN kaart en GEEN tier-grid — die horen op de dedicated waar-slapen-post
+// (CuratedStayMap). Hier alleen: H2, een redactionele lopende tekst uit het
+// CMS-veld `waar_slapen_intro` (geen hardcoded copy), MAX 3 compacte kaartjes
+// (1 per tier, naam + "Bekijk & boek"), en een afsluitende tekstlink naar de
+// dedicated post. Het bestaande Stay22-sidebarblok blijft het vangnet op
+// pagina's zónder gecureerde data.
+
+import type { Accommodation } from '../lib/streken';
+import { allezSearchUrl } from '../lib/stay22';
+
+interface Props {
+  streek: string;
+  slug: string;
+  accommodaties: Accommodation[];
+  /** Markdown→HTML uit Directus `waar_slapen_intro`; null = nog niet geschreven. */
+  introHtml?: string | null;
+  /** Tekstlink naar de dedicated waar-slapen-post. Optioneel tot de route vaststaat. */
+  dedicatedPostHref?: string | null;
+}
+
+const { streek, slug, accommodaties, introHtml = null, dedicatedPostHref = null } = Astro.props;
+
+type TierKey = 'slim_geboekt' | 'prijs_kwaliteit' | 'pure_luxe';
+const TIER_ORDER: TierKey[] = ['slim_geboekt', 'prijs_kwaliteit', 'pure_luxe'];
+const TIER_META: Record<TierKey, { label: string; color: string }> = {
+  slim_geboekt: { label: 'Slim geboekt', color: '#A14F2A' },
+  prijs_kwaliteit: { label: 'Prijs-kwaliteit', color: '#5C6B3F' },
+  pure_luxe: { label: 'Pure luxe', color: '#5A1A1F' },
+};
+
+function bookingHref(acc: Accommodation): string {
+  if (acc.boeklink && /^https?:\/\//.test(acc.boeklink)) return acc.boeklink;
+  return allezSearchUrl({ location: `${acc.naam}, ${streek}`, campaign: slug });
+}
+
+// Eén uitgelicht adres per tier (eerste in de gecureerde volgorde), max 3.
+const highlights = TIER_ORDER
+  .map((tier) => {
+    const pick = accommodaties.find((a) => a.tier === tier);
+    return pick ? { tier, acc: pick } : null;
+  })
+  .filter((x): x is { tier: TierKey; acc: Accommodation } => x !== null)
+  .slice(0, 3);
+
+const blockId = `waar-slapen-${slug}`.replace(/[^a-z0-9-]/gi, '');
+---
+
+{highlights.length > 0 && (
+  <section class="stay-teaser" aria-labelledby={`${blockId}-title`}>
+    <h2 id={`${blockId}-title`} class="stay-teaser__title">Waar slapen in {streek}</h2>
+
+    {introHtml && <div class="stay-teaser__intro" set:html={introHtml} />}
+
+    <ul class="stay-teaser__list">
+      {highlights.map(({ tier, acc }) => (
+        <li class="stay-teaser__item">
+          <span class="stay-teaser__tier" style={`color:${TIER_META[tier].color}`}>
+            <span class="stay-teaser__dot" style={`background:${TIER_META[tier].color}`}></span>
+            {TIER_META[tier].label}
+          </span>
+          <span class="stay-teaser__name">{acc.naam}</span>
+          <a
+            class="stay-teaser__cta"
+            href={bookingHref(acc)}
+            target="_blank"
+            rel="sponsored noopener"
+            data-affiliate-track
+            data-affiliate-partner="stay22"
+            data-affiliate-placement="stay-teaser"
+            data-affiliate-context={`streek-${slug}`}
+          >
+            Bekijk &amp; boek →
+          </a>
+        </li>
+      ))}
+    </ul>
+
+    {dedicatedPostHref && (
+      <p class="stay-teaser__more">
+        <a href={dedicatedPostHref}>Bekijk alle {accommodaties.length} adressen op de kaart →</a>
+      </p>
+    )}
+  </section>
+)}
+
+<style>
+  .stay-teaser {
+    margin: 2.5rem 0;
+    padding: 1.25rem 1.5rem;
+    border: 1px solid var(--color-border, #e6e1d8);
+    border-radius: 6px;
+    background: var(--color-surface, #fbf9f5);
+  }
+  .stay-teaser__title {
+    margin: 0 0 0.5rem;
+    font-size: 1.25rem;
+    line-height: 1.3;
+  }
+  .stay-teaser__intro {
+    margin: 0 0 1rem;
+    color: var(--color-text-muted, #5b554c);
+    font-size: 0.95rem;
+    line-height: 1.6;
+  }
+  .stay-teaser__intro :global(p) {
+    margin: 0 0 0.6rem;
+  }
+  .stay-teaser__intro :global(p:last-child) {
+    margin-bottom: 0;
+  }
+  .stay-teaser__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .stay-teaser__item {
+    display: grid;
+    grid-template-columns: minmax(7rem, auto) 1fr auto;
+    align-items: baseline;
+    gap: 0.25rem 1rem;
+    padding: 0.55rem 0;
+    border-top: 1px solid var(--color-border, #ece8e0);
+  }
+  .stay-teaser__item:first-child {
+    border-top: none;
+  }
+  .stay-teaser__tier {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-family: var(--font-mono, monospace);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .stay-teaser__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .stay-teaser__name {
+    font-weight: 600;
+  }
+  .stay-teaser__cta {
+    white-space: nowrap;
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .stay-teaser__cta:hover {
+    text-decoration: underline;
+  }
+  .stay-teaser__more {
+    margin: 1rem 0 0;
+    font-size: 0.9rem;
+  }
+  @media (max-width: 34rem) {
+    .stay-teaser__item {
+      grid-template-columns: 1fr;
+      gap: 0.15rem;
+    }
+    .stay-teaser__cta {
+      justify-self: start;
+    }
+  }
+</style>
