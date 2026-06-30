@@ -59,6 +59,12 @@ const bronValuta = currencyForLand(streek?.landSlug);
 // dan de streek-CTA. Leeg/ontbrekend → componenten renderen niets.
 const accomCta = streek?.accomCta ?? {};
 
+// LAT-1898 — Piemonte-funnel: redactioneel intro-blok 'Slapen in de Langhe'
+// (markdown→HTML) VÓÓR de lijst + beknopte planningspassage(s) NÁ de lijst. Beide
+// uit de loader (streken.waar_slapen_intro / streken.accom_cta_blocks.planning).
+const waarSlapenIntroHtml = streek?.waarSlapenIntroHtml ?? '';
+const accomPlanning = streek?.accomPlanning ?? [];
+
 const schema = [
   organizationSchema(),
   breadcrumbSchema([
@@ -95,9 +101,30 @@ const schema = [
     <CtaPrimary data={accomCta.primary} sid={streekSlug} />
   </div>
 
+  {waarSlapenIntroHtml && (
+    <div class="container">
+      <section class="waar-slapen-intro">
+        <div class="waar-slapen-intro__prose" set:html={waarSlapenIntroHtml} />
+      </section>
+    </div>
+  )}
+
   <div class="container">
     <AccommodatieRoundup roundup={roundup} context={streekSlug} bronValuta={bronValuta} hideHead />
   </div>
+
+  {accomPlanning.length > 0 && (
+    <div class="container">
+      <section class="accom-planning" aria-label="Je reis plannen">
+        {accomPlanning.map((block) => (
+          <div class="accom-planning__block">
+            {block.heading && <h2>{block.heading}</h2>}
+            {block.text && <p>{block.text}</p>}
+          </div>
+        ))}
+      </section>
+    </div>
+  )}
 
   <div class="container">
     <CtaComparison data={accomCta.comparison} sid={streekSlug} />
@@ -146,4 +173,54 @@ const schema = [
     letter-spacing: 0.05em;
   }
   .hero-link a { color: var(--rust); text-decoration: none; }
+
+  /* LAT-1898 — intro-blok 'Slapen in de Langhe', vóór de accommodatielijst. */
+  .waar-slapen-intro {
+    max-width: var(--max-width-narrow);
+    margin: var(--space-8) auto var(--space-4);
+  }
+  .waar-slapen-intro__prose {
+    font-family: var(--font-body);
+    font-size: 1.0625rem;
+    line-height: 1.7;
+    color: var(--ink);
+  }
+  .waar-slapen-intro__prose :global(p) { margin-bottom: 1.1rem; }
+  .waar-slapen-intro__prose :global(h2) {
+    font-family: var(--font-display);
+    font-size: 1.625rem;
+    font-weight: 500;
+    margin: 0 0 1rem;
+  }
+  .waar-slapen-intro__prose :global(h3) {
+    font-family: var(--font-ui);
+    font-size: 1.0625rem;
+    font-weight: 600;
+    margin: 1.75rem 0 0.5rem;
+  }
+  .waar-slapen-intro__prose :global(a) { color: var(--rust); }
+
+  /* LAT-1898 — beknopte planningspassage ná de accommodatielijst. */
+  .accom-planning {
+    max-width: var(--max-width-narrow);
+    margin: var(--space-8) auto;
+    padding: var(--space-6);
+    background: var(--paperDeep);
+    border: 1px solid var(--rule);
+  }
+  .accom-planning__block + .accom-planning__block { margin-top: var(--space-5); }
+  .accom-planning__block h2 {
+    font-family: var(--font-display);
+    font-size: 1.375rem;
+    font-weight: 500;
+    color: var(--ink);
+    margin: 0 0 0.5rem;
+  }
+  .accom-planning__block p {
+    font-family: var(--font-body);
+    font-size: 1.0625rem;
+    line-height: 1.6;
+    color: var(--inkSoft);
+    margin: 0;
+  }
 </style>
