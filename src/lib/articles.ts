@@ -196,6 +196,7 @@ import {
     readDirectusEnv,
     statusFilterQuery,
     assertDirectusConfigured,
+    assetUrl,
 } from './directus-config';
 
 async function downloadArticleAsset(assetId: string, directusUrl: string, token: string): Promise<string | null> {
@@ -205,7 +206,7 @@ async function downloadArticleAsset(assetId: string, directusUrl: string, token:
     const outPath = join(outDir, `${assetId}.jpg`);
     if (existsSync(outPath)) return `/images/articles/${assetId}.jpg`;
     try {
-        const res = await fetch(`${directusUrl}/assets/${assetId}`, {
+        const res = await fetch(assetUrl(directusUrl, assetId), {
             headers: { Authorization: `Bearer ${token}` },
             signal: AbortSignal.timeout(15000),
         });

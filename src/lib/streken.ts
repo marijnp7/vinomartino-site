@@ -119,6 +119,7 @@ import {
     readDirectusEnv,
     statusFilterQuery,
     assertDirectusConfigured,
+    assetUrl,
 } from './directus-config';
 
 const assetDebug: Array<Record<string, unknown>> = [];
@@ -131,7 +132,7 @@ async function downloadAsset(assetId: string, directusUrl: string, token: string
     const outPath = join(outDir, fileName);
     if (existsSync(outPath)) return `/images/streken/${fileName}`;
     try {
-        const res = await fetch(`${directusUrl}/assets/${assetId}`, {
+        const res = await fetch(assetUrl(directusUrl, assetId), {
             headers: { Authorization: `Bearer ${token}` },
             signal: AbortSignal.timeout(15000),
         });
@@ -165,7 +166,7 @@ async function downloadAccommodatieAsset(assetId: string, directusUrl: string, t
     const outPath = join(outDir, fileName);
     if (existsSync(outPath)) return `/images/accommodaties/${fileName}`;
     try {
-        const res = await fetch(`${directusUrl}/assets/${assetId}`, {
+        const res = await fetch(assetUrl(directusUrl, assetId), {
             headers: { Authorization: `Bearer ${token}` },
             signal: AbortSignal.timeout(15000),
         });
