@@ -312,6 +312,9 @@ const schema = [
     practical={pageData.practical}
     climate={pageData.climate}
     faq={landFaq}
+    hubTitle={entry?.hubH1 || undefined}
+    reistijd={entry?.reistijd ?? []}
+    budget={entry?.budget ?? []}
   >
     {hasRegionGeo ? (
       <div slot="atlas">
