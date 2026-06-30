@@ -5,6 +5,12 @@ import { loadWijnhuizen } from '../lib/wijnhuizen';
 import { loadRoutes } from '../lib/routes';
 import { loadStreken } from '../lib/streken';
 import { organizationSchema } from '../lib/seo';
+import { getAuthorByByline } from '../lib/authors';
+
+// LAT-1848: render altijd de gecanoniseerde auteursnaam uit het auteur-record
+// (bv. "Marijn") i.p.v. het ruwe Directus author-veld (dat nog "Martin" kan zijn).
+const authorName = (byline: string | null | undefined): string =>
+  getAuthorByByline(byline)?.name ?? byline ?? 'VinoMartino';
 
 const articles = await loadArticles();
 // LAT-1611: het "verhaal van de week" is instelbaar via het `featured`-veld in
@@ -160,7 +166,7 @@ function formatDate(value?: string | null) {
           </h2>
           {spotlight.description && <p class="spotlight-desc">{spotlight.description}</p>}
           <p class="spotlight-meta">
-            <span>{spotlight.author}</span>
+            <span>{authorName(spotlight.author)}</span>
             <span class="dot" aria-hidden="true">·</span>
             <span>{formatDate(spotlight.pubDate)}</span>
           </p>
@@ -287,7 +293,7 @@ function formatDate(value?: string | null) {
                 {article.category && <span class="card-eyebrow">{article.category.replace(/-/g, ' ')}</span>}
                 <h3 class="card-title">{article.title}</h3>
                 {article.description && <p class="card-desc">{article.description}</p>}
-                <span class="card-meta">{article.author} · {formatDate(article.pubDate)}</span>
+                <span class="card-meta">{authorName(article.author)} · {formatDate(article.pubDate)}</span>
               </div>
             </a>
           ))}
@@ -303,7 +309,7 @@ function formatDate(value?: string | null) {
         <span class="kicker brief-kicker">De Brief</span>
         <h2 class="brief-h">Eén keer per maand. Geen lijstjes.</h2>
         <p class="brief-lede">
-          Een persoonlijke brief van Martin, wat we recent dronken, waar we waren, en welke fles ons opviel. Géén affiliate-deals, géén nieuwsbriefformule.
+          Een persoonlijke brief van Marijn, wat we recent dronken, waar we waren, en welke fles ons opviel. Géén affiliate-deals, géén nieuwsbriefformule.
         </p>
       </div>
       <a href="/de-brief/" class="btn btn-gold">Schrijf me in</a>
