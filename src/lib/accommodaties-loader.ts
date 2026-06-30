@@ -29,6 +29,7 @@ import {
     readDirectusEnv,
     statusFilterQuery,
     assertDirectusConfigured,
+    assertCollectionReadableOrDegrade,
 } from './directus-config';
 
 async function downloadAsset(assetId: string, directusUrl: string, token: string): Promise<string | null> {
@@ -112,8 +113,11 @@ async function fetchAccommodations(url: string, token: string): Promise<RawAcc[]
         }
     }
     if (!res.ok) {
+        // LAT-1768: collection-level 403/404 → productie fail-loud, alleen
+        // preview/dev degradeert naar lege lijst.
         if (res.status === 403 || res.status === 404) {
-            console.error(`[loadAccommodaties] collectie 'accommodations' ontoegankelijk voor build-rol (HTTP ${res.status}). Geen reisjunk-kaarten gebuild.`);
+            const rbody = await res.text().catch(() => '');
+            assertCollectionReadableOrDegrade('loadAccommodaties', 'accommodations', res.status, env, rbody.slice(0, 200));
             return [];
         }
         const body = await res.text().catch(() => '');
