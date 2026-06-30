@@ -40,7 +40,7 @@ const schema = [
         fles die indruk maakte. De eerste editie is er nog niet, maar aanmelden kan nu al.
       </p>
 
-      <form class="signup" action={FORM_ACTION} method="post" target="_blank">
+      <form class="signup" action={FORM_ACTION} method="post" target="_blank" data-signup-form>
         <label for="ml-email" class="visually-hidden">E-mailadres</label>
         <input
           id="ml-email"
@@ -61,6 +61,23 @@ const schema = [
       </p>
     </div>
   </section>
+
+  <script>
+    // LAT-1755 — newsletter conversion events.
+    // signup_started fires on submit (the form opens MailerLite in a new tab, so true
+    // completion happens off-site). When MailerLite is configured to redirect back to
+    // /de-brief/?signup=ok, signup_completed fires on that return.
+    import { track } from '../../lib/analytics';
+
+    const form = document.querySelector('[data-signup-form]');
+    if (form) {
+      form.addEventListener('submit', () => track('signup_started'));
+    }
+
+    if (new URLSearchParams(window.location.search).get('signup') === 'ok') {
+      track('signup_completed');
+    }
+  </script>
 </SiteLayout>
 
 <style>

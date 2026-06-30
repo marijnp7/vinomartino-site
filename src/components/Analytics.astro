@@ -1,0 +1,34 @@
+---
+// LAT-1755 — Cookieless analytics (Plausible-compatible), env-gated.
+//
+// Loads NOTHING unless PUBLIC_ANALYTICS_DOMAIN is set, so dev/preview stay clean and
+// there is no vendor lock-in baked into templates. Vendor/host is fully configurable:
+//   PUBLIC_ANALYTICS_DOMAIN  the data-domain registered in the analytics dashboard
+//   PUBLIC_ANALYTICS_SRC     (optional) script URL — override for self-hosted Plausible
+//                            or a Plausible-compatible alternative (Umami/Matomo proxy)
+//   PUBLIC_ANALYTICS_ENABLED (optional) set to "false" to hard-disable even with a domain
+//
+// The default script is the Plausible "outbound-links + tagged-events" build: it tracks
+// pageviews, referrers, UTM campaigns and top landing pages natively, auto-tracks outbound
+// link clicks, and lets us fire named custom events via window.plausible(...) (see
+// src/lib/analytics.ts). Plausible sets no cookies and no localStorage — see /privacy/.
+const domain = import.meta.env.PUBLIC_ANALYTICS_DOMAIN?.trim();
+const enabledFlag = (import.meta.env.PUBLIC_ANALYTICS_ENABLED ?? 'true').toString().trim();
+const enabled = Boolean(domain) && enabledFlag !== 'false' && enabledFlag !== '0';
+const src =
+  import.meta.env.PUBLIC_ANALYTICS_SRC?.trim() ||
+  'https://plausible.io/js/script.outbound-links.tagged-events.js';
+---
+{enabled && (
+  <>
+    <script is:inline>
+      // Queue stub so analytics.track() calls before the script loads are not lost.
+      window.plausible =
+        window.plausible ||
+        function () {
+          (window.plausible.q = window.plausible.q || []).push(arguments);
+        };
+    </script>
+    <script is:inline defer data-domain={domain} src={src}></script>
+  </>
+)}

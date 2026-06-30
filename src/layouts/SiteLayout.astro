@@ -2,6 +2,7 @@
 import SiteHeader from '../components/SiteHeader.astro';
 import SiteFooter from '../components/SiteFooter.astro';
 import SearchDialog from '../components/SearchDialog.astro';
+import Analytics from '../components/Analytics.astro';
 import '../styles/tokens.css';
 
 type OgType = 'website' | 'article' | 'profile' | 'place';
@@ -113,6 +114,7 @@ const articleTags = article?.tags?.filter((tag): tag is string => Boolean(tag &&
         } catch (e) {}
       })();
     </script>
+    <Analytics />
     <!-- Stay22 "Let Me Allez" affiliate loader (LAT-1126). LinkSwap auto-converteert
          bestaande hotel/activiteit-links naar Stay22-affiliate-links. AID: vinomartino. -->
     <script is:inline>
