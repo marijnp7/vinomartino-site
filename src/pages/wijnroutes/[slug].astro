@@ -4,6 +4,7 @@ import RelatedArticles from '../../components/RelatedArticles.astro';
 import RouteMap from '../../components/RouteMap.astro';
 import RouteGeoMap from '../../components/RouteGeoMap.astro';
 import StaysTeaser from '../../components/StaysTeaser.astro';
+import CtaStructure from '../../components/CtaStructure.astro';
 import { loadRoutes, type WijnRoute } from '../../lib/routes';
 import { loadStreken } from '../../lib/streken';
 import { loadWijnhuizen, type Wijnhuis } from '../../lib/wijnhuizen';
@@ -151,6 +152,8 @@ const schema = [
             </div>
           </section>
         )}
+
+        <CtaStructure data={entry.cta} sid={entry.slug} />
       </div>
 
       <aside class="page-sidebar">

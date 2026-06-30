@@ -1,4 +1,5 @@
 import { stripEditorialHeader, type RelatedRef } from './articles';
+import { getCtaStructure, type CtaStructure } from './cta-blocks';
 
 // LAT-1635 — een stop mét coördinaten voor de geografische routekaart
 // (RouteGeoMap). Komt uit het Directus-veld routes.stops_geo (JSON-array van
@@ -28,6 +29,7 @@ export interface WijnRoute {
     metaDescription: string;
     bodyHtml: string;
     relatedArticles: RelatedRef[];
+    cta: CtaStructure;
 }
 
 function mapRelatedArticles(val: unknown): RelatedRef[] {
@@ -157,6 +159,7 @@ function mapRoute(
         metaDescription: String(r.meta_description || r.description || ''),
         bodyHtml,
         relatedArticles: mapRelatedArticles(r.related_articles),
+        cta: getCtaStructure(r),
     };
 }
 
@@ -174,12 +177,16 @@ async function fetchRoutesItems(url: string, token: string): Promise<Record<stri
     // niet (DevOps-migratie), dan 400/403 → drop alléén stops_geo en val terug op
     // withStreek (relaties + streek_id blijven behouden). Deploy-safe.
     const withGeo = `${withStreek},stops_geo`;
+    // LAT-1795: additieve top-tier met routes.cta_blocks (3-CTA-structuur). Bestaat
+    // het veld nog niet, dan 400/403 → drop alléén cta_blocks en val terug op withGeo
+    // (stops_geo + relaties blijven behouden). Deploy-safe.
+    const withCta = `${withGeo},cta_blocks`;
     const filterSort = `${statusFilterQuery(env)}&sort=title`;
     const headers = { Authorization: `Bearer ${token}` };
     const signal = AbortSignal.timeout(15000);
     let res: Response;
     try {
-        res = await fetch(`${url}/items/routes?limit=-1&fields=${withGeo}${filterSort}`, { headers, signal });
+        res = await fetch(`${url}/items/routes?limit=-1&fields=${withCta}${filterSort}`, { headers, signal });
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         assetDebug.push({ kind: 'query', url, error: msg });
@@ -189,6 +196,23 @@ async function fetchRoutesItems(url: string, token: string): Promise<Record<stri
         const json = await res.json();
         assetDebug.push({ kind: 'query', url, status: 200, count: (json.data || []).length });
         return (json.data || []) as Record<string, unknown>[];
+    }
+    if (res.status === 400 || res.status === 403) {
+        const ctaBody = await res.text().catch(() => '');
+        console.warn(`[loadRoutes] Directus rejected fields=…,cta_blocks (HTTP ${res.status}) — retrying without LAT-1795 cta_blocks.`);
+        assetDebug.push({ kind: 'query', url, status: res.status, body: ctaBody.slice(0, 500), retryWithoutCta: true });
+        try {
+            res = await fetch(`${url}/items/routes?limit=-1&fields=${withGeo}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            assetDebug.push({ kind: 'query-retry-cta', url, error: msg });
+            throw new Error(`[loadRoutes] Directus retry without cta_blocks threw: ${msg}`);
+        }
+        if (res.ok) {
+            const json = await res.json();
+            assetDebug.push({ kind: 'query-retry-cta', url, status: 200, count: (json.data || []).length });
+            return (json.data || []) as Record<string, unknown>[];
+        }
     }
     if (res.status === 400 || res.status === 403) {
         const geoBody = await res.text().catch(() => '');
