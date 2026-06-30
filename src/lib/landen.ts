@@ -15,6 +15,22 @@ export interface LandPractical {
     value: string;
 }
 
+// LAT-1871: pillar-hub reistijd-tabel per regio (Directus `reistijd_tabel` JSON).
+export interface LandReistijd {
+    regio: string;
+    vliegveld: string;
+    reistijd: string;
+    besteReistijd: string;
+}
+
+// LAT-1871: pillar-hub budgetblok (Directus `budget_tabel` JSON). EUR-ranges
+// (valuta-regel LAT-1663): editors leveren reeds genormaliseerde euro-strings.
+export interface LandBudget {
+    categorie: string;
+    bedrag: string;
+    toelichting: string;
+}
+
 export interface Land {
     slug: string;
     name: string;
@@ -45,6 +61,14 @@ export interface Land {
     // loader degradeert dan zacht (zie fetchLandenItems-fallback) en de schema
     // blijft weg zolang er geen zichtbare Q&A op de pagina staat.
     faq: FaqItem[];
+    // LAT-1871: pillar-hub render-laag. `hubH1` overschrijft de generieke
+    // land-H1 op een pillar-hub (bv. "Wijnreis in Italië: regio's, routes en
+    // gidsen"); leeg → hero valt terug op de landnaam. reistijd/budget zijn
+    // optionele tabellen die alleen renderen als de redactie ze vult, zodat
+    // niet-hub landpagina's geen lege banden krijgen.
+    hubH1: string;
+    reistijd: LandReistijd[];
+    budget: LandBudget[];
 }
 
 function mapRelatedArticles(val: unknown): RelatedRef[] {
@@ -183,6 +207,27 @@ function parseFaq(val: unknown): FaqItem[] {
         .filter((f): f is FaqItem => f !== null);
 }
 
+function mapReistijd(val: unknown): LandReistijd[] {
+    return parseObjectArray(val)
+        .map((r) => ({
+            regio: normalizeEmDashes(String(r.regio || r.region || '')),
+            vliegveld: normalizeEmDashes(String(r.vliegveld || r.airport || '')),
+            reistijd: normalizeEmDashes(String(r.reistijd || r.duur || '')),
+            besteReistijd: normalizeEmDashes(String(r.beste_reistijd || r.beste_tijd || r.seizoen || '')),
+        }))
+        .filter((row) => row.regio.length > 0);
+}
+
+function mapBudget(val: unknown): LandBudget[] {
+    return parseObjectArray(val)
+        .map((r) => ({
+            categorie: normalizeEmDashes(String(r.categorie || r.category || r.post || '')),
+            bedrag: normalizeEmDashes(String(r.bedrag || r.range || r.prijs || '')),
+            toelichting: normalizeEmDashes(String(r.toelichting || r.note || '')),
+        }))
+        .filter((row) => row.categorie.length > 0 && row.bedrag.length > 0);
+}
+
 function mapWijnstreken(val: unknown): { name: string; slug?: string }[] {
     if (!Array.isArray(val)) return [];
     return val
@@ -228,6 +273,9 @@ function mapLand(
         relatedArticles: mapRelatedArticles(r.related_articles),
         cta: getCtaStructure(r),
         faq: parseFaq(r.faq),
+        hubH1: normalizeEmDashes(String(r.hub_h1 || '')),
+        reistijd: mapReistijd(r.reistijd_tabel),
+        budget: mapBudget(r.budget_tabel),
     };
 }
 
@@ -250,12 +298,16 @@ async function fetchLandenItems(url: string, token: string): Promise<Record<stri
     // (veld nog niet gemigreerd) of 403 vallen we terug op withCta, zodat cta_blocks
     // én de rest van de keten intact blijven — faq mag nooit andere velden meeslepen.
     const withFaq = `${withCta},faq`;
+    // LAT-1871: pillar-hub render-velden (hub_h1 + reistijd/budget JSON) als top-tier.
+    // Bij 400/403 valt de retry hieronder terug op withCta, die zowel faq als deze
+    // hub-velden weglaat — ze mogen nooit druiven/practical/cta_blocks meeslepen.
+    const withHub = `${withFaq},hub_h1,reistijd_tabel,budget_tabel`;
     const filterSort = `${statusFilterQuery(env)}&sort=name`;
     const headers = { Authorization: `Bearer ${token}` };
     const signal = AbortSignal.timeout(15000);
     let res: Response;
     try {
-        res = await fetch(`${url}/items/landen?limit=-1&fields=${withFaq}${filterSort}`, { headers, signal });
+        res = await fetch(`${url}/items/landen?limit=-1&fields=${withHub}${filterSort}`, { headers, signal });
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         throw new Error(`[loadLanden] Directus unreachable at ${url}: ${msg}`);
@@ -264,10 +316,10 @@ async function fetchLandenItems(url: string, token: string): Promise<Record<stri
         const json = await res.json();
         return (json.data || []) as Record<string, unknown>[];
     }
-    // LAT-1823: drop only the faq field, keep the full LAT-1760/LAT-1784 tier
-    // (withCta) so a not-yet-migrated faq field never sleeps druiven/practical/
-    // cta_blocks. If withCta itself is rejected, fall through to the existing
-    // tier-fallback (withTasting → relations → SeoMeta → baseFields).
+    // LAT-1823/LAT-1871: drop the faq + hub render-fields, keep the full
+    // LAT-1760/LAT-1784 tier (withCta) so not-yet-migrated optional fields never
+    // sleep druiven/practical/cta_blocks. If withCta itself is rejected, fall
+    // through to the existing tier-fallback (withTasting → relations → SeoMeta → baseFields).
     if (res.status === 400 || res.status === 403) {
         const faqRetry = await fetch(`${url}/items/landen?limit=-1&fields=${withCta}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
         if (faqRetry.ok) {
