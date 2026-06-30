@@ -342,7 +342,11 @@ async function fetchStrekenItems(url: string, token: string): Promise<Record<str
     const withOg = `${baseFields},og_image`;
     // LAT-1098: reverse-relation auto-aangemaakt door Directus M2M op articles
     // (LAT-1097). Junction `articles_streken` → `articles_id.{slug,title}`.
-    const withRelations = `${withOg},related_articles.articles_id.slug,related_articles.articles_id.title`;
+    // LAT-1795: cta_blocks rijdt mee op de stabiele relations-tier, NIET op de
+    // hogere POI/facts-tiers. Reden: streken.eten/activiteiten (LAT-1592) ontbreken
+    // in dit schema → withPoi/withFacts 400'en, en cta_blocks zou als collateral
+    // sneuvelen. Op withRelations (de hoogste tier die slaagt) overleeft de CTA.
+    const withRelations = `${withOg},related_articles.articles_id.slug,related_articles.articles_id.title,cta_blocks`;
     // LAT-1592: eten/activiteiten zijn nieuwe streek-velden. Bestaat het veld nog
     // niet (of mist de build-rol read-permissie) dan degradeert deze top-tier naar
     // `withRelations`, zodat related_articles (LAT-1098) NIET sneuvelt op het
@@ -354,24 +358,20 @@ async function fetchStrekenItems(url: string, token: string): Promise<Record<str
     // niets tot de velden bestaan en gevuld zijn.
     const factFields = 'best_vintages,harvest_period,min_visit_time,tasting_budget';
     const withFacts = `${withPoi},${factFields}`;
-    // LAT-1784/LAT-1795: cta_blocks als hoogste tier. Bestaat het veld niet of
-    // mist de build-rol read-permissie, dan degradeert deze fetch naar withPoi
-    // (de bestaande fallback) — de CTA-componenten renderen dan simpelweg niets.
-    const withCta = `${withFacts},cta_blocks`;
     const filterSort = `${statusFilterQuery(env)}&sort=name`;
     const headers = { Authorization: `Bearer ${token}` };
     const signal = AbortSignal.timeout(15000);
 
     // Top-tier poging mét fact-box-velden; val bij 400/403 stil terug op withPoi.
     try {
-        const factsRes = await fetch(`${url}/items/streken?limit=-1&fields=${withCta}${filterSort}`, { headers, signal });
+        const factsRes = await fetch(`${url}/items/streken?limit=-1&fields=${withFacts}${filterSort}`, { headers, signal });
         if (factsRes.ok) {
             const json = await factsRes.json();
-            assetDebug.push({ kind: 'query', url, status: 200, count: (json.data || []).length, tier: 'withCta' });
+            assetDebug.push({ kind: 'query', url, status: 200, count: (json.data || []).length, tier: 'withFacts' });
             return (json.data || []) as Record<string, unknown>[];
         }
         if (factsRes.status === 400 || factsRes.status === 403) {
-            console.warn(`[loadStreken] Directus rejected fields=…,${factFields},cta_blocks (HTTP ${factsRes.status}) — retrying without LAT-1676/LAT-1784 velden. Maak streken.best_vintages/harvest_period/min_visit_time/tasting_budget/cta_blocks aan en/of geef de build-rol read-permissie.`);
+            console.warn(`[loadStreken] Directus rejected fields=…,${factFields} (HTTP ${factsRes.status}) — retrying without LAT-1676 fact-velden. Maak streken.best_vintages/harvest_period/min_visit_time/tasting_budget aan en/of geef de build-rol read-permissie. (cta_blocks rijdt mee op withRelations.)`);
             assetDebug.push({ kind: 'query', url, status: factsRes.status, retryWithoutFacts: true });
         } else {
             // Andere status (bv. 5xx/timeout): laat de bestaande withPoi-pad de
