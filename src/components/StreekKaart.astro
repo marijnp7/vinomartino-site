@@ -171,6 +171,8 @@ const mapData = {
     detailUrl: it.detailUrl ?? null,
     cta: ctaLabel(it.category),
     partner: it.partner ?? '',
+    foto: it.foto ?? null,
+    fotoAlt: it.fotoAlt ?? it.naam,
   })),
 };
 const usedCats = sections.map((s) => s.key);
@@ -377,7 +379,11 @@ const usedCats = sections.map((s) => s.key);
       } else if (p.detailUrl) {
         ctaHtml = `<a class="skz-popup__cta skz-popup__cta--ghost" href="${esc(p.detailUrl)}">Lees meer &rarr;</a>`;
       }
+      const imgHtml = p.foto
+        ? `<img class="skz-popup__img" src="${esc(p.foto)}" alt="${esc(p.fotoAlt)}" loading="lazy" decoding="async" />`
+        : '';
       const popupHtml = `<div class="skz-popup">`
+        + imgHtml
         + `<span class="skz-popup__cat" style="color:${p.color}">${esc(p.label)}</span>`
         + `<h4 class="skz-popup__name">${p.n}. ${esc(p.naam)}</h4>`
         + priceHtml + ctaHtml + `</div>`;
@@ -676,6 +682,14 @@ const usedCats = sections.map((s) => s.key);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
   }
   .skz-popup { font-family: var(--font-body, Georgia, serif); min-width: 170px; }
+  .skz-popup__img {
+    display: block;
+    width: 100%;
+    height: 96px;
+    object-fit: cover;
+    border-radius: 6px;
+    margin-bottom: 0.5rem;
+  }
   .skz-popup__cat {
     display: block;
     font-family: var(--font-mono, 'JetBrains Mono', monospace);
