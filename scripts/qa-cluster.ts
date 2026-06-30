@@ -70,5 +70,28 @@ const mixedClusters = clusterKaarten(mixed, 'Toscane');
 const mixedTotal = mixedClusters.reduce((n, c) => n + c.kaarten.length, 0);
 assert(mixedTotal === mixed.length, `Gemengd: alle ${mixed.length} kaarten behouden (kreeg ${mixedTotal})`);
 
+// 6. LAT-1460 — Priorat (DOQ-kern) is compact: alle dorpen liggen binnen ~15 km,
+//    dus de curated-stay-kaart moet exact 1 cluster tonen ("In en rond Priorat").
+//    Coords = realistische dorpscoördinaten in de Priorat (Catalonië).
+const priorat: AccommodatieKaart[] = [
+  kaart('Cal Llop', 'Gratallops', 'prijs_kwaliteit', 41.2493, 0.7918),
+  kaart('Hotel Priorat', 'Falset', 'slim_geboekt', 41.1456, 0.8193),
+  kaart('Mas Ardevol', 'Porrera', 'prijs_kwaliteit', 41.1822, 0.8567),
+  kaart('Lo Cigronet', 'Torroja del Priorat', 'slim_geboekt', 41.2181, 0.8232),
+  kaart('Trossos del Priorat', 'La Vilella Baixa', 'pure_luxe', 41.2470, 0.7512),
+  kaart('Cal Compte', 'Poboleda', 'pure_luxe', 41.2360, 0.8421),
+];
+const prioratClusters = clusterKaarten(priorat, 'Priorat');
+assert(prioratClusters.length === 1, `Priorat = 1 cluster (kreeg ${prioratClusters.length})`);
+assert(
+  prioratClusters[0]?.kaarten.length === priorat.length,
+  `Priorat-cluster bevat alle ${priorat.length} verblijven (kreeg ${prioratClusters[0]?.kaarten.length})`,
+);
+const prioratSeq = (prioratClusters[0]?.kaarten ?? []).map((k) => order.indexOf(k.tier!));
+assert(
+  JSON.stringify(prioratSeq) === JSON.stringify([...prioratSeq].sort((a, b) => a - b)),
+  `Priorat tier-gesorteerd budget→luxe (kreeg ${prioratSeq})`,
+);
+
 console.log(`\n${failures === 0 ? 'ALL PASS' : failures + ' FAILURES'}`);
 process.exit(failures === 0 ? 0 : 1);
