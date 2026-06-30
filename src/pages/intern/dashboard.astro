@@ -9,6 +9,44 @@ const d = await loadClicksDashboard();
 const generated = new Date(d.generatedAt).toLocaleString('nl-NL', { dateStyle: 'medium', timeStyle: 'short' });
 const hasData = d.status === 'ok';
 const topN = <T,>(arr: T[], n = 15): T[] => arr.slice(0, n);
+const plausibleBase = 'https://plausible.io/vinomartino.com';
+const launchMetrics = [
+  {
+    metric: 'Bezoekersgroei',
+    source: 'Visitors + Top Sources',
+    target: 'Dagelijkse groei na promotie',
+    action: 'Beste bron verdubbelen; zwakke bron pauzeren of andere hook testen.',
+    href: plausibleBase,
+  },
+  {
+    metric: 'Campagnes',
+    source: 'UTM Campaigns',
+    target: 'Elke promotie heeft verkeer met utm_campaign',
+    action: 'Ontbreekt UTM-data: link aanpassen voordat je opnieuw deelt.',
+    href: `${plausibleBase}?period=7d`,
+  },
+  {
+    metric: 'Nieuwsbrief',
+    source: 'Goal: newsletter_signup',
+    target: 'Minimaal enkele aanmeldingen per promotiedag',
+    action: 'Veel bezoekers maar weinig signups: CTA/positie op /de-brief aanscherpen.',
+    href: `${plausibleBase}?goal=newsletter_signup&period=7d`,
+  },
+  {
+    metric: 'Affiliate intent',
+    source: 'Goal: affiliate_click',
+    target: 'Clicks per regio/partner zichtbaar',
+    action: 'Veel regioverkeer maar geen clicks: affiliateblokken hoger of relevanter maken.',
+    href: `${plausibleBase}?goal=affiliate_click&period=7d`,
+  },
+  {
+    metric: 'Regio-interesse',
+    source: 'Goal: region_selected',
+    target: 'Promotie stuurt naar concrete regio-keuzes',
+    action: 'Topregio gebruiken voor volgende content en affiliate-prioriteit.',
+    href: `${plausibleBase}?goal=region_selected&period=7d`,
+  },
+];
 ---
 
 <!doctype html>
@@ -23,11 +61,43 @@ const topN = <T,>(arr: T[], n = 15): T[] => arr.slice(0, n);
     <main class="dash">
       <header class="dash__head">
         <span class="dash__kicker">VinoMartino · intern</span>
-        <h1 class="dash__title">Affiliate KPI-dashboard</h1>
+        <h1 class="dash__title">Launch KPI-dashboard</h1>
         <p class="dash__meta">
           Snapshot van {generated}. Statische build, vernieuwt bij elke deploy.
         </p>
       </header>
+
+      <section class="launch" aria-labelledby="launch-title">
+        <div class="launch__head">
+          <div>
+            <h2 id="launch-title" class="launch__title">Dagelijkse launch-check</h2>
+            <p class="launch__meta">
+              Gebruik Plausible voor live groei en dit dashboard voor de eigen affiliate-click snapshot.
+            </p>
+          </div>
+          <a class="launch__link" href={plausibleBase} target="_blank" rel="noopener">Open Plausible</a>
+        </div>
+        <table class="tbl tbl--launch">
+          <thead>
+            <tr>
+              <th>Signaal</th>
+              <th>Waar</th>
+              <th>Doel</th>
+              <th>Actie</th>
+            </tr>
+          </thead>
+          <tbody>
+            {launchMetrics.map((m) => (
+              <tr>
+                <td><strong>{m.metric}</strong></td>
+                <td><a href={m.href} target="_blank" rel="noopener">{m.source}</a></td>
+                <td>{m.target}</td>
+                <td>{m.action}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
 
       {!hasData && (
         <div class:list={['dash__notice', `dash__notice--${d.status}`]}>
@@ -40,7 +110,7 @@ const topN = <T,>(arr: T[], n = 15): T[] => arr.slice(0, n);
         </div>
       )}
 
-      <section class="dash__kpis" aria-label="Kerncijfers">
+      <section class="dash__kpis" aria-label="Affiliate kerncijfers">
         <div class="kpi">
           <span class="kpi__num">{d.totalClicks}</span>
           <span class="kpi__label">Clicks totaal</span>
@@ -140,6 +210,46 @@ const topN = <T,>(arr: T[], n = 15): T[] => arr.slice(0, n);
         margin: 0.3rem 0 0.4rem;
       }
       .dash__meta { font-size: 0.875rem; color: var(--inkSoft, #5A4F45); margin: 0 0 1.75rem; }
+      .launch {
+        background: var(--paper, #FBF7EE);
+        border: 1px solid var(--ruleSoft, #E0D2B0);
+        border-radius: 4px;
+        padding: 1.25rem 1.35rem 1.4rem;
+        margin-bottom: 1.75rem;
+      }
+      .launch__head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 1rem;
+        border-bottom: 1px solid var(--rule, #C9B98F);
+        padding-bottom: 0.9rem;
+        margin-bottom: 0.8rem;
+      }
+      .launch__title {
+        font-family: var(--font-ui, sans-serif);
+        font-size: 0.8125rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        margin: 0 0 0.35rem;
+      }
+      .launch__meta { font-size: 0.875rem; color: var(--inkSoft, #5A4F45); margin: 0; line-height: 1.45; }
+      .launch__link {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 2.25rem;
+        padding: 0 0.9rem;
+        border: 1px solid var(--burgundy, #5A1A1F);
+        border-radius: 3px;
+        color: var(--burgundy, #5A1A1F);
+        text-decoration: none;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      .launch__link:hover { background: var(--burgundy, #5A1A1F); color: var(--paper, #FBF7EE); }
       .dash__notice {
         border: 1px solid var(--rule, #C9B98F);
         border-left: 4px solid var(--rust, #A14F2A);
@@ -182,11 +292,16 @@ const topN = <T,>(arr: T[], n = 15): T[] => arr.slice(0, n);
       .tbl { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
       .tbl th, .tbl td { text-align: left; padding: 0.45rem 0.5rem; border-bottom: 1px solid var(--ruleSoft, #E0D2B0); }
       .tbl th { font-family: var(--font-mono, monospace); font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--inkFaint, #8A7E70); }
+      .tbl a { color: var(--burgundy, #5A1A1F); font-weight: 600; text-decoration-thickness: 1px; text-underline-offset: 0.16em; }
       .tbl .num { text-align: right; font-variant-numeric: tabular-nums; }
       .tbl .muted { color: var(--inkFaint, #8A7E70); font-style: italic; }
+      .tbl--launch td { vertical-align: top; line-height: 1.45; }
       @media (max-width: 760px) {
         .dash__kpis { grid-template-columns: 1fr; }
         .dash__grid { grid-template-columns: 1fr; }
+        .launch__head { display: block; }
+        .launch__link { margin-top: 0.9rem; }
+        .tbl--launch { display: block; overflow-x: auto; white-space: nowrap; }
       }
     </style>
   </body>
