@@ -21,7 +21,14 @@ const moreArticles = articles.filter((a) => a.slug !== spotlight?.slug).slice(0,
 // LAT-1612: volledige lijst nodig — de homepage shuffelt client-side en toont 3.
 const wijnhuizen = await loadWijnhuizen();
 const routes = (await loadRoutes()).slice(0, 3);
-const streken = (await loadStreken()).slice(0, 3);
+// LAT-1907: toon 3 willekeurige streken per homepage-load i.p.v. de vaste eerste 3.
+// We renderen de volledige set "complete" streken (intro-tekst + hero verplicht);
+// CSS verbergt alles voorbij de eerste 3 als no-JS fallback, en het client-side
+// script hieronder shuffelt naar 3 willekeurige per page-load. Streken zonder
+// tekst of beeld worden uitgesloten zodat de homepage nooit een lege kaart toont.
+const streken = (await loadStreken()).filter(
+  (s) => s.description?.trim() && s.heroImage,
+);
 
 const schema = organizationSchema();
 
@@ -247,9 +254,9 @@ function formatDate(value?: string | null) {
           Diepere achtergrond bij de regio's die ons werk vormen, geologie, druiven, eet- en drinkadressen.
         </p>
       </header>
-      <div class="cards-grid">
-        {streken.map(s => (
-          <a href={`/streken/${s.slug}/`} class="card-tile">
+      <div class="cards-grid" data-streken-grid>
+        {streken.map((s, i) => (
+          <a href={`/streken/${s.slug}/`} class:list={['card-tile', { 'is-extra': i >= 3 }]}>
             <div class="card-media">
               {s.heroImage ? (
                 <img src={s.heroImage} alt={`${s.name}, ${s.country ?? ''}`.replace(/, $/, '')} width="600" height="450" loading="lazy" decoding="async" />
@@ -318,21 +325,26 @@ function formatDate(value?: string | null) {
 </SiteLayout>
 
 <script>
-  // LAT-1612: toon 3 willekeurige wijnhuizen per homepage-load (i.p.v. de alfabetische eerste 3).
-  const grid = document.querySelector('[data-wijnhuizen-grid]');
-  if (grid) {
+  // Toon 3 willekeurige kaarten per homepage-load i.p.v. een vaste eerste 3.
+  // No-JS valt terug op de eerste 3 (overige zijn .is-extra → display:none).
+  function shuffleToThree(selector: string) {
+    const grid = document.querySelector(selector);
+    if (!grid) return;
     const cards = Array.from(grid.querySelectorAll<HTMLElement>('.card-tile'));
-    if (cards.length > 3) {
-      for (let i = cards.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [cards[i], cards[j]] = [cards[j], cards[i]];
-      }
-      cards.forEach((card, idx) => {
-        card.classList.remove('is-extra');
-        card.classList.toggle('is-hidden', idx >= 3);
-      });
+    if (cards.length <= 3) return;
+    for (let i = cards.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [cards[i], cards[j]] = [cards[j], cards[i]];
     }
+    cards.forEach((card, idx) => {
+      card.classList.remove('is-extra');
+      card.classList.toggle('is-hidden', idx >= 3);
+    });
   }
+
+  // LAT-1612: 3 willekeurige wijnhuizen. LAT-1907: 3 willekeurige streken.
+  shuffleToThree('[data-wijnhuizen-grid]');
+  shuffleToThree('[data-streken-grid]');
 </script>
 
 <style>
