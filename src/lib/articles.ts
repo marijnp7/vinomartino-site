@@ -1,4 +1,5 @@
 import type { TocItem } from './markdown';
+import { getCtaStructure, type CtaStructure } from './cta-blocks';
 
 export interface RelatedRef {
     slug: string;
@@ -41,6 +42,8 @@ export interface Article {
     // meerOver → voetblok "Meer over [druif/regio]" (max 3).
     relatedArtikelen: RelatedRef[];
     meerOver: RelatedRef[];
+    // LAT-1784/LAT-1795 — gestandaardiseerde 3-CTA-structuur (Directus `cta_blocks`).
+    cta: CtaStructure;
 }
 
 const META_DESC_RE = /^\s*\*{0,2}Meta-description:?\*{0,2}\s*/i;
@@ -279,6 +282,7 @@ function mapArticle(
           // `related_articles_id` voor beide velden (related_articles, meer_over).
           relatedArtikelen: mapRelatedRefs(a.related_articles, 'related_articles_id', 'title').slice(0, 3),
           meerOver: mapRelatedRefs(a.meer_over, 'related_articles_id', 'title').slice(0, 3),
+          cta: getCtaStructure(a),
     };
 }
 
@@ -321,6 +325,9 @@ async function fetchArticlesItems(url: string, token: string): Promise<Record<st
     // pre-migratie Directus (veld bestaat niet) of een build-rol zonder read-perm
     // graceful terugvalt naar withArticleRelations i.p.v. de build te breken.
     const withFaqSchema = `${withArticleRelations},faq_schema_json`;
+    // LAT-1784/LAT-1795: cta_blocks als rijkste tier; degradeert per-tier zacht
+    // terug naar withFaqSchema als veld/permissie ontbreekt (CTA's renderen niets).
+    const withCta = `${withFaqSchema},cta_blocks`;
     // LAT-1053: scheduled publish — verberg artikelen waarvan pub_date in de toekomst
     // ligt, ook als status=published. Directus's $NOW resolvet server-side; pub_date
     // null wordt eveneens getoond (legacy/onbekend) zodat bestaande artikelen niet
@@ -335,6 +342,7 @@ async function fetchArticlesItems(url: string, token: string): Promise<Record<st
     // velden vallen, zodat bv. LAT-1619 artikel-links degraderen zonder de
     // LAT-1098 entiteit-links mee te slepen.
     const tiers: { fields: string; drop: string; hint: string }[] = [
+        { fields: withCta, drop: 'cta_blocks', hint: 'Maak articles.cta_blocks aan (LAT-1784) en/of geef de build-rol read-permissie op articles.cta_blocks.' },
         { fields: withFaqSchema, drop: 'faq_schema_json', hint: 'Run LAT-1680 Directus-schema (directus/scripts/add-faq-schema-field.mjs) en/of geef de build-rol read-permissie op articles.faq_schema_json.' },
         { fields: withArticleRelations, drop: 'related_articles/meer_over', hint: 'Run LAT-1619 Directus M2M-schema (directus/scripts/add-related-articles-fields.mjs) en/of geef de build-rol read-permissie op related_articles + meer_over.' },
         { fields: withRelations, drop: 'related_* (LAT-1098)', hint: 'Run LAT-1097 (Directus M2M schema) en/of geef de build-rol read-permissie op related_*.' },

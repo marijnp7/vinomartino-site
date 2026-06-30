@@ -5,6 +5,7 @@ import RelatedEntities from '../../components/RelatedEntities.astro';
 import ArtikelGerelateerdeStukken from '../../components/ArtikelGerelateerdeStukken.astro';
 import ArtikelMeerOver from '../../components/ArtikelMeerOver.astro';
 import AccommodatieRoundup from '../../components/AccommodatieRoundup.astro';
+import CtaStructure from '../../components/CtaStructure.astro';
 import RhoneMap from '../../components/RhoneMap.astro';
 import { splitBodyForRhoneMap } from '../../lib/rhone-maps';
 import { loadArticles, type Article } from '../../lib/articles';
@@ -274,6 +275,8 @@ if (article.faqSchema) {
         <ArtikelGerelateerdeStukken items={article.relatedArtikelen} />
       </aside>
     </div>
+
+    <CtaStructure data={article.cta} sid={article.slug} />
 
     <ArtikelMeerOver items={article.meerOver} topic={article.tags?.[0] ?? undefined} />
 

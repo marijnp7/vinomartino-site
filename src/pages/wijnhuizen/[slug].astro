@@ -3,6 +3,7 @@ import SiteLayout from '../../layouts/SiteLayout.astro';
 import WijnhuisPageContent from '../../components/pages/WijnhuisPageContent.astro';
 import WijnhuisStayNear from '../../components/WijnhuisStayNear.astro';
 import RelatedArticles from '../../components/RelatedArticles.astro';
+import CtaStructure from '../../components/CtaStructure.astro';
 import { loadWijnhuizen, type Wijnhuis } from '../../lib/wijnhuizen';
 import { loadStreken } from '../../lib/streken';
 import { wijnhuisSchema, wijnhuisMetaTitle, wijnhuisMetaDescription, breadcrumbSchema } from '../../lib/seo';
@@ -86,6 +87,7 @@ const schema = [
   >
     {entry.bodyHtml && <div slot="story" set:html={entry.bodyHtml} />}
   </WijnhuisPageContent>
+  <CtaStructure data={entry.cta} sid={entry.slug} />
   <RelatedArticles items={entry.relatedArticles} />
   <WijnhuisStayNear naam={entry.name} region={entry.region} country={entry.country} slug={entry.slug} />
 </SiteLayout>

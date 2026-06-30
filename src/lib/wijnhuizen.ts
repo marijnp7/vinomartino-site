@@ -1,4 +1,5 @@
 import type { RelatedRef } from './articles';
+import { getCtaStructure, type CtaStructure } from './cta-blocks';
 
 export interface Wijnhuis {
     slug: string;
@@ -21,6 +22,8 @@ export interface Wijnhuis {
     metaDescription: string;
     bodyHtml: string;
     relatedArticles: RelatedRef[];
+    // LAT-1784/LAT-1795 — gestandaardiseerde 3-CTA-structuur (Directus `cta_blocks`).
+    cta: CtaStructure;
 }
 
 function mapRelatedArticles(val: unknown): RelatedRef[] {
@@ -132,6 +135,7 @@ function mapWijnhuis(
         metaDescription: String(r.meta_description || r.description || ''),
         bodyHtml,
         relatedArticles: mapRelatedArticles(r.related_articles),
+        cta: getCtaStructure(r),
     };
 }
 
@@ -141,12 +145,15 @@ async function fetchWijnhuizenItems(url: string, token: string): Promise<Record<
     const withOg = `${baseFields},og_image`;
     // LAT-1098: reverse-relation via M2M articles.related_wijnhuizen.
     const withRelations = `${withOg},related_articles.articles_id.slug,related_articles.articles_id.title`;
+    // LAT-1784/LAT-1795: cta_blocks als hoogste tier; degradeert zacht naar de
+    // bestaande fallback als veld/permissie ontbreekt (CTA's renderen dan niets).
+    const withCta = `${withRelations},cta_blocks`;
     const filterSort = `${statusFilterQuery(env)}&sort=name`;
     const headers = { Authorization: `Bearer ${token}` };
     const signal = AbortSignal.timeout(15000);
     let res: Response;
     try {
-        res = await fetch(`${url}/items/wijnhuizen?limit=-1&fields=${withRelations}${filterSort}`, { headers, signal });
+        res = await fetch(`${url}/items/wijnhuizen?limit=-1&fields=${withCta}${filterSort}`, { headers, signal });
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         assetDebug.push({ kind: 'query', url, error: msg });
@@ -159,7 +166,7 @@ async function fetchWijnhuizenItems(url: string, token: string): Promise<Record<
     }
     if (res.status === 400 || res.status === 403) {
         const body = await res.text().catch(() => '');
-        console.warn(`[loadWijnhuizen] Directus rejected fields=…,related_articles (HTTP ${res.status}) — retrying without LAT-1098 relations.`);
+        console.warn(`[loadWijnhuizen] Directus rejected fields=…,related_articles,cta_blocks (HTTP ${res.status}) — retrying without LAT-1098/LAT-1784 fields.`);
         assetDebug.push({ kind: 'query', url, status: res.status, body: body.slice(0, 500), retryWithoutRelations: true });
         let retryRel: Response;
         try {

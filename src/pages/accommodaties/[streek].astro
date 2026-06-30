@@ -4,6 +4,9 @@
 // (LAT-1331). Route-conventie: top-level /accommodaties/<streek-slug>/.
 import SiteLayout from '../../layouts/SiteLayout.astro';
 import AccommodatieRoundup from '../../components/AccommodatieRoundup.astro';
+import CtaPrimary from '../../components/CtaPrimary.astro';
+import CtaComparison from '../../components/CtaComparison.astro';
+import CtaClosing from '../../components/CtaClosing.astro';
 import { loadAccommodatieRoundupsByStreek } from '../../lib/accommodaties-loader';
 import { filterRoundupOpFotos, roundupKaartAantal, type AccommodatieRoundup as Roundup } from '../../lib/accommodaties';
 import { loadStreken, type Streek } from '../../lib/streken';
@@ -51,6 +54,11 @@ const regio = roundup.regio || streek?.name || streekSlug;
 // roundup converteert naar EUR voor weergave. Display blijft EUR (board-besluit).
 const bronValuta = currencyForLand(streek?.landSlug);
 
+// LAT-1821: aparte 3-CTA-structuur voor de accommodatie-surface (eigen veld
+// streken.accom_cta_blocks, pre-geparsed in de loader als accomCta). Andere copy
+// dan de streek-CTA. Leeg/ontbrekend → componenten renderen niets.
+const accomCta = streek?.accomCta ?? {};
+
 const schema = [
   organizationSchema(),
   breadcrumbSchema([
@@ -84,7 +92,16 @@ const schema = [
   </section>
 
   <div class="container">
+    <CtaPrimary data={accomCta.primary} sid={streekSlug} />
+  </div>
+
+  <div class="container">
     <AccommodatieRoundup roundup={roundup} context={streekSlug} bronValuta={bronValuta} hideHead />
+  </div>
+
+  <div class="container">
+    <CtaComparison data={accomCta.comparison} sid={streekSlug} />
+    <CtaClosing data={accomCta.closing} sid={streekSlug} />
   </div>
 </SiteLayout>
 

@@ -41,12 +41,40 @@ function buildWineRetailHref(query: string, context: string): string {
 }
 
 /** Welk netwerk de CTA aanstuurt. `booking-direct` = directe booking.com search
- *  (aid 818285, ad-blocker-bestendig); `wine-retail` = Grapedistrict (LAT-1780). */
+ *  (aid 818285, ad-blocker-bestendig); `wine-retail` = Grapedistrict (LAT-1780);
+ *  `sunny-cars` = autohuur via TradeTracker (LAT-1782, auto-huren-sardinie). */
 export type CtaPartner =
   | 'getyourguide'
   | 'booking-awin'
   | 'booking-direct'
-  | 'wine-retail';
+  | 'wine-retail'
+  | 'sunny-cars';
+
+// LAT-1782 — Sunny Cars (autohuur) loopt buiten de booking/GYG-netwerken. De
+// affiliate-deeplink draait via TradeTracker; campagne-id's volgen uit de M&G
+// sign-up (zelfde placeholder-patroon als AWIN_AFFID). Tot beide env-id's bekend
+// zijn, linken we naar de kale Sunny Cars-deeplink (`bookingUrl`) — werkt, maar
+// nog niet ge-attribueerd. `booking-direct` is GEEN alternatief: die helper
+// onthopt+her-aid't een booking.com-URL en zou een sunnycars-URL corrumperen.
+function buildSunnyCarsHref(link: CtaLink, sid: string): string {
+  const dest = (link.bookingUrl && link.bookingUrl.trim())
+    ? link.bookingUrl.trim()
+    : 'https://www.sunnycars.nl/';
+  const campaign = (process.env['TRADETRACKER_SUNNYCARS_CAMPAIGN'] || '').trim();
+  const affiliate = (process.env['TRADETRACKER_AFFILIATE_ID'] || '').trim();
+  if (!campaign || !affiliate) return dest;
+  try {
+    const u = new URL('https://tc.tradetracker.net/');
+    u.searchParams.set('c', campaign);
+    u.searchParams.set('m', '12');
+    u.searchParams.set('a', affiliate);
+    u.searchParams.set('r', `cta-${sid}`);
+    u.searchParams.set('u', dest);
+    return u.toString();
+  } catch {
+    return dest;
+  }
+}
 
 /** Linkconfig van één CTA. Géén copy — alleen routing + tracking. */
 export interface CtaLink {
@@ -125,6 +153,8 @@ export function resolveCtaHref(link: CtaLink, sid: string): string {
     }
     case 'wine-retail':
       return buildWineRetailHref(link.query ?? '', sid);
+    case 'sunny-cars':
+      return buildSunnyCarsHref(link, sid);
     case 'booking-direct':
     default:
       // aid-818285-norm: expliciete property-URL → onthopt+ge-aid; anders een
@@ -145,20 +175,25 @@ export function ctaTrackPartner(link: CtaLink): string {
       return 'booking';
     case 'wine-retail':
       return 'grapedistrict';
+    case 'sunny-cars':
+      return 'sunnycars';
     default:
       return 'unknown';
   }
 }
 
 /**
- * Lees de 3-CTA-structuur uit een Directus-entiteit. Verwacht een JSON-veld
- * `cta_blocks` (DevOps schema-write, LAT-1784-impl). Graceful degradation:
- * ontbrekend of leeg veld → lege structuur, de componenten renderen dan niets.
+ * Lees de 3-CTA-structuur uit een Directus-entiteit. Default-veld `cta_blocks`
+ * (DevOps schema-write, LAT-1784-impl); `field` wijst een alternatief JSON-veld
+ * aan, bv. `accom_cta_blocks` voor de accommodatie-surface (LAT-1821) die andere
+ * copy nodig heeft dan de streek-CTA. Graceful degradation: ontbrekend of leeg
+ * veld → lege structuur, de componenten renderen dan niets.
  */
 export function getCtaStructure(
   entity: Record<string, unknown> | null | undefined,
+  field: string = 'cta_blocks',
 ): CtaStructure {
-  const raw = entity?.['cta_blocks'];
+  const raw = entity?.[field];
   if (!raw) return {};
   try {
     const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;

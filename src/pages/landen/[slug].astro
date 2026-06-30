@@ -4,6 +4,7 @@ import LandPageContent from '../../components/pages/LandPageContent.astro';
 import RelatedArticles from '../../components/RelatedArticles.astro';
 import InfographicAtlasInteractive from '../../components/InfographicAtlasInteractive.astro';
 import CountryRegionMap, { type RegionMeta } from '../../components/CountryRegionMap.astro';
+import CtaStructure from '../../components/CtaStructure.astro';
 import { loadAtlasForLand, type AtlasData } from '../../lib/atlas-data';
 import { loadLanden, type Land } from '../../lib/landen';
 import { loadStreken } from '../../lib/streken';
@@ -323,5 +324,6 @@ const schema = [
       />
     ) : null}
   </LandPageContent>
+  {entry && <CtaStructure data={entry.cta} sid={slug!} />}
   {entry && <RelatedArticles items={entry.relatedArticles} />}
 </SiteLayout>
