@@ -60,6 +60,11 @@ const sidebar = sidebarBlock && sidebarHref
 
 const pageUrl = new URL(`/artikelen/${article.slug}/`, Astro.site ?? 'https://vinomartino.com').href;
 const authorProfile = getAuthorByByline(article.author);
+// LAT-1848: toon/serialiseer altijd de gecanoniseerde auteursnaam uit het
+// auteur-record (bv. "Marijn"), niet het ruwe Directus author-stringveld (dat
+// nog "Martin" kan zijn). Zo resolveren byline, author-card en JSON-LD via een
+// bron van waarheid; het ruwe veld blijft alleen fallback als er geen record matcht.
+const authorDisplayName = authorProfile?.name ?? article.author;
 
 const modifiedTime = article.updatedAt || article.pubDate;
 
@@ -80,7 +85,7 @@ const schema = [
   articleSchema({
     title: article.title,
     description: article.description,
-    author: article.author,
+    author: authorDisplayName,
     datePublished: article.pubDate,
     dateModified: modifiedTime,
     image: article.heroImage,
@@ -114,7 +119,7 @@ if (article.faqSchema) {
   article={{
     publishedTime: article.pubDate,
     modifiedTime,
-    author: article.author,
+    author: authorDisplayName,
     section: article.category,
     tags: article.tags,
   }}
@@ -143,7 +148,7 @@ if (article.faqSchema) {
           <h1>{article.title}</h1>
           <div class="article-meta">
             {authorProfile ? (
-              <a class="article-author author-link" href={`/auteurs/${authorProfile.slug}/`} rel="author">{article.author}</a>
+              <a class="article-author author-link" href={`/auteurs/${authorProfile.slug}/`} rel="author">{authorProfile.name}</a>
             ) : (
               <span class="article-author">{article.author}</span>
             )}
