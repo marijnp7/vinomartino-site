@@ -2,6 +2,12 @@
 import SiteLayout from '../../layouts/SiteLayout.astro';
 import SmartImg from '../../components/SmartImg.astro';
 import { loadArticles } from '../../lib/articles';
+import { getAuthorByByline } from '../../lib/authors';
+
+// LAT-1848: toon de gecanoniseerde auteursnaam uit het auteur-record (bv.
+// "Marijn") i.p.v. het ruwe Directus author-veld (dat nog "Martin" kan zijn).
+const authorName = (byline: string | null | undefined): string =>
+  getAuthorByByline(byline)?.name ?? byline ?? 'VinoMartino';
 
 const articles = await loadArticles();
 
@@ -136,7 +142,7 @@ function cardData(a: typeof articles[number]) {
                   <h2 class="article-title">{article.title}</h2>
                   <p class="article-desc">{article.description}</p>
                   <span class="article-meta">
-                    {article.author} · {new Date(article.pubDate).toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' })}
+                    {authorName(article.author)} · {new Date(article.pubDate).toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' })}
                   </span>
                 </div>
               </a>
