@@ -31,6 +31,20 @@ export function readDirectusEnv(): DirectusEnv {
     };
 }
 
+/**
+ * Directus on-the-fly image transform for build-time downloads (LAT-1770).
+ * Originals are 3-7 MB; capping at 1600px width / quality 75 keeps heroes crisp
+ * on retina while cutting per-asset weight ~95%. JPEG is kept so the `.jpg`
+ * filenames and content-type stay unchanged (no template work). `fit=inside`
+ * never upscales smaller sources.
+ */
+export const ASSET_TRANSFORM = 'width=1600&quality=75&fit=inside';
+
+/** Append the shared transform to a Directus `/assets/<id>` URL. */
+export function assetUrl(directusUrl: string, assetId: string): string {
+    return `${directusUrl}/assets/${assetId}?${ASSET_TRANSFORM}`;
+}
+
 /** Directus query fragment selecting only publishable rows. */
 export function statusFilterQuery(env: DirectusEnv): string {
     return env.includeDrafts
