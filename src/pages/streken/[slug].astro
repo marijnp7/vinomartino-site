@@ -8,7 +8,7 @@ import AccommodatieRoundup from '../../components/AccommodatieRoundup.astro';
 import StreekKaart, { type StreekPoiInput } from '../../components/StreekKaart.astro';
 import WijnFactBox from '../../components/WijnFactBox.astro';
 import RouteMap from '../../components/RouteMap.astro';
-import { buildCjBookingLink, buildBookingSearchLink, unwrapCjRedirect } from '../../lib/affiliates';
+import { accommodatieBookingDeeplink } from '../../lib/affiliates';
 import { loadStreken, type Streek, type Accommodation } from '../../lib/streken';
 import { clustersFromCuratedStays, staySlug } from '../../lib/curated-stays';
 import { STAY_TIER_META } from '../../lib/stay-tier';
@@ -16,7 +16,7 @@ import { loadWijnhuizen, type Wijnhuis } from '../../lib/wijnhuizen';
 import { loadAccommodatieRoundupsByStreek } from '../../lib/accommodaties-loader';
 import type { AccommodatieRoundup as AccommodatieRoundupData } from '../../lib/accommodaties';
 import { loadRoutes, type WijnRoute } from '../../lib/routes';
-import { currencyForLand, formatMoney } from '../../lib/currency';
+import { currencyForLand, formatNightlyPrice } from '../../lib/currency';
 import { streekSchema, streekMetaTitle, streekMetaDescription, breadcrumbSchema } from '../../lib/seo';
 
 export async function getStaticPaths() {
@@ -102,9 +102,12 @@ for (const detail of wijnhuizen) {
 }
 
 function accPrice(acc: Accommodation): string | null {
+  // LAT-1775: bron-valuta volgt het verblijf zelf, default EUR (streekValuta is
+  // sinds LAT-1775 EUR voor alle landen — geen land-aanname meer die EUR-prijzen als
+  // ZAR door ~20 deelt). formatNightlyPrice onderdrukt absurde uitschieters.
   const bron = acc.valuta || streekValuta;
-  const laag = formatMoney(acc.prijsLaag, bron);
-  const hoog = formatMoney(acc.prijsHoog, bron);
+  const laag = formatNightlyPrice(acc.prijsLaag, bron, 'EUR', `${acc.naam} (laag)`);
+  const hoog = formatNightlyPrice(acc.prijsHoog, bron, 'EUR', `${acc.naam} (hoog)`);
   if (laag && hoog) return `${laag}–${hoog} / nacht`;
   if (laag) return `vanaf ${laag} / nacht`;
   if (hoog) return `tot ${hoog} / nacht`;
@@ -120,15 +123,10 @@ function accSid(acc: Accommodation): string {
   return `streek-${entry.slug}-${namePart}`;
 }
 function accBoeklink(acc: Accommodation): string {
-  const sid = accSid(acc);
-  const direct = acc.boeklink ? unwrapCjRedirect(acc.boeklink.trim()) : '';
-  // Echte booking.com-hotelpagina in de data → directe CJ-deeplink naar exact dat hotel.
-  if (/^https?:\/\/(www\.)?booking\.com\/hotel\//i.test(direct)) {
-    return buildCjBookingLink(direct, sid);
-  }
-  // Geen specifieke property-URL (leeg, Stay22-zoeklink, stad/zoekpagina) → directe
-  // booking.com-zoekdeeplink op de exacte hotelnaam, mét aid + label.
-  return buildBookingSearchLink(`${acc.naam}, ${entry.name}`, sid);
+  // LAT-1775: gedeelde resolver met /accommodaties/<slug>/. Een kale /hotel/-URL
+  // resolvet niet en bounced met aid=818285 toch naar searchresults → we bouwen
+  // direct een boekbare booking.com-searchresults-deeplink op de hotelnaam (aid + label).
+  return accommodatieBookingDeeplink(acc.naam, entry.name, acc.boeklink, accSid(acc));
 }
 // LAT-1644: de curated set voedt het overnachten-blok, maar gegroepeerd op
 // 40-min-cluster (LAT-1406) i.p.v. op tier. De tiers staan GEMENGD binnen een

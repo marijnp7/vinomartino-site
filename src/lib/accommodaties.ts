@@ -42,6 +42,12 @@ export interface AccommodatieKaart {
   cjHref?: string | null;
   /** Kale Booking.com-URL uit Directus; wordt at-render met CJ omwikkeld. */
   bookingUrl?: string | null;
+  /**
+   * LAT-1775: bron-valuta van de prijs op deze kaart (per-verblijf, bv. 'ZAR' voor
+   * Constantia). Heeft voorrang op de pagina-brede bron-valuta zodat de conversie de
+   * échte bron volgt i.p.v. een land-aanname. Leeg = val terug op pagina-valuta (EUR).
+   */
+  bronValuta?: string | null;
 }
 
 /**
