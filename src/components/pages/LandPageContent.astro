@@ -143,6 +143,10 @@ const {
   </section>
 )}
 
+<!-- LAT-1842: vroege CTA-injectie (variant 'early'), ná de editorial-body -->
+<!-- (sectie 3), bóven de listings. Leeg voor niet-pilot landen. -->
+<slot name="cta-early" />
+
 <!-- ── STREKEN ────────────────────────────────────────── -->
 {streken.length > 0 && (
   <section class="land-streken">

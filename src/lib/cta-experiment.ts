@@ -31,28 +31,34 @@ function assignVariant(): CtaVariant {
 }
 
 export function initCtaExperiment(): void {
-  const container = document.querySelector<HTMLElement>('[data-cta-experiment]');
-  if (!container) return;
+  // LAT-1842 rendert twee slots (data-cta-slot="early"|"late"), elk in een eigen
+  // [data-cta-experiment]-container. Beide krijgen DEZELFDE, eenmaal toegewezen
+  // variant; CSS toont enkel de bijpassende slot (zie landen/[slug].astro).
+  const containers = document.querySelectorAll<HTMLElement>('[data-cta-experiment]');
+  if (containers.length === 0) return;
 
   const variant = assignVariant();
-  // Exposeer de variant voor LAT-1842 (plaatsing vroeg vs. laat) + CSS/QA.
-  container.dataset.ctaVariant = variant;
 
-  container.addEventListener(
-    'click',
-    (event) => {
-      const target = event.target as HTMLElement | null;
-      const anchor = target?.closest<HTMLAnchorElement>('a[href]');
-      if (!anchor || !container.contains(anchor)) return;
+  containers.forEach((container) => {
+    // Exposeer de variant voor LAT-1842 (plaatsing vroeg vs. laat) + CSS/QA.
+    container.dataset.ctaVariant = variant;
 
-      trackPlausible(variant === 'early' ? 'cta_click_early' : 'cta_click_late', {
-        variant,
-        placement: anchor.dataset.affiliatePlacement || 'hub-cta',
-        label: anchor.textContent?.trim().slice(0, 80) || '',
-        path: window.location.pathname,
-        target_path: anchor.getAttribute('href') || '',
-      });
-    },
-    { capture: true },
-  );
+    container.addEventListener(
+      'click',
+      (event) => {
+        const target = event.target as HTMLElement | null;
+        const anchor = target?.closest<HTMLAnchorElement>('a[href]');
+        if (!anchor || !container.contains(anchor)) return;
+
+        trackPlausible(variant === 'early' ? 'cta_click_early' : 'cta_click_late', {
+          variant,
+          placement: anchor.dataset.affiliatePlacement || 'hub-cta',
+          label: anchor.textContent?.trim().slice(0, 80) || '',
+          path: window.location.pathname,
+          target_path: anchor.getAttribute('href') || '',
+        });
+      },
+      { capture: true },
+    );
+  });
 }

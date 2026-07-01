@@ -335,13 +335,31 @@ const schema = [
         alt={`Interactieve kaart van ${pageData.name} met schakelbare lagen voor streken, druiven en appellaties; zones tonen kerngetallen bij hover en linken naar de streekgids.`}
       />
     ) : null}
+    {entry && slug === 'italie' && (
+      // LAT-1842 — VROEGE CTA-slot (variant 'early'): ná de editorial-body (sectie 3),
+      // bóven de listings. Default verborgen via CSS; initCtaExperiment() toont 'm
+      // alleen bij variant 'early'. Eigen [data-cta-experiment]-marker → eigen event-scope.
+      <div slot="cta-early" data-cta-experiment data-cta-slot="early">
+        <CtaStructure data={entry.cta} sid={slug!} />
+      </div>
+    )}
   </LandPageContent>
   {entry && (slug === 'italie' ? (
-    // LAT-1843/LAT-1842 — CTA A/B-test pilot (vroeg vs. laat) alleen op de Italië-hub.
-    // De marker activeert initCtaExperiment(): 50/50-variant + cta_click_early/late.
-    <div data-cta-experiment><CtaStructure data={entry.cta} sid={slug!} /></div>
+    // LAT-1843/LAT-1842 — LATE CTA-slot (variant 'late', default): aan het einde van
+    // de hub. initCtaExperiment() verbergt 'm bij variant 'early'. Marker = event-scope.
+    <div data-cta-experiment data-cta-slot="late"><CtaStructure data={entry.cta} sid={slug!} /></div>
   ) : (
     <CtaStructure data={entry.cta} sid={slug!} />
   ))}
   {entry && <RelatedArticles items={entry.relatedArticles} />}
 </SiteLayout>
+
+<!-- LAT-1842 — CTA A/B placement-gate. Default (geen JS / nog geen variant): -->
+<!-- alleen de late (eind) CTA is zichtbaar = gedrag vóór de test, no-JS-safe. -->
+<!-- initCtaExperiment() zet data-cta-variant op beide markers → CSS toont de -->
+<!-- juiste slot. is:global omdat de slot-inhoud buiten deze component-scope valt. -->
+<style is:global>
+  [data-cta-experiment][data-cta-slot="early"] { display: none; }
+  [data-cta-experiment][data-cta-variant="early"][data-cta-slot="early"] { display: block; }
+  [data-cta-experiment][data-cta-variant="early"][data-cta-slot="late"] { display: none; }
+</style>
