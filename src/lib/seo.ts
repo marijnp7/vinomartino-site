@@ -106,14 +106,18 @@ export interface WijnhuisSchemaData {
 }
 
 export function wijnhuisSchema(data: WijnhuisSchemaData) {
-  const isExternalUrl = data.website && data.website.startsWith('http');
+  // Directus records store bare domains (egon-mueller.de) without protocol;
+  // prefix https:// so the winery site surfaces as canonical url + sameAs.
+  const website = data.website
+    ? (/^https?:\/\//i.test(data.website) ? data.website : `https://${data.website}`)
+    : undefined;
   return {
     '@context': 'https://schema.org',
     '@type': 'Winery',
     name: data.name,
     description: data.description,
-    url: isExternalUrl ? data.website : data.pageUrl,
-    sameAs: isExternalUrl ? [data.website] : undefined,
+    url: website ?? data.pageUrl,
+    sameAs: website ? [website] : undefined,
     image: data.image ?? undefined,
     ...(data.address
       ? { address: { '@type': 'PostalAddress', streetAddress: data.address } }
