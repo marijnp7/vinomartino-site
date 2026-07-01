@@ -336,6 +336,12 @@ const schema = [
       />
     ) : null}
   </LandPageContent>
-  {entry && <CtaStructure data={entry.cta} sid={slug!} />}
+  {entry && (slug === 'italie' ? (
+    // LAT-1843/LAT-1842 — CTA A/B-test pilot (vroeg vs. laat) alleen op de Italië-hub.
+    // De marker activeert initCtaExperiment(): 50/50-variant + cta_click_early/late.
+    <div data-cta-experiment><CtaStructure data={entry.cta} sid={slug!} /></div>
+  ) : (
+    <CtaStructure data={entry.cta} sid={slug!} />
+  ))}
   {entry && <RelatedArticles items={entry.relatedArticles} />}
 </SiteLayout>
