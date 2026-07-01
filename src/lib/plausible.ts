@@ -1,6 +1,8 @@
 type PlausibleEvent =
   | 'affiliate_click'
   | 'cta_click'
+  | 'cta_click_early'
+  | 'cta_click_late'
   | 'newsletter_signup'
   | 'region_selected';
 

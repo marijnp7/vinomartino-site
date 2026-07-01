@@ -217,8 +217,10 @@ const articleTags = article?.tags?.filter((tag): tag is string => Boolean(tag &&
     <script>
       import { initAffiliateTracker } from '../lib/click-tracker';
       import { initPlausibleInteractions } from '../lib/plausible';
+      import { initCtaExperiment } from '../lib/cta-experiment';
       initAffiliateTracker();
       initPlausibleInteractions();
+      initCtaExperiment();
     </script>
   </body>
 </html>
