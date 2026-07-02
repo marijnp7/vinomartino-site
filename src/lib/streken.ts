@@ -414,7 +414,12 @@ async function fetchStrekenItems(url: string, token: string): Promise<Record<str
     // LAT-1898: waar_slapen_intro (markdown intro vóór de accommodatielijst) rijdt
     // mee op dezelfde stabiele tier — een content-veld op streken, net als
     // cta_blocks/accom_cta_blocks dat de build-rol al leest.
-    const withRelations = `${withOg},related_articles.articles_id.slug,related_articles.articles_id.title,cta_blocks,accom_cta_blocks,waar_slapen_intro`;
+    // LAT-1958: zelf_gereisd/bezoekjaar rijden mee op DEZELFDE stabiele relations-tier
+    // als cta_blocks/waar_slapen_intro — NIET op de hogere POI/facts-tiers. Reden: die
+    // hogere tiers 400'en zolang streken.eten/activiteiten (LAT-1592) ontbreken, dus een
+    // badge-veld daarbovenop zou als collateral sneuvelen en de "Zelf gereisd"-badge zou
+    // nooit renderen. Op withRelations (de hoogste tier die feitelijk slaagt) overleeft de badge.
+    const withRelations = `${withOg},related_articles.articles_id.slug,related_articles.articles_id.title,cta_blocks,accom_cta_blocks,waar_slapen_intro,zelf_gereisd,bezoekjaar`;
     // LAT-1592: eten/activiteiten zijn nieuwe streek-velden. Bestaat het veld nog
     // niet (of mist de build-rol read-permissie) dan degradeert deze top-tier naar
     // `withRelations`, zodat related_articles (LAT-1098) NIET sneuvelt op het
@@ -426,36 +431,9 @@ async function fetchStrekenItems(url: string, token: string): Promise<Record<str
     // niets tot de velden bestaan en gevuld zijn.
     const factFields = 'best_vintages,harvest_period,min_visit_time,tasting_budget';
     const withFacts = `${withPoi},${factFields}`;
-    // LAT-1958: twee-tier authenticiteitsvelden als hoogste tier. Bestaan ze nog
-    // niet in het schema (DevOps moet ze aanmaken) of mist de build-rol read-perm,
-    // dan degradeert deze fetch naar `withFacts` zónder iets anders te verliezen —
-    // de "Zelf gereisd"-badge verschijnt dan simpelweg niet tot de velden bestaan.
-    const visitedFields = 'zelf_gereisd,bezoekjaar';
-    const withVisited = `${withFacts},${visitedFields}`;
     const filterSort = `${statusFilterQuery(env)}&sort=name`;
     const headers = { Authorization: `Bearer ${token}` };
     const signal = AbortSignal.timeout(15000);
-
-    // Hoogste tier: mét zelf_gereisd/bezoekjaar; val bij 400/403 stil terug op withFacts.
-    try {
-        const visitedRes = await fetch(`${url}/items/streken?limit=-1&fields=${withVisited}${filterSort}`, { headers, signal });
-        if (visitedRes.ok) {
-            const json = await visitedRes.json();
-            assetDebug.push({ kind: 'query', url, status: 200, count: (json.data || []).length, tier: 'withVisited' });
-            return (json.data || []) as Record<string, unknown>[];
-        }
-        if (visitedRes.status === 400 || visitedRes.status === 403) {
-            console.warn(`[loadStreken] Directus rejected fields=…,${visitedFields} (HTTP ${visitedRes.status}) — retrying without LAT-1958 velden. Maak streken.zelf_gereisd/bezoekjaar aan en/of geef de build-rol read-permissie.`);
-            assetDebug.push({ kind: 'query', url, status: visitedRes.status, retryWithoutVisited: true });
-        } else {
-            const body = await visitedRes.text().catch(() => '');
-            assetDebug.push({ kind: 'query', url, status: visitedRes.status, body: body.slice(0, 300), tier: 'withVisited' });
-        }
-    } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        assetDebug.push({ kind: 'query-visited', url, error: msg });
-        // Val door naar de withFacts-poging hieronder.
-    }
 
     // Top-tier poging mét fact-box-velden; val bij 400/403 stil terug op withPoi.
     try {
