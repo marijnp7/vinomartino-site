@@ -21,11 +21,30 @@ const { stops = [], title, slug, duration = null, transport = null } = Astro.pro
 const geo = stops.filter((s: RouteStopGeo) => s && Number.isFinite(s.lat) && Number.isFinite(s.lng));
 const hasGeo = geo.length >= 2;
 
+// LAT-2000 — route-waypoints (kind 'stop'/leeg) dragen de getekende lijn en de
+// genummerde dag-pins; wijnhuis-/slaap-stops zijn extra POI's op de kaart.
+const waypoints = geo.filter((s: RouteStopGeo) => (s.kind ?? 'stop') === 'stop');
+const line = (waypoints.length >= 2 ? waypoints : geo);
+const hasWijnhuis = geo.some((s: RouteStopGeo) => s.kind === 'wijnhuis');
+const hasSlaap = geo.some((s: RouteStopGeo) => s.kind === 'slaap');
+
 const mapId = `routemap-${slug}`.replace(/[^a-z0-9-]/gi, '');
 
+let dayNo = 0;
 const mapData = {
   slug,
-  stops: geo.map((s: RouteStopGeo, i: number) => ({ n: i + 1, naam: s.naam, lat: s.lat, lng: s.lng })),
+  stops: geo.map((s: RouteStopGeo) => {
+    const kind = s.kind ?? 'stop';
+    return {
+      n: kind === 'stop' ? ++dayNo : null,
+      kind,
+      naam: s.naam,
+      slug: s.slug ?? null,
+      lat: s.lat,
+      lng: s.lng,
+    };
+  }),
+  line: line.map((s: RouteStopGeo) => [s.lat, s.lng]),
 };
 ---
 
@@ -33,9 +52,16 @@ const mapData = {
   <figure class="routegeo" data-routegeo id={mapId} aria-labelledby={`${mapId}-cap`}>
     <figcaption class="routegeo__cap" id={`${mapId}-cap`}>
       <span class="routegeo__label">Routekaart</span>
-      <span class="routegeo__from-to">{geo[0].naam} <span class="routegeo__arrow">&rarr;</span> {geo[geo.length - 1].naam}</span>
+      <span class="routegeo__from-to">{line[0].naam} <span class="routegeo__arrow">&rarr;</span> {line[line.length - 1].naam}</span>
     </figcaption>
     <div class="routegeo__canvas" data-routegeo-canvas role="application" aria-label={`Kaart van de route ${title}`}></div>
+    {(hasWijnhuis || hasSlaap) && (
+      <ul class="routegeo__legend" aria-label="Legenda">
+        <li class="routegeo__legend-item"><span class="routegeo__swatch routegeo__swatch--dag" aria-hidden="true"></span>Dagetappe</li>
+        {hasWijnhuis && <li class="routegeo__legend-item"><span class="routegeo__swatch routegeo__swatch--wijnhuis" aria-hidden="true"></span>Wijnhuis</li>}
+        {hasSlaap && <li class="routegeo__legend-item"><span class="routegeo__swatch routegeo__swatch--slaap" aria-hidden="true"></span>Overnachten</li>}
+      </ul>
+    )}
     <script type="application/json" data-routegeo-data set:html={JSON.stringify(mapData)} />
     {(duration || transport) && (
       <div class="routegeo__meta">
@@ -50,8 +76,9 @@ const mapData = {
 <script>
   import 'leaflet/dist/leaflet.css';
 
-  type Stop = { n: number; naam: string; lat: number; lng: number };
-  type MapData = { slug: string; stops: Stop[] };
+  type StopKind = 'stop' | 'wijnhuis' | 'slaap';
+  type Stop = { n: number | null; kind: StopKind; naam: string; slug: string | null; lat: number; lng: number };
+  type MapData = { slug: string; stops: Stop[]; line: [number, number][] };
 
   let leafletPromise: Promise<any> | null = null;
   function loadLeaflet(): Promise<any> {
@@ -94,36 +121,48 @@ const mapData = {
         '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
     }).addTo(map);
 
-    const latlngs: [number, number][] = data.stops.map((s) => [s.lat, s.lng]);
+    const boundsPts: [number, number][] = data.stops.map((s) => [s.lat, s.lng]);
+    const linePts: [number, number][] = (data.line && data.line.length >= 2) ? data.line : boundsPts;
 
-    // Verbindingslijn in routevolgorde (start → eind).
-    L.polyline(latlngs, {
+    // LAT-2000 — getekende route-as (bordeaux) door de dag-waypoints in volgorde.
+    L.polyline(linePts, {
       color: '#5A1A1F',
       weight: 3,
-      opacity: 0.75,
+      opacity: 0.8,
       dashArray: '1 8',
       lineCap: 'round',
     }).addTo(map);
 
-    const lastN = data.stops.length;
+    const lastDay = data.stops.reduce((m, s) => (s.n && s.n > m ? s.n : m), 0);
     for (const s of data.stops) {
-      const isEnd = s.n === 1 || s.n === lastN;
-      const icon = L.divIcon({
-        className: '',
-        html: `<span class="rgm-pin${isEnd ? ' rgm-pin--end' : ''}">${s.n}</span>`,
-        iconSize: [28, 28],
-        iconAnchor: [14, 14],
-      });
-      const role = s.n === 1 ? 'Van' : s.n === lastN ? 'Naar' : `Stop ${s.n}`;
+      // LAT-2000 — merkgekleurde pins: dag-etappe = genummerde bordeaux middendot
+      // (vorm uit het wordmark), wijnhuis = bordeaux, overnachten = olijfgroen.
+      let html: string;
+      let role: string;
+      if (s.kind === 'wijnhuis') {
+        html = `<span class="rgm-pin rgm-pin--wijnhuis" aria-hidden="true"></span>`;
+        role = 'Wijnhuis';
+      } else if (s.kind === 'slaap') {
+        html = `<span class="rgm-pin rgm-pin--slaap" aria-hidden="true"></span>`;
+        role = 'Overnachten';
+      } else {
+        const isEnd = s.n === 1 || s.n === lastDay;
+        html = `<span class="rgm-pin rgm-pin--dag${isEnd ? ' rgm-pin--end' : ''}">${s.n ?? ''}</span>`;
+        role = s.n === 1 ? 'Van' : s.n === lastDay ? 'Naar' : `Dag ${s.n}`;
+      }
+      const icon = L.divIcon({ className: '', html, iconSize: [28, 28], iconAnchor: [14, 14] });
+      const link = s.kind === 'wijnhuis' && s.slug
+        ? `<a class="rgm-popup__cta" href="/wijnhuizen/${encodeURIComponent(s.slug)}/">Lees portret &rarr;</a>`
+        : '';
       L.marker([s.lat, s.lng], { icon, title: s.naam, riseOnHover: true })
         .addTo(map)
         .bindPopup(
-          `<div class="rgm-popup"><span class="rgm-popup__role">${esc(role)}</span><h4 class="rgm-popup__name">${esc(s.naam)}</h4></div>`,
+          `<div class="rgm-popup"><span class="rgm-popup__role">${esc(role)}</span><h4 class="rgm-popup__name">${esc(s.naam)}</h4>${link}</div>`,
           { minWidth: 140, autoPanPadding: [24, 24] },
         );
     }
 
-    map.fitBounds(latlngs, { padding: [40, 40], maxZoom: 12 });
+    map.fitBounds(boundsPts, { padding: [40, 40], maxZoom: 12 });
     setTimeout(() => map.invalidateSize(), 0);
   }
 
@@ -191,6 +230,34 @@ const mapData = {
     background: #F0E6D0;
     z-index: 0;
   }
+  .routegeo__legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.1rem;
+    list-style: none;
+    margin: 0.6rem 0 0;
+    padding: 0;
+  }
+  .routegeo__legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-family: var(--font-mono, monospace);
+    font-size: 0.6875rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--inkSoft, #5A4F45);
+  }
+  .routegeo__swatch {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 1.5px solid #FAF5E9;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.12);
+  }
+  .routegeo__swatch--dag { background: #5A1A1F; }
+  .routegeo__swatch--wijnhuis { background: #5A1A1F; }
+  .routegeo__swatch--slaap { background: #5C6B3F; }
   .routegeo__meta {
     display: flex;
     flex-wrap: wrap;
@@ -216,20 +283,41 @@ const mapData = {
     align-items: center;
     justify-content: center;
     box-sizing: border-box;
-    width: 28px;
-    height: 28px;
     border-radius: 50%;
     border: 2px solid #FAF5E9;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
-    background: #5C6B3F;
     color: #FAF5E9;
     font-family: 'JetBrains Mono', ui-monospace, monospace;
     font-size: 0.8125rem;
     font-weight: 600;
     line-height: 1;
   }
-  .rgm-pin--end { background: #5A1A1F; }
+  /* LAT-2000 — dag-etappe: genummerde bordeaux middendot (vorm uit het wordmark). */
+  .rgm-pin--dag {
+    width: 28px;
+    height: 28px;
+    background: #5A1A1F;
+  }
+  .rgm-pin--end { box-shadow: 0 0 0 2px #C9A24B, 0 1px 3px rgba(0, 0, 0, 0.35); }
+  /* Wijnhuis-stop: bordeaux POI-dot. Overnachten: olijfgroene POI-dot. */
+  .rgm-pin--wijnhuis,
+  .rgm-pin--slaap {
+    width: 18px;
+    height: 18px;
+  }
+  .rgm-pin--wijnhuis { background: #5A1A1F; }
+  .rgm-pin--slaap { background: #5C6B3F; }
   .rgm-popup { font-family: var(--font-body, Georgia, serif); min-width: 130px; }
+  .rgm-popup__cta {
+    display: inline-block;
+    margin-top: 0.35rem;
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-size: 0.6875rem;
+    letter-spacing: 0.06em;
+    color: #5A1A1F;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(90, 26, 31, 0.35);
+  }
   .rgm-popup__role {
     display: block;
     font-family: var(--font-mono, 'JetBrains Mono', monospace);
