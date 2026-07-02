@@ -111,8 +111,12 @@ const rawByCat: Record<CatKey, StreekPoiInput[]> = {
 };
 
 // Gedeelde, stabiele nummering 1..N over alle categorieën in blokvolgorde.
+// LAT-1979: alleen POI's mét coördinaten krijgen een nummer, zodat de badges in
+// de lijst aaneengesloten 1..N lopen en exact matchen met de pins op de kaart.
+// Wijnhuizen zonder lat/lng (niet-gecureerd) blijven als context in de lijst,
+// maar zonder wees-nummer dat op de kaart zou ontbreken.
 let counter = 0;
-type NumberedPoi = StreekPoiInput & { n: number; category: CatKey; color: string };
+type NumberedPoi = StreekPoiInput & { n: number | null; category: CatKey; color: string };
 const sections = CATEGORY_ORDER
   .filter((key) => rawByCat[key].length > 0)
   .map((key) => ({
@@ -121,7 +125,7 @@ const sections = CATEGORY_ORDER
     color: CATEGORY_META[key].color,
     items: rawByCat[key].map<NumberedPoi>((poi) => ({
       ...poi,
-      n: ++counter,
+      n: poi.lat != null && poi.lng != null ? ++counter : null,
       category: key,
       color: CATEGORY_META[key].color,
     })),
@@ -271,7 +275,7 @@ const usedCats = sections.map((s) => s.key);
                     partner: it.partner || '',
                     placement: `streek-poi-${it.category}`,
                     context: `streek-${slug}`,
-                    cardId: `${mapId}-card-${it.n}`,
+                    cardId: plotted ? `${mapId}-card-${it.n}` : undefined,
                     plotted,
                   }}
                 />
