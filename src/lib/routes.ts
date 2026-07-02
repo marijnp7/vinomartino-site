@@ -1,4 +1,5 @@
 import { stripEditorialHeader, type RelatedRef } from './articles';
+import { fallbackStopsGeo } from './route-geo-fallback';
 import { getCtaStructure, type CtaStructure } from './cta-blocks';
 
 // LAT-1635 — een stop mét coördinaten voor de geografische routekaart
@@ -142,8 +143,13 @@ function mapRoute(
     ogImagePath: string | null,
     bodyHtml: string,
 ): WijnRoute {
+    const slug = String(r.slug);
+    // Directus stops_geo heeft voorrang; bij lege/afwezige CMS-data valt de route
+    // terug op de code-gazetteer (LAT-1997) zodat de kaart altijd rendert.
+    const cmsGeo = parseStopsGeo(r.stops_geo);
+    const stopsGeo = cmsGeo.length >= 2 ? cmsGeo : fallbackStopsGeo(slug);
     return {
-        slug: String(r.slug),
+        slug,
         title: normalizeEmDashes(String(r.title)),
         description: normalizeEmDashes(String(r.description || '')),
         duration: String(r.duration || ''),
@@ -152,7 +158,7 @@ function mapRoute(
         streekSlug: '',
         highlights: parseJsonField(r.highlights),
         stops: parseJsonField(r.stops),
-        stopsGeo: parseStopsGeo(r.stops_geo),
+        stopsGeo,
         heroImage: heroImagePath,
         ogImage: ogImagePath,
         status: String(r.status || 'draft'),
