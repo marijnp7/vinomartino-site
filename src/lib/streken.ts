@@ -101,6 +101,10 @@ export interface Streek {
     // lijst). Leeg = blok rendert niet (bestaande streken breken niet).
     waarSlapenIntroHtml: string;
     accomPlanning: AccomPlanningBlock[];
+    // LAT-1958 — twee-tier authenticiteitsmodel (regels: LAT-1957). zelfGereisd
+    // stuurt de "Zelf gereisd"-badge; bezoekjaar is het jaar van bezoek (nullable).
+    zelfGereisd: boolean;
+    bezoekjaar: number | null;
 }
 
 // LAT-1098: reverse M2M `streken.related_articles` → `articles_id.{slug,title}`.
@@ -254,6 +258,16 @@ function firstNumber(rec: Record<string, unknown>, keys: string[]): number | nul
     return null;
 }
 
+// LAT-1958 — tolerante boolean-read (Directus levert true/1/'1'/'true').
+function firstBoolean(rec: Record<string, unknown>, keys: string[]): boolean {
+    for (const k of keys) {
+        const v = rec[k];
+        if (v === true || v === 1 || v === '1' || v === 'true') return true;
+        if (v === false || v === 0 || v === '0' || v === 'false') return false;
+    }
+    return false;
+}
+
 const TIER_VALUES: StayTier[] = ['slim_geboekt', 'prijs_kwaliteit', 'pure_luxe'];
 
 function normalizeTier(raw: string): StayTier {
@@ -379,6 +393,9 @@ function mapStreek(
         accomCta: getCtaStructure(r, 'accom_cta_blocks'),
         waarSlapenIntroHtml,
         accomPlanning: parseAccomPlanning(r.accom_cta_blocks),
+        // LAT-1958 — twee-tier authenticiteitsmodel (regels: LAT-1957).
+        zelfGereisd: firstBoolean(r, ['zelf_gereisd']),
+        bezoekjaar: firstNumber(r, ['bezoekjaar', 'bezoek_jaar', 'visit_year']),
     };
 }
 
@@ -397,7 +414,12 @@ async function fetchStrekenItems(url: string, token: string): Promise<Record<str
     // LAT-1898: waar_slapen_intro (markdown intro vóór de accommodatielijst) rijdt
     // mee op dezelfde stabiele tier — een content-veld op streken, net als
     // cta_blocks/accom_cta_blocks dat de build-rol al leest.
-    const withRelations = `${withOg},related_articles.articles_id.slug,related_articles.articles_id.title,cta_blocks,accom_cta_blocks,waar_slapen_intro`;
+    // LAT-1958: zelf_gereisd/bezoekjaar rijden mee op DEZELFDE stabiele relations-tier
+    // als cta_blocks/waar_slapen_intro — NIET op de hogere POI/facts-tiers. Reden: die
+    // hogere tiers 400'en zolang streken.eten/activiteiten (LAT-1592) ontbreken, dus een
+    // badge-veld daarbovenop zou als collateral sneuvelen en de "Zelf gereisd"-badge zou
+    // nooit renderen. Op withRelations (de hoogste tier die feitelijk slaagt) overleeft de badge.
+    const withRelations = `${withOg},related_articles.articles_id.slug,related_articles.articles_id.title,cta_blocks,accom_cta_blocks,waar_slapen_intro,zelf_gereisd,bezoekjaar`;
     // LAT-1592: eten/activiteiten zijn nieuwe streek-velden. Bestaat het veld nog
     // niet (of mist de build-rol read-permissie) dan degradeert deze top-tier naar
     // `withRelations`, zodat related_articles (LAT-1098) NIET sneuvelt op het

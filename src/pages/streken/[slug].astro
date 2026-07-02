@@ -9,6 +9,7 @@ import AccommodatieRoundup from '../../components/AccommodatieRoundup.astro';
 import StreekKaart, { type StreekPoiInput } from '../../components/StreekKaart.astro';
 import WijnFactBox from '../../components/WijnFactBox.astro';
 import RouteMap from '../../components/RouteMap.astro';
+import ZelfGereisdBadge from '../../components/ZelfGereisdBadge.astro';
 import { accommodatieBookingDeeplink } from '../../lib/affiliates';
 import { loadStreken, type Streek, type Accommodation } from '../../lib/streken';
 import { clustersFromCuratedStays, staySlug } from '../../lib/curated-stays';
@@ -243,6 +244,7 @@ const hasFactBox = Boolean(
         <div class:list={['streek-hero__grid', !hasStats && 'streek-hero__grid--no-stats']}>
           <div>
             <span class="section-label">Wijnstreek</span>
+            <ZelfGereisdBadge visited={entry.zelfGereisd} year={entry.bezoekjaar} />
             <h1>{entry.name}</h1>
             {entry.country && <p class="streek-country">{entry.country}</p>}
             {entry.description && <p class="streek-subtitle">{entry.description}</p>}
