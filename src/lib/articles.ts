@@ -44,6 +44,11 @@ export interface Article {
     meerOver: RelatedRef[];
     // LAT-1784/LAT-1795 — gestandaardiseerde 3-CTA-structuur (Directus `cta_blocks`).
     cta: CtaStructure;
+    // LAT-1958 — twee-tier authenticiteitsmodel (regels: LAT-1957). zelfGereisd
+    // stuurt de "Zelf gereisd"-badge in de artikel-header; bezoekjaar is het jaar
+    // van bezoek (nullable).
+    zelfGereisd: boolean;
+    bezoekjaar: number | null;
 }
 
 const META_DESC_RE = /^\s*\*{0,2}Meta-description:?\*{0,2}\s*/i;
@@ -284,6 +289,12 @@ function mapArticle(
           relatedArtikelen: mapRelatedRefs(a.related_articles, 'related_articles_id', 'title').slice(0, 3),
           meerOver: mapRelatedRefs(a.meer_over, 'related_articles_id', 'title').slice(0, 3),
           cta: getCtaStructure(a),
+          // LAT-1958 — twee-tier authenticiteitsmodel (regels: LAT-1957). Zelfde
+          // tolerante coercion als `featured` (Directus levert true/1/'1').
+          zelfGereisd: a.zelf_gereisd === true || a.zelf_gereisd === 1 || a.zelf_gereisd === '1',
+          bezoekjaar: Number.isFinite(Number(a.bezoekjaar)) && a.bezoekjaar !== null && a.bezoekjaar !== ''
+                ? Number(a.bezoekjaar)
+                : null,
     };
 }
 
@@ -329,6 +340,9 @@ async function fetchArticlesItems(url: string, token: string): Promise<Record<st
     // LAT-1784/LAT-1795: cta_blocks als rijkste tier; degradeert per-tier zacht
     // terug naar withFaqSchema als veld/permissie ontbreekt (CTA's renderen niets).
     const withCta = `${withFaqSchema},cta_blocks`;
+    // LAT-1958: twee-tier authenticiteitsvelden als rijkste tier. Degradeert zacht
+    // terug naar withCta als veld/permissie ontbreekt (badge rendert dan niets).
+    const withVisited = `${withCta},zelf_gereisd,bezoekjaar`;
     // LAT-1053: scheduled publish — verberg artikelen waarvan pub_date in de toekomst
     // ligt, ook als status=published. Directus's $NOW resolvet server-side; pub_date
     // null wordt eveneens getoond (legacy/onbekend) zodat bestaande artikelen niet
@@ -343,6 +357,7 @@ async function fetchArticlesItems(url: string, token: string): Promise<Record<st
     // velden vallen, zodat bv. LAT-1619 artikel-links degraderen zonder de
     // LAT-1098 entiteit-links mee te slepen.
     const tiers: { fields: string; drop: string; hint: string }[] = [
+        { fields: withVisited, drop: 'zelf_gereisd/bezoekjaar', hint: 'Maak articles.zelf_gereisd/bezoekjaar aan (LAT-1958) en/of geef de build-rol read-permissie erop.' },
         { fields: withCta, drop: 'cta_blocks', hint: 'Maak articles.cta_blocks aan (LAT-1784) en/of geef de build-rol read-permissie op articles.cta_blocks.' },
         { fields: withFaqSchema, drop: 'faq_schema_json', hint: 'Run LAT-1680 Directus-schema (directus/scripts/add-faq-schema-field.mjs) en/of geef de build-rol read-permissie op articles.faq_schema_json.' },
         { fields: withArticleRelations, drop: 'related_articles/meer_over', hint: 'Run LAT-1619 Directus M2M-schema (directus/scripts/add-related-articles-fields.mjs) en/of geef de build-rol read-permissie op related_articles + meer_over.' },

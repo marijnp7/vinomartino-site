@@ -8,6 +8,7 @@ import ArtikelMeerOver from '../../components/ArtikelMeerOver.astro';
 import AccommodatieRoundup from '../../components/AccommodatieRoundup.astro';
 import CtaStructure from '../../components/CtaStructure.astro';
 import RhoneMap from '../../components/RhoneMap.astro';
+import ZelfGereisdBadge from '../../components/ZelfGereisdBadge.astro';
 import { splitBodyForRhoneMap } from '../../lib/rhone-maps';
 import { loadArticles, type Article } from '../../lib/articles';
 import { loadAccommodatieRoundupsByStreek } from '../../lib/accommodaties-loader';
@@ -146,6 +147,7 @@ if (article.faqSchema) {
             <a href="/">Home</a> / <a href="/artikelen/">Artikelen</a> / <span>{article.title}</span>
           </nav>
           {article.category && <span class="article-cat">{article.category}</span>}
+          <ZelfGereisdBadge visited={article.zelfGereisd} year={article.bezoekjaar} />
           <h1>{article.title}</h1>
           <div class="article-meta">
             {authorProfile ? (

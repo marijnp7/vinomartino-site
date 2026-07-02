@@ -1,0 +1,50 @@
+---
+/**
+ * LAT-1958 — "Zelf gereisd"-badge voor het twee-tier authenticiteitsmodel
+ * (regels: LAT-1957). Rendert alleen bij visited=true; bij false/null verschijnt
+ * niets. Label komt uit de centrale UI-copy (HARDE REGEL 3: geen inline copy);
+ * bezoekjaar is data en wordt subtiel als suffix getoond wanneer aanwezig.
+ */
+import { UI_COPY } from '../lib/ui-copy';
+
+interface Props {
+    visited: boolean;
+    year?: number | null;
+}
+
+const { visited, year = null } = Astro.props;
+---
+{visited && (
+  <span class="zelf-gereisd-badge" title={UI_COPY.zelfGereisdBadgeTitle}>
+    <span class="zelf-gereisd-badge__dot" aria-hidden="true"></span>
+    <span class="zelf-gereisd-badge__label">{UI_COPY.zelfGereisdBadge}</span>
+    {year ? <span class="zelf-gereisd-badge__year">· {year}</span> : null}
+  </span>
+)}
+
+<style>
+  .zelf-gereisd-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.25rem 0.65rem;
+    border-radius: 999px;
+    background: #f2ede2;
+    border: 1px solid #d8cdb4;
+    color: #6b5a34;
+    font-size: 0.8rem;
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: 0.01em;
+  }
+  .zelf-gereisd-badge__dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: #9a7d2e;
+  }
+  .zelf-gereisd-badge__year {
+    font-weight: 500;
+    opacity: 0.75;
+  }
+</style>

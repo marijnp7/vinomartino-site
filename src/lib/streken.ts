@@ -101,6 +101,10 @@ export interface Streek {
     // lijst). Leeg = blok rendert niet (bestaande streken breken niet).
     waarSlapenIntroHtml: string;
     accomPlanning: AccomPlanningBlock[];
+    // LAT-1958 — twee-tier authenticiteitsmodel (regels: LAT-1957). zelfGereisd
+    // stuurt de "Zelf gereisd"-badge; bezoekjaar is het jaar van bezoek (nullable).
+    zelfGereisd: boolean;
+    bezoekjaar: number | null;
 }
 
 // LAT-1098: reverse M2M `streken.related_articles` → `articles_id.{slug,title}`.
@@ -254,6 +258,16 @@ function firstNumber(rec: Record<string, unknown>, keys: string[]): number | nul
     return null;
 }
 
+// LAT-1958 — tolerante boolean-read (Directus levert true/1/'1'/'true').
+function firstBoolean(rec: Record<string, unknown>, keys: string[]): boolean {
+    for (const k of keys) {
+        const v = rec[k];
+        if (v === true || v === 1 || v === '1' || v === 'true') return true;
+        if (v === false || v === 0 || v === '0' || v === 'false') return false;
+    }
+    return false;
+}
+
 const TIER_VALUES: StayTier[] = ['slim_geboekt', 'prijs_kwaliteit', 'pure_luxe'];
 
 function normalizeTier(raw: string): StayTier {
@@ -379,6 +393,9 @@ function mapStreek(
         accomCta: getCtaStructure(r, 'accom_cta_blocks'),
         waarSlapenIntroHtml,
         accomPlanning: parseAccomPlanning(r.accom_cta_blocks),
+        // LAT-1958 — twee-tier authenticiteitsmodel (regels: LAT-1957).
+        zelfGereisd: firstBoolean(r, ['zelf_gereisd']),
+        bezoekjaar: firstNumber(r, ['bezoekjaar', 'bezoek_jaar', 'visit_year']),
     };
 }
 
@@ -409,9 +426,36 @@ async function fetchStrekenItems(url: string, token: string): Promise<Record<str
     // niets tot de velden bestaan en gevuld zijn.
     const factFields = 'best_vintages,harvest_period,min_visit_time,tasting_budget';
     const withFacts = `${withPoi},${factFields}`;
+    // LAT-1958: twee-tier authenticiteitsvelden als hoogste tier. Bestaan ze nog
+    // niet in het schema (DevOps moet ze aanmaken) of mist de build-rol read-perm,
+    // dan degradeert deze fetch naar `withFacts` zónder iets anders te verliezen —
+    // de "Zelf gereisd"-badge verschijnt dan simpelweg niet tot de velden bestaan.
+    const visitedFields = 'zelf_gereisd,bezoekjaar';
+    const withVisited = `${withFacts},${visitedFields}`;
     const filterSort = `${statusFilterQuery(env)}&sort=name`;
     const headers = { Authorization: `Bearer ${token}` };
     const signal = AbortSignal.timeout(15000);
+
+    // Hoogste tier: mét zelf_gereisd/bezoekjaar; val bij 400/403 stil terug op withFacts.
+    try {
+        const visitedRes = await fetch(`${url}/items/streken?limit=-1&fields=${withVisited}${filterSort}`, { headers, signal });
+        if (visitedRes.ok) {
+            const json = await visitedRes.json();
+            assetDebug.push({ kind: 'query', url, status: 200, count: (json.data || []).length, tier: 'withVisited' });
+            return (json.data || []) as Record<string, unknown>[];
+        }
+        if (visitedRes.status === 400 || visitedRes.status === 403) {
+            console.warn(`[loadStreken] Directus rejected fields=…,${visitedFields} (HTTP ${visitedRes.status}) — retrying without LAT-1958 velden. Maak streken.zelf_gereisd/bezoekjaar aan en/of geef de build-rol read-permissie.`);
+            assetDebug.push({ kind: 'query', url, status: visitedRes.status, retryWithoutVisited: true });
+        } else {
+            const body = await visitedRes.text().catch(() => '');
+            assetDebug.push({ kind: 'query', url, status: visitedRes.status, body: body.slice(0, 300), tier: 'withVisited' });
+        }
+    } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        assetDebug.push({ kind: 'query-visited', url, error: msg });
+        // Val door naar de withFacts-poging hieronder.
+    }
 
     // Top-tier poging mét fact-box-velden; val bij 400/403 stil terug op withPoi.
     try {
