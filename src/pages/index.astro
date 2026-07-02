@@ -1,9 +1,7 @@
 ---
 import SiteLayout from '../layouts/SiteLayout.astro';
 import { loadArticles } from '../lib/articles';
-import { loadWijnhuizen } from '../lib/wijnhuizen';
 import { loadRoutes } from '../lib/routes';
-import { loadStreken } from '../lib/streken';
 import { organizationSchema } from '../lib/seo';
 import { getAuthorByByline } from '../lib/authors';
 
@@ -18,17 +16,7 @@ const articles = await loadArticles();
 // het nieuwste. Geen featured-artikel → val terug op het nieuwste artikel.
 const spotlight = articles.find((a) => a.featured) ?? articles[0];
 const moreArticles = articles.filter((a) => a.slug !== spotlight?.slug).slice(0, 3);
-// LAT-1612: volledige lijst nodig — de homepage shuffelt client-side en toont 3.
-const wijnhuizen = await loadWijnhuizen();
 const routes = (await loadRoutes()).slice(0, 3);
-// LAT-1907: toon 3 willekeurige streken per homepage-load i.p.v. de vaste eerste 3.
-// We renderen de volledige set "complete" streken (intro-tekst + hero verplicht);
-// CSS verbergt alles voorbij de eerste 3 als no-JS fallback, en het client-side
-// script hieronder shuffelt naar 3 willekeurige per page-load. Streken zonder
-// tekst of beeld worden uitgesloten zodat de homepage nooit een lege kaart toont.
-const streken = (await loadStreken()).filter(
-  (s) => s.description?.trim() && s.heroImage,
-);
 
 const schema = organizationSchema();
 
@@ -103,23 +91,23 @@ function formatDate(value?: string | null) {
         Persoonlijke verhalen, routes en proefnotities uit Piemonte, de Douro, de Kaap en wijnstreken wereldwijd, geen toeristische lijstjes, wel het hele verhaal.
       </p>
       <div class="hero-ctas">
-        <a href="/artikelen/" class="btn btn-primary">Lees de verhalen</a>
-        <a href="/wijnroutes/" class="btn btn-ghost">Bekijk de routes</a>
+        <a href="#bestemmingen" class="btn btn-primary">Kies je bestemming</a>
+        <a href="/artikelen/" class="btn btn-ghost">Lees de verhalen</a>
       </div>
     </div>
-    <a href="#streken-editorial" class="hero-scroll" aria-label="Scroll verder">
+    <a href="#bestemmingen" class="hero-scroll" aria-label="Scroll verder">
       <span class="hero-scroll-line" aria-hidden="true"></span>
       <span class="hero-scroll-label">Verder</span>
     </a>
   </section>
 
-  <section id="streken-editorial" class="strip">
+  <section id="bestemmingen" class="strip">
     <div class="container">
       <header class="strip-header">
-        <span class="kicker">Vier streken, één obsessie</span>
-        <h2 class="strip-title">Waar de fles begint</h2>
+        <span class="kicker">Kies je bestemming</span>
+        <h2 class="strip-title">Waar begint jouw wijnreis?</h2>
         <p class="strip-lede">
-          Vier regio's die telkens terugkomen in ons werk, omdat de wijnen, het landschap en de mensen er onlosmakelijk zijn.
+          Vier streken die telkens terugkomen in ons werk. Kies waar je heen wilt, en het verhaal, de routes en de adressen volgen.
         </p>
       </header>
       <div class="streken-grid">
@@ -186,37 +174,6 @@ function formatDate(value?: string | null) {
   <section class="cards-section">
     <div class="container">
       <header class="section-head">
-        <span class="kicker">Ontdek</span>
-        <h2 class="section-h">Wijnhuizen die het verschil maken</h2>
-        <p class="section-sub">
-          Geen merknamen, wijnmakers met een handschrift. Geportretteerd door iemand die er zelf gestaan heeft.
-        </p>
-      </header>
-      <div class="cards-grid" data-wijnhuizen-grid>
-        {wijnhuizen.map((w, i) => (
-          <a href={`/wijnhuizen/${w.slug}/`} class:list={['card-tile', { 'is-extra': i >= 3 }]}>
-            <div class="card-media">
-              {w.heroImage ? (
-                <img src={w.heroImage} alt={`${w.name}, ${w.region ?? ''}`.replace(/, $/, '')} width="600" height="450" loading="lazy" decoding="async" />
-              ) : (
-                <div class="card-placeholder" aria-hidden="true"></div>
-              )}
-            </div>
-            <div class="card-body">
-              {w.region && <span class="card-eyebrow">{w.region}</span>}
-              <h3 class="card-title">{w.name}</h3>
-              {w.description && <p class="card-desc">{w.description}</p>}
-            </div>
-          </a>
-        ))}
-      </div>
-      <p class="section-cta"><a href="/wijnhuizen/" class="btn btn-outline">Alle wijnhuizen →</a></p>
-    </div>
-  </section>
-
-  <section class="cards-section cards-section--alt">
-    <div class="container">
-      <header class="section-head">
         <span class="kicker">Op pad</span>
         <h2 class="section-h">Wijnroutes met karakter</h2>
         <p class="section-sub">
@@ -242,37 +199,6 @@ function formatDate(value?: string | null) {
         ))}
       </div>
       <p class="section-cta"><a href="/wijnroutes/" class="btn btn-outline">Alle routes →</a></p>
-    </div>
-  </section>
-
-  <section class="cards-section">
-    <div class="container">
-      <header class="section-head">
-        <span class="kicker">Terroir</span>
-        <h2 class="section-h">Streken in beeld</h2>
-        <p class="section-sub">
-          Diepere achtergrond bij de regio's die ons werk vormen, geologie, druiven, eet- en drinkadressen.
-        </p>
-      </header>
-      <div class="cards-grid" data-streken-grid>
-        {streken.map((s, i) => (
-          <a href={`/streken/${s.slug}/`} class:list={['card-tile', { 'is-extra': i >= 3 }]}>
-            <div class="card-media">
-              {s.heroImage ? (
-                <img src={s.heroImage} alt={`${s.name}, ${s.country ?? ''}`.replace(/, $/, '')} width="600" height="450" loading="lazy" decoding="async" />
-              ) : (
-                <div class="card-placeholder" aria-hidden="true"></div>
-              )}
-            </div>
-            <div class="card-body">
-              {s.country && <span class="card-eyebrow">{s.country}</span>}
-              <h3 class="card-title">{s.name}</h3>
-              {s.description && <p class="card-desc">{s.description}</p>}
-            </div>
-          </a>
-        ))}
-      </div>
-      <p class="section-cta"><a href="/ontdek/" class="btn btn-outline">Ontdek de wijnatlas →</a></p>
     </div>
   </section>
 
@@ -323,29 +249,6 @@ function formatDate(value?: string | null) {
     </div>
   </section>
 </SiteLayout>
-
-<script>
-  // Toon 3 willekeurige kaarten per homepage-load i.p.v. een vaste eerste 3.
-  // No-JS valt terug op de eerste 3 (overige zijn .is-extra → display:none).
-  function shuffleToThree(selector: string) {
-    const grid = document.querySelector(selector);
-    if (!grid) return;
-    const cards = Array.from(grid.querySelectorAll<HTMLElement>('.card-tile'));
-    if (cards.length <= 3) return;
-    for (let i = cards.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [cards[i], cards[j]] = [cards[j], cards[i]];
-    }
-    cards.forEach((card, idx) => {
-      card.classList.remove('is-extra');
-      card.classList.toggle('is-hidden', idx >= 3);
-    });
-  }
-
-  // LAT-1612: 3 willekeurige wijnhuizen. LAT-1907: 3 willekeurige streken.
-  shuffleToThree('[data-wijnhuizen-grid]');
-  shuffleToThree('[data-streken-grid]');
-</script>
 
 <style>
   /* ── Hero ─────────────────────────────────────────────── */
