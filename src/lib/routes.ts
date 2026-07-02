@@ -6,10 +6,20 @@ import { getCtaStructure, type CtaStructure } from './cta-blocks';
 // (RouteGeoMap). Komt uit het Directus-veld routes.stops_geo (JSON-array van
 // {naam,lat,lng}). Onafhankelijk van het bestaande tekstuele `stops`-veld zodat de
 // schematische RouteMap blijft werken als stops_geo (nog) leeg/afwezig is.
+//
+// LAT-2000 — optionele `kind` typeert de stop voor de merkgekleurde routelaag:
+//   'stop'    = dag-/etappewaypoint op de as → genummerde bordeaux middendot-pin
+//   'wijnhuis'= wijnhuis-stop → bordeaux pin (optioneel `slug` → /wijnhuizen/{slug}/)
+//   'slaap'   = overnachting → olijfgroene pin
+// Ontbreekt `kind`, dan valt de stop terug op 'stop' (bestaand gedrag, backward-compat).
+export type RouteStopKind = 'stop' | 'wijnhuis' | 'slaap';
+
 export interface RouteStopGeo {
     naam: string;
     lat: number;
     lng: number;
+    kind?: RouteStopKind;
+    slug?: string;
 }
 
 export interface WijnRoute {
@@ -132,7 +142,13 @@ function parseStopsGeo(val: unknown): RouteStopGeo[] {
         const lat = Number(rec.lat);
         const lng = Number(rec.lng);
         if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
-        out.push({ naam: normalizeEmDashes(String(rec.naam ?? '')), lat, lng });
+        const stop: RouteStopGeo = { naam: normalizeEmDashes(String(rec.naam ?? '')), lat, lng };
+        const rawKind = String(rec.kind ?? rec.type ?? '').toLowerCase();
+        if (rawKind === 'wijnhuis' || rawKind === 'winery') stop.kind = 'wijnhuis';
+        else if (rawKind === 'slaap' || rawKind === 'sleep' || rawKind === 'accommodatie') stop.kind = 'slaap';
+        const slug = rec.slug ?? rec.wijnhuis_slug;
+        if (slug != null && String(slug).trim()) stop.slug = String(slug).trim();
+        out.push(stop);
     }
     return out;
 }
