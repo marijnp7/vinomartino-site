@@ -76,6 +76,12 @@ export function buildCjBookingLink(plainBookingUrl: string, sid: string): string
     const u = new URL(direct);
     u.searchParams.set('aid', CJ_CONFIG.bookingAid);
     u.searchParams.set('label', buildCjLabel(sid));
+    // LAT-1964: op een /hotel/-deeplink houdt keep_landing=1 de bezoeker op de
+    // property-pagina zelf (i.p.v. een edge-case redirect). Browser-geverifieerd
+    // 2026-07-02: aid=818285 + /hotel/ landt gewoon op de hotelpagina — de eerdere
+    // "aid kan niet op /hotel/"-aanname klopt niet. Alleen op /hotel/-paden zetten;
+    // op een searchresults-URL heeft keep_landing geen betekenis.
+    if (/\/hotel\//i.test(u.pathname)) u.searchParams.set('keep_landing', '1');
     return u.toString();
   } catch {
     // Niet-parseerbare URL → ongewijzigd teruggeven i.p.v. de build breken.
@@ -99,14 +105,21 @@ export function buildBookingSearchLink(query: string, sid: string): string {
   }
 }
 
-// LAT-1775: gedeelde booking-deeplink-resolver voor gecureerde verblijven, gebruikt
-// door zowel /streken/<slug>/ (StreekKaart) als /accommodaties/<slug>/ (curated-stays).
-// De gecureerde `boeklink` in Directus is een KALE booking.com-URL (vaak /hotel/<slug>),
-// zonder aid/label — die resolvet niet en levert geen commissie. NORM (board): aid=818285
-// landt structureel op booking.com searchresults, niet op /hotel/. We bouwen daarom ALTIJD
-// een directe, ad-blocker-bestendige booking.com-searchresults-deeplink op de exacte
-// hotelnaam, mét affiliate-aid + CJ-label. Een eventuele al-gecureerde searchresults-URL
-// in de data blijft behouden (alleen aid/label worden gezet/overschreven).
+// LAT-1775/LAT-1964: gedeelde booking-deeplink-resolver voor gecureerde verblijven,
+// gebruikt door zowel /streken/<slug>/ (StreekKaart) als /accommodaties/<slug>/
+// (curated-stays). De gecureerde `boeklink` in Directus is een KALE booking.com-URL
+// (vaak /hotel/<slug>), zonder aid/label.
+//
+// LAT-1964 (koersnota 2026-07-02): de eerdere LAT-1775-norm gooide die /hotel/-URL
+// weg en zocht ALTIJD op hotelnaam (searchresults) — dat lekt commissie en landt de
+// bezoeker op een zoeklijst i.p.v. de property. Die norm rustte op de aanname dat
+// aid=818285 niet op /hotel/ kan landen. Browser-DOM-verificatie (2026-07-02, Château
+// de Challanges) weerlegt dat: aid=818285 + /hotel/ landt gewoon op de hotelpagina.
+// We gebruiken daarom nu de property-deeplink wanneer die er is:
+//   1. booking.com/hotel/<slug>  → directe property-deeplink (buildCjBookingLink,
+//      krijgt keep_landing=1).
+//   2. booking.com/searchresults → behoud, zet alleen aid + label.
+//   3. leeg / Stay22 / stad-link  → best-effort zoekdeeplink op de hotelnaam.
 export function accommodatieBookingDeeplink(
   naam: string,
   regio: string,
@@ -114,11 +127,12 @@ export function accommodatieBookingDeeplink(
   sid: string,
 ): string {
   const direct = boeklink ? unwrapCjRedirect(boeklink.trim()) : '';
-  // Al een booking.com-zoekpagina in de data → behoud hem, zet alleen aid + label.
-  if (/^https?:\/\/(www\.)?booking\.com\/searchresults/i.test(direct)) {
+  // Property-deeplink of al-gecureerde zoekpagina in de data → behoud host+pad,
+  // zet aid + label (en keep_landing op /hotel/). Geen commissielek meer.
+  if (/^https?:\/\/(www\.)?booking\.com\/(hotel|searchresults)/i.test(direct)) {
     return buildCjBookingLink(direct, sid);
   }
-  // Kale /hotel/-URL, lege of Stay22/stad-link → directe zoekdeeplink op de hotelnaam.
+  // Lege of Stay22/stad-link → best-effort zoekdeeplink op de hotelnaam.
   return buildBookingSearchLink(regio ? `${naam}, ${regio}` : naam, sid);
 }
 
