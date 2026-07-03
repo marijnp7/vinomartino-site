@@ -7,7 +7,7 @@ import CtaStructure from '../../components/CtaStructure.astro';
 import HubBacklink from '../../components/HubBacklink.astro';
 import AccommodatieRoundup from '../../components/AccommodatieRoundup.astro';
 import StreekKaart, { type StreekPoiInput } from '../../components/StreekKaart.astro';
-import WijnFactBox from '../../components/WijnFactBox.astro';
+import StreekFeitenblok from '../../components/StreekFeitenblok.astro';
 import RouteMap from '../../components/RouteMap.astro';
 import ZelfGereisdBadge from '../../components/ZelfGereisdBadge.astro';
 import { accommodatieBookingDeeplink } from '../../lib/affiliates';
@@ -183,6 +183,12 @@ const activiteitenInput: StreekPoiInput[] = entry.activiteiten.map(p => ({
 
 const hasUnifiedPoi = wijnhuizenInput.length > 0 || overnachtenInput.length > 0 || etenInput.length > 0 || activiteitenInput.length > 0;
 
+// LAT-2009 (VIS-BL-10) — "aantal adressen" voor het feitenblok: tel de gecureerde
+// POI's met coördinaten over alle vier categorieën, zodat het getal exact matcht
+// met de genummerde pins op de kaart (StreekKaart nummert enkel geplotte POI's).
+const aantalAdressen = [...wijnhuizenInput, ...overnachtenInput, ...etenInput, ...activiteitenInput]
+  .filter((p) => p.lat != null && p.lng != null).length;
+
 const schema = [
   streekSchema({
     name: entry.name,
@@ -205,21 +211,27 @@ const schema = [
   ]),
 ];
 
+// LAT-2009: druiven verhuisd naar het feitenblok, dus niet langer een trigger
+// voor de hero-stats-sidebar.
 const hasStats = Boolean(
-  entry.mainGrapes.length ||
   entry.climate ||
   entry.soil ||
   entry.vineyardArea ||
   entry.altitude,
 );
-// LAT-1676 — render de fact-box-sectie alleen als er minstens één gevuld veld is.
+// LAT-1676/LAT-2009 — render het feitenblok alleen als er minstens één gevuld
+// veld (of afgeleid aantal adressen) is.
 const hasFactBox = Boolean(
   entry.mainGrapes.length ||
   entry.appellations.length ||
   entry.bestVintages ||
   entry.harvestPeriod ||
   entry.minVisitTime ||
-  entry.tastingBudget,
+  entry.tastingBudget ||
+  entry.bestSeason ||
+  entry.driveDays ||
+  entry.nearestAirport ||
+  aantalAdressen > 0,
 );
 ---
 
@@ -252,12 +264,9 @@ const hasFactBox = Boolean(
           </div>
           {hasStats && (
             <div class="streek-stats">
-              {entry.mainGrapes.length > 0 && (
-                <div class="stat">
-                  <span class="stat-label">Druivenrassen</span>
-                  <span class="stat-value">{entry.mainGrapes.join(', ')}</span>
-                </div>
-              )}
+              {/* LAT-2009 (VIS-BL-10): "Druivenrassen" verwijderd uit de hero-sidebar.
+                  De druiven staan nu nog maar op één plek: het feitenblok "In het
+                  kort" eronder. Zo vervalt de dubbele druivenlijst. */}
               {entry.climate && (
                 <div class="stat">
                   <span class="stat-label">Klimaat</span>
@@ -293,18 +302,27 @@ const hasFactBox = Boolean(
       )}
     </section>
 
-    {/* LAT-1676 — WijnFactBox: compacte WSET-feiten bovenaan. Rendert alleen als
-        er gevulde velden zijn (geen lege box op streken zonder fact-data). */}
+    {/* LAT-2009 (VIS-BL-10) — Streek-feitenblok "In het kort 2.0": één monospace
+        feitenblok met druiven, beste seizoen, rijdagen, dichtstbijzijnd vliegveld,
+        aantal adressen en tier-badge (+ WSET-detailrijen). Vervangt de oude
+        WijnFactBox én de dubbele druivenlijst in de hero-sidebar. Rendert alleen
+        als er gevulde velden zijn (geen lege box op streken zonder data). */}
     {hasFactBox && (
       <section class="streek-factbox-section">
         <div class="container">
-          <WijnFactBox
+          <StreekFeitenblok
             dominantGrapes={entry.mainGrapes}
+            bestSeason={entry.bestSeason}
+            driveDays={entry.driveDays}
+            nearestAirport={entry.nearestAirport}
+            aantalAdressen={aantalAdressen}
             appellations={entry.appellations}
             bestVintages={entry.bestVintages}
             harvestPeriod={entry.harvestPeriod}
             minVisitTime={entry.minVisitTime}
             tastingBudget={entry.tastingBudget}
+            visited={entry.zelfGereisd}
+            bezoekjaar={entry.bezoekjaar}
           />
         </div>
       </section>
@@ -474,6 +492,11 @@ const hasFactBox = Boolean(
     color: var(--inkSoft);
     margin-top: var(--space-3);
     max-width: 46ch;
+    /* LAT-2009 (VIS-BL-10): cursief-intro's beperken tot max 4 regels. */
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 4;
+    overflow: hidden;
   }
   .streek-stats {
     display: flex;

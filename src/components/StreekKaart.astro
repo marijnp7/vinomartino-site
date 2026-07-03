@@ -199,40 +199,41 @@ const usedCats = sections.map((s) => s.key);
     </header>
 
     {hasMap && (
-      <div class="streekkaart__maps">
-        {centroid && (
-          <figure class="streekkaart__locator">
-            <div
-              class="streekkaart__locator-canvas"
-              data-streekkaart-locator
-              data-lat={centroid.lat}
-              data-lng={centroid.lng}
-              data-naam={streek}
-              role="img"
-              aria-label={`Locatie van ${streek}${country ? `, ${country}` : ''}`}
-            ></div>
-            <figcaption class="streekkaart__locator-cap">{streek}{country && <>, {country}</>}</figcaption>
-          </figure>
-        )}
-
-        <figure class="streekkaart__detail" data-skz-map>
+      <figure class="streekkaart__map" data-skz-map>
+        {/* LAT-2009 (VIS-BL-10): één kaart met inzet. De detailkaart is de
+            hoofdkaart; de locator (land + streek gemarkeerd) zit als kleine inzet
+            in de rechterbovenhoek i.p.v. als losse tweede kaart ernaast. */}
+        <div class="streekkaart__stage">
           <div
             class="streekkaart__detail-canvas"
             data-streekkaart-canvas
             role="application"
             aria-label={`Kaart met genummerde adressen in ${streek}`}
           ></div>
-          <script type="application/json" data-streekkaart-data set:html={JSON.stringify(mapData)} />
-          <figcaption class="streekkaart__legend">
-            {usedCats.map((key) => (
-              <span class="streekkaart__legend-item">
-                <span class="streekkaart__swatch" style={`background:${CATEGORY_META[key].color}`}></span>
-                {CATEGORY_META[key].label}
-              </span>
-            ))}
-          </figcaption>
-        </figure>
-      </div>
+          {centroid && (
+            <div class="streekkaart__locator-inset">
+              <div
+                class="streekkaart__locator-canvas"
+                data-streekkaart-locator
+                data-lat={centroid.lat}
+                data-lng={centroid.lng}
+                data-naam={streek}
+                role="img"
+                aria-label={`Locatie van ${streek}${country ? `, ${country}` : ''} binnen het land`}
+              ></div>
+            </div>
+          )}
+        </div>
+        <script type="application/json" data-streekkaart-data set:html={JSON.stringify(mapData)} />
+        <figcaption class="streekkaart__legend">
+          {usedCats.map((key) => (
+            <span class="streekkaart__legend-item">
+              <span class="streekkaart__swatch" style={`background:${CATEGORY_META[key].color}`}></span>
+              {CATEGORY_META[key].label}
+            </span>
+          ))}
+        </figcaption>
+      </figure>
     )}
 
     <div class="streekkaart__blocks">
@@ -518,23 +519,40 @@ const usedCats = sections.map((s) => s.key);
     margin: 0 0 1.75rem;
   }
 
-  .streekkaart__maps {
-    display: grid;
-    grid-template-columns: 0.55fr 1fr;
-    gap: 1.25rem;
-    margin: 0 0 2rem;
-    align-items: start;
+  .streekkaart__map { margin: 0 0 2rem; }
+  .streekkaart__stage {
+    position: relative;
   }
-  .streekkaart__locator { margin: 0; }
-  .streekkaart__locator-canvas {
+  .streekkaart__detail-canvas {
     width: 100%;
-    height: 200px;
+    height: 460px;
+    min-height: 360px;
     border-radius: 2px;
     border: 1px solid var(--rule, #C9B98F);
     background: #F0E6D0;
     z-index: 0;
   }
-  .streekkaart__locator-cap,
+  /* LAT-2009: locator als inzet rechtsboven op de hoofdkaart. z-index boven de
+     tile/overlay-panes; de zoomcontrol staat linksboven, dus geen botsing. */
+  .streekkaart__locator-inset {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 34%;
+    max-width: 190px;
+    min-width: 116px;
+    border-radius: 2px;
+    border: 1px solid var(--rule, #C9B98F);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+    overflow: hidden;
+    z-index: 500;
+  }
+  .streekkaart__locator-canvas {
+    width: 100%;
+    height: 120px;
+    background: #F0E6D0;
+    z-index: 0;
+  }
   .streekkaart__legend {
     font-family: var(--font-mono, monospace);
     font-size: 0.6875rem;
@@ -542,16 +560,6 @@ const usedCats = sections.map((s) => s.key);
     text-transform: uppercase;
     color: var(--inkSoft, #5A4F45);
     margin-top: 0.6rem;
-  }
-  .streekkaart__detail { margin: 0; }
-  .streekkaart__detail-canvas {
-    width: 100%;
-    height: 440px;
-    min-height: 360px;
-    border-radius: 2px;
-    border: 1px solid var(--rule, #C9B98F);
-    background: #F0E6D0;
-    z-index: 0;
   }
   .streekkaart__legend {
     display: flex;
@@ -657,8 +665,9 @@ const usedCats = sections.map((s) => s.key);
   .skz-sticky__cta:hover { opacity: 0.92; }
 
   @media (max-width: 760px) {
-    .streekkaart__maps { grid-template-columns: 1fr; }
-    .streekkaart__locator-canvas { height: 160px; }
+    .streekkaart__detail-canvas { height: 380px; }
+    .streekkaart__locator-inset { width: 38%; max-width: 150px; top: 8px; right: 8px; }
+    .streekkaart__locator-canvas { height: 96px; }
   }
   @media (max-width: 640px) {
     .streekkaart__cards { grid-template-columns: 1fr; }
