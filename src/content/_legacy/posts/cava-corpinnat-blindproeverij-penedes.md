@@ -64,13 +64,9 @@ Diepst geel van de zes. Fijnste mousse, het soort dat drukt als miniatuurparels 
 
 *Onthulling: Recaredo Terrers Brut Nature 2016. Xarel·lo, Macabeo en Parellada. Zesenveertig maanden op de gist. Corpinnat.*
 
-Sophie had naast me meegeproefd zonder officieel mee te doen; formalistische blindproeverijen zijn haar ding niet, maar uit nieuwsgierigheid drinkt ze graag mee. Zonder mijn commentaar af te wachten zei ze: "Dit is de beste van de zes."
+Ik had geen commentaar meer. Het beste glas van de zes was een Cava.
 
-Ze had het juiste glas. En geen idee waaruit het kwam.
-
-Toen ik haar vertelde dat het een Cava was, technisch een Corpinnat maar een Cava in oorsprong, trok ze haar wenkbrauwen op. "Dan klopt ons oordeel over Cava niet," zei ze.
-
-Ze had gelijk. Mijn oordeel had een blindevlek gehad.
+Mijn oordeel had een blindevlek gehad.
 
 ## Glas 5 en 6: de afsluiting
 
