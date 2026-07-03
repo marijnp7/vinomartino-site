@@ -9,6 +9,7 @@ import AccommodatieRoundup from '../../components/AccommodatieRoundup.astro';
 import CtaStructure from '../../components/CtaStructure.astro';
 import RhoneMap from '../../components/RhoneMap.astro';
 import ZelfGereisdBadge from '../../components/ZelfGereisdBadge.astro';
+import LangheCaptureBlock from '../../components/LangheCaptureBlock.astro';
 import { splitBodyForRhoneMap } from '../../lib/rhone-maps';
 import { loadArticles, type Article } from '../../lib/articles';
 import { loadAccommodatieRoundupsByStreek } from '../../lib/accommodaties-loader';
@@ -188,6 +189,10 @@ if (article.faqSchema) {
           </Fragment>
         ) : (
           <div class="article-prose" set:html={article.bodyHtml} />
+        )}
+
+        {article.slug === 'langhe-piemonte-4-dagen-route' && (
+          <LangheCaptureBlock variant="a" />
         )}
 
         {authorProfile && (
