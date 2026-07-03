@@ -513,6 +513,92 @@ if (article.faqSchema) {
     margin: var(--space-6) 0;
   }
 
+  /* LAT-2067: proefnotitie-kaarten (ruwe <aside class="tasting-note"> in body-HTML).
+     Globaal gespiegeld vanuit TastingNote.astro (component-styles zijn scoped en
+     raken set:html-bodies niet). */
+  .article-prose :global(.tasting-note) {
+    border: 1px solid var(--rule);
+    background: var(--paperDeep);
+    padding: var(--space-6);
+    margin: var(--space-8) 0;
+    position: relative;
+  }
+  .article-prose :global(.tasting-note)::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 3px;
+    height: 100%;
+    background: var(--burgundy);
+  }
+  .article-prose :global(.tn-header) { margin-bottom: var(--space-4); }
+  .article-prose :global(.tn-label) {
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--rust);
+    display: block;
+    margin-bottom: var(--space-2);
+  }
+  .article-prose :global(.tn-wine) {
+    font-family: var(--font-display);
+    font-size: 1.1875rem;
+    font-style: italic;
+    font-weight: 400;
+    color: var(--ink);
+    line-height: 1.2;
+    margin-bottom: var(--space-1);
+  }
+  .article-prose :global(.tn-winery) {
+    font-family: var(--font-ui);
+    font-size: 0.8125rem;
+    color: var(--inkSoft);
+    display: block;
+  }
+  .article-prose :global(.tn-meta) {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-3) var(--space-4);
+    padding: var(--space-4) 0;
+    border-top: 1px solid var(--rule-20);
+    border-bottom: 1px solid var(--rule-20);
+    margin-bottom: var(--space-4);
+  }
+  .article-prose :global(.tn-pair) {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .article-prose :global(.tn-pair span) {
+    font-family: var(--font-mono);
+    font-size: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--inkSoft);
+    opacity: 0.7;
+  }
+  .article-prose :global(.tn-pair strong) {
+    font-family: var(--font-ui);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .article-prose :global(.tn-score) { color: var(--burgundy); }
+  .article-prose :global(.tn-body) {
+    font-family: var(--font-body);
+    font-size: 0.9375rem;
+    line-height: 1.7;
+    color: var(--inkSoft);
+  }
+  .article-prose :global(.tn-body p) { margin-bottom: var(--space-3); }
+  .article-prose :global(.tn-body p:last-child) { margin-bottom: 0; }
+  @media (max-width: 640px) {
+    .article-prose :global(.tn-meta) { grid-template-columns: repeat(2, 1fr); }
+  }
+
   /* LAT-1118: inhoudsopgave */
   .toc-list {
     list-style: none;
