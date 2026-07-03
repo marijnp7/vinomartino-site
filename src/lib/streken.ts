@@ -168,9 +168,16 @@ async function downloadAsset(assetId: string, directusUrl: string, token: string
             return null;
         }
         const buf = Buffer.from(await res.arrayBuffer());
+        let outBuf = buf;
+        try {
+            const { gradeBuffer } = await import('./grade-image.mjs');
+            outBuf = await gradeBuffer(buf); // Meegereisd Warm preset (LAT-2007)
+        } catch (e) {
+            console.warn(`[loadStreken] grading-preset overgeslagen voor ${assetId}: ${e instanceof Error ? e.message : String(e)}`);
+        }
         mkdirSync(outDir, { recursive: true });
-        writeFileSync(outPath, buf);
-        assetDebug.push({ assetId, prefix, status: 200, bytes: buf.byteLength });
+        writeFileSync(outPath, outBuf);
+        assetDebug.push({ assetId, prefix, status: 200, bytes: outBuf.byteLength });
         return `/images/streken/${fileName}`;
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -201,9 +208,16 @@ async function downloadAccommodatieAsset(assetId: string, directusUrl: string, t
             return null;
         }
         const buf = Buffer.from(await res.arrayBuffer());
+        let outBuf = buf;
+        try {
+            const { gradeBuffer } = await import('./grade-image.mjs');
+            outBuf = await gradeBuffer(buf); // Meegereisd Warm preset (LAT-2007)
+        } catch (e) {
+            console.warn(`[loadStreken] grading-preset overgeslagen voor accommodatie-foto ${assetId}: ${e instanceof Error ? e.message : String(e)}`);
+        }
         mkdirSync(outDir, { recursive: true });
-        writeFileSync(outPath, buf);
-        assetDebug.push({ kind: 'accommodatie-foto', assetId, status: 200, bytes: buf.byteLength });
+        writeFileSync(outPath, outBuf);
+        assetDebug.push({ kind: 'accommodatie-foto', assetId, status: 200, bytes: outBuf.byteLength });
         return `/images/accommodaties/${fileName}`;
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);

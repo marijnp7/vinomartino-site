@@ -95,16 +95,22 @@ Richtwaarden (vertaalbaar naar Lightroom/`darktable`/CLI):
 
 Doelpalet-ankers (voor visuele controle, niet om naartoe te forceren): `--paper #FAF5E9` als lichtste crème, `--rust #A14F2A` voor warme midtonen, `--vine #5C6B3F` voor groen, `--burgundy #5A1A1F` als diepste warme donker.
 
-### 5a. De vaste preset als script (verplichte pipeline-stap)
+### 5a. De vaste preset, operationeel (VIS-BL-08)
 
-De richtwaarden hierboven zijn vastgelegd als één deterministisch, idempotent script zodat elk beeld in de beeldbank exact dezelfde grading krijgt — ongeacht welke agent het uploadt. Dit is de kleur-grading preset uit [LAT-2007](/LAT/issues/LAT-2007) (VIS-BL-08).
+De richtwaarden hierboven zijn vastgelegd als één deterministische, idempotente grading-operatie zodat elk beeld in de beeldbank exact dezelfde look krijgt — ongeacht welke agent het uploadt. Dit is de kleur-grading preset uit [LAT-2007](/LAT/issues/LAT-2007) (VIS-BL-08).
 
-- **Script:** `scripts/grade-meegereisd-warm.mjs` (sharp; preset-id `MeegereisdWarm-v1`). De parameters staan als `PRESET`-object in de kop en zijn 1-op-1 afgeleid van § 5.
-- **Toepassen (in-place, bytes committen):** `node scripts/grade-meegereisd-warm.mjs public/images/<bestand>.jpg` — of een hele map. Auto-orient (§ 4) zit in het script.
+- **Bron van waarheid:** `src/lib/grade-image.mjs` (sharp; preset-id `MeegereisdWarm-v1`, `PRESET`-object 1-op-1 afgeleid van § 5). Zowel het CLI-script als de build-time DAM-loaders gebruiken deze ene module.
+- **Idempotent:** de grading schrijft `Software=MeegereisdWarm-v1` in de EXIF en slaat een reeds-gegradeerd beeld over. Bij een look-revisie: pas `PRESET` aan, verhoog `PRESET_ID` en draai met `--force`.
+
+**Automatisch in de DAM-pipeline (build-time).** Elk beeld dat de build uit de DAM/Directus haalt, wordt vóór het wegschrijven door de preset gehaald. Gedekt: streken-hero's + og, accommodaties (boekbare kaarten), wijnhuizen, landen, routes, reispakketten. De grading faalt zacht: bij een fout logt de loader een waarschuwing en schrijft de rauwe bytes (de build breekt nooit hierop).
+
+**Handmatig (CLI) voor reeds-gecommitte of gemengde mappen.**
+
+- **Toepassen (in-place, bytes committen):** `node scripts/grade-meegereisd-warm.mjs public/images/<bestand-of-map>`. Auto-orient (§ 4) zit erin.
 - **Alleen rapporteren:** `--check` toont per beeld de RGB-verschuiving zonder te schrijven.
-- **Idempotent:** het script schrijft `Software=MeegereisdWarm-v1` in de EXIF en slaat een reeds-gegradeerd beeld over. Gebruik `--force` alleen bij een preset-revisie.
+- **`public/images/articles/`** is bewust NIET auto-gegradeerd: die map bevat zowel Tier 1-foto's als Tier 2-illustraties (§ 7). Grade daar per beeld handmatig, alleen de foto's.
 
-**DAM-upload-checklist (Tier 1):** elke nieuwe upload doorloopt vóór commit: (1) auto-orient + juiste rendition/ratio (§ 4), (2) `grade-meegereisd-warm.mjs` draaien, (3) `--check` bevestigt een warme verschuiving (R−B stijgt), (4) bytes committen onder de Directus-UUID-bestandsnaam (§ 4). Bij een toekomstige look-wijziging: pas `PRESET` aan, verhoog de `PRESET_ID`-versie en regradeer met `--force`.
+**Checklist nieuwe Tier 1-upload:** (1) auto-orient + juiste rendition/ratio (§ 4), (2) bij een build-time DAM-bron gebeurt grading automatisch; bij handmatige commit `grade-meegereisd-warm.mjs` draaien, (3) `--check` bevestigt een warme verschuiving (R−B stijgt), (4) bytes committen onder de Directus-UUID-bestandsnaam (§ 4).
 
 ---
 
