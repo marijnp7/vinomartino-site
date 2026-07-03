@@ -271,7 +271,14 @@
     _body: string;
   }
 
-  const TYPE_ORDER = ['Streek', 'Wijnroute', 'Wijnhuis', 'Land', 'Artikel'];
+  const TYPE_ORDER = ['Streek', 'Wijnroute', 'Wijnhuis', 'Artikel', 'Land'];
+  const TYPE_LABELS: Record<string, string> = {
+    Streek: 'Streken',
+    Wijnroute: 'Routes',
+    Wijnhuis: 'Wijnhuizen',
+    Artikel: 'Artikelen',
+    Land: 'Landen',
+  };
   const MAX_RESULTS = 24;
 
   const root = document.querySelector<HTMLElement>('[data-search]');
@@ -419,7 +426,7 @@
       let html = '';
       let i = 0;
       for (const type of orderedTypes) {
-        html += `<div class="vm-search__group-label" role="presentation">${escapeHtml(type)}</div>`;
+        html += `<div class="vm-search__group-label" role="presentation">${escapeHtml(TYPE_LABELS[type] ?? type)}</div>`;
         for (const rec of byType.get(type)!) {
           const sub = rec.subtitle ? `${rec.subtitle} — ` : '';
           html += `<a class="vm-search__item" role="option" id="vm-search-opt-${i}" data-idx="${i}" href="${escapeHtml(rec.url)}" aria-selected="${i === 0 ? 'true' : 'false'}">

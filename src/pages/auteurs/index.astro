@@ -1,6 +1,6 @@
 ---
 import SiteLayout from '../../layouts/SiteLayout.astro';
-import { AUTHORS } from '../../lib/authors';
+import { AUTHORS, bioParagraphs } from '../../lib/authors';
 import { breadcrumbSchema } from '../../lib/seo';
 
 const SITE_URL = 'https://vinomartino.com';
@@ -41,7 +41,9 @@ const schema = [
             )}
             <div class="auteur-body">
               <h2>{author.name}</h2>
-              <p>{author.bio}</p>
+              {author.tagline && <p class="auteur-tagline">{author.tagline}</p>}
+              {author.role && <p class="auteur-role">{author.role}</p>}
+              <p>{bioParagraphs(author.bio)[0]}</p>
               <span class="read-more">Lees artikelen van {author.name} →</span>
             </div>
           </a>
@@ -140,6 +142,20 @@ const schema = [
   }
   .auteur-link:hover .auteur-body h2 {
     color: var(--burgundy);
+  }
+  .auteur-tagline {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.02em;
+    color: var(--rust);
+    margin: 0 0 var(--space-2);
+  }
+  .auteur-role {
+    font-family: var(--font-body);
+    font-size: 0.875rem;
+    font-style: italic;
+    color: var(--inkSoft);
+    margin: 0 0 var(--space-3);
   }
   .auteur-body p {
     font-family: var(--font-body);
