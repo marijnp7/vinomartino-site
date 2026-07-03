@@ -80,6 +80,13 @@ export interface Streek {
     harvestPeriod: string;
     minVisitTime: string;
     tastingBudget: string;
+    // LAT-2009 (VIS-BL-10) — feitenblok "In het kort 2.0". Vrije-tekst, gevuld via
+    // Directus; leeg = die rij verschijnt niet. bestSeason = beste seizoen om te
+    // reizen, driveDays = aantal rijdagen voor de route, nearestAirport =
+    // dichtstbijzijnd vliegveld.
+    bestSeason: string;
+    driveDays: string;
+    nearestAirport: string;
     heroImage: string | null;
     ogImage: string | null;
     status: string;
@@ -378,6 +385,10 @@ function mapStreek(
         harvestPeriod: firstString(r, ['harvest_period', 'oogstperiode', 'harvest']),
         minVisitTime: firstString(r, ['min_visit_time', 'min_bezoektijd', 'visit_time', 'bezoektijd']),
         tastingBudget: firstString(r, ['tasting_budget', 'budget_proeverij', 'budget']),
+        // LAT-2009 — feitenblok-velden, tolerante reads (snake_case + NL-aliassen).
+        bestSeason: firstString(r, ['best_season', 'beste_seizoen', 'seizoen']),
+        driveDays: firstString(r, ['drive_days', 'rijdagen', 'route_days']),
+        nearestAirport: firstString(r, ['nearest_airport', 'dichtstbijzijnd_vliegveld', 'vliegveld', 'airport']),
         heroImage: heroImagePath,
         ogImage: ogImagePath,
         status: String(r.status || 'draft'),
@@ -431,9 +442,34 @@ async function fetchStrekenItems(url: string, token: string): Promise<Record<str
     // niets tot de velden bestaan en gevuld zijn.
     const factFields = 'best_vintages,harvest_period,min_visit_time,tasting_budget';
     const withFacts = `${withPoi},${factFields}`;
+    // LAT-2009 (VIS-BL-10): feitenblok-velden als eigen bovenste tier. Bestaan ze
+    // nog niet in Directus (DevOps moet ze aanmaken), dan degradeert deze fetch
+    // stil naar `withFacts` — de bestaande fact-velden blijven dus renderen; enkel
+    // de nieuwe feitenblok-rijen zijn leeg tot de velden bestaan en gevuld zijn.
+    const bl10Fields = 'best_season,drive_days,nearest_airport';
+    const withBl10 = `${withFacts},${bl10Fields}`;
     const filterSort = `${statusFilterQuery(env)}&sort=name`;
     const headers = { Authorization: `Bearer ${token}` };
     const signal = AbortSignal.timeout(15000);
+
+    // LAT-2009: bovenste tier mét feitenblok-velden; val bij 400/403 stil terug op
+    // withFacts (bestaande fact-velden blijven), dan verder omlaag via withPoi.
+    try {
+        const bl10Res = await fetch(`${url}/items/streken?limit=-1&fields=${withBl10}${filterSort}`, { headers, signal });
+        if (bl10Res.ok) {
+            const json = await bl10Res.json();
+            assetDebug.push({ kind: 'query', url, status: 200, count: (json.data || []).length, tier: 'withBl10' });
+            return (json.data || []) as Record<string, unknown>[];
+        }
+        if (bl10Res.status === 400 || bl10Res.status === 403) {
+            console.warn(`[loadStreken] Directus rejected fields=…,${bl10Fields} (HTTP ${bl10Res.status}) — retrying without LAT-2009 feitenblok-velden. Run directus/scripts/extend-streken-feitenblok-fields.mjs en/of geef de build-rol read-permissie op streken.best_season/drive_days/nearest_airport.`);
+            assetDebug.push({ kind: 'query', url, status: bl10Res.status, retryWithoutBl10: true });
+        }
+    } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        assetDebug.push({ kind: 'query-bl10', url, error: msg });
+        // Val door naar de withFacts-poging hieronder.
+    }
 
     // Top-tier poging mét fact-box-velden; val bij 400/403 stil terug op withPoi.
     try {
