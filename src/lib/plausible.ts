@@ -1,5 +1,6 @@
 type PlausibleEvent =
   | 'affiliate_click'
+  | 'component_view'
   | 'cta_click'
   | 'cta_click_early'
   | 'cta_click_late'
@@ -77,6 +78,17 @@ function linkDomain(anchor: HTMLAnchorElement): string {
 
 export function initPlausibleInteractions(): void {
   if (trackingOptedOut()) return;
+
+  // LAT-2019 KPI A noemer: component-impressie != pageview (de Overnachten-
+  // component rendert alleen op streek-/accommodatiepagina's met een boekbaar
+  // adres). Eén 'component_view' per pageview waar de Bekijk & boek-knop staat
+  // levert de juiste CTR-noemer; de server-side kliklog blijft autoritatief.
+  if (document.querySelector('[data-cta="bekijk-boek"]')) {
+    trackPlausible('component_view', {
+      component: 'overnachten',
+      path: window.location.pathname,
+    });
+  }
 
   document.addEventListener(
     'submit',

@@ -194,6 +194,7 @@ const mapData = {
                   data-affiliate-partner={affiliatePartner(bookingHref(acc))}
                   data-affiliate-placement="stay-card"
                   data-affiliate-context={`streek-${slug}`}
+                  data-cta="bekijk-boek"
                 >
                   Bekijk &amp; boek →
                 </a>
@@ -301,7 +302,7 @@ const mapData = {
         priceHtml +
         `<a class="csm-popup__cta" href="${esc(a.boeklink)}" data-cj-href="${esc(a.boeklink)}" target="_blank" rel="sponsored noopener"` +
         ` data-affiliate-track data-affiliate-partner="${esc(a.partner)}" data-affiliate-placement="map-popup"` +
-        ` data-affiliate-context="streek-${esc(data.slug)}">Bekijk &amp; boek →</a>` +
+        ` data-affiliate-context="streek-${esc(data.slug)}" data-cta="bekijk-boek">Bekijk &amp; boek →</a>` +
         `</div>`;
 
       const marker = L.marker([a.lat, a.lng], {

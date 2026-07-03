@@ -48,6 +48,9 @@ function sendPlausible(el: HTMLElement, anchor: HTMLAnchorElement | null): void 
     region,
     placement: el.dataset.affiliatePlacement || '',
     affiliate_url_domain: domain,
+    // LAT-2019: CTA-herkomst op de bestaande goal, bv. 'bekijk-boek' voor de
+    // Overnachten-component. Leeg = weggefilterd door cleanProps.
+    cta: el.dataset.cta || '',
     path: window.location.pathname,
   });
 }

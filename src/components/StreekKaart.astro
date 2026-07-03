@@ -278,6 +278,7 @@ const usedCats = sections.map((s) => s.key);
                     boeklink: it.boeklink ?? null,
                     detailUrl: it.detailUrl ?? null,
                     cta: ctaLabel(it.category),
+                    ctaKey: it.category === 'overnachten' ? 'bekijk-boek' : undefined,
                     partner: it.partner || '',
                     placement: `streek-poi-${it.category}`,
                     context: `streek-${slug}`,
