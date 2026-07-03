@@ -26,7 +26,7 @@ De regels die Corpinnat-producenten aan zichzelf opleggen zijn strenger dan wat 
 
 Ik had ze van te voren doorgelezen en dacht: dit zijn niet de regels van een marketingafdeling.
 
-Sarah Jane Evans MW, een van zeventien Masters of Wine met Spanje als specialisatie, publiceerde dit voorjaar een analyse waarin ze Corpinnat vergeleek met grower-Champagne op technisch niveau: identieke rijpingsduur voor de beter gecategoriseerde wijnen, vergelijkbare handenarbeid per fles, en een druivenkarakter dat zijn eigen kwaliteitsargument maakt. Dat prikkelde me genoeg om een test op te zetten.
+Sarah Jane Evans MW, een van de Masters of Wine met Spanje als specialisatie, publiceerde dit voorjaar een analyse waarin ze Corpinnat vergeleek met grower-Champagne op technisch niveau: identieke rijpingsduur voor de beter gecategoriseerde wijnen, vergelijkbare handenarbeid per fles, en een druivenkarakter dat zijn eigen kwaliteitsargument maakt. Dat prikkelde me genoeg om een test op te zetten.
 
 ## Glas 1: de eerste twijfel
 
