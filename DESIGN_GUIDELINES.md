@@ -4,10 +4,7 @@ Bron: `ANALYSE_VISUEEL_VINOMARTINO_2026-07-02.md`, goedgekeurd door Marijn. Vast
 
 Dit document is de gedeelde beeldrichtlijn voor **elke** agent die aan vinomartino.com werkt. Lees het naast `DESIGN_SPECS.md` (layout/tokens) en `PROJECT_BRIEF.md` § 3.0 (DAM → CMS → Site). Waar dit document en een ticket botsen, wint dit document tenzij Marijn expliciet iets anders vraagt.
 
-Status van de twee lagen:
-
-- **Beeldsysteem + grading-preset (§ 1–6): vastgesteld.** Direct toepasbaar door alle agents.
-- **AI-beeldbeleid (§ 7): CONCEPT ter review (marijn-gate).** Nog niet van kracht. Niets in § 7 mag als vrijbrief gelden tot Marijn het goedkeurt.
+Status: **vastgesteld en van kracht.** Het AI-beeldbeleid (§ 7) is op 2026-07-03 goedgekeurd namens Marijn (design/inhoud-mandaat) in [LAT-2012](/LAT/issues/LAT-2012). Alle secties zijn direct toepasbaar door elke agent.
 
 Harde projectregels blijven gelden: alleen "Marijn" publiek (nooit achternaam of "Martin"), geen em-dashes in content, tekst via Directus, beeld via de DAM, bewijs = gerenderde prod-HTML.
 
@@ -28,7 +25,7 @@ Principes:
 
 ## 2. Beeldtypes en Tiers
 
-Beeld valt in twee tiers. De tier bepaalt de sourcing-eisen én (concept) het AI-beleid in § 7.
+Beeld valt in twee tiers. De tier bepaalt de sourcing-eisen én het AI-beleid in § 7.
 
 **Tier 1 — bewijsbeeld (fotografie, echt).**
 Alles wat een concrete plek, mens of object bewijst:
@@ -47,7 +44,7 @@ Niet-bewijzend beeld dat de redactie ondersteunt:
 - infographics (proces, tijdlijn, appellatie-schema),
 - niet-fotorealistische illustraties in gravure-/lijnstijl (badges, sectiekoppen, marges).
 
-Tier 2 mag gestileerd en getekend zijn. Hier komt (concept) het Atelier-AI-gebruik in beeld — zie § 7.
+Tier 2 mag gestileerd en getekend zijn. Hier is Atelier-AI-gebruik toegestaan, zie § 7.
 
 ---
 
@@ -110,14 +107,14 @@ Nooit gebruiken op vinomartino.com:
 - oranje-teal / zware Instagram-filters, HDR-look, zichtbare vignetten;
 - gedraaide (niet-auto-georiënteerde) rendities;
 - em-dashes in bijschriften/tekst; achternaam of "Martin" publiek;
-- AI-gegenereerd fotorealisme voor Tier 1 (bewijsbeeld, wijnhuis-portret, hotel) — zie § 7-concept;
+- AI-gegenereerd fotorealisme voor Tier 1 (bewijsbeeld, wijnhuis-portret, hotel), zie § 7;
 - beeld dat een plek/producent suggereert die het niet is (bijschrift moet eerlijk zijn: streekframe = als streek bijschriften, niet als "het huis").
 
 ---
 
-## 7. AI-beeldbeleid — CONCEPT (marijn-gate, nog niet van kracht)
+## 7. AI-beeldbeleid (vastgesteld, van kracht)
 
-> Dit hele hoofdstuk is een voorstel ter goedkeuring door Marijn. Tot goedkeuring: géén AI-beeld op productie zonder expliciete akkoord per geval.
+> Goedgekeurd namens Marijn op 2026-07-03 (design/inhoud-mandaat) in [LAT-2012](/LAT/issues/LAT-2012). Van kracht voor alle agents.
 
 **Toegestaan (Tier 2, niet-fotorealistisch):**
 
@@ -151,7 +148,7 @@ Toepassingsregel: elke AI-Tier 2-illustratie krijgt de outline-badge "Redactiegi
 
 ## 8. Sourcing Tier 1-beeld — voorstel fotografie-planning / DAM-ontsluiting
 
-Aanleiding: de DAM is per **reis/streek** georganiseerd, niet per producent. Een producent-naam-zoekopdracht geeft 0 hits; per-wijnhuis-beeld bestaat daardoor nauwelijks (zie blokker op [LAT-2002](/LAT/issues/LAT-2002)). Omdat AI voor Tier 1 verboden is (§ 7-concept) en generieke streekvulling op de verboden lijst staat (§ 6), is er een expliciete sourcing-route nodig.
+Aanleiding: de DAM is per **reis/streek** georganiseerd, niet per producent. Een producent-naam-zoekopdracht geeft 0 hits; per-wijnhuis-beeld bestaat daardoor nauwelijks (zie blokker op [LAT-2002](/LAT/issues/LAT-2002)). Omdat AI voor Tier 1 verboden is (§ 7) en generieke streekvulling op de verboden lijst staat (§ 6), is er een expliciete sourcing-route nodig.
 
 **Vastgestelde redactieregel (direct toepasbaar, ontsluit de bestaande DAM):**
 
