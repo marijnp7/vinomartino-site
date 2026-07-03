@@ -114,16 +114,17 @@ export async function markdownToHtmlWithToc(
     node.data.hProperties = { ...(node.data.hProperties ?? {}), id };
     toc.push({ id, text, depth: node.depth });
   }
-  // LAT-2030/VIS-BL-02: sta redactionele `<figure>`-beeldblokken uit de CMS-body toe.
+  // LAT-2030/2034/VIS-BL-02: sta redactionele `<figure>`-beeldblokken uit de CMS-body toe.
   // `allowDangerousHtml` bewaart de ruwe HTML als raw-nodes, `hast-util-raw` parseert
-  // ze naar echte hast-elementen (o.a. <figure>/<figcaption>). `scrubHast` verwijdert
-  // daarna gevaarlijke tags/attributen zodat het aanzetten van ruwe HTML geen
-  // script-injectie op de site-brede CMS-bodies mogelijk maakt (interne auteurs,
-  // geen publieke input, dus denylist volstaat; strikte allowlist = follow-up).
+  // ze naar echte hast-elementen (o.a. <figure>/<figcaption>). `sanitizeHast` past
+  // daarna een strikte allowlist (default-deny) toe zodat het aanzetten van ruwe HTML
+  // op de site-brede CMS-bodies geen script-injectie of onbekende/toekomstige tags
+  // toelaat: alleen bekende, veilige markdown-/figure-tags + allowlist-attributen
+  // overleven.
   const rawHast = raw(
     toHast(mdast as Parameters<typeof toHast>[0], { allowDangerousHtml: true }) as Parameters<typeof raw>[0],
   );
-  scrubHast(rawHast as HastParent);
+  sanitizeHast(rawHast as HastParent);
   return { html: toHtml(rawHast as Parameters<typeof toHtml>[0]), toc };
 }
 
@@ -132,44 +133,130 @@ type HastNode = {
   tagName?: string;
   properties?: Record<string, unknown>;
   children?: HastNode[];
+  value?: string;
 };
 type HastParent = { children?: HastNode[] };
 
-// LAT-2030: tags die nooit uit een CMS-body mogen renderen.
-const SCRUB_TAGS = new Set([
-  'script', 'style', 'iframe', 'object', 'embed', 'form', 'input', 'button',
-  'textarea', 'select', 'option', 'link', 'meta', 'base', 'title', 'noscript',
-  'svg', 'math', 'template', 'frame', 'frameset', 'applet', 'portal',
-]);
-// Attributen die een URL dragen; niet-http(s)/mailto/relatieve schema's worden gestript.
-const SCRUB_URL_ATTRS = new Set([
-  'href', 'src', 'srcset', 'xlink:href', 'action', 'formaction', 'poster', 'background',
+// LAT-2034 (Optie 3): tags die uit onze markdown-pipeline of uit redactionele
+// `<figure>`-beeldblokken mogen komen. Alles buiten deze allowlist wordt
+// weggehaald (default-deny). GEEN nieuwe dependency: de mdast/hast-stack is
+// transitive-only in package.json, dus `hast-util-sanitize` erbij zou een clean
+// install vergen die de gedeelde build riskeert — deze in-house allowlist levert
+// dezelfde default-deny-posture zonder dat risico.
+const ALLOWED_TAGS = new Set([
+  // structuur & tekst
+  'p', 'br', 'hr', 'blockquote', 'pre', 'code', 'span', 'div', 'section',
+  'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+  // lijsten
+  'ul', 'ol', 'li', 'dl', 'dt', 'dd',
+  // inline nadruk / semantiek
+  'strong', 'em', 'b', 'i', 's', 'del', 'ins', 'sub', 'sup', 'mark', 'small',
+  'abbr', 'u', 'q', 'cite', 'kbd', 'samp', 'var', 'time', 'wbr',
+  // links
+  'a',
+  // beeld & figuren
+  'img', 'figure', 'figcaption', 'picture', 'source',
+  // tabellen
+  'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td', 'caption', 'colgroup', 'col',
 ]);
 
-// Verwijder gevaarlijke elementen/attributen in-place uit de geparste hast-boom.
-function scrubHast(parent: HastParent): void {
+// Tags die volledig (inclusief hun subtree) verwijderd worden, nooit uitgepakt.
+const DANGEROUS_TAGS = new Set([
+  'script', 'style', 'iframe', 'object', 'embed', 'form', 'input', 'button',
+  'textarea', 'select', 'option', 'optgroup', 'label', 'fieldset', 'legend',
+  'link', 'meta', 'base', 'title', 'head', 'html', 'body', 'noscript',
+  'svg', 'math', 'template', 'slot', 'frame', 'frameset', 'applet', 'portal',
+  'audio', 'video', 'track', 'canvas', 'map', 'area', 'dialog',
+]);
+
+// Attributen die op elk toegestaan element mogen staan. `className` is de
+// hast/JSX-propertynaam voor `class` (hast-util-raw camelCaset bekende attrs).
+const GLOBAL_ATTRS = new Set(['id', 'class', 'classname', 'title', 'lang', 'dir', 'role']);
+// Per-tag toegestane attributen, naast de globale.
+const TAG_ATTRS: Record<string, Set<string>> = {
+  a: new Set(['href', 'target', 'rel', 'name']),
+  img: new Set(['src', 'alt', 'width', 'height', 'loading', 'decoding', 'srcset', 'sizes']),
+  source: new Set(['src', 'srcset', 'sizes', 'media', 'type', 'width', 'height']),
+  ol: new Set(['start', 'type', 'reversed']),
+  li: new Set(['value']),
+  th: new Set(['colspan', 'rowspan', 'scope', 'headers', 'abbr']),
+  td: new Set(['colspan', 'rowspan', 'headers']),
+  col: new Set(['span']),
+  colgroup: new Set(['span']),
+  time: new Set(['datetime']),
+  q: new Set(['cite']),
+  blockquote: new Set(['cite']),
+};
+// Attributen die een URL dragen en op schema gecontroleerd worden.
+const URL_ATTRS = new Set(['href', 'src', 'poster', 'cite']);
+
+// LAT-2034: laat alleen veilige URL-schema's door. Relatieve paden, fragmenten,
+// mailto/tel en http(s) zijn oké; `data:` alleen voor afbeeldingen; javascript:/
+// vbscript:/file: en overige schema's worden geweigerd.
+function isSafeUrl(value: string): boolean {
+  const v = value.trim();
+  if (v === '') return true;
+  if (/^(?:javascript|vbscript|file):/i.test(v)) return false;
+  if (/^data:/i.test(v)) return /^data:image\//i.test(v);
+  // Expliciet schema? Alleen bekend-veilige toestaan. Anders (relatief pad,
+  // #fragment, ./ ../, protocol-relatief) is het geen scriptvector → toestaan.
+  if (/^[a-z][a-z0-9+.-]*:/i.test(v)) return /^(?:https?|mailto|tel):/i.test(v);
+  return true;
+}
+
+// `srcset` bevat meerdere kandidaat-URL's (`url 1x, url 2x`); valideer ze allemaal.
+function isSafeSrcset(value: string): boolean {
+  return value.split(',').every((part) => isSafeUrl(part.trim().split(/\s+/)[0] ?? ''));
+}
+
+// Filter de attributen van een toegestaan element tegen de allowlist.
+function sanitizeAttrs(tagName: string, props: Record<string, unknown>): Record<string, unknown> {
+  const allowed = TAG_ATTRS[tagName];
+  const out: Record<string, unknown> = {};
+  for (const [key, val] of Object.entries(props)) {
+    const lower = key.toLowerCase();
+    if (lower.startsWith('on')) continue; // event-handlers nooit
+    if (lower === 'style') continue; // inline styles blokkeren; styling via class
+    // data-*/aria-* zijn inert; hast levert ze camelCase aan (`dataFoo`/`ariaLabel`),
+    // dus matchen we zowel de kebab- (`data-foo`) als de camelCase-vorm.
+    if (/^(?:data-?|aria-?)/.test(lower)) { out[key] = val; continue; }
+    if (!GLOBAL_ATTRS.has(lower) && !allowed?.has(lower)) continue;
+    if (lower === 'srcset') { if (isSafeSrcset(String(val ?? ''))) out[key] = val; continue; }
+    if (URL_ATTRS.has(lower)) { if (isSafeUrl(String(val ?? ''))) out[key] = val; continue; }
+    out[key] = val;
+  }
+  // Externe `target=_blank`-links krijgen een veilige `rel` (reverse-tabnabbing).
+  if (tagName === 'a' && out.target === '_blank') {
+    const rel = String(out.rel ?? '');
+    if (!/noopener/i.test(rel)) out.rel = (rel ? `${rel} ` : '') + 'noopener noreferrer';
+  }
+  return out;
+}
+
+// LAT-2034: strikte allowlist-sanitizer (Optie 3, default-deny). Gevaarlijke tags
+// worden met subtree verwijderd; onbekende maar niet-gevaarlijke tags worden
+// uitgepakt zodat tekstinhoud nooit stil verdwijnt; toegestane tags houden alleen
+// hun allowlist-attributen over.
+function sanitizeHast(parent: HastParent): void {
   if (!Array.isArray(parent.children)) return;
-  parent.children = parent.children.filter((node) => {
-    if (node.type !== 'element' || !node.tagName) return true;
-    if (SCRUB_TAGS.has(node.tagName.toLowerCase())) return false;
-    const props = node.properties;
-    if (props) {
-      for (const key of Object.keys(props)) {
-        const lower = key.toLowerCase();
-        if (lower.startsWith('on')) {
-          delete props[key];
-          continue;
-        }
-        if (SCRUB_URL_ATTRS.has(lower)) {
-          const val = String(props[key] ?? '');
-          if (/^\s*(?:javascript|vbscript):/i.test(val)) delete props[key];
-          else if (/^\s*data:/i.test(val) && !/^\s*data:image\//i.test(val)) delete props[key];
-        }
-      }
+  const result: HastNode[] = [];
+  for (const node of parent.children) {
+    if (node.type !== 'element' || !node.tagName) {
+      result.push(node);
+      continue;
     }
-    scrubHast(node as HastParent);
-    return true;
-  });
+    const tag = node.tagName.toLowerCase();
+    if (DANGEROUS_TAGS.has(tag)) continue; // element + subtree verwijderen
+    sanitizeHast(node as HastParent); // kinderen eerst opschonen
+    if (!ALLOWED_TAGS.has(tag)) {
+      // Onbekend maar niet gevaarlijk: uitpakken, kinderen behouden.
+      if (Array.isArray(node.children)) result.push(...node.children);
+      continue;
+    }
+    node.properties = sanitizeAttrs(tag, node.properties ?? {});
+    result.push(node);
+  }
+  parent.children = result;
 }
 
 export async function markdownToHtml(markdown: string, options: MarkdownOptions = {}): Promise<string> {
