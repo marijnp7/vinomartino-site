@@ -27,10 +27,21 @@ export async function getStaticPaths() {
     list.push(wh);
     wijnhuizenByStreek.set(wh.streekSlug, list);
   }
+  const wijnhuisBySlug = new Map(wijnhuizen.map(wh => [wh.slug, wh]));
   return entries.map(entry => {
     // LAT-1199: leid de keten Land → Streek af via routes.streek_id → streek→land
     // voor de verticale kruimel (route kent zelf geen land).
     const streek = entry.streekSlug ? streekBySlug.get(entry.streekSlug) : undefined;
+    // LAT-2010 [VIS-BL-11] / LAT-1994: als de route expliciet wijnhuis-stops noemt
+    // (stops_geo kind=wijnhuis + slug), toon alléén die huizen — in route-volgorde —
+    // zodat de route enkel naar huizen linkt die er écht op liggen. Zonder die data
+    // (vóór de datafix) val terug op de streek-brede selectie (bestaand gedrag).
+    const routeWijnhuisSlugs = entry.stopsGeo
+      .filter(s => s.kind === 'wijnhuis' && s.slug)
+      .map(s => s.slug as string);
+    const routeWijnhuizen = routeWijnhuisSlugs
+      .map(slug => wijnhuisBySlug.get(slug))
+      .filter((wh): wh is Wijnhuis => Boolean(wh));
     // LAT-1609: curated verblijven voor de streek van deze route. Alleen kaarten
     // met echte DAM-foto tellen — gelijk aan de regel die bepaalt of
     // /accommodaties/<streek>/ bestaat (LAT-1371). Geen foto's → geen teaser.
@@ -45,7 +56,9 @@ export async function getStaticPaths() {
         streekName: streek?.name ?? '',
         landSlug: streek?.landSlug ?? '',
         landName: streek?.country ?? '',
-        wijnhuizen: entry.streekSlug ? (wijnhuizenByStreek.get(entry.streekSlug) ?? []) : [],
+        wijnhuizen: routeWijnhuizen.length > 0
+          ? routeWijnhuizen
+          : (entry.streekSlug ? (wijnhuizenByStreek.get(entry.streekSlug) ?? []) : []),
         staysRoundup,
       },
     };

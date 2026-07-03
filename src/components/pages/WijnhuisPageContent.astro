@@ -30,6 +30,11 @@ interface Props {
   breadcrumb?: { label: string; href: string }[];
   region: string;
   regionHref?: string;
+  // LAT-2010 [VIS-BL-11]: link naar de wijnroute waar dit huis bij hoort
+  // (afgeleid uit de streek of, indien bekend, de route-stops). Optioneel: zonder
+  // route valt de meta-regel stil weg.
+  routeHref?: string;
+  routeLabel?: string;
   since?: string;
   hectaren?: string;
   biologisch?: string;
@@ -50,6 +55,8 @@ const {
   breadcrumb = [],
   region,
   regionHref,
+  routeHref,
+  routeLabel,
   since,
   hectaren,
   biologisch,
@@ -103,6 +110,12 @@ const drieluikBeelden = drieluik.filter((b) => b && b.src);
             <span class="wh-meta-value">{region}</span>
           )}
         </div>
+        {routeHref && routeLabel && (
+          <div class="wh-meta-item">
+            <span class="wh-meta-label">ROUTE</span>
+            <a class="wh-meta-value wh-meta-value--link" href={routeHref}>{routeLabel}</a>
+          </div>
+        )}
         {since && (
           <div class="wh-meta-item">
             <span class="wh-meta-label">SINDS</span>

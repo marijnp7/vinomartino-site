@@ -6,27 +6,51 @@ import RelatedArticles from '../../components/RelatedArticles.astro';
 import CtaStructure from '../../components/CtaStructure.astro';
 import { loadWijnhuizen, type Wijnhuis } from '../../lib/wijnhuizen';
 import { loadStreken } from '../../lib/streken';
+import { loadRoutes } from '../../lib/routes';
 import { wijnhuisSchema, wijnhuisMetaTitle, wijnhuisMetaDescription, breadcrumbSchema } from '../../lib/seo';
 
 export async function getStaticPaths() {
-  const [entries, streken] = await Promise.all([loadWijnhuizen(), loadStreken()]);
+  const [entries, streken, routes] = await Promise.all([loadWijnhuizen(), loadStreken(), loadRoutes()]);
   const streekBySlug = new Map(streken.map(s => [s.slug, s]));
+  // LAT-2010 [VIS-BL-11]: koppel elk wijnhuis aan een wijnroute. Voorkeur: de route
+  // die dit huis expliciet als stop noemt (stops_geo kind=wijnhuis + slug, na
+  // datafix LAT-1994). Anders val terug op de eerste route van de streek, zodat
+  // interne doorstroom ook vóór de datafix werkt. Geen route → meta-regel weg.
+  const routesByStreek = new Map<string, typeof routes>();
+  for (const r of routes) {
+    if (!r.streekSlug) continue;
+    const list = routesByStreek.get(r.streekSlug) ?? [];
+    list.push(r);
+    routesByStreek.set(r.streekSlug, list);
+  }
+  const routeByWijnhuisSlug = new Map<string, typeof routes[number]>();
+  for (const r of routes) {
+    for (const stop of r.stopsGeo) {
+      if (stop.kind === 'wijnhuis' && stop.slug && !routeByWijnhuisSlug.has(stop.slug)) {
+        routeByWijnhuisSlug.set(stop.slug, r);
+      }
+    }
+  }
   return entries.map(entry => {
     // LAT-1199: leid de parent-Land af via de streek→land relatie voor de
     // verticale kruimel (wijnhuis kent zelf geen land).
     const streek = entry.streekSlug ? streekBySlug.get(entry.streekSlug) : undefined;
+    const route = routeByWijnhuisSlug.get(entry.slug)
+      ?? (entry.streekSlug ? routesByStreek.get(entry.streekSlug)?.[0] : undefined);
     return {
       params: { slug: entry.slug },
       props: {
         entry,
         landSlug: streek?.landSlug ?? '',
         landName: streek?.country ?? '',
+        routeHref: route ? `/wijnroutes/${route.slug}/` : '',
+        routeLabel: route?.title ?? '',
       },
     };
   });
 }
 
-const { entry, landSlug, landName } = Astro.props as { entry: Wijnhuis; landSlug: string; landName: string };
+const { entry, landSlug, landName, routeHref, routeLabel } = Astro.props as { entry: Wijnhuis; landSlug: string; landName: string; routeHref: string; routeLabel: string };
 const pageUrl = new URL(`/wijnhuizen/${entry.slug}/`, Astro.site ?? 'https://vinomartino.com').href;
 
 // LAT-1199: verticale kruimel Land → Streek → Wijnhuis, met graceful fallback
@@ -80,6 +104,8 @@ const schema = [
     breadcrumb={visibleBreadcrumb}
     region={[entry.region, entry.country].filter(Boolean).join(' · ')}
     regionHref={entry.streekSlug ? `/streken/${entry.streekSlug}/` : undefined}
+    routeHref={routeHref || undefined}
+    routeLabel={routeLabel || undefined}
     since={entry.established ? String(entry.established) : undefined}
     hectaren={entry.hectares || undefined}
     biologisch={entry.biodynamisch ? 'Ja' : undefined}
