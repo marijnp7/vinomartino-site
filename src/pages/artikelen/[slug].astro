@@ -10,10 +10,12 @@ import CtaStructure from '../../components/CtaStructure.astro';
 import RhoneMap from '../../components/RhoneMap.astro';
 import ZelfGereisdBadge from '../../components/ZelfGereisdBadge.astro';
 import LangheCaptureBlock from '../../components/LangheCaptureBlock.astro';
+import ArtikelVoetblok, { type VoetblokRoute, type VoetblokHotel } from '../../components/ArtikelVoetblok.astro';
 import { splitBodyForRhoneMap } from '../../lib/rhone-maps';
 import { loadArticles, type Article } from '../../lib/articles';
+import { loadRoutes } from '../../lib/routes';
 import { loadAccommodatieRoundupsByStreek } from '../../lib/accommodaties-loader';
-import type { AccommodatieRoundup as AccommodatieRoundupData } from '../../lib/accommodaties';
+import { filterRoundupOpFotos, roundupKaartAantal, type AccommodatieRoundup as AccommodatieRoundupData } from '../../lib/accommodaties';
 import { articleSchema, breadcrumbSchema } from '../../lib/seo';
 import { getAffiliateBlock, resolveAccommodationHref } from '../../lib/affiliates';
 import { getAuthorByByline } from '../../lib/authors';
@@ -21,11 +23,20 @@ import { getImageCredit } from '../../lib/image-credits';
 
 type ArticleRoundup = { slug: string; roundup: AccommodatieRoundupData };
 
+// LAT-2010 [VIS-BL-11]: het "hoort bij"-voetblok. Primaire streek/route komen uit
+// de related_* M2M van het artikel; de route wordt verrijkt met zijn stops voor de
+// schematische thumbnail. De hotel-CTA verwijst naar /accommodaties/{streek}/ maar
+// alléén als die pagina bestaat (roundup met echte DAM-foto's, zelfde poort als
+// LAT-1371) — anders valt de laag stil weg.
+type ArticleVoetblok = { streek: { slug: string; name: string } | null; route: VoetblokRoute | null; hotel: VoetblokHotel | null };
+
 export async function getStaticPaths() {
-  const [articles, accRoundupsByStreek] = await Promise.all([
+  const [articles, accRoundupsByStreek, routes] = await Promise.all([
     loadArticles(),
     loadAccommodatieRoundupsByStreek(),
+    loadRoutes(),
   ]);
+  const routeBySlug = new Map(routes.map((r) => [r.slug, r]));
   return articles.map((a) => {
     // LAT-1364: koppel de reisjunk-roundup aan het artikel via related_streken,
     // zodat reisartikelen met curated properties dezelfde CJ-kaart krijgen als
@@ -34,11 +45,27 @@ export async function getStaticPaths() {
       .map((s) => ({ slug: s.slug, roundup: accRoundupsByStreek.get(s.slug) }))
       .filter((x): x is ArticleRoundup =>
         Boolean(x.roundup && x.roundup.clusters.some((c) => c.kaarten.length > 0)));
-    return { params: { slug: a.slug }, props: { article: a, accRoundups } };
+
+    const streekRef = a.relatedStreken[0] ?? null;
+    const routeRef = a.relatedWijnroutes[0] ?? null;
+    const routeEntry = routeRef ? routeBySlug.get(routeRef.slug) : undefined;
+    const route: VoetblokRoute | null = routeRef
+      ? { slug: routeRef.slug, name: routeRef.name, stops: routeEntry ? (routeEntry.stops.length > 0 ? routeEntry.stops : routeEntry.highlights) : [] }
+      : null;
+    let hotel: VoetblokHotel | null = null;
+    if (streekRef) {
+      const raw = accRoundupsByStreek.get(streekRef.slug);
+      if (raw && roundupKaartAantal(filterRoundupOpFotos(raw)) > 0) {
+        hotel = { href: `/accommodaties/${streekRef.slug}/`, streekName: streekRef.name };
+      }
+    }
+    const voetblok: ArticleVoetblok = { streek: streekRef, route, hotel };
+
+    return { params: { slug: a.slug }, props: { article: a, accRoundups, voetblok } };
   });
 }
 
-const { article, accRoundups } = Astro.props as { article: Article; accRoundups: ArticleRoundup[] };
+const { article, accRoundups, voetblok } = Astro.props as { article: Article; accRoundups: ArticleRoundup[]; voetblok: ArticleVoetblok };
 const hasReisjunkRoundup = accRoundups.length > 0;
 const accommodationBlock = getAffiliateBlock(article.slug, 'accommodation');
 const activity = getAffiliateBlock(article.slug, 'activity');
@@ -301,6 +328,8 @@ if (article.faqSchema) {
     />
 
     <HubBacklink type="artikel" slug={article.slug} />
+
+    <ArtikelVoetblok streek={voetblok.streek} route={voetblok.route} hotel={voetblok.hotel} />
   </article>
 </SiteLayout>
 
