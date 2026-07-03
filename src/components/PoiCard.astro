@@ -27,6 +27,12 @@ export interface PoiCardData {
   fotoTheme?: PoiCardTheme;
   /** Korte badge, bv. tier-label voor overnachten. */
   badge?: string | null;
+  /**
+   * LAT-2003 (VIS-BL-04) — één cursieve waarom-regel voor boekbare kaarten
+   * (bv. 'Op een kwartier rijden van drie Barolo-kelders'). Vervangt de
+   * meerregelige beschrijving op de gestandaardiseerde overnachten-kaart.
+   */
+  whyRegel?: string | null;
   beschrijving?: string | null;
   /** Display-label voor de prijs, bv. '€120–180 / nacht'. */
   prijs?: string | null;
@@ -42,6 +48,12 @@ export interface PoiCardData {
   placement?: string;
   /** Affiliate-context (bv. 'streek-etna'). */
   context?: string;
+  /**
+   * LAT-2003 (VIS-BL-04) — vaste disclosure-microcopy als voetregel onder de
+   * CTA. Zet dit alleen op boekbare kaarten (streken/accommodaties/wijnroutes)
+   * zodat de affiliate-voetregel overal identiek is (STAY_DISCLOSURE_MICROCOPY).
+   */
+  disclosure?: string | null;
   /** DOM-id voor de kaart-sync (klik op pin scrollt naar deze kaart). */
   cardId?: string;
   /** Of de kaart-sync bedraad moet worden (POI staat op de kaart). */
@@ -61,6 +73,7 @@ const {
   fotoAlt = null,
   fotoTheme = 'region',
   badge = null,
+  whyRegel = null,
   beschrijving = null,
   prijs = null,
   boeklink = null,
@@ -69,6 +82,7 @@ const {
   partner = '',
   placement = '',
   context = '',
+  disclosure = null,
   cardId,
   plotted = false,
 } = poi;
@@ -100,6 +114,7 @@ const hasNumber = n != null;
       )}
     </div>
 
+    {whyRegel && <p class="poi-card__why">{whyRegel}</p>}
     {beschrijving && <p class="poi-card__desc">{beschrijving}</p>}
 
     <div class="poi-card__foot">
@@ -121,6 +136,8 @@ const hasNumber = n != null;
         <a class="poi-card__cta poi-card__cta--ghost" href={detailUrl}>Lees meer &rarr;</a>
       ) : null}
     </div>
+
+    {disclosure && <p class="poi-card__disclosure">{disclosure}</p>}
   </div>
 </article>
 
@@ -147,7 +164,7 @@ const hasNumber = n != null;
 
   .poi-card__media {
     position: relative;
-    aspect-ratio: 3 / 2;
+    aspect-ratio: 4 / 3;
     background: var(--paperDeep, #F0E6D0);
     overflow: hidden;
   }
@@ -201,6 +218,19 @@ const hasNumber = n != null;
     border-radius: 1px;
     padding: 0.15rem 0.4rem;
   }
+  .poi-card__why {
+    font-family: var(--font-body, Georgia, serif);
+    font-style: italic;
+    font-size: 0.9375rem;
+    line-height: 1.5;
+    color: var(--inkSoft, #5A4F45);
+    margin: 0.5rem 0 0.85rem;
+    flex: 1;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
   .poi-card__desc {
     font-family: var(--font-body, Georgia, serif);
     font-size: 0.9375rem;
@@ -213,6 +243,8 @@ const hasNumber = n != null;
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
+  /* Als why + desc samen voorkomen, mag alleen de why de flex-ruimte opeisen. */
+  .poi-card__why + .poi-card__desc { flex: initial; }
   .poi-card__foot {
     display: flex;
     align-items: center;
@@ -245,4 +277,12 @@ const hasNumber = n != null;
     padding: 0.45rem 0;
   }
   .poi-card__cta--ghost:hover { background: transparent; opacity: 0.8; }
+  .poi-card__disclosure {
+    font-family: var(--font-body, Georgia, serif);
+    font-style: italic;
+    font-size: 0.6875rem;
+    line-height: 1.4;
+    color: var(--inkFaint, #8A7E70);
+    margin: 0.7rem 0 0;
+  }
 </style>

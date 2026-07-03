@@ -10,6 +10,12 @@ export type { StayTier };
 
 export const STAY_TIER_ORDER: StayTier[] = ['slim_geboekt', 'prijs_kwaliteit', 'pure_luxe'];
 
+// LAT-2003 (VIS-BL-04) — vaste disclosure-microcopy als voetregel onder elke
+// boekbare accommodatie-kaart. Eén bron zodat de tekst site-breed letterlijk
+// identiek is (streken, accommodaties, wijnroutes). Geen em-dash (huisregel).
+export const STAY_DISCLOSURE_MICROCOPY =
+  'Affiliate-link · als je hier boekt kunnen we een commissie ontvangen, jij betaalt niets extra.';
+
 export const STAY_TIER_META: Record<StayTier, { label: string; color: string }> = {
   slim_geboekt: { label: 'Slim geboekt', color: '#A14F2A' },
   prijs_kwaliteit: { label: 'Prijs-kwaliteit', color: '#5C6B3F' },

@@ -13,7 +13,7 @@ import ZelfGereisdBadge from '../../components/ZelfGereisdBadge.astro';
 import { accommodatieBookingDeeplink } from '../../lib/affiliates';
 import { loadStreken, type Streek, type Accommodation } from '../../lib/streken';
 import { clustersFromCuratedStays, staySlug } from '../../lib/curated-stays';
-import { STAY_TIER_META } from '../../lib/stay-tier';
+import { STAY_TIER_META, STAY_DISCLOSURE_MICROCOPY } from '../../lib/stay-tier';
 import { loadWijnhuizen, type Wijnhuis } from '../../lib/wijnhuizen';
 import { loadAccommodatieRoundupsByStreek } from '../../lib/accommodaties-loader';
 import type { AccommodatieRoundup as AccommodatieRoundupData } from '../../lib/accommodaties';
@@ -147,7 +147,8 @@ const overnachtenInput: StreekPoiInput[] = stayClusters.flatMap(cluster =>
       naam: acc.naam,
       lat: acc.lat,
       lng: acc.lng,
-      beschrijving: acc.whyThisOne,
+      whyRegel: acc.whyThisOne,
+      disclosure: STAY_DISCLOSURE_MICROCOPY,
       prijs: accPrice(acc),
       boeklink: accBoeklink(acc),
       tier: acc.tier,
