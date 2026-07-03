@@ -1,6 +1,7 @@
 ---
 import SiteLayout from '../layouts/SiteLayout.astro';
 import ZelfGereisdBadge from '../components/ZelfGereisdBadge.astro';
+import Briefkaart from '../components/Briefkaart.astro';
 import HomeRoutesMap from '../components/HomeRoutesMap.astro';
 import { loadArticles } from '../lib/articles';
 import { loadRoutes } from '../lib/routes';
@@ -296,33 +297,33 @@ function formatDate(value?: string | null) {
   </section>
 
   <section class="brief">
-    <div class="container brief-inner">
-      <div class="brief-copy">
-        <span class="kicker brief-kicker">De Brief</span>
-        <h2 class="brief-h">Elke twee weken. Geen lijstjes.</h2>
-        <p class="brief-lede">
-          Een persoonlijke brief van Marijn, wat we recent dronken, waar we waren, en welke fles ons opviel. Géén affiliate-deals, géén nieuwsbriefformule.
+    <div class="container">
+      <Briefkaart dateline="De Brief · elke twee weken" align="center">
+        <h2 class="brief-kaart-h">Elke twee weken een brief. Geen lijstjes.</h2>
+        <p>
+          Een persoonlijke brief van Marijn: wat we recent dronken, waar we waren,
+          en welke fles ons opviel. Geen affiliate-deals, geen nieuwsbriefformule.
         </p>
-      </div>
-      <form
-        class="brief-signup"
-        action={BRIEF_FORM_ACTION}
-        method="post"
-        target="_blank"
-        data-newsletter-signup
-        data-region-preference="unknown"
-      >
-        <label for="brief-email" class="visually-hidden">E-mailadres</label>
-        <input
-          id="brief-email"
-          type="email"
-          name="fields[email]"
-          autocomplete="email"
-          placeholder="je@adres.nl"
-          required
-        />
-        <button type="submit" class="btn btn-gold" data-plausible-cta="newsletter_signup">Stuur me de brief</button>
-      </form>
+        <form
+          class="brief-signup"
+          action={BRIEF_FORM_ACTION}
+          method="post"
+          target="_blank"
+          data-newsletter-signup
+          data-region-preference="unknown"
+        >
+          <label for="brief-email" class="visually-hidden">E-mailadres</label>
+          <input
+            id="brief-email"
+            type="email"
+            name="fields[email]"
+            autocomplete="email"
+            placeholder="je@adres.nl"
+            required
+          />
+          <button type="submit" class="btn btn-primary" data-plausible-cta="newsletter_signup">Stuur me de brief</button>
+        </form>
+      </Briefkaart>
     </div>
   </section>
 </SiteLayout>
@@ -803,35 +804,19 @@ function formatDate(value?: string | null) {
     text-align: center;
   }
 
-  /* ── De Brief band ───────────────────────────────────── */
+  /* ── De Brief band: crème briefkaart op burgundy (LAT-2004) ─── */
   .brief {
     background: var(--burgundy);
-    color: var(--fixed-cream);
     padding: var(--space-16) 0;
   }
-  .brief-inner {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-12);
-    flex-wrap: wrap;
-  }
-  .brief-copy { max-width: 36rem; }
-  .brief-kicker { color: var(--gold); }
-  .brief-h {
+  .brief-kaart-h {
     font-family: var(--font-display);
     font-style: italic;
-    font-weight: 400;
+    font-weight: 500;
     font-size: clamp(1.75rem, 1.5vw + 1.25rem, 2.5rem);
     line-height: 1.1;
-    color: var(--fixed-cream);
-    margin: var(--space-3) 0 var(--space-3);
-  }
-  .brief-lede {
-    font-family: var(--font-body);
-    font-size: 1.0625rem;
-    line-height: 1.6;
-    color: color-mix(in srgb, var(--fixed-cream) 88%, transparent);
+    color: var(--burgundy);
+    margin: 0 0 var(--space-3);
   }
 
   /* LAT-2008 — inline Brief-veld op de homepage. */
@@ -849,22 +834,22 @@ function formatDate(value?: string | null) {
   .brief-signup {
     display: flex;
     gap: var(--space-2);
-    flex: 1;
-    min-width: 18rem;
+    width: 100%;
     max-width: 30rem;
+    margin: var(--space-5) auto 0;
   }
   .brief-signup input {
     flex: 1;
     padding: 0.85rem 1rem;
-    border: 1px solid color-mix(in srgb, var(--fixed-cream) 45%, transparent);
-    background: color-mix(in srgb, var(--fixed-cream) 8%, transparent);
-    color: var(--fixed-cream);
+    border: 1px solid var(--paperShade, #E8DCC0);
+    background: #fff;
+    color: var(--fixed-ink);
     font-family: var(--font-body);
     font-size: 1rem;
     outline: none;
   }
-  .brief-signup input::placeholder { color: color-mix(in srgb, var(--fixed-cream) 60%, transparent); }
-  .brief-signup input:focus { border-color: var(--gold); }
+  .brief-signup input::placeholder { color: color-mix(in srgb, var(--fixed-ink) 45%, transparent); }
+  .brief-signup input:focus { border-color: var(--burgundy); }
   .brief-signup .btn { white-space: nowrap; }
 
   /* LAT-2008 — "Zelf gereisd"-badge op de bestemmingskaart. */
@@ -949,7 +934,6 @@ function formatDate(value?: string | null) {
     .streken-grid { grid-template-columns: 1fr; gap: var(--space-4); }
     .streek-tile { aspect-ratio: 4 / 5; }
     .cards-grid { grid-template-columns: 1fr; }
-    .brief-inner { flex-direction: column; align-items: flex-start; }
     .brief-signup { width: 100%; max-width: none; flex-direction: column; }
     .brief-signup .btn { width: 100%; }
     .proof-stats { gap: var(--space-6); }

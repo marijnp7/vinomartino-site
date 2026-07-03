@@ -1,5 +1,6 @@
 ---
 import SiteLayout from '../../layouts/SiteLayout.astro';
+import Briefkaart from '../../components/Briefkaart.astro';
 import { organizationSchema, breadcrumbSchema } from '../../lib/seo';
 
 // Capture-backend = MailerLite (LAT-1188): nieuwe aanmeldingen landen rechtstreeks
@@ -57,7 +58,7 @@ const schema = [
           placeholder="je@adres.nl"
           required
         />
-        <button type="submit" data-plausible-cta="newsletter_signup">Stuur me De brief</button>
+        <button type="submit" data-plausible-cta="newsletter_signup">Stuur me de brief</button>
       </form>
 
       <p class="follow">
@@ -66,6 +67,23 @@ const schema = [
           <> en <a href={SUBSTACK_URL} target="_blank" rel="noopener">Substack</a></>
         ) : null}, daar verschijnen de eerste verhalen.
       </p>
+    </div>
+  </section>
+
+  <section class="voorbeeld">
+    <div class="container container-narrow">
+      <Briefkaart dateline="Editie 1 · verschijnt binnenkort">
+        <p>
+          De eerste editie van De brief verschijnt binnenkort in je inbox: een verhaal
+          uit de Langhe, een reisplan dat eraan komt, en een wijnhuis-tip. Wil je alvast
+          een idee van de toon en de onderwerpen? Lees dit dan:
+        </p>
+        <p class="voorbeeld-link">
+          <a href="/artikelen/een-week-in-piemonte-barolo-barbaresco-en-alles-daartussenin/">
+            Een week in Piemonte: Barolo, Barbaresco en alles daartussenin
+          </a>
+        </p>
+      </Briefkaart>
     </div>
   </section>
 </SiteLayout>
@@ -162,6 +180,22 @@ const schema = [
     color: var(--color-primary);
     text-decoration: underline;
     text-underline-offset: 2px;
+  }
+
+  .voorbeeld {
+    padding: 0 0 clamp(56px, 10vw, 112px);
+  }
+  .voorbeeld-link {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 1.25rem;
+    line-height: 1.35;
+    margin-top: 1.1rem;
+  }
+  .voorbeeld-link a {
+    color: var(--burgundy);
+    text-decoration: underline;
+    text-underline-offset: 3px;
   }
 
   @media (max-width: 640px) {
