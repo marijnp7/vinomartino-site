@@ -279,10 +279,13 @@ function formatDate(value?: string | null) {
       </div>
       <div class="proof-body">
         <span class="kicker proof-kicker">Bewijs en gezicht</span>
+        {/* LAT-2008: cijfers gestaafd tegen de canon. "11" spiegelt de Tier 1-lijst
+            `visited` op /over-ons/ (elf streken); "2019" is dezelfde bronclaim als
+            "streken sinds 2019" daar. Het "60+ wijnhuizen"-cijfer is geschrapt tot
+            er telbewijs uit Directus is (Marijn, 2026-07-03). */}
         <ul class="proof-stats">
           <li><span class="proof-num">11</span><span class="proof-label">streken zelf bereisd</span></li>
-          <li><span class="proof-num">60+</span><span class="proof-label">wijnhuizen bezocht</span></li>
-          <li><span class="proof-num">2019</span><span class="proof-label">op pad sinds</span></li>
+          <li><span class="proof-num">2019</span><span class="proof-label">sinds we op pad zijn</span></li>
         </ul>
         <p class="proof-manifest">
           Waar we zelf waren, zie je dat: het label <em>Zelf gereisd</em>.
