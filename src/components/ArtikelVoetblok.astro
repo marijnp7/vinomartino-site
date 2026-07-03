@@ -41,16 +41,7 @@ const FORM_ACTION =
   <div class="container voetblok__inner">
     {heeftHoortBij && (
       <div class="voetblok__hoortbij">
-        <p class="voetblok__lede">
-          Dit artikel hoort bij{' '}
-          {streek && (
-            <a href={`/streken/${streek.slug}/`} class="voetblok__ref">{streek.name}</a>
-          )}
-          {streek && route && ' en '}
-          {route && (
-            <a href={`/wijnroutes/${route.slug}/`} class="voetblok__ref">{route.name}</a>
-          )}.
-        </p>
+        <p class="voetblok__lede">Dit artikel hoort bij {streek && <a href={`/streken/${streek.slug}/`} class="voetblok__ref">{streek.name}</a>}{streek && route ? ' en ' : ''}{route && <a href={`/wijnroutes/${route.slug}/`} class="voetblok__ref">{route.name}</a>}.</p>
         {routeStops.length >= 2 && (
           <a href={`/wijnroutes/${route!.slug}/`} class="voetblok__thumb" aria-label={`Bekijk de route ${route!.name}`}>
             <RouteMap stops={routeStops} variant="mini" />

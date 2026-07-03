@@ -49,8 +49,19 @@ export async function getStaticPaths() {
     const streekRef = a.relatedStreken[0] ?? null;
     const routeRef = a.relatedWijnroutes[0] ?? null;
     const routeEntry = routeRef ? routeBySlug.get(routeRef.slug) : undefined;
+    // Stops voor de schematische mini-thumbnail: veel routes hebben een leeg
+    // tekstueel `stops`-veld en dragen hun plaatsnamen in `stops_geo` (naam). Val
+    // daarom door: stops → stops_geo.naam → highlights, zodat de thumbnail rendert
+    // zodra de route ergens ≥2 benoemde punten heeft.
+    const routeStops = routeEntry
+      ? (routeEntry.stops.length >= 2
+          ? routeEntry.stops
+          : (routeEntry.stopsGeo.map((s) => s.naam).filter(Boolean).length >= 2
+              ? routeEntry.stopsGeo.map((s) => s.naam).filter(Boolean)
+              : routeEntry.highlights))
+      : [];
     const route: VoetblokRoute | null = routeRef
-      ? { slug: routeRef.slug, name: routeRef.name, stops: routeEntry ? (routeEntry.stops.length > 0 ? routeEntry.stops : routeEntry.highlights) : [] }
+      ? { slug: routeRef.slug, name: routeRef.name, stops: routeStops }
       : null;
     let hotel: VoetblokHotel | null = null;
     if (streekRef) {
