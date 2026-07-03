@@ -1,0 +1,131 @@
+---
+// Inline e-mailcapture (LAT-2022), GEEN popup. Aanmeldingen gaan via MailerLite
+// double opt-in naar groep "Newsletter Subscribers" (1896876); na bevestiging
+// stuurt de MailerLite-automation de welkomstmail met de Langhe-reisplanner.
+// Zelfde form-action als /de-brief/ zodat alle aanmeldingen in dezelfde flow landen.
+interface Props {
+  heading: string;
+  body: string;
+  subcopy: string;
+  cta?: string;
+  placeholder?: string;
+}
+const {
+  heading,
+  body,
+  subcopy,
+  cta = 'Stuur me de Langhe-PDF',
+  placeholder = 'je@adres.nl',
+} = Astro.props as Props;
+
+const FORM_ACTION =
+  import.meta.env.PUBLIC_MAILERLITE_FORM_ACTION ||
+  'https://assets.mailerlite.com/jsonp/2415940/forms/189828746131277541/subscribe';
+---
+
+<aside class="capture">
+  <div class="capture__inner">
+    <h2 class="capture__h">{heading}</h2>
+    <p class="capture__body">{body}</p>
+    <form class="capture__form" action={FORM_ACTION} method="post" target="_blank">
+      <label class="visually-hidden" for="capture-email">E-mailadres</label>
+      <input
+        id="capture-email"
+        type="email"
+        name="fields[email]"
+        autocomplete="email"
+        placeholder={placeholder}
+        required
+      />
+      <button type="submit">{cta}</button>
+    </form>
+    <p class="capture__sub">{subcopy}</p>
+  </div>
+</aside>
+
+<style>
+  .capture {
+    background: var(--rust-10, #F6EDE7);
+    border-top: 3px solid var(--gold, #E5C99B);
+    border-bottom: 1px solid var(--ruleSoft, #E0D2B0);
+    padding: clamp(2rem, 5vw, 3.25rem) 0;
+    margin: 2.5rem 0;
+  }
+  .capture__inner {
+    max-width: 640px;
+    margin: 0 auto;
+    padding-inline: var(--gutter, 1.25rem);
+    text-align: center;
+  }
+  .capture__h {
+    font-family: var(--font-display);
+    font-weight: 600;
+    color: var(--burgundy, #5A1A1F);
+    font-size: clamp(1.5rem, 3vw + 0.5rem, 2rem);
+    line-height: 1.1;
+    margin: 0;
+  }
+  .capture__body {
+    font-family: var(--font-serif, var(--font-body));
+    font-size: 1.0625rem;
+    line-height: 1.6;
+    color: var(--color-text-secondary, var(--inkSoft, #5A4F45));
+    margin: 0.9rem auto 0;
+    max-width: 520px;
+  }
+  .capture__form {
+    display: flex;
+    gap: 0.5rem;
+    max-width: 480px;
+    margin: 1.5rem auto 0;
+  }
+  .capture__form input {
+    flex: 1;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--rule, #C9B98F);
+    background: var(--color-bg, #FAF5E9);
+    font-family: var(--font-serif, var(--font-body));
+    font-size: 1rem;
+    outline: none;
+    color: var(--color-text, #1F1A16);
+  }
+  .capture__form input:focus {
+    border-color: var(--color-primary, #5A1A1F);
+  }
+  .capture__form button {
+    background: var(--color-primary, #5A1A1F);
+    color: var(--fixed-cream, #FAF5E9);
+    padding: 0.75rem 1.25rem;
+    border: none;
+    font-family: var(--font-ui);
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+  }
+  .capture__form button:hover {
+    background: var(--color-primary-hover, var(--burgundyDeep, #3D1115));
+  }
+  .capture__sub {
+    font-family: var(--font-serif, var(--font-body));
+    font-size: 0.9375rem;
+    line-height: 1.6;
+    color: var(--color-text-muted, var(--inkFaint, #8A7E70));
+    margin: 1rem auto 0;
+    max-width: 480px;
+  }
+  .visually-hidden {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+  @media (max-width: 640px) {
+    .capture__form { flex-direction: column; }
+  }
+</style>

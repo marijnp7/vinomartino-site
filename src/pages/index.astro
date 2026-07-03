@@ -20,6 +20,12 @@ const routes = (await loadRoutes()).slice(0, 3);
 
 const schema = organizationSchema();
 
+// LAT-2022: inline e-mailcapture in de De Brief-band. Zelfde MailerLite form-action
+// als /de-brief/ (double opt-in, groep "Newsletter Subscribers" 1896876).
+const BRIEF_FORM_ACTION =
+  import.meta.env.PUBLIC_MAILERLITE_FORM_ACTION ||
+  'https://assets.mailerlite.com/jsonp/2415940/forms/189828746131277541/subscribe';
+
 const HERO_IMAGE = '/images/landschap-piemonte-barolo-001.jpg';
 
 const editorialStreken = [
@@ -240,12 +246,26 @@ function formatDate(value?: string | null) {
     <div class="container brief-inner">
       <div class="brief-copy">
         <span class="kicker brief-kicker">De Brief</span>
-        <h2 class="brief-h">Eén keer per maand. Geen lijstjes.</h2>
+        <h2 class="brief-h">Elke twee weken. Geen lijstjes.</h2>
         <p class="brief-lede">
-          Een persoonlijke brief van Marijn, wat we recent dronken, waar we waren, en welke fles ons opviel. Géén affiliate-deals, géén nieuwsbriefformule.
+          Een persoonlijke brief van Marijn, wat we recent dronken, waar we waren, en welke fles ons opviel. Géén affiliate-deals, géén nieuwsbriefformule. Meld je aan en ik stuur de Langhe-reisplanner meteen mee.
         </p>
       </div>
-      <a href="/de-brief/" class="btn btn-gold">Schrijf me in</a>
+      <div class="brief-signup">
+        <form class="brief-form" action={BRIEF_FORM_ACTION} method="post" target="_blank">
+          <label class="visually-hidden" for="brief-email">E-mailadres</label>
+          <input
+            id="brief-email"
+            type="email"
+            name="fields[email]"
+            autocomplete="email"
+            placeholder="je@adres.nl"
+            required
+          />
+          <button type="submit" class="btn btn-gold">Stuur me de Langhe-PDF</button>
+        </form>
+        <p class="brief-sub">Elke twee weken De Brief. Uitschrijven kan altijd.</p>
+      </div>
     </div>
   </section>
 </SiteLayout>
@@ -755,6 +775,38 @@ function formatDate(value?: string | null) {
     font-size: 1.0625rem;
     line-height: 1.6;
     color: color-mix(in srgb, var(--fixed-cream) 88%, transparent);
+  }
+  .brief-signup { min-width: 20rem; flex: 1 1 20rem; max-width: 26rem; }
+  .brief-form { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+  .brief-form input {
+    flex: 1 1 12rem;
+    min-width: 10rem;
+    padding: 0.75rem 1rem;
+    border: 1px solid color-mix(in srgb, var(--gold) 60%, transparent);
+    background: color-mix(in srgb, var(--fixed-cream) 12%, transparent);
+    color: var(--fixed-cream);
+    font-family: var(--font-body);
+    font-size: 1rem;
+    outline: none;
+  }
+  .brief-form input::placeholder { color: color-mix(in srgb, var(--fixed-cream) 60%, transparent); }
+  .brief-form input:focus { border-color: var(--gold); }
+  .brief-form .btn-gold { white-space: nowrap; }
+  .brief-sub {
+    font-family: var(--font-body);
+    font-size: 0.9375rem;
+    line-height: 1.6;
+    color: color-mix(in srgb, var(--fixed-cream) 72%, transparent);
+    margin: var(--space-3) 0 0;
+  }
+  .visually-hidden {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
   }
 
   /* ── Responsive ─────────────────────────────────────── */

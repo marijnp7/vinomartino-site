@@ -10,6 +10,7 @@ import StreekKaart, { type StreekPoiInput } from '../../components/StreekKaart.a
 import WijnFactBox from '../../components/WijnFactBox.astro';
 import RouteMap from '../../components/RouteMap.astro';
 import ZelfGereisdBadge from '../../components/ZelfGereisdBadge.astro';
+import EmailCapture from '../../components/EmailCapture.astro';
 import { accommodatieBookingDeeplink } from '../../lib/affiliates';
 import { loadStreken, type Streek, type Accommodation } from '../../lib/streken';
 import { clustersFromCuratedStays, staySlug } from '../../lib/curated-stays';
@@ -376,6 +377,14 @@ const hasFactBox = Boolean(
           )}
         </div>
       </section>
+    )}
+
+    {entry.slug === 'langhe-piemonte' && (
+      <EmailCapture
+        heading="De volledige reisplanner als PDF"
+        body="Dit artikel geeft de kern. Als je de route daadwerkelijk rijdt, is er meer: telefoonnummers voor de wijnhuizen, openingstijden per seizoen, en een overzicht van wat elke dag kost. Dat staat in de compacte Langhe-PDF die ik stuur naar iedereen die zich aanmeldt voor De Brief."
+        subcopy="Elke twee weken ontvang je ook De Brief: over wijn, reizen en de mensen erachter. Uitschrijven kan altijd."
+      />
     )}
 
     {entry.subRegions.length > 0 && (
