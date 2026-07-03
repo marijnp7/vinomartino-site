@@ -1,10 +1,52 @@
 ---
 import SiteLayout from '../../layouts/SiteLayout.astro';
-import SmartImg from '../../components/SmartImg.astro';
-import { loadStreken } from '../../lib/streken';
+import StreekCard from '../../components/StreekCard.astro';
+import { loadStreken, type Streek } from '../../lib/streken';
 import { organizationSchema, breadcrumbSchema } from '../../lib/seo';
 
 const entries = await loadStreken();
+
+// LAT-2006 (VIS-BL-07) - twee-tier ordening van het streken-overzicht:
+//   Tier 1 = "Zelf gereisd" (zelfGereisd=true) bovenaan, met badge.
+//   Tier 2 = "Redactiegidsen" (zelfGereisd=false), per land gegroepeerd.
+// Beide tiers degraderen gracieus: is een tier leeg dan verdwijnt de sectie.
+const tier1 = entries.filter(e => e.zelfGereisd);
+const tier2 = entries.filter(e => !e.zelfGereisd);
+
+// "Begin hier"-hint op de sterkste zelf-gereisde streken. Sterkte = compleetheid
+// (heldenbeeld + omschrijving + druiven) zodat de hint data-driven blijft en niet
+// op een fragiele slug-lijst leunt.
+function strength(e: Streek): number {
+  return (e.heroImage ? 2 : 0) + (e.description ? 1 : 0) + Math.min(e.mainGrapes?.length ?? 0, 3);
+}
+const beginHier = new Set(
+  [...tier1]
+    .sort((a, b) => strength(b) - strength(a))
+    .slice(0, 4)
+    .map(e => e.slug),
+);
+
+// Tier 2 per land: landen alfabetisch (Nederlands), streken op naam. Streken
+// zonder land vallen onder "Overig" en komen achteraan.
+const OVERIG = 'Overig';
+const tier2Groups = (() => {
+  const map = new Map<string, Streek[]>();
+  for (const e of tier2) {
+    const key = e.country || OVERIG;
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(e);
+  }
+  return [...map.entries()]
+    .sort(([a], [b]) => {
+      if (a === OVERIG) return 1;
+      if (b === OVERIG) return -1;
+      return a.localeCompare(b, 'nl');
+    })
+    .map(([country, items]) => ({
+      country,
+      items: items.sort((x, y) => x.name.localeCompare(y.name, 'nl')),
+    }));
+})();
 
 const schema = [
   organizationSchema(),
@@ -31,25 +73,42 @@ const schema = [
 
   <section class="section container">
     {entries.length > 0 ? (
-      <div class="grid">
-        {entries.map(entry => (
-          <a href={`/streken/${entry.slug}/`} class="card card-link">
-            <div class="card-img-wrap">
-              <SmartImg src={entry.heroImage || undefined} alt={entry.name} theme="vineyard" class="card-img" />
+      <>
+        {tier1.length > 0 && (
+          <div class="tier">
+            <div class="tier-head">
+              <span class="section-label">Zelf gereisd</span>
+              <h2 class="tier-title">Streken waar ik zelf reed</h2>
+              <p class="tier-desc">Deze gidsen schreef ik na eigen bezoek. Weet je niet waar te beginnen? Start bij de vier met een "Begin hier"-label.</p>
             </div>
-            <div class="card-body">
-              {entry.country && <span class="card-country">{entry.country}</span>}
-              <h2 class="card-title">{entry.name}</h2>
-              {entry.description && <p class="card-desc">{entry.description}</p>}
-              {entry.mainGrapes && entry.mainGrapes.length > 0 && (
-                <div class="card-tags">
-                  {entry.mainGrapes.slice(0, 3).map(g => <span class="tag">{g}</span>)}
+            <div class="grid">
+              {tier1.map(entry => (
+                <StreekCard entry={entry} beginHier={beginHier.has(entry.slug)} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {tier2Groups.length > 0 && (
+          <div class="tier">
+            <div class="tier-head">
+              <span class="section-label">Redactiegidsen</span>
+              <h2 class="tier-title">Gidsen per land</h2>
+              <p class="tier-desc">Zorgvuldig samengesteld op basis van primaire bronnen en lokale kennis, gegroepeerd per land.</p>
+            </div>
+            {tier2Groups.map(group => (
+              <div class="country-group">
+                <h3 class="country-title">{group.country}</h3>
+                <div class="grid">
+                  {group.items.map(entry => (
+                    <StreekCard entry={entry} />
+                  ))}
                 </div>
-              )}
-            </div>
-          </a>
-        ))}
-      </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </>
     ) : (
       <div class="empty-state">
         <h2>De gidsen zijn onderweg</h2>
@@ -81,6 +140,36 @@ const schema = [
     max-width: 36rem;
     margin-inline: auto;
   }
+  .tier { margin-bottom: var(--space-12); }
+  .tier:last-child { margin-bottom: 0; }
+  .tier-head { margin-bottom: var(--space-6); }
+  .tier-title {
+    font-family: var(--font-display);
+    font-size: clamp(1.5rem, 1.3rem + 1vw, 2rem);
+    font-weight: 400;
+    font-style: italic;
+    color: var(--ink);
+    margin-top: var(--space-2);
+  }
+  .tier-desc {
+    font-family: var(--font-body);
+    font-size: 0.9375rem;
+    color: var(--inkSoft);
+    margin-top: var(--space-2);
+    max-width: 40rem;
+  }
+  .country-group { margin-bottom: var(--space-8); }
+  .country-group:last-child { margin-bottom: 0; }
+  .country-title {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--rust);
+    padding-bottom: var(--space-2);
+    border-bottom: 1px solid var(--paperShade, #e6ddca);
+    margin-bottom: var(--space-5);
+  }
   .grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -90,68 +179,6 @@ const schema = [
      (<=360px Android / 320px iPhone SE) waar de track de viewport overschrijdt. */
   @media (max-width: 420px) {
     .grid { grid-template-columns: 1fr; }
-  }
-  .card-link {
-    text-decoration: none;
-    color: inherit;
-    display: block;
-  }
-  .card-img-wrap {
-    aspect-ratio: 16 / 11;
-    overflow: hidden;
-    background: var(--paperShade);
-  }
-  .card-img-wrap :global(img),
-  .card-img-wrap :global(.smart-img-placeholder) {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    transition: transform var(--duration-image) var(--ease-out);
-  }
-  .card-link:hover .card-img-wrap :global(img) { transform: scale(1.03); }
-  .card-body { padding: 1.25rem; }
-  .card-country {
-    font-family: var(--font-mono);
-    font-size: 0.5625rem;
-    text-transform: uppercase;
-    letter-spacing: 0.15em;
-    color: var(--rust);
-    display: block;
-    margin-bottom: var(--space-2);
-  }
-  .card-title {
-    font-family: var(--font-display);
-    font-size: 1.25rem;
-    font-weight: 500;
-    color: var(--ink);
-    margin-bottom: var(--space-2);
-    line-height: 1.25;
-  }
-  .card-desc {
-    font-family: var(--font-body);
-    font-size: 0.875rem;
-    color: var(--inkSoft);
-    line-height: 1.5;
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    margin-bottom: var(--space-3);
-  }
-  .card-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.375rem;
-  }
-  .tag {
-    font-family: var(--font-mono);
-    font-size: 0.5625rem;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    background: var(--paperDeep);
-    color: var(--inkSoft);
-    padding: 0.25rem 0.625rem;
-    border-radius: 1px;
   }
   .empty-state {
     text-align: center;
