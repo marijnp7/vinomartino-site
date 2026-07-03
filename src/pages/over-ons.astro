@@ -1,6 +1,7 @@
 ---
 import SiteLayout from '../layouts/SiteLayout.astro';
 import { organizationSchema, breadcrumbSchema } from '../lib/seo';
+import { readDirectusEnv } from '../lib/directus-config';
 
 const schema = [
   organizationSchema(),
@@ -41,6 +42,33 @@ const visited = [
   'Alto Adige',
   'Slowakije',
 ];
+
+// LAT-1987: twee eigen foto's van Marijn uit de DAM, gekoppeld via Directus-bestanden.
+// 694f2a29… = DAM ref 1240 (Calmont, Ediger); dfaff3d0… = DAM ref 816 (uitkijkpunt over het dal).
+// At-buildtijd uit Directus /assets/{uuid} gehaald — geen beeldbytes in de repo (HARDE REGEL 2).
+async function fetchOverOnsFoto(uuid: string): Promise<string | null> {
+  const env = readDirectusEnv();
+  if (!env.configured) return null; // lokaal/dev zonder Directus: beeld overslaan
+  const { writeFileSync, mkdirSync, existsSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const outDir = join(process.cwd(), 'public', 'images', 'over-ons');
+  const outPath = join(outDir, `${uuid}.jpg`);
+  const rel = `/images/over-ons/${uuid}.jpg`;
+  if (existsSync(outPath)) return rel;
+  const res = await fetch(`${env.url}/assets/${uuid}`, {
+    headers: { Authorization: `Bearer ${env.token}` },
+    signal: AbortSignal.timeout(15000),
+  });
+  if (!res.ok) {
+    throw new Error(`[over-ons] Directus-asset ${uuid} niet op te halen: HTTP ${res.status}`);
+  }
+  mkdirSync(outDir, { recursive: true });
+  writeFileSync(outPath, Buffer.from(await res.arrayBuffer()));
+  return rel;
+}
+
+const fotoCalmont = await fetchOverOnsFoto('694f2a29-122b-479c-a2b0-1cd895a493de');
+const fotoUitkijk = await fetchOverOnsFoto('dfaff3d0-675b-48db-acc8-893263eaf06d');
 ---
 
 <SiteLayout
@@ -91,6 +119,19 @@ const visited = [
       <p>
         Op den duur willen we het breder trekken: restaurants en andere plekken die een reis compleet maken, krijgen straks ook een plek op de site.
       </p>
+      {fotoCalmont && (
+        <figure class="over-figure">
+          <img
+            src={fotoCalmont}
+            alt="Marijn bij het Calmont-bord boven de Moezel, met groene heuvels en het rivierdal op de achtergrond"
+            width="3024"
+            height="4032"
+            loading="lazy"
+            decoding="async"
+          />
+          <figcaption>Op de Calmont in Ediger, de steilste wijngaard van Duitsland.</figcaption>
+        </figure>
+      )}
     </div>
   </section>
 
@@ -122,6 +163,19 @@ const visited = [
         ))}
         <span class="visited-more">… en meer</span>
       </div>
+      {fotoUitkijk && (
+        <figure class="over-figure">
+          <img
+            src={fotoUitkijk}
+            alt="Marijn bij een uitkijkpunt kijkt uit over een weids dal"
+            width="4032"
+            height="3024"
+            loading="lazy"
+            decoding="async"
+          />
+          <figcaption>Even uitkijken over het dal, onderweg naar het volgende wijngebied.</figcaption>
+        </figure>
+      )}
     </div>
   </section>
 
@@ -227,6 +281,31 @@ const visited = [
     margin: 0 0 1.5rem;
   }
   .intro p:last-child { margin-bottom: 0; }
+
+  .over-figure {
+    margin: 2.5rem 0 0;
+  }
+  .over-figure img {
+    width: 100%;
+    height: auto;
+    display: block;
+    border: 1px solid var(--color-rule, #C9B98F);
+  }
+  .over-figure figcaption {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+    color: var(--color-text-soft, var(--color-text));
+    margin-top: 0.6rem;
+    font-style: italic;
+  }
+  .intro .over-figure {
+    max-width: 460px;
+    margin-inline: auto;
+  }
+  .visited .over-figure {
+    margin-top: 2rem;
+  }
 
   .rules {
     padding: clamp(48px, 8vw, 80px) 0;
