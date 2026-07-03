@@ -57,7 +57,7 @@ const mapData = {
     <div class="routegeo__canvas" data-routegeo-canvas role="application" aria-label={`Kaart van de route ${title}`}></div>
     {(hasWijnhuis || hasSlaap) && (
       <ul class="routegeo__legend" aria-label="Legenda">
-        <li class="routegeo__legend-item"><span class="routegeo__swatch routegeo__swatch--dag" aria-hidden="true"></span>Dagetappe</li>
+        <li class="routegeo__legend-item"><span class="routegeo__swatch routegeo__swatch--dag" aria-hidden="true">1</span>Dagetappe</li>
         {hasWijnhuis && <li class="routegeo__legend-item"><span class="routegeo__swatch routegeo__swatch--wijnhuis" aria-hidden="true"></span>Wijnhuis</li>}
         {hasSlaap && <li class="routegeo__legend-item"><span class="routegeo__swatch routegeo__swatch--slaap" aria-hidden="true"></span>Overnachten</li>}
       </ul>
@@ -249,13 +249,27 @@ const mapData = {
     color: var(--inkSoft, #5A4F45);
   }
   .routegeo__swatch {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
     width: 12px;
     height: 12px;
     border-radius: 50%;
     border: 1.5px solid #FAF5E9;
     box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.12);
   }
-  .routegeo__swatch--dag { background: #5A1A1F; }
+  /* Dag-etappe: genummerde bordeaux dot (mirror van de kaartpin) — onderscheidt
+     zich zo van de gelijk-gekleurde, ongenummerde wijnhuis-dot in de legenda. */
+  .routegeo__swatch--dag {
+    width: 16px;
+    height: 16px;
+    background: #5A1A1F;
+    color: #FAF5E9;
+    font-size: 0.5625rem;
+    font-weight: 600;
+    line-height: 1;
+  }
   .routegeo__swatch--wijnhuis { background: #5A1A1F; }
   .routegeo__swatch--slaap { background: #5C6B3F; }
   .routegeo__meta {
