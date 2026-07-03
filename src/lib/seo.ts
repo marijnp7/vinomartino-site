@@ -10,7 +10,7 @@ export function organizationSchema(sameAs: string[] = []) {
     name: SITE_NAME,
     url: SITE_URL,
     logo: `${SITE_URL}/favicon.svg`,
-    founder: { '@type': 'Person', name: 'Marijn Petermeijer' },
+    founder: { '@type': 'Person', name: 'Marijn' },
     sameAs,
     description: 'Wijn- en reisplatform voor wijnliefhebbers: ontdek wijnhuizen, routes en streken.',
     inLanguage: 'nl',
