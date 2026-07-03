@@ -51,7 +51,7 @@ else if (hoog) prijs = `tot ${hoog} / nacht`;
     fotoAlt: altText,
     fotoTheme: 'winery',
     badge: tierLabel,
-    whyRegel: kaart.beschrijving,
+    whyRegel: kaart.whyRegel ?? kaart.beschrijving,
     prijs,
     boeklink: href,
     cta: 'Bekijk & boek',

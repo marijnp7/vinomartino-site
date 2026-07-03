@@ -14,7 +14,7 @@ export const STAY_TIER_ORDER: StayTier[] = ['slim_geboekt', 'prijs_kwaliteit', '
 // boekbare accommodatie-kaart. Eén bron zodat de tekst site-breed letterlijk
 // identiek is (streken, accommodaties, wijnroutes). Geen em-dash (huisregel).
 export const STAY_DISCLOSURE_MICROCOPY =
-  'Affiliate-link · als je hier boekt kunnen we een commissie ontvangen, jij betaalt niets extra.';
+  'Affiliate-link · als je hier boekt, kunnen wij een commissie ontvangen; jij betaalt niets extra.';
 
 export const STAY_TIER_META: Record<StayTier, { label: string; color: string }> = {
   slim_geboekt: { label: 'Slim geboekt', color: '#A14F2A' },
