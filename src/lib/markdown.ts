@@ -146,6 +146,7 @@ type HastParent = { children?: HastNode[] };
 const ALLOWED_TAGS = new Set([
   // structuur & tekst
   'p', 'br', 'hr', 'blockquote', 'pre', 'code', 'span', 'div', 'section',
+  'aside', 'header', 'footer',
   'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
   // lijsten
   'ul', 'ol', 'li', 'dl', 'dt', 'dd',
@@ -171,7 +172,8 @@ const DANGEROUS_TAGS = new Set([
 
 // Attributen die op elk toegestaan element mogen staan. `className` is de
 // hast/JSX-propertynaam voor `class` (hast-util-raw camelCaset bekende attrs).
-const GLOBAL_ATTRS = new Set(['id', 'class', 'classname', 'title', 'lang', 'dir', 'role']);
+// `ariaLabel`/`arialabel` = hast-camelCase-vorm van `aria-label` (regio-labels op <aside>).
+const GLOBAL_ATTRS = new Set(['id', 'class', 'classname', 'title', 'lang', 'dir', 'role', 'aria-label', 'arialabel']);
 // Per-tag toegestane attributen, naast de globale.
 const TAG_ATTRS: Record<string, Set<string>> = {
   a: new Set(['href', 'target', 'rel', 'name']),
