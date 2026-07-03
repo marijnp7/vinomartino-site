@@ -129,6 +129,17 @@ const FIELDS = [
     },
     schema: { is_nullable: true },
   },
+  // LAT-2061 (VIS-BL-04) — cursieve one-liner voor de PoiCard.
+  {
+    field: 'why_regel',
+    type: 'string',
+    meta: {
+      interface: 'input-multiline',
+      width: 'half',
+      note: 'Cursieve one-liner voor de PoiCard, max ~95 tekens. Leeg = fallback op beschrijving.',
+    },
+    schema: { is_nullable: true },
+  },
   {
     field: 'lat',
     type: 'float',

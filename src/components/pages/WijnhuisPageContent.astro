@@ -16,6 +16,14 @@ interface WijnhuisVisitInfo {
   value: string;
 }
 
+// VIS-BL-03: vaste rij van (max) 3 beelden onder de intro. Alleen aanwezige
+// beelden worden getoond; nooit een clipart-placeholder voor een lege plek.
+interface WijnhuisDrieluikBeeld {
+  src: string;
+  alt: string;
+  caption?: string;
+}
+
 interface Props {
   name: string;
   subtitle?: string;
@@ -26,6 +34,7 @@ interface Props {
   hectaren?: string;
   biologisch?: string;
   heroImage?: string;
+  drieluik?: WijnhuisDrieluikBeeld[];
   storyTitle?: string;
   storyBody?: string[];
   wines?: WijnhuisWine[];
@@ -45,6 +54,7 @@ const {
   hectaren,
   biologisch,
   heroImage,
+  drieluik = [],
   storyTitle,
   storyBody = [],
   wines = [],
@@ -53,6 +63,8 @@ const {
   reserveringUrl,
   relatedWijnhuizen = [],
 } = Astro.props;
+
+const drieluikBeelden = drieluik.filter((b) => b && b.src);
 ---
 
 <!-- ── HERO ──────────────────────────────────────────── -->
@@ -123,6 +135,31 @@ const {
     />
   </div>
 </section>
+
+<!-- ── DRIELUIK ──────────────────────────────────────── -->
+{drieluikBeelden.length > 0 && (
+  <section class="wh-drieluik" aria-label={`Beelden van ${name}`}>
+    <div class="container">
+      <div
+        class:list={['wh-drieluik__grid', `wh-drieluik__grid--${drieluikBeelden.length}`]}
+      >
+        {drieluikBeelden.map((beeld) => (
+          <figure class="wh-drieluik__item">
+            <img
+              src={beeld.src}
+              alt={beeld.alt}
+              class="wh-drieluik__img"
+              loading="lazy"
+            />
+            {beeld.caption && (
+              <figcaption class="wh-drieluik__caption">{beeld.caption}</figcaption>
+            )}
+          </figure>
+        ))}
+      </div>
+    </div>
+  </section>
+)}
 
 <!-- ── STORY ─────────────────────────────────────────── -->
 {(Astro.slots.has('story') || storyBody.length > 0) && (
@@ -363,6 +400,41 @@ const {
     width: 100%;
     height: 100%;
     object-fit: cover;
+  }
+
+  /* ── Drieluik (VIS-BL-03) ── */
+  .wh-drieluik {
+    padding: 2.5rem 0 0.5rem;
+    background: var(--paper);
+  }
+
+  .wh-drieluik__grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+  }
+  .wh-drieluik__grid--1 { grid-template-columns: 1fr; }
+  .wh-drieluik__grid--2 { grid-template-columns: repeat(2, 1fr); }
+
+  .wh-drieluik__item {
+    margin: 0;
+  }
+
+  .wh-drieluik__img {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    display: block;
+    background: var(--paperShade);
+  }
+
+  .wh-drieluik__caption {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--inkSoft);
+    margin-top: 0.5rem;
   }
 
   /* ── Story ── */
@@ -659,5 +731,7 @@ const {
   @media (max-width: 640px) {
     .wh-related__grid { grid-template-columns: 1fr; }
     .wh-visit__row { grid-template-columns: 1fr; gap: 0.25rem; }
+    .wh-drieluik__grid,
+    .wh-drieluik__grid--2 { grid-template-columns: 1fr; }
   }
 </style>

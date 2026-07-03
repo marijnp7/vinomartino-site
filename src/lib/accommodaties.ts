@@ -30,6 +30,11 @@ export interface AccommodatieKaart {
   lng?: number | null;
   /** 2-4 zinnen persoonlijke beschrijving (wat is uniek). */
   beschrijving: string;
+  /**
+   * LAT-2061 (VIS-BL-04): cursieve one-liner (~95 tekens) voor de PoiCard.
+   * Leeg/`null` = adapter valt terug op `beschrijving`.
+   */
+  whyRegel?: string | null;
   /** Op buildtijd gedownloade foto-URL (DAM → Directus). Leeg = nette placeholder. */
   foto?: string | null;
   /** Optionele alt-tekst; valt terug op "{naam} — {plaats}". */

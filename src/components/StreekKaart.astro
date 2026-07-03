@@ -25,6 +25,10 @@ export interface StreekPoiInput {
   detailUrl?: string | null;
   /** Korte badge, bv. tier-label voor overnachten. */
   badge?: string | null;
+  /** LAT-2003 (VIS-BL-04): één cursieve waarom-regel voor boekbare kaarten. */
+  whyRegel?: string | null;
+  /** LAT-2003 (VIS-BL-04): vaste disclosure-microcopy als kaart-voetregel. */
+  disclosure?: string | null;
   /**
    * LAT-1607/LAT-1644: prijs-tier voor overnachten ('slim_geboekt' |
    * 'prijs_kwaliteit' | 'pure_luxe'). De tier stuurt nu enkel de badge per kaart;
@@ -267,6 +271,7 @@ const usedCats = sections.map((s) => s.key);
                     fotoAlt: it.fotoAlt ?? null,
                     fotoTheme: it.fotoTheme ?? CATEGORY_META[it.category].theme,
                     badge: it.badge ?? null,
+                    whyRegel: it.whyRegel ?? null,
                     beschrijving: it.beschrijving ?? null,
                     prijs: it.prijs ?? null,
                     boeklink: it.boeklink ?? null,
@@ -276,6 +281,7 @@ const usedCats = sections.map((s) => s.key);
                     partner: it.partner || '',
                     placement: `streek-poi-${it.category}`,
                     context: `streek-${slug}`,
+                    disclosure: it.disclosure ?? null,
                     cardId: plotted ? `${mapId}-card-${it.n}` : undefined,
                     plotted,
                   }}

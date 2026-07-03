@@ -1,6 +1,13 @@
 import type { RelatedRef } from './articles';
 import { getCtaStructure, type CtaStructure } from './cta-blocks';
 
+// VIS-BL-03 (LAT-2002): vaste rij van (max) 3 portretbeelden onder de intro.
+export interface WijnhuisDrieluikBeeld {
+    src: string;
+    alt: string;
+    caption?: string;
+}
+
 export interface Wijnhuis {
     slug: string;
     name: string;
@@ -17,6 +24,7 @@ export interface Wijnhuis {
     grapes: string[];
     heroImage: string | null;
     ogImage: string | null;
+    drieluik: WijnhuisDrieluikBeeld[];
     status: string;
     metaTitle: string;
     metaDescription: string;
@@ -114,6 +122,7 @@ function mapWijnhuis(
     heroImagePath: string | null,
     ogImagePath: string | null,
     bodyHtml: string,
+    drieluik: WijnhuisDrieluikBeeld[],
 ): Wijnhuis {
     return {
         slug: String(r.slug),
@@ -131,6 +140,7 @@ function mapWijnhuis(
         grapes: parseJsonField(r.grapes),
         heroImage: heroImagePath,
         ogImage: ogImagePath,
+        drieluik,
         status: String(r.status || 'draft'),
         metaTitle: String(r.meta_title || r.name),
         metaDescription: String(r.meta_description || r.description || ''),
@@ -149,12 +159,15 @@ async function fetchWijnhuizenItems(url: string, token: string): Promise<Record<
     // LAT-1784/LAT-1795: cta_blocks als hoogste tier; degradeert zacht naar de
     // bestaande fallback als veld/permissie ontbreekt (CTA's renderen dan niets).
     const withCta = `${withRelations},cta_blocks`;
+    // LAT-2002 (VIS-BL-03): drieluik-beelden als hoogste tier; degradeert zacht
+    // naar withOg als de velden/permissie nog ontbreken (drieluik rendert dan niets).
+    const withDrieluik = `${withCta},beeld_plek,beeld_mens,beeld_fles`;
     const filterSort = `${statusFilterQuery(env)}&sort=name`;
     const headers = { Authorization: `Bearer ${token}` };
     const signal = AbortSignal.timeout(15000);
     let res: Response;
     try {
-        res = await fetch(`${url}/items/wijnhuizen?limit=-1&fields=${withCta}${filterSort}`, { headers, signal });
+        res = await fetch(`${url}/items/wijnhuizen?limit=-1&fields=${withDrieluik}${filterSort}`, { headers, signal });
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         assetDebug.push({ kind: 'query', url, error: msg });
@@ -167,7 +180,7 @@ async function fetchWijnhuizenItems(url: string, token: string): Promise<Record<
     }
     if (res.status === 400 || res.status === 403) {
         const body = await res.text().catch(() => '');
-        console.warn(`[loadWijnhuizen] Directus rejected fields=…,related_articles,cta_blocks (HTTP ${res.status}) — retrying without LAT-1098/LAT-1784 fields.`);
+        console.warn(`[loadWijnhuizen] Directus rejected fields=…,related_articles,cta_blocks,beeld_* (HTTP ${res.status}) — retrying without LAT-1098/LAT-1784/LAT-2002 fields.`);
         assetDebug.push({ kind: 'query', url, status: res.status, body: body.slice(0, 500), retryWithoutRelations: true });
         let retryRel: Response;
         try {
@@ -215,6 +228,32 @@ async function fetchWijnhuizenItems(url: string, token: string): Promise<Record<
     throw new Error(`[loadWijnhuizen] Directus returned ${res.status} ${res.statusText}: ${body.slice(0, 300)}`);
 }
 
+// VIS-BL-03: vaste drieluik-volgorde (1) plek (2) mens/handwerk (3) fles/glas.
+// Alleen aanwezige beelden komen in de rij; ontbrekende plekken blijven leeg.
+const DRIELUIK_SLOTS: Array<{ field: string; prefix: string; caption: string; altSuffix: string }> = [
+    { field: 'beeld_plek', prefix: 'dl-plek-', caption: 'De plek', altSuffix: 'gebouw en wijngaard' },
+    { field: 'beeld_mens', prefix: 'dl-mens-', caption: 'Het handwerk', altSuffix: 'handwerk in de kelder' },
+    { field: 'beeld_fles', prefix: 'dl-fles-', caption: 'De fles', altSuffix: 'fles en glas op tafel' },
+];
+
+async function buildDrieluik(
+    r: Record<string, unknown>,
+    url: string,
+    token: string,
+    name: string,
+): Promise<WijnhuisDrieluikBeeld[]> {
+    const beelden = await Promise.all(
+        DRIELUIK_SLOTS.map(async (slot): Promise<WijnhuisDrieluikBeeld | null> => {
+            const assetId = r[slot.field];
+            if (!assetId) return null;
+            const src = await downloadAsset(String(assetId), url, token, slot.prefix);
+            if (!src) return null;
+            return { src, alt: `${name}: ${slot.altSuffix}`, caption: slot.caption };
+        }),
+    );
+    return beelden.filter((b): b is WijnhuisDrieluikBeeld => b !== null);
+}
+
 async function loadFromDirectus(url: string, token: string): Promise<Wijnhuis[]> {
     const data = await fetchWijnhuizenItems(url, token);
     const items = await Promise.all(
@@ -229,7 +268,8 @@ async function loadFromDirectus(url: string, token: string): Promise<Wijnhuis[]>
             const ogImagePath = r.og_image
                 ? await downloadAsset(String(r.og_image), url, token, 'og-')
                 : null;
-            return mapWijnhuis(r, heroImagePath, ogImagePath, bodyHtml);
+            const drieluik = await buildDrieluik(r, url, token, normalizeEmDashes(String(r.name)));
+            return mapWijnhuis(r, heroImagePath, ogImagePath, bodyHtml, drieluik);
         }),
     );
     console.log(`[loadWijnhuizen] fetched ${items.length} wijnhuizen from Directus`);
