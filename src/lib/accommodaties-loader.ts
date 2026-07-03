@@ -77,7 +77,7 @@ function toFloatOrNull(val: unknown): number | null {
 // die velden, dan vallen we terug op KERN (streek + status blijven behouden).
 const BASE_FIELDS_CORE =
     'id,slug,name,location,description,price_low,price_high,booking_url,hero_image,dam_image_ref,streek_id.name,streek_id.slug';
-const CURATIE_FIELDS = 'tier,lat,lng';
+const CURATIE_FIELDS = 'tier,lat,lng,why_regel';
 const BASE_FIELDS = `${BASE_FIELDS_CORE},${CURATIE_FIELDS}`;
 
 interface RawAcc {
@@ -152,6 +152,7 @@ export async function loadAccommodatieRoundupsByStreek(): Promise<Map<string, Ac
                 lat: toFloatOrNull(row.lat),
                 lng: toFloatOrNull(row.lng),
                 beschrijving: normalizeEmDashes(String(row.description || '')),
+                whyRegel: row.why_regel ? normalizeEmDashes(String(row.why_regel)) : null,
                 foto,
                 fotoAlt: null,
                 prijsLaag: toIntOrNull(row.price_low),
