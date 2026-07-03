@@ -1,6 +1,7 @@
 ---
 import SiteLayout from '../layouts/SiteLayout.astro';
 import ZelfGereisdBadge from '../components/ZelfGereisdBadge.astro';
+import HomeRoutesMap from '../components/HomeRoutesMap.astro';
 import { loadArticles } from '../lib/articles';
 import { loadRoutes } from '../lib/routes';
 import { organizationSchema } from '../lib/seo';
@@ -162,6 +163,7 @@ function formatDate(value?: string | null) {
           Geen Google-maps-grids, maar reizen, twee tot vijf dagen, met kelders, eetadressen en de weg ertussen.
         </p>
       </header>
+      <HomeRoutesMap routes={routes} />
       <div class="cards-grid">
         {routes.map(r => {
           const kelders = cellarsCount(r);
