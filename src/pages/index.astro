@@ -1,9 +1,17 @@
 ---
 import SiteLayout from '../layouts/SiteLayout.astro';
+import ZelfGereisdBadge from '../components/ZelfGereisdBadge.astro';
 import { loadArticles } from '../lib/articles';
 import { loadRoutes } from '../lib/routes';
 import { organizationSchema } from '../lib/seo';
 import { getAuthorByByline } from '../lib/authors';
+
+// LAT-2008 (VIS-BL-09) — De Brief inline op de homepage. Zelfde MailerLite-
+// capture als /de-brief/ (LAT-1631, form-ID door Marijn bevestigd), override via
+// PUBLIC_MAILERLITE_FORM_ACTION zodat homepage en briefpagina niet divergeren.
+const BRIEF_FORM_ACTION =
+  import.meta.env.PUBLIC_MAILERLITE_FORM_ACTION ||
+  'https://assets.mailerlite.com/jsonp/2415940/forms/189828746131277541/subscribe';
 
 // LAT-1848: render altijd de gecanoniseerde auteursnaam uit het auteur-record
 // (bv. "Marijn") i.p.v. het ruwe Directus author-veld (dat nog "Martin" kan zijn).
@@ -17,6 +25,12 @@ const articles = await loadArticles();
 const spotlight = articles.find((a) => a.featured) ?? articles[0];
 const moreArticles = articles.filter((a) => a.slug !== spotlight?.slug).slice(0, 3);
 const routes = (await loadRoutes()).slice(0, 3);
+
+// LAT-2008 — dagen/kelders-teller per routekaart. Kelders = aantal wijnhuis-stops
+// uit stopsGeo (LAT-2000 kind='wijnhuis'); ontbreekt die data, dan tonen we alleen
+// de duur zodat de kaart deploy-safe degradeert (geen "0 kelders").
+const cellarsCount = (r: (typeof routes)[number]): number =>
+  r.stopsGeo.filter((s) => s.kind === 'wijnhuis').length;
 
 const schema = organizationSchema();
 
@@ -82,17 +96,17 @@ function formatDate(value?: string | null) {
     </div>
     <div class="hero-veil" aria-hidden="true"></div>
     <div class="hero-inner container">
-      <span class="hero-eyebrow">VinoMartino, sinds de oogst van 2024</span>
+      <span class="hero-eyebrow">Zelf gereisd sinds 2019</span>
       <h1 class="hero-title">
-        Wijnreizen<br />
-        <em>met karakter</em>
+        De wijnreizen die wij zelf maakten,
+        <em>klaar om na te reizen.</em>
       </h1>
       <p class="hero-lede">
-        De wijnreizen die wij zelf maakten, klaar om na te reizen.
+        Routes, wijnhuizen en adressen uit elf streken. Geen lijstjes, wel de weg ernaartoe.
       </p>
       <div class="hero-ctas">
         <a href="#bestemmingen" class="btn btn-primary">Kies je bestemming</a>
-        <a href="/artikelen/" class="btn btn-ghost">Lees de verhalen</a>
+        <a href="#routes" class="btn btn-ghost">Bekijk de routes</a>
       </div>
     </div>
     <a href="#bestemmingen" class="hero-scroll" aria-label="Scroll verder">
@@ -123,6 +137,9 @@ function formatDate(value?: string | null) {
                 decoding="async"
               />
             </div>
+            <div class="streek-tile-badge">
+              <ZelfGereisdBadge visited={true} />
+            </div>
             <div class="streek-body">
               <span class="streek-eyebrow">{streek.eyebrow}</span>
               <h3 class="streek-name">{streek.name}</h3>
@@ -132,6 +149,47 @@ function formatDate(value?: string | null) {
           </a>
         ))}
       </div>
+      <p class="section-cta"><a href="/streken/" class="btn btn-outline">Alle 20+ streken →</a></p>
+    </div>
+  </section>
+
+  <section id="routes" class="cards-section">
+    <div class="container">
+      <header class="section-head">
+        <span class="kicker">Op pad</span>
+        <h2 class="section-h">Wijnroutes met karakter</h2>
+        <p class="section-sub">
+          Geen Google-maps-grids, maar reizen, twee tot vijf dagen, met kelders, eetadressen en de weg ertussen.
+        </p>
+      </header>
+      <div class="cards-grid">
+        {routes.map(r => {
+          const kelders = cellarsCount(r);
+          return (
+            <a href={`/wijnroutes/${r.slug}/`} class="card-tile">
+              <div class="card-media">
+                {r.heroImage ? (
+                  <img src={r.heroImage} alt={r.title} width="600" height="450" loading="lazy" decoding="async" />
+                ) : (
+                  <div class="card-placeholder" aria-hidden="true"></div>
+                )}
+              </div>
+              <div class="card-body">
+                {(r.duration || kelders > 0) && (
+                  <span class="card-eyebrow card-meter">
+                    {r.duration}
+                    {r.duration && kelders > 0 && <span class="card-meter-dot" aria-hidden="true"> · </span>}
+                    {kelders > 0 && <span>{kelders} {kelders === 1 ? 'kelder' : 'kelders'}</span>}
+                  </span>
+                )}
+                <h3 class="card-title">{r.title}</h3>
+                {r.description && <p class="card-desc">{r.description}</p>}
+              </div>
+            </a>
+          );
+        })}
+      </div>
+      <p class="section-cta"><a href="/wijnroutes/" class="btn btn-outline">Alle routes →</a></p>
     </div>
   </section>
 
@@ -171,37 +229,6 @@ function formatDate(value?: string | null) {
     </section>
   )}
 
-  <section class="cards-section">
-    <div class="container">
-      <header class="section-head">
-        <span class="kicker">Op pad</span>
-        <h2 class="section-h">Wijnroutes met karakter</h2>
-        <p class="section-sub">
-          Geen Google-maps-grids, maar reizen, twee tot vijf dagen, met kelders, eetadressen en de weg ertussen.
-        </p>
-      </header>
-      <div class="cards-grid">
-        {routes.map(r => (
-          <a href={`/wijnroutes/${r.slug}/`} class="card-tile">
-            <div class="card-media">
-              {r.heroImage ? (
-                <img src={r.heroImage} alt={r.title} width="600" height="450" loading="lazy" decoding="async" />
-              ) : (
-                <div class="card-placeholder" aria-hidden="true"></div>
-              )}
-            </div>
-            <div class="card-body">
-              {r.duration && <span class="card-eyebrow">{r.duration}</span>}
-              <h3 class="card-title">{r.title}</h3>
-              {r.description && <p class="card-desc">{r.description}</p>}
-            </div>
-          </a>
-        ))}
-      </div>
-      <p class="section-cta"><a href="/wijnroutes/" class="btn btn-outline">Alle routes →</a></p>
-    </div>
-  </section>
-
   {moreArticles.length > 0 && (
     <section class="cards-section cards-section--alt">
       <div class="container">
@@ -236,6 +263,33 @@ function formatDate(value?: string | null) {
     </section>
   )}
 
+  <section class="proof" aria-label="Bewijs en gezicht">
+    <div class="container proof-inner">
+      <div class="proof-portrait">
+        <img
+          src="/over-ons-hero.jpg"
+          alt="Marijn proeft een glas wijn met wijngaarden op de achtergrond"
+          width="800"
+          height="1000"
+          loading="lazy"
+          decoding="async"
+        />
+      </div>
+      <div class="proof-body">
+        <span class="kicker proof-kicker">Bewijs en gezicht</span>
+        <ul class="proof-stats">
+          <li><span class="proof-num">11</span><span class="proof-label">streken zelf bereisd</span></li>
+          <li><span class="proof-num">60+</span><span class="proof-label">wijnhuizen bezocht</span></li>
+          <li><span class="proof-num">2019</span><span class="proof-label">op pad sinds</span></li>
+        </ul>
+        <p class="proof-manifest">
+          Waar we zelf waren, zie je dat: het label <em>Zelf gereisd</em>.
+        </p>
+        <a href="/over-ons/" class="btn btn-outline">Ons verhaal →</a>
+      </div>
+    </div>
+  </section>
+
   <section class="brief">
     <div class="container brief-inner">
       <div class="brief-copy">
@@ -245,7 +299,25 @@ function formatDate(value?: string | null) {
           Een persoonlijke brief van Marijn, wat we recent dronken, waar we waren, en welke fles ons opviel. Géén affiliate-deals, géén nieuwsbriefformule.
         </p>
       </div>
-      <a href="/de-brief/" class="btn btn-gold">Schrijf me in</a>
+      <form
+        class="brief-signup"
+        action={BRIEF_FORM_ACTION}
+        method="post"
+        target="_blank"
+        data-newsletter-signup
+        data-region-preference="unknown"
+      >
+        <label for="brief-email" class="visually-hidden">E-mailadres</label>
+        <input
+          id="brief-email"
+          type="email"
+          name="fields[email]"
+          autocomplete="email"
+          placeholder="je@adres.nl"
+          required
+        />
+        <button type="submit" class="btn btn-gold" data-plausible-cta="newsletter_signup">Stuur me de brief</button>
+      </form>
     </div>
   </section>
 </SiteLayout>
@@ -757,6 +829,101 @@ function formatDate(value?: string | null) {
     color: color-mix(in srgb, var(--fixed-cream) 88%, transparent);
   }
 
+  /* LAT-2008 — inline Brief-veld op de homepage. */
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+  .brief-signup {
+    display: flex;
+    gap: var(--space-2);
+    flex: 1;
+    min-width: 18rem;
+    max-width: 30rem;
+  }
+  .brief-signup input {
+    flex: 1;
+    padding: 0.85rem 1rem;
+    border: 1px solid color-mix(in srgb, var(--fixed-cream) 45%, transparent);
+    background: color-mix(in srgb, var(--fixed-cream) 8%, transparent);
+    color: var(--fixed-cream);
+    font-family: var(--font-body);
+    font-size: 1rem;
+    outline: none;
+  }
+  .brief-signup input::placeholder { color: color-mix(in srgb, var(--fixed-cream) 60%, transparent); }
+  .brief-signup input:focus { border-color: var(--gold); }
+  .brief-signup .btn { white-space: nowrap; }
+
+  /* LAT-2008 — "Zelf gereisd"-badge op de bestemmingskaart. */
+  .streek-tile-badge {
+    position: absolute;
+    top: var(--space-3);
+    left: var(--space-3);
+    z-index: 2;
+  }
+
+  /* LAT-2008 — dagen/kelders-teller op de routekaart. */
+  .card-meter { display: inline-flex; align-items: baseline; gap: 0.25rem; }
+
+  /* LAT-2008 — Bewijs & gezicht-strip (VIS-BL-09 sectie 5). */
+  .proof {
+    background: var(--cream, #f6f1e7);
+    padding: var(--space-16) 0;
+    border-top: 1px solid var(--rule);
+  }
+  .proof-inner {
+    display: grid;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    gap: var(--space-12);
+    align-items: center;
+  }
+  .proof-portrait {
+    overflow: hidden;
+    border-radius: 2px;
+    aspect-ratio: 4 / 5;
+  }
+  .proof-portrait img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .proof-kicker { color: var(--rust); }
+  .proof-stats {
+    list-style: none;
+    margin: var(--space-4) 0 var(--space-6);
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-8);
+  }
+  .proof-stats li { display: flex; flex-direction: column; gap: 0.15rem; }
+  .proof-num {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 1.5vw + 1.5rem, 3rem);
+    line-height: 1;
+    color: var(--burgundy);
+  }
+  .proof-label {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-text-soft, var(--rust));
+  }
+  .proof-manifest {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: clamp(1.25rem, 1vw + 1rem, 1.75rem);
+    line-height: 1.3;
+    margin: 0 0 var(--space-6);
+    max-width: 34rem;
+  }
+  .proof-manifest em { font-style: normal; color: var(--burgundy); }
+
   /* ── Responsive ─────────────────────────────────────── */
   @media (max-width: 1024px) {
     .streken-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -765,6 +932,8 @@ function formatDate(value?: string | null) {
       grid-template-columns: 1fr;
       gap: var(--space-8);
     }
+    .proof-inner { grid-template-columns: 1fr; gap: var(--space-8); }
+    .proof-portrait { max-width: 24rem; }
   }
   @media (max-width: 640px) {
     .hero { min-height: clamp(520px, 92vh, 720px); }
@@ -776,5 +945,8 @@ function formatDate(value?: string | null) {
     .streek-tile { aspect-ratio: 4 / 5; }
     .cards-grid { grid-template-columns: 1fr; }
     .brief-inner { flex-direction: column; align-items: flex-start; }
+    .brief-signup { width: 100%; max-width: none; flex-direction: column; }
+    .brief-signup .btn { width: 100%; }
+    .proof-stats { gap: var(--space-6); }
   }
 </style>
