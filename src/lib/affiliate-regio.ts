@@ -89,6 +89,21 @@ function buildGetYourGuideLink(label: string, query?: string): string {
   return u.toString();
 }
 
+/**
+ * Decoreer een specifieke, gecureerde GetYourGuide-tour-URL met onze
+ * partner-tracking. In tegenstelling tot `buildGetYourGuideLink` (zoeklink)
+ * behoudt dit de exacte tour-deeplink en hangt alleen `partner_id` + campagne
+ * (`cmp` = ons `[type]-[regio]`-label) + `utm_medium` eraan. Bestaande
+ * query-parameters op de tour-URL blijven staan.
+ */
+export function decorateGyGTourUrl(tourUrl: string, cmpLabel: string): string {
+  const u = new URL(tourUrl);
+  u.searchParams.set('partner_id', GETYOURGUIDE_PARTNER_ID);
+  u.searchParams.set('utm_medium', 'online_publisher');
+  u.searchParams.set('cmp', cmpLabel);
+  return u.toString();
+}
+
 function buildBookingAwinLink(label: string, query?: string, bookingUrl?: string): string {
   // Awin cread-redirect: awinmid (merchant) + awinaffid (publisher) + clickref (=ons label).
   // `ued` = de uiteindelijke booking.com-deeplink; bij ontbreken bouwen we een
