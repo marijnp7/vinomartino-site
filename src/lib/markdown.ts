@@ -82,6 +82,7 @@ export async function markdownToHtmlWithToc(
   const { fromMarkdown } = await import('mdast-util-from-markdown');
   const { toHast } = await import('mdast-util-to-hast');
   const { toHtml } = await import('hast-util-to-html');
+  const { raw } = await import('hast-util-raw');
   const { gfm } = await import('micromark-extension-gfm');
   const { gfmFromMarkdown } = await import('mdast-util-gfm');
   // LAT-1675: GFM-extensies aanzetten (tabellen, autolink-literal, strikethrough,
@@ -113,8 +114,62 @@ export async function markdownToHtmlWithToc(
     node.data.hProperties = { ...(node.data.hProperties ?? {}), id };
     toc.push({ id, text, depth: node.depth });
   }
-  const hast = toHast(mdast as Parameters<typeof toHast>[0]);
-  return { html: toHtml(hast as Parameters<typeof toHtml>[0]), toc };
+  // LAT-2030/VIS-BL-02: sta redactionele `<figure>`-beeldblokken uit de CMS-body toe.
+  // `allowDangerousHtml` bewaart de ruwe HTML als raw-nodes, `hast-util-raw` parseert
+  // ze naar echte hast-elementen (o.a. <figure>/<figcaption>). `scrubHast` verwijdert
+  // daarna gevaarlijke tags/attributen zodat het aanzetten van ruwe HTML geen
+  // script-injectie op de site-brede CMS-bodies mogelijk maakt (interne auteurs,
+  // geen publieke input, dus denylist volstaat; strikte allowlist = follow-up).
+  const rawHast = raw(
+    toHast(mdast as Parameters<typeof toHast>[0], { allowDangerousHtml: true }) as Parameters<typeof raw>[0],
+  );
+  scrubHast(rawHast as HastParent);
+  return { html: toHtml(rawHast as Parameters<typeof toHtml>[0]), toc };
+}
+
+type HastNode = {
+  type: string;
+  tagName?: string;
+  properties?: Record<string, unknown>;
+  children?: HastNode[];
+};
+type HastParent = { children?: HastNode[] };
+
+// LAT-2030: tags die nooit uit een CMS-body mogen renderen.
+const SCRUB_TAGS = new Set([
+  'script', 'style', 'iframe', 'object', 'embed', 'form', 'input', 'button',
+  'textarea', 'select', 'option', 'link', 'meta', 'base', 'title', 'noscript',
+  'svg', 'math', 'template', 'frame', 'frameset', 'applet', 'portal',
+]);
+// Attributen die een URL dragen; niet-http(s)/mailto/relatieve schema's worden gestript.
+const SCRUB_URL_ATTRS = new Set([
+  'href', 'src', 'srcset', 'xlink:href', 'action', 'formaction', 'poster', 'background',
+]);
+
+// Verwijder gevaarlijke elementen/attributen in-place uit de geparste hast-boom.
+function scrubHast(parent: HastParent): void {
+  if (!Array.isArray(parent.children)) return;
+  parent.children = parent.children.filter((node) => {
+    if (node.type !== 'element' || !node.tagName) return true;
+    if (SCRUB_TAGS.has(node.tagName.toLowerCase())) return false;
+    const props = node.properties;
+    if (props) {
+      for (const key of Object.keys(props)) {
+        const lower = key.toLowerCase();
+        if (lower.startsWith('on')) {
+          delete props[key];
+          continue;
+        }
+        if (SCRUB_URL_ATTRS.has(lower)) {
+          const val = String(props[key] ?? '');
+          if (/^\s*(?:javascript|vbscript):/i.test(val)) delete props[key];
+          else if (/^\s*data:/i.test(val) && !/^\s*data:image\//i.test(val)) delete props[key];
+        }
+      }
+    }
+    scrubHast(node as HastParent);
+    return true;
+  });
 }
 
 export async function markdownToHtml(markdown: string, options: MarkdownOptions = {}): Promise<string> {
