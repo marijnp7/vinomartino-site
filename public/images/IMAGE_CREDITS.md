@@ -45,7 +45,7 @@ Gecorrigeerd: 2026-06-01 — [LAT-1083](/LAT/issues/LAT-1083) (2 outright-foute 
 
 ## Streek-support (Wikimedia Commons, CC BY-SA 4.0)
 
-Gelicenseerd stockbeeld ter ondersteuning van streekpagina's. **CC BY-SA 4.0 vereist naamsvermelding én ShareAlike** (afgeleiden onder dezelfde licentie). Toegevoegd 2026-07-04 — [LAT-2130](/LAT/issues/LAT-2130) (Veneto gat-regio) en [LAT-2131](/LAT/issues/LAT-2131) (Trentino-Alto Adige); keten [LAT-2086](/LAT/issues/LAT-2086).
+Gelicenseerd stockbeeld ter ondersteuning van streekpagina's. **CC BY-SA 4.0 vereist naamsvermelding én ShareAlike** (afgeleiden onder dezelfde licentie). Toegevoegd 2026-07-04 — [LAT-2130](/LAT/issues/LAT-2130) (Veneto gat-regio), [LAT-2131](/LAT/issues/LAT-2131) (Trentino-Alto Adige) en [LAT-2133](/LAT/issues/LAT-2133) (Slowakije); keten [LAT-2086](/LAT/issues/LAT-2086).
 
 | Bestand | Beschrijving | Fotograaf (auteur) | Licentie | Foto-URL (Commons) | Locatie |
 |---|---|---|---|---|---|
@@ -53,6 +53,8 @@ Gelicenseerd stockbeeld ter ondersteuning van streekpagina's. **CC BY-SA 4.0 ver
 | `streken/8b8c4bef-507c-4b93-9eef-35acf8e66542.jpg` | Middeleeuwse burcht boven Soave met de Garganega-wijngaarden van de Classico-kern in avondlicht | Casa del Vino | CC BY-SA 4.0 | [File:Soave_Castle.jpg](https://commons.wikimedia.org/wiki/File:Soave_Castle.jpg) | Soave, Veneto, Italië |
 | `streken/7286c64d-3dc0-4acd-9c15-e495b4829749.jpg` | Steile geterrasseerde Glera-hellingen bij Valdobbiadene, UNESCO-landschap van de Prosecco Superiore | Patafisik | CC BY-SA 4.0 | [File:Tra_le_vigne_di_Collagù...](https://commons.wikimedia.org/wiki/File:Tra_le_vigne_di_Collag%C3%B9_-_wikiraduno_Alle_colline_del_prosecco_abc_04.jpg) | Valdobbiadene, Veneto, Italië |
 | `streken/a93214ca-0c5f-4bd4-867d-84ec5f7d805a.jpg` | De vlakte van de Piana Rotaliana bij Mezzocorona, alluviaal terroir van Teroldego Rotaliano in de Adige-vallei | Franco Visintainer | CC BY-SA 4.0 | [File:Funivia-di-mezzocorona.jpg](https://commons.wikimedia.org/wiki/File:Funivia-di-mezzocorona.jpg) | Mezzocorona, Trentino, Italië |
+| `streken/f998326f-44e2-4cd7-9803-c0fe9cfce6fd.jpg` | Wijngaarden bij Malá Tŕňa in de Slowaakse Tokaj, met perskeldertje en de Zemplín-heuvels aan de horizon | Newklear007 | CC BY-SA 4.0 | [File:Malá_Tŕňa...](https://commons.wikimedia.org/wiki/File:Mal%C3%A1_T%C5%95%C5%88a,_Slovakia_Jul_08,_2022_12-53-38_PM.jpeg) | Malá Tŕňa, Slowakije |
+| `streken/7630f6a4-f017-4fe4-8a30-4f7c6618c4f2.jpg` | Oude, met droge stenen muren geterrasseerde wijngaarden van Svätý Jur in de Kleine Karpaten | Tomáš Bartovič | CC BY-SA 4.0 | [File:Svaty_Jur_vinohrady.jpg](https://commons.wikimedia.org/wiki/File:Svaty_Jur_vinohrady.jpg) | Svätý Jur, Slowakije |
 
 ---
 
@@ -64,6 +66,26 @@ Gelicenseerd stockbeeld ter ondersteuning van streekpagina's. **CC BY 3.0 vereis
 |---|---|---|---|---|---|
 | `streken/6b8dd4b0-025c-4946-82c2-dd12531267e0.jpg` | Het dorp Tramin (Termeno) onder de bergwand — naamgever van de Gewürztraminer — met wijngaarden in de Adige-vallei | qwesy qwesy | CC BY 3.0 | [File:Tramin,_Termeno_-_panoramio.jpg](https://commons.wikimedia.org/wiki/File:Tramin,_Termeno_-_panoramio.jpg) | Tramin/Termeno, Südtirol, Italië |
 | `streken/f4917961-653b-47fc-9f44-9f3d30a8499d.jpg` | Wijngaarden bij de Kalterer See (Lago di Caldaro), in het hart van het Südtiroler wijngebied | qwesy qwesy | CC BY 3.0 | [File:Kalterer_See,_Lago_di_Caldaro_-_panoramio.jpg](https://commons.wikimedia.org/wiki/File:Kalterer_See,_Lago_di_Caldaro_-_panoramio.jpg) | Kaltern/Caldaro, Südtirol, Italië |
+
+---
+
+## Streek-support (Wikimedia Commons, CC BY-SA 3.0)
+
+Gelicenseerd stockbeeld ter ondersteuning van streekpagina's. **CC BY-SA 3.0 vereist naamsvermelding én ShareAlike** (afgeleiden onder dezelfde of compatibele licentie). Toegevoegd 2026-07-04 — [LAT-2133](/LAT/issues/LAT-2133) (Slowakije; keten [LAT-2086](/LAT/issues/LAT-2086)).
+
+| Bestand | Beschrijving | Fotograaf (auteur) | Licentie | Foto-URL (Commons) | Locatie |
+|---|---|---|---|---|---|
+| `streken/3a005275-c7e9-4168-a4e5-73b2a1a6a127.jpg` | Herfstkleuren in de wijngaarden van de Malé Karpaty (Kleine Karpaten), de wijnstreek aan de rand van Bratislava | Ján Hricko | CC BY-SA 3.0 | [File:Jeseň_vo_vinohradoch_-_panoramio_(1).jpg](https://commons.wikimedia.org/wiki/File:Jese%C5%88_vo_vinohradoch_-_panoramio_(1).jpg) | Malé Karpaty, Slowakije |
+
+---
+
+## Streek-support (Wikimedia Commons, publiek domein)
+
+Rechtenvrij stockbeeld (publiek domein) ter ondersteuning van streekpagina's. Naamsvermelding is niet juridisch vereist, maar wordt als courtesy vermeld. Toegevoegd 2026-07-04 — [LAT-2133](/LAT/issues/LAT-2133) (Slowakije; keten [LAT-2086](/LAT/issues/LAT-2086)).
+
+| Bestand | Beschrijving | Fotograaf (auteur) | Licentie | Foto-URL (Commons) | Locatie |
+|---|---|---|---|---|---|
+| `streken/7edf564d-2b9d-475f-af34-d443de0ac88e.jpg` | Wijnrijen met een veldkapelletje bij Suchá nad Parnou in de Kleine Karpaten | Feťour | Publiek domein | [File:Vineyard_Suchá_nad_Parnou.JPG](https://commons.wikimedia.org/wiki/File:Vineyard_Such%C3%A1_nad_Parnou.JPG) | Suchá nad Parnou, Slowakije |
 
 ---
 
