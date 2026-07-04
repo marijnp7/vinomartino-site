@@ -1,6 +1,7 @@
 import { stripEditorialHeader, type RelatedRef } from './articles';
 import { fallbackStopsGeo } from './route-geo-fallback';
 import { getCtaStructure, type CtaStructure } from './cta-blocks';
+import { parseItinerary, deriveStopsGeoFromItinerary, type RouteItinerary } from './route-itinerary';
 
 // LAT-1635 — een stop mét coördinaten voor de geografische routekaart
 // (RouteGeoMap). Komt uit het Directus-veld routes.stops_geo (JSON-array van
@@ -41,6 +42,9 @@ export interface WijnRoute {
     bodyHtml: string;
     relatedArticles: RelatedRef[];
     cta: CtaStructure;
+    // LAT-2013 [VIS-STRAT-02] — gestructureerde dag-itinerary. null = geen CMS-data
+    // (proza/regex-fallback via route-days.ts blijft de bron voor dag-blokken).
+    itinerary: RouteItinerary | null;
 }
 
 function mapRelatedArticles(val: unknown): RelatedRef[] {
@@ -167,10 +171,16 @@ function mapRoute(
     bodyHtml: string,
 ): WijnRoute {
     const slug = String(r.slug);
-    // Directus stops_geo heeft voorrang; bij lege/afwezige CMS-data valt de route
-    // terug op de code-gazetteer (LAT-1997) zodat de kaart altijd rendert.
+    // LAT-2013: de gestructureerde itinerary is de bron van waarheid. Heeft die ≥2
+    // stops mét coördinaten, dan wordt stops_geo daaruit AFGELEID (niet dubbel
+    // onderhouden). Anders de bestaande keten: Directus stops_geo → code-gazetteer
+    // (LAT-1997), zodat de kaart altijd rendert (graceful degrade).
+    const itinerary = parseItinerary(r.itinerary);
+    const derivedGeo = itinerary ? deriveStopsGeoFromItinerary(itinerary) : [];
     const cmsGeo = parseStopsGeo(r.stops_geo);
-    const stopsGeo = cmsGeo.length >= 2 ? cmsGeo : fallbackStopsGeo(slug);
+    const stopsGeo = derivedGeo.length >= 2
+        ? derivedGeo
+        : cmsGeo.length >= 2 ? cmsGeo : fallbackStopsGeo(slug);
     return {
         slug,
         title: normalizeEmDashes(String(r.title)),
@@ -190,6 +200,7 @@ function mapRoute(
         bodyHtml,
         relatedArticles: mapRelatedArticles(r.related_articles),
         cta: getCtaStructure(r),
+        itinerary,
     };
 }
 
@@ -211,12 +222,16 @@ async function fetchRoutesItems(url: string, token: string): Promise<Record<stri
     // het veld nog niet, dan 400/403 → drop alléén cta_blocks en val terug op withGeo
     // (stops_geo + relaties blijven behouden). Deploy-safe.
     const withCta = `${withGeo},cta_blocks`;
+    // LAT-2013: additieve top-tier met routes.itinerary (JSON). Bestaat het veld nog
+    // niet (oude DB), dan 400/403 → drop alléén itinerary en val terug op withCta
+    // (cta_blocks + stops_geo + relaties blijven behouden). Deploy-safe.
+    const withItinerary = `${withCta},itinerary`;
     const filterSort = `${statusFilterQuery(env)}&sort=title`;
     const headers = { Authorization: `Bearer ${token}` };
     const signal = AbortSignal.timeout(15000);
     let res: Response;
     try {
-        res = await fetch(`${url}/items/routes?limit=-1&fields=${withCta}${filterSort}`, { headers, signal });
+        res = await fetch(`${url}/items/routes?limit=-1&fields=${withItinerary}${filterSort}`, { headers, signal });
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         assetDebug.push({ kind: 'query', url, error: msg });
@@ -226,6 +241,23 @@ async function fetchRoutesItems(url: string, token: string): Promise<Record<stri
         const json = await res.json();
         assetDebug.push({ kind: 'query', url, status: 200, count: (json.data || []).length });
         return (json.data || []) as Record<string, unknown>[];
+    }
+    if (res.status === 400 || res.status === 403) {
+        const itinBody = await res.text().catch(() => '');
+        console.warn(`[loadRoutes] Directus rejected fields=…,itinerary (HTTP ${res.status}) — retrying without LAT-2013 itinerary.`);
+        assetDebug.push({ kind: 'query', url, status: res.status, body: itinBody.slice(0, 500), retryWithoutItinerary: true });
+        try {
+            res = await fetch(`${url}/items/routes?limit=-1&fields=${withCta}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            assetDebug.push({ kind: 'query-retry-itinerary', url, error: msg });
+            throw new Error(`[loadRoutes] Directus retry without itinerary threw: ${msg}`);
+        }
+        if (res.ok) {
+            const json = await res.json();
+            assetDebug.push({ kind: 'query-retry-itinerary', url, status: 200, count: (json.data || []).length });
+            return (json.data || []) as Record<string, unknown>[];
+        }
     }
     if (res.status === 400 || res.status === 403) {
         const ctaBody = await res.text().catch(() => '');
