@@ -1,0 +1,263 @@
+---
+// LAT-2013 [VIS-STRAT-02] — rendert de gestructureerde route-itinerary als visuele
+// dag-blokken: dag-strip (deeplink-chips), per dag een kaart met samenvatting,
+// rijtijd, genummerd POI-blok (PoiCard) en een boekbare overnachting per nacht.
+//
+// Activeert alleen wanneer routes.itinerary gevuld is; anders valt de route-pagina
+// terug op de proza/regex-fallback (route-days.ts). Zo blijft élke bestaande route
+// werken zonder itinerary-data (graceful degrade, nul regressie).
+
+import PoiCard, { type PoiCardData } from './PoiCard.astro';
+import type { RouteItinerary, ItineraryStop } from '../lib/route-itinerary';
+import { STAY_DISCLOSURE_MICROCOPY } from '../lib/stay-tier';
+
+interface Props {
+  itinerary: RouteItinerary;
+  /** Streek-slug voor het boekbare accommodatie-doel (/accommodaties/{streek}/). */
+  streekSlug?: string;
+  /** True als er een boekbare accommodatie-roundup voor de streek bestaat. */
+  boekbaar?: boolean;
+  /** Analytics-context (bv. route-slug). */
+  context?: string;
+}
+
+const { itinerary, streekSlug = '', boekbaar = false, context = '' } = Astro.props;
+
+const dagAnchor = (n: number) => `dag-${n}`;
+
+function fmtRijtijd(min: number): string {
+  if (min < 60) return `${min} min`;
+  const u = Math.floor(min / 60);
+  const m = min % 60;
+  return m === 0 ? `${u} u` : `${u} u ${m} min`;
+}
+
+const totaalRijtijd = itinerary.days.reduce((sum, d) => sum + (d.rijtijdMin ?? 0), 0);
+
+const bookHref = boekbaar && streekSlug ? `/accommodaties/${streekSlug}/` : null;
+
+const KIND_LABEL: Record<ItineraryStop['kind'], string> = {
+  wijnhuis: 'Wijnhuis',
+  eten: 'Eten',
+  bezienswaardigheid: 'Bezienswaardigheid',
+  overnachting: 'Overnachting',
+};
+
+function stopToPoi(stop: ItineraryStop): PoiCardData {
+  const detailUrl = stop.kind === 'wijnhuis' && stop.slug ? `/wijnhuizen/${stop.slug}/` : null;
+  return {
+    naam: stop.naam,
+    foto: stop.foto,
+    fotoTheme: stop.kind === 'wijnhuis' ? 'winery' : 'region',
+    badge: KIND_LABEL[stop.kind],
+    whyRegel: stop.why,
+    beschrijving: stop.duur ? `Reken op ${stop.duur}.` : null,
+    detailUrl,
+    cta: 'Lees portret',
+  };
+}
+---
+
+<div class="route-itinerary">
+  <nav class="route-daystrip" aria-label="Dagen op deze route">
+    {itinerary.days.map((d) => (
+      <a class="route-daychip" href={`#${dagAnchor(d.n)}`}>
+        <span class="route-daychip__label">Dag {d.n}</span>
+        {d.title && <span class="route-daychip__title">{d.title}</span>}
+      </a>
+    ))}
+  </nav>
+
+  {totaalRijtijd > 0 && (
+    <p class="route-itinerary__total">Totale rijtijd op de route: circa {fmtRijtijd(totaalRijtijd)}.</p>
+  )}
+
+  <div class="route-days">
+    {itinerary.days.map((d) => (
+      <section class="route-day" id={dagAnchor(d.n)}>
+        <header class="route-day__head">
+          <span class="route-day__label">Dag {d.n}</span>
+          <h2 class="route-day__etappe">{d.title}</h2>
+          {(d.rijtijdMin != null && d.rijtijdMin > 0) && (
+            <span class="route-day__rijtijd">Rijtijd: {fmtRijtijd(d.rijtijdMin)}</span>
+          )}
+        </header>
+
+        {d.summary && <p class="route-day__summary">{d.summary}</p>}
+
+        {d.stops.length > 0 && (
+          <div class="route-day__pois">
+            {d.stops.map((stop) => (
+              <PoiCard poi={stopToPoi(stop)} />
+            ))}
+          </div>
+        )}
+
+        {d.overnachting && (
+          <div class="route-day__stay">
+            <PoiCard
+              poi={{
+                naam: d.overnachting.naam,
+                foto: d.overnachting.foto,
+                fotoTheme: 'region',
+                badge: 'Overnachting',
+                boeklink: d.overnachting.boekbaar ? bookHref : null,
+                cta: 'Bekijk & boek',
+                partner: 'stay22',
+                placement: 'route-itinerary-overnachten',
+                context,
+                ctaKey: 'bekijk-boek',
+                disclosure: d.overnachting.boekbaar && bookHref ? STAY_DISCLOSURE_MICROCOPY : null,
+              }}
+            />
+          </div>
+        )}
+      </section>
+    ))}
+  </div>
+
+  {bookHref && (
+    <a class="route-book-sticky" href={bookHref}>Boek je overnachting</a>
+  )}
+</div>
+
+<style>
+  /* LAT-2013 dag-blokken (deelt de visuele taal van LAT-2005). */
+  .route-daystrip {
+    display: flex;
+    gap: 0.5rem;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 0.5rem;
+    margin-bottom: var(--space-6);
+    scrollbar-width: thin;
+  }
+  .route-daychip {
+    flex: 0 0 auto;
+    scroll-snap-align: start;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 8.5rem;
+    max-width: 12rem;
+    text-decoration: none;
+    background: var(--paperDeep);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-sm);
+    padding: 0.6rem 0.8rem;
+    transition: box-shadow 0.15s, border-color 0.15s;
+  }
+  .route-daychip:hover {
+    border-color: var(--burgundy);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+  .route-daychip__label {
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--burgundy);
+  }
+  .route-daychip__title {
+    font-family: var(--font-ui);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--ink);
+    line-height: 1.25;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .route-itinerary__total {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--inkSoft);
+    margin: 0 0 var(--space-6);
+  }
+  .route-day {
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-sm);
+    background: var(--paper);
+    padding: var(--space-6) var(--space-6) var(--space-6);
+    margin-bottom: var(--space-6);
+    scroll-margin-top: var(--space-6);
+  }
+  .route-day__head {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding-bottom: var(--space-3);
+    margin-bottom: var(--space-4);
+    border-bottom: 2px solid var(--burgundy);
+  }
+  .route-day__label {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--burgundy);
+  }
+  .route-day__etappe {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-weight: 500;
+    line-height: 1.2;
+    color: var(--ink);
+    margin: 0;
+  }
+  .route-day__rijtijd {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    color: var(--inkSoft);
+  }
+  .route-day__summary {
+    font-family: var(--font-body);
+    font-size: 1.0625rem;
+    line-height: 1.7;
+    color: var(--ink);
+    margin: 0 0 var(--space-5);
+  }
+  .route-day__pois {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+    gap: 1rem;
+  }
+  .route-day__stay {
+    margin-top: var(--space-5);
+    padding-top: var(--space-5);
+    border-top: 1px solid var(--ruleSoft);
+    max-width: 22rem;
+  }
+  .route-book-sticky { display: none; }
+  @media (max-width: 640px) {
+    .route-day {
+      padding: var(--space-5) var(--space-4);
+    }
+    .route-day__etappe { font-size: 1.3125rem; }
+    .route-day__pois { grid-template-columns: 1fr; }
+    .route-day__stay { max-width: none; }
+    .route-book-sticky {
+      display: block;
+      position: sticky;
+      bottom: 0.75rem;
+      z-index: 20;
+      width: calc(100% - 2rem);
+      margin: var(--space-6) auto 0;
+      padding: 0.9rem 1rem;
+      text-align: center;
+      text-decoration: none;
+      font-family: var(--font-ui);
+      font-size: 0.9375rem;
+      font-weight: 600;
+      color: var(--paper);
+      background: var(--burgundy);
+      border-radius: var(--radius-sm);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.22);
+    }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .route-daystrip { scroll-behavior: smooth; }
+  }
+</style>

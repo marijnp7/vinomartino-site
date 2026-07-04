@@ -4,6 +4,7 @@ import RelatedArticles from '../../components/RelatedArticles.astro';
 import HubBacklink from '../../components/HubBacklink.astro';
 import RouteMap from '../../components/RouteMap.astro';
 import RouteGeoMap from '../../components/RouteGeoMap.astro';
+import RouteItineraryDays from '../../components/RouteItineraryDays.astro';
 import StaysTeaser from '../../components/StaysTeaser.astro';
 import CtaStructure from '../../components/CtaStructure.astro';
 import { loadRoutes, type WijnRoute } from '../../lib/routes';
@@ -100,8 +101,12 @@ const schema = [
   breadcrumbSchema(crumbs),
 ];
 
-// LAT-2005 [VIS-BL-06]: splits de doorlopende route-body in visuele dag-blokken zodra
+// LAT-2013 [VIS-STRAT-02]: als de route een gestructureerde itinerary in Directus
+// heeft, drijft die de dag-blokken/boekblokken (RouteItineraryDays). Zonder itinerary
+// (nog het geval op alle bestaande routes) valt de pagina terug op LAT-2005:
+// LAT-2005 [VIS-BL-06] splitst de doorlopende route-body in visuele dag-blokken zodra
 // er ≥2 `Dag N`-koppen zijn. Bij minder valt de pagina terug op de bestaande proza.
+const hasItinerary = Boolean(entry.itinerary);
 const routeBody = splitRouteBody(entry.bodyHtml);
 // Sticky "Boek dag 1" verwijst naar de boekbare accommodatie-pagina van de streek
 // (bestaat alleen als er verblijven met echte foto's zijn — zelfde poort als de
@@ -160,7 +165,9 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
         </div>
 
         {entry.bodyHtml && (
-          routeBody.hasDays ? (
+          hasItinerary ? (
+            <div class="page-prose" set:html={entry.bodyHtml} />
+          ) : routeBody.hasDays ? (
             <div class="route-days-wrap">
               <nav class="route-daystrip" aria-label="Dagen op deze route">
                 {routeBody.days.map(d => (
@@ -190,6 +197,15 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
           ) : (
             <div class="page-prose" set:html={entry.bodyHtml} />
           )
+        )}
+
+        {hasItinerary && entry.itinerary && (
+          <RouteItineraryDays
+            itinerary={entry.itinerary}
+            streekSlug={entry.streekSlug}
+            boekbaar={Boolean(staysRoundup)}
+            context={`route-${entry.slug}`}
+          />
         )}
 
         {wijnhuizen.length > 0 && (
@@ -243,7 +259,7 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
 
     <HubBacklink type="route" slug={entry.slug} />
 
-    {routeBody.hasDays && bookHref && (
+    {!hasItinerary && routeBody.hasDays && bookHref && (
       <a class="route-book-sticky" href={bookHref}>Boek dag 1</a>
     )}
   </article>
