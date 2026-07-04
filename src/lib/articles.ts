@@ -49,6 +49,37 @@ export interface Article {
     // van bezoek (nullable).
     zelfGereisd: boolean;
     bezoekjaar: number | null;
+    // LAT-2112 (VIS-STRAT-03, kader LAT-2014) — rubriekenstelsel + visuele stempel.
+    // rubriek = één van de vier terugkerende formats (stuurt de rubriek-signatuur).
+    // tier = redactioneel gewicht ('1' of '2'), toegekend door Lead Editor.
+    // plaatsstempel = "BESTEMMING . MMM JJJJ" overlay op de Tier 1 header-foto.
+    // Alle drie optioneel/nullable → graceful degrade zolang schema/content ontbreekt.
+    rubriek: string | null;
+    tier: string | null;
+    plaatsstempel: string | null;
+    // proefnotities → "Uit de kelder"-kaarten; eerstDitBoeken → praktisch voetblok.
+    // Beide JSON-repeaters op articles; leeg = component rendert niets.
+    proefnotities: Proefnotitie[];
+    eerstDitBoeken: EerstDitBoekenItem[];
+}
+
+// LAT-2112 — "Uit de kelder": fles-first proefnotitie-kaart (kader LAT-2014).
+export interface Proefnotitie {
+    wijnnaam: string;
+    jaar: string;
+    wijnmaker: string;
+    appellation: string;
+    gedronkenIn: string;
+    prijs: string;
+    notitie: string;
+    etiketFoto: string | null;
+    etiketFotoAlt: string | null;
+}
+
+// LAT-2112 — "Eerst dit boeken": praktisch afsluitblok van reisartikelen.
+export interface EerstDitBoekenItem {
+    naam: string;
+    handeling: string;
 }
 
 const META_DESC_RE = /^\s*\*{0,2}Meta-description:?\*{0,2}\s*/i;
@@ -250,6 +281,45 @@ function mapRelatedRefs(val: unknown, slugKey: string, nameKey: string): Related
     return out;
 }
 
+// LAT-2112 — Directus JSON-velden (proefnotities, eerst_dit_boeken) komen binnen
+// als array óf als JSON-string, afhankelijk van het interface. Coerce beide naar
+// een array van objecten; ongeldige/lege input → [] zodat de component niets rendert.
+function coerceJsonArray(val: unknown): Record<string, unknown>[] {
+    let parsed: unknown = val;
+    if (typeof val === 'string') {
+        const s = val.trim();
+        if (!s) return [];
+        try { parsed = JSON.parse(s); } catch { return []; }
+    }
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((r): r is Record<string, unknown> => !!r && typeof r === 'object');
+}
+
+function mapProefnotities(val: unknown): Proefnotitie[] {
+    return coerceJsonArray(val)
+        .map((r) => ({
+            wijnnaam: normalizeEmDashes(String(r.wijnnaam ?? r.naam ?? '')),
+            jaar: String(r.jaar ?? '').trim(),
+            wijnmaker: normalizeEmDashes(String(r.wijnmaker ?? '')),
+            appellation: normalizeEmDashes(String(r.appellation ?? r.appellatie ?? '')),
+            gedronkenIn: normalizeEmDashes(String(r.gedronken_in ?? r.gedronkenIn ?? r.locatie ?? '')),
+            prijs: String(r.prijs ?? '').trim(),
+            notitie: normalizeEmDashes(String(r.notitie ?? '')),
+            etiketFoto: r.etiket_foto ? String(r.etiket_foto) : (r.etiketFoto ? String(r.etiketFoto) : null),
+            etiketFotoAlt: r.etiket_foto_alt ? String(r.etiket_foto_alt) : (r.etiketFotoAlt ? String(r.etiketFotoAlt) : null),
+        }))
+        .filter((p) => p.wijnnaam);
+}
+
+function mapEerstDitBoeken(val: unknown): EerstDitBoekenItem[] {
+    return coerceJsonArray(val)
+        .map((r) => ({
+            naam: normalizeEmDashes(String(r.naam ?? r.categorie ?? '')),
+            handeling: normalizeEmDashes(String(r.handeling ?? r.actie ?? '')),
+        }))
+        .filter((i) => i.naam || i.handeling);
+}
+
 function mapArticle(
     a: Record<string, unknown>,
     heroImagePath: string | null,
@@ -295,6 +365,12 @@ function mapArticle(
           bezoekjaar: Number.isFinite(Number(a.bezoekjaar)) && a.bezoekjaar !== null && a.bezoekjaar !== ''
                 ? Number(a.bezoekjaar)
                 : null,
+          // LAT-2112 — rubriekenstelsel + visuele stempel (kader LAT-2014).
+          rubriek: a.rubriek ? String(a.rubriek) : null,
+          tier: a.tier ? String(a.tier) : null,
+          plaatsstempel: a.plaatsstempel ? normalizeEmDashes(String(a.plaatsstempel)).trim() : null,
+          proefnotities: mapProefnotities(a.proefnotities),
+          eerstDitBoeken: mapEerstDitBoeken(a.eerst_dit_boeken),
     };
 }
 
@@ -343,6 +419,10 @@ async function fetchArticlesItems(url: string, token: string): Promise<Record<st
     // LAT-1958: twee-tier authenticiteitsvelden als rijkste tier. Degradeert zacht
     // terug naar withCta als veld/permissie ontbreekt (badge rendert dan niets).
     const withVisited = `${withCta},zelf_gereisd,bezoekjaar`;
+    // LAT-2112: rubriekenstelsel + visuele stempel als rijkste tier. Degradeert
+    // zacht terug naar withVisited als veld/permissie ontbreekt (stempel/kaarten
+    // renderen dan niets — de rest van het artikel blijft ongewijzigd).
+    const withRubrieken = `${withVisited},rubriek,tier,plaatsstempel,proefnotities,eerst_dit_boeken`;
     // LAT-1053: scheduled publish — verberg artikelen waarvan pub_date in de toekomst
     // ligt, ook als status=published. Directus's $NOW resolvet server-side; pub_date
     // null wordt eveneens getoond (legacy/onbekend) zodat bestaande artikelen niet
@@ -357,6 +437,7 @@ async function fetchArticlesItems(url: string, token: string): Promise<Record<st
     // velden vallen, zodat bv. LAT-1619 artikel-links degraderen zonder de
     // LAT-1098 entiteit-links mee te slepen.
     const tiers: { fields: string; drop: string; hint: string }[] = [
+        { fields: withRubrieken, drop: 'rubriek/tier/plaatsstempel/proefnotities/eerst_dit_boeken', hint: 'Run LAT-2112 Directus-schema (directus/scripts/add-rubrieken-stempel-fields.mjs) en/of geef de build-rol read-permissie op de rubriekvelden.' },
         { fields: withVisited, drop: 'zelf_gereisd/bezoekjaar', hint: 'Maak articles.zelf_gereisd/bezoekjaar aan (LAT-1958) en/of geef de build-rol read-permissie erop.' },
         { fields: withCta, drop: 'cta_blocks', hint: 'Maak articles.cta_blocks aan (LAT-1784) en/of geef de build-rol read-permissie op articles.cta_blocks.' },
         { fields: withFaqSchema, drop: 'faq_schema_json', hint: 'Run LAT-1680 Directus-schema (directus/scripts/add-faq-schema-field.mjs) en/of geef de build-rol read-permissie op articles.faq_schema_json.' },

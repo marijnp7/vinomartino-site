@@ -1,0 +1,89 @@
+---
+/**
+ * LAT-2112 (VIS-STRAT-03, kader LAT-2014) — "Eerst dit boeken": praktisch
+ * afsluitblok van reisartikelen. Per item een concrete handeling + tijdshorizon
+ * (bijv. "Agriturismo La Volta — minimaal zes weken van tevoren, 8 kamers").
+ * Monospace-stijl, licht onderscheiden van de bodytekst.
+ *
+ * Data-driven uit het Directus JSON-veld `eerst_dit_boeken` (articles). Rendert
+ * niets als de lijst leeg is (graceful degrade).
+ */
+import { UI_COPY } from '../lib/ui-copy';
+import type { EerstDitBoekenItem } from '../lib/articles';
+
+interface Props {
+  items: EerstDitBoekenItem[];
+}
+
+const { items } = Astro.props;
+const rows = (items ?? []).filter((i) => i && (i.naam || i.handeling));
+---
+{rows.length > 0 && (
+  <aside class="eerst-dit-boeken" aria-label={UI_COPY.eerstDitBoekenHeading}>
+    <h2 class="edb__heading">{UI_COPY.eerstDitBoekenHeading}</h2>
+    <ol class="edb__list">
+      {rows.map((row) => (
+        <li class="edb__item">
+          {row.naam && <span class="edb__naam">{row.naam}</span>}
+          {row.handeling && <span class="edb__handeling">{row.handeling}</span>}
+        </li>
+      ))}
+    </ol>
+  </aside>
+)}
+
+<style>
+  .eerst-dit-boeken {
+    margin: var(--space-10) 0 0;
+    padding: var(--space-6);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-sm);
+    background: var(--paperDeep);
+    max-width: var(--article-body-max);
+  }
+
+  .edb__heading {
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--burgundy);
+    margin: 0 0 var(--space-4);
+  }
+
+  .edb__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: var(--space-3);
+  }
+
+  .edb__item {
+    display: grid;
+    gap: 0.15rem;
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--ruleSoft, #e0d2b0);
+  }
+  .edb__item:first-child {
+    padding-top: 0;
+    border-top: none;
+  }
+
+  .edb__naam {
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink);
+  }
+
+  .edb__handeling {
+    font-family: var(--font-body, Georgia, serif);
+    font-size: 0.9375rem;
+    line-height: 1.6;
+    color: var(--inkSoft);
+  }
+</style>
