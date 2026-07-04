@@ -9,6 +9,7 @@
 
 import PoiCard, { type PoiCardData } from './PoiCard.astro';
 import type { RouteItinerary, ItineraryStop } from '../lib/route-itinerary';
+import { STAY_DISCLOSURE_MICROCOPY } from '../lib/stay-tier';
 
 interface Props {
   itinerary: RouteItinerary;
@@ -106,6 +107,7 @@ function stopToPoi(stop: ItineraryStop): PoiCardData {
                 placement: 'route-itinerary-overnachten',
                 context,
                 ctaKey: 'bekijk-boek',
+                disclosure: d.overnachting.boekbaar && bookHref ? STAY_DISCLOSURE_MICROCOPY : null,
               }}
             />
           </div>
