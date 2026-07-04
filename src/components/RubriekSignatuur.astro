@@ -1,0 +1,62 @@
+---
+/**
+ * LAT-2112 (VIS-STRAT-03, kader LAT-2014) — Rubriek-signatuur.
+ *
+ * Toont in de artikel-header welk terugkerend format het stuk draagt (De Route /
+ * Het Portret / Uit de kelder / Eerst dit boeken) plus de Tier-signatuur (1 of 2),
+ * toegekend door de Lead Editor. Labels komen uit de centrale UI-copy (HARDE REGEL
+ * 3). Monospace-tag in lijn met de bestaande categorie/tag-stijl van de header.
+ *
+ * Rendert niets als er geen rubriek is (graceful degrade). Onbekende rubriek-values
+ * vallen terug op de ruwe value zodat een nieuw format niet stilletjes verdwijnt.
+ */
+import { UI_COPY } from '../lib/ui-copy';
+
+interface Props {
+  rubriek?: string | null;
+  tier?: string | null;
+}
+
+const { rubriek, tier } = Astro.props;
+const value = (rubriek ?? '').trim();
+const label = value ? (UI_COPY.rubrieken[value] ?? value) : '';
+const tierValue = (tier ?? '').trim();
+const showTier = tierValue === '1' || tierValue === '2';
+---
+{label && (
+  <div class="rubriek-signatuur" title={UI_COPY.rubriekSignatuurTitle}>
+    <span class="rubriek-signatuur__label">{label}</span>
+    {showTier && (
+      <span class="rubriek-signatuur__tier">{UI_COPY.tierPrefix} {tierValue}</span>
+    )}
+  </div>
+)}
+
+<style>
+  .rubriek-signatuur {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: var(--space-3);
+  }
+  .rubriek-signatuur__label {
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-size: 0.625rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--burgundy);
+    padding: 0.28rem 0.6rem;
+    border: 1px solid var(--rule);
+    border-radius: 1px;
+    background: var(--paperDeep);
+  }
+  .rubriek-signatuur__tier {
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-size: 0.5625rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--inkSoft);
+  }
+</style>

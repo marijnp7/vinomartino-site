@@ -1,0 +1,166 @@
+---
+/**
+ * LAT-2112 (VIS-STRAT-03, kader LAT-2014) — "Uit de kelder": fles-first
+ * proefnotitie-kaart. Vaste structuur per fles:
+ *   - etiketfoto (of graceful placeholder), aspect-ratio 3:4 of 1:1
+ *   - wijnnaam in serif
+ *   - monospace datarij 1: JAAR / WIJNMAKER / APPELLATION
+ *   - monospace datarij 2: GEDRONKEN IN: [locatie] / PRIJS: EUR XX
+ *   - twee zinnen notitie
+ *
+ * Data-driven uit het Directus JSON-veld `proefnotities` (articles). Rendert niets
+ * als de lijst leeg is. Elk sub-veld is optioneel: ontbrekende datacellen vallen weg
+ * i.p.v. een lege rij te tonen.
+ *
+ * `format` stuurt de etiket-verhouding: 'ig' = 3:4 (IG/Pinterest), 'grid' = 1:1
+ * (social grid). De web-kaart gebruikt standaard 3:4; echte downloadbare social-
+ * exports zijn een aparte pipeline (zie follow-up).
+ */
+import SmartImg from './SmartImg.astro';
+import { UI_COPY } from '../lib/ui-copy';
+import type { Proefnotitie } from '../lib/articles';
+
+interface Props {
+  proefnotities: Proefnotitie[];
+  format?: 'ig' | 'grid';
+}
+
+const { proefnotities, format = 'ig' } = Astro.props;
+const notes = (proefnotities ?? []).filter((n) => n && n.wijnnaam);
+
+function datarij1(n: Proefnotitie): string[] {
+  return [n.jaar, n.wijnmaker, n.appellation].map((v) => (v ?? '').trim()).filter(Boolean);
+}
+---
+{notes.length > 0 && (
+  <section class="proefnotities" aria-label={UI_COPY.proefnotitieKaartLabel}>
+    {notes.map((n) => (
+      <article class:list={['pnk', `pnk--${format}`]}>
+        <div class="pnk__figure">
+          <SmartImg src={n.etiketFoto ?? undefined} alt={n.etiketFotoAlt ?? `Etiket ${n.wijnnaam}`} theme="bottle" class="pnk__img" />
+        </div>
+        <div class="pnk__body">
+          <span class="pnk__label">{UI_COPY.proefnotitieKaartLabel}</span>
+          <h3 class="pnk__wijnnaam">{n.wijnnaam}</h3>
+
+          {datarij1(n).length > 0 && (
+            <p class="pnk__datarij">
+              {datarij1(n).map((cell, i) => (
+                <>
+                  {i > 0 && <span class="pnk__sep" aria-hidden="true">/</span>}
+                  <span class="pnk__cell">{cell}</span>
+                </>
+              ))}
+            </p>
+          )}
+
+          {(n.gedronkenIn || n.prijs) && (
+            <p class="pnk__datarij">
+              {n.gedronkenIn && (
+                <span class="pnk__cell">{UI_COPY.proefnotitieGedronkenLabel}: {n.gedronkenIn}</span>
+              )}
+              {n.gedronkenIn && n.prijs && <span class="pnk__sep" aria-hidden="true">/</span>}
+              {n.prijs && (
+                <span class="pnk__cell">{UI_COPY.proefnotitiePrijsLabel}: {n.prijs}</span>
+              )}
+            </p>
+          )}
+
+          {n.notitie && <p class="pnk__notitie">{n.notitie}</p>}
+        </div>
+      </article>
+    ))}
+  </section>
+)}
+
+<style>
+  .proefnotities {
+    display: grid;
+    gap: var(--space-6);
+    margin: var(--space-8) 0;
+  }
+
+  .pnk {
+    display: grid;
+    grid-template-columns: 140px 1fr;
+    gap: var(--space-5);
+    align-items: start;
+    border: 1px solid var(--rule);
+    background: var(--paperDeep);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+  }
+
+  .pnk__figure {
+    margin: 0;
+    background: var(--paperShade, #e7dabe);
+  }
+  .pnk__figure :global(.pnk__img),
+  .pnk__figure :global(.smart-img-placeholder) {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  /* 3:4 voor IG/Pinterest, 1:1 voor de social grid. */
+  .pnk--ig .pnk__figure { aspect-ratio: 3 / 4; }
+  .pnk--grid .pnk__figure { aspect-ratio: 1 / 1; }
+
+  .pnk__body {
+    padding: var(--space-5) var(--space-5) var(--space-5) 0;
+  }
+
+  .pnk__label {
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-size: 0.5625rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--rust);
+    display: block;
+    margin-bottom: var(--space-2);
+  }
+
+  .pnk__wijnnaam {
+    font-family: var(--font-display, 'Cormorant Garamond', Georgia, serif);
+    font-size: 1.375rem;
+    font-style: italic;
+    font-weight: 400;
+    color: var(--ink);
+    line-height: 1.15;
+    margin: 0 0 var(--space-3);
+  }
+
+  .pnk__datarij {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.4rem;
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-size: 0.625rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--inkSoft);
+    margin: 0 0 var(--space-2);
+  }
+  .pnk__sep { color: var(--inkFaint); }
+  .pnk__cell { white-space: nowrap; }
+
+  .pnk__notitie {
+    font-family: var(--font-body, Georgia, serif);
+    font-size: 0.9375rem;
+    line-height: 1.65;
+    color: var(--ink);
+    margin: var(--space-3) 0 0;
+  }
+
+  @media (max-width: 640px) {
+    .pnk {
+      grid-template-columns: 1fr;
+    }
+    .pnk__figure { max-height: 320px; }
+    .pnk--ig .pnk__figure,
+    .pnk--grid .pnk__figure { aspect-ratio: 16 / 9; }
+    .pnk__body { padding: var(--space-4) var(--space-5) var(--space-5); }
+  }
+</style>

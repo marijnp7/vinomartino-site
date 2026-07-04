@@ -9,6 +9,10 @@ import AccommodatieRoundup from '../../components/AccommodatieRoundup.astro';
 import CtaStructure from '../../components/CtaStructure.astro';
 import RhoneMap from '../../components/RhoneMap.astro';
 import ZelfGereisdBadge from '../../components/ZelfGereisdBadge.astro';
+import PlaatsStempel from '../../components/PlaatsStempel.astro';
+import RubriekSignatuur from '../../components/RubriekSignatuur.astro';
+import ProefnotitieKaart from '../../components/ProefnotitieKaart.astro';
+import EerstDitBoeken from '../../components/EerstDitBoeken.astro';
 import LangheCaptureBlock from '../../components/LangheCaptureBlock.astro';
 import ArtikelVoetblok, { type VoetblokRoute, type VoetblokHotel } from '../../components/ArtikelVoetblok.astro';
 import { splitBodyForRhoneMap } from '../../lib/rhone-maps';
@@ -171,6 +175,7 @@ if (article.faqSchema) {
     {article.heroImage && (
       <figure class="article-hero">
         <img src={article.heroImage} alt={article.title} class="article-hero-img" />
+        <PlaatsStempel text={article.plaatsstempel} variant="hero" />
         {heroCredit && (
           <figcaption class="article-hero-credit">
             {heroCredit.author} — <a href={heroCredit.licenseUrl} rel="license noopener" target="_blank">{heroCredit.licenseLabel}</a>
@@ -186,6 +191,7 @@ if (article.faqSchema) {
             <a href="/">Home</a> / <a href="/artikelen/">Artikelen</a> / <span>{article.title}</span>
           </nav>
           {article.category && <span class="article-cat">{article.category}</span>}
+          <RubriekSignatuur rubriek={article.rubriek} tier={article.tier} />
           <ZelfGereisdBadge visited={article.zelfGereisd} year={article.bezoekjaar} />
           <h1>{article.title}</h1>
           <div class="article-meta">
@@ -228,6 +234,12 @@ if (article.faqSchema) {
         ) : (
           <div class="article-prose" set:html={article.bodyHtml} />
         )}
+
+        {/* LAT-2112 — "Uit de kelder": fles-first proefnotitie-kaarten (kader LAT-2014). */}
+        <ProefnotitieKaart proefnotities={article.proefnotities} />
+
+        {/* LAT-2112 — "Eerst dit boeken": praktisch afsluitblok van reisartikelen. */}
+        <EerstDitBoeken items={article.eerstDitBoeken} />
 
         {article.slug === 'langhe-piemonte-4-dagen-route' && (
           <LangheCaptureBlock variant="a" />
