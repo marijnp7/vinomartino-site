@@ -45,13 +45,25 @@ Gecorrigeerd: 2026-06-01 — [LAT-1083](/LAT/issues/LAT-1083) (2 outright-foute 
 
 ## Streek-support (Wikimedia Commons, CC BY-SA 4.0)
 
-Gelicenseerd stockbeeld ter ondersteuning van streekpagina's. **CC BY-SA 4.0 vereist naamsvermelding én ShareAlike** (afgeleiden onder dezelfde licentie). Toegevoegd 2026-07-04 — [LAT-2130](/LAT/issues/LAT-2130) (Veneto gat-regio; keten [LAT-2086](/LAT/issues/LAT-2086)).
+Gelicenseerd stockbeeld ter ondersteuning van streekpagina's. **CC BY-SA 4.0 vereist naamsvermelding én ShareAlike** (afgeleiden onder dezelfde licentie). Toegevoegd 2026-07-04 — [LAT-2130](/LAT/issues/LAT-2130) (Veneto gat-regio) en [LAT-2131](/LAT/issues/LAT-2131) (Trentino-Alto Adige); keten [LAT-2086](/LAT/issues/LAT-2086).
 
 | Bestand | Beschrijving | Fotograaf (auteur) | Licentie | Foto-URL (Commons) | Locatie |
 |---|---|---|---|---|---|
 | `streken/101a7131-2e20-4dd9-8841-4181ce5bb412.jpg` | Villa Mosconi Bertani tussen de wijngaarden van de Valpolicella Classica, hart van de Amarone-productie | Gyozvr | CC BY-SA 4.0 | [File:Villa_Mosconi_Bertani...](https://commons.wikimedia.org/wiki/File:Villa_Mosconi_Bertani_and_Amarone_della_Valpolicella_Classico_vineyards.jpg) | Valpolicella, Veneto, Italië |
 | `streken/8b8c4bef-507c-4b93-9eef-35acf8e66542.jpg` | Middeleeuwse burcht boven Soave met de Garganega-wijngaarden van de Classico-kern in avondlicht | Casa del Vino | CC BY-SA 4.0 | [File:Soave_Castle.jpg](https://commons.wikimedia.org/wiki/File:Soave_Castle.jpg) | Soave, Veneto, Italië |
 | `streken/7286c64d-3dc0-4acd-9c15-e495b4829749.jpg` | Steile geterrasseerde Glera-hellingen bij Valdobbiadene, UNESCO-landschap van de Prosecco Superiore | Patafisik | CC BY-SA 4.0 | [File:Tra_le_vigne_di_Collagù...](https://commons.wikimedia.org/wiki/File:Tra_le_vigne_di_Collag%C3%B9_-_wikiraduno_Alle_colline_del_prosecco_abc_04.jpg) | Valdobbiadene, Veneto, Italië |
+| `streken/a93214ca-0c5f-4bd4-867d-84ec5f7d805a.jpg` | De vlakte van de Piana Rotaliana bij Mezzocorona, alluviaal terroir van Teroldego Rotaliano in de Adige-vallei | Franco Visintainer | CC BY-SA 4.0 | [File:Funivia-di-mezzocorona.jpg](https://commons.wikimedia.org/wiki/File:Funivia-di-mezzocorona.jpg) | Mezzocorona, Trentino, Italië |
+
+---
+
+## Streek-support (Wikimedia Commons, CC BY 3.0)
+
+Gelicenseerd stockbeeld ter ondersteuning van streekpagina's. **CC BY 3.0 vereist enkel naamsvermelding** (geen ShareAlike). Toegevoegd 2026-07-04 — [LAT-2131](/LAT/issues/LAT-2131) (Trentino-Alto Adige; keten [LAT-2086](/LAT/issues/LAT-2086)).
+
+| Bestand | Beschrijving | Fotograaf (auteur) | Licentie | Foto-URL (Commons) | Locatie |
+|---|---|---|---|---|---|
+| `streken/6b8dd4b0-025c-4946-82c2-dd12531267e0.jpg` | Het dorp Tramin (Termeno) onder de bergwand — naamgever van de Gewürztraminer — met wijngaarden in de Adige-vallei | qwesy qwesy | CC BY 3.0 | [File:Tramin,_Termeno_-_panoramio.jpg](https://commons.wikimedia.org/wiki/File:Tramin,_Termeno_-_panoramio.jpg) | Tramin/Termeno, Südtirol, Italië |
+| `streken/f4917961-653b-47fc-9f44-9f3d30a8499d.jpg` | Wijngaarden bij de Kalterer See (Lago di Caldaro), in het hart van het Südtiroler wijngebied | qwesy qwesy | CC BY 3.0 | [File:Kalterer_See,_Lago_di_Caldaro_-_panoramio.jpg](https://commons.wikimedia.org/wiki/File:Kalterer_See,_Lago_di_Caldaro_-_panoramio.jpg) | Kaltern/Caldaro, Südtirol, Italië |
 
 ---
 
