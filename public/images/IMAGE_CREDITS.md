@@ -43,6 +43,18 @@ Gecorrigeerd: 2026-06-01 — [LAT-1083](/LAT/issues/LAT-1083) (2 outright-foute 
 
 ---
 
+## Streek-support (Wikimedia Commons, CC BY-SA 4.0)
+
+Gelicenseerd stockbeeld ter ondersteuning van streekpagina's. **CC BY-SA 4.0 vereist naamsvermelding én ShareAlike** (afgeleiden onder dezelfde licentie). Toegevoegd 2026-07-04 — [LAT-2130](/LAT/issues/LAT-2130) (Veneto gat-regio; keten [LAT-2086](/LAT/issues/LAT-2086)).
+
+| Bestand | Beschrijving | Fotograaf (auteur) | Licentie | Foto-URL (Commons) | Locatie |
+|---|---|---|---|---|---|
+| `streken/101a7131-2e20-4dd9-8841-4181ce5bb412.jpg` | Villa Mosconi Bertani tussen de wijngaarden van de Valpolicella Classica, hart van de Amarone-productie | Gyozvr | CC BY-SA 4.0 | [File:Villa_Mosconi_Bertani...](https://commons.wikimedia.org/wiki/File:Villa_Mosconi_Bertani_and_Amarone_della_Valpolicella_Classico_vineyards.jpg) | Valpolicella, Veneto, Italië |
+| `streken/8b8c4bef-507c-4b93-9eef-35acf8e66542.jpg` | Middeleeuwse burcht boven Soave met de Garganega-wijngaarden van de Classico-kern in avondlicht | Casa del Vino | CC BY-SA 4.0 | [File:Soave_Castle.jpg](https://commons.wikimedia.org/wiki/File:Soave_Castle.jpg) | Soave, Veneto, Italië |
+| `streken/7286c64d-3dc0-4acd-9c15-e495b4829749.jpg` | Steile geterrasseerde Glera-hellingen bij Valdobbiadene, UNESCO-landschap van de Prosecco Superiore | Patafisik | CC BY-SA 4.0 | [File:Tra_le_vigne_di_Collagù...](https://commons.wikimedia.org/wiki/File:Tra_le_vigne_di_Collag%C3%B9_-_wikiraduno_Alle_colline_del_prosecco_abc_04.jpg) | Valdobbiadene, Veneto, Italië |
+
+---
+
 ## Wijnroutes (landschap-stijl)
 
 | Bestand | Beschrijving | Fotograaf | Unsplash-profiel | Foto-URL | Locatie |
