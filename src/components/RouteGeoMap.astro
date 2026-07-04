@@ -134,6 +134,9 @@ const mapData = {
     }).addTo(map);
 
     const lastDay = data.stops.reduce((m, s) => (s.n && s.n > m ? s.n : m), 0);
+    // LAT-2125 — genummerde pins bewaren zodat de itinerary-cards (PoiCard,
+    // data-skz-card=n) er tweerichtings mee synchroniseren.
+    const markersByN = new Map<number, any>();
     for (const s of data.stops) {
       // LAT-2000 — merkgekleurde pins: dag-etappe = genummerde bordeaux middendot
       // (vorm uit het wordmark), wijnhuis = bordeaux, overnachten = olijfgroen.
@@ -154,16 +157,50 @@ const mapData = {
       const link = s.kind === 'wijnhuis' && s.slug
         ? `<a class="rgm-popup__cta" href="/wijnhuizen/${encodeURIComponent(s.slug)}/">Lees portret &rarr;</a>`
         : '';
-      L.marker([s.lat, s.lng], { icon, title: s.naam, riseOnHover: true })
+      const marker = L.marker([s.lat, s.lng], { icon, title: s.naam, riseOnHover: true })
         .addTo(map)
         .bindPopup(
           `<div class="rgm-popup"><span class="rgm-popup__role">${esc(role)}</span><h4 class="rgm-popup__name">${esc(s.naam)}</h4>${link}</div>`,
           { minWidth: 140, autoPanPadding: [24, 24] },
         );
+      if (s.n != null) {
+        markersByN.set(s.n, marker);
+        marker.on('click', () => highlightCard(s.n as number));
+      }
     }
 
     map.fitBounds(boundsPts, { padding: [40, 40], maxZoom: 12 });
     setTimeout(() => map.invalidateSize(), 0);
+
+    // LAT-2125 — tweerichtings sync met de itinerary POI-cards: klik/enter op een
+    // genummerde card pant naar de pin + opent de popup (spiegel van StreekKaart).
+    document.querySelectorAll<HTMLElement>('[data-skz-card]').forEach((card) => {
+      const n = Number(card.dataset.skzCard);
+      const marker = markersByN.get(n);
+      if (!marker) return;
+      const focus = (e: Event) => {
+        if ((e.target as HTMLElement).closest('a')) return;
+        map.panTo(marker.getLatLng());
+        marker.openPopup();
+      };
+      card.addEventListener('click', focus);
+      card.addEventListener('keydown', (e: KeyboardEvent) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          map.panTo(marker.getLatLng());
+          marker.openPopup();
+        }
+      });
+    });
+  }
+
+  // Klik-pin → scroll naar de bijbehorende card + korte highlight.
+  function highlightCard(n: number): void {
+    const card = document.querySelector<HTMLElement>(`[data-skz-card="${n}"]`);
+    if (!card) return;
+    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    card.classList.add('poi-card--active');
+    window.setTimeout(() => card.classList.remove('poi-card--active'), 1800);
   }
 
   function ready(): void {

@@ -8,7 +8,8 @@
 // werken zonder itinerary-data (graceful degrade, nul regressie).
 
 import PoiCard, { type PoiCardData } from './PoiCard.astro';
-import type { RouteItinerary, ItineraryStop } from '../lib/route-itinerary';
+import { deriveStopsGeoFromItinerary, type RouteItinerary, type ItineraryStop } from '../lib/route-itinerary';
+import type { RouteStopKind } from '../lib/routes';
 import { STAY_DISCLOSURE_MICROCOPY } from '../lib/stay-tier';
 
 interface Props {
@@ -43,7 +44,45 @@ const KIND_LABEL: Record<ItineraryStop['kind'], string> = {
   overnachting: 'Overnachting',
 };
 
-function stopToPoi(stop: ItineraryStop): PoiCardData {
+// LAT-2125 [VIS-STRAT-02] — nummer de POI-cards zó dat het nummer de kaart-pin
+// matcht. `deriveStopsGeoFromItinerary` (routes.ts) is de bron van waarheid voor
+// stops_geo; RouteGeoMap nummert daarvan alléén de 'stop'-pins (eten/
+// bezienswaardigheid) doorlopend 1..N — wijnhuis/slaap zijn ongenummerde dots.
+// We spiegelen die afleiding + nummering exact zodat pin-nummer == card-nummer.
+const STOP_GEO_KIND: Record<ItineraryStop['kind'], RouteStopKind> = {
+  wijnhuis: 'wijnhuis',
+  overnachting: 'slaap',
+  eten: 'stop',
+  bezienswaardigheid: 'stop',
+};
+
+// RouteGeoMap rendert (en nummert) alleen bij ≥2 geo-stops; anders valt de pagina
+// terug op de schematische RouteMap en corresponderen de pins niet met deze cards.
+const mapDriven = deriveStopsGeoFromItinerary(itinerary).length >= 2;
+
+interface CardPin {
+  /** POI staat als pin op de itinerary-gedreven kaart (coördinaten aanwezig). */
+  plotted: boolean;
+  /** Doorlopend pin-nummer (alleen 'stop'-kind), of null bij ongenummerde pin. */
+  n: number | null;
+}
+
+let pinCounter = 0;
+function nextPin(geoKind: RouteStopKind, lat: number | null, lng: number | null): CardPin {
+  if (!mapDriven || lat == null || lng == null) return { plotted: false, n: null };
+  const n = geoKind === 'stop' ? ++pinCounter : null;
+  return { plotted: true, n };
+}
+
+// Vooraf berekenen in dezelfde volgorde als deriveStopsGeoFromItinerary
+// (dag-volgorde → stops → overnachting) zodat de teller de kaart matcht.
+const dayBlocks = itinerary.days.map((d) => ({
+  day: d,
+  stops: d.stops.map((stop) => ({ stop, pin: nextPin(STOP_GEO_KIND[stop.kind], stop.lat, stop.lng) })),
+  overnachtingPin: d.overnachting ? nextPin('slaap', d.overnachting.lat, d.overnachting.lng) : null,
+}));
+
+function stopToPoi(stop: ItineraryStop, pin: CardPin): PoiCardData {
   const detailUrl = stop.kind === 'wijnhuis' && stop.slug ? `/wijnhuizen/${stop.slug}/` : null;
   return {
     naam: stop.naam,
@@ -54,6 +93,9 @@ function stopToPoi(stop: ItineraryStop): PoiCardData {
     beschrijving: stop.duur ? `Reken op ${stop.duur}.` : null,
     detailUrl,
     cta: 'Lees portret',
+    n: pin.n,
+    plotted: pin.plotted,
+    cardId: pin.n != null ? `route-poi-${pin.n}` : undefined,
   };
 }
 ---
@@ -73,7 +115,7 @@ function stopToPoi(stop: ItineraryStop): PoiCardData {
   )}
 
   <div class="route-days">
-    {itinerary.days.map((d) => (
+    {dayBlocks.map(({ day: d, stops, overnachtingPin }) => (
       <section class="route-day" id={dagAnchor(d.n)}>
         <header class="route-day__head">
           <span class="route-day__label">Dag {d.n}</span>
@@ -85,10 +127,10 @@ function stopToPoi(stop: ItineraryStop): PoiCardData {
 
         {d.summary && <p class="route-day__summary">{d.summary}</p>}
 
-        {d.stops.length > 0 && (
+        {stops.length > 0 && (
           <div class="route-day__pois">
-            {d.stops.map((stop) => (
-              <PoiCard poi={stopToPoi(stop)} />
+            {stops.map(({ stop, pin }) => (
+              <PoiCard poi={stopToPoi(stop, pin)} />
             ))}
           </div>
         )}
@@ -108,6 +150,8 @@ function stopToPoi(stop: ItineraryStop): PoiCardData {
                 context,
                 ctaKey: 'bekijk-boek',
                 disclosure: d.overnachting.boekbaar && bookHref ? STAY_DISCLOSURE_MICROCOPY : null,
+                n: overnachtingPin?.n ?? null,
+                plotted: overnachtingPin?.plotted ?? false,
               }}
             />
           </div>
