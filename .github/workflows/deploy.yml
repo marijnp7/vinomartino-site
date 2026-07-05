@@ -157,11 +157,16 @@ jobs:
             # LAT-1014: capture full build output zodat we kunnen detecteren
             # of Astro silently faalde op getStaticPaths. Astro exit'te 0 in
             # LAT-1011 ondanks Directus 403 — alleen het log onthult dat.
+            # LAT-1768: production content preflight runs BEFORE astro build.
+            # It hard-fails (blocks deploy) if Directus env is missing or a core
+            # live content type returns too few published rows. In preview the
+            # DRAFTS_ENV flag makes the preflight warn-only. --env-file-if-exists
+            # loads DIRECTUS_URL/TOKEN from the copied .env into the node process.
             set +e
             docker run --rm --network directus_directus_net \
               $DRAFTS_ENV \
               -v "$STAGE":/app -w /app \
-              node:24 bash -c "npm ci && npm run build" 2>&1 | tee build.log
+              node:24 bash -c "npm ci && node --env-file-if-exists=.env scripts/preflight-content.mjs && npm run build" 2>&1 | tee build.log
             build_rc=${PIPESTATUS[0]}
             set -e
             if [ "$build_rc" -ne 0 ]; then

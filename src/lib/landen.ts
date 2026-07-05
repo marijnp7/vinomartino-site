@@ -102,6 +102,7 @@ import {
     statusFilterQuery,
     assertDirectusConfigured,
     assetUrl,
+    assertCollectionReadableOrDegrade,
 } from './directus-config';
 
 const assetDebug: Array<Record<string, unknown>> = [];
@@ -367,12 +368,11 @@ async function fetchLandenItems(url: string, token: string): Promise<Record<stri
             return (json.data || []) as Record<string, unknown>[];
         }
         const rbody = await retry.text().catch(() => '');
-        // LAT-1011: als de retry óók 403/404 geeft heeft de build-rol geen
-        // collection-level read op /landen. Hard throw zou de hele Astro-build
-        // halten (geen /index.html, prod 403). Degradeer naar lege lijst zodat
-        // de rest van de site bouwt. LAT-1013 fixt de Directus-permissie.
+        // LAT-1011/LAT-1768: build-rol heeft geen collection-level read op
+        // /landen. In productie fail-loud (throw, blokkeert deploy); alleen
+        // preview/dev degradeert naar lege lijst zodat de rest bouwt.
         if (retry.status === 403 || retry.status === 404) {
-            console.error(`[loadLanden] Directus collection 'landen' ontoegankelijk voor build-rol (HTTP ${retry.status}). /landen/* pages worden NIET gebuild. Fix Directus-permissies in LAT-1013. Body: ${rbody.slice(0, 200)}`);
+            assertCollectionReadableOrDegrade('loadLanden', 'landen', retry.status, env, rbody.slice(0, 200));
             return [];
         }
         throw new Error(`[loadLanden] Directus retry without LAT-1008 fields failed: ${retry.status} ${retry.statusText}: ${rbody.slice(0, 300)} | original ${res.status} body: ${body.slice(0, 200)}`);
