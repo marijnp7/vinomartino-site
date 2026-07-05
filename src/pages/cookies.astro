@@ -33,7 +33,7 @@ const datum = "30 juni 2026";
         <thead><tr><th>Script / verbinding</th><th>Wat het doet</th><th>Zet een cookie?</th></tr></thead>
         <tbody>
           <tr><td>Stay22 <code>letmeallez.js</code> (van <code>scripts.stay22.com</code>)</td><td>Herschrijft accommodatielinks client-side zodat ze via Stay22 lopen; kan een overlay tonen</td><td><strong>Nee</strong> — maakt een netwerkverbinding, maar plaatst géén tracking-/attributiecookie bij laden</td></tr>
-          <tr><td>Google Analytics (GA4, indien actief)</td><td>Anoniem paginabezoek meten; <code>anonymize_ip</code> is ingeschakeld</td><td><strong>Ja</strong> — zie <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google's privacybeleid</a></td></tr>
+          <tr><td>Plausible <code>script.outbound-links.js</code> (van <code>plausible.io</code>)</td><td>Cookieloos, geaggregeerd paginabezoek meten; laadt niet wanneer je browser Do Not Track of Global Privacy Control heeft aanstaan</td><td><strong>Nee</strong> — plaatst géén cookies of andere identifiers</td></tr>
         </tbody>
       </table>
 
@@ -53,7 +53,7 @@ const datum = "30 juni 2026";
       <ul>
         <li><strong>LocalStorage wissen:</strong> via browserinstellingen → Privacy → Sitedata. Alleen je themavoorkeur verdwijnt.</li>
         <li><strong>Stay22-script blokkeren:</strong> via een content-blocker. De tekst-content van de site werkt normaal; de accommodatielink-optimalisatie van Stay22 vervalt.</li>
-        <li><strong>Analytics uitsluiten:</strong> via browserextensies zoals uBlock Origin of via Google's opt-out: <a href="https://tools.google.com/dlpage/gaoptout" target="_blank" rel="noopener">tools.google.com/dlpage/gaoptout</a>.</li>
+        <li><strong>Statistieken uitsluiten:</strong> zet Do Not Track of Global Privacy Control aan in je browser — dan laadt Plausible niet en wordt je bezoek niet geteld. Een content-blocker werkt uiteraard ook.</li>
       </ul>
 
       <h2>Vragen?</h2>
