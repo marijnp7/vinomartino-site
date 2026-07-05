@@ -221,7 +221,7 @@ const headIntro =
           {/* ── Klikbare wijnstreken ── */}
           <g class="crm-regions">
             {wineRegions.map((d) => {
-              const tip = d.badge ? `${d.name} — ${d.badge}` : d.name;
+              const tip = d.badge ? `${d.name}, ${d.badge}` : d.name;
               const Tag = d.linkable ? 'a' : 'g';
               const linkProps = d.linkable ? { href: `/streken/${d.key}/` } : {};
               return (
@@ -251,7 +251,7 @@ const headIntro =
           {markers.length > 0 && (
             <g class="crm-markers">
               {markers.map((d) => {
-                const tip = d.badge ? `${d.name} — ${d.badge}` : d.name;
+                const tip = d.badge ? `${d.name}, ${d.badge}` : d.name;
                 const Tag = d.linkable ? 'a' : 'g';
                 const linkProps = d.linkable ? { href: `/streken/${d.slug}/` } : {};
                 return (

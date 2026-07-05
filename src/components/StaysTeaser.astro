@@ -40,7 +40,7 @@ const regioHref = `/accommodaties/${streekSlug}/`;
         <li>
           <a class="stays-teaser__item" href={`${regioHref}#acc-${kaart.slug}`}>
             <span class="stays-teaser__thumb">
-              <SmartImg src={kaart.foto ?? undefined} alt={kaart.fotoAlt || `${kaart.naam} — ${kaart.plaats}`} theme="winery" class="stays-teaser__img" />
+              <SmartImg src={kaart.foto ?? undefined} alt={kaart.fotoAlt || `${kaart.naam}, ${kaart.plaats}`} theme="winery" class="stays-teaser__img" />
             </span>
             <span class="stays-teaser__text">
               <span class="stays-teaser__naam">{kaart.naam}</span>

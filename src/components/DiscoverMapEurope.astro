@@ -139,7 +139,7 @@ const linkableCount = drawn.filter((d) => d.land).length;
           <g class="dme-countries">
             {drawn.filter((d) => d.land).map((d) => {
               const land = d.land!;
-              const tip = `${land.name} — ${land.regionCount} ${land.regionCount === 1 ? 'streek' : 'streken'}`;
+              const tip = `${land.name}, ${land.regionCount} ${land.regionCount === 1 ? 'streek' : 'streken'}`;
               return (
                 <a
                   href={`/landen/${land.slug}/`}
@@ -181,7 +181,7 @@ const linkableCount = drawn.filter((d) => d.land).length;
                 href={`/landen/${land.slug}/`}
                 class="dme-card"
                 style={`--c: ${land.color};`}
-                aria-label={`${land.name} — ${land.regionCount} ${land.regionCount === 1 ? 'streek' : 'streken'}`}
+                aria-label={`${land.name}, ${land.regionCount} ${land.regionCount === 1 ? 'streek' : 'streken'}`}
               >
                 <span class="dme-card-shape">
                   <svg viewBox={geo.viewBox} role="img" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
