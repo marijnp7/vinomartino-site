@@ -1,7 +1,15 @@
 #!/usr/bin/env node
 /**
- * Seed 7 header navigation items into Directus (LAT-907).
- * Idempotent: looks up existing rows by `key` and updates them; inserts only if missing.
+ * Seed the header navigation items into Directus.
+ *
+ * LAT-1032: this list is now AUTHORITATIVE. It matches the curated topnav set
+ * (was hardcoded onder LAT-1591) exactly, zodat het CMS-gedreven pad in
+ * src/lib/navigation.ts identiek rendert aan de vorige hardcoded nav — geen
+ * regressie. Landen/Streken/Wijnroutes zijn BEWUST geen nav-tabs (die leven in
+ * de /ontdek-atlas-hub); oude rijen met die keys worden gesnoeid.
+ *
+ * Idempotent: upsert by `key`, insert if missing, en prune elke nav_items-rij
+ * met een key die niet in deze lijst staat.
  *
  * Run after bootstrap-schema.mjs:
  *   DIRECTUS_URL=http://localhost:8055 DIRECTUS_TOKEN=<token> \
@@ -22,13 +30,12 @@ const headers = {
 };
 
 const items = [
-  { key: 'landen', label: 'Landen', href: '/landen/', order: 10 },
-  { key: 'streken', label: 'Streken', href: '/streken/', order: 20 },
+  { key: 'ontdek', label: 'Ontdek', href: '/ontdek/', order: 5 },
   { key: 'wijnhuizen', label: 'Wijnhuizen', href: '/wijnhuizen/', order: 30 },
-  { key: 'wijnroutes', label: 'Wijnroutes', href: '/wijnroutes/', order: 40 },
+  { key: 'accommodaties', label: 'Overnachten', href: '/accommodaties/', order: 35 },
   { key: 'artikelen', label: 'Artikelen', href: '/artikelen/', order: 50 },
-  { key: 'de-brief', label: 'De Brief', href: '/de-brief/', order: 60 },
-  { key: 'over-ons', label: 'Over ons', href: '/over-ons/', order: 70 },
+  { key: 'de-brief', label: 'De brief', href: '/de-brief/', order: 60 },
+  { key: 'over-ons', label: 'Ons verhaal', href: '/over-ons/', order: 70 },
 ];
 
 async function findByKey(key) {
@@ -61,9 +68,23 @@ async function upsert(item) {
   }
 }
 
+async function prune() {
+  const keep = new Set(items.map((i) => i.key));
+  const res = await fetch(`${DIRECTUS_URL}/items/nav_items?fields=id,key&limit=-1`, { headers });
+  if (!res.ok) throw new Error(`prune list: ${res.status} ${await res.text()}`);
+  const json = await res.json();
+  const stale = (json.data || []).filter((r) => !keep.has(r.key));
+  for (const row of stale) {
+    const del = await fetch(`${DIRECTUS_URL}/items/nav_items/${row.id}`, { method: 'DELETE', headers });
+    if (!del.ok) throw new Error(`delete ${row.key}: ${del.status} ${await del.text()}`);
+    console.log(`  ✕ pruned ${row.key}`);
+  }
+}
+
 async function run() {
   console.log(`\nSeeding ${items.length} nav_items into ${DIRECTUS_URL}\n`);
   for (const item of items) await upsert(item);
+  await prune();
   console.log('\n✅ Navigation seed complete.\n');
 }
 
