@@ -138,15 +138,17 @@ const drieluikBeelden = drieluik.filter((b) => b && b.src);
     </div>
   </div>
 
-  <div class="wh-hero__img-wrap">
-    <SmartImg
-      src={heroImage}
-      alt={name}
-      theme="winery"
-      class="wh-hero__img"
-      loading="eager"
-    />
-  </div>
+  {heroImage && (
+    <div class="wh-hero__img-wrap">
+      <SmartImg
+        src={heroImage}
+        alt={name}
+        theme="winery"
+        class="wh-hero__img"
+        loading="eager"
+      />
+    </div>
+  )}
 </section>
 
 <!-- ── DRIELUIK ──────────────────────────────────────── -->

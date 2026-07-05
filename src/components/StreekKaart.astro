@@ -271,6 +271,7 @@ const usedCats = sections.map((s) => s.key);
                     foto: it.foto ?? null,
                     fotoAlt: it.fotoAlt ?? null,
                     fotoTheme: it.fotoTheme ?? CATEGORY_META[it.category].theme,
+                    hideMediaWhenEmpty: it.category === 'wijnhuizen',
                     badge: it.badge ?? null,
                     whyRegel: it.whyRegel ?? null,
                     beschrijving: it.beschrijving ?? null,

@@ -25,6 +25,12 @@ export interface PoiCardData {
   foto?: string | null;
   fotoAlt?: string | null;
   fotoTheme?: PoiCardTheme;
+  /**
+   * LAT-2174 — onderdruk de SmartImg-placeholder wanneer er geen foto is.
+   * Voor authenticiteits-gevoelige categorieën (bv. wijnhuizen) willen we
+   * liever géén beeld dan een illustratieve placeholder als bewijsbeeld.
+   */
+  hideMediaWhenEmpty?: boolean;
   /** Korte badge, bv. tier-label voor overnachten. */
   badge?: string | null;
   /**
@@ -88,10 +94,12 @@ const {
   disclosure = null,
   cardId,
   plotted = false,
+  hideMediaWhenEmpty = false,
 } = poi;
 
 const altText = fotoAlt || naam;
 const hasNumber = n != null;
+const showMedia = Boolean(foto) || !hideMediaWhenEmpty;
 ---
 
 <article
@@ -100,12 +108,14 @@ const hasNumber = n != null;
   data-skz-card={plotted && hasNumber ? n : undefined}
   tabindex={plotted && hasNumber ? 0 : undefined}
 >
-  <div class="poi-card__media">
-    <SmartImg src={foto ?? undefined} alt={altText} theme={fotoTheme} class="poi-card__img" />
-    {hasNumber && (
-      <span class="poi-card__num" style={`background:${color}`}>{n}</span>
-    )}
-  </div>
+  {showMedia && (
+    <div class="poi-card__media">
+      <SmartImg src={foto ?? undefined} alt={altText} theme={fotoTheme} class="poi-card__img" />
+      {hasNumber && (
+        <span class="poi-card__num" style={`background:${color}`}>{n}</span>
+      )}
+    </div>
+  )}
 
   <div class="poi-card__body">
     <div class="poi-card__head">
