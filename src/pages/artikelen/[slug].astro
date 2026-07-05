@@ -178,7 +178,7 @@ if (article.faqSchema) {
         <PlaatsStempel text={article.plaatsstempel} variant="hero" />
         {heroCredit && (
           <figcaption class="article-hero-credit">
-            {heroCredit.author} — <a href={heroCredit.licenseUrl} rel="license noopener" target="_blank">{heroCredit.licenseLabel}</a>
+            {heroCredit.author}, <a href={heroCredit.licenseUrl} rel="license noopener" target="_blank">{heroCredit.licenseLabel}</a>
           </figcaption>
         )}
       </figure>
@@ -212,7 +212,7 @@ if (article.faqSchema) {
 
         {showToc && (
           <details class="toc-mobile">
-            <summary>Inhoud — spring naar</summary>
+            <summary>Inhoud: spring naar</summary>
             <nav aria-label="Inhoudsopgave">
               <ol class="toc-list">
                 {toc.map((item) => (

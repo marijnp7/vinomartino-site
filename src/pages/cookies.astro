@@ -26,14 +26,14 @@ const datum = "30 juni 2026";
       <h2>Eigen klikregistratie bij affiliate-links</h2>
       <p>Wanneer je op een affiliate-link klikt, sturen we een anoniem kliksignaal naar onze eigen server (<code>/api/clicks/affiliate</code>). Dit bevat: het linktype, het partnerplatform, de pagina waarop je klikte en het tijdstip. Geen naam, e-mailadres of IP-adres.</p>
 
-      <h2>Derde partijen — wat laadt wanneer</h2>
+      <h2>Derde partijen: wat laadt wanneer</h2>
 
       <p><em>Bij paginalaad (vóór enige klik):</em></p>
       <table>
         <thead><tr><th>Script / verbinding</th><th>Wat het doet</th><th>Zet een cookie?</th></tr></thead>
         <tbody>
-          <tr><td>Stay22 <code>letmeallez.js</code> (van <code>scripts.stay22.com</code>)</td><td>Herschrijft accommodatielinks client-side zodat ze via Stay22 lopen; kan een overlay tonen</td><td><strong>Nee</strong> — maakt een netwerkverbinding, maar plaatst géén tracking-/attributiecookie bij laden</td></tr>
-          <tr><td>Plausible Analytics (van <code>plausible.io</code>)</td><td>Cookieloze bezoekersstatistieken; slaat geen persoonsgegevens of IP-adressen op</td><td><strong>Nee</strong> — plaatst geen cookies en gebruikt geen lokale opslag</td></tr>
+          <tr><td>Stay22 <code>letmeallez.js</code> (van <code>scripts.stay22.com</code>)</td><td>Herschrijft accommodatielinks client-side zodat ze via Stay22 lopen; kan een overlay tonen</td><td><strong>Nee</strong>, maakt een netwerkverbinding, maar plaatst géén tracking-/attributiecookie bij laden</td></tr>
+          <tr><td>Plausible Analytics (van <code>plausible.io</code>)</td><td>Cookieloze bezoekersstatistieken; slaat geen persoonsgegevens of IP-adressen op</td><td><strong>Nee</strong>, plaatst geen cookies en gebruikt geen lokale opslag</td></tr>
         </tbody>
       </table>
 
