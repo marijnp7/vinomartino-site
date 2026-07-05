@@ -26,7 +26,7 @@ interface Props {
 
 const { kaart, context, bronValuta, displayValuta = 'EUR' } = Astro.props;
 const href = accommodatieBookingHref(kaart);
-const altText = kaart.fotoAlt || `${kaart.naam} — ${kaart.plaats}`;
+const altText = kaart.fotoAlt || `${kaart.naam}, ${kaart.plaats}`;
 // LAT-1406: tier-badge — alleen tonen als het verblijf gecureerd is.
 const tierLabel = kaart.tier ? STAY_TIER_META[kaart.tier]?.label ?? null : null;
 

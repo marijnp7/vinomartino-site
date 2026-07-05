@@ -212,7 +212,7 @@ if (article.faqSchema) {
 
         {showToc && (
           <details class="toc-mobile">
-            <summary>Inhoud — spring naar</summary>
+            <summary>Inhoud: spring naar</summary>
             <nav aria-label="Inhoudsopgave">
               <ol class="toc-list">
                 {toc.map((item) => (
@@ -246,7 +246,7 @@ if (article.faqSchema) {
         )}
 
         {authorProfile && (
-          <aside class="article-author-card" aria-label={`Over de auteur — ${authorProfile.name}`}>
+          <aside class="article-author-card" aria-label={`Over de auteur: ${authorProfile.name}`}>
             {authorProfile.portrait && (
               <a class="author-card-portrait" href={`/auteurs/${authorProfile.slug}/`}>
                 <img src={authorProfile.portrait} alt={authorProfile.portraitAlt} width="96" height="96" loading="lazy" />

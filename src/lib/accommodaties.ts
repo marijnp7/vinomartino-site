@@ -37,7 +37,7 @@ export interface AccommodatieKaart {
   whyRegel?: string | null;
   /** Op buildtijd gedownloade foto-URL (DAM → Directus). Leeg = nette placeholder. */
   foto?: string | null;
-  /** Optionele alt-tekst; valt terug op "{naam} — {plaats}". */
+  /** Optionele alt-tekst; valt terug op "{naam}, {plaats}". */
   fotoAlt?: string | null;
   /** Laagseizoen-prijs: "Kamer vanaf €X". */
   prijsLaag?: number | null;
