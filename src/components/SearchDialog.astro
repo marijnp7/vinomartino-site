@@ -388,7 +388,7 @@
       if (!q) {
         active = -1;
         resultsEl.innerHTML =
-          '<div class="vm-search__empty">Begin met typen — bijv. <span class="vm-search__ex">Barolo</span>, <span class="vm-search__ex">Mosel</span> of <span class="vm-search__ex">Priorat</span>.</div>';
+          '<div class="vm-search__empty">Begin met typen, bijv. <span class="vm-search__ex">Barolo</span>, <span class="vm-search__ex">Mosel</span> of <span class="vm-search__ex">Priorat</span>.</div>';
         return;
       }
       if (!records) {
@@ -421,7 +421,7 @@
       for (const type of orderedTypes) {
         html += `<div class="vm-search__group-label" role="presentation">${escapeHtml(type)}</div>`;
         for (const rec of byType.get(type)!) {
-          const sub = rec.subtitle ? `${rec.subtitle} — ` : '';
+          const sub = rec.subtitle ? `${rec.subtitle} · ` : '';
           html += `<a class="vm-search__item" role="option" id="vm-search-opt-${i}" data-idx="${i}" href="${escapeHtml(rec.url)}" aria-selected="${i === 0 ? 'true' : 'false'}">
             <span class="vm-search__item-body">
               <span class="vm-search__item-title">${highlight(rec.title, tokens)}</span>
