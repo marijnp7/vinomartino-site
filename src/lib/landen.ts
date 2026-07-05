@@ -88,6 +88,26 @@ function mapRelatedArticles(val: unknown): RelatedRef[] {
     return out;
 }
 
+// LAT-2173: legacy land-bodies (pre-Directus seed) bevatten redactie-notities
+// als `*[Hier laadt het routes-grid automatisch via Directus]*`. Die horen bij
+// de data-gedreven grids (streken/wijnhuizen/routes) die de template zélf
+// rendert — niet in de proza-body. Op Italië zijn ze uit de Directus-body
+// gehaald, op Spanje/Frankrijk/Duitsland niet, waardoor de letterlijke
+// placeholder-zin live stond. We strippen elke regel die enkel zo'n
+// bracket-placeholder is (optioneel omwikkeld met *_ nadruk-tekens) vóór de
+// markdown→HTML render, zodat de tekst nooit meer op de pagina verschijnt —
+// onafhankelijk van wat er nog in de CMS-body staat.
+const GRID_PLACEHOLDER_LINE = /^[ \t]*[*_]*[ \t]*\[[ \t]*Hier laadt[^\]]*\][ \t]*[*_]*[ \t]*$/gim;
+
+export function stripGridPlaceholders(markdown: string): string {
+    return markdown
+        .replace(GRID_PLACEHOLDER_LINE, '')
+        // Ruim de dubbele lege regels op die achterblijven na het strippen,
+        // zodat de mdast-parser geen extra lege paragrafen genereert.
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+}
+
 async function markdownToHtml(markdown: string): Promise<string> {
     const { fromMarkdown } = await import('mdast-util-from-markdown');
     const { toHast } = await import('mdast-util-to-hast');
@@ -385,7 +405,7 @@ async function loadFromDirectus(url: string, token: string): Promise<Land[]> {
     const data = await fetchLandenItems(url, token);
     const items = await Promise.all(
         data.map(async (r) => {
-            const bodyHtml = r.body ? await markdownToHtml(String(r.body)) : '';
+            const bodyHtml = r.body ? await markdownToHtml(stripGridPlaceholders(String(r.body))) : '';
             const heroImagePath = r.hero_image
                 ? await downloadAsset(String(r.hero_image), url, token)
                 : null;
