@@ -5,6 +5,10 @@ export default defineConfig({
   site: 'https://vinomartino.com',
   server: { host: '0.0.0.0', port: 4321 },
   trailingSlash: 'always',
+  redirects: {
+    // LAT-2056: Marijn-slug is nu `marijn` (strikte regel: geen `martin`).
+    '/auteurs/martin/': '/auteurs/marijn/',
+  },
   integrations: [
     sitemap({
       changefreq: 'weekly',

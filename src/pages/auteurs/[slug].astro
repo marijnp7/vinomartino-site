@@ -1,6 +1,6 @@
 ---
 import SiteLayout from '../../layouts/SiteLayout.astro';
-import { AUTHORS, type Author, getAuthorByByline } from '../../lib/authors';
+import { AUTHORS, type Author, getAuthorByByline, bioParagraphs } from '../../lib/authors';
 import { loadArticles, type Article } from '../../lib/articles';
 import { breadcrumbSchema } from '../../lib/seo';
 
@@ -39,8 +39,13 @@ const schema = [
   ]),
 ];
 
+const paragraphs = bioParagraphs(author.bio);
+const instagramUrl = author.instagramHandle
+  ? `https://www.instagram.com/${author.instagramHandle.replace(/^@/, '')}/`
+  : null;
+
 const metaTitle = `${author.name} — Auteur | VinoMartino`;
-const metaDescription = author.bio.slice(0, 155);
+const metaDescription = (paragraphs[0] ?? author.bio).slice(0, 155);
 ---
 
 <SiteLayout
@@ -64,7 +69,24 @@ const metaDescription = author.bio.slice(0, 155);
       <div class="author-intro">
         <span class="kicker">Auteur</span>
         <h1>{author.name}</h1>
-        <p class="author-bio">{author.bio}</p>
+        {author.tagline && <p class="author-tagline">{author.tagline}</p>}
+        {author.role && <p class="author-role">{author.role}</p>}
+        <div class="author-bio">
+          {paragraphs.map((p) => <p>{p}</p>)}
+        </div>
+        {author.regions && author.regions.length > 0 && (
+          <div class="author-regions">
+            <h2 class="regions-heading">Bereisde streken</h2>
+            <ul>
+              {author.regions.map((region) => <li>{region}</li>)}
+            </ul>
+          </div>
+        )}
+        {instagramUrl && (
+          <p class="author-social">
+            <a href={instagramUrl} rel="me noopener" target="_blank">Volg {author.instagramHandle} op Instagram</a>
+          </p>
+        )}
       </div>
     </header>
 
@@ -151,12 +173,78 @@ const metaDescription = author.bio.slice(0, 155);
     line-height: 1.1;
     margin-bottom: var(--space-5);
   }
+  .author-tagline {
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    letter-spacing: 0.02em;
+    color: var(--rust);
+    margin: 0 0 var(--space-3);
+  }
+  .author-role {
+    font-family: var(--font-body);
+    font-size: 0.9375rem;
+    font-style: italic;
+    color: var(--inkSoft);
+    margin: 0 0 var(--space-5);
+  }
   .author-bio {
     font-family: var(--font-body);
     font-size: 1.0625rem;
     line-height: 1.75;
     color: var(--ink);
     max-width: 36rem;
+  }
+  .author-bio p {
+    margin: 0 0 var(--space-4);
+  }
+  .author-bio p:last-child {
+    margin-bottom: 0;
+  }
+  .author-regions {
+    max-width: 36rem;
+    margin-top: var(--space-8);
+  }
+  .regions-heading {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--inkFaint);
+    margin: 0 0 var(--space-3);
+  }
+  .author-regions ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-4);
+  }
+  .author-regions li {
+    font-family: var(--font-body);
+    font-size: 0.9375rem;
+    color: var(--ink);
+    position: relative;
+    padding-left: var(--space-4);
+  }
+  .author-regions li::before {
+    content: '·';
+    position: absolute;
+    left: 0;
+    color: var(--rust);
+  }
+  .author-social {
+    margin-top: var(--space-8);
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+  }
+  .author-social a {
+    color: var(--burgundy);
+    text-decoration: none;
+    border-bottom: 1px solid currentColor;
+  }
+  .author-social a:hover {
+    color: var(--rust);
   }
 
   .author-articles {
