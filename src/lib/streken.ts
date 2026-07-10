@@ -478,7 +478,7 @@ async function fetchStrekenItems(url: string, token: string): Promise<Record<str
     // hogere tiers 400'en zolang streken.eten/activiteiten (LAT-1592) ontbreken, dus een
     // badge-veld daarbovenop zou als collateral sneuvelen en de "Zelf gereisd"-badge zou
     // nooit renderen. Op withRelations (de hoogste tier die feitelijk slaagt) overleeft de badge.
-    const withRelations = `${withOg},related_articles.articles_id.slug,related_articles.articles_id.title,cta_blocks,accom_cta_blocks,waar_slapen_intro,zelf_gereisd,bezoekjaar`;
+    const withRelations = `${withOg},related_articles.articles_id.slug,related_articles.articles_id.title,cta_blocks,accom_cta_blocks,waar_slapen_intro,zelf_gereisd,bezoekjaar,gyg_tours`;  // LAT-2252: gyg_tours rijdt mee op withRelations (withGyg/withBl10/withFacts 403en op eten/activiteiten en vallen terug)
     // LAT-1592: eten/activiteiten zijn nieuwe streek-velden. Bestaat het veld nog
     // niet (of mist de build-rol read-permissie) dan degradeert deze top-tier naar
     // `withRelations`, zodat related_articles (LAT-1098) NIET sneuvelt op het
@@ -496,35 +496,9 @@ async function fetchStrekenItems(url: string, token: string): Promise<Record<str
     // de nieuwe feitenblok-rijen zijn leeg tot de velden bestaan en gevuld zijn.
     const bl10Fields = 'best_season,drive_days,nearest_airport';
     const withBl10 = `${withFacts},${bl10Fields}`;
-    // LAT-2252: gecureerde GYG-tours als eigen bovenste tier. Bestaat het
-    // `gyg_tours`-veld nog niet in Directus (DevOps moet het aanmaken via
-    // directus/scripts/add-gyg-tours-field.mjs), dan degradeert deze fetch stil
-    // naar `withBl10` — alle bestaande velden blijven renderen; enkel de
-    // "Tours en tickets"-sectie is leeg tot het veld bestaat én gevuld is.
-    const gygField = 'gyg_tours';
-    const withGyg = `${withBl10},${gygField}`;
     const filterSort = `${statusFilterQuery(env)}&sort=name`;
     const headers = { Authorization: `Bearer ${token}` };
     const signal = AbortSignal.timeout(15000);
-
-    // LAT-2252: allerbovenste tier mét gyg_tours; val bij 400/403 stil terug op
-    // withBl10 (feitenblok blijft), dan verder omlaag.
-    try {
-        const gygRes = await fetch(`${url}/items/streken?limit=-1&fields=${withGyg}${filterSort}`, { headers, signal });
-        if (gygRes.ok) {
-            const json = await gygRes.json();
-            assetDebug.push({ kind: 'query', url, status: 200, count: (json.data || []).length, tier: 'withGyg' });
-            return (json.data || []) as Record<string, unknown>[];
-        }
-        if (gygRes.status === 400 || gygRes.status === 403) {
-            console.warn(`[loadStreken] Directus rejected fields=…,${gygField} (HTTP ${gygRes.status}) — retrying without LAT-2252 GYG-tours-veld. Run directus/scripts/add-gyg-tours-field.mjs en/of geef de build-rol read-permissie op streken.gyg_tours.`);
-            assetDebug.push({ kind: 'query', url, status: gygRes.status, retryWithoutGyg: true });
-        }
-    } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        assetDebug.push({ kind: 'query-gyg', url, error: msg });
-        // Val door naar de withBl10-poging hieronder.
-    }
 
     // LAT-2009: bovenste tier mét feitenblok-velden; val bij 400/403 stil terug op
     // withFacts (bestaande fact-velden blijven), dan verder omlaag via withPoi.
