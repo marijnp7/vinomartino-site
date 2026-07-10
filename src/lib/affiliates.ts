@@ -20,30 +20,43 @@ export interface AffiliateBlockConfig {
   description?: string;
 }
 
-// CJ Booking.com deeplink (LAT-923 → LAT-1400).
+// CJ Booking.com deeplink (LAT-923 → LAT-1400 → LAT-2251).
 // booking_url = plain Booking.com URL uit Directus accommodations.booking_url.
-// sid = 'accommodation-{article-slug}' voor CJ-rapportage (gaat in het label als clkid).
+// sid = per-pagina/per-property SubID voor CJ-rapportage (gaat als `sid` mee in de klik).
 //
-// LAT-1400: we linken NIET meer via het CJ-tracker-domein www.kqzyfj.com. Dat domein
-// staat op ad-blocker/Brave/Safari-tracker-lijsten, waardoor de target=_blank-tab bij
-// die bezoekers leeg bleef (booking.com werd nooit bereikt = geen klik, geen commissie).
-// In plaats daarvan bouwen we — net als reisjunk.nl — een DIRECTE booking.com-deeplink
-// met de Booking-affiliate-`aid` + een CJ-`label` dat publisher/site/clkid draagt. Geen
-// blokkeerbaar tussendomein, dus de link werkt ook met een actieve ad-blocker.
+// LAT-2251 (live geverifieerd 2026-07-10): CJ registreerde ~0 kliks / EUR 0 commissie.
+// Root cause = de directe booking.com-deeplink met alleen `aid` + handgebouwd `label`
+// (de LAT-1400-aanpak) passeert het CJ-klikdomein NIET. `aid`/`label` horen bij Booking's
+// EIGEN affiliate-programma; Commission Junction attribueert een klik alléén als hij door
+// het CJ-redirectdomein (kqzyfj.com / dpbolvw.net / anrdoezrs.net) loopt. Zonder die hop
+// is er geen enkele CJ-klik, hoe goed de property-deeplink ook is.
+//
+// Fix: wrap élke booking.com-deeplink door de evergreen CJ-klik-URL, met de schone
+// property-deeplink als url-parameter en een per-pagina `sid`:
+//   https://www.kqzyfj.com/click-{website}-{link}?url={encodeURIComponent(booking)}&sid={sid}
+//
+// Trade-off (bekend uit LAT-1400): kqzyfj.com staat op sommige ad-blocker-lijsten. Dat
+// kost een deel van de ad-blocker-bezoekers, maar zonder de CJ-hop is er ZERO attributie
+// voor iedereen. Netto positief; monitor CJ-clicks 24-48u na deploy.
 export const CJ_CONFIG = {
-  /** CJ publisher (PID) — verschijnt als `pub-...` in het label. */
+  /** CJ publisher (PID) — publisher 7938753 in het CJ-dashboard. */
   cjPublisherId: '7938753',
-  /** CJ website/site-id (property 101734849) — verschijnt als `site-...` in het label. */
+  /** CJ website/property-id VinoMartino — eerste segment van de click-URL. */
   cjWebsiteId: '101734849',
-  /** Booking.com affiliate-id dat de CJ→Booking-redirect aan de finale URL hing. */
-  bookingAid: '818285',
-  /** Legacy CJ ad/link-id van de oude kqzyfj-hop — bewaard voor traceerbaarheid. */
-  legacyEvergreenLinkId: '15734897',
+  /** CJ evergreen link-id (advertiser Booking.com BENELUX 4347407). */
+  cjLinkId: '15734897',
 } as const;
 
-// Bouwt het CJ-label dat Booking aan de boeking koppelt: pub-{PID}_site-{siteId}_clkid-{sid}.
-function buildCjLabel(sid: string): string {
-  return `pub-${CJ_CONFIG.cjPublisherId}_site-${CJ_CONFIG.cjWebsiteId}_clkid-${sid}`;
+/** CJ-klikdomein voor de redirect-hop (kqzyfj.com = dpbolvw.net = anrdoezrs.net). */
+const CJ_CLICK_BASE = 'https://www.kqzyfj.com';
+
+// Wrap een schone booking.com-deeplink door de evergreen CJ-klik-URL. De property-URL
+// gaat correct ge-encodeURIComponent als `url`-param mee; `sid` draagt de per-pagina SubID.
+function cjClickWrap(finalBookingUrl: string, sid: string): string {
+  const u = new URL(`${CJ_CLICK_BASE}/click-${CJ_CONFIG.cjWebsiteId}-${CJ_CONFIG.cjLinkId}`);
+  u.searchParams.set('url', finalBookingUrl);
+  u.searchParams.set('sid', sid);
+  return u.toString();
 }
 
 // CJ-redirectdomeinen (de blokkeerbare tussenhops). Een legacy boeklink kan nog
@@ -70,38 +83,34 @@ export function unwrapCjRedirect(raw: string): string {
 }
 
 export function buildCjBookingLink(plainBookingUrl: string, sid: string): string {
-  // Pel een eventuele CJ-redirecthop af vóór we de directe deeplink opbouwen.
+  // Pel een eventuele bestaande CJ-hop af, normaliseer naar de schone property-deeplink.
   const direct = unwrapCjRedirect(plainBookingUrl);
   try {
     const u = new URL(direct);
-    u.searchParams.set('aid', CJ_CONFIG.bookingAid);
-    u.searchParams.set('label', buildCjLabel(sid));
-    // LAT-1964: op een /hotel/-deeplink houdt keep_landing=1 de bezoeker op de
-    // property-pagina zelf (i.p.v. een edge-case redirect). Browser-geverifieerd
-    // 2026-07-02: aid=818285 + /hotel/ landt gewoon op de hotelpagina — de eerdere
-    // "aid kan niet op /hotel/"-aanname klopt niet. Alleen op /hotel/-paden zetten;
-    // op een searchresults-URL heeft keep_landing geen betekenis.
+    // Strip de oude Booking-eigen affiliate-params: CJ hangt zelf zijn attributie aan
+    // de redirect; een losse `aid`/`label` (ander programma) zou conflicteren.
+    u.searchParams.delete('aid');
+    u.searchParams.delete('label');
+    // LAT-1964: keep_landing=1 houdt een /hotel/-deeplink op de property-pagina zelf.
     if (/\/hotel\//i.test(u.pathname)) u.searchParams.set('keep_landing', '1');
-    return u.toString();
+    // LAT-2251: wrap de schone deeplink door het CJ-klikdomein voor attributie.
+    return cjClickWrap(u.toString(), sid);
   } catch {
     // Niet-parseerbare URL → ongewijzigd teruggeven i.p.v. de build breken.
     return direct;
   }
 }
 
-// LAT-1549: directe booking.com-zoekdeeplink op adres, mét affiliate-aid + CJ-label.
+// LAT-1549 → LAT-2251: booking.com-zoekdeeplink op adres, gewrapt door het CJ-klikdomein.
 // Gebruikt als fallback wanneer een verblijf (nog) geen eigen booking.com-property-URL
-// in Directus heeft. Dit is een DIRECTE booking.com-link (geen kqzyfj-hop, geen
-// Stay22-tussendomein), dus ad-blocker-bestendig én CJ-geattribueerd.
+// in Directus heeft.
 export function buildBookingSearchLink(query: string, sid: string): string {
   try {
     const u = new URL('https://www.booking.com/searchresults.html');
     u.searchParams.set('ss', query);
-    u.searchParams.set('aid', CJ_CONFIG.bookingAid);
-    u.searchParams.set('label', buildCjLabel(sid));
-    return u.toString();
+    return cjClickWrap(u.toString(), sid);
   } catch {
-    return 'https://www.booking.com/';
+    return `${CJ_CLICK_BASE}/click-${CJ_CONFIG.cjWebsiteId}-${CJ_CONFIG.cjLinkId}`;
   }
 }
 
