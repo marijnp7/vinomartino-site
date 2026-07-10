@@ -1,5 +1,6 @@
 import type { RelatedRef } from './articles';
 import { getCtaStructure, type CtaStructure } from './cta-blocks';
+import { isGyGTourUrl } from './affiliate-regio';
 
 // LAT-1127 — curated accommodation tiers (Marijn-spec 2026-06-07). Stored as
 // cast-json on streken (LAT-1136 import). The site renders its own map + cards
@@ -61,6 +62,21 @@ export interface StreekPoi {
     boeklink: string;
 }
 
+// LAT-2252 — Gecureerde GetYourGuide-tour per streek. URL is de kale,
+// gecureerde getyourguide.com-deeplink (zónder tracking); de partner_id + cmp
+// worden pas op render-tijd toegevoegd via decorateGyGTourUrl (affiliate-regio.ts).
+// Gevoed uit het Directus JSON-veld `gyg_tours` (CMS-only mandaat), niet hardcoded.
+export interface GygTour {
+    /** Titel zoals getoond op de kaart. */
+    title: string;
+    /** Kale gecureerde GetYourGuide-tour-URL (deeplink, zonder tracking-params). */
+    url: string;
+    /** Duur/omvang, bv. '4–5 uur' of 'Meerdaags (privé)'. Optioneel. */
+    duration: string;
+    /** Korte omschrijving: waarom deze tour. */
+    blurb: string;
+}
+
 export interface Streek {
     slug: string;
     name: string;
@@ -112,6 +128,9 @@ export interface Streek {
     // stuurt de "Zelf gereisd"-badge; bezoekjaar is het jaar van bezoek (nullable).
     zelfGereisd: boolean;
     bezoekjaar: number | null;
+    // LAT-2252 — gecureerde GetYourGuide-tours (Directus `gyg_tours`). Leeg =
+    // geen "Tours en tickets"-sectie (graceful degrade).
+    gygTours: GygTour[];
 }
 
 // LAT-1098: reverse M2M `streken.related_articles` → `articles_id.{slug,title}`.
@@ -374,6 +393,18 @@ function parseStreekPois(val: unknown): StreekPoi[] {
     })).filter((p) => p.naam);
 }
 
+// LAT-2252 — tolerante mapper voor gecureerde GYG-tours (Directus `gyg_tours`).
+// Alleen rijen met een titel én een geldige getyourguide.com-URL overleven, zodat
+// een half-ingevulde CMS-rij niet als kapotte kaart of foute link rendert.
+function parseGygTours(val: unknown): GygTour[] {
+    return parseJsonObjects(val).map((r) => ({
+        title: normalizeEmDashes(firstString(r, ['title', 'titel', 'naam', 'name'])),
+        url: firstString(r, ['url', 'link', 'tour_url', 'getyourguide', 'gyg_url', 'boeklink']),
+        duration: normalizeEmDashes(firstString(r, ['duration', 'duur', 'omvang'])),
+        blurb: normalizeEmDashes(firstString(r, ['blurb', 'beschrijving', 'description', 'why', 'omschrijving'])),
+    })).filter((t) => t.title && isGyGTourUrl(t.url));
+}
+
 function mapStreek(
     r: Record<string, unknown>,
     heroImagePath: string | null,
@@ -422,6 +453,8 @@ function mapStreek(
         // LAT-1958 — twee-tier authenticiteitsmodel (regels: LAT-1957).
         zelfGereisd: firstBoolean(r, ['zelf_gereisd']),
         bezoekjaar: firstNumber(r, ['bezoekjaar', 'bezoek_jaar', 'visit_year']),
+        // LAT-2252 — gecureerde GYG-tours uit Directus `gyg_tours`.
+        gygTours: parseGygTours(r.gyg_tours),
     };
 }
 
@@ -463,9 +496,35 @@ async function fetchStrekenItems(url: string, token: string): Promise<Record<str
     // de nieuwe feitenblok-rijen zijn leeg tot de velden bestaan en gevuld zijn.
     const bl10Fields = 'best_season,drive_days,nearest_airport';
     const withBl10 = `${withFacts},${bl10Fields}`;
+    // LAT-2252: gecureerde GYG-tours als eigen bovenste tier. Bestaat het
+    // `gyg_tours`-veld nog niet in Directus (DevOps moet het aanmaken via
+    // directus/scripts/add-gyg-tours-field.mjs), dan degradeert deze fetch stil
+    // naar `withBl10` — alle bestaande velden blijven renderen; enkel de
+    // "Tours en tickets"-sectie is leeg tot het veld bestaat én gevuld is.
+    const gygField = 'gyg_tours';
+    const withGyg = `${withBl10},${gygField}`;
     const filterSort = `${statusFilterQuery(env)}&sort=name`;
     const headers = { Authorization: `Bearer ${token}` };
     const signal = AbortSignal.timeout(15000);
+
+    // LAT-2252: allerbovenste tier mét gyg_tours; val bij 400/403 stil terug op
+    // withBl10 (feitenblok blijft), dan verder omlaag.
+    try {
+        const gygRes = await fetch(`${url}/items/streken?limit=-1&fields=${withGyg}${filterSort}`, { headers, signal });
+        if (gygRes.ok) {
+            const json = await gygRes.json();
+            assetDebug.push({ kind: 'query', url, status: 200, count: (json.data || []).length, tier: 'withGyg' });
+            return (json.data || []) as Record<string, unknown>[];
+        }
+        if (gygRes.status === 400 || gygRes.status === 403) {
+            console.warn(`[loadStreken] Directus rejected fields=…,${gygField} (HTTP ${gygRes.status}) — retrying without LAT-2252 GYG-tours-veld. Run directus/scripts/add-gyg-tours-field.mjs en/of geef de build-rol read-permissie op streken.gyg_tours.`);
+            assetDebug.push({ kind: 'query', url, status: gygRes.status, retryWithoutGyg: true });
+        }
+    } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        assetDebug.push({ kind: 'query-gyg', url, error: msg });
+        // Val door naar de withBl10-poging hieronder.
+    }
 
     // LAT-2009: bovenste tier mét feitenblok-velden; val bij 400/403 stil terug op
     // withFacts (bestaande fact-velden blijven), dan verder omlaag via withPoi.
