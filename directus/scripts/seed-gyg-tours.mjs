@@ -68,7 +68,7 @@ const CURATION = [
     ],
   },
   {
-    slugCandidates: ["toscane", "toscana", "chianti"],
+    slugCandidates: ["toscane-italie", "toscane", "toscana", "chianti"],
     tours: [
       {
         title: "Truffeljacht, lunch & wijnproeverij in San Miniato",
