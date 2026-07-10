@@ -8,7 +8,7 @@
 // per sub-bestemming) wordt door CTO/DevOps gevuld; foto-URL is op buildtijd al
 // gedownload uit DAM → Directus zoals bij de bestaande hero_image-loaders.
 
-import { buildCjBookingLink } from './affiliates';
+import { buildCjBookingLink, unwrapCjRedirect } from './affiliates';
 import { herbouwClusterWeergave } from './accommodatie-cluster';
 import type { StayTier } from './stay-tier';
 
@@ -86,9 +86,20 @@ export interface AccommodatieRoundup {
  * Geen geldige bron → null (component verbergt dan de CTA).
  */
 export function accommodatieBookingHref(kaart: AccommodatieKaart): string | null {
-  if (kaart.cjHref && /^https?:\/\//.test(kaart.cjHref)) return kaart.cjHref;
+  const sid = `accommodation-${kaart.slug}`;
+  if (kaart.cjHref && /^https?:\/\//.test(kaart.cjHref)) {
+    // LAT-2251: een vooraf opgeloste cjHref kan een KALE booking.com-boeklink zijn
+    // (curated-stays zet `boeklink` rechtstreeks als cjHref). Booking.com-links —
+    // ook al met een oude CJ-hop — altijd door de CJ-wrapper halen; andere
+    // affiliate-links (Stay22/GetYourGuide) blijven ongemoeid.
+    const inner = unwrapCjRedirect(kaart.cjHref);
+    if (/^https?:\/\/(www\.)?booking\.com\//i.test(inner)) {
+      return buildCjBookingLink(kaart.cjHref, sid);
+    }
+    return kaart.cjHref;
+  }
   if (kaart.bookingUrl && /^https?:\/\//.test(kaart.bookingUrl)) {
-    return buildCjBookingLink(kaart.bookingUrl, `accommodation-${kaart.slug}`);
+    return buildCjBookingLink(kaart.bookingUrl, sid);
   }
   return null;
 }

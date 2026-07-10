@@ -195,12 +195,31 @@ function stripMetaDescriptionFromBody(markdown: string): { body: string; extract
 }
 
 import { markdownToHtmlWithToc, countWords, normalizeEmDashes } from './markdown';
+import { buildCjBookingLink } from './affiliates';
 
-function renderArticleBody(markdown: string): Promise<{ html: string; toc: TocItem[] }> {
-    return markdownToHtmlWithToc(substituteAffiliateTokens(markdown), { stripFirstH1: true });
+function renderArticleBody(markdown: string, slug: string): Promise<{ html: string; toc: TocItem[] }> {
+    return markdownToHtmlWithToc(substituteAffiliateTokens(markdown, slug), { stripFirstH1: true });
 }
 
-function substituteAffiliateTokens(markdown: string): string {
+// LAT-2251: wrap élke booking.com-URL in de artikel-body (markdown-link of raw
+// href) door het CJ-klikdomein, zodat de artikelpagina's dezelfde CJ-attributie
+// krijgen als de streek-/accommodatie-pagina's. buildCjBookingLink pelt een
+// bestaande CJ-hop af, stript oude aid/label en wrapt door kqzyfj.com.
+function cjWrapBookingLinksInBody(markdown: string, slug: string): string {
+    const sid = `artikel-${slug}`;
+    const isBooking = (u: string) => /^https?:\/\/(www\.)?booking\.com\//i.test(u);
+    let result = markdown.replace(
+        /(\]\()(https?:\/\/[^)\s]+)(\))/g,
+        (m, open, url, close) => (isBooking(url) ? `${open}${buildCjBookingLink(url, sid)}${close}` : m),
+    );
+    result = result.replace(
+        /(href=["'])(https?:\/\/[^"']+)(["'])/g,
+        (m, open, url, close) => (isBooking(url) ? `${open}${buildCjBookingLink(url, sid)}${close}` : m),
+    );
+    return result;
+}
+
+function substituteAffiliateTokens(markdown: string, slug: string): string {
     const bookingAid = process.env['BOOKING_AID'] || '';
     const gygPartner = process.env['GETYOURGUIDE_PARTNER'] || '';
 
@@ -224,6 +243,9 @@ function substituteAffiliateTokens(markdown: string): string {
             '$1',
         );
     }
+
+    // LAT-2251: na token-substitutie ALLE booking.com-links door de CJ-wrapper halen.
+    result = cjWrapBookingLinksInBody(result, slug);
 
     return result;
 }
@@ -490,7 +512,7 @@ async function loadFromDirectus(url: string, token: string): Promise<Article[]> 
                   const wordCount = cleanBody ? countWords(cleanBody) : 0;
                   const readingMinutes = Math.max(1, Math.ceil(wordCount / 200));
                   const { html: bodyHtml, toc } = cleanBody
-                        ? await renderArticleBody(cleanBody)
+                        ? await renderArticleBody(cleanBody, String(a.slug))
                         : { html: '', toc: [] };
                   const [heroImagePath, ogImagePath] = await Promise.all([
                         a.hero_image ? downloadArticleAsset(String(a.hero_image), url, token) : Promise.resolve(null),
