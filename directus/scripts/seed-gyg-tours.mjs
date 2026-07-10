@@ -152,12 +152,6 @@ const CURATION = [
         blurb: "Drie familiedomeinen in de Marne-vallée, geen grote huizen. Pinot Meunier is hier de hoofddruif — de variëteit die grande marques gebruiken als blending-component maar die in de Marne-vallée op eigen kracht staat: fruitig, vroeger rijpend dan Pinot Noir, minder tannineus. Dit is de Champagne die het systeem je niet stuurt, maar die Martin graag heeft.",
       },
       {
-        title: "Épernay: Mercier Champagne Cellar Visit with Tastings",
-        url: "https://www.getyourguide.com/epernay-l35220/epernay-mercier-champagne-cellar-visit-with-tastings-t343901/",
-        duration: "1,5 uur",
-        blurb: "Mercier heeft de meest theatrale kelderlogistiek van de Avenue de Champagne: achttien kilometer tunnel, gebouwd door Eugène Mercier in de 19e eeuw, met een treintje erdoorheen dat toeristen nog altijd gebruikt. Een beetje flamboyant — maar het formaat dwingt respect af. De twee inbegrepen tastings (Brut en Blanc de Noirs) laten in negentig minuten zien wat het verschil is tussen een assemblage met alle drie de champagnedruiven en een cuvée zonder Chardonnay.",
-      },
-      {
         title: "From Reims/Épernay: The Connoisseurs Private Tour — 9 Tastings",
         url: "https://www.getyourguide.com/epernay-l35220/private-afternoon-tour-the-connoisseurs-with-9-tastings-t451012/",
         duration: "4 uur",
