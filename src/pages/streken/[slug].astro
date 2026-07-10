@@ -9,6 +9,7 @@ import AccommodatieRoundup from '../../components/AccommodatieRoundup.astro';
 import StreekKaart, { type StreekPoiInput } from '../../components/StreekKaart.astro';
 import StreekFeitenblok from '../../components/StreekFeitenblok.astro';
 import RouteMap from '../../components/RouteMap.astro';
+import TourCards from '../../components/TourCards.astro';
 import ZelfGereisdBadge from '../../components/ZelfGereisdBadge.astro';
 import { accommodatieBookingDeeplink } from '../../lib/affiliates';
 import { loadStreken, type Streek, type Accommodation } from '../../lib/streken';
@@ -385,6 +386,10 @@ const hasFactBox = Boolean(
         </div>
       </section>
     )}
+
+    {/* LAT-2252 — gecureerde GetYourGuide-tours (activiteitenkanaal). Rendert
+        alleen als er tours in Directus (streken.gyg_tours) staan. */}
+    <TourCards streekSlug={entry.slug} streekName={entry.name} tours={entry.gygTours} />
 
     {entry.bodyHtml && (
       <section class="streek-body">

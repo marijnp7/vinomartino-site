@@ -120,3 +120,35 @@ export function buildAffiliateLink(input: AffiliateLinkInput): AffiliateLink {
       : buildGetYourGuideLink(label, input.query);
   return { href, label, partner };
 }
+
+// LAT-2252 — GetYourGuide-activiteitenkanaal per streek. Anders dan
+// buildGetYourGuideLink (een zóéklink op landingspagina): hier decoreren we een
+// concrete, gecureerde tour-deeplink (uit Directus) met de tracking-params.
+// De cmp-conventie voor dit kanaal is `streek-<slug>` (zie het ticket), zodat we
+// clicks per regio kunnen meten in het GYG-partnerdashboard.
+const GYG_HOST_RE = /(^|\.)getyourguide\.[a-z.]+$/i;
+
+/** True als `url` een geldige getyourguide.com-tour-URL is (host-guard). */
+export function isGyGTourUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return (u.protocol === 'https:' || u.protocol === 'http:') && GYG_HOST_RE.test(u.hostname);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Decoreer een gecureerde GetYourGuide-tour-URL met partner-tracking:
+ * partner_id=CRMZDZ6 + utm_medium + cmp=<cmpLabel> (conventie `streek-<slug>`).
+ * Geeft de rauwe input ongewijzigd terug als het geen geldige GYG-URL is, zodat
+ * één slechte CMS-rij de build niet laat crashen (graceful degrade).
+ */
+export function decorateGyGTourUrl(tourUrl: string, cmpLabel: string): string {
+  if (!isGyGTourUrl(tourUrl)) return tourUrl;
+  const u = new URL(tourUrl);
+  u.searchParams.set('partner_id', GETYOURGUIDE_PARTNER_ID);
+  u.searchParams.set('utm_medium', 'online_publisher');
+  u.searchParams.set('cmp', cmpLabel);
+  return u.toString();
+}

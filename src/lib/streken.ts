@@ -1,5 +1,6 @@
 import type { RelatedRef } from './articles';
 import { getCtaStructure, type CtaStructure } from './cta-blocks';
+import { isGyGTourUrl } from './affiliate-regio';
 
 // LAT-1127 — curated accommodation tiers (Marijn-spec 2026-06-07). Stored as
 // cast-json on streken (LAT-1136 import). The site renders its own map + cards
@@ -61,6 +62,21 @@ export interface StreekPoi {
     boeklink: string;
 }
 
+// LAT-2252 — Gecureerde GetYourGuide-tour per streek. URL is de kale,
+// gecureerde getyourguide.com-deeplink (zónder tracking); de partner_id + cmp
+// worden pas op render-tijd toegevoegd via decorateGyGTourUrl (affiliate-regio.ts).
+// Gevoed uit het Directus JSON-veld `gyg_tours` (CMS-only mandaat), niet hardcoded.
+export interface GygTour {
+    /** Titel zoals getoond op de kaart. */
+    title: string;
+    /** Kale gecureerde GetYourGuide-tour-URL (deeplink, zonder tracking-params). */
+    url: string;
+    /** Duur/omvang, bv. '4–5 uur' of 'Meerdaags (privé)'. Optioneel. */
+    duration: string;
+    /** Korte omschrijving: waarom deze tour. */
+    blurb: string;
+}
+
 export interface Streek {
     slug: string;
     name: string;
@@ -112,6 +128,9 @@ export interface Streek {
     // stuurt de "Zelf gereisd"-badge; bezoekjaar is het jaar van bezoek (nullable).
     zelfGereisd: boolean;
     bezoekjaar: number | null;
+    // LAT-2252 — gecureerde GetYourGuide-tours (Directus `gyg_tours`). Leeg =
+    // geen "Tours en tickets"-sectie (graceful degrade).
+    gygTours: GygTour[];
 }
 
 // LAT-1098: reverse M2M `streken.related_articles` → `articles_id.{slug,title}`.
@@ -374,6 +393,18 @@ function parseStreekPois(val: unknown): StreekPoi[] {
     })).filter((p) => p.naam);
 }
 
+// LAT-2252 — tolerante mapper voor gecureerde GYG-tours (Directus `gyg_tours`).
+// Alleen rijen met een titel én een geldige getyourguide.com-URL overleven, zodat
+// een half-ingevulde CMS-rij niet als kapotte kaart of foute link rendert.
+function parseGygTours(val: unknown): GygTour[] {
+    return parseJsonObjects(val).map((r) => ({
+        title: normalizeEmDashes(firstString(r, ['title', 'titel', 'naam', 'name'])),
+        url: firstString(r, ['url', 'link', 'tour_url', 'getyourguide', 'gyg_url', 'boeklink']),
+        duration: normalizeEmDashes(firstString(r, ['duration', 'duur', 'omvang'])),
+        blurb: normalizeEmDashes(firstString(r, ['blurb', 'beschrijving', 'description', 'why', 'omschrijving'])),
+    })).filter((t) => t.title && isGyGTourUrl(t.url));
+}
+
 function mapStreek(
     r: Record<string, unknown>,
     heroImagePath: string | null,
@@ -422,6 +453,8 @@ function mapStreek(
         // LAT-1958 — twee-tier authenticiteitsmodel (regels: LAT-1957).
         zelfGereisd: firstBoolean(r, ['zelf_gereisd']),
         bezoekjaar: firstNumber(r, ['bezoekjaar', 'bezoek_jaar', 'visit_year']),
+        // LAT-2252 — gecureerde GYG-tours uit Directus `gyg_tours`.
+        gygTours: parseGygTours(r.gyg_tours),
     };
 }
 
@@ -445,7 +478,7 @@ async function fetchStrekenItems(url: string, token: string): Promise<Record<str
     // hogere tiers 400'en zolang streken.eten/activiteiten (LAT-1592) ontbreken, dus een
     // badge-veld daarbovenop zou als collateral sneuvelen en de "Zelf gereisd"-badge zou
     // nooit renderen. Op withRelations (de hoogste tier die feitelijk slaagt) overleeft de badge.
-    const withRelations = `${withOg},related_articles.articles_id.slug,related_articles.articles_id.title,cta_blocks,accom_cta_blocks,waar_slapen_intro,zelf_gereisd,bezoekjaar`;
+    const withRelations = `${withOg},related_articles.articles_id.slug,related_articles.articles_id.title,cta_blocks,accom_cta_blocks,waar_slapen_intro,zelf_gereisd,bezoekjaar,gyg_tours`;  // LAT-2252: gyg_tours rijdt mee op withRelations (withGyg/withBl10/withFacts 403en op eten/activiteiten en vallen terug)
     // LAT-1592: eten/activiteiten zijn nieuwe streek-velden. Bestaat het veld nog
     // niet (of mist de build-rol read-permissie) dan degradeert deze top-tier naar
     // `withRelations`, zodat related_articles (LAT-1098) NIET sneuvelt op het
