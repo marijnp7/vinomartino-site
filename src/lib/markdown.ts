@@ -80,9 +80,6 @@ export async function markdownToHtmlWithToc(
   options: MarkdownOptions = {},
 ): Promise<{ html: string; toc: TocItem[] }> {
   const { fromMarkdown } = await import('mdast-util-from-markdown');
-  const { toHast } = await import('mdast-util-to-hast');
-  const { toHtml } = await import('hast-util-to-html');
-  const { raw } = await import('hast-util-raw');
   const { gfm } = await import('micromark-extension-gfm');
   const { gfmFromMarkdown } = await import('mdast-util-gfm');
   // LAT-1675: GFM-extensies aanzetten (tabellen, autolink-literal, strikethrough,
@@ -91,6 +88,20 @@ export async function markdownToHtmlWithToc(
     extensions: [gfm()],
     mdastExtensions: [gfmFromMarkdown()],
   }) as { children: MdastHeading[] };
+  return mdastToHtmlWithToc(mdast, options);
+}
+
+// LAT-2270: gedeelde tweede helft van de pipeline — H1-strip, kop-ids/toc, raw-HTML
+// (`allowDangerousHtml`) + default-deny sanitize. Losgetrokken zodat de route-body
+// directive-renderer (route-body.ts) exact dezelfde sanitize/toc-pas hergebruikt op
+// een reeds geparste (en directive-getransformeerde) mdast-boom.
+export async function mdastToHtmlWithToc(
+  mdast: { children: MdastHeading[] },
+  options: MarkdownOptions = {},
+): Promise<{ html: string; toc: TocItem[] }> {
+  const { toHast } = await import('mdast-util-to-hast');
+  const { toHtml } = await import('hast-util-to-html');
+  const { raw } = await import('hast-util-raw');
   if (options.stripFirstH1) {
     // De layout levert de pagina-H1 al; een H1 in de body is altijd een
     // titel-duplicaat. Strip de eerste H1 ongeacht positie, zodat een

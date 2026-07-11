@@ -5,6 +5,7 @@ import HubBacklink from '../../components/HubBacklink.astro';
 import RouteMap from '../../components/RouteMap.astro';
 import RouteGeoMap from '../../components/RouteGeoMap.astro';
 import RouteItineraryDays from '../../components/RouteItineraryDays.astro';
+import RouteStatStrip from '../../components/RouteStatStrip.astro';
 import StaysTeaser from '../../components/StaysTeaser.astro';
 import CtaStructure from '../../components/CtaStructure.astro';
 import { loadRoutes, type WijnRoute } from '../../lib/routes';
@@ -144,6 +145,14 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
           </div>
           <h1>{entry.title}</h1>
         </header>
+
+        <RouteStatStrip
+          duration={entry.duration}
+          transport={entry.transport}
+          style={entry.style}
+          stopsCount={entry.stopsGeo.length || entry.stops.length}
+          wijnhuisCount={wijnhuizen.length}
+        />
 
         <div class="page-routemap">
           {entry.stopsGeo.length >= 2 ? (
@@ -439,6 +448,78 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
     font-style: italic;
     color: var(--inkSoft);
   }
+
+  /* LAT-2270: verrijkte body-directives (`:::foto`/`:::boek`/`:::infographic`),
+     als set:html in de proza gerenderd → :global. Token-styling, geen inline hex/px. */
+  .page-prose :global(.route-foto) {
+    margin: var(--space-8) 0;
+  }
+  .page-prose :global(.route-foto img) {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: var(--radius-sm);
+  }
+  .page-prose :global(.route-foto figcaption) {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.04em;
+    color: var(--inkFaint);
+    margin-top: 0.6rem;
+    line-height: 1.5;
+  }
+  .page-prose :global(.route-foto--breed) {
+    margin-left: calc(-1 * var(--space-6));
+    margin-right: calc(-1 * var(--space-6));
+  }
+  .page-prose :global(.route-foto--inzet) {
+    max-width: 20rem;
+    float: right;
+    margin: 0 0 var(--space-5) var(--space-6);
+  }
+  .page-prose :global(.route-boek) {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: flex-start;
+    background: var(--paperDeep);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--burgundy);
+    border-radius: var(--radius-sm);
+    padding: var(--space-5);
+    margin: var(--space-6) 0;
+  }
+  .page-prose :global(.route-boek__cta) {
+    display: inline-block;
+    font-family: var(--font-ui);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    text-decoration: none;
+    color: var(--paper);
+    background: var(--burgundy);
+    padding: 0.7rem 1.4rem;
+    border-radius: var(--radius-sm);
+  }
+  .page-prose :global(.route-boek__cta:hover) {
+    text-decoration: underline;
+  }
+  .page-prose :global(.route-boek__disclosure) {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.03em;
+    line-height: 1.5;
+    color: var(--inkFaint);
+    margin: 0;
+  }
+  .page-prose :global(.route-infographic) {
+    background: var(--paperDeep);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-sm);
+    padding: var(--space-5) var(--space-6);
+    margin: var(--space-6) 0;
+  }
+  .page-prose :global(.route-infographic > :first-child) { margin-top: 0; }
+  .page-prose :global(.route-infographic > :last-child) { margin-bottom: 0; }
   .sidebar-card {
     background: var(--paperDeep);
     border-radius: var(--radius-sm);
