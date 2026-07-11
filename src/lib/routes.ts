@@ -65,9 +65,36 @@ function mapRelatedArticles(val: unknown): RelatedRef[] {
 }
 
 import { markdownToHtml as renderMarkdown, normalizeEmDashes } from './markdown';
+import { hasRouteDirectives, renderEnrichedRouteBody } from './route-body';
+import { buildBookingSearchLink, resolveAccommodationHref } from './affiliates';
 
 function markdownToHtml(markdown: string): Promise<string> {
     return renderMarkdown(markdown, { stripFirstH1: true });
+}
+
+// LAT-2270: verrijkte body-render zodra de markdown `:::foto`/`:::boek`/`:::infographic`
+// bevat. Sluit closures over de asset-download (gecommit onder body-<id>) en de
+// booking.com-deeplink-resolver zodat route-body.ts puur/dependency-vrij blijft.
+// Zonder directives valt de route terug op de bestaande markdownToHtml (byte-identiek,
+// geen regressie op bestaande routes).
+async function renderRouteBody(
+    markdown: string,
+    slug: string,
+    directusUrl: string,
+    token: string,
+): Promise<string> {
+    if (!hasRouteDirectives(markdown)) return markdownToHtml(markdown);
+    const { html } = await renderEnrichedRouteBody(markdown, {
+        downloadFoto: (ref) => downloadAsset(ref, directusUrl, token, 'body-'),
+        resolveBoekHref: async (attrs) => {
+            const acc = attrs.acc ? Number(attrs.acc) : NaN;
+            if (Number.isFinite(acc)) return (await resolveAccommodationHref(acc)) ?? null;
+            const zoek = (attrs.zoek || '').trim();
+            if (zoek) return buildBookingSearchLink(zoek, `route-${slug}`);
+            return null;
+        },
+    });
+    return html;
 }
 
 import {
@@ -381,7 +408,9 @@ async function loadFromDirectus(url: string, token: string): Promise<WijnRoute[]
     ]);
     const items = await Promise.all(
         data.map(async (r) => {
-            const bodyHtml = r.body ? await markdownToHtml(stripEditorialHeader(String(r.body))) : '';
+            const bodyHtml = r.body
+                ? await renderRouteBody(stripEditorialHeader(String(r.body)), String(r.slug), url, token)
+                : '';
             const heroImagePath = r.hero_image
                 ? await downloadAsset(String(r.hero_image), url, token)
                 : null;

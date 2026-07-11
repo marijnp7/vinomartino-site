@@ -1,0 +1,68 @@
+---
+// LAT-2270 [VIS] — compacte feiten-strip bovenaan de routepagina. Volledig
+// data-driven uit bestaande route-velden (duration/transport/style + tellingen);
+// geen nieuwe CMS-data. Cellen zonder waarde vallen weg; is de hele strip leeg,
+// dan rendert het component niets (deploy-safe, geen regressie).
+interface Props {
+  duration?: string;
+  transport?: string;
+  style?: string;
+  stopsCount?: number;
+  wijnhuisCount?: number;
+}
+const { duration, transport, style, stopsCount, wijnhuisCount } = Astro.props as Props;
+
+const cells: { label: string; value: string }[] = [];
+if (duration && duration.trim()) cells.push({ label: 'Duur', value: duration.trim() });
+if (transport && transport.trim()) cells.push({ label: 'Vervoer', value: transport.trim() });
+if (typeof stopsCount === 'number' && stopsCount > 0) cells.push({ label: 'Etappes', value: String(stopsCount) });
+if (typeof wijnhuisCount === 'number' && wijnhuisCount > 0) cells.push({ label: 'Wijnhuizen', value: String(wijnhuisCount) });
+if (style && style.trim()) cells.push({ label: 'Stijl', value: style.trim() });
+---
+
+{cells.length > 0 && (
+  <dl class="route-statstrip" aria-label="Route in cijfers">
+    {cells.map(c => (
+      <div class="route-statstrip__cell">
+        <dt class="route-statstrip__label">{c.label}</dt>
+        <dd class="route-statstrip__value">{c.value}</dd>
+      </div>
+    ))}
+  </dl>
+)}
+
+<style>
+  .route-statstrip {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    margin: 0 0 var(--space-8);
+  }
+  .route-statstrip__cell {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    background: var(--paperDeep);
+    padding: var(--space-4) var(--space-4);
+  }
+  .route-statstrip__label {
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--burgundy);
+    margin: 0;
+  }
+  .route-statstrip__value {
+    font-family: var(--font-display);
+    font-size: 1.125rem;
+    font-weight: 500;
+    line-height: 1.2;
+    color: var(--ink);
+    margin: 0;
+  }
+</style>
