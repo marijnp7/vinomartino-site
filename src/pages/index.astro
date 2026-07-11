@@ -5,6 +5,7 @@ import Briefkaart from '../components/Briefkaart.astro';
 import HomeRoutesMap from '../components/HomeRoutesMap.astro';
 import { loadArticles } from '../lib/articles';
 import { loadRoutes } from '../lib/routes';
+import { loadStreken } from '../lib/streken';
 import { organizationSchema } from '../lib/seo';
 import { getAuthorByByline } from '../lib/authors';
 
@@ -26,7 +27,11 @@ const articles = await loadArticles();
 // het nieuwste. Geen featured-artikel → val terug op het nieuwste artikel.
 const spotlight = articles.find((a) => a.featured) ?? articles[0];
 const moreArticles = articles.filter((a) => a.slug !== spotlight?.slug).slice(0, 3);
-const routes = (await loadRoutes()).slice(0, 3);
+// LAT-2267 — de routekaart + kaartjes tonen ALLE routes (geen hardcoded/laatste-3
+// subset meer). HomeRoutesMap fit de bounds naar de volledige set, zodat het aantal
+// markers gelijk is aan het werkelijke aantal routes. De kaartjes eronder shuffelen
+// client-side (data-shuffle) naar drie willekeurige per load i.p.v. steeds dezelfde.
+const routes = await loadRoutes();
 
 // LAT-2008 — dagen/kelders-teller per routekaart. Kelders = aantal wijnhuis-stops
 // uit stopsGeo (LAT-2000 kind='wijnhuis'); ontbreekt die data, dan tonen we alleen
@@ -38,36 +43,22 @@ const schema = organizationSchema();
 
 const HERO_IMAGE = '/images/landschap-piemonte-barolo-001.jpg';
 
-const editorialStreken = [
-  {
-    name: 'Piemonte',
-    eyebrow: 'Italië',
-    blurb: 'Nebbiolo, mist en truffels, de Langhe is het Piemonte dat zijn beloftes waarmaakt.',
-    href: '/streken/langhe-piemonte/',
-    image: '/images/landschap-langhe-001.jpg',
-  },
-  {
-    name: 'Douro',
-    eyebrow: 'Portugal',
-    blurb: 'Schist-terrassen langs de rivier, Port én droge Douro, beide vakwerk.',
-    href: '/streken/douro-portugal/',
-    image: '/images/landschap-douro-001.jpg',
-  },
-  {
-    name: 'Etna',
-    eyebrow: 'Sicilië',
-    blurb: 'Nerello Mascalese op basalt, op hoogte, vulkanische wijn die niet om aandacht vraagt.',
-    href: '/wijnroutes/etna-noord-randazzo-solicchiata/',
-    image: '/images/landschap-etna-noord-001.jpg',
-  },
-  {
-    name: 'Wachau',
-    eyebrow: 'Oostenrijk',
-    blurb: 'Grüner Veltliner van terraswijngaarden boven de Donau, plus Blaufränkisch uit het Burgenland.',
-    href: '/artikelen/oostenrijk-gruner-veltliner-in-de-wachau-en-blaufrankisch-in-het-burgenland/',
-    image: '/images/landschap-wachau-001.jpg',
-  },
-];
+// LAT-2267 — het bestemmingenblok toonde altijd dezelfde vier hardcoded streken.
+// Nu bouwen we de tegels uit ÁLLE streken in Directus en shuffelen client-side naar
+// vier willekeurige per load (data-shuffle). Foto-guard: alleen streken mét een
+// geldige hero-foto komen in de set, zodat er nooit een lege/placeholder-tegel
+// verschijnt (onderliggende beeld-gaten vult de Lead Editor-audit, LAT-2268).
+const STREKEN_VISIBLE = 4;
+const editorialStreken = (await loadStreken())
+  .filter((s) => Boolean(s.heroImage) && Boolean(s.name))
+  .map((s) => ({
+    name: s.name,
+    eyebrow: s.country,
+    blurb: s.description,
+    href: `/streken/${s.slug}/`,
+    image: s.heroImage as string,
+    visited: s.zelfGereisd,
+  }));
 
 function formatDate(value?: string | null) {
   if (!value) return '';
@@ -123,12 +114,16 @@ function formatDate(value?: string | null) {
         <span class="kicker">Kies je bestemming</span>
         <h2 class="strip-title">Waar begint jouw wijnreis?</h2>
         <p class="strip-lede">
-          Vier streken die telkens terugkomen in ons werk. Kies waar je heen wilt, en het verhaal, de routes en de adressen volgen.
+          Streken die telkens terugkomen in ons werk. Kies waar je heen wilt, en het verhaal, de routes en de adressen volgen.
         </p>
       </header>
-      <div class="streken-grid">
+      <div class="streken-grid" data-shuffle data-shuffle-visible={STREKEN_VISIBLE}>
         {editorialStreken.map((streek, idx) => (
-          <a href={streek.href} class={`streek-tile streek-tile--${idx}`}>
+          <a
+            href={streek.href}
+            class={`streek-tile${idx >= STREKEN_VISIBLE ? ' is-extra' : ''}`}
+            data-shuffle-item
+          >
             <div class="streek-media">
               <img
                 src={streek.image}
@@ -139,9 +134,11 @@ function formatDate(value?: string | null) {
                 decoding="async"
               />
             </div>
-            <div class="streek-tile-badge">
-              <ZelfGereisdBadge visited={true} />
-            </div>
+            {streek.visited && (
+              <div class="streek-tile-badge">
+                <ZelfGereisdBadge visited={true} />
+              </div>
+            )}
             <div class="streek-body">
               <span class="streek-eyebrow">{streek.eyebrow}</span>
               <h3 class="streek-name">{streek.name}</h3>
@@ -165,11 +162,15 @@ function formatDate(value?: string | null) {
         </p>
       </header>
       <HomeRoutesMap routes={routes} />
-      <div class="cards-grid">
-        {routes.map(r => {
+      <div class="cards-grid" data-shuffle data-shuffle-visible="3">
+        {routes.map((r, idx) => {
           const kelders = cellarsCount(r);
           return (
-            <a href={`/wijnroutes/${r.slug}/`} class="card-tile">
+            <a
+              href={`/wijnroutes/${r.slug}/`}
+              class={`card-tile${idx >= 3 ? ' is-extra' : ''}`}
+              data-shuffle-item
+            >
               <div class="card-media">
                 {r.heroImage ? (
                   <img src={r.heroImage} alt={r.title} width="600" height="450" loading="lazy" decoding="async" />
@@ -327,6 +328,47 @@ function formatDate(value?: string | null) {
     </div>
   </section>
 </SiteLayout>
+
+<script>
+  // LAT-2267 — client-side randomisatie voor de bestemmingen-tegels en de
+  // routekaartjes. De pagina is statisch (SSG), dus zonder JS zou elke reload
+  // dezelfde subset tonen. Per [data-shuffle]-container husselen we de
+  // [data-shuffle-item]-kinderen (Fisher-Yates) en tonen we er data-shuffle-visible
+  // van; de rest krijgt is-hidden. No-JS valt terug op de eerste N (is-extra in CSS).
+  function shuffleInPlace<T>(arr: T[]): T[] {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  function applyShuffle(): void {
+    const containers = document.querySelectorAll<HTMLElement>('[data-shuffle]');
+    containers.forEach((container) => {
+      const visible = parseInt(container.dataset.shuffleVisible || '0', 10);
+      const items = Array.from(
+        container.querySelectorAll<HTMLElement>('[data-shuffle-item]'),
+      );
+      if (!Number.isFinite(visible) || visible <= 0 || items.length <= visible) {
+        items.forEach((el) => el.classList.remove('is-extra', 'is-hidden'));
+        return;
+      }
+      shuffleInPlace(items);
+      items.forEach((el, idx) => {
+        container.appendChild(el);
+        el.classList.remove('is-extra');
+        el.classList.toggle('is-hidden', idx >= visible);
+      });
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', applyShuffle);
+  } else {
+    applyShuffle();
+  }
+</script>
 
 <style>
   /* ── Hero ─────────────────────────────────────────────── */
@@ -535,6 +577,12 @@ function formatDate(value?: string | null) {
     overflow: hidden;
     aspect-ratio: 3 / 4;
     isolation: isolate;
+  }
+  /* LAT-2267: no-JS fallback toont de eerste vier streken; JS shuffelt naar vier
+     willekeurige per load. */
+  .streek-tile.is-extra,
+  .streek-tile.is-hidden {
+    display: none;
   }
   .streek-tile::after {
     content: '';
