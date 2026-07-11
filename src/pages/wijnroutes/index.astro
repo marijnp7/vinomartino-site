@@ -1,6 +1,7 @@
 ---
 import SiteLayout from '../../layouts/SiteLayout.astro';
 import SmartImg from '../../components/SmartImg.astro';
+import HomeRoutesMap from '../../components/HomeRoutesMap.astro';
 import { loadRoutes } from '../../lib/routes';
 import { organizationSchema, breadcrumbSchema } from '../../lib/seo';
 
@@ -30,6 +31,9 @@ const schema = [
   </section>
 
   <section class="section container">
+    {/* LAT-2267 — de kaart toont ALLE routes; het aantal markers == werkelijk
+        aantal routes, zodat kaart en lijst eronder één op één overeenkomen. */}
+    {entries.length > 0 && <HomeRoutesMap routes={entries} title="Alle routes op de kaart" />}
     {entries.length > 0 ? (
       <div class="grid">
         {entries.map(entry => (
