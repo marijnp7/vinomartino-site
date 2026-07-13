@@ -640,6 +640,13 @@ function formatDate(value?: string | null) {
     line-height: 1.5;
     color: color-mix(in srgb, var(--fixed-cream) 88%, transparent);
     margin-top: var(--space-2);
+    /* LAT-2346 — lange excerpts (Friuli 679, Trentino 664, Mosel 626 tekens)
+       liepen over de kaart en bedekten streeknaam + 'Zelf gereisd'-badge. */
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
   .streek-link {
     margin-top: var(--space-3);
