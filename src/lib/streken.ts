@@ -1,6 +1,7 @@
 import type { RelatedRef } from './articles';
 import { getCtaStructure, type CtaStructure } from './cta-blocks';
 import { isGyGTourUrl } from './affiliate-regio';
+import { assertAssetAllowed } from './image-guard';
 
 // LAT-1127 — curated accommodation tiers (Marijn-spec 2026-06-07). Stored as
 // cast-json on streken (LAT-1136 import). The site renders its own map + cards
@@ -170,6 +171,7 @@ import {
 const assetDebug: Array<Record<string, unknown>> = [];
 
 async function downloadAsset(assetId: string, directusUrl: string, token: string, prefix = ''): Promise<string | null> {
+    if (!assertAssetAllowed(assetId)) return null; // LAT-2361: fout-gekoppeld beeld → lege hero i.p.v. verkeerde regio
     const { writeFileSync, mkdirSync, existsSync } = await import('node:fs');
     const { join } = await import('node:path');
     const outDir = join(process.cwd(), 'public', 'images', 'streken');
@@ -211,6 +213,7 @@ async function downloadAsset(assetId: string, directusUrl: string, token: string
 // dezelfde self-hosted map als de accommodaties-loader (LAT-1372), zodat een
 // gedeelde Directus-UUID maar één keer wordt gedownload en de bron identiek is.
 async function downloadAccommodatieAsset(assetId: string, directusUrl: string, token: string): Promise<string | null> {
+    if (!assertAssetAllowed(assetId)) return null; // LAT-2361: gedeelde fout-asset (bv. rhone==accommodatiefoto) ook hier weigeren
     const { writeFileSync, mkdirSync, existsSync } = await import('node:fs');
     const { join } = await import('node:path');
     const outDir = join(process.cwd(), 'public', 'images', 'accommodaties');
