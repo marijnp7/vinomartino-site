@@ -137,13 +137,15 @@ async function fieldType(collection, field) {
 }
 
 async function fetchItems(collection) {
-  // Ask for date_created; if the collection has no accountability field Directus
-  // returns null for it and we fall back to id ordering.
-  const fields = 'id,slug,pub_date,date_created';
-  const r = await api(
-    'GET',
-    `/items/${collection}?fields=${fields}&limit=-1&sort=id`,
-  );
+  // Prefer date_created for chronology, but Directus 403s the WHOLE query when a
+  // requested field does not exist on the collection (it does NOT return null).
+  // `articles` has no accountability date_created, so retry without it and fall
+  // back to id ordering (createdKey below already handles a missing date_created).
+  const base = `/items/${collection}?limit=-1&sort=id&fields=`;
+  let r = await api('GET', `${base}id,slug,pub_date,date_created`);
+  if (!r.ok) {
+    r = await api('GET', `${base}id,slug,pub_date`);
+  }
   if (!r.ok) {
     throw new Error(`fetch ${collection}: ${r.status} ${r.text}`);
   }
