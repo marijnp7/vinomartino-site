@@ -79,6 +79,7 @@ const schema = [
 <SiteLayout
   title={`Waar slapen in ${regio}? Handgekozen verblijven | VinoMartino`}
   description={`Een persoonlijke selectie verblijven in ${regio}, met echte foto's, locatie en prijsindicatie. Geen willekeurig hotelaanbod, maar adressen die we zelf zouden boeken.`}
+  ogImage={streek?.ogImage || streek?.heroImage || undefined}
   schema={schema}
   activeNav="accommodaties"
 >
