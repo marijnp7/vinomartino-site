@@ -342,6 +342,24 @@ function mapEerstDitBoeken(val: unknown): EerstDitBoekenItem[] {
         .filter((i) => i.naam || i.handeling);
 }
 
+// LAT-2358: when an article has no pub_date, do NOT fall back to the build's
+// `new Date()` — that stamps every dateless article with today and shifts it on
+// each rebuild, which is exactly the "machine-generated" smell we are removing.
+// Derive a stable date from the slug inside the historic window instead, so
+// builds are reproducible until the real pub_date is backfilled in Directus.
+function stableFallbackPubDate(slug: string): string {
+    const START = Date.UTC(2026, 0, 13); // 2026-01-13
+    const END = Date.UTC(2026, 6, 12); // 2026-07-12
+    let h = 2166136261;
+    for (let i = 0; i < slug.length; i++) {
+        h ^= slug.charCodeAt(i);
+        h = Math.imul(h, 16777619);
+    }
+    const span = (END - START) / 86400000;
+    const offsetDays = (h >>> 0) % (span + 1);
+    return new Date(START + offsetDays * 86400000).toISOString().slice(0, 10);
+}
+
 function mapArticle(
     a: Record<string, unknown>,
     heroImagePath: string | null,
@@ -356,7 +374,7 @@ function mapArticle(
           title: normalizeEmDashes(String(a.title)),
           description: normalizeEmDashes(String(a.description || '')),
           author: String(a.author || 'VinoMartino'),
-          pubDate: String(a.pub_date || new Date().toISOString().slice(0, 10)),
+          pubDate: String(a.pub_date || stableFallbackPubDate(String(a.slug))),
           updatedAt: a.updated_at ? String(a.updated_at) : null,
           category: String(a.category || ''),
           tags: (a.tags as string[]) || [],

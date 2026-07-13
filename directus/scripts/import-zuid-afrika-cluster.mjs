@@ -15,6 +15,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { stripPubDateForUpdate } from './lib/pub-date-guard.mjs';
 
 const DIRECTUS_URL = (process.env.DIRECTUS_URL || '').replace(/\/$/, '');
 const DIRECTUS_TOKEN = process.env.DIRECTUS_TOKEN;
@@ -84,10 +85,11 @@ for (const r of records) {
   }
   let res;
   if (existing) {
+    // LAT-2358: never reset pub_date on update — it is set once at first publish.
     res = await fetch(`${DIRECTUS_URL}/items/articles/${existing.id}`, {
       method: 'PATCH',
       headers,
-      body: JSON.stringify(fields),
+      body: JSON.stringify(stripPubDateForUpdate(fields)),
     });
   } else {
     res = await fetch(`${DIRECTUS_URL}/items/articles`, {
