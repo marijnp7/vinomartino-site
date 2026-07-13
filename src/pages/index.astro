@@ -48,9 +48,13 @@ const HERO_IMAGE = '/images/landschap-piemonte-barolo-001.jpg';
 // vier willekeurige per load (data-shuffle). Foto-guard: alleen streken mét een
 // geldige hero-foto komen in de set, zodat er nooit een lege/placeholder-tegel
 // verschijnt (onderliggende beeld-gaten vult de Lead Editor-audit, LAT-2268).
+// LAT-2356 — tekst-guard: naast de hero moet ook het blurb-veld (description)
+// gevuld zijn, anders rendert de tegel een lege <p class="streek-blurb">.
+// Zelfde data-completeness-patroon als de foto-guard; blurb-gaten backfilt
+// de Lead Editor (LAT-2355).
 const STREKEN_VISIBLE = 4;
 const editorialStreken = (await loadStreken())
-  .filter((s) => Boolean(s.heroImage) && Boolean(s.name))
+  .filter((s) => Boolean(s.heroImage) && Boolean(s.name) && Boolean(s.description?.trim()))
   .map((s) => ({
     name: s.name,
     eyebrow: s.country,
