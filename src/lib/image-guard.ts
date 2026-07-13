@@ -22,13 +22,14 @@ const HARD_FAIL_ASSET_IDS: readonly string[] = [
 
 // Te verifiëren (generiek beeld uit dezelfde batch, geen regiobewijs). Geblokkeerd
 // tot het tegendeel bewezen is (issue-opdracht: ga uit van dezelfde fout).
+// slowakije (f998326f) is via DAM-metadata-audit (DevOps, LAT-2133: Malá Tŕňa,
+// Slovaaks Tokaj + Wikimedia-credit) als JUIST bewezen en dus verwijderd.
 const UNVERIFIED_ASSET_IDS: readonly string[] = [
     '14f965cf-6ecb-4273-8f7a-00f23b937699', // bierzo
     'f151dce7-fae7-4f74-aecf-942940a4922f', // kamptal
     'a001200e-d1ab-4702-a045-1e9afbc13c86', // lisboa
     'f2ff4d51-47f4-41d2-9628-b7898b62e9e6', // rheingau
     'f66d64ae-bf0a-45d4-82a1-faa89ef896ef', // rueda
-    'f998326f-44e2-4cd7-9803-c0fe9cfce6fd', // slowakije
 ];
 
 const BLOCKED_ASSET_IDS: ReadonlySet<string> = new Set([
