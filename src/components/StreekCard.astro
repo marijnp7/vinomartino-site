@@ -15,7 +15,7 @@ const { entry, beginHier = false } = Astro.props;
 ---
 
 <a href={`/streken/${entry.slug}/`} class="card card-link">
-  <div class="card-img-wrap">
+  <div class:list={['card-img-wrap', !entry.heroImage && 'is-empty']}>
     <SmartImg src={entry.heroImage || undefined} alt={entry.name} theme="vineyard" class="card-img" />
     {beginHier && <span class="begin-hier">Begin hier</span>}
   </div>
@@ -45,6 +45,11 @@ const { entry, beginHier = false } = Astro.props;
     aspect-ratio: 16 / 11;
     overflow: hidden;
     background: var(--paperShade);
+  }
+  /* LAT-2455: geen beeld → compacte branded band i.p.v. loze reuzenvlak op mobiel. */
+  .card-img-wrap.is-empty {
+    aspect-ratio: auto;
+    height: clamp(96px, 26vw, 140px);
   }
   .card-img-wrap :global(img),
   .card-img-wrap :global(.smart-img-placeholder) {
