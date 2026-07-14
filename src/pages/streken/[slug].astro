@@ -84,7 +84,7 @@ for (const pin of entry.wijnhuizen) {
     lng: pin.lng,
     beschrijving: detail?.description ?? '',
     detailUrl: detail ? `/wijnhuizen/${detail.slug}/` : null,
-    foto: detail?.heroImage ?? null,
+    foto: detail?.heroImage ?? pin.foto ?? null,
     fotoAlt: detail?.name ?? pin.naam,
   });
 }

@@ -35,6 +35,11 @@ export interface WijnhuisPin {
     naam: string;
     lat: number | null;
     lng: number | null;
+    // LAT-2459: Directus file-UUID van de wijnhuis-hero (hero_image in de embedded JSON).
+    // Gevuld wanneer de embedded pin een hero_image-UUID draagt maar geen matching
+    // wijnhuizen-collectie-entry heeft. Self-hosted pad na download (buildtijd).
+    fotoRef: string | null;
+    foto: string | null;
 }
 
 // LAT-1592 — Eten/Activiteiten leven in de pilot als genummerde POI-blokken op
@@ -188,6 +193,39 @@ async function downloadAccommodatieAsset(assetId: string, directusUrl: string, t
     }
 }
 
+// LAT-2459: wijnhuis-pin foto's voor embedded JSON pins zónder matching collectie-entry.
+// Schrijft naar /images/wijnhuizen/<uuid>.jpg zodat het dezelfde self-hosted map deelt
+// met de wijnhuizen-loader (gedeelde UUID → wordt slechts één keer gedownload).
+async function downloadWijnhuisAsset(assetId: string, directusUrl: string, token: string): Promise<string | null> {
+    const { writeFileSync, mkdirSync, existsSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const outDir = join(process.cwd(), 'public', 'images', 'wijnhuizen');
+    const fileName = `${assetId}.jpg`;
+    const outPath = join(outDir, fileName);
+    if (existsSync(outPath)) return `/images/wijnhuizen/${fileName}`;
+    try {
+        const res = await fetch(assetUrl(directusUrl, assetId), {
+            headers: { Authorization: `Bearer ${token}` },
+            signal: AbortSignal.timeout(15000),
+        });
+        if (!res.ok) {
+            console.warn(`[loadStreken] kon wijnhuis-pin foto ${assetId} niet ophalen: ${res.status}`);
+            assetDebug.push({ kind: 'wijnhuis-pin-foto', assetId, status: res.status });
+            return null;
+        }
+        const buf = Buffer.from(await res.arrayBuffer());
+        mkdirSync(outDir, { recursive: true });
+        writeFileSync(outPath, buf);
+        assetDebug.push({ kind: 'wijnhuis-pin-foto', assetId, status: 200, bytes: buf.byteLength });
+        return `/images/wijnhuizen/${fileName}`;
+    } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn(`[loadStreken] wijnhuis-pin foto download faalde voor ${assetId}: ${msg}`);
+        assetDebug.push({ kind: 'wijnhuis-pin-foto', assetId, error: msg });
+        return null;
+    }
+}
+
 async function writeAssetDebug(pathTaken: string): Promise<void> {
     const { writeFileSync, mkdirSync } = await import('node:fs');
     const { join } = await import('node:path');
@@ -283,6 +321,11 @@ function parseWijnhuizen(val: unknown): WijnhuisPin[] {
         naam: firstString(r, ['naam', 'name', 'title']),
         lat: firstNumber(r, ['lat', 'latitude']),
         lng: firstNumber(r, ['lng', 'lon', 'long', 'longitude']),
+        // LAT-2459: hero_image UUID uit embedded JSON (dezelfde canonieke naam als
+        // in de wijnhuizen-collectie). Tolerante aliassen zodat naming-drift de foto
+        // niet stilletjes laat vallen.
+        fotoRef: firstString(r, ['hero_image', 'fotoRef', 'foto_ref', 'foto_uuid', 'image']) || null,
+        foto: null,
     })).filter((w) => w.naam);
 }
 
@@ -496,6 +539,15 @@ async function loadFromDirectus(url: string, token: string): Promise<Streek[]> {
                 streek.accommodaties.map(async (acc) => {
                     if (!acc.fotoRef) return;
                     acc.foto = await downloadAccommodatieAsset(acc.fotoRef, url, token);
+                }),
+            );
+            // LAT-2459: download wijnhuis-pin foto's voor embedded JSON pins die
+            // een hero_image-UUID bevatten. Schrijft naar /images/wijnhuizen/ zodat
+            // de wijnhuizen-loader (en [slug].astro-fallback) dezelfde bestanden deelt.
+            await Promise.all(
+                streek.wijnhuizen.map(async (pin) => {
+                    if (!pin.fotoRef) return;
+                    pin.foto = await downloadWijnhuisAsset(pin.fotoRef, url, token);
                 }),
             );
             return streek;
