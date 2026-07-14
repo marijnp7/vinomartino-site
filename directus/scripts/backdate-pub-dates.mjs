@@ -25,9 +25,15 @@
  *    datetime/timestamp type; a Directus `date` field keeps the date only).
  *  - Deterministic: fixed SEED, and the computed mapping is persisted to
  *    directus/data/backdate-pub-dates.map.json. Re-runs reuse that map, so the
- *    same items always get the same dates (idempotent, no re-shuffle). Items that
- *    already sit OUTSIDE the same-day cluster are treated as already-spread and
- *    are left untouched.
+ *    same items always get the same dates (idempotent, no re-shuffle).
+ *
+ * WHICH ITEMS GET (RE)DATED: an item is a candidate when its current pub_date
+ * still looks machine-generated — null, on a weekend, or sharing its day with
+ * another (non-locked) item (a same-day cluster). Items already committed to the
+ * map are locked (their date is final and only occupies a calendar slot); items
+ * with a clean, unique weekday date are kept as-is. This makes the second pass
+ * (re-spreading weekend/cluster dates from an earlier import) fall out naturally:
+ * run it again and only the still-bad dates move, protected by the map.
  *
  * RUN (from VPS, admin token):
  *   set -a && source /root/vinomartino-site/.env && set +a
@@ -38,7 +44,7 @@
  * Flags:
  *   --dry-run   compute + print the table, write nothing (default if neither given)
  *   --apply     PATCH pub_date on the items and persist the map file
- *   --all       also re-date items already outside the cluster (rarely needed)
+ *   --all       re-date every non-locked item, even clean ones (rarely needed)
  */
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
@@ -152,29 +158,45 @@ async function fetchItems(collection) {
   return r.json.data || [];
 }
 
-// The "cluster" = the pub_date value shared by the most items (plus nulls). Items
-// on the cluster date or null are candidates to backdate; everything else is
-// treated as already-spread and left alone (unless --all).
-function pickCandidates(items) {
-  const counts = new Map();
-  for (const it of items) {
-    const key = it.pub_date == null ? '__null__' : String(it.pub_date).slice(0, 10);
-    counts.set(key, (counts.get(key) || 0) + 1);
-  }
-  let clusterKey = null;
-  let clusterN = 0;
-  for (const [k, n] of counts) {
-    if (n > clusterN) {
-      clusterN = n;
-      clusterKey = k;
+function isWeekendIso(iso) {
+  const dow = new Date(iso + 'T00:00:00Z').getUTCDay();
+  return dow === 0 || dow === 6;
+}
+
+// Classify a collection's items into three buckets:
+//  - locked : already assigned by a previous run (present in the committed map).
+//             Their dates are final (map-protected) and only OCCUPY a day-slot.
+//  - candidate : a non-locked item whose current pub_date still looks
+//             machine-generated — null, on a weekend, or sharing its day with
+//             another non-locked item (a same-day cluster). These get re-dated.
+//  - kept : a non-locked item that already has a clean, unique weekday date.
+//             Left untouched; only OCCUPIES its current day-slot.
+// --all forces every non-locked item into `candidate`.
+function classifyItems(items, collection, persistedMap) {
+  const keyOf = (it) => `${collection}:${it.slug || it.id}`;
+  const nonLocked = items.filter((it) => !persistedMap[keyOf(it)]);
+  const dayCounts = new Map();
+  for (const it of nonLocked) {
+    if (it.pub_date) {
+      const d = String(it.pub_date).slice(0, 10);
+      dayCounts.set(d, (dayCounts.get(d) || 0) + 1);
     }
   }
-  const isCandidate = (it) => {
-    if (REDATE_ALL) return true;
-    if (it.pub_date == null) return true;
-    return String(it.pub_date).slice(0, 10) === clusterKey;
-  };
-  return { clusterKey, clusterN, isCandidate };
+  const locked = [];
+  const candidates = [];
+  const kept = [];
+  for (const it of items) {
+    if (persistedMap[keyOf(it)]) {
+      locked.push(it);
+      continue;
+    }
+    const d = it.pub_date ? String(it.pub_date).slice(0, 10) : null;
+    const bad =
+      REDATE_ALL || d === null || isWeekendIso(d) || (dayCounts.get(d) || 0) > 1;
+    if (bad) candidates.push(it);
+    else kept.push(it);
+  }
+  return { locked, candidates, kept, keyOf };
 }
 
 function loadMap() {
@@ -200,111 +222,104 @@ async function run() {
   const persistedMap = loadMap();
   const rng = mulberry32(SEED);
 
-  // 1. Gather candidates across all dated collections, tagged + globally ordered.
-  const all = [];
+  // Occupancy of the calendar by items we are NOT re-dating this run: map-locked
+  // items (their committed date) and clean "kept" items (their current date).
+  // Candidates may only land on days that stay within <=1/collection/day and
+  // <=2/day AFTER counting this occupancy.
+  const occCollectionDay = new Set(); // `${collection}|${day}`
+  const occDay = new Map(); // day -> total count across collections
+  const occupy = (collection, day) => {
+    occCollectionDay.add(`${collection}|${day}`);
+    occDay.set(day, (occDay.get(day) || 0) + 1);
+  };
+
+  // 1. Classify every collection; gather candidates + pre-seed occupancy.
+  const perCollectionCandidates = new Map();
   const fieldTypes = {};
   for (const { collection, field } of COLLECTIONS) {
     fieldTypes[collection] = (await fieldType(collection, field)) || 'date';
     const items = await fetchItems(collection);
-    const { clusterKey, clusterN, isCandidate } = pickCandidates(items);
+    const { locked, candidates, kept, keyOf } = classifyItems(items, collection, persistedMap);
     console.log(
-      `[${collection}] ${items.length} items — cluster "${clusterKey}" x${clusterN}`,
+      `[${collection}] ${items.length} items — ${locked.length} locked, ${candidates.length} candidate, ${kept.length} kept`,
     );
-    for (const it of items) {
-      if (!isCandidate(it)) continue;
-      all.push({
-        collection,
-        field,
-        id: it.id,
-        slug: it.slug || String(it.id),
-        // sort key: date_created if present else id (numeric-aware)
-        createdKey: it.date_created ? Date.parse(it.date_created) : Number(it.id) || 0,
-        idNum: Number(it.id) || 0,
-      });
-    }
+    for (const it of locked) occupy(collection, persistedMap[keyOf(it)].date);
+    for (const it of kept) occupy(collection, String(it.pub_date).slice(0, 10));
+    perCollectionCandidates.set(
+      collection,
+      candidates
+        .map((it) => ({
+          collection,
+          field,
+          id: it.id,
+          slug: it.slug || String(it.id),
+          mapKey: keyOf(it),
+          createdKey: it.date_created ? Date.parse(it.date_created) : Number(it.id) || 0,
+          idNum: Number(it.id) || 0,
+        }))
+        .sort((a, b) => a.createdKey - b.createdKey || a.idNum - b.idNum),
+    );
   }
-  all.sort((a, b) => a.createdKey - b.createdKey || a.idNum - b.idNum);
 
-  if (all.length === 0) {
-    console.log('\nNo candidates to backdate. Nothing to do.');
+  const totalCandidates = [...perCollectionCandidates.values()].reduce((n, c) => n + c.length, 0);
+  if (totalCandidates === 0) {
+    console.log('\nNo candidates to (re)date. Nothing to do.');
     return;
   }
-  if (all.length > weekdays.length) {
-    console.error(
-      `\nToo many candidates (${all.length}) for available weekdays (${weekdays.length}). Widen the window.`,
-    );
-    process.exit(1);
-  }
 
-  // 2. Deterministic irregular schedule: walk weekday indices with a jittered gap
-  //    around the base spacing so weeks vary (some quiet, some with two). One item
-  //    per weekday keeps "same collection twice a day" and "max 2/day" satisfied.
-  const base = weekdays.length / all.length; // avg weekdays between publications
-  let idx = rng() * base; // random offset into the first slot
-  const dayUsage = new Map(); // dayIso -> count, enforces global max 2/day
-
+  // 2. Per collection, distribute candidates over the weekdays that are still free
+  //    for that collection (<=1/collection/day) and globally under the 2/day cap.
+  //    We walk the free-day list with a jittered gap so weeks vary (quiet + busy).
   const results = [];
-  for (let i = 0; i < all.length; i++) {
-    const item = all[i];
-    const mapKey = `${item.collection}:${item.slug}`;
+  for (const { collection } of COLLECTIONS) {
+    const cands = perCollectionCandidates.get(collection);
+    if (!cands.length) continue;
+    const freeDays = weekdays.filter((ms) => {
+      const day = isoDate(ms);
+      return !occCollectionDay.has(`${collection}|${day}`) && (occDay.get(day) || 0) < 2;
+    });
+    if (cands.length > freeDays.length) {
+      console.error(
+        `\n[${collection}] ${cands.length} candidates but only ${freeDays.length} free weekdays. Widen the window.`,
+      );
+      process.exit(1);
+    }
+    const useTime = fieldTypes[collection] !== 'date';
+    const base = freeDays.length / cands.length;
+    let idx = rng() * base;
+    for (let i = 0; i < cands.length; i++) {
+      const remaining = cands.length - i - 1;
+      const maxIdx = freeDays.length - remaining - 1;
+      const slot = Math.min(Math.floor(idx), maxIdx);
+      const day = isoDate(freeDays[slot]);
+      const time = pickTime(rng);
+      occupy(collection, day); // keep the running cap honest
+      persistedMap[cands[i].mapKey] = { date: day, time };
+      const value = useTime ? `${day}T${time}` : day;
+      results.push({ ...cands[i], date: day, time, value, useTime });
 
-    let assignedDate;
-    let assignedTime;
-
-    if (persistedMap[mapKey] && !REDATE_ALL) {
-      // Idempotent: reuse the previously committed assignment verbatim.
-      assignedDate = persistedMap[mapKey].date;
-      assignedTime = persistedMap[mapKey].time;
-    } else {
-      // Reserve remaining slots so later items still fit before WINDOW_END.
-      const remaining = all.length - i - 1;
-      const maxIdx = weekdays.length - remaining - 1;
-      let slot = Math.min(Math.floor(idx), maxIdx);
-      // ensure strictly increasing (distinct weekday per item)
-      let dayIso = isoDate(weekdays[slot]);
-      // never exceed 2 items on a day overall
-      while ((dayUsage.get(dayIso) || 0) >= 2 && slot < maxIdx) {
-        slot += 1;
-        dayIso = isoDate(weekdays[slot]);
-      }
-      assignedDate = dayIso;
-      assignedTime = pickTime(rng);
-      dayUsage.set(dayIso, (dayUsage.get(dayIso) || 0) + 1);
-
-      // advance idx by a jittered gap: mostly ~base, sometimes small (busy),
-      // sometimes a long quiet stretch.
       const r = rng();
       let factor;
       if (r < 0.15) factor = 0.25 + rng() * 0.4; // busy: back-to-back-ish
       else if (r > 0.85) factor = 1.8 + rng() * 1.6; // quiet week(s)
       else factor = 0.7 + rng() * 0.9; // normal spread
       idx = slot + Math.max(1, base * factor);
-
-      persistedMap[mapKey] = { date: assignedDate, time: assignedTime };
     }
-
-    const useTime = fieldTypes[item.collection] !== 'date';
-    const value = useTime ? `${assignedDate}T${assignedTime}` : assignedDate;
-    results.push({ ...item, mapKey, date: assignedDate, time: assignedTime, value, useTime });
   }
 
   // 3. Print the table (dry-run always; apply prints too).
-  console.log(`\n${all.length} item(s) to (re)date:\n`);
+  results.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  console.log(`\n${results.length} item(s) to (re)date:\n`);
   console.log('  collection    date        time      slug');
   console.log('  ' + '-'.repeat(70));
   for (const r of results) {
-    console.log(
-      `  ${r.collection.padEnd(12)}  ${r.date}  ${r.time}  ${r.slug}`,
-    );
+    console.log(`  ${r.collection.padEnd(12)}  ${r.date}  ${r.time}  ${r.slug}`);
   }
 
-  // Self-check: no weekend, all in window, no collection twice/day, max 2/day.
-  const perDayCollection = new Map();
-  const perDay = new Map();
+  // Self-check across the FULL final calendar (locked + kept + newly dated).
   let violations = 0;
   for (const r of results) {
-    const dow = new Date(r.date + 'T00:00:00Z').getUTCDay();
-    if (dow === 0 || dow === 6) {
+    if (isWeekendIso(r.date)) {
       console.error(`  ! weekend date ${r.date} (${r.slug})`);
       violations++;
     }
@@ -312,12 +327,15 @@ async function run() {
       console.error(`  ! out-of-window ${r.date} (${r.slug})`);
       violations++;
     }
-    const ck = `${r.collection}|${r.date}`;
-    perDayCollection.set(ck, (perDayCollection.get(ck) || 0) + 1);
-    perDay.set(r.date, (perDay.get(r.date) || 0) + 1);
   }
-  for (const [k, n] of perDayCollection) if (n > 1) { console.error(`  ! ${k} has ${n} items (same collection/day)`); violations++; }
-  for (const [k, n] of perDay) if (n > 2) { console.error(`  ! ${k} has ${n} items (>2/day)`); violations++; }
+  for (const [k, n] of occDay) if (n > 2) { console.error(`  ! ${k} has ${n} items (>2/day)`); violations++; }
+  // occCollectionDay is a Set, so a re-add is a no-op; recount per collection/day.
+  const colDayCount = new Map();
+  for (const r of results) {
+    const ck = `${r.collection}|${r.date}`;
+    colDayCount.set(ck, (colDayCount.get(ck) || 0) + 1);
+  }
+  for (const [k, n] of colDayCount) if (n > 1) { console.error(`  ! ${k} has ${n} newly-dated items (same collection/day)`); violations++; }
   if (violations > 0) {
     console.error(`\n${violations} constraint violation(s) — aborting.`);
     process.exit(1);
