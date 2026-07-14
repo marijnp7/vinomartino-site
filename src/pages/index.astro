@@ -58,13 +58,21 @@ const atlasCountries = landen.map((land, i) => ({
 }));
 
 // ── LAT-2451 — Curated hero-streken ("Zelf gereisd" voorrang) ─────────────
-// Foto verplicht. De tile toont de EERSTE ZIN van de streek-beschrijving; het
-// ruwe `streken.description`-veld (elders intro/meta, ~220-760 tekens bij zo'n
-// 30 streken) blijft ONGEWIJZIGD — we korten alleen de gerenderde tegel-copy in.
-// Zinsgrens-truncatie op build-tijd, geen CSS-ellipsis midden in een zin. Een
-// dedicated `card_blurb`-veld (max 140) is de nettere lange-termijnroute, maar
-// vereist een Directus-schemawijziging + editorial vulling (buiten deze PR).
+// Marijn-besluit Optie B (2026-07-14): de tile toont bij voorkeur het dedicated
+// `streken.card_blurb`-veld (max 140, redactioneel gevuld voor de 6-8 uitgelichte
+// streken). Is dat leeg, dan valt de tile terug op zinsgrens-truncatie van
+// `description`. Het ruwe `description`-veld (elders intro/meta, ~220-760 tekens)
+// blijft ONGEWIJZIGD — we korten alleen de gerenderde tegel-copy op build-tijd,
+// geen CSS-ellipsis midden in een zin.
 const HERO_STREKEN_MAX = 8;
+
+// Kap op een woordgrens met ellipsis als de tekst > max is; laat kortere tekst heel.
+function clampToWord(text: string, max = 140): string {
+  const clean = text.replace(/\s+/g, ' ').trim();
+  if (clean.length <= max) return clean;
+  const lastSpace = clean.slice(0, max).lastIndexOf(' ');
+  return `${clean.slice(0, lastSpace > 0 ? lastSpace : max).trimEnd()}…`;
+}
 
 // Neem de eerste zin (eerste .!? gevolgd door spatie/eind, met een 40-teken-
 // ondergrens zodat afkortingen als "St." niet vroeg afkappen). Is die zin langer
@@ -80,9 +88,15 @@ function clampToSentence(text: string, max = 140): string {
     if (m.index >= 40) { end = m.index + 1; break; }
   }
   const firstSentence = end > 0 ? clean.slice(0, end).trim() : clean;
-  if (firstSentence.length <= max) return firstSentence;
-  const lastSpace = firstSentence.slice(0, max).lastIndexOf(' ');
-  return `${firstSentence.slice(0, lastSpace > 0 ? lastSpace : max).trimEnd()}…`;
+  return clampToWord(firstSentence, max);
+}
+
+// Kaart-blurb: dedicated card_blurb (defensief op 140 gekapt) heeft voorrang;
+// anders zinsgrens-truncatie van description.
+function heroBlurb(cardBlurb: string, description: string): string {
+  const cb = cardBlurb.trim();
+  if (cb) return clampToWord(cb);
+  return clampToSentence(description);
 }
 
 // Foto- + tekst-guard (LAT-2267/LAT-2356): alleen streken mét hero-foto én blurb.
@@ -103,7 +117,7 @@ const heroStreken = allStreken
   .map((s) => ({
     name: s.name,
     eyebrow: s.country,
-    blurb: clampToSentence(s.description),
+    blurb: heroBlurb(s.cardBlurb, s.description),
     href: `/streken/${s.slug}/`,
     image: s.heroImage as string,
     visited: s.zelfGereisd,
@@ -718,8 +732,8 @@ function formatDate(value?: string | null) {
     line-height: 1.5;
     color: color-mix(in srgb, var(--fixed-cream) 88%, transparent);
     margin-top: var(--space-2);
-    /* LAT-2451 — de blurb is op build-tijd al uniform op een zinsgrens afgekapt
-       (clampToSentence, <=140 tekens), dus geen CSS-ellipsis meer. */
+    /* LAT-2451 — de blurb is op build-tijd al uniform ≤140 tekens (card_blurb of
+       zinsgrens-truncatie van description), dus geen CSS-ellipsis meer. */
   }
   .streek-link {
     margin-top: var(--space-3);
