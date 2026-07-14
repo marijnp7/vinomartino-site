@@ -166,6 +166,13 @@
       "x": 313.5,
       "y": 726.9,
       "badge": null
+    },
+    {
+      "slug": "rheingau",
+      "name": "Rheingau",
+      "x": 305.1,
+      "y": 645.1,
+      "badge": null
     }
   ]
 }
