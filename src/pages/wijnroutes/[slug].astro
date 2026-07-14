@@ -451,6 +451,14 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
     font-style: italic;
     color: var(--inkSoft);
   }
+  /* LAT-2430: brede body-tabellen scrollen intern i.p.v. de pagina op te rekken
+     (voorkomt horizontale scroll op smalle viewports). */
+  .page-prose :global(table) {
+    display: block;
+    width: max-content;
+    max-width: 100%;
+    overflow-x: auto;
+  }
 
   /* LAT-2270: verrijkte body-directives (`:::foto`/`:::boek`/`:::infographic`),
      als set:html in de proza gerenderd → :global. Token-styling, geen inline hex/px. */
@@ -482,6 +490,16 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
   .page-prose :global(.route-foto--breed) {
     margin-left: calc(-1 * var(--space-6));
     margin-right: calc(-1 * var(--space-6));
+  }
+  /* LAT-2430: op mobiel is de container-gutter 1rem (tokens.css: --gutter @768px),
+     kleiner dan --space-6 (1.5rem) → breed-uitbraak stak 8px buiten de viewport.
+     Breek uit tot precies de gutter zodat het beeld edge-to-edge blijft zonder
+     horizontale scroll. */
+  @media (max-width: 768px) {
+    .page-prose :global(.route-foto--breed) {
+      margin-left: calc(-1 * var(--gutter));
+      margin-right: calc(-1 * var(--gutter));
+    }
   }
   .page-prose :global(.route-foto--inzet) {
     max-width: 20rem;
