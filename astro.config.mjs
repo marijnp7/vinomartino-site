@@ -25,6 +25,9 @@ export default defineConfig({
         // LAT-859: douro/mosel have canonical Directus entries at douro-portugal/mosel-duitsland
         page !== 'https://vinomartino.com/streken/douro/' &&
         page !== 'https://vinomartino.com/streken/mosel/',
+        // LAT-1853/LAT-2457: keyword-cannibalisatie 301's; canonical is de doel-slug.
+        page !== 'https://vinomartino.com/artikelen/een-week-in-piemonte-barolo-barbaresco-en-alles-daartussenin/' &&
+        page !== 'https://vinomartino.com/artikelen/langhe-vier-dagen-route/' &&
       serialize(item) {
         // Homepage
         if (item.url === 'https://vinomartino.com/') {
