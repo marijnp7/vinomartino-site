@@ -1,0 +1,194 @@
+---
+// MailerLite Artikel-Footer embed (LAT-2436 / Fase A stap 3 van LAT-1828).
+// Native subscribe-form naar hetzelfde MailerLite-account/form als /de-brief
+// (form 189828746131277541, account 2415940). De regiovraag is gekoppeld aan
+// custom field `region_preference` (id 1377354); waarden piemonte/toscane/
+// alsace/overige triggeren de 4 routing-automations -> region-* groups.
+// Override endpoint via PUBLIC_MAILERLITE_FORM_ACTION (net als /de-brief).
+const FORM_ACTION =
+  import.meta.env.PUBLIC_MAILERLITE_FORM_ACTION ||
+  'https://assets.mailerlite.com/jsonp/2415940/forms/189828746131277541/subscribe';
+
+type RegionValue = 'piemonte' | 'toscane' | 'alsace' | 'overige';
+
+interface Props {
+  // Preselecteer de regio op region-/streekpagina's (tweede prio). Undefined =
+  // lezer kiest zelf; het veld blijft optioneel.
+  defaultRegion?: RegionValue | null;
+}
+
+const { defaultRegion = null } = Astro.props;
+
+const REGION_OPTIONS: { value: RegionValue; label: string }[] = [
+  { value: 'piemonte', label: 'Piemonte' },
+  { value: 'toscane', label: 'Toscane' },
+  { value: 'alsace', label: 'Alsace' },
+  { value: 'overige', label: 'Een andere regio' },
+];
+---
+
+<section class="nl-footer" aria-labelledby="nl-footer-heading">
+  <div class="nl-footer__inner">
+    <p class="nl-footer__kicker">De brief · nieuwsbrief van VinoMartino</p>
+    <h2 id="nl-footer-heading">Wijnreisverhalen in je inbox</h2>
+    <p class="nl-footer__lede">
+      Een paar keer per jaar stuurt Marijn een echte brief: over een wijnmaker
+      die we net bezochten, een regio die opnieuw onze aandacht trok, een fles
+      die indruk maakte. Vertel ons welke regio je het meest boeit, dan sturen
+      we je verhalen op maat.
+    </p>
+
+    <form class="nl-footer__form" action={FORM_ACTION} method="post" target="_blank">
+      <div class="nl-footer__row">
+        <label for="nl-footer-email" class="visually-hidden">E-mailadres</label>
+        <input
+          id="nl-footer-email"
+          type="email"
+          name="fields[email]"
+          autocomplete="email"
+          placeholder="je@adres.nl"
+          required
+        />
+        <button type="submit">Stuur me De brief</button>
+      </div>
+
+      <div class="nl-footer__region">
+        <label for="nl-footer-region">
+          Welke wijnregio interesseert jou het meest? <span class="nl-footer__optional">(optioneel)</span>
+        </label>
+        <select id="nl-footer-region" name="fields[region_preference]">
+          <option value="">Maak een keuze…</option>
+          {REGION_OPTIONS.map((opt) => (
+            <option value={opt.value} selected={defaultRegion === opt.value}>{opt.label}</option>
+          ))}
+        </select>
+      </div>
+    </form>
+
+    <p class="nl-footer__fineprint">
+      Je ontvangt een e-mail om je aanmelding te bevestigen. Afmelden kan altijd,
+      met één klik.
+    </p>
+  </div>
+</section>
+
+<style>
+  .nl-footer {
+    margin: clamp(2.5rem, 6vw, 4rem) auto 0;
+    padding: clamp(1.75rem, 4vw, 2.75rem);
+    max-width: 760px;
+    border: 1px solid var(--color-rule, #C9B98F);
+    background: var(--color-bg-soft, var(--color-bg, #fff));
+  }
+  .nl-footer__inner {
+    max-width: 620px;
+    margin: 0 auto;
+  }
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+  .nl-footer__kicker {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--color-rust, #A14F2A);
+    margin: 0 0 0.5rem;
+  }
+  .nl-footer h2 {
+    font-family: var(--font-display);
+    font-size: clamp(1.5rem, 3vw + 0.5rem, 2.25rem);
+    font-weight: 500;
+    color: var(--color-text);
+    margin: 0;
+    line-height: 1.05;
+  }
+  .nl-footer__lede {
+    font-family: var(--font-serif, var(--font-body));
+    font-size: 1.0625rem;
+    line-height: 1.6;
+    color: var(--color-text-soft, var(--color-text));
+    margin: 0.9rem 0 0;
+  }
+  .nl-footer__form {
+    margin: 1.5rem 0 0;
+  }
+  .nl-footer__row {
+    display: flex;
+    gap: 0.5rem;
+  }
+  .nl-footer__row input {
+    flex: 1;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--color-rule, #C9B98F);
+    background: var(--color-bg);
+    font-family: var(--font-serif, var(--font-body));
+    font-size: 1rem;
+    outline: none;
+    color: var(--color-text);
+  }
+  .nl-footer__row input:focus,
+  .nl-footer__region select:focus {
+    border-color: var(--color-primary);
+  }
+  .nl-footer__row button {
+    background: var(--color-primary);
+    color: var(--color-bg);
+    padding: 0.75rem 1.25rem;
+    border: none;
+    font-family: var(--font-ui);
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+  }
+  .nl-footer__row button:hover {
+    background: var(--color-primary-hover, var(--color-primary));
+  }
+  .nl-footer__region {
+    margin: 0.85rem 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+  .nl-footer__region label {
+    font-family: var(--font-ui);
+    font-size: 0.8125rem;
+    color: var(--color-text-soft, var(--color-text));
+  }
+  .nl-footer__optional {
+    color: var(--color-text-faint, var(--color-text-soft, var(--color-text)));
+  }
+  .nl-footer__region select {
+    padding: 0.6rem 0.75rem;
+    border: 1px solid var(--color-rule, #C9B98F);
+    background: var(--color-bg);
+    font-family: var(--font-serif, var(--font-body));
+    font-size: 0.9375rem;
+    color: var(--color-text);
+    outline: none;
+  }
+  .nl-footer__fineprint {
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: var(--color-text-faint, var(--color-text-soft, var(--color-text)));
+    margin: 1rem 0 0;
+  }
+
+  @media (max-width: 560px) {
+    .nl-footer__row {
+      flex-direction: column;
+    }
+  }
+</style>

@@ -11,6 +11,7 @@ import StreekFeitenblok from '../../components/StreekFeitenblok.astro';
 import RouteMap from '../../components/RouteMap.astro';
 import TourCards from '../../components/TourCards.astro';
 import ZelfGereisdBadge from '../../components/ZelfGereisdBadge.astro';
+import NewsletterFooter from '../../components/NewsletterFooter.astro';
 import { accommodatieBookingDeeplink } from '../../lib/affiliates';
 import { loadStreken, type Streek, type Accommodation } from '../../lib/streken';
 import { clustersFromCuratedStays, staySlug } from '../../lib/curated-stays';
@@ -57,6 +58,15 @@ const pageUrl = new URL(`/streken/${entry.slug}/`, Astro.site ?? 'https://vinoma
 // bedragen worden naar EUR geconverteerd voor weergave (board-besluit). Een
 // per-accommodatie valuta (acc.valuta) wint als bron over de land-default.
 const streekValuta = currencyForLand(entry.landSlug);
+
+// LAT-2436: preselecteer de regiovraag in de nieuwsbrief-footer wanneer de streek
+// overeenkomt met een van de 4 MailerLite-routing-regio's (region_preference).
+const streekRegio = `${entry.slug} ${entry.landSlug ?? ''}`.toLowerCase();
+const newsletterRegion: 'piemonte' | 'toscane' | 'alsace' | null =
+  /piemonte|langhe/.test(streekRegio) ? 'piemonte'
+  : /toscane|toscana/.test(streekRegio) ? 'toscane'
+  : /alsace|elzas/.test(streekRegio) ? 'alsace'
+  : null;
 
 // LAT-1199: verticale kruimel Land → Streek.
 const hasParentLand = Boolean(entry.landSlug && entry.country);
@@ -455,6 +465,8 @@ const hasFactBox = Boolean(
 
     <AffiliateDisclosure />
   </article>
+
+  <NewsletterFooter defaultRegion={newsletterRegion} />
 </SiteLayout>
 
 <style>
