@@ -1,0 +1,65 @@
+---
+// LAT-2452: gedeeld regio-keuzeveld voor alle nieuwsbriefformulieren.
+// De waarden MOETEN exact overeenkomen met de opties van het MailerLite
+// custom field `region_preference` (form 189828746131277541, field id 1377354).
+// MailerLite valideert hoofdlettergevoelig: alleen Piemonte/Toscane/Alsace/Overige
+// worden geaccepteerd; lowercase varianten geven {"success":false, region_preference invalid}.
+// Eén bron van waarheid hier voorkomt dat losse forms opnieuw ongeldige waarden sturen.
+export type RegionValue = 'Piemonte' | 'Toscane' | 'Alsace' | 'Overige';
+
+interface Props {
+  id: string;
+  defaultRegion?: RegionValue | null;
+}
+
+const { id, defaultRegion = null } = Astro.props;
+
+const REGION_OPTIONS: { value: RegionValue; label: string }[] = [
+  { value: 'Piemonte', label: 'Piemonte' },
+  { value: 'Toscane', label: 'Toscane' },
+  { value: 'Alsace', label: 'Alsace' },
+  { value: 'Overige', label: 'Een andere regio' },
+];
+---
+
+<div class="nl-region">
+  <label for={id} class="nl-region__label">
+    Welke wijnregio interesseert jou het meest? <span class="nl-region__opt">(optioneel)</span>
+  </label>
+  <select id={id} name="fields[region_preference]" class="nl-region__select">
+    <option value="">Maak een keuze…</option>
+    {REGION_OPTIONS.map((opt) => (
+      <option value={opt.value} selected={defaultRegion === opt.value}>{opt.label}</option>
+    ))}
+  </select>
+</div>
+
+<style>
+  .nl-region {
+    margin: 0.85rem 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    text-align: left;
+  }
+  .nl-region__label {
+    font-family: var(--font-ui);
+    font-size: 0.8125rem;
+    color: var(--color-text-soft, var(--inkSoft, var(--color-text, inherit)));
+  }
+  .nl-region__opt {
+    color: var(--color-text-faint, var(--inkFaint, var(--color-text-soft, inherit)));
+  }
+  .nl-region__select {
+    padding: 0.6rem 0.75rem;
+    border: 1px solid var(--color-rule, var(--rule, #C9B98F));
+    background: var(--color-bg, var(--fixed-cream, #fff));
+    font-family: var(--font-serif, var(--font-body, inherit));
+    font-size: 0.9375rem;
+    color: var(--color-text, var(--ink, inherit));
+    outline: none;
+  }
+  .nl-region__select:focus {
+    border-color: var(--color-primary, var(--burgundy, #5E1A1D));
+  }
+</style>

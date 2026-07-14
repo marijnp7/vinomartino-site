@@ -42,7 +42,6 @@ const copy = variants[variant];
       method="post"
       target="_blank"
       data-newsletter-signup
-      data-region-preference="unknown"
     >
       <label for="ml-email-{variant}" class="visually-hidden">E-mailadres</label>
       <input
@@ -53,6 +52,8 @@ const copy = variants[variant];
         placeholder="je@adres.nl"
         required
       />
+      {/* Langhe-leadmagneet hoort bij Piemonte: routeer naar de Piemonte-automation. */}
+      <input type="hidden" name="fields[region_preference]" value="Piemonte" />
       <button type="submit" data-plausible-cta="langhe_pdf_signup">{copy.ctaText}</button>
     </form>
 
