@@ -326,6 +326,14 @@ function formatDate(value?: string | null) {
             placeholder="je@adres.nl"
             required
           />
+          <label for="brief-regio" class="visually-hidden">Welke wijnregio interesseert jou het meest?</label>
+          <select id="brief-regio" name="fields[region_preference]" class="brief-signup__regio">
+            <option value="">Welke regio trekt je het meest? (optioneel)</option>
+            <option value="Piemonte">Piemonte</option>
+            <option value="Toscane">Toscane</option>
+            <option value="Alsace">Alsace</option>
+            <option value="Overige">Overige</option>
+          </select>
           <button type="submit" class="btn btn-primary" data-plausible-cta="newsletter_signup">Stuur me de brief</button>
         </form>
       </Briefkaart>
@@ -892,13 +900,14 @@ function formatDate(value?: string | null) {
   }
   .brief-signup {
     display: flex;
+    flex-wrap: wrap;
     gap: var(--space-2);
     width: 100%;
     max-width: 30rem;
     margin: var(--space-5) auto 0;
   }
   .brief-signup input {
-    flex: 1;
+    flex: 1 1 12rem;
     padding: 0.85rem 1rem;
     border: 1px solid var(--paperShade, #E8DCC0);
     background: #fff;
@@ -909,6 +918,17 @@ function formatDate(value?: string | null) {
   }
   .brief-signup input::placeholder { color: color-mix(in srgb, var(--fixed-ink) 45%, transparent); }
   .brief-signup input:focus { border-color: var(--burgundy); }
+  .brief-signup__regio {
+    flex: 1 1 12rem;
+    padding: 0.85rem 1rem;
+    border: 1px solid var(--paperShade, #E8DCC0);
+    background: #fff;
+    color: var(--fixed-ink);
+    font-family: var(--font-body);
+    font-size: 1rem;
+    outline: none;
+  }
+  .brief-signup__regio:focus { border-color: var(--burgundy); }
   .brief-signup .btn { white-space: nowrap; }
 
   /* LAT-2008 — "Zelf gereisd"-badge op de bestemmingskaart. */

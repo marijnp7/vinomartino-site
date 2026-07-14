@@ -95,8 +95,13 @@ export function initPlausibleInteractions(): void {
     (event) => {
       const form = event.target as HTMLFormElement | null;
       if (!form?.matches('[data-newsletter-signup]')) return;
+      const regioSelect = form.querySelector<HTMLSelectElement>(
+        'select[name="fields[region_preference]"]',
+      );
+      const region =
+        regioSelect?.value || form.dataset.regionPreference || 'unknown';
       trackPlausible('newsletter_signup', {
-        region_preference: form.dataset.regionPreference || 'unknown',
+        region_preference: region,
         path: window.location.pathname,
       });
     },

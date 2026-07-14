@@ -58,6 +58,14 @@ const schema = [
           placeholder="je@adres.nl"
           required
         />
+        <label for="ml-regio" class="visually-hidden">Welke wijnregio interesseert jou het meest?</label>
+        <select id="ml-regio" name="fields[region_preference]" class="signup__regio">
+          <option value="">Welke regio trekt je het meest? (optioneel)</option>
+          <option value="Piemonte">Piemonte</option>
+          <option value="Toscane">Toscane</option>
+          <option value="Alsace">Alsace</option>
+          <option value="Overige">Overige</option>
+        </select>
         <button type="submit" data-plausible-cta="newsletter_signup">Stuur me de brief</button>
       </form>
 
@@ -148,10 +156,11 @@ const schema = [
     margin: 2rem auto 0;
     max-width: 480px;
     display: flex;
+    flex-wrap: wrap;
     gap: 0.5rem;
   }
   .signup input {
-    flex: 1;
+    flex: 1 1 12rem;
     padding: 0.75rem 1rem;
     border: 1px solid var(--color-rule, #C9B98F);
     background: var(--color-bg);
@@ -161,6 +170,19 @@ const schema = [
     color: var(--color-text);
   }
   .signup input:focus {
+    border-color: var(--color-primary);
+  }
+  .signup__regio {
+    flex: 1 1 12rem;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--color-rule, #C9B98F);
+    background: var(--color-bg);
+    font-family: var(--font-serif, var(--font-body));
+    font-size: 1rem;
+    outline: none;
+    color: var(--color-text);
+  }
+  .signup__regio:focus {
     border-color: var(--color-primary);
   }
   .signup button {
