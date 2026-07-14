@@ -1,5 +1,6 @@
 import type { TocItem } from './markdown';
 import { getCtaStructure, type CtaStructure } from './cta-blocks';
+import { assertAssetAllowed } from './image-guard';
 
 export interface RelatedRef {
     slug: string;
@@ -258,6 +259,7 @@ import {
 } from './directus-config';
 
 async function downloadArticleAsset(assetId: string, directusUrl: string, token: string): Promise<string | null> {
+    if (!assertAssetAllowed(assetId)) return null; // LAT-2361: blokkeer fout-gekoppelde/gedeelde beelden ook in artikel-hero's
     const { writeFileSync, mkdirSync, existsSync } = await import('node:fs');
     const { join } = await import('node:path');
     const outDir = join(process.cwd(), 'public', 'images', 'articles');
