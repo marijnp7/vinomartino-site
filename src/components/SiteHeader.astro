@@ -615,7 +615,12 @@ const ontdekPromo = {
     color: var(--vine);
   }
 
-  @media (max-width: 900px) {
+  /* De volledige horizontale desktop-nav (logo + CMS-nav-items + zoek/kelder-
+     acties) past pas vanaf ~1080px; daaronder liep de header-rij uit de viewport
+     (LAT-2440: 901px gaf 159px page-overflow → horizontale scroll). Omdat het
+     aantal nav-items CMS-gestuurd/onbegrensd is, is dit de robuuste knip: onder
+     1080px neemt het (verticale, nooit-overlopende) hamburger-menu het over. */
+  @media (max-width: 1080px) {
     .header-nav, .header-utility { display: none; }
     .mobile-toggle { display: flex; }
     .search-trigger-kbd { display: none; }
