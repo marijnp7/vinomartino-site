@@ -188,7 +188,7 @@ const GLOBAL_ATTRS = new Set(['id', 'class', 'classname', 'title', 'lang', 'dir'
 // Per-tag toegestane attributen, naast de globale.
 const TAG_ATTRS: Record<string, Set<string>> = {
   a: new Set(['href', 'target', 'rel', 'name']),
-  img: new Set(['src', 'alt', 'width', 'height', 'loading', 'decoding', 'srcset', 'sizes']),
+  img: new Set(['src', 'alt', 'width', 'height', 'loading', 'decoding', 'fetchpriority', 'srcset', 'sizes']),
   source: new Set(['src', 'srcset', 'sizes', 'media', 'type', 'width', 'height']),
   ol: new Set(['start', 'type', 'reversed']),
   li: new Set(['value']),

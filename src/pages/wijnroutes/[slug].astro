@@ -459,6 +459,14 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
     width: 100%;
     height: auto;
     border-radius: var(--radius-sm);
+    /* LAT-2432: vlakke tint i.p.v. wit terwijl het (lazy) beeld laadt. */
+    background: var(--paperDeep);
+  }
+  /* LAT-2432: fallback wanneer de build geen intrinsieke width/height kon
+     bepalen — reserveert alsnog ruimte zodat de content niet springt (CLS). */
+  .page-prose :global(.route-foto img:not([width])) {
+    aspect-ratio: 3 / 2;
+    object-fit: cover;
   }
   .page-prose :global(.route-foto figcaption) {
     font-family: var(--font-mono);
