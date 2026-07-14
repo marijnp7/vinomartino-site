@@ -1,18 +1,18 @@
 ---
-title: "Rosé blind geproefd: zes flessen door een WSET4-zeef"
+title: "Rosé blind geproefd: zes flessen door een strenge zeef"
 date: 2026-06-28
 author: "Martin"
-summary: "Zes rosés, zes glazen in aluminiumfolie, een zaterdagmiddag in Amsterdam. Martin (WSET4) stelt de vraag die hij al te lang uitstelde: wat houdt rosé overeind als je de etiketten weghaalt? Whispering Angel, Miraval en een supermarktfles staan naast Bandol, Tavel en Valentini Cerasuolo d'Abruzzo. Niet alle zes overleven het."
-description: "Martin (WSET4) proeft zes rosés zonder etiket: drie terroir-gedreven, drie marketing-gedreven. Whispering Angel en Miraval staan naast Bandol, Tavel en Valentini Cerasuolo d'Abruzzo. Een eerlijk proefverslag over wat rosé écht waard is."
-metaTitle: "Rosé blind geproefd: WSET4-screening van zes zomerflessen | VinoMartino"
-metaDescription: "Whispering Angel, Miraval en supermarktrosé naast Bandol, Tavel en Valentini Cerasuolo d'Abruzzo. Welke overleven een blinde WSET4-screening?"
+summary: "Zes rosés, zes glazen in aluminiumfolie, een zaterdagmiddag in Amsterdam. Martin stelt de vraag die hij al te lang uitstelde: wat houdt rosé overeind als je de etiketten weghaalt? Whispering Angel, Miraval en een supermarktfles staan naast Bandol, Tavel en Valentini Cerasuolo d'Abruzzo. Niet alle zes overleven het."
+description: "Martin proeft zes rosés zonder etiket: drie terroir-gedreven, drie marketing-gedreven. Whispering Angel en Miraval staan naast Bandol, Tavel en Valentini Cerasuolo d'Abruzzo. Een eerlijk proefverslag over wat rosé écht waard is."
+metaTitle: "Rosé blind geproefd: blinde screening van zes zomerflessen | VinoMartino"
+metaDescription: "Whispering Angel, Miraval en supermarktrosé naast Bandol, Tavel en Valentini Cerasuolo d'Abruzzo. Welke overleven een blinde screening?"
 category: "wijnkennis"
 tags: ["rosé", "blindproeverij", "bandol", "tavel", "cerasuolo-dabruzzo", "provence", "whispering-angel", "miraval", "zomerwijnen", "wijnkennis"]
-slug: "zes-roses-blind-wset4-screening"
+slug: "zes-roses-blind-geproefd-screening"
 heroImage: ""
 ---
 
-# Rosé blind geproefd: zes flessen door een WSET4-zeef
+# Rosé blind geproefd: zes flessen door een strenge zeef
 
 Zes glazen op de keukentafel. Elk omgewikkeld in aluminiumfolie, opgesteld in een rij die Sophie zelf had bepaald. De volgorde kende ik niet. Ze had de flessen ingepakt, ingeschonken en de kaartjes met de wijn nummers face-down neergelegd voordat ik uit de keuken terugkwam. Buiten was het halfbewolkt, een warme junimiddag waarop het licht net te hard was voor de binnenkant van het appartement.
 

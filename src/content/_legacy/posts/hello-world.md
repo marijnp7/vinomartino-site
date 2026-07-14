@@ -5,7 +5,7 @@ author: "Martin"
 summary: "Een eerste post is altijd een beetje vreemd. Wie ben ik, wat doe ik hier, en waarom zou je dit lezen als er al duizend wijnblogs bestaan? Een eerlijk antwoord op drie vragen die ik mezelf stelde voor ik begon."
 description: "Een eerste post is altijd een beetje vreemd. Wie ben ik, wat doe ik hier, en waarom zou je dit lezen als er al duizend wijnblogs bestaan? Een eerlijk antwoord."
 category: "travel-tips"
-tags: ["over-ons", "martin", "sophie", "wset", "wijnreizen"]
+tags: ["over-ons", "martin", "sophie", "wijnreizen"]
 slug: "waarom-ik-schrijf-over-wijn-en-reizen"
 heroImage: "/images/landschap-piemonte-wijnreis-001.jpg"
 ---
@@ -22,11 +22,11 @@ Dit is geen puntenscore-site. Dit is ook geen fantasie-reissite.
 
 ## Wie ik ben
 
-Ik heet Martin. Ik ben 35 en woon in Amsterdam. Ik heb een WSET Level 4 Diploma behaald na vier jaar studie naast mijn werk — WSET4 is het hoogste niveau van de meest erkende wijnopleidingsstichting ter wereld, één niveau onder de Masters of Wine. Dat betekent dat ik blind kan proeven en een redelijk goed idee heb van wat er in een glas zit zonder het etiket te lezen.
+Ik heet Martin. Ik ben 35 en woon in Amsterdam. Ik heb jarenlang gestructureerd leren proeven, naast mijn werk, met een notitieboekje dat zelden ver weg is. Dat betekent dat ik redelijk blind kan proeven en een goed idee heb van wat er in een glas zit zonder het etiket te lezen.
 
 Maar ik ben geen sommelier. Ik ben geen wijnhandelaar. Ik heb geen rekening bij Christie's voor mijn wijnveiling-activiteiten. Ik ben iemand met een vaste baan die zijn vrije weken besteedt aan reizen naar wijnregio's, die noteert wat hij drinkt in een linnen notitieboekje, en die probeert te begrijpen waarom de ene Barolo compleet anders smaakt dan de andere — ook al komen ze uit dezelfde gemeente op drie kilometer van elkaar.
 
-Sophie reist mee. Zij heeft geen WSET-diploma maar een scherpte voor wijn die ik eerlijk gezegd benijd — ze proeft onderdelen die ik rationaliseer maar niet direct voel. Ze is de reden waarom ik de Wachau serieus ben gaan nemen (Grüner Veltliner was lange tijd niet haar stijl; na één glas Smaragd veranderde dat). Ze is ook de reden waarom ik wijnhuizen nooit te serieus neem — als Arianna Occhipinti in Vittoria begroet met modderige handen omdat ze net haar wijngaard heeft bijgewerkt, is dat voor Sophie het signaal dat alles goed zit.
+Sophie reist mee. Zij heeft geen wijnopleiding maar een scherpte voor wijn die ik eerlijk gezegd benijd — ze proeft onderdelen die ik rationaliseer maar niet direct voel. Ze is de reden waarom ik de Wachau serieus ben gaan nemen (Grüner Veltliner was lange tijd niet haar stijl; na één glas Smaragd veranderde dat). Ze is ook de reden waarom ik wijnhuizen nooit te serieus neem — als Arianna Occhipinti in Vittoria begroet met modderige handen omdat ze net haar wijngaard heeft bijgewerkt, is dat voor Sophie het signaal dat alles goed zit.
 
 ## Wat je hier vindt
 
