@@ -20,10 +20,10 @@ export const AUTHORS: readonly Author[] = [
   {
     slug: 'marijn',
     name: 'Marijn',
-    tagline: 'Wijnreiziger. WSET Level 4. Amsterdam.',
+    tagline: 'Wijnreiziger. Amsterdam.',
     bio:
       "Marijn is de schrijver achter VinoMartino. Hij reist zes tot acht keer per jaar naar wijnregio's door Europa, altijd rechtstreeks naar de bron: bij de wijnmaker zelf, met een afspraak die hij twee weken van tevoren heeft gemaakt en een notitieboekje dat zelden ver weg is.\n\n" +
-      "Zijn WSET Level 4 Diploma geeft hem de achtergrond om te proeven. Zijn oogmerk is schrijven, niet scoren. Een fles van €18 op een winterterras in Verona kan hem even enthousiast maken als een premier cru, zolang de context klopt.\n\n" +
+      "Jaren van gestructureerd proeven en aantekeningen geven hem de achtergrond om te proeven. Zijn oogmerk is schrijven, niet scoren. Een fles van €18 op een winterterras in Verona kan hem even enthousiast maken als een premier cru, zolang de context klopt.\n\n" +
       "Internationale wijnmakers noemen hem Martino, een bijnaam die bleef hangen en de merknaam werd. Thuis heet hij gewoon Marijn, en woont hij in Amsterdam met zijn vriendin Sophie en een wijnkoelkast voor tachtig flessen die zelden vol staat.",
     regions: [
       'Piemonte: Barolo, Barbaresco, Roero',
@@ -59,7 +59,7 @@ export const AUTHORS: readonly Author[] = [
     tagline: 'Bourgogne, Bordeaux, Riesling. Importeur (gepensioneerd). Maastricht.',
     role: 'Bijdragende redacteur: verticale proeverijen en jaargangstudie',
     bio:
-      "Hugo Verlinden was achttien jaar wijnimporteur vanuit Maastricht, gespecialiseerd in Bourgogne en Duitsland. Hij stopte vervroegd en schrijft nu, zoals hij het zelf omschrijft, als obsessie. Zijn WSET Diploma hangt aan de muur. Zijn meest waardevolle gereedschap is het aantekeningenarchief dat hij al jarenlang bijhoudt.\n\n" +
+      "Hugo Verlinden was achttien jaar wijnimporteur vanuit Maastricht, gespecialiseerd in Bourgogne en Duitsland. Hij stopte vervroegd en schrijft nu, zoals hij het zelf omschrijft, als obsessie. Zijn meest waardevolle gereedschap is het aantekeningenarchief dat hij al jarenlang bijhoudt.\n\n" +
       "Voor VinoMartino schrijft hij over verticale proeverijen, jaargangvariatie en wat er verandert als een wijnhuis van de ene naar de andere generatie overgaat.",
     portrait: '/images/auteurs/hugo.svg',
     portraitAlt: 'Hugo, silhouet in een schemerige kelder met een fles wijn',

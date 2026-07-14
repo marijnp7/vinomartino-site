@@ -1,24 +1,24 @@
 ---
-title: "Fun vs. Fine — WSET4 en toch pét-nat op vrijdag"
+title: "Fun vs. Fine — serieuze wijnkennis en toch pét-nat op vrijdag"
 date: 2026-05-27
 author: "Martin"
 summary: "Mijn wijnkoelkast heeft tachtig flessen. Vrijdagavond, na een lange week, pak ik de pét-nat. Over de valse tegenstelling tussen wijnkennis en wijnplezier."
 description: "Mijn wijnkoelkast heeft tachtig flessen. Vrijdagavond, na een lange week, pak ik de pét-nat. Over de valse tegenstelling tussen wijnkennis en wijnplezier."
-metaTitle: "Fun vs. Fine — WSET4 en toch pét-nat op vrijdag | VinoMartino"
+metaTitle: "Fun vs. Fine — serieuze wijnkennis en toch pét-nat op vrijdag | VinoMartino"
 metaDescription: "Wijnkennis en wijnplezier zijn geen tegenpolen. Een column over de méthode ancestrale, de Barolo die blijft staan, en waarom dat geen verraad is."
 category: "wijnkennis"
 tags: ["pét-nat", "méthode-ancestrale", "wijnkennis", "column", "barolo", "vrijdag"]
-slug: "fun-vs-fine-wset-pet-nat"
+slug: "fun-vs-fine-serieuze-wijnkennis-pet-nat"
 heroImage: "/images/landschap-oogst-seizoen-001.jpg"
 ---
 
-# Fun vs. Fine — WSET4 en toch pét-nat op vrijdag
+# Fun vs. Fine — serieuze wijnkennis en toch pét-nat op vrijdag
 
 Mijn wijnkoelkast heeft tachtig flessen. Vrijdagavond, na een lange week, pak ik de pét-nat.
 
 De Barolo staat er ook. Twee flessen Giacomo Conterno Cascina Francia 2019, die ik met tegenzin blijf laten liggen — Nebbiolo vraagt minstens vijf jaar geduld, liefst tien, en als ik eerlijk ben liever vijftien. Ernaast een Chablis premier cru die al open had gemoeten. En achterin, half weggestopt tussen de Pfalz-Rieslingen, een Domaine de la Pépière pét-nat uit de Muscadet-regio. Goudgeel, kroonkurk, licht bewolkt als je hem tegen het licht houdt. Sophie heeft hem vorige maand gekocht bij Vincourage, zonder er iets over te zeggen, en hem stilletjes naar voren geschoven totdat hij op ooghoogte hing. "Die staat er al weken op je aan te kijken," zegt ze, terwijl ze haar jas ophangt. Ik pak hem.
 
-Er is in de wijnwereld een gesprek dat al jarenlang doorgaat en van toon wisselt maar niet van kern. Of serieuze wijnkennis verplicht tot serieuze keuzes. Of wie zijn WSET-diploma serieus neemt eigenlijk nog pét-nat mag opentrekken op een vrijdagavond, met een kroonkurk, zonder iets te verraden. Of toegankelijkheid en diepgang principieel niet kunnen samengaan — dat het bewijs van echte kennis altijd een bepaalde appellatiehiërarchie vereist. Het idee duikt op in sommelier-gesprekken, in de impliciet-beladen manier waarop sommige connaisseurs naar een simpel glas kijken. Alsof plezier en ernst een nulsom zijn. Alsof de keuze voor het ene automatisch een verloochening is van het andere. Ik herken het patroon. Ik vind het merkwaardig.
+Er is in de wijnwereld een gesprek dat al jarenlang doorgaat en van toon wisselt maar niet van kern. Of serieuze wijnkennis verplicht tot serieuze keuzes. Of wie zijn wijnkennis serieus neemt eigenlijk nog pét-nat mag opentrekken op een vrijdagavond, met een kroonkurk, zonder iets te verraden. Of toegankelijkheid en diepgang principieel niet kunnen samengaan — dat het bewijs van echte kennis altijd een bepaalde appellatiehiërarchie vereist. Het idee duikt op in sommelier-gesprekken, in de impliciet-beladen manier waarop sommige connaisseurs naar een simpel glas kijken. Alsof plezier en ernst een nulsom zijn. Alsof de keuze voor het ene automatisch een verloochening is van het andere. Ik herken het patroon. Ik vind het merkwaardig.
 
 Wat ik weet over pét-nat heeft niets te maken met waarom ik hem vandaag kies. Maar de kennis is er, dus laat ik hem noemen. Pét-nat — pétillant naturel — is een wijn gemaakt via de méthode ancestrale: de most wordt op fles gebotteld voordat de primaire gisting volledig is afgerond. De gist is nog actief. De CO2 die vervolgens vrijkomt in de gesloten fles maakt de borreling — geen tirage toegevoegd, geen aparte suiker-gistoplossing zoals bij de méthode champenoise. Geen degorgement. De lees blijft in de fles; vandaar de troebelheid die je in het glas ziet — mat, licht bewolkt, nooit kristalhelder als Champagne. Het alcoholgehalte ligt doorgaans tussen 9 en 11 procent. Geen appellatie-verplichting voor de druifkeuze: Gamay, Chenin Blanc, Muscat, Riesling — het kan van alles zijn. Die openheid maakt het format aantrekkelijk voor wijnmakers die buiten de gebaande kaders werken.
 
