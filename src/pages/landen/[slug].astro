@@ -291,7 +291,11 @@ const schema = [
     name: pageData.name,
     wijnstreken: landStrekenForSchema,
     grapeVarieties: landGrapesForSchema,
-    description: pageData.description,
+    // LAT-2418: de <meta name="description"> voedt uit het Directus-veld
+    // meta_description (SEO), niet uit description (artikel-excerpt in lijsten).
+    // Loader valt meta_description → description terug; showcase-only landen
+    // (geen entry) houden de generatieve fallback.
+    description: entry?.metaDescription || pageData.description,
   })}
   ogImage={landOgImage || undefined}
   schema={schema}
