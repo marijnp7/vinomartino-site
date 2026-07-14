@@ -83,6 +83,14 @@ const FORM_ACTION =
           placeholder="je@adres.nl"
           required
         />
+        <label for="voetblok-regio" class="voetblok__vh">Welke wijnregio interesseert jou het meest?</label>
+        <select id="voetblok-regio" name="fields[region_preference]" class="voetblok__regio">
+          <option value="">Welke regio trekt je het meest? (optioneel)</option>
+          <option value="Piemonte">Piemonte</option>
+          <option value="Toscane">Toscane</option>
+          <option value="Alsace">Alsace</option>
+          <option value="Overige">Overige</option>
+        </select>
         <button type="submit" data-plausible-cta="newsletter_signup">Stuur me De brief</button>
       </form>
     </div>
@@ -184,10 +192,11 @@ const FORM_ACTION =
   }
   .voetblok__signup {
     display: flex;
+    flex-wrap: wrap;
     gap: 0.5rem;
   }
   .voetblok__signup input {
-    flex: 1;
+    flex: 1 1 10rem;
     min-width: 0;
     padding: 0.65rem 0.9rem;
     border: 1px solid var(--rule);
@@ -198,6 +207,18 @@ const FORM_ACTION =
     outline: none;
   }
   .voetblok__signup input:focus { border-color: var(--burgundy); }
+  .voetblok__regio {
+    flex: 1 1 10rem;
+    min-width: 0;
+    padding: 0.65rem 0.9rem;
+    border: 1px solid var(--rule);
+    background: var(--paper);
+    font-family: var(--font-body);
+    font-size: 0.9375rem;
+    color: var(--ink);
+    outline: none;
+  }
+  .voetblok__regio:focus { border-color: var(--burgundy); }
   .voetblok__signup button {
     background: var(--burgundy);
     color: var(--paper);
