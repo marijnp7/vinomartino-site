@@ -55,3 +55,60 @@ export function assertAssetAllowed(assetId: string | null | undefined): boolean 
     }
     return true;
 }
+
+// LAT-2379 — durende per-streek allowlist (Optie A, approval 4bd3560c, board-
+// akkoord 2026-07-14). Waar de blocklist hierboven reactief bekend-foute UUID's
+// weigert, draait deze allowlist het om naar default-deny voor de streken die
+// hier staan: alléén de geverifieerde asset-UUID mag als hero renderen. Zo kan
+// een latere foutieve swap in Directus (hero_image → verkeerd beeld) de streek
+// niet stil opnieuw een verkeerde foto geven — de code is de bron van waarheid.
+//
+// Streken die hier NIET staan behouden hun bestaande gedrag (blocklist +
+// LAT-2427 credit-guard); deze guard blanco't dus nooit een niet-ingeschreven
+// streek. De 5 onbewezen streken staan bewust op `null`: ze blijven fail-closed
+// leeg tot er een asset mét regiobewijs bestaat.
+const REGION_HERO_ALLOWLIST: Readonly<Record<string, string | null>> = {
+    // 6 bewezen-foute streken, gecorrigeerd via LAT-2383 (sourcing) → LAT-2387 (upload):
+    rioja: '49f2644d-3102-4b1c-a0b9-346156ef683e', // Ken Case, Public Domain
+    'rias-baixas': 'a8b5d3db-7151-4686-889c-65d3dd786c5a', // jacilluch, CC BY-SA 2.0
+    'ribera-del-duero': 'f3e3a8ec-ec48-4064-9f04-dd698d64efe5', // Pravdaverita, CC BY 3.0
+    alentejo: '852dee27-6b86-4b16-87b5-a99cb537d187', // Celestino Manuel, CC BY 2.0
+    'vinho-verde': '66cb57f5-c86e-443d-a499-7eca5f80d6a2', // alexandra vale, CC BY 2.0
+    rhone: 'a2fcf3ec-1499-48be-a991-926c702653e1', // Ed Clayton, CC BY 2.0
+    // 5 onbewezen streken — geen geverifieerd regio-beeld → blijf fail-closed leeg:
+    bierzo: null,
+    kamptal: null,
+    lisboa: null,
+    rheingau: null,
+    rueda: null,
+};
+
+/** True als deze streek onder allowlist-handhaving valt (Optie A, LAT-2379). */
+export function regionHasHeroAllowlistEntry(slug: string | null | undefined): boolean {
+    if (!slug) return false;
+    return Object.prototype.hasOwnProperty.call(REGION_HERO_ALLOWLIST, slug.trim());
+}
+
+/**
+ * Fail-closed per-streek allowlist. Voor een ingeschreven streek mag ALLEEN de
+ * geverifieerde asset-UUID renderen; elk ander (of leeg) beeld valt terug op
+ * leeg. Streken zonder allowlist-entry passeren altijd, zodat het bestaande
+ * gedrag (blocklist + credit-guard) ongewijzigd blijft. Logt elke weigering.
+ */
+export function heroAssetAllowedForRegion(
+    slug: string | null | undefined,
+    assetId: string | null | undefined,
+): boolean {
+    if (!regionHasHeroAllowlistEntry(slug)) return true;
+    const verified = REGION_HERO_ALLOWLIST[slug!.trim()];
+    if (!verified) {
+        console.warn(`[image-guard] LAT-2379 streek zonder geverifieerd hero-beeld → leeg: ${slug}`);
+        return false;
+    }
+    if (assetId && assetId.trim() === verified) return true;
+    console.warn(
+        `[image-guard] LAT-2379 hero-asset wijkt af van allowlist voor ${slug} → leeg ` +
+            `(kreeg ${assetId ?? 'null'}, verwacht ${verified})`,
+    );
+    return false;
+}
