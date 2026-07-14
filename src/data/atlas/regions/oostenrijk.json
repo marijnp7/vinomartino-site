@@ -96,6 +96,13 @@
       "x": 772.3,
       "y": 368.2,
       "badge": null
+    },
+    {
+      "slug": "kamptal",
+      "name": "Kamptal",
+      "x": 801,
+      "y": 350.4,
+      "badge": null
     }
   ]
 }
