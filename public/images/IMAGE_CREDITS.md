@@ -89,6 +89,21 @@ Rechtenvrij stockbeeld (publiek domein) ter ondersteuning van streekpagina's. Na
 
 ---
 
+## Streek-hero's (Wikimedia Commons — vervangbeelden LAT-2383/LAT-2387)
+
+Zes streek-hero's uit de regio-guard-correctie ([LAT-2361](/LAT/issues/LAT-2361) → [LAT-2379](/LAT/issues/LAT-2379)). De fout-gekoppelde beelden zijn vervangen door geverifieerd regio-beeld van Wikimedia Commons. **De vijf CC BY/BY-SA-beelden eisen zichtbare naamsvermelding** — die wordt on-page gerenderd via `streken.hero_credit` (Directus) + de hero-credit-guard ([LAT-2427](/LAT/issues/LAT-2427)). rioja is publiek domein (courtesy-credit).
+
+| Streek | Bestand | Fotograaf (auteur) | Licentie | Foto-URL (Commons) | Locatie |
+|---|---|---|---|---|---|
+| rioja | `streken/49f2644d-3102-4b1c-a0b9-346156ef683e.jpg` | Ken Case | Publiek domein | [File:Rioja_vineyards.JPG](https://commons.wikimedia.org/wiki/File:Rioja_vineyards.JPG) | La Rioja, Spanje |
+| rias-baixas | `streken/a8b5d3db-7151-4686-889c-65d3dd786c5a.jpg` | jacilluch | CC BY-SA 2.0 | [File:RUTA_DEL_VINO_EN_AS_RIAS_BAIXAS_(6314679972).jpg](https://commons.wikimedia.org/wiki/File:RUTA_DEL_VINO_EN_AS_RIAS_BAIXAS_(6314679972).jpg) | Cambados, Rías Baixas, Galicië, Spanje |
+| ribera-del-duero | `streken/f3e3a8ec-ec48-4064-9f04-dd698d64efe5.jpg` | Pravdaverita | CC BY 3.0 | [File:Viñedos_Bodega_Viña_Sastre_-_Hermanos_Sastre_Ribera_del_Duero.JPG](https://commons.wikimedia.org/wiki/File:Vi%C3%B1edos_Bodega_Vi%C3%B1a_Sastre_-_Hermanos_Sastre_Ribera_del_Duero.JPG) | La Horra, Burgos, Ribera del Duero, Spanje |
+| alentejo | `streken/852dee27-6b86-4b16-87b5-a99cb537d187.jpg` | Celestino Manuel | CC BY 2.0 | [File:ALENTEJO_-_VINHAS_NO_OUTONO_-_I_(4091248252).jpg](https://commons.wikimedia.org/wiki/File:ALENTEJO_-_VINHAS_NO_OUTONO_-_I_(4091248252).jpg) | Alentejo, Portugal |
+| vinho-verde | `streken/66cb57f5-c86e-443d-a499-7eca5f80d6a2.jpg` | alexandra vale | CC BY 2.0 | [File:Minho_Vinho_Verde_Vineyards.jpg](https://commons.wikimedia.org/wiki/File:Minho_Vinho_Verde_Vineyards.jpg) | Minho, Vinho Verde, Portugal |
+| rhone | `streken/a2fcf3ec-1499-48be-a991-926c702653e1.jpg` | Ed Clayton | CC BY 2.0 | [File:Jeunes_vignes_des_comtés-rhodaniens_en_Ardèche.jpg](https://commons.wikimedia.org/wiki/File:Jeunes_vignes_des_comt%C3%A9s-rhodaniens_en_Ard%C3%A8che.jpg) | Ardèche, Rhône, Frankrijk |
+
+---
+
 ## Wijnroutes (landschap-stijl)
 
 | Bestand | Beschrijving | Fotograaf | Unsplash-profiel | Foto-URL | Locatie |

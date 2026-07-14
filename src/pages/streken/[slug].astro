@@ -297,9 +297,22 @@ const hasFactBox = Boolean(
         </div>
       </div>
       {entry.heroImage && (
-        <div class="streek-hero-img-wrap">
+        <figure class="streek-hero-img-wrap">
           <img src={entry.heroImage} alt={entry.name} class="streek-hero-img" loading="eager" />
-        </div>
+          {entry.heroCredit && (
+            <figcaption class="streek-hero-credit">
+              {entry.heroCredit.author}
+              {entry.heroCredit.licenseLabel && (
+                <> — {entry.heroCredit.licenseUrl
+                  ? <a href={entry.heroCredit.licenseUrl} rel="license noopener" target="_blank">{entry.heroCredit.licenseLabel}</a>
+                  : entry.heroCredit.licenseLabel}</>
+              )}
+              {entry.heroCredit.sourceUrl && (
+                <> — <a href={entry.heroCredit.sourceUrl} rel="noopener" target="_blank">bron</a></>
+              )}
+            </figcaption>
+          )}
+        </figure>
       )}
     </section>
 
@@ -526,6 +539,7 @@ const hasFactBox = Boolean(
     color: var(--inkSoft);
   }
   .streek-hero-img-wrap {
+    position: relative;
     aspect-ratio: 21 / 9;
     margin-top: 2.5rem;
     overflow: hidden;
@@ -534,6 +548,24 @@ const hasFactBox = Boolean(
     width: 100%;
     height: 100%;
     object-fit: cover;
+  }
+  /* LAT-2427 — verplichte CC-beeldcredit, discreet rechtsonder over de hero. */
+  .streek-hero-credit {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    max-width: 100%;
+    padding: 0.25rem 0.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    line-height: 1.3;
+    color: #fff;
+    background: rgba(0, 0, 0, 0.55);
+    border-top-left-radius: 3px;
+  }
+  .streek-hero-credit a {
+    color: #fff;
+    text-decoration: underline;
   }
   .streek-body {
     padding: 4.5rem 0;

@@ -39,6 +39,23 @@ export interface WijnhuisPin {
     lng: number | null;
 }
 
+// LAT-2427 — on-page beeldcredit voor de streek-hero. Verplicht bij CC BY/BY-SA
+// beelden (zichtbare naamsvermelding + licentie + bronlink). Gevuld uit het
+// Directus-veld `streken.hero_credit` (JSON), niet hardcoded, zodat een
+// beeldwissel de credit meeneemt via de CMS-bron. Alle drie de kernvelden zijn
+// nodig om aan de licentie te voldoen; de hero-credit-guard blokkeert een
+// attributie-plichtig beeld zonder complete credit.
+export interface HeroCredit {
+    /** Fotograaf/auteur zoals op de bronpagina, bv. "jacilluch". */
+    author: string;
+    /** Licentielabel zoals getoond, bv. "CC BY-SA 2.0". */
+    licenseLabel: string;
+    /** Canonieke licentie-URL voor de deeplink op het label (leeg = geen link). */
+    licenseUrl: string;
+    /** Bronpagina (bv. Wikimedia Commons-bestandspagina). */
+    sourceUrl: string;
+}
+
 // LAT-1898 — beknopte planningspassage(s) die NÁ de accommodatielijst tonen op
 // /accommodaties/<streek>/. Apart van de affiliate-3-CTA-structuur (LAT-1821):
 // dit zijn redactionele prose-blokken (heading + tekst), gevuld door de Content
@@ -106,6 +123,9 @@ export interface Streek {
     nearestAirport: string;
     heroImage: string | null;
     ogImage: string | null;
+    // LAT-2427 — beeldcredit voor de hero (CC-attributie). Null = geen credit
+    // in Directus; de hero-credit-guard bepaalt of het beeld dan nog mag tonen.
+    heroCredit: HeroCredit | null;
     status: string;
     metaTitle: string;
     metaDescription: string;
@@ -155,6 +175,7 @@ function mapRelatedArticles(val: unknown): RelatedRef[] {
 }
 
 import { markdownToHtml as renderMarkdown, normalizeEmDashes } from './markdown';
+import { heroImageAllowed } from './hero-credit-guard';
 
 function markdownToHtml(markdown: string): Promise<string> {
     return renderMarkdown(markdown, { stripFirstH1: true });
@@ -382,6 +403,27 @@ function parseAccomPlanning(val: unknown): AccomPlanningBlock[] {
     return out;
 }
 
+// LAT-2427 — `hero_credit` komt als JSON-object (of stringified JSON) met de
+// bron-attributie van de hero. Tolerante reads (snake_case canoniek + aliassen)
+// zodat een naming-drift de credit niet stilletjes laat vallen. Leeg/ongeldig →
+// null (de guard bepaalt dan of het beeld nog mag renderen).
+function parseHeroCredit(val: unknown): HeroCredit | null {
+    let data: unknown = val;
+    if (typeof val === 'string') {
+        const s = val.trim();
+        if (!s) return null;
+        try { data = JSON.parse(s); } catch { return null; }
+    }
+    if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
+    const rec = data as Record<string, unknown>;
+    const author = firstString(rec, ['author', 'fotograaf', 'credit', 'auteur', 'photographer']);
+    const licenseLabel = firstString(rec, ['license_label', 'licenseLabel', 'licentie', 'license']);
+    const licenseUrl = firstString(rec, ['license_url', 'licenseUrl', 'licentie_url']);
+    const sourceUrl = firstString(rec, ['source_url', 'sourceUrl', 'bron', 'bron_url', 'source', 'commons_url']);
+    if (!author && !licenseLabel && !sourceUrl) return null;
+    return { author, licenseLabel, licenseUrl, sourceUrl };
+}
+
 // LAT-1592 — tolerante mapper voor eten/activiteiten POI-blokken. Prijs is een
 // vrije tekst-label ('vanaf €45', '€€') zodat we geen muntconversie hoeven te
 // doen; boeklink is optioneel (alleen renderen als die bestaat).
@@ -440,6 +482,7 @@ function mapStreek(
         nearestAirport: firstString(r, ['nearest_airport', 'dichtstbijzijnd_vliegveld', 'vliegveld', 'airport']),
         heroImage: heroImagePath,
         ogImage: ogImagePath,
+        heroCredit: parseHeroCredit(r.hero_credit),
         status: String(r.status || 'draft'),
         metaTitle: String(r.meta_title || r.name),
         metaDescription: String(r.meta_description || r.description || ''),
@@ -481,7 +524,11 @@ async function fetchStrekenItems(url: string, token: string): Promise<Record<str
     // hogere tiers 400'en zolang streken.eten/activiteiten (LAT-1592) ontbreken, dus een
     // badge-veld daarbovenop zou als collateral sneuvelen en de "Zelf gereisd"-badge zou
     // nooit renderen. Op withRelations (de hoogste tier die feitelijk slaagt) overleeft de badge.
-    const withRelations = `${withOg},related_articles.articles_id.slug,related_articles.articles_id.title,cta_blocks,accom_cta_blocks,waar_slapen_intro,zelf_gereisd,bezoekjaar,gyg_tours`;  // LAT-2252: gyg_tours rijdt mee op withRelations (withGyg/withBl10/withFacts 403en op eten/activiteiten en vallen terug)
+    // LAT-2427: hero_credit (CC-attributie voor de hero) rijdt mee op DEZELFDE
+    // stabiele relations-tier — een scalar-veld op streken, net als gyg_tours.
+    // Op de hogere POI/facts-tiers zou het als collateral sneuvelen wanneer
+    // eten/activiteiten 403'en, en de verplichte credit zou dan nooit laden.
+    const withRelations = `${withOg},related_articles.articles_id.slug,related_articles.articles_id.title,cta_blocks,accom_cta_blocks,waar_slapen_intro,zelf_gereisd,bezoekjaar,gyg_tours,hero_credit`;  // LAT-2252: gyg_tours + LAT-2427: hero_credit rijden mee op withRelations (withGyg/withBl10/withFacts 403en op eten/activiteiten en vallen terug)
     // LAT-1592: eten/activiteiten zijn nieuwe streek-velden. Bestaat het veld nog
     // niet (of mist de build-rol read-permissie) dan degradeert deze top-tier naar
     // `withRelations`, zodat related_articles (LAT-1098) NIET sneuvelt op het
@@ -648,6 +695,13 @@ async function loadFromDirectus(url: string, token: string): Promise<Streek[]> {
                 ? await downloadAsset(String(r.og_image), url, token, 'og-')
                 : null;
             const streek = mapStreek(r, heroImagePath, ogImagePath, bodyHtml, waarSlapenIntroHtml);
+            // LAT-2427 — fail-closed CC-credit guard. Draagt de hero-asset een
+            // attributie-plichtige licentie (CC BY/BY-SA) maar ontbreekt de
+            // complete credit in Directus, dan wordt de hero op leeg gezet: een
+            // naamloos CC-beeld is een licentieschending (liever leeg dan fout).
+            if (!heroImageAllowed(r.hero_image ? String(r.hero_image) : null, streek.heroCredit)) {
+                streek.heroImage = null;
+            }
             // LAT-1536: download per-verblijf foto's en hang de self-hosted URL
             // aan elke accommodatie. fotoRef leeg → foto blijft null (kaart toont
             // dan geen afbeelding; bestaande streken breken niet).
