@@ -90,12 +90,51 @@ function collect(nodes: MdastNode[], fotoRefs: Set<string>, boekSpecs: Map<strin
   }
 }
 
-function fotoHtml(attrs: Record<string, string>, src: string): string {
+interface FotoResolved {
+  src: string;
+  width?: number;
+  height?: number;
+}
+
+// LAT-2432: intrinsieke afmetingen van de gecommitte body-foto zodat de <img>
+// width/height meekrijgt en de browser de ruimte reserveert vóór het (lazy) laden
+// → geen layout shift (CLS) bij scrollen op mobiel. Faalt de probe (ontbrekend
+// bestand, corrupte bytes), dan valt het figuur terug op de CSS aspect-ratio-fallback
+// (deploy-safe: nooit build-breaking, nooit een broken img).
+async function probeImageDimensions(src: string): Promise<{ width: number; height: number } | null> {
+  try {
+    const { join } = await import('node:path');
+    const sharp = (await import('sharp')).default;
+    const abs = join(process.cwd(), 'public', src.replace(/^\/+/, ''));
+    const meta = await sharp(abs).metadata();
+    const w = meta.width;
+    const h = meta.height;
+    if (!w || !h) return null;
+    // EXIF-orientation 5-8 = 90°/270° gedraaid → getoonde dims zijn verwisseld
+    // t.o.v. de opgeslagen pixel-dims (zie DAM EXIF-rotatie, ref 899).
+    const rotated = typeof meta.orientation === 'number' && meta.orientation >= 5;
+    return rotated ? { width: h, height: w } : { width: w, height: h };
+  } catch {
+    return null;
+  }
+}
+
+function fotoHtml(attrs: Record<string, string>, foto: FotoResolved, eager: boolean): string {
   const caption = attrs.bijschrift ?? '';
   const fmt = attrs.formaat === 'breed' || attrs.formaat === 'inzet' ? ` route-foto--${attrs.formaat}` : '';
+  // LAT-2432: intrinsieke width/height reserveert de ruimte (CLS-fix). Ontbreken
+  // de dims (probe faalde), dan pakt de CSS aspect-ratio-fallback het over.
+  const dims = typeof foto.width === 'number' && typeof foto.height === 'number'
+    ? ` width="${foto.width}" height="${foto.height}"`
+    : '';
+  // LAT-2432: de eerste body-foto staat doorgaans boven de vouw → eager + hoge
+  // fetchpriority (LCP-winst); de rest blijft lazy.
+  const loadAttrs = eager
+    ? ` loading="eager" fetchpriority="high" decoding="async"`
+    : ` loading="lazy" decoding="async"`;
   const fig = [
     `<figure class="route-foto${fmt}">`,
-    `<img src="${escapeHtml(src)}" alt="${escapeHtml(caption)}" loading="lazy" decoding="async" />`,
+    `<img src="${escapeHtml(foto.src)}" alt="${escapeHtml(caption)}"${dims}${loadAttrs} />`,
     caption ? `<figcaption>${escapeHtml(caption)}</figcaption>` : '',
     `</figure>`,
   ].join('');
@@ -116,12 +155,13 @@ function boekHtml(href: string, label: string): string {
 // directives worden verwijderd (deploy-safe).
 function transform(
   nodes: MdastNode[],
-  fotoMap: Map<string, string | null>,
+  fotoMap: Map<string, FotoResolved | null>,
   boekMap: Map<string, string | null>,
+  state: { fotoSeen: number },
 ): MdastNode[] {
   const out: MdastNode[] = [];
   for (const node of nodes) {
-    if (Array.isArray(node.children)) node.children = transform(node.children, fotoMap, boekMap);
+    if (Array.isArray(node.children)) node.children = transform(node.children, fotoMap, boekMap, state);
 
     if (!DIRECTIVE_TYPES.has(node.type) || !node.name || !ENRICHED_NAMES.has(node.name)) {
       // Niet-verrijkte directive (onbekende naam) → droppen; anders node behouden.
@@ -132,8 +172,12 @@ function transform(
 
     const attrs = cleanAttrs(node.attributes);
     if (node.name === 'foto') {
-      const src = attrs.ref ? fotoMap.get(attrs.ref) : null;
-      if (src) out.push({ type: 'html', value: fotoHtml(attrs, src) });
+      const foto = attrs.ref ? fotoMap.get(attrs.ref) : null;
+      if (foto) {
+        const eager = state.fotoSeen === 0;
+        state.fotoSeen += 1;
+        out.push({ type: 'html', value: fotoHtml(attrs, foto, eager) });
+      }
       continue; // geen src → figuur valt weg
     }
     if (node.name === 'boek') {
@@ -168,14 +212,21 @@ export async function renderEnrichedRouteBody(
   const boekSpecs = new Map<string, Record<string, string>>();
   collect(mdast.children, fotoRefs, boekSpecs);
 
-  const fotoMap = new Map<string, string | null>();
+  const fotoMap = new Map<string, FotoResolved | null>();
   const boekMap = new Map<string, string | null>();
   await Promise.all([
-    ...[...fotoRefs].map(async (ref) => { fotoMap.set(ref, await ctx.downloadFoto(ref)); }),
+    ...[...fotoRefs].map(async (ref) => {
+      const src = await ctx.downloadFoto(ref);
+      if (!src) { fotoMap.set(ref, null); return; }
+      // LAT-2432: dims meelezen in dezelfde async-golf; het bestand staat na de
+      // download op schijf (public/images/routes/body-<id>.jpg).
+      const dims = await probeImageDimensions(src);
+      fotoMap.set(ref, dims ? { src, width: dims.width, height: dims.height } : { src });
+    }),
     ...[...boekSpecs].map(async ([key, attrs]) => { boekMap.set(key, await ctx.resolveBoekHref(attrs)); }),
   ]);
 
   // 2. Synchrone directive→HTML-transform, daarna de gedeelde sanitize/toc-pas.
-  mdast.children = transform(mdast.children, fotoMap, boekMap);
+  mdast.children = transform(mdast.children, fotoMap, boekMap, { fotoSeen: 0 });
   return mdastToHtmlWithToc(mdast as unknown as Parameters<typeof mdastToHtmlWithToc>[0], { stripFirstH1: true });
 }
