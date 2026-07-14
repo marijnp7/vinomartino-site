@@ -292,6 +292,9 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
     padding-top: var(--space-10);
     padding-bottom: var(--space-12);
   }
+  /* LAT-2430: grid-kinderen mogen niet oprekken door hun min-content-breedte
+     (o.a. .route-days-wrap ~424px) → anders horizontale scroll op mobiel. */
+  .page-layout > * { min-width: 0; }
   .breadcrumb {
     font-family: var(--font-mono);
     font-size: 0.6875rem;
