@@ -58,23 +58,31 @@ const atlasCountries = landen.map((land, i) => ({
 }));
 
 // ── LAT-2451 — Curated hero-streken ("Zelf gereisd" voorrang) ─────────────
-// Foto is verplicht; de blurb wordt op BUILD-tijd uniform op een zinsgrens
-// afgekapt (<=140 tekens), NIET met een CSS-ellipsis midden in een zin. Zo is
-// de rij visueel gelijk zonder dat de dataset in Directus hoeft te wijzigen.
+// Foto verplicht. De tile toont de EERSTE ZIN van de streek-beschrijving; het
+// ruwe `streken.description`-veld (elders intro/meta, ~220-760 tekens bij zo'n
+// 30 streken) blijft ONGEWIJZIGD — we korten alleen de gerenderde tegel-copy in.
+// Zinsgrens-truncatie op build-tijd, geen CSS-ellipsis midden in een zin. Een
+// dedicated `card_blurb`-veld (max 140) is de nettere lange-termijnroute, maar
+// vereist een Directus-schemawijziging + editorial vulling (buiten deze PR).
 const HERO_STREKEN_MAX = 8;
 
+// Neem de eerste zin (eerste .!? gevolgd door spatie/eind, met een 40-teken-
+// ondergrens zodat afkortingen als "St." niet vroeg afkappen). Is die zin langer
+// dan max, dan kap op woordgrens met een ellipsis; ontbreekt een zin-einde, dan
+// val terug op de hele tekst (met dezelfde woordgrens-cap).
 function clampToSentence(text: string, max = 140): string {
   const clean = text.replace(/\s+/g, ' ').trim();
-  if (clean.length <= max) return clean;
-  const window = clean.slice(0, max + 1);
-  const lastStop = Math.max(
-    window.lastIndexOf('. '),
-    window.lastIndexOf('! '),
-    window.lastIndexOf('? '),
-  );
-  if (lastStop >= 40) return clean.slice(0, lastStop + 1);
-  const lastSpace = clean.slice(0, max).lastIndexOf(' ');
-  return `${clean.slice(0, lastSpace > 0 ? lastSpace : max).trimEnd()}…`;
+  if (!clean) return clean;
+  const re = /[.!?](?=\s|$)/g;
+  let end = -1;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(clean)) !== null) {
+    if (m.index >= 40) { end = m.index + 1; break; }
+  }
+  const firstSentence = end > 0 ? clean.slice(0, end).trim() : clean;
+  if (firstSentence.length <= max) return firstSentence;
+  const lastSpace = firstSentence.slice(0, max).lastIndexOf(' ');
+  return `${firstSentence.slice(0, lastSpace > 0 ? lastSpace : max).trimEnd()}…`;
 }
 
 // Foto- + tekst-guard (LAT-2267/LAT-2356): alleen streken mét hero-foto én blurb.
