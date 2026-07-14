@@ -109,7 +109,7 @@ const showMedia = Boolean(foto) || !hideMediaWhenEmpty;
   tabindex={plotted && hasNumber ? 0 : undefined}
 >
   {showMedia && (
-    <div class="poi-card__media">
+    <div class:list={['poi-card__media', !foto && 'poi-card__media--empty']}>
       <SmartImg src={foto ?? undefined} alt={altText} theme={fotoTheme} class="poi-card__img" />
       {hasNumber && (
         <span class="poi-card__num" style={`background:${color}`}>{n}</span>
@@ -181,6 +181,11 @@ const showMedia = Boolean(foto) || !hideMediaWhenEmpty;
     aspect-ratio: 4 / 3;
     background: var(--paperDeep, #F0E6D0);
     overflow: hidden;
+  }
+  /* LAT-2455: geen foto → compacte branded band i.p.v. loze reuzenvlak op mobiel. */
+  .poi-card__media--empty {
+    aspect-ratio: auto;
+    height: clamp(96px, 26vw, 140px);
   }
   .poi-card__img {
     width: 100%;

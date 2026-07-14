@@ -176,7 +176,7 @@ function formatDate(value?: string | null) {
               class={`card-tile${idx >= 3 ? ' is-extra' : ''}`}
               data-shuffle-item
             >
-              <div class="card-media">
+              <div class:list={['card-media', !r.heroImage && 'is-empty']}>
                 {r.heroImage ? (
                   <img src={r.heroImage} alt={r.title} width="600" height="450" loading="lazy" decoding="async" />
                 ) : (
@@ -251,7 +251,7 @@ function formatDate(value?: string | null) {
         <div class="cards-grid">
           {moreArticles.map(article => (
             <a href={`/artikelen/${article.slug}/`} class="card-tile">
-              <div class="card-media">
+              <div class:list={['card-media', !article.heroImage && 'is-empty']}>
                 {article.heroImage ? (
                   <img src={article.heroImage} alt={article.title} width="600" height="450" loading="lazy" decoding="async" />
                 ) : (
@@ -807,6 +807,11 @@ function formatDate(value?: string | null) {
     overflow: hidden;
     background: var(--paperShade);
     margin-bottom: var(--space-4);
+  }
+  /* LAT-2455: geen beeld → compacte branded band i.p.v. loze reuzenvlak op mobiel. */
+  .card-media.is-empty {
+    aspect-ratio: auto;
+    height: clamp(96px, 26vw, 140px);
   }
   .card-media img {
     width: 100%;
