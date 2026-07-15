@@ -1,7 +1,7 @@
 import type { RelatedRef } from './articles';
 import { getCtaStructure, type CtaStructure } from './cta-blocks';
 import { isGyGTourUrl } from './affiliate-regio';
-import { assertAssetAllowed } from './image-guard';
+import { assertAssetAllowed, heroAssetAllowedForRegion } from './image-guard';
 
 // LAT-1127 — curated accommodation tiers (Marijn-spec 2026-06-07). Stored as
 // cast-json on streken (LAT-1136 import). The site renders its own map + cards
@@ -752,6 +752,13 @@ async function loadFromDirectus(url: string, token: string): Promise<Streek[]> {
             // complete credit in Directus, dan wordt de hero op leeg gezet: een
             // naamloos CC-beeld is een licentieschending (liever leeg dan fout).
             if (!heroImageAllowed(r.hero_image ? String(r.hero_image) : null, streek.heroCredit)) {
+                streek.heroImage = null;
+            }
+            // LAT-2379 — durende per-streek allowlist (Optie A). Voor een
+            // ingeschreven streek mag alléén de geverifieerde asset-UUID renderen;
+            // een afwijkend (of later foutief geswapt) hero_image valt fail-closed
+            // terug op leeg. Niet-ingeschreven streken passeren ongewijzigd.
+            if (!heroAssetAllowedForRegion(streek.slug, r.hero_image ? String(r.hero_image) : null)) {
                 streek.heroImage = null;
             }
             // LAT-1536: download per-verblijf foto's en hang de self-hosted URL
