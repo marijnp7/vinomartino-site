@@ -451,12 +451,6 @@ const hasFactBox = Boolean(
       </section>
     )}
 
-    <section class="streek-insurance">
-      <div class="container">
-        <AffiliatePlaceholder type="insurance" partner="reisverzekering" region={entry.name} placement="footer" context="streek-insurance" />
-      </div>
-    </section>
-
     <CtaStructure data={entry.cta} sid={entry.slug} />
 
     <RelatedArticles items={entry.relatedArticles} />
@@ -607,7 +601,7 @@ const hasFactBox = Boolean(
     font-weight: 600;
     margin: 2rem 0 0.75rem;
   }
-  .streek-subregions, .streek-appellations, .streek-poi, .streek-insurance, .streek-routes {
+  .streek-subregions, .streek-appellations, .streek-poi, .streek-routes {
     padding: 3rem 0;
     border-bottom: 1px solid var(--rule);
   }
