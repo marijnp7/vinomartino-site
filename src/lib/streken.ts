@@ -196,6 +196,29 @@ import {
 
 const assetDebug: Array<Record<string, unknown>> = [];
 
+// LAT-2518: Directus dropt onder de parallelle asset-download-last sporadisch
+// TCP-connecties ("fetch failed"), waardoor een hele regio zonder foto's
+// rendert (2 van 30 regio's per build, wisselend). Retry met backoff maakt de
+// build deterministisch compleet zonder de data te wijzigen.
+async function fetchAssetWithRetry(url: string, token: string, attempts = 4): Promise<Response> {
+    let lastErr: unknown = new Error('fetch not attempted');
+    for (let i = 0; i < attempts; i++) {
+        try {
+            const res = await fetch(url, {
+                headers: { Authorization: `Bearer ${token}` },
+                signal: AbortSignal.timeout(15000),
+            });
+            // 2xx of niet-transiente 4xx → direct teruggeven; caller logt de status.
+            if (res.ok || (res.status >= 400 && res.status < 500 && res.status !== 429)) return res;
+            lastErr = new Error(`HTTP ${res.status}`);
+        } catch (err) {
+            lastErr = err; // netwerk-drop ("fetch failed") of timeout → retry
+        }
+        if (i < attempts - 1) await new Promise((r) => setTimeout(r, 400 * 2 ** i));
+    }
+    throw lastErr instanceof Error ? lastErr : new Error(String(lastErr));
+}
+
 async function downloadAsset(assetId: string, directusUrl: string, token: string, prefix = ''): Promise<string | null> {
     if (!assertAssetAllowed(assetId)) return null; // LAT-2361: fout-gekoppeld beeld → lege hero i.p.v. verkeerde regio
     const { writeFileSync, mkdirSync, existsSync } = await import('node:fs');
@@ -205,10 +228,7 @@ async function downloadAsset(assetId: string, directusUrl: string, token: string
     const outPath = join(outDir, fileName);
     if (existsSync(outPath)) return `/images/streken/${fileName}`;
     try {
-        const res = await fetch(assetUrl(directusUrl, assetId), {
-            headers: { Authorization: `Bearer ${token}` },
-            signal: AbortSignal.timeout(15000),
-        });
+        const res = await fetchAssetWithRetry(assetUrl(directusUrl, assetId), token);
         if (!res.ok) {
             const body = await res.text().catch(() => '');
             console.warn(`[loadStreken] could not fetch asset ${assetId}: ${res.status} body=${body.slice(0, 300)}`);
@@ -247,10 +267,7 @@ async function downloadAccommodatieAsset(assetId: string, directusUrl: string, t
     const outPath = join(outDir, fileName);
     if (existsSync(outPath)) return `/images/accommodaties/${fileName}`;
     try {
-        const res = await fetch(assetUrl(directusUrl, assetId), {
-            headers: { Authorization: `Bearer ${token}` },
-            signal: AbortSignal.timeout(15000),
-        });
+        const res = await fetchAssetWithRetry(assetUrl(directusUrl, assetId), token);
         if (!res.ok) {
             console.warn(`[loadStreken] kon accommodatie-foto ${assetId} niet ophalen: ${res.status}`);
             assetDebug.push({ kind: 'accommodatie-foto', assetId, status: res.status });
