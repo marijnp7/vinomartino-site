@@ -13,6 +13,7 @@
 
 import type { RouteStopGeo, RouteStopKind } from './routes';
 import { normalizeEmDashes } from './markdown';
+import { stripEdgeSeparators } from './route-days';
 
 // Gesloten waardenlijst (Marijn-besluit #2). `overnachting` als stop-kind bestaat
 // naast het aparte `overnachting`-object per dag (voor nachten die geen genummerde
@@ -121,9 +122,13 @@ function parseDay(row: unknown, index: number): ItineraryDay | null {
     // Een dag zonder stops én zonder overnachting draagt geen productwaarde.
     if (stops.length === 0 && !overnachting) return null;
     const n = asFiniteNumber(rec.n) ?? index + 1;
+    // LAT-2431: fail-safe — een titel mag nooit met een los leesteken beginnen/eindigen
+    // (leeg plaats-veld → "Dag 1: , Bernkastel …"). Na strippen leeg → Dag-fallback.
+    const rawTitle = asString(rec.title ?? rec.etappe);
+    const cleanTitle = rawTitle ? stripEdgeSeparators(rawTitle) : '';
     return {
         n: Math.trunc(n),
-        title: asString(rec.title ?? rec.etappe) ?? `Dag ${Math.trunc(n)}`,
+        title: cleanTitle || `Dag ${Math.trunc(n)}`,
         summary: asString(rec.summary ?? rec.intro),
         rijtijdMin: (() => {
             const r = asFiniteNumber(rec.rijtijd_min ?? rec.rijtijdMin);

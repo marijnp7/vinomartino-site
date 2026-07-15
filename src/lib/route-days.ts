@@ -49,6 +49,15 @@ function decodeEntities(text: string): string {
     .trim();
 }
 
+// LAT-2431: een dag-titel mag nooit met een los leesteken beginnen of eindigen.
+// Wanneer het plaats-veld leeg is (Directus) rendert de bron een kop als
+// "Dag 1: , Bernkastel en de Doktor" → titel ", Bernkastel …". Strip separators
+// aan beide randen zodat de kop fail-safe is, ongeacht de data. Interne leestekens
+// (bv. "Bernkastel-Kues", "Hemel-en-Aarde") blijven ongemoeid.
+export function stripEdgeSeparators(s: string): string {
+  return s.replace(/^[\s,;:·./–—-]+/, '').replace(/[\s,;:·./–—-]+$/, '');
+}
+
 export function splitRouteBody(bodyHtml: string): RouteBodySplit {
   const empty: RouteBodySplit = { hasDays: false, segments: [], days: [] };
   if (!bodyHtml || !bodyHtml.trim()) return empty;
@@ -73,7 +82,7 @@ export function splitRouteBody(bodyHtml: string): RouteBodySplit {
         const anchor = idMatch ? idMatch[1] : `dag-${n}`;
         const day: RouteDay = {
           label: `Dag ${n}`,
-          title: dayMatch[2].trim(),
+          title: stripEdgeSeparators(dayMatch[2]),
           anchor,
           n,
         };
