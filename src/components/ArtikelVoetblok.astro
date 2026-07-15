@@ -1,12 +1,15 @@
 ---
 // LAT-2010 [VIS-BL-11] — vast artikel-voetblok voor interne doorstroom + conversie
-// vanuit SEO-verkeer. Drie lagen, elk graceful: (1) "Dit artikel hoort bij [streek]
+// vanuit SEO-verkeer. Twee lagen, elk graceful: (1) "Dit artikel hoort bij [streek]
 // en [route]" met een schematische route-thumbnail, (2) één hotel-CTA naar de
-// boekbare accommodatie-pagina van de streek, (3) een subtiele, vaste De Brief-
-// aanmelding. Ontbreekt streek/route/hotel, dan valt die laag stil weg; het
-// nieuwsbrief-blok blijft altijd staan.
+// boekbare accommodatie-pagina van de streek. Ontbreekt streek/route/hotel, dan
+// valt die laag stil weg.
+//
+// Go-live fix: het nieuwsbrief-blok is hier verwijderd. De canonieke De Brief-
+// aanmelding staat in <NewsletterFooter/>, dat direct onder dit voetblok op de
+// artikelpagina rendert (en ook op streken-pagina's). Beide tonen leidde tot een
+// dubbel signup-formulier onder elk artikel.
 import RouteMap from './RouteMap.astro';
-import NewsletterRegionField from './NewsletterRegionField.astro';
 import type { RelatedRef } from '../lib/articles';
 
 export interface VoetblokRoute {
@@ -30,67 +33,33 @@ const { streek = null, route = null, hotel = null } = Astro.props;
 
 const heeftHoortBij = Boolean(streek || route);
 const routeStops = route?.stops?.filter(Boolean) ?? [];
-
-// Capture-backend = MailerLite (LAT-1188/1631). Zelfde form-action + override-env
-// als /de-brief/, zodat aanmeldingen in dezelfde groep + welkomstserie landen.
-const FORM_ACTION =
-  import.meta.env.PUBLIC_MAILERLITE_FORM_ACTION ||
-  'https://assets.mailerlite.com/jsonp/2415940/forms/189828746131277541/subscribe';
+const heeftInhoud = heeftHoortBij || Boolean(hotel);
 ---
 
-<section class="voetblok" aria-label="Verder lezen en op de hoogte blijven">
-  <div class="container voetblok__inner">
-    {heeftHoortBij && (
-      <div class="voetblok__hoortbij">
-        <p class="voetblok__lede">Dit artikel hoort bij {streek && <a href={`/streken/${streek.slug}/`} class="voetblok__ref">{streek.name}</a>}{streek && route ? ' en ' : ''}{route && <a href={`/wijnroutes/${route.slug}/`} class="voetblok__ref">{route.name}</a>}.</p>
-        {routeStops.length >= 2 && (
-          <a href={`/wijnroutes/${route!.slug}/`} class="voetblok__thumb" aria-label={`Bekijk de route ${route!.name}`}>
-            <RouteMap stops={routeStops} variant="mini" />
-          </a>
-        )}
-      </div>
-    )}
-
-    {hotel && (
-      <a href={hotel.href} class="voetblok__hotel" data-plausible-cta="voetblok_hotel">
-        <span class="voetblok__hotel-kicker">Overnachten</span>
-        <span class="voetblok__hotel-label">Waar je slaapt in {hotel.streekName}</span>
-        <span class="voetblok__hotel-arrow" aria-hidden="true">&rarr;</span>
-      </a>
-    )}
-
-    <div class="voetblok__brief">
-      <div class="voetblok__brief-copy">
-        <span class="voetblok__brief-kicker">De brief · elke twee weken</span>
-        <p class="voetblok__brief-text">
-          Een echte brief van Marijn: over een wijnmaker die we net bezochten, een
-          regio die opnieuw onze aandacht trok, een fles die indruk maakte.
-        </p>
-      </div>
-      <form
-        class="voetblok__signup"
-        action={FORM_ACTION}
-        method="post"
-        target="_blank"
-        data-newsletter-signup
-      >
-        <div class="voetblok__signup-row">
-          <label for="voetblok-email" class="voetblok__vh">E-mailadres</label>
-          <input
-            id="voetblok-email"
-            type="email"
-            name="fields[email]"
-            autocomplete="email"
-            placeholder="je@adres.nl"
-            required
-          />
-          <button type="submit" data-plausible-cta="newsletter_signup">Stuur me De brief</button>
+{heeftInhoud && (
+  <section class="voetblok" aria-label="Verder lezen">
+    <div class="container voetblok__inner">
+      {heeftHoortBij && (
+        <div class="voetblok__hoortbij">
+          <p class="voetblok__lede">Dit artikel hoort bij {streek && <a href={`/streken/${streek.slug}/`} class="voetblok__ref">{streek.name}</a>}{streek && route ? ' en ' : ''}{route && <a href={`/wijnroutes/${route.slug}/`} class="voetblok__ref">{route.name}</a>}.</p>
+          {routeStops.length >= 2 && (
+            <a href={`/wijnroutes/${route!.slug}/`} class="voetblok__thumb" aria-label={`Bekijk de route ${route!.name}`}>
+              <RouteMap stops={routeStops} variant="mini" />
+            </a>
+          )}
         </div>
-        <NewsletterRegionField id="voetblok-region" />
-      </form>
+      )}
+
+      {hotel && (
+        <a href={hotel.href} class="voetblok__hotel" data-plausible-cta="voetblok_hotel">
+          <span class="voetblok__hotel-kicker">Overnachten</span>
+          <span class="voetblok__hotel-label">Waar je slaapt in {hotel.streekName}</span>
+          <span class="voetblok__hotel-arrow" aria-hidden="true">&rarr;</span>
+        </a>
+      )}
     </div>
-  </div>
-</section>
+  </section>
+)}
 
 <style>
   .voetblok {
@@ -159,81 +128,4 @@ const FORM_ACTION =
     color: var(--ink);
   }
   .voetblok__hotel-arrow { margin-left: auto; color: var(--burgundy); }
-
-  .voetblok__brief {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: var(--space-4);
-    padding: var(--space-5) var(--space-5);
-    background: var(--paper);
-    border: 1px solid var(--rule);
-    border-radius: var(--radius-sm);
-  }
-  .voetblok__brief-kicker {
-    font-family: var(--font-mono);
-    font-size: 0.5625rem;
-    text-transform: uppercase;
-    letter-spacing: 0.18em;
-    color: var(--rust);
-    display: block;
-    margin-bottom: var(--space-2);
-  }
-  .voetblok__brief-text {
-    font-family: var(--font-body);
-    font-size: 0.9375rem;
-    line-height: 1.55;
-    color: var(--inkSoft);
-    margin: 0;
-  }
-  .voetblok__signup-row {
-    display: flex;
-    gap: 0.5rem;
-  }
-  .voetblok__signup input {
-    flex: 1;
-    min-width: 0;
-    padding: 0.65rem 0.9rem;
-    border: 1px solid var(--rule);
-    background: var(--paper);
-    font-family: var(--font-body);
-    font-size: 0.9375rem;
-    color: var(--ink);
-    outline: none;
-  }
-  .voetblok__signup input:focus { border-color: var(--burgundy); }
-  .voetblok__signup button {
-    background: var(--burgundy);
-    color: var(--paper);
-    padding: 0.65rem 1.1rem;
-    border: none;
-    font-family: var(--font-ui);
-    font-size: 0.8125rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    white-space: nowrap;
-    cursor: pointer;
-  }
-  .voetblok__signup button:hover { background: var(--rust); }
-  .voetblok__vh {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
-  }
-
-  @media (min-width: 641px) {
-    .voetblok__brief {
-      grid-template-columns: 1fr minmax(280px, 360px);
-      align-items: center;
-    }
-  }
-  @media (max-width: 640px) {
-    .voetblok__signup-row { flex-direction: column; }
-  }
 </style>
