@@ -2,6 +2,7 @@
 import SmartImg from '../SmartImg.astro';
 import AffiliatePlaceholder from '../AffiliatePlaceholder.astro';
 import AffiliateDisclosure from '../AffiliateDisclosure.astro';
+import { getImageCredit } from '../../lib/image-credits';
 
 interface WijnhuisWine {
   name: string;
@@ -39,6 +40,8 @@ interface Props {
   hectaren?: string;
   biologisch?: string;
   heroImage?: string;
+  // Rauw Directus file-UUID van de hero; voedt de verplichte beeldcredit (LAT-2478).
+  heroImageId?: string | null;
   drieluik?: WijnhuisDrieluikBeeld[];
   storyTitle?: string;
   storyBody?: string[];
@@ -61,6 +64,7 @@ const {
   hectaren,
   biologisch,
   heroImage,
+  heroImageId,
   drieluik = [],
   storyTitle,
   storyBody = [],
@@ -72,6 +76,10 @@ const {
 } = Astro.props;
 
 const drieluikBeelden = drieluik.filter((b) => b && b.src);
+
+// LAT-2478: verplichte beeldcredit (bv. Wikimedia Commons CC BY-SA) bij de hero,
+// gesleuteld op het Directus file-UUID. Null → geen figcaption (bv. AI-eigen werk).
+const heroCredit = getImageCredit(heroImageId);
 ---
 
 <!-- ── HERO ──────────────────────────────────────────── -->
@@ -139,7 +147,7 @@ const drieluikBeelden = drieluik.filter((b) => b && b.src);
   </div>
 
   {heroImage && (
-    <div class="wh-hero__img-wrap">
+    <figure class="wh-hero__img-wrap">
       <SmartImg
         src={heroImage}
         alt={name}
@@ -147,7 +155,12 @@ const drieluikBeelden = drieluik.filter((b) => b && b.src);
         class="wh-hero__img"
         loading="eager"
       />
-    </div>
+      {heroCredit && (
+        <figcaption class="wh-hero__credit">
+          {heroCredit.author}, <a href={heroCredit.licenseUrl} rel="license noopener" target="_blank">{heroCredit.licenseLabel}</a>
+        </figcaption>
+      )}
+    </figure>
   )}
 </section>
 
@@ -406,8 +419,9 @@ const drieluikBeelden = drieluik.filter((b) => b && b.src);
   .wh-meta-value--link:hover { color: var(--ink); }
 
   .wh-hero__img-wrap {
+    position: relative;
     aspect-ratio: 21 / 9;
-    margin-top: 2.5rem;
+    margin: 2.5rem 0 0;
     overflow: hidden;
   }
 
@@ -415,6 +429,25 @@ const drieluikBeelden = drieluik.filter((b) => b && b.src);
     width: 100%;
     height: 100%;
     object-fit: cover;
+  }
+
+  /* LAT-2478: verplichte beeldcredit (CC BY-SA) over de hero, rechtsonder. */
+  .wh-hero__credit {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    max-width: 100%;
+    padding: 0.25rem 0.625rem;
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    line-height: 1.4;
+    letter-spacing: 0.02em;
+    color: #fff;
+    background: rgba(0, 0, 0, 0.55);
+  }
+  .wh-hero__credit a {
+    color: inherit;
+    text-decoration: underline;
   }
 
   /* ── Drieluik (VIS-BL-03) ── */

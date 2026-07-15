@@ -23,6 +23,9 @@ export interface Wijnhuis {
     winemaker: string;
     grapes: string[];
     heroImage: string | null;
+    // Rauw Directus file-UUID van de hero, zodat een verplichte beeldcredit
+    // (image-credits.ts) het beeld kan volgen los van slug/pad (LAT-2478).
+    heroImageId: string | null;
     ogImage: string | null;
     drieluik: WijnhuisDrieluikBeeld[];
     status: string;
@@ -147,6 +150,7 @@ function mapWijnhuis(
         winemaker: String(r.winemaker || ''),
         grapes: parseJsonField(r.grapes),
         heroImage: heroImagePath,
+        heroImageId: r.hero_image ? String(r.hero_image) : null,
         ogImage: ogImagePath,
         drieluik,
         status: String(r.status || 'draft'),
