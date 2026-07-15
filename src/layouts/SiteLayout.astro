@@ -218,9 +218,11 @@ const articleTags = article?.tags?.filter((tag): tag is string => Boolean(tag &&
       import { initAffiliateTracker } from '../lib/click-tracker';
       import { initPlausibleInteractions } from '../lib/plausible';
       import { initCtaExperiment } from '../lib/cta-experiment';
+      import { initNewsletterForms } from '../lib/newsletter-signup';
       initAffiliateTracker();
       initPlausibleInteractions();
       initCtaExperiment();
+      initNewsletterForms();
     </script>
   </body>
 </html>
@@ -228,6 +230,22 @@ const articleTags = article?.tags?.filter((tag): tag is string => Boolean(tag &&
 <style is:global>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   html { scroll-behavior: smooth; }
+
+  /* LAT-2452: inline bevestiging/fout voor nieuwsbrief-fetch-submit. */
+  .newsletter-signup__success,
+  .newsletter-signup__error {
+    font-family: var(--font-ui);
+    font-size: 0.9375rem;
+    line-height: 1.5;
+    margin: 1rem 0 0;
+  }
+  .newsletter-signup__success {
+    color: var(--color-primary, var(--burgundy, #5E1A1D));
+    font-weight: 600;
+  }
+  .newsletter-signup__error {
+    color: var(--color-rust, #A14F2A);
+  }
   body {
     font-family: var(--font-body);
     color: var(--color-text);

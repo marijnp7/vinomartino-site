@@ -111,12 +111,16 @@ const COUNTRIES = {
         provinces: ['Rhône', 'Ardèche', 'Drôme'],
         parentNl: 'Auvergne-Rhône-Alpes',
       },
+      // Loire = régio Centre-Val de Loire (Sancerre, Touraine, Vouvray, Chinon).
+      // Pays de la Loire (Muscadet/Anjou) blijft gedempte context.
+      'Centre-Val de Loire': { slug: 'loire', nl: 'Loire' },
+      // Provence = de mediterrane régio Provence-Alpes-Côte-d'Azur (Bandol,
+      // Côtes de Provence, Cassis). Whole-region zoals Veneto/Toscane.
+      "Provence-Alpes-Côte-d'Azur": { slug: 'provence', nl: 'Provence' },
     },
     ctxLabels: {
       'Nouvelle-Aquitaine': 'Bordeaux / Zuidwest',
       Occitanie: 'Languedoc',
-      "Provence-Alpes-Côte-d'Azur": 'Provence',
-      'Centre-Val de Loire': 'Loire',
       'Auvergne-Rhône-Alpes': 'Auvergne-Rhône-Alpes',
       Corse: 'Corsica',
       'Pays de la Loire': 'Pays de la Loire',
@@ -138,9 +142,11 @@ const COUNTRIES = {
       Andalucía: { slug: 'jerez', nl: 'Jerez', provinces: ['Cádiz'], parentNl: 'Andalusië' },
       // Priorat = DOQ in provincie Tarragona, niet heel Catalonië.
       Cataluña: { slug: 'priorat-catalonie', nl: 'Priorat', provinces: ['Tarragona'], parentNl: 'Catalonië' },
+      // Rioja = régio La Rioja (DOCa strekt ook in Álava/Navarra, hier het
+      // hoofd-silhouet). Whole-region.
+      'La Rioja': { slug: 'rioja', nl: 'Rioja' },
     },
     ctxLabels: {
-      'La Rioja': 'Rioja',
       'Castilla y León': 'Castilië-León',
       Galicia: 'Galicië',
       'País Vasco': 'Baskenland',
@@ -155,6 +161,15 @@ const COUNTRIES = {
       Cantabria: 'Cantabrië',
     },
     exclude: new Set(['Canary Is.', 'Ceuta', 'Melilla', 'Islas Baleares']),
+    // Deelgebieden binnen één provincie/régio (geen eigen admin-1 silhouet):
+    // Ribera del Duero + Rueda liggen in Castilla y León, Bierzo in het NW
+    // ervan, Rías Baixas in Galicië → puntmarkers (zoals Mosel/Etna).
+    markers: [
+      { slug: 'ribera-del-duero', nl: 'Ribera del Duero', lon: -3.69, lat: 41.67 },
+      { slug: 'rueda', nl: 'Rueda', lon: -4.96, lat: 41.41 },
+      { slug: 'bierzo', nl: 'Bierzo', lon: -6.6, lat: 42.55 },
+      { slug: 'rias-baixas', nl: 'Rías Baixas', lon: -8.64, lat: 42.43 },
+    ],
   },
 
   portugal: {
@@ -165,14 +180,21 @@ const COUNTRIES = {
       // Douro-vallei = districten Vila Real + Bragança (oostelijk Norte), niet
       // heel Norte (dat ook Porto en de kust omvat).
       Norte: { slug: 'douro-portugal', nl: 'Douro', provinces: ['Vila Real', 'Bragança'], parentNl: 'Norte' },
+      // Alentejo = de gelijknamige régio (whole-region).
+      Alentejo: { slug: 'alentejo', nl: 'Alentejo' },
+      // Lisboa (voorheen Estremadura) = de régio Lisbon (whole-region).
+      Lisbon: { slug: 'lisboa', nl: 'Lisboa' },
     },
     ctxLabels: {
       Centro: 'Centro',
-      Lisbon: 'Lissabon',
-      Alentejo: 'Alentejo',
       Algarve: 'Algarve',
       'Norte, Centro': 'Centro',
     },
+    // Vinho Verde = Minho (westelijk Norte), deelgebied naast de Douro-vallei →
+    // puntmarker binnen het Norte-context-silhouet.
+    markers: [
+      { slug: 'vinho-verde', nl: 'Vinho Verde', lon: -8.3, lat: 41.55 },
+    ],
     exclude: new Set(['Madeira', 'Azores']),
   },
 
@@ -201,6 +223,9 @@ const COUNTRIES = {
     },
     markers: [
       { slug: 'wachau', nl: 'Wachau', lon: 15.45, lat: 48.38 },
+      // Kamptal = Kamp-vallei rond Langenlois, ten NO van de Wachau (ook
+      // Niederösterreich, geen eigen admin-1 silhouet) → puntmarker.
+      { slug: 'kamptal', nl: 'Kamptal', lon: 15.68, lat: 48.47 },
     ],
   },
 
@@ -226,6 +251,9 @@ const COUNTRIES = {
     markers: [
       { slug: 'mosel-duitsland', nl: 'Mosel', lon: 7.0, lat: 49.9 },
       { slug: 'pfalz', nl: 'Pfalz', lon: 8.13, lat: 49.35 },
+      // Rheingau = Rijnstrook rond Rüdesheim/Geisenheim in Hessen (geen eigen
+      // admin-1 silhouet) → puntmarker binnen het nationale silhouet.
+      { slug: 'rheingau', nl: 'Rheingau', lon: 8.0, lat: 50.0 },
     ],
   },
 
@@ -252,6 +280,21 @@ const COUNTRIES = {
       { slug: 'franschhoek', nl: 'Franschhoek', lon: 19.12, lat: -33.91 },
       { slug: 'constantia', nl: 'Constantia', lon: 18.42, lat: -34.03 },
       { slug: 'hemel-en-aarde', nl: 'Hemel-en-Aarde', lon: 19.25, lat: -34.41 },
+    ],
+  },
+
+  slowakije: {
+    admin: 'Slovakia',
+    label: 'Slowakije',
+    // Slowakije heeft één gepubliceerde streek die het hele wijnland dekt
+    // (/streken/slowakije/). Geen admin-1 sub-silhouet → puntmarker op de
+    // zuidelijke wijngordel; de kraje vormen samen het nationale context-
+    // silhouet.
+    projection: () => d3.geoConicConformal().parallels([48, 49.5]).rotate([-19.5, 0]),
+    regionMap: {},
+    ctxLabels: {},
+    markers: [
+      { slug: 'slowakije', nl: 'Slowakije', lon: 19.5, lat: 48.5 },
     ],
   },
 };

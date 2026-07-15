@@ -161,7 +161,7 @@ const {
       <div class="land-streken__grid">
         {streken.map(streek => (
           <a href={`/streken/${streek.slug}/`} class="land-streek-card">
-            <div class="land-streek-card__img">
+            <div class:list={['land-streek-card__img', !streek.image && 'is-empty']}>
               <SmartImg src={streek.image} alt={streek.name} theme="vineyard" class="land-streek-card__img-inner" />
               <span class="land-streek-card__badge">{streek.badge}</span>
             </div>
@@ -572,6 +572,11 @@ const {
     overflow: hidden;
     position: relative;
   }
+  /* LAT-2455: geen beeld → compacte branded band i.p.v. loze reuzenvlak op mobiel. */
+  .land-streek-card__img.is-empty {
+    aspect-ratio: auto;
+    height: clamp(96px, 26vw, 140px);
+  }
 
   .land-streek-card__img-inner {
     width: 100%;
@@ -759,8 +764,10 @@ const {
     display: block;
   }
 
+  /* LAT-2455: deze media-slot heeft nooit een foto (alleen badges). Geen loze
+     3/2-reuzenvlak meer op mobiel; compacte badge-strip die alleen zo hoog is
+     als de badges zelf. */
   .land-route-card__img {
-    aspect-ratio: 3 / 2;
     background: var(--paperShade);
     padding: 0.75rem;
     display: flex;

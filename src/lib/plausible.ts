@@ -90,18 +90,8 @@ export function initPlausibleInteractions(): void {
     });
   }
 
-  document.addEventListener(
-    'submit',
-    (event) => {
-      const form = event.target as HTMLFormElement | null;
-      if (!form?.matches('[data-newsletter-signup]')) return;
-      trackPlausible('newsletter_signup', {
-        region_preference: form.dataset.regionPreference || 'unknown',
-        path: window.location.pathname,
-      });
-    },
-    { capture: true },
-  );
+  // newsletter_signup wordt gevuurd door initNewsletterForms (newsletter-signup.ts),
+  // ná een geslaagde fetch-submit, zodat region_preference de echte keuze reflecteert.
 
   document.addEventListener(
     'click',

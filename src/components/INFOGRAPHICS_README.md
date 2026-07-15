@@ -61,9 +61,9 @@ import InfographicCard from '../components/InfographicCard.astro';
     'Rozen, teer en cherry, met een lange',
     'mineraal-spannende afdronk.',
   ]}
-  source="Consorzio Tutela Barolo · WSET L4"
+  source="Consorzio Tutela Barolo"
   variant="standalone"
-  alt="Druivenprofiel van Nebbiolo: hoge tannine en zuur, rijping 38 maanden, drinkraam 2030–2055. Bron: Consorzio Tutela Barolo · WSET L4."
+  alt="Druivenprofiel van Nebbiolo: hoge tannine en zuur, rijping 38 maanden, drinkraam 2030–2055. Bron: Consorzio Tutela Barolo."
 />
 ```
 
@@ -82,7 +82,7 @@ import InfographicCard from '../components/InfographicCard.astro';
 | `dataGrid`    | `{ label, value }[]` — 2-koloms grid, max 6 paren                                                       |   |
 | `aromaWheel`  | `{ wedges: 8 × { label, primair?, secundair?, tertiair? }, centerLine1?, centerLine2? }` — exact 8 wedges |   |
 | `tastingNote` | `string` of `string[]` — 1–2 regels italic body                                                         |   |
-| `source`      | `string` — verplicht (bv. "Consorzio Tutela Barolo · WSET L4")                                          | ✓ |
+| `source`      | `string` — verplicht (bv. "Consorzio Tutela Barolo")                                          | ✓ |
 | `domain`      | `string` — default `"VINOMARTINO.COM"`                                                                  |   |
 | `variant`     | `'standalone'` · `'article-inline'` · `'sidebar'` · `'social-crop'`                                     |   |
 | `alt`         | `string` — verplichte alt-tekst (zie sjabloon hieronder)                                                | ✓ |
@@ -107,7 +107,7 @@ Bron: {source}.
 ```
 
 Voorbeeld:
-> "Druivenprofiel van Nebbiolo: hoge tannine en zuur, rijping 38 maanden, drinkraam 2030–2055. Bron: Consorzio Tutela Barolo · WSET L4."
+> "Druivenprofiel van Nebbiolo: hoge tannine en zuur, rijping 38 maanden, drinkraam 2030–2055. Bron: Consorzio Tutela Barolo."
 
 ---
 

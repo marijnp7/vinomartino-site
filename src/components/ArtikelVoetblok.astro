@@ -6,6 +6,7 @@
 // aanmelding. Ontbreekt streek/route/hotel, dan valt die laag stil weg; het
 // nieuwsbrief-blok blijft altijd staan.
 import RouteMap from './RouteMap.astro';
+import NewsletterRegionField from './NewsletterRegionField.astro';
 import type { RelatedRef } from '../lib/articles';
 
 export interface VoetblokRoute {
@@ -72,18 +73,20 @@ const FORM_ACTION =
         method="post"
         target="_blank"
         data-newsletter-signup
-        data-region-preference={streek?.slug ?? 'unknown'}
       >
-        <label for="voetblok-email" class="voetblok__vh">E-mailadres</label>
-        <input
-          id="voetblok-email"
-          type="email"
-          name="fields[email]"
-          autocomplete="email"
-          placeholder="je@adres.nl"
-          required
-        />
-        <button type="submit" data-plausible-cta="newsletter_signup">Stuur me De brief</button>
+        <div class="voetblok__signup-row">
+          <label for="voetblok-email" class="voetblok__vh">E-mailadres</label>
+          <input
+            id="voetblok-email"
+            type="email"
+            name="fields[email]"
+            autocomplete="email"
+            placeholder="je@adres.nl"
+            required
+          />
+          <button type="submit" data-plausible-cta="newsletter_signup">Stuur me De brief</button>
+        </div>
+        <NewsletterRegionField id="voetblok-region" />
       </form>
     </div>
   </div>
@@ -182,7 +185,7 @@ const FORM_ACTION =
     color: var(--inkSoft);
     margin: 0;
   }
-  .voetblok__signup {
+  .voetblok__signup-row {
     display: flex;
     gap: 0.5rem;
   }
@@ -231,6 +234,6 @@ const FORM_ACTION =
     }
   }
   @media (max-width: 640px) {
-    .voetblok__signup { flex-direction: column; }
+    .voetblok__signup-row { flex-direction: column; }
   }
 </style>

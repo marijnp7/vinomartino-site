@@ -5,26 +5,19 @@
 // custom field `region_preference` (id 1377354); waarden piemonte/toscane/
 // alsace/overige triggeren de 4 routing-automations -> region-* groups.
 // Override endpoint via PUBLIC_MAILERLITE_FORM_ACTION (net als /de-brief).
+import NewsletterRegionField from './NewsletterRegionField.astro';
+
 const FORM_ACTION =
   import.meta.env.PUBLIC_MAILERLITE_FORM_ACTION ||
   'https://assets.mailerlite.com/jsonp/2415940/forms/189828746131277541/subscribe';
 
-type RegionValue = 'piemonte' | 'toscane' | 'alsace' | 'overige';
-
 interface Props {
   // Preselecteer de regio op region-/streekpagina's (tweede prio). Undefined =
-  // lezer kiest zelf; het veld blijft optioneel.
-  defaultRegion?: RegionValue | null;
+  // lezer kiest zelf; het veld blijft optioneel. Waarden = MailerLite-opties.
+  defaultRegion?: 'Piemonte' | 'Toscane' | 'Alsace' | 'Overige' | null;
 }
 
 const { defaultRegion = null } = Astro.props;
-
-const REGION_OPTIONS: { value: RegionValue; label: string }[] = [
-  { value: 'piemonte', label: 'Piemonte' },
-  { value: 'toscane', label: 'Toscane' },
-  { value: 'alsace', label: 'Alsace' },
-  { value: 'overige', label: 'Een andere regio' },
-];
 ---
 
 <section class="nl-footer" aria-labelledby="nl-footer-heading">
@@ -38,7 +31,7 @@ const REGION_OPTIONS: { value: RegionValue; label: string }[] = [
       we je verhalen op maat.
     </p>
 
-    <form class="nl-footer__form" action={FORM_ACTION} method="post" target="_blank">
+    <form class="nl-footer__form" action={FORM_ACTION} method="post" target="_blank" data-newsletter-signup>
       <div class="nl-footer__row">
         <label for="nl-footer-email" class="visually-hidden">E-mailadres</label>
         <input
@@ -52,17 +45,7 @@ const REGION_OPTIONS: { value: RegionValue; label: string }[] = [
         <button type="submit">Stuur me De brief</button>
       </div>
 
-      <div class="nl-footer__region">
-        <label for="nl-footer-region">
-          Welke wijnregio interesseert jou het meest? <span class="nl-footer__optional">(optioneel)</span>
-        </label>
-        <select id="nl-footer-region" name="fields[region_preference]">
-          <option value="">Maak een keuze…</option>
-          {REGION_OPTIONS.map((opt) => (
-            <option value={opt.value} selected={defaultRegion === opt.value}>{opt.label}</option>
-          ))}
-        </select>
-      </div>
+      <NewsletterRegionField id="nl-footer-region" defaultRegion={defaultRegion} />
     </form>
 
     <p class="nl-footer__fineprint">
@@ -135,8 +118,7 @@ const REGION_OPTIONS: { value: RegionValue; label: string }[] = [
     outline: none;
     color: var(--color-text);
   }
-  .nl-footer__row input:focus,
-  .nl-footer__region select:focus {
+  .nl-footer__row input:focus {
     border-color: var(--color-primary);
   }
   .nl-footer__row button {
@@ -154,29 +136,6 @@ const REGION_OPTIONS: { value: RegionValue; label: string }[] = [
   }
   .nl-footer__row button:hover {
     background: var(--color-primary-hover, var(--color-primary));
-  }
-  .nl-footer__region {
-    margin: 0.85rem 0 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-  }
-  .nl-footer__region label {
-    font-family: var(--font-ui);
-    font-size: 0.8125rem;
-    color: var(--color-text-soft, var(--color-text));
-  }
-  .nl-footer__optional {
-    color: var(--color-text-faint, var(--color-text-soft, var(--color-text)));
-  }
-  .nl-footer__region select {
-    padding: 0.6rem 0.75rem;
-    border: 1px solid var(--color-rule, #C9B98F);
-    background: var(--color-bg);
-    font-family: var(--font-serif, var(--font-body));
-    font-size: 0.9375rem;
-    color: var(--color-text);
-    outline: none;
   }
   .nl-footer__fineprint {
     font-family: var(--font-ui);

@@ -4,6 +4,7 @@ import ZelfGereisdBadge from '../components/ZelfGereisdBadge.astro';
 import Briefkaart from '../components/Briefkaart.astro';
 import HomeRoutesMap from '../components/HomeRoutesMap.astro';
 import DiscoverMapEurope from '../components/DiscoverMapEurope.astro';
+import NewsletterRegionField from '../components/NewsletterRegionField.astro';
 import { loadArticles } from '../lib/articles';
 import { loadRoutes } from '../lib/routes';
 import { loadStreken } from '../lib/streken';
@@ -338,7 +339,7 @@ function formatDate(value?: string | null) {
         <div class="cards-grid">
           {moreArticles.map(article => (
             <a href={`/artikelen/${article.slug}/`} class="card-tile">
-              <div class="card-media">
+              <div class:list={['card-media', !article.heroImage && 'is-empty']}>
                 {article.heroImage ? (
                   <img src={article.heroImage} alt={article.title} width="600" height="450" loading="lazy" decoding="async" />
                 ) : (
@@ -403,18 +404,20 @@ function formatDate(value?: string | null) {
           method="post"
           target="_blank"
           data-newsletter-signup
-          data-region-preference="unknown"
         >
-          <label for="brief-email" class="visually-hidden">E-mailadres</label>
-          <input
-            id="brief-email"
-            type="email"
-            name="fields[email]"
-            autocomplete="email"
-            placeholder="je@adres.nl"
-            required
-          />
-          <button type="submit" class="btn btn-primary" data-plausible-cta="newsletter_signup">Stuur me de brief</button>
+          <div class="brief-signup__row">
+            <label for="brief-email" class="visually-hidden">E-mailadres</label>
+            <input
+              id="brief-email"
+              type="email"
+              name="fields[email]"
+              autocomplete="email"
+              placeholder="je@adres.nl"
+              required
+            />
+            <button type="submit" class="btn btn-primary" data-plausible-cta="newsletter_signup">Stuur me de brief</button>
+          </div>
+          <NewsletterRegionField id="brief-region" />
         </form>
       </Briefkaart>
     </div>
@@ -883,6 +886,11 @@ function formatDate(value?: string | null) {
     background: var(--paperShade);
     margin-bottom: var(--space-4);
   }
+  /* LAT-2455: geen beeld → compacte branded band i.p.v. loze reuzenvlak op mobiel. */
+  .card-media.is-empty {
+    aspect-ratio: auto;
+    height: clamp(96px, 26vw, 140px);
+  }
   .card-media img {
     width: 100%;
     height: 100%;
@@ -969,11 +977,14 @@ function formatDate(value?: string | null) {
     border: 0;
   }
   .brief-signup {
-    display: flex;
-    gap: var(--space-2);
     width: 100%;
     max-width: 30rem;
     margin: var(--space-5) auto 0;
+  }
+  .brief-signup__row {
+    display: flex;
+    gap: var(--space-2);
+    width: 100%;
   }
   .brief-signup input {
     flex: 1;
@@ -1071,7 +1082,8 @@ function formatDate(value?: string | null) {
     .streken-grid { grid-template-columns: 1fr; gap: var(--space-4); }
     .streek-tile { aspect-ratio: 4 / 5; }
     .cards-grid { grid-template-columns: 1fr; }
-    .brief-signup { width: 100%; max-width: none; flex-direction: column; }
+    .brief-signup { width: 100%; max-width: none; }
+    .brief-signup__row { flex-direction: column; }
     .brief-signup .btn { width: 100%; }
     .proof-stats { gap: var(--space-6); }
   }

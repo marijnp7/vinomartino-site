@@ -62,10 +62,10 @@ const streekValuta = currencyForLand(entry.landSlug);
 // LAT-2436: preselecteer de regiovraag in de nieuwsbrief-footer wanneer de streek
 // overeenkomt met een van de 4 MailerLite-routing-regio's (region_preference).
 const streekRegio = `${entry.slug} ${entry.landSlug ?? ''}`.toLowerCase();
-const newsletterRegion: 'piemonte' | 'toscane' | 'alsace' | null =
-  /piemonte|langhe/.test(streekRegio) ? 'piemonte'
-  : /toscane|toscana/.test(streekRegio) ? 'toscane'
-  : /alsace|elzas/.test(streekRegio) ? 'alsace'
+const newsletterRegion: 'Piemonte' | 'Toscane' | 'Alsace' | null =
+  /piemonte|langhe/.test(streekRegio) ? 'Piemonte'
+  : /toscane|toscana/.test(streekRegio) ? 'Toscane'
+  : /alsace|elzas/.test(streekRegio) ? 'Alsace'
   : null;
 
 // LAT-1199: verticale kruimel Land → Streek.
@@ -328,7 +328,7 @@ const hasFactBox = Boolean(
 
     {/* LAT-2009 (VIS-BL-10) — Streek-feitenblok "In het kort 2.0": één monospace
         feitenblok met druiven, beste seizoen, rijdagen, dichtstbijzijnd vliegveld,
-        aantal adressen en tier-badge (+ WSET-detailrijen). Vervangt de oude
+        aantal adressen en tier-badge (+ wijndetailrijen). Vervangt de oude
         WijnFactBox én de dubbele druivenlijst in de hero-sidebar. Rendert alleen
         als er gevulde velden zijn (geen lege box op streken zonder data). */}
     {hasFactBox && (
