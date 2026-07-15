@@ -13,6 +13,7 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { join } from 'node:path';
 import { scanHtml } from './check-affiliate-links.mjs';
 
 const gyg = (path, params = 'partner_id=CRMZDZ6&utm_medium=online_publisher&cmp=streek-langhe') =>
@@ -59,6 +60,27 @@ test('GROEN: canonieke tour ook met HTML-encoded &amp; ampersands', () => {
 test('GROEN: GYG-zoek-/landingslink (geen pad) is een geldig patroon', () => {
   const html = '<a href="https://www.getyourguide.com/?partner_id=CRMZDZ6&amp;utm_medium=online_publisher&amp;cmp=tours-piemonte&amp;q=Barolo">zoek</a>';
   assert.deepEqual(scanHtml(html), []);
+});
+
+test('GROEN: GYG-zoekresultatenpad /s/?q= met tracking is geldig (geen tour-id)', () => {
+  // getyourguide.com/s/?q=... is GYG's eigen 200-zoekpagina, geen tour-deeplink.
+  const html = '<a href="https://www.getyourguide.com/s/?q=barolo+wine+tour&amp;partner_id=CRMZDZ6&amp;utm_medium=online_publisher&amp;cmp=artikel-piemonte">zoek</a>';
+  assert.deepEqual(scanHtml(html), []);
+});
+
+test('ROOD: GYG /s/?q= zónder partner_id blijft rood (attributie, exact LAT-2531)', () => {
+  const html = '<a href="https://www.getyourguide.com/s/?q=barolo+wine+tour+piemonte">zoek</a>';
+  const v = scanHtml(html);
+  assert.equal(v.length, 1);
+  assert.match(v[0].reason, /partner_id/);
+});
+
+test('ROOD: GYG /s/<iets> (twee segmenten) valt door naar tour-id-check', () => {
+  // Alleen het kale `s`-segment is de zoekpagina; een dieper pad hoort een tour te
+  // zijn en heeft dus een -t<id> nodig.
+  const v = scanHtml(gyg('/s/verzonnen-pad'));
+  assert.equal(v.length, 1);
+  assert.match(v[0].reason, /tour-id/);
 });
 
 test('ROOD: GYG mist partner_id → geen attributie', () => {
@@ -119,4 +141,46 @@ test('GEEN vals-positief: niet-affiliate links en bare booking-vermelding', () =
     '<a href="mailto:info@vinomartino.travel">mail</a>',
   ].join('\n');
   assert.deepEqual(scanHtml(html), []);
+});
+
+test('CLI: dist/preview/** valt buiten de guard-scope (component-demopagina)', async () => {
+  const { mkdtemp, mkdir, writeFile } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const { execFile } = await import('node:child_process');
+  const { promisify } = await import('node:util');
+  const { fileURLToPath } = await import('node:url');
+  const run = promisify(execFile);
+
+  const dist = await mkdtemp(join(tmpdir(), 'affguard-'));
+  const brokenAwin =
+    '<a href="https://www.awin1.com/cread.php?awinmid=5818&awinaffid=VINOMARTINO_AWIN_PENDING&clickref=hotels-piemonte&ued=x">boek</a>';
+  await mkdir(join(dist, 'preview', 'lat-1676-componenten'), { recursive: true });
+  await writeFile(join(dist, 'preview', 'lat-1676-componenten', 'index.html'), brokenAwin);
+  await mkdir(join(dist, 'streken', 'langhe'), { recursive: true });
+  await writeFile(join(dist, 'streken', 'langhe', 'index.html'), '<a href="/intern">ok</a>');
+
+  const guard = fileURLToPath(new URL('./check-affiliate-links.mjs', import.meta.url));
+  // Exit 0: de enige violation zit in dist/preview/** en wordt overgeslagen.
+  await run(process.execPath, [guard, dist]);
+});
+
+test('CLI: eenzelfde violation BUITEN preview laat de build wél rood vallen', async () => {
+  const { mkdtemp, mkdir, writeFile } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const { execFile } = await import('node:child_process');
+  const { fileURLToPath } = await import('node:url');
+
+  const dist = await mkdtemp(join(tmpdir(), 'affguard-'));
+  const brokenAwin =
+    '<a href="https://www.awin1.com/cread.php?awinmid=5818&awinaffid=VINOMARTINO_AWIN_PENDING&clickref=hotels-piemonte&ued=x">boek</a>';
+  await mkdir(join(dist, 'artikelen', 'x'), { recursive: true });
+  await writeFile(join(dist, 'artikelen', 'x', 'index.html'), brokenAwin);
+
+  const guard = fileURLToPath(new URL('./check-affiliate-links.mjs', import.meta.url));
+  await new Promise((resolve, reject) => {
+    execFile(process.execPath, [guard, dist], (err) => {
+      if (err && err.code === 1) resolve();
+      else reject(new Error(`verwacht exit 1, kreeg: ${err ? err.code : 0}`));
+    });
+  });
 });

@@ -42,6 +42,12 @@ import { join } from 'node:path';
 
 const DIST_DIR = process.env.DIST_DIR || process.argv[2] || 'dist';
 
+// Directory-namen (direct onder DIST_DIR) die buiten de guard vallen. `preview`
+// bevat component-demopagina's (bv. /preview/lat-1676-componenten) — geen
+// gepubliceerde redactionele content, wél met opzettelijke placeholder-CTA's.
+// Die horen niet het blokkerende bouwpad te bevriezen.
+const SKIP_TOP_DIRS = new Set(['preview']);
+
 // GYG partner_id is publiek en zit in affiliate-regio.ts (default CRMZDZ6, env
 // kan overschrijven). We eisen exact deze waarde zodat een verkeerd/leeg account
 // niet stil doorglipt.
@@ -85,6 +91,11 @@ function validateGetYourGuide(u) {
   // Geen padsegment over → landings-/zoeklink (buildGetYourGuideLink). Dat is een
   // geldig, bewust patroon (knop met alleen tracking + q). Geen tour-id nodig.
   if (segments.length === 0) return null;
+
+  // GYG's eigen zoekresultatenpad is `/s/?q=...` (één segment `s`). Dat is een
+  // geldige 200-zoekpagina, geen tour-deeplink → geen tour-id vereist. Alleen het
+  // kale `s`-segment; `/s/iets` valt door naar de tour-id-check.
+  if (segments.length === 1 && segments[0] === 's') return null;
 
   // Wél een padsegment → dit hoort een concrete tour-deeplink te zijn. De
   // canonieke vorm eindigt op een tour-id `-t<cijfers>`. Ontbreekt die, dan is
@@ -180,7 +191,7 @@ export function scanHtml(html) {
   return violations;
 }
 
-async function* walkHtml(dir) {
+async function* walkHtml(dir, isTop = false) {
   let entries;
   try {
     entries = await readdir(dir, { withFileTypes: true });
@@ -190,6 +201,7 @@ async function* walkHtml(dir) {
   for (const entry of entries) {
     const full = join(dir, entry.name);
     if (entry.isDirectory()) {
+      if (isTop && SKIP_TOP_DIRS.has(entry.name)) continue;
       yield* walkHtml(full);
     } else if (entry.isFile() && entry.name.endsWith('.html')) {
       yield full;
@@ -200,7 +212,7 @@ async function* walkHtml(dir) {
 async function main() {
   const hits = [];
   let scanned = 0;
-  for await (const file of walkHtml(DIST_DIR)) {
+  for await (const file of walkHtml(DIST_DIR, true)) {
     scanned++;
     const html = await readFile(file, 'utf8');
     for (const v of scanHtml(html)) {
