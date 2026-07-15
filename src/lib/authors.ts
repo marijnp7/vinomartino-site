@@ -49,8 +49,8 @@ export const AUTHORS: readonly Author[] = [
     bio:
       "Léa Marchand-Verhoeven werkte zeven jaar als sommelier in Michelin-sterrenrestaurants in Parijs en Brussel. Nu schrijft ze als freelance culinair adviseur. Haar vertrekpunt is altijd het eten: de wijn volgt het gerecht, nooit andersom.\n\n" +
       "Ze schrijft voor VinoMartino over Loire, Champagne, Jura en Alsace, met bijzondere aandacht voor grower-producenten en de ongeschreven regels op goede wijnlijsten.",
-    portrait: null,
-    portraitAlt: '',
+    portrait: '/images/auteurs/lea.svg',
+    portraitAlt: 'Léa, silhouet bij kaarslicht met een tastevin in de hand',
     matches: ['léa marchand-verhoeven', 'lea marchand-verhoeven', 'léa', 'lea'],
   },
   {
@@ -73,8 +73,8 @@ export const AUTHORS: readonly Author[] = [
     bio:
       "Robin de Wilde heeft geen diploma en geen vaste woonplaats. Hij werkte in een wijngaard in Georgië, een bottleshop in Brooklyn en een wijnbar in Berlijn. Momenteel woont hij in Amsterdam. Volgende maand: onbekend.\n\n" +
       "Hij schrijft voor VinoMartino over qvevri-fermentatie, natuur-wijn, Georgië, Slovenië en de micro-producenten op de Etna die niet in de standaard reisgidsen staan.",
-    portrait: null,
-    portraitAlt: '',
+    portrait: '/images/auteurs/robin.svg',
+    portraitAlt: 'Robin, silhouet buiten bij een qvevri met een fles natuur-wijn',
     matches: ['robin de wilde', 'robin'],
   },
   {
@@ -85,8 +85,8 @@ export const AUTHORS: readonly Author[] = [
     bio:
       "Mira Adler is kunsthistorica, gepromoveerd in Wenen. Ze woont een half jaar in de stad en een half jaar in Panzano in Chianti, waar haar man Giacomo wijn maakt. Dat laatste is geen toeval en ook niet de enige reden waarom ze schrijft.\n\n" +
       "Voor VinoMartino verbindt ze wijn met architectuur, cultuurgeschiedkundige context en de traagheid van plaatsen die hun karakter over eeuwen hebben opgebouwd. Haar specialisatie: Wachau, Burgenland, Friuli, Tokaj en Toscane.",
-    portrait: null,
-    portraitAlt: '',
+    portrait: '/images/auteurs/mira.svg',
+    portraitAlt: 'Mira, silhouet voor een gewelfde doorgang met een glas wijn',
     matches: ['mira adler', 'mira'],
   },
   {
@@ -109,8 +109,8 @@ export const AUTHORS: readonly Author[] = [
     bio:
       "Tomás Ferreira-de Souza was geofysicus, opgeleid in Porto en aan de TU Delft. Vijf jaar geleden bracht een Vinho Verde hem op andere gedachten. Hij schrijft sindsdien over wijn vanuit aardwetenschappelijk perspectief: bodemlaag, erosie, hoogte boven zeeniveau en wat gesteente doet met smaak.\n\n" +
       "Voor VinoMartino schrijft hij over Portugal, Etna, de Canarische Eilanden, de Açores en Engeland. Hij begint altijd bij de grond onder de stokken.",
-    portrait: null,
-    portraitAlt: '',
+    portrait: '/images/auteurs/tomas.svg',
+    portraitAlt: 'Tomás, silhouet op een vulkanische helling, kijkend naar de bodem',
     matches: ['tomás ferreira-de souza', 'tomas ferreira-de souza', 'tomás', 'tomas'],
   },
   {

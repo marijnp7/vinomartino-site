@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" role="img" aria-label="Tomás — silhouet op een vulkanische helling, kijkend naar de bodem">
+  <defs>
+    <radialGradient id="volcLight8" cx="0.4" cy="0.4" r="0.95">
+      <stop offset="0%" stop-color="#e8d8c0"/>
+      <stop offset="55%" stop-color="#9a6840"/>
+      <stop offset="100%" stop-color="#2c1808"/>
+    </radialGradient>
+    <linearGradient id="silhouette8" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#241608"/>
+      <stop offset="100%" stop-color="#120c04"/>
+    </linearGradient>
+    <filter id="grain8" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="59"/>
+      <feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.18 0"/>
+      <feComposite in2="SourceGraphic" operator="in"/>
+    </filter>
+  </defs>
+  <rect width="600" height="600" fill="url(#volcLight8)"/>
+  <g opacity="0.92">
+    <!-- figuur: iets voorover, aandachtig naar de grond kijkend -->
+    <path d="M192 600 V426 C192 378 218 342 250 328 C262 323 268 310 265 294 C262 266 260 242 268 218 C278 188 300 170 326 170 C354 170 376 190 380 218 C385 244 380 268 378 296 C378 312 390 324 408 330 C444 346 468 384 468 430 V600 Z" fill="url(#silhouette8)"/>
+    <!-- hoofd, licht voorovergebogen -->
+    <ellipse cx="326" cy="254" rx="18" ry="13" fill="#120c04" opacity="0.7"/>
+    <!-- rotsblok/bodemsteen links -->
+    <polygon points="80,540 150,490 220,530 190,600 80,600" fill="#2c1808" opacity="0.55"/>
+    <polygon points="150,490 240,460 280,510 220,530" fill="#1e1006" opacity="0.45"/>
+    <!-- kleine steen rechtsonder (geofysicus detail) -->
+    <polygon points="400,560 440,538 470,555 460,600 400,600" fill="#241608" opacity="0.5"/>
+  </g>
+  <rect width="600" height="600" fill="#000000" opacity="0.10" filter="url(#grain8)"/>
+</svg>
