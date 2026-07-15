@@ -202,6 +202,30 @@ function renderArticleBody(markdown: string, slug: string): Promise<{ html: stri
     return markdownToHtmlWithToc(substituteAffiliateTokens(markdown, slug), { stripFirstH1: true });
 }
 
+// LAT-2509: harde regel DAM → CMS → Site. Body-beelden mogen NIET naar het
+// CMS-domein hotlinken: cms.vinomartino.com zit achter Cloudflare Access, dus
+// een niet-ingelogde bezoeker krijgt een 302 naar login en een kapotte <img>.
+// Anders dan hero/og downloadde de build body-assets niet, waardoor een
+// `![](https://cms.vinomartino.com/assets/<uuid>)` ongewijzigd door de sanitizer
+// liep. Deze helper herschrijft élke DAM-asset-referentie in de body naar het
+// lokale, in de build gedownloade pad `/images/articles/<uuid>.jpg` en verzamelt
+// de asset-UUID's zodat loadFromDirectus ze via downloadArticleAsset ophaalt.
+// Self-healing: vangt óók reeds-lokale referenties én eventueel gemiste hotlinks,
+// zodat een build nooit een gebroken CMS-hotlink rendert.
+const BODY_UUID = '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}';
+const CMS_HOTLINK_RE = new RegExp(`https?://cms\\.vinomartino\\.com/assets/(${BODY_UUID})(?:\\?[^\\s")']*)?`, 'g');
+const LOCAL_BODY_ASSET_RE = new RegExp(`/images/articles/(${BODY_UUID})\\.jpg`, 'g');
+
+function localizeBodyImages(markdown: string): { body: string; assetIds: string[] } {
+    const ids = new Set<string>();
+    const body = markdown.replace(CMS_HOTLINK_RE, (_m, id: string) => {
+        ids.add(id.toLowerCase());
+        return `/images/articles/${id.toLowerCase()}.jpg`;
+    });
+    for (const m of body.matchAll(LOCAL_BODY_ASSET_RE)) ids.add(m[1].toLowerCase());
+    return { body, assetIds: [...ids] };
+}
+
 // LAT-2251: wrap élke booking.com-URL in de artikel-body (markdown-link of raw
 // href) door het CJ-klikdomein, zodat de artikelpagina's dezelfde CJ-attributie
 // krijgen als de streek-/accommodatie-pagina's. buildCjBookingLink pelt een
@@ -521,7 +545,10 @@ async function loadFromDirectus(url: string, token: string): Promise<Article[]> 
     const items = await Promise.all(
           data.map(async (a) => {
                   const rawBody = String(a.body || '');
-                  const { body: cleanBody, extracted } = stripMetaDescriptionFromBody(rawBody);
+                  const { body: strippedBody, extracted } = stripMetaDescriptionFromBody(rawBody);
+                  // LAT-2509: herschrijf CMS-hotlinks naar lokale build-paden en
+                  // verzamel de body-asset-UUID's zodat de build ze downloadt.
+                  const { body: cleanBody, assetIds: bodyAssetIds } = localizeBodyImages(strippedBody);
                   if (extracted && !a.meta_description) {
                             a.meta_description = extracted;
                   }
@@ -537,6 +564,8 @@ async function loadFromDirectus(url: string, token: string): Promise<Article[]> 
                   const [heroImagePath, ogImagePath] = await Promise.all([
                         a.hero_image ? downloadArticleAsset(String(a.hero_image), url, token) : Promise.resolve(null),
                         a.og_image ? downloadArticleAsset(String(a.og_image), url, token) : Promise.resolve(null),
+                        // LAT-2509: haal élke body-asset lokaal binnen (zelfde route als hero).
+                        ...bodyAssetIds.map((id) => downloadArticleAsset(id, url, token)),
                   ]);
                   return mapArticle(a, heroImagePath, ogImagePath, bodyHtml, toc, wordCount, readingMinutes);
           }),
