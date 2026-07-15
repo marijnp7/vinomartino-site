@@ -3,10 +3,12 @@ import SiteLayout from '../layouts/SiteLayout.astro';
 import ZelfGereisdBadge from '../components/ZelfGereisdBadge.astro';
 import Briefkaart from '../components/Briefkaart.astro';
 import HomeRoutesMap from '../components/HomeRoutesMap.astro';
+import DiscoverMapEurope from '../components/DiscoverMapEurope.astro';
 import NewsletterRegionField from '../components/NewsletterRegionField.astro';
 import { loadArticles } from '../lib/articles';
 import { loadRoutes } from '../lib/routes';
 import { loadStreken } from '../lib/streken';
+import { loadLanden } from '../lib/landen';
 import { organizationSchema } from '../lib/seo';
 import { getAuthorByByline } from '../lib/authors';
 
@@ -28,42 +30,117 @@ const articles = await loadArticles();
 // het nieuwste. Geen featured-artikel → val terug op het nieuwste artikel.
 const spotlight = articles.find((a) => a.featured) ?? articles[0];
 const moreArticles = articles.filter((a) => a.slug !== spotlight?.slug).slice(0, 3);
-// LAT-2267 — de routekaart + kaartjes tonen ALLE routes (geen hardcoded/laatste-3
-// subset meer). HomeRoutesMap fit de bounds naar de volledige set, zodat het aantal
-// markers gelijk is aan het werkelijke aantal routes. De kaartjes eronder shuffelen
-// client-side (data-shuffle) naar drie willekeurige per load i.p.v. steeds dezelfde.
 const routes = await loadRoutes();
-
-// LAT-2008 — dagen/kelders-teller per routekaart. Kelders = aantal wijnhuis-stops
-// uit stopsGeo (LAT-2000 kind='wijnhuis'); ontbreekt die data, dan tonen we alleen
-// de duur zodat de kaart deploy-safe degradeert (geen "0 kelders").
-const cellarsCount = (r: (typeof routes)[number]): number =>
-  r.stopsGeo.filter((s) => s.kind === 'wijnhuis').length;
+const allStreken = await loadStreken();
+const landen = await loadLanden();
 
 const schema = organizationSchema();
 
 const HERO_IMAGE = '/images/landschap-piemonte-barolo-001.jpg';
 
-// LAT-2267 — het bestemmingenblok toonde altijd dezelfde vier hardcoded streken.
-// Nu bouwen we de tegels uit ÁLLE streken in Directus en shuffelen client-side naar
-// vier willekeurige per load (data-shuffle). Foto-guard: alleen streken mét een
-// geldige hero-foto komen in de set, zodat er nooit een lege/placeholder-tegel
-// verschijnt (onderliggende beeld-gaten vult de Lead Editor-audit, LAT-2268).
-// LAT-2356 — tekst-guard: naast de hero moet ook het blurb-veld (description)
-// gevuld zijn, anders rendert de tegel een lege <p class="streek-blurb">.
-// Zelfde data-completeness-patroon als de foto-guard; blurb-gaten backfilt
-// de Lead Editor (LAT-2355).
-const STREKEN_VISIBLE = 4;
-const editorialStreken = (await loadStreken())
+// ── LAT-2451 — Atlas als primaire navigatie direct onder de hero ──────────
+// Groepeer gepubliceerde streken onder hun land (zelfde patroon als /ontdek/),
+// zodat de Europa-kaart per land de streek-telling én de kerndruif toont in de
+// hover-tooltip. Data-gedreven: nieuw land in Directus = extra kaartvlak, geen
+// hardcoded nav-item. Kleur is deterministisch per land (merk-agnostisch palet).
+const ATLAS_PALETTE = ['#5A1A1F', '#A14F2A', '#5C6B3F', '#B86030', '#6B3A4A', '#7A6A2C'];
+const strekenPerLand = new Map<string, number>();
+for (const s of allStreken) {
+  if (!s.landSlug) continue;
+  strekenPerLand.set(s.landSlug, (strekenPerLand.get(s.landSlug) ?? 0) + 1);
+}
+const atlasCountries = landen.map((land, i) => ({
+  slug: land.slug,
+  name: land.name,
+  color: ATLAS_PALETTE[i % ATLAS_PALETTE.length] as string,
+  regionCount: strekenPerLand.get(land.slug) ?? 0,
+  // Kerndruif-hover: de eerste twee hoofddruiven van het land (Directus main_grapes).
+  grapes: land.mainGrapes.slice(0, 2).join(' · '),
+}));
+
+// ── LAT-2451 — Curated hero-streken ("Zelf gereisd" voorrang) ─────────────
+// Marijn-besluit Optie B (2026-07-14): de tile toont bij voorkeur het dedicated
+// `streken.card_blurb`-veld (max 140, redactioneel gevuld voor de 6-8 uitgelichte
+// streken). Is dat leeg, dan valt de tile terug op zinsgrens-truncatie van
+// `description`. Het ruwe `description`-veld (elders intro/meta, ~220-760 tekens)
+// blijft ONGEWIJZIGD — we korten alleen de gerenderde tegel-copy op build-tijd,
+// geen CSS-ellipsis midden in een zin.
+const HERO_STREKEN_MAX = 8;
+
+// Kap op een woordgrens met ellipsis als de tekst > max is; laat kortere tekst heel.
+function clampToWord(text: string, max = 140): string {
+  const clean = text.replace(/\s+/g, ' ').trim();
+  if (clean.length <= max) return clean;
+  const lastSpace = clean.slice(0, max).lastIndexOf(' ');
+  return `${clean.slice(0, lastSpace > 0 ? lastSpace : max).trimEnd()}…`;
+}
+
+// Neem de eerste zin (eerste .!? gevolgd door spatie/eind, met een 40-teken-
+// ondergrens zodat afkortingen als "St." niet vroeg afkappen). Is die zin langer
+// dan max, dan kap op woordgrens met een ellipsis; ontbreekt een zin-einde, dan
+// val terug op de hele tekst (met dezelfde woordgrens-cap).
+function clampToSentence(text: string, max = 140): string {
+  const clean = text.replace(/\s+/g, ' ').trim();
+  if (!clean) return clean;
+  const re = /[.!?](?=\s|$)/g;
+  let end = -1;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(clean)) !== null) {
+    if (m.index >= 40) { end = m.index + 1; break; }
+  }
+  const firstSentence = end > 0 ? clean.slice(0, end).trim() : clean;
+  return clampToWord(firstSentence, max);
+}
+
+// Kaart-blurb: dedicated card_blurb (defensief op 140 gekapt) heeft voorrang;
+// anders zinsgrens-truncatie van description.
+function heroBlurb(cardBlurb: string, description: string): string {
+  const cb = cardBlurb.trim();
+  if (cb) return clampToWord(cb);
+  return clampToSentence(description);
+}
+
+// Foto- + tekst-guard (LAT-2267/LAT-2356): alleen streken mét hero-foto én blurb.
+// Zelf-gereisd eerst (nieuwste bezoek bovenaan), daarna de overige foto-streken
+// als opvulling; harde cap op acht (VIS: curated rij van 6-8).
+const heroStreken = allStreken
   .filter((s) => Boolean(s.heroImage) && Boolean(s.name) && Boolean(s.description?.trim()))
+  .sort((a, b) => {
+    if (a.zelfGereisd !== b.zelfGereisd) return a.zelfGereisd ? -1 : 1;
+    if (a.zelfGereisd && b.zelfGereisd) {
+      const ja = a.bezoekjaar ?? 0;
+      const jb = b.bezoekjaar ?? 0;
+      if (ja !== jb) return jb - ja;
+    }
+    return a.name.localeCompare(b.name, 'nl');
+  })
+  .slice(0, HERO_STREKEN_MAX)
   .map((s) => ({
     name: s.name,
     eyebrow: s.country,
-    blurb: s.description,
+    blurb: heroBlurb(s.cardBlurb, s.description),
     href: `/streken/${s.slug}/`,
     image: s.heroImage as string,
     visited: s.zelfGereisd,
   }));
+
+// ── LAT-2451 — Uitgelichte routes: max zes, foto verplicht, met duur + streek-tag ──
+const strekenBySlug = new Map(allStreken.map((s) => [s.slug, s]));
+const FEATURED_ROUTES_MAX = 6;
+const featuredRoutes = routes
+  .filter((r) => Boolean(r.heroImage))
+  .slice(0, FEATURED_ROUTES_MAX)
+  .map((r) => {
+    const streek = r.streekSlug ? strekenBySlug.get(r.streekSlug) : undefined;
+    return {
+      slug: r.slug,
+      title: r.title,
+      description: r.description,
+      image: r.heroImage as string,
+      duration: r.duration,
+      regionTag: streek?.name || streek?.country || '',
+    };
+  });
 
 function formatDate(value?: string | null) {
   if (!value) return '';
@@ -113,29 +190,51 @@ function formatDate(value?: string | null) {
     </a>
   </section>
 
+  {atlasCountries.length > 0 && (
+    <section id="atlas" class="atlas-section" aria-label="Wijnatlas">
+      <div class="container">
+        <header class="strip-header atlas-head">
+          <span class="kicker">De wijnatlas</span>
+          <h2 class="strip-title">Kies je land, vind je streek</h2>
+          <p class="strip-lede">
+            Beweeg over een wijnland voor de kerndruif, klik door naar de streekgids. De hele atlas onder één kaart, geen menu dat meegroeit.
+          </p>
+        </header>
+        <DiscoverMapEurope countries={atlasCountries} />
+        <ul class="atlas-fallback" aria-label="Wijnlanden">
+          {atlasCountries.map((c) => (
+            <li>
+              <a href={`/landen/${c.slug}/`} class="atlas-chip" style={`--c: ${c.color};`}>
+                <span class="atlas-chip-name">{c.name}</span>
+                <span class="atlas-chip-meta">{c.regionCount} {c.regionCount === 1 ? 'streek' : 'streken'}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+        <p class="section-cta"><a href="/ontdek/" class="btn btn-outline">Naar de volledige atlas →</a></p>
+      </div>
+    </section>
+  )}
+
   <section id="bestemmingen" class="strip">
     <div class="container">
       <header class="strip-header">
-        <span class="kicker">Kies je bestemming</span>
+        <span class="kicker">Zelf gereisd, dus we weten het</span>
         <h2 class="strip-title">Waar begint jouw wijnreis?</h2>
         <p class="strip-lede">
-          Streken die telkens terugkomen in ons werk. Kies waar je heen wilt, en het verhaal, de routes en de adressen volgen.
+          De streken waar we zélf waren, staan vooraan. Kies waar je heen wilt, en het verhaal, de routes en de adressen volgen.
         </p>
       </header>
-      <div class="streken-grid" data-shuffle data-shuffle-visible={STREKEN_VISIBLE}>
-        {editorialStreken.map((streek, idx) => (
-          <a
-            href={streek.href}
-            class={`streek-tile${idx >= STREKEN_VISIBLE ? ' is-extra' : ''}`}
-            data-shuffle-item
-          >
+      <div class="streken-grid">
+        {heroStreken.map((streek, idx) => (
+          <a href={streek.href} class="streek-tile">
             <div class="streek-media">
               <img
                 src={streek.image}
                 alt={`${streek.name}, wijngaardlandschap`}
                 width="800"
                 height="1000"
-                loading={idx === 0 ? 'eager' : 'lazy'}
+                loading={idx < 2 ? 'eager' : 'lazy'}
                 decoding="async"
               />
             </div>
@@ -153,7 +252,7 @@ function formatDate(value?: string | null) {
           </a>
         ))}
       </div>
-      <p class="section-cta"><a href="/streken/" class="btn btn-outline">Alle 20+ streken →</a></p>
+      <p class="section-cta"><a href="/streken/" class="btn btn-outline">Alle streken →</a></p>
     </div>
   </section>
 
@@ -163,40 +262,29 @@ function formatDate(value?: string | null) {
         <span class="kicker">Op pad</span>
         <h2 class="section-h">Wijnroutes met karakter</h2>
         <p class="section-sub">
-          Geen Google-maps-grids, maar reizen, twee tot vijf dagen, met kelders, eetadressen en de weg ertussen.
+          Geen Google-maps-grids, maar reizen van twee tot vijf dagen, met wijnhuizen, eetadressen en de weg ertussen.
         </p>
       </header>
       <HomeRoutesMap routes={routes} />
-      <div class="cards-grid" data-shuffle data-shuffle-visible="3">
-        {routes.map((r, idx) => {
-          const kelders = cellarsCount(r);
-          return (
-            <a
-              href={`/wijnroutes/${r.slug}/`}
-              class={`card-tile${idx >= 3 ? ' is-extra' : ''}`}
-              data-shuffle-item
-            >
-              <div class:list={['card-media', !r.heroImage && 'is-empty']}>
-                {r.heroImage ? (
-                  <img src={r.heroImage} alt={r.title} width="600" height="450" loading="lazy" decoding="async" />
-                ) : (
-                  <div class="card-placeholder" aria-hidden="true"></div>
-                )}
-              </div>
-              <div class="card-body">
-                {(r.duration || kelders > 0) && (
-                  <span class="card-eyebrow card-meter">
-                    {r.duration}
-                    {r.duration && kelders > 0 && <span class="card-meter-dot" aria-hidden="true"> · </span>}
-                    {kelders > 0 && <span>{kelders} {kelders === 1 ? 'kelder' : 'kelders'}</span>}
-                  </span>
-                )}
-                <h3 class="card-title">{r.title}</h3>
-                {r.description && <p class="card-desc">{r.description}</p>}
-              </div>
-            </a>
-          );
-        })}
+      <div class="cards-grid">
+        {featuredRoutes.map((r, idx) => (
+          <a href={`/wijnroutes/${r.slug}/`} class="card-tile">
+            <div class="card-media">
+              <img src={r.image} alt={r.title} width="600" height="450" loading={idx < 3 ? 'eager' : 'lazy'} decoding="async" />
+            </div>
+            <div class="card-body">
+              {(r.duration || r.regionTag) && (
+                <span class="card-eyebrow card-meter">
+                  {r.duration && <span>{r.duration}</span>}
+                  {r.duration && r.regionTag && <span class="card-meter-dot" aria-hidden="true"> · </span>}
+                  {r.regionTag && <span>{r.regionTag}</span>}
+                </span>
+              )}
+              <h3 class="card-title">{r.title}</h3>
+              {r.description && <p class="card-desc">{r.description}</p>}
+            </div>
+          </a>
+        ))}
       </div>
       <p class="section-cta"><a href="/wijnroutes/" class="btn btn-outline">Alle routes →</a></p>
     </div>
@@ -335,47 +423,6 @@ function formatDate(value?: string | null) {
     </div>
   </section>
 </SiteLayout>
-
-<script>
-  // LAT-2267 — client-side randomisatie voor de bestemmingen-tegels en de
-  // routekaartjes. De pagina is statisch (SSG), dus zonder JS zou elke reload
-  // dezelfde subset tonen. Per [data-shuffle]-container husselen we de
-  // [data-shuffle-item]-kinderen (Fisher-Yates) en tonen we er data-shuffle-visible
-  // van; de rest krijgt is-hidden. No-JS valt terug op de eerste N (is-extra in CSS).
-  function shuffleInPlace<T>(arr: T[]): T[] {
-    for (let i = arr.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [arr[i], arr[j]] = [arr[j], arr[i]];
-    }
-    return arr;
-  }
-
-  function applyShuffle(): void {
-    const containers = document.querySelectorAll<HTMLElement>('[data-shuffle]');
-    containers.forEach((container) => {
-      const visible = parseInt(container.dataset.shuffleVisible || '0', 10);
-      const items = Array.from(
-        container.querySelectorAll<HTMLElement>('[data-shuffle-item]'),
-      );
-      if (!Number.isFinite(visible) || visible <= 0 || items.length <= visible) {
-        items.forEach((el) => el.classList.remove('is-extra', 'is-hidden'));
-        return;
-      }
-      shuffleInPlace(items);
-      items.forEach((el, idx) => {
-        container.appendChild(el);
-        el.classList.remove('is-extra');
-        el.classList.toggle('is-hidden', idx >= visible);
-      });
-    });
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', applyShuffle);
-  } else {
-    applyShuffle();
-  }
-</script>
 
 <style>
   /* ── Hero ─────────────────────────────────────────────── */
@@ -547,6 +594,53 @@ function formatDate(value?: string | null) {
     color: var(--rust);
   }
 
+  /* ── Wijnatlas (LAT-2451): primaire navigatie direct onder de hero ─── */
+  .atlas-section {
+    padding: var(--space-20) 0 var(--space-16);
+    background: var(--paperDeep);
+    border-bottom: 1px solid var(--rule);
+  }
+  .atlas-head { margin-bottom: var(--space-8); }
+  /* Mobiele fallback: de kaart verbergt zich <760px, dus tonen we hier de
+     wijnlanden als klikbare chips (zelfde nav-doel als de kaartvlakken). */
+  .atlas-fallback {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+  }
+  .atlas-chip {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0.6rem 0.9rem;
+    border: 1px solid var(--ruleSoft);
+    border-left: 3px solid var(--c, var(--burgundy));
+    background: var(--paper);
+    text-decoration: none;
+    transition: background var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out);
+  }
+  .atlas-chip:hover { background: var(--paperShade); transform: translateX(2px); }
+  .atlas-chip-name {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 1.05rem;
+    color: var(--ink);
+    line-height: 1.1;
+  }
+  .atlas-chip-meta {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--inkFaint);
+  }
+  @media (min-width: 760px) {
+    .atlas-fallback { display: none; }
+  }
+
   /* ── Editorial streken-grid ───────────────────────────── */
   .strip {
     padding: var(--space-24) 0 var(--space-20);
@@ -584,12 +678,6 @@ function formatDate(value?: string | null) {
     overflow: hidden;
     aspect-ratio: 3 / 4;
     isolation: isolate;
-  }
-  /* LAT-2267: no-JS fallback toont de eerste vier streken; JS shuffelt naar vier
-     willekeurige per load. */
-  .streek-tile.is-extra,
-  .streek-tile.is-hidden {
-    display: none;
   }
   .streek-tile::after {
     content: '';
@@ -647,13 +735,8 @@ function formatDate(value?: string | null) {
     line-height: 1.5;
     color: color-mix(in srgb, var(--fixed-cream) 88%, transparent);
     margin-top: var(--space-2);
-    /* LAT-2346 — lange excerpts (Friuli 679, Trentino 664, Mosel 626 tekens)
-       liepen over de kaart en bedekten streeknaam + 'Zelf gereisd'-badge. */
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    line-clamp: 3;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
+    /* LAT-2451 — de blurb is op build-tijd al uniform ≤140 tekens (card_blurb of
+       zinsgrens-truncatie van description), dus geen CSS-ellipsis meer. */
   }
   .streek-link {
     margin-top: var(--space-3);
@@ -796,11 +879,6 @@ function formatDate(value?: string | null) {
     display: block;
     color: inherit;
     text-decoration: none;
-  }
-  /* LAT-1612: no-JS fallback toont de eerste 3 wijnhuizen; JS shuffelt naar 3 willekeurige per load. */
-  .card-tile.is-extra,
-  .card-tile.is-hidden {
-    display: none;
   }
   .card-media {
     aspect-ratio: 4 / 3;

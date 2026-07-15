@@ -99,6 +99,11 @@ export interface Streek {
     slug: string;
     name: string;
     description: string;
+    // LAT-2451 — dedicated korte kaart-blurb (max 140) voor de 6-8 uitgelichte
+    // hero-streken op de homepage. Los van `description` (die elders intro/meta
+    // is, ~220-760 tekens). Leeg = de homepage valt terug op zinsgrens-truncatie
+    // van `description` (Marijn-besluit Optie B, 2026-07-14).
+    cardBlurb: string;
     country: string;
     landSlug: string;
     climate: string;
@@ -461,6 +466,8 @@ function mapStreek(
         slug: String(r.slug),
         name: normalizeEmDashes(String(r.name)),
         description: normalizeEmDashes(String(r.description || '')),
+        // LAT-2451 — card_blurb tolerante read (canoniek + camelCase-alias).
+        cardBlurb: firstString(r, ['card_blurb', 'cardBlurb', 'kaart_blurb']),
         country: String(r.country || r.land_name || ''),
         landSlug: String(r.land_slug || ''),
         climate: String(r.climate || ''),
@@ -529,6 +536,12 @@ async function fetchStrekenItems(url: string, token: string): Promise<Record<str
     // Op de hogere POI/facts-tiers zou het als collateral sneuvelen wanneer
     // eten/activiteiten 403'en, en de verplichte credit zou dan nooit laden.
     const withRelations = `${withOg},related_articles.articles_id.slug,related_articles.articles_id.title,cta_blocks,accom_cta_blocks,waar_slapen_intro,zelf_gereisd,bezoekjaar,gyg_tours,hero_credit`;  // LAT-2252: gyg_tours + LAT-2427: hero_credit rijden mee op withRelations (withGyg/withBl10/withFacts 403en op eten/activiteiten en vallen terug)
+    // LAT-2451: card_blurb (homepage hero-streken kaart-blurb) als eigen tier BOVEN
+    // withRelations. Bewust NIET in de withRelations-constante: bestaat card_blurb nog
+    // niet in Directus (DevOps moet het veld aanmaken), dan zou de withRelations-retry
+    // 400'en en zou de badge/tours/credit-tier als collateral sneuvelen. Als aparte
+    // tier degradeert een ontbrekend card_blurb stil naar withRelations.
+    const withCardBlurb = `${withRelations},card_blurb`;
     // LAT-1592: eten/activiteiten zijn nieuwe streek-velden. Bestaat het veld nog
     // niet (of mist de build-rol read-permissie) dan degradeert deze top-tier naar
     // `withRelations`, zodat related_articles (LAT-1098) NIET sneuvelt op het
@@ -609,6 +622,28 @@ async function fetchStrekenItems(url: string, token: string): Promise<Record<str
         const poiBody = await res.text().catch(() => '');
         console.warn(`[loadStreken] Directus rejected fields=…,eten,activiteiten (HTTP ${res.status}) — retrying without LAT-1592 POI-velden. Maak streken.eten/streken.activiteiten aan en/of geef de build-rol read-permissie.`);
         assetDebug.push({ kind: 'query', url, status: res.status, body: poiBody.slice(0, 300), retryWithoutPoi: true });
+        // LAT-2451: probeer eerst withRelations + card_blurb. Bestaat card_blurb nog
+        // niet (of mist de build-rol read-permissie) dan degradeert dit stil naar
+        // withRelations, zodat badge/tours/credit/related_articles NIET sneuvelen.
+        try {
+            const cbRes = await fetch(`${url}/items/streken?limit=-1&fields=${withCardBlurb}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
+            if (cbRes.ok) {
+                const json = await cbRes.json();
+                assetDebug.push({ kind: 'query', url, status: 200, count: (json.data || []).length, tier: 'withCardBlurb' });
+                return (json.data || []) as Record<string, unknown>[];
+            }
+            if (cbRes.status === 400 || cbRes.status === 403) {
+                console.warn(`[loadStreken] Directus rejected fields=…,card_blurb (HTTP ${cbRes.status}) — retry zonder LAT-2451 card_blurb. Run directus/scripts/add-card-blurb-field.mjs en/of geef de build-rol read-permissie op streken.card_blurb.`);
+                assetDebug.push({ kind: 'query', url, status: cbRes.status, retryWithoutCardBlurb: true });
+            } else {
+                const cbBody = await cbRes.text().catch(() => '');
+                assetDebug.push({ kind: 'query', url, status: cbRes.status, body: cbBody.slice(0, 300), tier: 'withCardBlurb' });
+            }
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            assetDebug.push({ kind: 'query-cardblurb', url, error: msg });
+            // Val door naar de withRelations-retry hieronder.
+        }
         try {
             res = await fetch(`${url}/items/streken?limit=-1&fields=${withRelations}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
         } catch (err) {
