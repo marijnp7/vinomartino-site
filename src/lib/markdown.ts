@@ -66,6 +66,62 @@ export function normalizeEmDashes(input: string): string {
   return input.replace(/(\S)[ \t]+—[ \t]+(?=\S)/g, '$1, ');
 }
 
+// LAT-2554: markdown-hygiëne vóór het parsen. Twee gerichte, bron-onafhankelijke
+// fixes die op elk CMS-body draaien (single render-chokepoint):
+//  (a) "Interne links"-boilerplate met dode placeholders ("… (nog te schrijven)"
+//      / "… nog niet beschikbaar") is nooit een echte link en dupliceert de
+//      RelatedArticles-component onder de body. Strip die list-items zodat de
+//      lezer geen "nog te schrijven" ziet voor content die (elders) al bestaat;
+//      laat een kop vervallen die daardoor geen inhoud meer heeft.
+//  (b) een `---`/`===`-regel die zónder lege regel direct op een alinea volgt,
+//      leest CommonMark als setext-onderstreping → de hele alinea rendert als
+//      <h1>/<h2> en "verandert van lettertype" (streek langhe-piemonte). De
+//      auteursintentie is een scheiding: voeg een lege regel in zodat het een
+//      thematische breuk wordt en de alinea gewoon platte tekst blijft.
+export function preprocessBody(input: string): string {
+  const isHeading = (l: string) => /^ {0,3}#{1,6}\s/.test(l);
+  const isListItem = (l: string) => /^ {0,3}([-*+]|\d+[.)])\s/.test(l);
+  const isRule = (l: string) => /^ {0,3}(-{3,}|={3,})[ \t]*$/.test(l);
+  const isDeadPlaceholder = (l: string) =>
+    isListItem(l) &&
+    (/\(nog te schrijven\)\s*$/i.test(l) || /:\s*nog niet beschikbaar\s*$/i.test(l));
+
+  // CMS-bodies gebruiken CRLF; normaliseer naar LF zodat de regels-checks
+  // (setext `---$`) niet op een achterblijvende \r stuklopen. CommonMark
+  // behandelt CRLF/LF identiek, dus de gerenderde HTML verandert hier niet door.
+  const src = input.replace(/\r\n?/g, '\n');
+
+  // (a) verwijder dode placeholder-list-items.
+  let lines = src.split('\n').filter((l) => !isDeadPlaceholder(l));
+
+  // (a) laat een kop vervallen die daardoor geen inhoud meer heeft (alleen lege
+  // regels tot de volgende kop of het einde van de body).
+  const pruned: string[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (isHeading(lines[i])) {
+      let j = i + 1;
+      while (j < lines.length && lines[j].trim() === '') j++;
+      if (j >= lines.length || isHeading(lines[j])) {
+        i = j - 1;
+        continue;
+      }
+    }
+    pruned.push(lines[i]);
+  }
+  lines = pruned;
+
+  // (b) ontkoppel een setext/thematische breuk die aan de vorige alinea plakt.
+  const out: string[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const prev = out.length ? out[out.length - 1] : '';
+    if (isRule(lines[i]) && prev.trim() !== '' && !isHeading(prev) && !isListItem(prev) && !isRule(prev)) {
+      out.push('');
+    }
+    out.push(lines[i]);
+  }
+  return out.join('\n');
+}
+
 type MdastHeading = {
   type: string;
   depth?: number;
@@ -84,7 +140,7 @@ export async function markdownToHtmlWithToc(
   const { gfmFromMarkdown } = await import('mdast-util-gfm');
   // LAT-1675: GFM-extensies aanzetten (tabellen, autolink-literal, strikethrough,
   // task-list, footnotes). Zonder dit rendert een pipe-tabel als rauwe tekst.
-  const mdast = fromMarkdown(normalizeEmDashes(markdown), {
+  const mdast = fromMarkdown(preprocessBody(normalizeEmDashes(markdown)), {
     extensions: [gfm()],
     mdastExtensions: [gfmFromMarkdown()],
   }) as { children: MdastHeading[] };

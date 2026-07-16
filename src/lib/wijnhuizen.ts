@@ -296,3 +296,54 @@ export async function loadWijnhuizen(): Promise<Wijnhuis[]> {
     await writeAssetDebug('directus');
     return items;
 }
+
+// LAT-2554: streek-pins (streken.wijnhuizen[].naam) zijn los ingetypt en wijken
+// vaak af van de volledige recordnaam ("Jacques Selosse" vs "Jacques Selosse /
+// Anselme Selosse", "F.X. Pichler" vs "Weingut F.X. Pichler", "Terroir al Limit"
+// vs "Terroir al Límit"). Zonder tolerante match faalt de koppeling en rendert de
+// streekpagina een halve 'ghost card' (titel, geen link/omschrijving) — schendt
+// HARDE REGEL 3. Deze matcher is diacritiek- en producer-prefix-tolerant en wordt
+// per streek toegepast (kleine set), dus substring-match is laag-risico.
+const PRODUCER_PREFIXES = [
+    'weingut', 'domaine', 'chateau', 'champagne', 'cantina', 'azienda agricola',
+    'azienda', 'bodegas', 'bodega', 'quinta', 'tenuta', 'maison', 'celler', 'cave',
+    'weinbau', 'weingof', 'weinhof',
+];
+
+function stripDiacritics(s: string): string {
+    return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+function normWijnhuisName(name: string): string {
+    return stripDiacritics((name || '').toLowerCase()).replace(/\s+/g, ' ').trim();
+}
+
+function coreWijnhuisKey(name: string): string {
+    // Alt-naam achter " / " of " (" wegknippen, daarna een leidend producer-woord.
+    let s = normWijnhuisName(name).split(/\s+[/(]/)[0].trim();
+    for (const p of PRODUCER_PREFIXES) {
+        if (s.startsWith(p + ' ')) { s = s.slice(p.length + 1).trim(); break; }
+    }
+    return s;
+}
+
+/**
+ * Zoekt het wijnhuis-record dat bij een streek-pin-naam hoort. Retourneert null
+ * als er geen redelijke match is; de aanroeper mag dan géén kaart renderen
+ * (LAT-2554: geen ghost card).
+ */
+export function matchWijnhuisByName(pinNaam: string, list: Wijnhuis[]): Wijnhuis | null {
+    const pn = normWijnhuisName(pinNaam);
+    if (!pn) return null;
+    const exact = list.find((w) => normWijnhuisName(w.name) === pn);
+    if (exact) return exact;
+    const pk = coreWijnhuisKey(pinNaam);
+    if (!pk) return null;
+    const core = list.find((w) => coreWijnhuisKey(w.name) === pk);
+    if (core) return core;
+    // Laatste redmiddel binnen de streek-set: core van de een zit in de ander.
+    return list.find((w) => {
+        const wk = coreWijnhuisKey(w.name);
+        return wk.length >= 3 && (wk.includes(pk) || pk.includes(wk));
+    }) ?? null;
+}
