@@ -43,6 +43,8 @@ jobs:
     env:
       AFFILIATE_LIVE_SITE: ${{ github.event.inputs.site || 'https://vinomartino.com' }}
       AFFILIATE_LIVE_REPORT: affiliate-live-report.md
+      # Aparte, gecapte issue-body — GitHub weigert een issue-body >65536 tekens.
+      AFFILIATE_LIVE_ISSUE_BODY: affiliate-live-issue.md
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout
@@ -78,7 +80,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: affiliate-live-report
-          path: affiliate-live-report.md
+          path: |
+            affiliate-live-report.md
+            affiliate-live-issue.md
           if-no-files-found: ignore
 
       # Bij kapotte eindbestemming(en): open of update één issue (dedup op label).
@@ -90,7 +94,9 @@ jobs:
           gh label create "$label" --color b60205 \
             --description "Kapotte affiliate-eindbestemming (LAT-2532 nightly)" 2>/dev/null || true
           title="Nightly: kapotte affiliate-eindbestemming(en) op $AFFILIATE_LIVE_SITE"
-          body_file="affiliate-live-report.md"
+          # Gecapte body (script schrijft top-N + breakdown); volledige lijst = artifact.
+          body_file="$AFFILIATE_LIVE_ISSUE_BODY"
+          [ -f "$body_file" ] || body_file="affiliate-live-report.md"
           existing=$(gh issue list --state open --label "$label" --json number --jq '.[0].number' || echo "")
           if [ -n "$existing" ]; then
             gh issue comment "$existing" --body-file "$body_file"

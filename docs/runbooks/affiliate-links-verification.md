@@ -64,13 +64,22 @@ Geïmplementeerd in [LAT-2532](/LAT/issues/LAT-2532):
 - Script `scripts/check-affiliate-links-live.mjs` — crawlt `sitemap.xml`,
   verzamelt alle affiliate-links (gedeelde `collectAffiliateUrls`, zelfde
   host-detectie als de offline guard), opent elke unieke eind-URL in headless
-  chromium en beoordeelt de **eindbestemming**: rood bij 4xx/5xx of soft-redirect
-  naar zoek-/home-/fallbackpagina (GYG `/s?...`, Booking-home). Retry 3x met
-  exponentiële backoff; **netwerktimeout = waarschuwing, geen rood**.
+  chromium en beoordeelt de **eindbestemming**: rood bij een definitief
+  weg-signaal (`404`/`410`) of soft-redirect naar zoek-/home-/fallbackpagina
+  (GYG `/s?...`, Booking-home). Retry 3x met exponentiële backoff;
+  **netwerktimeout = waarschuwing, geen rood**.
+- **Classificatie (LAT-2532, na 1e nachtrun):** een `403` (GYG blokkeert elk
+  headless/datacenter-IP) of `429` (Booking throttlet honderden deeplinks vanaf
+  één runner-IP) is géén dood-signaal → **onbereikbaar/waarschuwing, geen rood**;
+  hetzelfde voor `5xx`. Het echte GYG-drift-signaal (`/s?...`) staat los van de
+  status en blijft rood. Een jitter-throttle (`AFFILIATE_LIVE_THROTTLE_MS`, dflt
+  600ms) + concurrency 2 dempen de 429-ruis aan de bron.
 - Bij rood opent/updatet de workflow één GitHub-issue (dedup op label
   `affiliate-nightly`) met een per-link rapport (partner, volledige URL,
   eindbestemming, reden, bronpagina('s)). DevOps/Marijn triageert dat naar een
-  LAT-ticket.
+  LAT-ticket. De issue-body is **gecapt** (breakdown + top-N;
+  `AFFILIATE_LIVE_ISSUE_MAX_REDS`, dflt 30) omdat GitHub een body >65536 tekens
+  weigert — de volledige lijst staat in het artifact `affiliate-live-report`.
 - Playwright staat **bewust niet in `package.json`** (zou de blokkerende
   VPS-build `npm ci` belasten met een chromium-download) — de nightly installeert
   het CI-only, ephemeer.

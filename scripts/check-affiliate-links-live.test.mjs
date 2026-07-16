@@ -5,7 +5,7 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { judgeGetYourGuide, judgeBooking } from './check-affiliate-links-live.mjs';
+import { judgeGetYourGuide, judgeBooking, isBlockOrThrottle } from './check-affiliate-links-live.mjs';
 import { collectAffiliateUrls } from './check-affiliate-links.mjs';
 
 const gyg = (s) => new URL(s);
@@ -30,6 +30,14 @@ test('GYG: 404 op eindbestemming = rood', () => {
   assert.match(judgeGetYourGuide(gyg('https://www.getyourguide.com/nl-nl/langhe-l1/x-t9/'), 404), /HTTP 404/);
 });
 
+test('GYG: 403 anti-bot op geldige tourpad = geen rood (block, geen dood)', () => {
+  assert.equal(judgeGetYourGuide(gyg('https://www.getyourguide.com/nl-nl/langhe-l1234/barolo-tour-t567890/'), 403), null);
+});
+
+test('GYG: soft-redirect naar /s?... blijft rood ongeacht 200', () => {
+  assert.match(judgeGetYourGuide(gyg('https://www.getyourguide.com/s/?q=barolo'), 200), /zoekpagina/);
+});
+
 test('Booking: property-pagina is ok', () => {
   assert.equal(judgeBooking(new URL('https://www.booking.com/hotel/it/villa-example.nl.html'), 200), null);
 });
@@ -44,6 +52,18 @@ test('Booking: zoekresultaten i.p.v. property = rood', () => {
 
 test('Booking: redirect weg van booking.com = rood', () => {
   assert.match(judgeBooking(new URL('https://example.com/oops'), 200), /kapotte redirect/);
+});
+
+test('isBlockOrThrottle: 403/429/5xx = block/throttle (waarschuwing)', () => {
+  for (const s of [401, 403, 407, 408, 429, 500, 502, 503, 504]) {
+    assert.equal(isBlockOrThrottle(s), true, `status ${s} hoort block/throttle te zijn`);
+  }
+});
+
+test('isBlockOrThrottle: 404/410/200 = geen block (dood of ok)', () => {
+  for (const s of [200, 301, 404, 410]) {
+    assert.equal(isBlockOrThrottle(s), false, `status ${s} hoort GEEN block te zijn`);
+  }
 });
 
 test('collectAffiliateUrls: dedupe + partner-detectie op gemengde HTML', () => {

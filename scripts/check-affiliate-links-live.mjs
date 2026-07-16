@@ -49,10 +49,36 @@ const MAX_PAGES = Number(process.env.AFFILIATE_LIVE_MAX_PAGES || 3000);
 const REPORT_PATH = process.env.AFFILIATE_LIVE_REPORT || 'affiliate-live-report.md';
 const MAX_ATTEMPTS = Number(process.env.AFFILIATE_LIVE_RETRIES || 3);
 const NAV_TIMEOUT_MS = Number(process.env.AFFILIATE_LIVE_TIMEOUT_MS || 30000);
-const CONCURRENCY = Number(process.env.AFFILIATE_LIVE_CONCURRENCY || 3);
+const CONCURRENCY = Number(process.env.AFFILIATE_LIVE_CONCURRENCY || 2);
+// Beleefdheids-throttle per navigatie (jitter 0.5–1.5×) om Booking-rate-limit
+// (429 vanaf één runner-IP) te dempen; 0 = uit.
+const THROTTLE_MS = Number(process.env.AFFILIATE_LIVE_THROTTLE_MS || 600);
+// Aparte, gecapte issue-body (de volledige lijst kan >65536 tekens worden en
+// laat `gh issue create` omvallen). De volledige lijst blijft in REPORT_PATH.
+const ISSUE_BODY_PATH = process.env.AFFILIATE_LIVE_ISSUE_BODY || 'affiliate-live-issue.md';
+const ISSUE_BODY_MAX_REDS = Number(process.env.AFFILIATE_LIVE_ISSUE_MAX_REDS || 30);
 
 function normHost(hostname) {
   return hostname.toLowerCase().replace(/^www\./, '');
+}
+
+// ── HTTP-status-klassen ──────────────────────────────────────────────────────
+// Een block (403) of rate-limit (429) van een externe host is GEEN dood-signaal:
+// GetYourGuide blokkeert elk headless/datacenter-IP met 403, en Booking throttlet
+// honderden deeplinks vanaf één GHA-runner-IP met 429. Die als "kapot" markeren
+// gaf ~79% false-reds in de eerste nachtrun (LAT-2532). Alleen een definitief
+// "weg"-signaal (404/410) of een soft-redirect naar een zoek-/home-pagina telt
+// als rood; block/throttle/5xx → onbereikbaar (waarschuwing, geen rood).
+const DEAD_STATUS = new Set([404, 410]);
+export function isBlockOrThrottle(status) {
+  return (
+    status === 401 ||
+    status === 403 ||
+    status === 407 ||
+    status === 408 ||
+    status === 429 ||
+    (status >= 500 && status <= 599)
+  );
 }
 
 // Strip een leidend locale-segment (nl-nl, en, de-de) — zelfde regel als de
@@ -67,7 +93,7 @@ function pathSegments(u) {
 // Krijgt (finalUrl-object, httpStatus) → null (ok) of reden-string (rood).
 
 export function judgeGetYourGuide(fu, status) {
-  if (status && status >= 400) return `HTTP ${status} op eindbestemming`;
+  if (status && DEAD_STATUS.has(status)) return `HTTP ${status} op eindbestemming — tour weg`;
   const host = normHost(fu.hostname);
   if (!/(^|\.)getyourguide\.[a-z.]+$/.test(host)) {
     return `eindbestemming van GYG-host (${host}) — onverwachte redirect`;
@@ -87,7 +113,7 @@ export function judgeGetYourGuide(fu, status) {
 }
 
 export function judgeBooking(fu, status) {
-  if (status && status >= 400) return `HTTP ${status} op eindbestemming`;
+  if (status && DEAD_STATUS.has(status)) return `HTTP ${status} op eindbestemming — property weg`;
   const host = normHost(fu.hostname);
   if (host !== 'booking.com') {
     return `eindbestemming niet booking.com maar "${host}" — kapotte redirect`;
@@ -124,6 +150,8 @@ function sleep(ms) {
  */
 async function visit(browser, entry) {
   const judge = JUDGES[entry.partner];
+  // Jitter-throttle vóór de navigatie om rate-limits (Booking 429) te dempen.
+  if (THROTTLE_MS > 0) await sleep(Math.round(THROTTLE_MS * (0.5 + Math.random())));
   let lastErr = null;
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     const context = await browser.newContext({
@@ -150,6 +178,15 @@ async function visit(browser, entry) {
       await context.close();
       if (!finalUrl) {
         return { status: 'red', httpStatus, finalUrl: null, reason: 'geen geldige eind-URL' };
+      }
+      // Block/throttle/serverfout ≠ dood → onbereikbaar (waarschuwing), geen rood.
+      if (httpStatus && isBlockOrThrottle(httpStatus)) {
+        return {
+          status: 'unreachable',
+          httpStatus,
+          finalUrl: finalUrl.toString(),
+          reason: `HTTP ${httpStatus} — block/rate-limit vanaf headless GHA-runner-IP (geen dood-signaal)`,
+        };
       }
       const reason = judge ? judge(finalUrl, httpStatus) : null;
       return {
@@ -347,31 +384,70 @@ async function main() {
     console.warn(`  ⚠ onbereikbaar (${u.partner}): ${u.url} — ${u.reason}`);
   }
 
-  // Rapport schrijven (ook bij 0 rood is een leeg rapport onschadelijk).
-  const lines = [];
-  lines.push('## Live affiliate-eindbestemmings-check (LAT-2532)');
-  lines.push('');
-  lines.push(`- Gescand: ${scanned} HTML-bestanden, ${entries.length} unieke affiliate-URL('s)`);
-  lines.push(`- Resultaat: **${reds.length} kapot**, ${unreachable.length} onbereikbaar, ${okCount} ok`);
-  lines.push('');
-  if (reds.length > 0) {
-    lines.push('### Kapotte eindbestemmingen');
-    lines.push('');
-    for (const h of reds) {
-      lines.push(`- **${h.partner}** — ${h.reason}`);
-      lines.push(`  - link: \`${h.url}\``);
-      if (h.finalUrl) lines.push(`  - geland op: \`${h.finalUrl}\`${h.httpStatus ? ` (HTTP ${h.httpStatus})` : ''}`);
-      lines.push(`  - op pagina('s): ${[...h.pages].map((p) => `\`${p}\``).join(', ')}`);
+  // Groepeer rood per (partner + reden) voor een compacte samenvatting.
+  const byReason = new Map();
+  for (const h of reds) {
+    const key = `${h.partner} — ${h.reason}`;
+    byReason.set(key, (byReason.get(key) || 0) + 1);
+  }
+  const breakdown = [...byReason.entries()].sort((a, b) => b[1] - a[1]);
+
+  const summaryLines = () => {
+    const l = [];
+    l.push('## Live affiliate-eindbestemmings-check (LAT-2532)');
+    l.push('');
+    l.push(`- Gescand: ${scanned} HTML-bestanden, ${entries.length} unieke affiliate-URL('s)`);
+    l.push(`- Resultaat: **${reds.length} kapot**, ${unreachable.length} onbereikbaar (block/throttle/timeout, geen rood), ${okCount} ok`);
+    l.push('');
+    if (breakdown.length > 0) {
+      l.push('| # | reden |');
+      l.push('|---|---|');
+      for (const [key, n] of breakdown) l.push(`| ${n} | ${key} |`);
+      l.push('');
     }
-    lines.push('');
+    return l;
+  };
+
+  const redDetail = (h) => {
+    const l = [];
+    l.push(`- **${h.partner}** — ${h.reason}`);
+    l.push(`  - link: \`${h.url}\``);
+    if (h.finalUrl) l.push(`  - geland op: \`${h.finalUrl}\`${h.httpStatus ? ` (HTTP ${h.httpStatus})` : ''}`);
+    l.push(`  - op pagina('s): ${[...h.pages].map((p) => `\`${p}\``).join(', ')}`);
+    return l;
+  };
+
+  // Volledig rapport (artifact + job-summary; geen tekenlimiet die telt).
+  const full = summaryLines();
+  if (reds.length > 0) {
+    full.push('### Kapotte eindbestemmingen');
+    full.push('');
+    for (const h of reds) full.push(...redDetail(h));
+    full.push('');
   }
   if (unreachable.length > 0) {
-    lines.push('### Onbereikbaar (waarschuwing, geen rood)');
-    lines.push('');
-    for (const h of unreachable) lines.push(`- ${h.partner}: \`${h.url}\` — ${h.reason}`);
-    lines.push('');
+    full.push('### Onbereikbaar (waarschuwing, geen rood)');
+    full.push('');
+    for (const h of unreachable) full.push(`- ${h.partner}: \`${h.url}\` — ${h.reason}`);
+    full.push('');
   }
-  await writeFile(REPORT_PATH, lines.join('\n'), 'utf8');
+  await writeFile(REPORT_PATH, full.join('\n'), 'utf8');
+
+  // Gecapte issue-body: GitHub weigert >65536 tekens. Toon de breakdown + de
+  // eerste N kapotte links; de rest staat in het volledige rapport-artifact.
+  const issue = summaryLines();
+  if (reds.length > 0) {
+    const shown = reds.slice(0, ISSUE_BODY_MAX_REDS);
+    issue.push(`### Kapotte eindbestemmingen (eerste ${shown.length} van ${reds.length})`);
+    issue.push('');
+    for (const h of shown) issue.push(...redDetail(h));
+    if (reds.length > shown.length) {
+      issue.push('');
+      issue.push(`_… nog ${reds.length - shown.length} kapotte link(s). Volledige lijst: artifact **affiliate-live-report** + de job-summary van deze workflow-run._`);
+    }
+    issue.push('');
+  }
+  await writeFile(ISSUE_BODY_PATH, issue.join('\n'), 'utf8');
 
   if (reds.length > 0) {
     console.error(`[affiliate-live] ${reds.length} kapotte eindbestemming(en) — rapport: ${REPORT_PATH}`);
