@@ -5,6 +5,16 @@ export default defineConfig({
   site: 'https://vinomartino.com',
   server: { host: '0.0.0.0', port: 4321 },
   trailingSlash: 'always',
+  // LAT-2575: NL blijft primair en prefixloos; EN leeft onder /en/.
+  // Inert zolang er nog geen /en/-pagina's worden gegenereerd (no-translation-guard).
+  i18n: {
+    defaultLocale: 'nl',
+    locales: ['nl', 'en'],
+    routing: {
+      prefixDefaultLocale: false,
+      redirectToDefaultLocale: false,
+    },
+  },
   redirects: {
     // LAT-2056: Marijn-slug is nu `marijn` (strikte regel: geen `martin`).
     '/auteurs/martin/': '/auteurs/marijn/',
@@ -13,6 +23,11 @@ export default defineConfig({
     sitemap({
       changefreq: 'weekly',
       lastmod: new Date(),
+      // LAT-2575: hreflang-alternates in de sitemap zodra /en/-pagina's bestaan.
+      i18n: {
+        defaultLocale: 'nl',
+        locales: { nl: 'nl-NL', en: 'en-US' },
+      },
       filter: (page) =>
         !page.includes('/go/') &&
         !page.includes('/admin/') &&
