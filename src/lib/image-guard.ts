@@ -73,11 +73,13 @@ const REGION_HERO_ALLOWLIST: Readonly<Record<string, string | null>> = {
     alentejo: '852dee27-6b86-4b16-87b5-a99cb537d187', // Celestino Manuel, CC BY 2.0
     'vinho-verde': '66cb57f5-c86e-443d-a499-7eca5f80d6a2', // alexandra vale, CC BY 2.0
     rhone: 'a2fcf3ec-1499-48be-a991-926c702653e1', // Ed Clayton, CC BY 2.0
-    // 5 onbewezen streken — geen geverifieerd regio-beeld → blijf fail-closed leeg:
-    bierzo: null,
-    kamptal: null,
-    lisboa: null,
-    rheingau: null,
+    // LAT-2528/LAT-2537 (2026-07-16): vier onbewezen streken kregen een
+    // geverifieerd Wikimedia-regiobeeld (CC BY/BY-SA) via DAM-upload → allowlist
+    // gevuld. rueda blijft fail-closed leeg tot er ook daar regiobewijs is.
+    bierzo: '0ffe0c8e-4a35-4dec-bd9b-5aaef2dd695e', // malditofriki, CC BY 2.0
+    kamptal: 'cbb47e5b-6c75-427b-a67b-953f832a0dad', // Isiwal, CC BY-SA 4.0
+    lisboa: '82fc7889-d456-4d1b-9165-e485cde9feb5', // Alexey Komarov, CC BY 4.0
+    rheingau: '6b06f949-de31-4fa2-b2d7-80ad905c4956', // Gerda Arendt, CC BY-SA 4.0
     rueda: null,
 };
 
