@@ -72,7 +72,8 @@ export function affiliateLabel(type: AffiliateType, regio: string): string {
 }
 
 // AWIN_AFFID blijft placeholder tot M&G de Awin-sign-up rond heeft.
-const AWIN_AFFID = (process.env['AWIN_AFFID'] || 'VINOMARTINO_AWIN_PENDING').trim();
+const AWIN_AFFID_PLACEHOLDER = 'VINOMARTINO_AWIN_PENDING';
+const AWIN_AFFID = (process.env['AWIN_AFFID'] || AWIN_AFFID_PLACEHOLDER).trim();
 const AWIN_BOOKING_MID = (process.env['AWIN_BOOKING_MID'] || '5818').trim(); // Booking.com Awin merchant-id
 // GetYourGuide partner_id is publiek (verschijnt in de affiliate-URL), geen secret.
 // Default = het echte actieve account CRMZDZ6 (LAT-1688); env kan nog overschrijven.
@@ -99,6 +100,14 @@ function buildBookingAwinLink(label: string, query?: string, bookingUrl?: string
     if (query && query.trim()) b.searchParams.set('ss', query.trim());
     return b.toString();
   })();
+  // Graceful degrade (LAT-2531): zolang AWIN_AFFID de placeholder is (Awin-sign-up
+  // nog niet rond), levert de cread-redirect een dóde link op — hij tracked niets
+  // en stuurt de gebruiker langs een niet-actief affiliate-domein. Dan liever de
+  // kále booking.com-bestemming: die werkt voor de lezer en draagt geen kapotte
+  // affiliate-wrapper. Zodra AWIN_AFFID via env gezet is (post-sign-up) keert de
+  // echte Awin-wrapper vanzelf terug. Fail-closed affiliate-linkguard blijft groen
+  // omdat een kale booking.com-search geen aid/label draagt.
+  if (AWIN_AFFID === AWIN_AFFID_PLACEHOLDER) return target;
   const u = new URL('https://www.awin1.com/cread.php');
   u.searchParams.set('awinmid', AWIN_BOOKING_MID);
   u.searchParams.set('awinaffid', AWIN_AFFID);

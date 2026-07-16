@@ -166,7 +166,7 @@ jobs:
             docker run --rm --network directus_directus_net \
               $DRAFTS_ENV \
               -v "$STAGE":/app -w /app \
-              node:24 bash -c "npm ci && node --env-file-if-exists=.env scripts/preflight-content.mjs && npm run build && node scripts/check-rendered-content.mjs" 2>&1 | tee build.log
+              node:24 bash -c "npm ci && node --env-file-if-exists=.env scripts/preflight-content.mjs && npm run build && node scripts/check-rendered-content.mjs && node --test scripts/check-affiliate-links.test.mjs && node scripts/check-affiliate-links.mjs" 2>&1 | tee build.log
             build_rc=${PIPESTATUS[0]}
             set -e
             if [ "$build_rc" -ne 0 ]; then

@@ -7,6 +7,8 @@
     "build": "astro build && node scripts/write-build-info.mjs && { for d in wijnhuizen streken routes articles landen accommodaties reispakketten; do if [ -d public/images/$d ]; then mkdir -p dist/images/$d && cp -r public/images/$d/. dist/images/$d/; fi; done; for f in public/build-debug-*.json; do [ -f \"$f\" ] && cp \"$f\" dist/; done; true; }",
     "build:vinomartino": "astro build",
     "preview": "astro preview --host 0.0.0.0",
+    "check:affiliate-links": "node scripts/check-affiliate-links.mjs",
+    "test:affiliate-links": "node --test scripts/check-affiliate-links.test.mjs",
     "directus:bootstrap": "node directus/scripts/bootstrap-schema.mjs",
     "directus:seed": "node directus/scripts/seed-countries.mjs",
     "directus:migrate": "node directus/scripts/migrate-blog-posts.mjs",
