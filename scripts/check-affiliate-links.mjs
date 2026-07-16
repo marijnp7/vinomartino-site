@@ -191,6 +191,36 @@ export function scanHtml(html) {
   return violations;
 }
 
+/**
+ * Verzamel ALLE affiliate-hrefs uit één HTML-string (geldig én ongeldig),
+ * gededupliceerd op URL. Gebruikt door de live nightly-check
+ * (`check-affiliate-links-live.mjs`, LAT-2532): die opent elke unieke
+ * eind-URL in een echte headless browser en beoordeelt de eindbestemming
+ * (tourpagina vs. `/s?...`-zoeklijst) — iets wat deze offline vormguard
+ * bewust niet kan. Zo delen beide vangnetten exact dezelfde host-detectie.
+ * @returns {{url:string, partner:string}[]}
+ */
+export function collectAffiliateUrls(html) {
+  const out = [];
+  const seen = new Set();
+  let m;
+  HREF_RE.lastIndex = 0;
+  while ((m = HREF_RE.exec(html)) !== null) {
+    const raw = decodeEntities((m[2] ?? m[3] ?? '').trim());
+    if (!raw || raw.startsWith('#') || raw.startsWith('mailto:')) continue;
+    let u;
+    try { u = new URL(raw); } catch { continue; }
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') continue;
+    const host = normHost(u.hostname);
+    const rule = AFFILIATE_RULES.find((r) => r.matchHost(host));
+    if (!rule) continue;
+    if (seen.has(raw)) continue;
+    seen.add(raw);
+    out.push({ url: raw, partner: rule.name });
+  }
+  return out;
+}
+
 async function* walkHtml(dir, isTop = false) {
   let entries;
   try {

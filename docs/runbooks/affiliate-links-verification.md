@@ -53,8 +53,31 @@ De vormguard kan **niet** vaststellen dat een geldig-gevormde tour ná merge uit
 de catalogus verdween en nu 200-maar-soft-redirect naar `/s?...` geeft. Dat
 vereist een echte headless browser en hoort in een **niet-blokkerende nightly**
 (los van het bouwpad, zodat een flaky externe host de deploy niet vals-rood
-maakt). Zie de follow-up bij [LAT-2531](/LAT/issues/LAT-2531).
+maakt).
 
-Tot die nightly er is: bij elke nieuwe of gewijzigde affiliate-tour de
-eindbestemming **handmatig in een browser** openen en bevestigen dat je op de
-product-/tourpagina landt, niet op een zoeklijst.
+Geïmplementeerd in [LAT-2532](/LAT/issues/LAT-2532):
+
+- Workflow `.github/workflows/affiliate-links-nightly.yml` — **GitHub-hosted**
+  (niet de VPS: die kan Directus wél bereiken maar heeft geen browser; GHA kan
+  Directus niet bereiken, dus checken we de **live prod-site**). Draait elke
+  nacht 03:15 UTC + `workflow_dispatch`.
+- Script `scripts/check-affiliate-links-live.mjs` — crawlt `sitemap.xml`,
+  verzamelt alle affiliate-links (gedeelde `collectAffiliateUrls`, zelfde
+  host-detectie als de offline guard), opent elke unieke eind-URL in headless
+  chromium en beoordeelt de **eindbestemming**: rood bij 4xx/5xx of soft-redirect
+  naar zoek-/home-/fallbackpagina (GYG `/s?...`, Booking-home). Retry 3x met
+  exponentiële backoff; **netwerktimeout = waarschuwing, geen rood**.
+- Bij rood opent/updatet de workflow één GitHub-issue (dedup op label
+  `affiliate-nightly`) met een per-link rapport (partner, volledige URL,
+  eindbestemming, reden, bronpagina('s)). DevOps/Marijn triageert dat naar een
+  LAT-ticket.
+- Playwright staat **bewust niet in `package.json`** (zou de blokkerende
+  VPS-build `npm ci` belasten met een chromium-download) — de nightly installeert
+  het CI-only, ephemeer.
+- Lokaal handmatig: `AFFILIATE_LIVE_SITE=https://vinomartino.com npm run
+  check:affiliate-links:live` (vereist lokaal `npm i -D playwright && npx
+  playwright install chromium`). Zonder `AFFILIATE_LIVE_SITE` valt het terug op
+  een `dist/`-scan.
+
+Blijft daarnaast gelden: bij elke nieuwe of gewijzigde affiliate-tour de
+eindbestemming ook **direct in een browser** openen — wacht niet op de nachtrun.
