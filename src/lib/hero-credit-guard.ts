@@ -29,6 +29,11 @@ const CREDIT_REQUIRED_ASSET_IDS: ReadonlySet<string> = new Set([
     '852dee27-6b86-4b16-87b5-a99cb537d187', // alentejo — Celestino Manuel, CC BY 2.0
     '66cb57f5-c86e-443d-a499-7eca5f80d6a2', // vinho-verde — alexandra vale, CC BY 2.0
     'a2fcf3ec-1499-48be-a991-926c702653e1', // rhone — Ed Clayton, CC BY 2.0
+    // LAT-2528/LAT-2537 — vier nieuwe streek-hero's uit Wikimedia Commons (CC BY/BY-SA).
+    '0ffe0c8e-4a35-4dec-bd9b-5aaef2dd695e', // bierzo — malditofriki, CC BY 2.0
+    'cbb47e5b-6c75-427b-a67b-953f832a0dad', // kamptal — Isiwal, CC BY-SA 4.0
+    '82fc7889-d456-4d1b-9165-e485cde9feb5', // lisboa — Alexey Komarov, CC BY 4.0
+    '6b06f949-de31-4fa2-b2d7-80ad905c4956', // rheingau — Gerda Arendt, CC BY-SA 4.0
 ]);
 
 /** True als deze DAM-asset een attributie-plichtige licentie draagt. */
