@@ -4,6 +4,13 @@
 //   - CJ-wrapper wordt at render time toegepast via buildCjBookingLink()
 //   - affiliates.ts bevat: CJ-config, editorial metadata, accommodationId-verwijzingen
 //   - Geen losse Booking.com-URLs in deze file
+//
+// LAT-2576 — taallokalisatie: de CJ-booking-deeplinks nemen een optionele `locale`.
+// Voor 'en' zetten we `lang=en-gb` op de booking.com-doel-URL vóór de CJ-wrap
+// (browser-geverifieerd 2026-07-16). NL blijft byte-identiek.
+
+import type { Locale } from './i18n';
+import { applyBookingLocale } from './affiliate-locale';
 
 export type AffiliateLocation = 'accommodation' | 'activity' | 'sidebar';
 export type AffiliateLinkBron = 'Booking.com' | 'GetYourGuide' | 'directe link';
@@ -82,7 +89,7 @@ export function unwrapCjRedirect(raw: string): string {
   }
 }
 
-export function buildCjBookingLink(plainBookingUrl: string, sid: string): string {
+export function buildCjBookingLink(plainBookingUrl: string, sid: string, locale: Locale = 'nl'): string {
   // Pel een eventuele bestaande CJ-hop af, normaliseer naar de schone property-deeplink.
   const direct = unwrapCjRedirect(plainBookingUrl);
   try {
@@ -93,8 +100,9 @@ export function buildCjBookingLink(plainBookingUrl: string, sid: string): string
     u.searchParams.delete('label');
     // LAT-1964: keep_landing=1 houdt een /hotel/-deeplink op de property-pagina zelf.
     if (/\/hotel\//i.test(u.pathname)) u.searchParams.set('keep_landing', '1');
+    // LAT-2576: EN → lang=en-gb op de booking.com-doel-URL (vóór de CJ-wrap).
     // LAT-2251: wrap de schone deeplink door het CJ-klikdomein voor attributie.
-    return cjClickWrap(u.toString(), sid);
+    return cjClickWrap(applyBookingLocale(u.toString(), locale), sid);
   } catch {
     // Niet-parseerbare URL → ongewijzigd teruggeven i.p.v. de build breken.
     return direct;
@@ -104,11 +112,11 @@ export function buildCjBookingLink(plainBookingUrl: string, sid: string): string
 // LAT-1549 → LAT-2251: booking.com-zoekdeeplink op adres, gewrapt door het CJ-klikdomein.
 // Gebruikt als fallback wanneer een verblijf (nog) geen eigen booking.com-property-URL
 // in Directus heeft.
-export function buildBookingSearchLink(query: string, sid: string): string {
+export function buildBookingSearchLink(query: string, sid: string, locale: Locale = 'nl'): string {
   try {
     const u = new URL('https://www.booking.com/searchresults.html');
     u.searchParams.set('ss', query);
-    return cjClickWrap(u.toString(), sid);
+    return cjClickWrap(applyBookingLocale(u.toString(), locale), sid);
   } catch {
     return `${CJ_CLICK_BASE}/click-${CJ_CONFIG.cjWebsiteId}-${CJ_CONFIG.cjLinkId}`;
   }
@@ -134,15 +142,16 @@ export function accommodatieBookingDeeplink(
   regio: string,
   boeklink: string | null | undefined,
   sid: string,
+  locale: Locale = 'nl',
 ): string {
   const direct = boeklink ? unwrapCjRedirect(boeklink.trim()) : '';
   // Property-deeplink of al-gecureerde zoekpagina in de data → behoud host+pad,
   // zet aid + label (en keep_landing op /hotel/). Geen commissielek meer.
   if (/^https?:\/\/(www\.)?booking\.com\/(hotel|searchresults)/i.test(direct)) {
-    return buildCjBookingLink(direct, sid);
+    return buildCjBookingLink(direct, sid, locale);
   }
   // Lege of Stay22/stad-link → best-effort zoekdeeplink op de hotelnaam.
-  return buildBookingSearchLink(regio ? `${naam}, ${regio}` : naam, sid);
+  return buildBookingSearchLink(regio ? `${naam}, ${regio}` : naam, sid, locale);
 }
 
 // Fetches booking_url + slug from Directus accommodations by ID and wraps with CJ.
@@ -150,6 +159,7 @@ export function accommodatieBookingDeeplink(
 // Called at build time from the article template.
 export async function resolveAccommodationHref(
   accommodationId: number,
+  locale: Locale = 'nl',
 ): Promise<string | undefined> {
   const url = (process.env['DIRECTUS_URL'] || '').trim();
   const token = (process.env['DIRECTUS_TOKEN'] || '').trim();
@@ -165,7 +175,7 @@ export async function resolveAccommodationHref(
     const bookingUrl = data?.data?.booking_url;
     const slug = data?.data?.slug;
     if (!bookingUrl || !slug) return undefined;
-    return buildCjBookingLink(bookingUrl, `accommodation-${slug}`);
+    return buildCjBookingLink(bookingUrl, `accommodation-${slug}`, locale);
   } catch {
     return undefined;
   }
