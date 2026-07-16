@@ -16,7 +16,7 @@ import { accommodatieBookingDeeplink } from '../../lib/affiliates';
 import { loadStreken, type Streek, type Accommodation } from '../../lib/streken';
 import { clustersFromCuratedStays, staySlug } from '../../lib/curated-stays';
 import { STAY_TIER_META, STAY_DISCLOSURE_MICROCOPY } from '../../lib/stay-tier';
-import { loadWijnhuizen, type Wijnhuis } from '../../lib/wijnhuizen';
+import { loadWijnhuizen, matchWijnhuisByName, type Wijnhuis } from '../../lib/wijnhuizen';
 import { loadAccommodatieRoundupsByStreek } from '../../lib/accommodaties-loader';
 import type { AccommodatieRoundup as AccommodatieRoundupData } from '../../lib/accommodaties';
 import { loadRoutes, type WijnRoute } from '../../lib/routes';
@@ -81,24 +81,27 @@ const hasReisjunkRoundup = Boolean(accRoundup && accRoundup.clusters.some(c => c
 
 // LAT-1592 — unified streek "money page": bouw de vier POI-categorieën voor de
 // gedeelde kaart + genummerde blokken. Categorieën zonder data renderen niet.
-const normName = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
 
-// Wijnhuizen: pin-coördinaten (entry.wijnhuizen) gekoppeld aan de detailpagina's
-// (loadWijnhuizen, op naam) zodat elke kaart naar het portret linkt.
-const wijnhuisDetailByName = new Map<string, Wijnhuis>(wijnhuizen.map(w => [normName(w.name), w]));
+// LAT-2554: pin-coördinaten (entry.wijnhuizen) gekoppeld aan de detailpagina's
+// (loadWijnhuizen) via een tolerante naam-matcher (matchWijnhuisByName), zodat
+// producer-prefixen/accenten/aliassen (bv. "Terroir al Limit" ↔ "Terroir al
+// Límit", "F.X. Pichler") toch koppelen. Een pin die NIET matcht met een
+// gepubliceerd wijnhuis-record wordt overgeslagen: een half record (alleen titel,
+// geen foto/beschrijving/link) mag NOOIT als ghost-card renderen (HARDE REGEL 3).
 const usedWijnhuisSlugs = new Set<string>();
 const wijnhuizenInput: StreekPoiInput[] = [];
 for (const pin of entry.wijnhuizen) {
-  const detail = wijnhuisDetailByName.get(normName(pin.naam));
-  if (detail) usedWijnhuisSlugs.add(detail.slug);
+  const detail = matchWijnhuisByName(pin.naam, wijnhuizen);
+  if (!detail) continue;
+  usedWijnhuisSlugs.add(detail.slug);
   wijnhuizenInput.push({
-    naam: detail?.name ?? pin.naam,
+    naam: detail.name,
     lat: pin.lat,
     lng: pin.lng,
-    beschrijving: detail?.description ?? '',
-    detailUrl: detail ? `/wijnhuizen/${detail.slug}/` : null,
-    foto: detail?.heroImage ?? null,
-    fotoAlt: detail?.name ?? pin.naam,
+    beschrijving: detail.description ?? '',
+    detailUrl: `/wijnhuizen/${detail.slug}/`,
+    foto: detail.heroImage ?? null,
+    fotoAlt: detail.name,
   });
 }
 for (const detail of wijnhuizen) {
