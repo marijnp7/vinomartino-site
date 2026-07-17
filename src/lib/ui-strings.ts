@@ -145,6 +145,15 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'streekkaart.stickyCtaActiviteiten': 'Bekijk activiteiten',
     'streekkaart.stickyCtaOvernachten': 'Bekijk overnachtingen',
     'streekkaart.popupLeesMeer': 'Lees meer',
+
+    // RouteMap.astro (LAT-1608) — schematische van-naar route-strip. `ariaPrefix`
+    // + van + `ariaMid` + naar vormen het aria-label "Route van X naar Y".
+    'routemap.label': 'Routekaart',
+    'routemap.ariaPrefix': 'Route van',
+    'routemap.ariaMid': 'naar',
+    'routemap.endpointVan': 'Van',
+    'routemap.endpointNaar': 'Naar',
+    'routemap.stopsSuffix': 'stops',
 };
 
 /** Resolver over de UI-dictionary: EN-value indien aanwezig, anders NL-default. */
