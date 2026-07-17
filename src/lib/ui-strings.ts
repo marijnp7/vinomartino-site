@@ -172,6 +172,17 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'affiliate.block.sidebar.title': 'Boek je reis',
     'affiliate.block.sidebar.desc': 'Plan de reis die wij maakten',
     'affiliate.block.sidebar.cta': 'Plan je reis',
+
+    // CTA-leaf-componenten (Cta{Primary,Comparison,Closing}.astro, LAT-1784). De
+    // heading/why/label komen uit Directus (cta_blocks = content, gated op de
+    // JSON-veld-beslissing); enkel de aria-labels + de fallback-CTA (wanneer de
+    // data geen label levert) zijn chrome en horen in de dictionary.
+    'ui.cta.primary.aria': 'Aanbevolen volgende stap',
+    'ui.cta.primary.fallbackCta': 'Bekijk beschikbaarheid',
+    'ui.cta.comparison.aria': 'Vergelijk je opties',
+    'ui.cta.comparison.fallbackCta': 'Bekijk',
+    'ui.cta.closing.aria': 'Onze aanbeveling',
+    'ui.cta.closing.fallbackCta': 'Plan je bezoek',
 };
 
 /** Resolver over de UI-dictionary: EN-value indien aanwezig, anders NL-default. */

@@ -11,15 +11,17 @@ import CtaPrimary from './CtaPrimary.astro';
 import CtaComparison from './CtaComparison.astro';
 import CtaClosing from './CtaClosing.astro';
 import type { CtaStructure } from '../lib/cta-blocks';
+import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
 
 interface Props {
   data: CtaStructure;
   sid: string;
+  locale?: Locale;
 }
 
-const { data, sid } = Astro.props;
+const { data, sid, locale = DEFAULT_LOCALE } = Astro.props;
 ---
 
-<CtaPrimary data={data.primary} sid={sid} />
-<CtaComparison data={data.comparison} sid={sid} />
-<CtaClosing data={data.closing} sid={sid} />
+<CtaPrimary data={data.primary} sid={sid} locale={locale} />
+<CtaComparison data={data.comparison} sid={sid} locale={locale} />
+<CtaClosing data={data.closing} sid={sid} locale={locale} />
