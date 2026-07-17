@@ -37,9 +37,13 @@ interface Props {
   accRoundup: AccommodatieRoundupData | null;
   /** LAT-2575: NL byte-identiek op DEFAULT_LOCALE; /en/ geeft "en" mee. */
   locale?: Locale;
+  /** LAT-2575: pad-URLs van de tegenhanger per taal voor hreflang. De route
+   *  bepaalt of een EN-tegenhanger bestaat (launch-gate); zonder EN-vertaling
+   *  bevat dit alleen `nl` en wordt er geen en-hreflang geëmit. */
+  alternates?: Partial<Record<Locale, string>>;
 }
 
-const { entry, wijnhuizen, routes, accRoundup, locale = DEFAULT_LOCALE } = Astro.props;
+const { entry, wijnhuizen, routes, accRoundup, locale = DEFAULT_LOCALE, alternates } = Astro.props;
 // LAT-2575: chrome-labels via de UI-dictionary i.p.v. hardcoded literals. Op
 // DEFAULT_LOCALE geeft t() byte-identiek de bestaande NL-copy terug; de
 // /en/-tegenhanger overlayt dezelfde keys.
@@ -248,6 +252,7 @@ const hasFactBox = Boolean(
   schema={schema}
   activeNav="streken"
   locale={locale}
+  alternates={alternates}
 >
   <article class="streek-page">
     <section class="streek-hero">

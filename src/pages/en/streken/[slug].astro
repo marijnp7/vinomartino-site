@@ -41,11 +41,15 @@ export async function getStaticPaths() {
       wijnhuizen: byStreek.get(entry.slug) ?? [],
       routes: routesByStreek.get(entry.slug) ?? [],
       accRoundup: accRoundupsByStreek.get(entry.slug) ?? null,
+      // LAT-2575: op de EN-route bestaat per definitie zowel de NL- als de
+      // EN-variant (deze route wordt alléén gegenereerd voor EN-vertaalde
+      // streken), dus beide hreflang-tegenhangers zijn altijd aanwezig.
+      alternates: { nl: `/streken/${entry.slug}/`, en: `/en/streken/${entry.slug}/` },
     },
   }));
 }
 
-const { entry, wijnhuizen, routes, accRoundup } = Astro.props as { entry: Streek; wijnhuizen: Wijnhuis[]; routes: WijnRoute[]; accRoundup: AccommodatieRoundupData | null };
+const { entry, wijnhuizen, routes, accRoundup, alternates } = Astro.props as { entry: Streek; wijnhuizen: Wijnhuis[]; routes: WijnRoute[]; accRoundup: AccommodatieRoundupData | null; alternates: Record<string, string> };
 ---
 
-<StreekDetail entry={entry} wijnhuizen={wijnhuizen} routes={routes} accRoundup={accRoundup} locale={EN} />
+<StreekDetail entry={entry} wijnhuizen={wijnhuizen} routes={routes} accRoundup={accRoundup} locale={EN} alternates={alternates} />
