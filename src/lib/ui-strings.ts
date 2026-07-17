@@ -88,6 +88,19 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'ui.relatedArticles.title': 'Gerelateerde artikelen',
     'ui.relatedArticles.label': 'Artikelen',
     'ui.relatedArticles.meta': 'Artikel',
+
+    // AccommodatieRoundup.astro (LAT-1332) — per-regio hotel-roundup chrome.
+    // `hotelsInPrefix` staat vóór regio én plaats: "<prefix> {naam}"; `hotelsRondPrefix`
+    // voor een cluster met meerdere plaatsen.
+    'acc.kicker': 'Waar te slapen',
+    'acc.hotelsInPrefix': 'Leuke hotels in',
+    'acc.hotelsRondPrefix': 'Leuke hotels rond',
+    'acc.intro': 'Een handgekozen selectie verblijven per bestemming, geen willekeurig hotelaanbod, maar adressen die we zelf zouden boeken. Prijzen zijn indicatief "vanaf"-tarieven en variëren per seizoen.',
+    'acc.ariaVerblijvenPrefix': 'Verblijven in',
+    'acc.navAria': 'Spring naar een bestemming',
+    'acc.navLabel': 'Voor welke bestemming zoek je een accommodatie?',
+    'acc.groepNote': 'Allemaal binnen ~40 min rijden van elkaar',
+    'acc.disclosure': "Affiliate-links · we kunnen een commissie ontvangen als je via deze links boekt; jij betaalt niets extra. We tonen alleen accommodaties en foto's die onder ons affiliate-/licentieprogramma zijn toegestaan.",
 };
 
 /** Resolver over de UI-dictionary: EN-value indien aanwezig, anders NL-default. */
