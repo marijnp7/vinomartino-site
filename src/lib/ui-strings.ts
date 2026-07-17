@@ -154,6 +154,24 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'routemap.endpointVan': 'Van',
     'routemap.endpointNaar': 'Naar',
     'routemap.stopsSuffix': 'stops',
+
+    // AffiliatePlaceholder.astro (LAT-1029) — per-type affiliate-blok chrome
+    // (titel/omschrijving/cta). De icon-emoji staat in de component (taal-neutraal).
+    'affiliate.block.accommodation.title': 'Waar slapen',
+    'affiliate.block.accommodation.desc': 'Boek dezelfde plek waar wij verbleven',
+    'affiliate.block.accommodation.cta': 'Bekijk beschikbaarheid',
+    'affiliate.block.activity.title': 'Activiteiten & tours',
+    'affiliate.block.activity.desc': 'Boek de proeverij of tour die we zelf deden',
+    'affiliate.block.activity.cta': 'Boek deze ervaring',
+    'affiliate.block.flight.title': 'Vluchten vergelijken',
+    'affiliate.block.flight.desc': 'Vind de goedkoopste vlucht',
+    'affiliate.block.flight.cta': 'Vergelijk vluchten',
+    'affiliate.block.insurance.title': 'Reisverzekering',
+    'affiliate.block.insurance.desc': 'Reis verzekerd op pad',
+    'affiliate.block.insurance.cta': 'Bekijk verzekeringen',
+    'affiliate.block.sidebar.title': 'Boek je reis',
+    'affiliate.block.sidebar.desc': 'Plan de reis die wij maakten',
+    'affiliate.block.sidebar.cta': 'Plan je reis',
 };
 
 /** Resolver over de UI-dictionary: EN-value indien aanwezig, anders NL-default. */
