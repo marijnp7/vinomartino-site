@@ -128,7 +128,9 @@ import { DEFAULT_LOCALE, type Locale } from './i18n';
 import { localizeRecords } from './directus-i18n';
 
 // LAT-2575 — vertaalbare landen-velden (native Directus translations, LAT-2574).
-const LANDEN_TRANSLATABLE = ['name', 'description', 'body', 'climate', 'wine_history', 'best_time_to_visit', 'hub_h1', 'infographic_kicker', 'meta_title', 'meta_description', 'hero_alt'];
+// LAT-2602 — main_grapes/cta_blocks zijn JSON-blobs; EN levert alléén de
+// leestekst-keys, diep gemerged over de NL-basis (directus-i18n mergeTranslatedValue).
+const LANDEN_TRANSLATABLE = ['name', 'description', 'body', 'climate', 'wine_history', 'best_time_to_visit', 'hub_h1', 'infographic_kicker', 'meta_title', 'meta_description', 'hero_alt', 'main_grapes', 'cta_blocks'];
 
 const assetDebug: Array<Record<string, unknown>> = [];
 

@@ -8,11 +8,16 @@
  * no-translation-guard toe: records zónder vertaling worden weggelaten zodat
  * `getStaticPaths` er geen /en/-pagina voor genereert (404 i.p.v. NL-lek).
  *
- * Schemacontract (LAT-2574): junction `<parent>_translations` met
- * `<parent>_id`, `languages_code` en de vertaalbare velden. Beeld-UUID's en
- * gestructureerde JSON-velden (cta_blocks, gyg_tours, main_grapes, stops,
- * proefnotities, pins) zitten NIET in de translations — dat is de bekende
- * launch-gate-gap (aparte beslissing/afhandeling).
+ * Schemacontract (LAT-2574 + LAT-2602): junction `<parent>_translations` met
+ * `<parent>_id`, `languages_code` en de vertaalbare velden. Sinds LAT-2602 zitten
+ * ook de gestructureerde JSON-blobs met leestekst in de translations
+ * (main_grapes, cta_blocks, accom_cta_blocks, gyg_tours op streken;
+ * main_grapes/cta_blocks op landen; itinerary op routes). Die EN-blobs bevatten
+ * bewust ALLÉÉN de vertaalbare keys ("niet dupliceren" van url/coords/slug/
+ * partner); daarom leggen we ze via een DEEP-MERGE over de NL-basis i.p.v.
+ * wholesale te vervangen (zie mergeTranslatedValue) — anders zou bv. gyg_tours
+ * z'n url verliezen en door de render-filter vallen. Beeld-UUID's en de
+ * pins-JSON (wijnhuizen/accommodaties) blijven voorlopig buiten scope.
  */
 
 import { DEFAULT_LOCALE, type Locale } from './i18n';
@@ -74,9 +79,41 @@ export async function fetchTranslationOverlay(
 }
 
 /**
+ * Leg één vertaalde veldwaarde over de NL-basis. Scalars (string/number/bool)
+ * worden simpelweg vervangen door de EN-waarde (identiek aan het oude gedrag).
+ * Voor JSON-blobs mergen we DIEP zodat de EN-vertaling — die bewust alléén de
+ * leestekst-keys bevat — de niet-vertaalde keys (url, coords, slug, partner) uit
+ * de NL-basis behoudt:
+ *  - objecten: recursief per key; keys die in EN ontbreken houden hun NL-waarde;
+ *  - arrays: element-gewijs op index over de NL-basis (de NL-lengte/volgorde is
+ *    leidend want "aantal" is data, geen vertaling); een langere EN-array wordt
+ *    afgekapt, een kortere laat de NL-staart intact.
+ */
+export function mergeTranslatedValue(base: unknown, overlay: unknown): unknown {
+    if (Array.isArray(overlay)) {
+        const baseArr = Array.isArray(base) ? base : [];
+        if (baseArr.length === 0) return overlay;
+        return baseArr.map((bv, i) => (i < overlay.length ? mergeTranslatedValue(bv, overlay[i]) : bv));
+    }
+    if (overlay && typeof overlay === 'object') {
+        const baseObj =
+            base && typeof base === 'object' && !Array.isArray(base) ? (base as Record<string, unknown>) : {};
+        const out: Record<string, unknown> = { ...baseObj };
+        for (const [k, v] of Object.entries(overlay as Record<string, unknown>)) {
+            if (v === null || v === undefined) continue;
+            if (typeof v === 'string' && v.trim() === '') continue;
+            out[k] = mergeTranslatedValue(baseObj[k], v);
+        }
+        return out;
+    }
+    return overlay;
+}
+
+/**
  * No-translation-guard + overlay. Voor de standaardtaal keert dit de records
  * ongewijzigd terug. Voor een niet-standaard locale worden alléén records met
- * een vertaalrij behouden, met de vertaalde velden over de rauwe record heen.
+ * een vertaalrij behouden, met de vertaalde velden diep over de rauwe record
+ * heen gelegd (zie mergeTranslatedValue).
  */
 export function applyTranslationGuard<T extends Record<string, unknown>>(
     records: T[],
@@ -90,7 +127,11 @@ export function applyTranslationGuard<T extends Record<string, unknown>>(
         const key = String(r[recordIdKey] ?? '');
         const translated = overlay.get(key);
         if (!translated) continue; // geen vertaling → geen /en/-pagina
-        out.push({ ...r, ...translated });
+        const merged: Record<string, unknown> = { ...r };
+        for (const [f, v] of Object.entries(translated)) {
+            merged[f] = mergeTranslatedValue(r[f], v);
+        }
+        out.push(merged as T);
     }
     return out;
 }

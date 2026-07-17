@@ -108,7 +108,10 @@ import { DEFAULT_LOCALE, type Locale } from './i18n';
 import { localizeRecords } from './directus-i18n';
 
 // LAT-2575 — vertaalbare route-velden (native Directus translations, LAT-2574).
-const ROUTES_TRANSLATABLE = ['title', 'description', 'body', 'duration', 'transport', 'style', 'meta_title', 'meta_description', 'hero_alt'];
+// LAT-2602 — itinerary is een geneste JSON-blob (days[].title/summary,
+// stops[].naam/why/duur); EN levert alléén de leestekst en wordt diep gemerged
+// over de NL-basis (directus-i18n mergeTranslatedValue), zodat stop-geo/slug behouden blijft.
+const ROUTES_TRANSLATABLE = ['title', 'description', 'body', 'duration', 'transport', 'style', 'meta_title', 'meta_description', 'hero_alt', 'itinerary'];
 
 const assetDebug: Array<Record<string, unknown>> = [];
 

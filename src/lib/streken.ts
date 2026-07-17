@@ -210,6 +210,14 @@ const STREKEN_TRANSLATABLE = [
     'meta_title',
     'meta_description',
     'hero_alt',
+    // LAT-2602 — JSON-blobs met leestekst; EN bevat alléén de vertaalbare keys en
+    // wordt diep over de NL-basis gemerged (directus-i18n mergeTranslatedValue),
+    // zodat url/coords/partner uit NL behouden blijven. Pins (wijnhuizen/
+    // accommodaties) blijven bewust nog buiten scope (relatie-vs-JSON).
+    'main_grapes',
+    'cta_blocks',
+    'accom_cta_blocks',
+    'gyg_tours',
 ];
 
 const assetDebug: Array<Record<string, unknown>> = [];
