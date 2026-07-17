@@ -118,6 +118,33 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'newsletter.region.optional': '(optioneel)',
     'newsletter.region.placeholder': 'Maak een keuze…',
     'newsletter.region.optionOther': 'Een andere regio',
+
+    // StreekKaart.astro (LAT-1592) — "de geld-pagina" dubbele kaart + POI-lijst.
+    // introPrefix/introSuffix omsluiten de {streek}{, land}-interpolatie; de
+    // locator-aria idem (prefix + streek + land + suffix). `popupLeesMeer` wordt
+    // via de mapData-JSON aan het client-script doorgegeven (Leaflet-popup).
+    'streekkaart.kicker': 'Op de kaart',
+    'streekkaart.titlePrefix': 'Ontdek',
+    'streekkaart.introPrefix': 'Onze handgekozen adressen in',
+    'streekkaart.introSuffix': ': wijnhuizen, plekken om te eten, te slapen en te beleven. De nummers op de kaart komen overeen met de lijst eronder.',
+    'streekkaart.ariaDetailMap': 'Kaart met genummerde adressen in',
+    'streekkaart.locatorPrefix': 'Locatie van',
+    'streekkaart.locatorSuffix': ' binnen het land',
+    'streekkaart.cat.wijnhuizen': 'Wijnhuizen',
+    'streekkaart.cat.eten': 'Eten',
+    'streekkaart.cat.overnachten': 'Overnachten',
+    'streekkaart.cat.activiteiten': 'Activiteiten',
+    'streekkaart.cta.overnachten': 'Bekijk & boek',
+    'streekkaart.cta.activiteiten': 'Reserveer een plek',
+    'streekkaart.cta.eten': 'Reserveer',
+    'streekkaart.cta.default': 'Plan een bezoek',
+    'streekkaart.clusterFallbackTitel': 'Verblijven in de buurt',
+    'streekkaart.clusterNote': 'binnen ~40 min rijden',
+    'streekkaart.disclosure': 'Affiliate-links · Sommige links op deze pagina (Stay22, GetYourGuide) zijn partnerlinks. Als je hiervia boekt, ontvangen we mogelijk een kleine commissie. Jij betaalt niets extra.',
+    'streekkaart.stickyLabelPrefix': 'Plan je bezoek aan',
+    'streekkaart.stickyCtaActiviteiten': 'Bekijk activiteiten',
+    'streekkaart.stickyCtaOvernachten': 'Bekijk overnachtingen',
+    'streekkaart.popupLeesMeer': 'Lees meer',
 };
 
 /** Resolver over de UI-dictionary: EN-value indien aanwezig, anders NL-default. */
