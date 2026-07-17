@@ -5,29 +5,37 @@
 // MailerLite valideert hoofdlettergevoelig: alleen Piemonte/Toscane/Alsace/Overige
 // worden geaccepteerd; lowercase varianten geven {"success":false, region_preference invalid}.
 // Eén bron van waarheid hier voorkomt dat losse forms opnieuw ongeldige waarden sturen.
+import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
+
 export type RegionValue = 'Piemonte' | 'Toscane' | 'Alsace' | 'Overige';
 
 interface Props {
   id: string;
   defaultRegion?: RegionValue | null;
+  /** LAT-2575: NL byte-identiek op DEFAULT_LOCALE; /en/ geeft "en" mee. */
+  locale?: Locale;
 }
 
-const { id, defaultRegion = null } = Astro.props;
+const { id, defaultRegion = null, locale = DEFAULT_LOCALE } = Astro.props;
+const ui = await loadUiStrings(locale);
 
+// `value` blijft MailerLite-literal (hoofdlettergevoelig); alleen de label is
+// display-tekst. Piemonte/Toscane/Alsace zijn eigennamen (identiek in EN).
 const REGION_OPTIONS: { value: RegionValue; label: string }[] = [
   { value: 'Piemonte', label: 'Piemonte' },
   { value: 'Toscane', label: 'Toscane' },
   { value: 'Alsace', label: 'Alsace' },
-  { value: 'Overige', label: 'Een andere regio' },
+  { value: 'Overige', label: ui.t('newsletter.region.optionOther') },
 ];
 ---
 
 <div class="nl-region">
   <label for={id} class="nl-region__label">
-    Welke wijnregio interesseert jou het meest? <span class="nl-region__opt">(optioneel)</span>
+    {ui.t('newsletter.region.label')} <span class="nl-region__opt">{ui.t('newsletter.region.optional')}</span>
   </label>
   <select id={id} name="fields[region_preference]" class="nl-region__select">
-    <option value="">Maak een keuze…</option>
+    <option value="">{ui.t('newsletter.region.placeholder')}</option>
     {REGION_OPTIONS.map((opt) => (
       <option value={opt.value} selected={defaultRegion === opt.value}>{opt.label}</option>
     ))}

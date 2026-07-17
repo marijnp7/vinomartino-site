@@ -6,6 +6,8 @@
 // alsace/overige triggeren de 4 routing-automations -> region-* groups.
 // Override endpoint via PUBLIC_MAILERLITE_FORM_ACTION (net als /de-brief).
 import NewsletterRegionField from './NewsletterRegionField.astro';
+import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
 
 const FORM_ACTION =
   import.meta.env.PUBLIC_MAILERLITE_FORM_ACTION ||
@@ -15,43 +17,38 @@ interface Props {
   // Preselecteer de regio op region-/streekpagina's (tweede prio). Undefined =
   // lezer kiest zelf; het veld blijft optioneel. Waarden = MailerLite-opties.
   defaultRegion?: 'Piemonte' | 'Toscane' | 'Alsace' | 'Overige' | null;
+  /** LAT-2575: NL byte-identiek op DEFAULT_LOCALE; /en/ geeft "en" mee. */
+  locale?: Locale;
 }
 
-const { defaultRegion = null } = Astro.props;
+const { defaultRegion = null, locale = DEFAULT_LOCALE } = Astro.props;
+const ui = await loadUiStrings(locale);
 ---
 
 <section class="nl-footer" aria-labelledby="nl-footer-heading">
   <div class="nl-footer__inner">
-    <p class="nl-footer__kicker">De brief · nieuwsbrief van VinoMartino</p>
-    <h2 id="nl-footer-heading">Wijnreisverhalen in je inbox</h2>
-    <p class="nl-footer__lede">
-      Een paar keer per jaar stuurt Marijn een echte brief: over een wijnmaker
-      die we net bezochten, een regio die opnieuw onze aandacht trok, een fles
-      die indruk maakte. Vertel ons welke regio je het meest boeit, dan sturen
-      we je verhalen op maat.
-    </p>
+    <p class="nl-footer__kicker">{ui.t('newsletter.footer.kicker')}</p>
+    <h2 id="nl-footer-heading">{ui.t('newsletter.footer.heading')}</h2>
+    <p class="nl-footer__lede">{ui.t('newsletter.footer.lede')}</p>
 
     <form class="nl-footer__form" action={FORM_ACTION} method="post" target="_blank" data-newsletter-signup>
       <div class="nl-footer__row">
-        <label for="nl-footer-email" class="visually-hidden">E-mailadres</label>
+        <label for="nl-footer-email" class="visually-hidden">{ui.t('newsletter.footer.emailLabel')}</label>
         <input
           id="nl-footer-email"
           type="email"
           name="fields[email]"
           autocomplete="email"
-          placeholder="je@adres.nl"
+          placeholder={ui.t('newsletter.footer.emailPlaceholder')}
           required
         />
-        <button type="submit">Stuur me De brief</button>
+        <button type="submit">{ui.t('newsletter.footer.submit')}</button>
       </div>
 
-      <NewsletterRegionField id="nl-footer-region" defaultRegion={defaultRegion} />
+      <NewsletterRegionField id="nl-footer-region" defaultRegion={defaultRegion} locale={locale} />
     </form>
 
-    <p class="nl-footer__fineprint">
-      Je ontvangt een e-mail om je aanmelding te bevestigen. Afmelden kan altijd,
-      met één klik.
-    </p>
+    <p class="nl-footer__fineprint">{ui.t('newsletter.footer.fineprint')}</p>
   </div>
 </section>
 

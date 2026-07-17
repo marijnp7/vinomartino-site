@@ -101,6 +101,23 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'acc.navLabel': 'Voor welke bestemming zoek je een accommodatie?',
     'acc.groepNote': 'Allemaal binnen ~40 min rijden van elkaar',
     'acc.disclosure': "Affiliate-links · we kunnen een commissie ontvangen als je via deze links boekt; jij betaalt niets extra. We tonen alleen accommodaties en foto's die onder ons affiliate-/licentieprogramma zijn toegestaan.",
+
+    // NewsletterFooter.astro (LAT-2436) — MailerLite artikel/streek-footer. Merk-
+    // naam "VinoMartino" en de MailerLite-veldwaarden blijven ongewijzigd.
+    'newsletter.footer.kicker': 'De brief · nieuwsbrief van VinoMartino',
+    'newsletter.footer.heading': 'Wijnreisverhalen in je inbox',
+    'newsletter.footer.lede': 'Een paar keer per jaar stuurt Marijn een echte brief: over een wijnmaker die we net bezochten, een regio die opnieuw onze aandacht trok, een fles die indruk maakte. Vertel ons welke regio je het meest boeit, dan sturen we je verhalen op maat.',
+    'newsletter.footer.emailLabel': 'E-mailadres',
+    'newsletter.footer.emailPlaceholder': 'je@adres.nl',
+    'newsletter.footer.submit': 'Stuur me De brief',
+    'newsletter.footer.fineprint': 'Je ontvangt een e-mail om je aanmelding te bevestigen. Afmelden kan altijd, met één klik.',
+
+    // NewsletterRegionField.astro (LAT-2452) — gedeeld regio-keuzeveld. Alleen
+    // display-tekst; de MailerLite `value`-opties blijven literal.
+    'newsletter.region.label': 'Welke wijnregio interesseert jou het meest?',
+    'newsletter.region.optional': '(optioneel)',
+    'newsletter.region.placeholder': 'Maak een keuze…',
+    'newsletter.region.optionOther': 'Een andere regio',
 };
 
 /** Resolver over de UI-dictionary: EN-value indien aanwezig, anders NL-default. */
