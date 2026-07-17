@@ -1,9 +1,16 @@
+import { INSTAGRAM_URL, SUBSTACK_URL } from './social';
+
 const SITE_URL = 'https://vinomartino.com';
 const SITE_NAME = 'VinoMartino';
 
+// Officiele kanalen van het merk. Geen enkele caller gaf `sameAs` ooit mee, dus
+// stond het overal leeg; nu is dit de default zodat Google Instagram en
+// Substack aan het merk koppelt. Callers kunnen nog steeds overriden.
+const DEFAULT_SAME_AS = [INSTAGRAM_URL, SUBSTACK_URL].filter(Boolean);
+
 // ─── Organisation (use on homepage) ──────────────────────────────────────────
 
-export function organizationSchema(sameAs: string[] = []) {
+export function organizationSchema(sameAs: string[] = DEFAULT_SAME_AS) {
   return {
     '@context': 'https://schema.org',
     '@type': 'Organization',
