@@ -3,6 +3,7 @@ import SiteLayout from '../../layouts/SiteLayout.astro';
 import Briefkaart from '../../components/Briefkaart.astro';
 import NewsletterRegionField from '../../components/NewsletterRegionField.astro';
 import { organizationSchema, breadcrumbSchema } from '../../lib/seo';
+import { INSTAGRAM_URL, SUBSTACK_URL } from '../../lib/social';
 
 // Capture-backend = MailerLite (LAT-1188): nieuwe aanmeldingen landen rechtstreeks
 // in de groep "Newsletter Subscribers" (1896876) en starten de welkomstserie.
@@ -11,10 +12,9 @@ const FORM_ACTION =
   import.meta.env.PUBLIC_MAILERLITE_FORM_ACTION ||
   'https://assets.mailerlite.com/jsonp/2415940/forms/189828746131277541/subscribe';
 
-const INSTAGRAM_URL =
-  import.meta.env.PUBLIC_INSTAGRAM_URL || 'https://instagram.com/vinomartino.travel';
-// Substack bewust verborgen (Marijn LAT-1631): alleen Instagram als tussentijds kanaal.
-const SUBSTACK_URL = import.meta.env.PUBLIC_SUBSTACK_URL || '';
+// Kanaal-URLs komen uit src/lib/social.ts (een bron, geen drift). Substack is
+// live sinds 2026-07-16 en daarmee niet langer verborgen (was LAT-1631);
+// rolverdeling blijft MailerLite = funnel, Substack = discovery (LAT-2266).
 
 const schema = [
   organizationSchema(),
@@ -67,7 +67,7 @@ const schema = [
       <p class="follow">
         Al nieuwsgierig? Volg Marijn alvast op
         <a href={INSTAGRAM_URL} target="_blank" rel="noopener">Instagram</a>{SUBSTACK_URL ? (
-          <> en <a href={SUBSTACK_URL} target="_blank" rel="noopener">Substack</a></>
+          <>, of lees de brieven online op <a href={SUBSTACK_URL} target="_blank" rel="noopener" data-plausible-cta="substack_link">Substack</a></>
         ) : null}, daar verschijnen de eerste verhalen.
       </p>
     </div>
