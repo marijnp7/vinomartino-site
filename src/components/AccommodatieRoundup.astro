@@ -46,7 +46,7 @@ const sectionId = `acc-roundup-${(context || roundup.regio).toLowerCase().replac
     {!hideHead && (
       <header class="acc-roundup__head">
         <span class="acc-roundup__kicker">{ui.t('acc.kicker')}</span>
-        <h2 id={`${sectionId}-title`} class="acc-roundup__title">{ui.t('acc.hotelsInPrefix')} {roundup.regio}</h2>
+        <h2 id={`${sectionId}-title`} class="acc-roundup__title">{`${ui.t('acc.hotelsInPrefix')} ${roundup.regio}`}</h2>
         <p class="acc-roundup__intro">{ui.t('acc.intro')}</p>
       </header>
     )}

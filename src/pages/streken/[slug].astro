@@ -40,12 +40,15 @@ export async function getStaticPaths() {
       wijnhuizen: byStreek.get(entry.slug) ?? [],
       routes: routesByStreek.get(entry.slug) ?? [],
       accRoundup: accRoundupsByStreek.get(entry.slug) ?? null,
-      alternates: { nl: `/streken/${entry.slug}/`, ...(enSlugs.has(entry.slug) ? { en: `/en/streken/${entry.slug}/` } : {}) },
+      // LAT-2575: hreflang alléén op streken mét een echte EN-tegenhanger. NL-only
+      // streken krijgen géén alternates → SiteLayout emit geen hreflang (byte-identiek
+      // aan prod; geen zinloze self-referende nl/x-default op een set-van-één).
+      alternates: enSlugs.has(entry.slug) ? { nl: `/streken/${entry.slug}/`, en: `/en/streken/${entry.slug}/` } : undefined,
     },
   }));
 }
 
-const { entry, wijnhuizen, routes, accRoundup, alternates } = Astro.props as { entry: Streek; wijnhuizen: Wijnhuis[]; routes: WijnRoute[]; accRoundup: AccommodatieRoundupData | null; alternates: Record<string, string> };
+const { entry, wijnhuizen, routes, accRoundup, alternates } = Astro.props as { entry: Streek; wijnhuizen: Wijnhuis[]; routes: WijnRoute[]; accRoundup: AccommodatieRoundupData | null; alternates: Record<string, string> | undefined };
 ---
 
 <StreekDetail entry={entry} wijnhuizen={wijnhuizen} routes={routes} accRoundup={accRoundup} locale={DEFAULT_LOCALE} alternates={alternates} />

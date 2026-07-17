@@ -198,8 +198,8 @@ const usedCats = sections.map((s) => s.key);
   <section class="streekkaart" data-streekkaart id={mapId} aria-labelledby={`${mapId}-title`}>
     <header class="streekkaart__head">
       <span class="streekkaart__kicker">{ui.t('streekkaart.kicker')}</span>
-      <h2 id={`${mapId}-title`} class="streekkaart__title">{ui.t('streekkaart.titlePrefix')} {streek}</h2>
-      <p class="streekkaart__intro">{ui.t('streekkaart.introPrefix')} {streek}{country && <>, {country}</>}{ui.t('streekkaart.introSuffix')}</p>
+      <h2 id={`${mapId}-title`} class="streekkaart__title">{`${ui.t('streekkaart.titlePrefix')} ${streek}`}</h2>
+      <p class="streekkaart__intro">{`${ui.t('streekkaart.introPrefix')} ${streek}`}{country && <>, {country}</>}{ui.t('streekkaart.introSuffix')}</p>
     </header>
 
     {hasMap && (
@@ -308,7 +308,7 @@ const usedCats = sections.map((s) => s.key);
 {hasSticky && (
   <div class="skz-sticky" data-skz-sticky data-skz-target={stickyTargetId} hidden>
     <div class="skz-sticky__inner">
-      <span class="skz-sticky__label">{ui.t('streekkaart.stickyLabelPrefix')} {streek}</span>
+      <span class="skz-sticky__label">{`${ui.t('streekkaart.stickyLabelPrefix')} ${streek}`}</span>
       <a class="skz-sticky__cta" href={`#${stickyTargetId}`} data-skz-sticky-cta>
         {bookableSection?.key === 'activiteiten' ? ui.t('streekkaart.stickyCtaActiviteiten') : ui.t('streekkaart.stickyCtaOvernachten')} &darr;
       </a>

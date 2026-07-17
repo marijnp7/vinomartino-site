@@ -54,7 +54,7 @@ function nodeRole(i: number): 'van' | 'naar' | 'stop' {
       <div class="routemap__meta">
         {duration && <span class="routemap__tag">{duration}</span>}
         {transport && <span class="routemap__tag">{transport}</span>}
-        {clean.length > 2 && <span class="routemap__tag">{clean.length} {ui.t('routemap.stopsSuffix')}</span>}
+        {clean.length > 2 && <span class="routemap__tag">{`${clean.length} ${ui.t('routemap.stopsSuffix')}`}</span>}
       </div>
     )}
   </figure>
