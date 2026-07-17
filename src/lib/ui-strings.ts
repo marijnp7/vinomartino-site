@@ -72,6 +72,17 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'streek.feit.oogstperiode': 'Oogstperiode',
     'streek.feit.minBezoektijd': 'Min. bezoektijd',
     'streek.feit.budgetProeverij': 'Budget proeverij',
+
+    // TourCards.astro (streek-tours, LAT-2252). `titlePrefix` staat vóór de
+    // streeknaam: "<prefix> {streekName}".
+    'streek.tours.label': 'Tours & tickets',
+    'streek.tours.titlePrefix': 'Tours en tickets in',
+    'streek.tours.intro': 'Een handvol tours en proeverijen die passen bij de streek: geen zoeklijst, maar een selectie. We werken met GetYourGuide, boek je via een van deze links dan krijgen wij een kleine commissie; jij betaalt niets extra.',
+    'streek.tours.gygCta': 'Bekijk op GetYourGuide',
+
+    // AffiliateDisclosure.astro — site-brede affiliate-voetnoot.
+    'affiliate.disclosure.text': 'Deze pagina bevat affiliate-links. VinoMartino ontvangt een kleine vergoeding bij boekingen of aankopen via deze links, zonder extra kosten voor jou.',
+    'affiliate.disclosure.meer': 'Meer informatie',
 };
 
 /** Resolver over de UI-dictionary: EN-value indien aanwezig, anders NL-default. */
