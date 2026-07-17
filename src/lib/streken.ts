@@ -193,6 +193,24 @@ import {
     assetUrl,
     assertCollectionReadableOrDegrade,
 } from './directus-config';
+import { DEFAULT_LOCALE, type Locale } from './i18n';
+import { localizeRecords } from './directus-i18n';
+
+// LAT-2575 — vertaalbare streek-velden (native Directus translations, LAT-2574).
+// Identiek aan de parent-veldnamen zodat de overlay ze 1-op-1 kan overschrijven.
+const STREKEN_TRANSLATABLE = [
+    'name',
+    'description',
+    'body',
+    'climate',
+    'soil',
+    'waar_slapen_intro',
+    'trust_bewijs',
+    'card_blurb',
+    'meta_title',
+    'meta_description',
+    'hero_alt',
+];
 
 const assetDebug: Array<Record<string, unknown>> = [];
 
@@ -727,8 +745,17 @@ async function fetchStrekenItems(url: string, token: string): Promise<Record<str
     throw new Error(`[loadStreken] Directus returned ${res.status} ${res.statusText}: ${body.slice(0, 300)}`);
 }
 
-async function loadFromDirectus(url: string, token: string): Promise<Streek[]> {
-    const data = await fetchStrekenItems(url, token);
+async function loadFromDirectus(url: string, token: string, locale: Locale): Promise<Streek[]> {
+    const raw = await fetchStrekenItems(url, token);
+    // LAT-2575 — EN: overlay native translations + no-translation-guard (streken
+    // zonder EN-vertaling vallen weg → geen /en/-pagina). NL: ongewijzigd.
+    const data = await localizeRecords(raw, {
+        env: readDirectusEnv(),
+        junction: 'streken_translations',
+        parentIdField: 'streken_id',
+        fields: STREKEN_TRANSLATABLE,
+        locale,
+    });
     const items = await Promise.all(
         data.map(async (r) => {
             const land = r.land_id as Record<string, unknown> | null;
@@ -777,10 +804,10 @@ async function loadFromDirectus(url: string, token: string): Promise<Streek[]> {
     return items;
 }
 
-export async function loadStreken(): Promise<Streek[]> {
+export async function loadStreken(locale: Locale = DEFAULT_LOCALE): Promise<Streek[]> {
     const env = readDirectusEnv();
     assertDirectusConfigured('loadStreken', env);
-    const items = await loadFromDirectus(env.url, env.token);
+    const items = await loadFromDirectus(env.url, env.token, locale);
     await writeAssetDebug('directus');
     return items;
 }
