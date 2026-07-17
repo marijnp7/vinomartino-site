@@ -3,28 +3,34 @@
  * LAT-1958 — badge voor het twee-tier authenticiteitsmodel (regels: LAT-1957).
  * Tier 1 (visited=true) toont "Zelf gereisd"; Tier 2 (visited=false/null) toont
  * "Redactiegids" zodat het onderscheid op elke streek/artikel zichtbaar is
- * (LAT-1996). Labels komen uit de centrale UI-copy (HARDE REGEL 3: geen inline
- * copy); bezoekjaar is data en wordt subtiel als suffix getoond wanneer aanwezig.
+ * (LAT-1996). LAT-2575: labels komen uit de UI-dictionary (`ui.badge.*`-keys,
+ * NL-default byte-identiek aan de oude UI_COPY); een optionele `locale`-prop
+ * (default NL) laadt de dictionary intern zodat de /en/-tegenhanger enkel
+ * `locale="en"` doorgeeft. Bezoekjaar is data en wordt subtiel als suffix
+ * getoond wanneer aanwezig.
  */
-import { UI_COPY } from '../lib/ui-copy';
+import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
 
 interface Props {
     visited: boolean;
     year?: number | null;
+    locale?: Locale;
 }
 
-const { visited, year = null } = Astro.props;
+const { visited, year = null, locale = DEFAULT_LOCALE } = Astro.props;
+const ui = await loadUiStrings(locale);
 ---
 {visited ? (
-  <span class="zelf-gereisd-badge zelf-gereisd-badge--visited" title={UI_COPY.zelfGereisdBadgeTitle}>
+  <span class="zelf-gereisd-badge zelf-gereisd-badge--visited" title={ui.t('ui.badge.zelfGereisd.title')}>
     <span class="zelf-gereisd-badge__dot" aria-hidden="true"></span>
-    <span class="zelf-gereisd-badge__label">{UI_COPY.zelfGereisdBadge}</span>
+    <span class="zelf-gereisd-badge__label">{ui.t('ui.badge.zelfGereisd')}</span>
     {year ? <span class="zelf-gereisd-badge__year">· {year}</span> : null}
   </span>
 ) : (
-  <span class="zelf-gereisd-badge zelf-gereisd-badge--redactie" title={UI_COPY.redactiegidsBadgeTitle}>
+  <span class="zelf-gereisd-badge zelf-gereisd-badge--redactie" title={ui.t('ui.badge.redactiegids.title')}>
     <span class="zelf-gereisd-badge__dot" aria-hidden="true"></span>
-    <span class="zelf-gereisd-badge__label">{UI_COPY.redactiegidsBadge}</span>
+    <span class="zelf-gereisd-badge__label">{ui.t('ui.badge.redactiegids')}</span>
   </span>
 )}
 
