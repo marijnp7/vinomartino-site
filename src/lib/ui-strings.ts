@@ -41,6 +41,22 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'ui.proefnotitie.gedronkenLabel': UI_COPY.proefnotitieGedronkenLabel,
     'ui.proefnotitie.prijsLabel': UI_COPY.proefnotitiePrijsLabel,
     'ui.eerstDitBoeken.heading': UI_COPY.eerstDitBoekenHeading,
+
+    // Streek-detailpagina chrome-labels (LAT-2575 pilot). Deze stonden als losse
+    // literals in src/pages/streken/[slug].astro; de dictionary is nu de enige
+    // NL-bron zodat de /en/-tegenhanger dezelfde keys kan overlayen.
+    'streek.breadcrumb.streken': 'Streken',
+    'streek.label.wijnstreek': 'Wijnstreek',
+    'streek.stat.klimaat': 'Klimaat',
+    'streek.stat.bodem': 'Bodem',
+    'streek.stat.oppervlakte': 'Oppervlakte',
+    'streek.stat.hoogte': 'Hoogte',
+    'streek.section.wijnroutes': 'Wijnroutes',
+    'streek.routes.rijdPrefix': 'Rijd',
+    'streek.routes.intro': 'Uitgestippelde routes door de streek, van waar naar waar, met de mooiste stops onderweg.',
+    'streek.route.bekijkCta': 'Bekijk route',
+    'streek.section.deelregios': "Deelregio's",
+    'streek.section.appellations': 'Appellations',
 };
 
 /** Resolver over de UI-dictionary: EN-value indien aanwezig, anders NL-default. */

@@ -22,6 +22,8 @@ import type { AccommodatieRoundup as AccommodatieRoundupData } from '../../lib/a
 import { loadRoutes, type WijnRoute } from '../../lib/routes';
 import { currencyForLand, formatNightlyPrice } from '../../lib/currency';
 import { streekSchema, streekMetaTitle, streekMetaDescription, breadcrumbSchema } from '../../lib/seo';
+import { DEFAULT_LOCALE } from '../../lib/i18n';
+import { loadUiStrings } from '../../lib/ui-strings';
 
 export async function getStaticPaths() {
   const [entries, wijnhuizen, routes, accRoundupsByStreek] = await Promise.all([loadStreken(), loadWijnhuizen(), loadRoutes(), loadAccommodatieRoundupsByStreek()]);
@@ -53,6 +55,10 @@ export async function getStaticPaths() {
 }
 
 const { entry, wijnhuizen, routes, accRoundup } = Astro.props as { entry: Streek; wijnhuizen: Wijnhuis[]; routes: WijnRoute[]; accRoundup: AccommodatieRoundupData | null };
+// LAT-2575: chrome-labels via de UI-dictionary i.p.v. hardcoded literals. Deze
+// NL-route draait altijd op DEFAULT_LOCALE, dus t() geeft byte-identiek de
+// bestaande NL-copy terug; de /en/-tegenhanger overlayt straks dezelfde keys.
+const ui = await loadUiStrings(DEFAULT_LOCALE);
 const pageUrl = new URL(`/streken/${entry.slug}/`, Astro.site ?? 'https://vinomartino.com').href;
 // LAT-1664: bron-valuta volgt het land van de streek (Zuid-Afrika → ZAR);
 // bedragen worden naar EUR geconverteerd voor weergave (board-besluit). Een
@@ -264,13 +270,13 @@ const hasFactBox = Boolean(
           {hasParentLand ? (
             <><a href="/landen/">Landen</a> / <a href={`/landen/${entry.landSlug}/`}>{entry.country}</a> / </>
           ) : (
-            <><a href="/streken/">Streken</a> / </>
+            <><a href="/streken/">{ui.t('streek.breadcrumb.streken')}</a> / </>
           )}
           <span>{entry.name}</span>
         </nav>
         <div class:list={['streek-hero__grid', !hasStats && 'streek-hero__grid--no-stats']}>
           <div>
-            <span class="section-label">Wijnstreek</span>
+            <span class="section-label">{ui.t('streek.label.wijnstreek')}</span>
             <ZelfGereisdBadge visited={entry.zelfGereisd} year={entry.bezoekjaar} />
             <h1>{entry.name}</h1>
             {entry.country && <p class="streek-country">{entry.country}</p>}
@@ -283,25 +289,25 @@ const hasFactBox = Boolean(
                   kort" eronder. Zo vervalt de dubbele druivenlijst. */}
               {entry.climate && (
                 <div class="stat">
-                  <span class="stat-label">Klimaat</span>
+                  <span class="stat-label">{ui.t('streek.stat.klimaat')}</span>
                   <span class="stat-value">{entry.climate}</span>
                 </div>
               )}
               {entry.soil && (
                 <div class="stat">
-                  <span class="stat-label">Bodem</span>
+                  <span class="stat-label">{ui.t('streek.stat.bodem')}</span>
                   <span class="stat-value">{entry.soil}</span>
                 </div>
               )}
               {entry.vineyardArea && (
                 <div class="stat">
-                  <span class="stat-label">Oppervlakte</span>
+                  <span class="stat-label">{ui.t('streek.stat.oppervlakte')}</span>
                   <span class="stat-value">{entry.vineyardArea}</span>
                 </div>
               )}
               {entry.altitude && (
                 <div class="stat">
-                  <span class="stat-label">Hoogte</span>
+                  <span class="stat-label">{ui.t('streek.stat.hoogte')}</span>
                   <span class="stat-value">{entry.altitude}</span>
                 </div>
               )}
@@ -389,9 +395,9 @@ const hasFactBox = Boolean(
       <section class="streek-routes">
         <div class="container">
           <div class="streek-routes__head">
-            <span class="section-label">Wijnroutes</span>
-            <h2 class="streek-routes__title">Rijd {entry.name}</h2>
-            <p class="streek-routes__intro">Uitgestippelde routes door de streek, van waar naar waar, met de mooiste stops onderweg.</p>
+            <span class="section-label">{ui.t('streek.section.wijnroutes')}</span>
+            <h2 class="streek-routes__title">{ui.t('streek.routes.rijdPrefix')} {entry.name}</h2>
+            <p class="streek-routes__intro">{ui.t('streek.routes.intro')}</p>
           </div>
           <div class="route-grid">
             {routes.map(route => (
@@ -405,7 +411,7 @@ const hasFactBox = Boolean(
                   {route.duration && <span class="route-card__tag">{route.duration}</span>}
                   {route.transport && <span class="route-card__tag">{route.transport}</span>}
                 </div>
-                <span class="route-card__cta">Bekijk route &rarr;</span>
+                <span class="route-card__cta">{ui.t('streek.route.bekijkCta')} &rarr;</span>
               </a>
             ))}
           </div>
@@ -431,7 +437,7 @@ const hasFactBox = Boolean(
     {entry.subRegions.length > 0 && (
       <section class="streek-subregions">
         <div class="container">
-          <span class="section-label">Deelregio's</span>
+          <span class="section-label">{ui.t('streek.section.deelregios')}</span>
           <div class="subregion-grid">
             {entry.subRegions.map(sub => (
               <div class="subregion-chip">{sub}</div>
@@ -444,7 +450,7 @@ const hasFactBox = Boolean(
     {entry.appellations.length > 0 && (
       <section class="streek-appellations">
         <div class="container">
-          <span class="section-label">Appellations</span>
+          <span class="section-label">{ui.t('streek.section.appellations')}</span>
           <div class="appellation-grid">
             {entry.appellations.map(app => (
               <div class="appellation-chip">{app}</div>
