@@ -45,6 +45,8 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     // Streek-detailpagina chrome-labels (LAT-2575 pilot). Deze stonden als losse
     // literals in src/pages/streken/[slug].astro; de dictionary is nu de enige
     // NL-bron zodat de /en/-tegenhanger dezelfde keys kan overlayen.
+    'streek.breadcrumb.home': 'Home',
+    'streek.breadcrumb.landen': 'Landen',
     'streek.breadcrumb.streken': 'Streken',
     'streek.label.wijnstreek': 'Wijnstreek',
     'streek.stat.klimaat': 'Klimaat',
@@ -57,6 +59,7 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'streek.route.bekijkCta': 'Bekijk route',
     'streek.section.deelregios': "Deelregio's",
     'streek.section.appellations': 'Appellations',
+    'streek.hero.bron': 'bron',
 
     // Streek-feitenblok (StreekFeitenblok.astro, LAT-2009). Rij-labels + kop; de
     // tier-badge hergebruikt de bestaande `ui.badge.*`-keys.

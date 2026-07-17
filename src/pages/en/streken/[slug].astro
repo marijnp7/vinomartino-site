@@ -1,0 +1,51 @@
+---
+// LAT-2575 — EN streek-detailroute onder /en/. Identieke markup als de NL-route
+// via het gedeelde StreekDetail-component, maar met de per-locale loaders: elke
+// loader past de no-translation-guard toe (directus-i18n.ts), dus streken zónder
+// EN-vertaling vallen weg uit `entries` → er wordt géén /en/streken/<slug>/
+// gegenereerd (404 i.p.v. NL-lek). Zo geldt de launch-gate: /en/ is pas compleet
+// bij 100% dekking. Kindcomponenten krijgen locale="en" mee zodat ook de chrome
+// (UI-dictionary) EN toont; wijnhuizen/routes/accommodaties zonder EN-vertaling
+// vallen eveneens weg (liever leeg dan gemengd NL/EN).
+import StreekDetail from '../../../components/StreekDetail.astro';
+import { loadStreken, type Streek } from '../../../lib/streken';
+import { loadWijnhuizen, type Wijnhuis } from '../../../lib/wijnhuizen';
+import { loadAccommodatieRoundupsByStreek } from '../../../lib/accommodaties-loader';
+import type { AccommodatieRoundup as AccommodatieRoundupData } from '../../../lib/accommodaties';
+import { loadRoutes, type WijnRoute } from '../../../lib/routes';
+
+const EN = 'en' as const;
+
+export async function getStaticPaths() {
+  const [entries, wijnhuizen, routes, accRoundupsByStreek] = await Promise.all([loadStreken('en'), loadWijnhuizen('en'), loadRoutes('en'), loadAccommodatieRoundupsByStreek('en')]);
+  const byStreek = new Map<string, Wijnhuis[]>();
+  for (const wh of wijnhuizen) {
+    if (!wh.streekSlug) continue;
+    const list = byStreek.get(wh.streekSlug) ?? [];
+    list.push(wh);
+    byStreek.set(wh.streekSlug, list);
+  }
+  // LAT-1199: wijnroutes per streek via routes.streek_id (M2M-junction fallback
+  // in loadRoutes zolang de FK nog leeg is).
+  const routesByStreek = new Map<string, WijnRoute[]>();
+  for (const route of routes) {
+    if (!route.streekSlug) continue;
+    const list = routesByStreek.get(route.streekSlug) ?? [];
+    list.push(route);
+    routesByStreek.set(route.streekSlug, list);
+  }
+  return entries.map(entry => ({
+    params: { slug: entry.slug },
+    props: {
+      entry,
+      wijnhuizen: byStreek.get(entry.slug) ?? [],
+      routes: routesByStreek.get(entry.slug) ?? [],
+      accRoundup: accRoundupsByStreek.get(entry.slug) ?? null,
+    },
+  }));
+}
+
+const { entry, wijnhuizen, routes, accRoundup } = Astro.props as { entry: Streek; wijnhuizen: Wijnhuis[]; routes: WijnRoute[]; accRoundup: AccommodatieRoundupData | null };
+---
+
+<StreekDetail entry={entry} wijnhuizen={wijnhuizen} routes={routes} accRoundup={accRoundup} locale={EN} />
