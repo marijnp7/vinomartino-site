@@ -57,6 +57,21 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'streek.route.bekijkCta': 'Bekijk route',
     'streek.section.deelregios': "Deelregio's",
     'streek.section.appellations': 'Appellations',
+
+    // Streek-feitenblok (StreekFeitenblok.astro, LAT-2009). Rij-labels + kop; de
+    // tier-badge hergebruikt de bestaande `ui.badge.*`-keys.
+    'streek.feit.heading': 'In het kort',
+    'streek.feit.ariaLabel': 'Wijnregio in het kort',
+    'streek.feit.druiven': 'Druiven',
+    'streek.feit.besteSeizoen': 'Beste seizoen',
+    'streek.feit.rijdagen': 'Rijdagen',
+    'streek.feit.vliegveld': 'Dichtstbijzijnd vliegveld',
+    'streek.feit.aantalAdressen': 'Aantal adressen',
+    'streek.feit.appellatieniveau': 'Appellatieniveau',
+    'streek.feit.besteJaargangen': 'Beste jaargangen',
+    'streek.feit.oogstperiode': 'Oogstperiode',
+    'streek.feit.minBezoektijd': 'Min. bezoektijd',
+    'streek.feit.budgetProeverij': 'Budget proeverij',
 };
 
 /** Resolver over de UI-dictionary: EN-value indien aanwezig, anders NL-default. */
