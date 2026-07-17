@@ -83,6 +83,11 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     // AffiliateDisclosure.astro — site-brede affiliate-voetnoot.
     'affiliate.disclosure.text': 'Deze pagina bevat affiliate-links. VinoMartino ontvangt een kleine vergoeding bij boekingen of aankopen via deze links, zonder extra kosten voor jou.',
     'affiliate.disclosure.meer': 'Meer informatie',
+
+    // RelatedArticles.astro — cross-link-blok onderaan streek/wijnhuis/route/land.
+    'ui.relatedArticles.title': 'Gerelateerde artikelen',
+    'ui.relatedArticles.label': 'Artikelen',
+    'ui.relatedArticles.meta': 'Artikel',
 };
 
 /** Resolver over de UI-dictionary: EN-value indien aanwezig, anders NL-default. */
