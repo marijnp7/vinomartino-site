@@ -281,6 +281,11 @@ import {
     assertDirectusConfigured,
     assetUrl,
 } from './directus-config';
+import { DEFAULT_LOCALE, type Locale } from './i18n';
+import { localizeRecords } from './directus-i18n';
+
+// LAT-2575 — vertaalbare artikel-velden (native Directus translations, LAT-2574).
+const ARTICLES_TRANSLATABLE = ['title', 'description', 'body', 'meta_title', 'meta_description', 'hero_alt'];
 
 async function downloadArticleAsset(assetId: string, directusUrl: string, token: string): Promise<string | null> {
     if (!assertAssetAllowed(assetId)) return null; // LAT-2361: blokkeer fout-gekoppelde/gedeelde beelden ook in artikel-hero's
@@ -540,8 +545,15 @@ async function fetchArticlesItems(url: string, token: string): Promise<Record<st
     throw new Error(`[loadArticles] Directus returned ${lastStatus} for /items/articles after all field-tier fallbacks: ${lastBody.slice(0, 300)}`);
 }
 
-async function loadFromDirectus(url: string, token: string): Promise<Article[]> {
-    const data = await fetchArticlesItems(url, token);
+async function loadFromDirectus(url: string, token: string, locale: Locale): Promise<Article[]> {
+    const raw = await fetchArticlesItems(url, token);
+    const data = await localizeRecords(raw, {
+        env: readDirectusEnv(),
+        junction: 'articles_translations',
+        parentIdField: 'articles_id',
+        fields: ARTICLES_TRANSLATABLE,
+        locale,
+    });
     const items = await Promise.all(
           data.map(async (a) => {
                   const rawBody = String(a.body || '');
@@ -574,8 +586,8 @@ async function loadFromDirectus(url: string, token: string): Promise<Article[]> 
     return items;
 }
 
-export async function loadArticles(): Promise<Article[]> {
+export async function loadArticles(locale: Locale = DEFAULT_LOCALE): Promise<Article[]> {
     const env = readDirectusEnv();
     assertDirectusConfigured('loadArticles', env);
-    return loadFromDirectus(env.url, env.token);
+    return loadFromDirectus(env.url, env.token, locale);
 }

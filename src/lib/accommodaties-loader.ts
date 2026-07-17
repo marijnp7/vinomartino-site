@@ -32,6 +32,11 @@ import {
     assetUrl,
     assertCollectionReadableOrDegrade,
 } from './directus-config';
+import { DEFAULT_LOCALE, type Locale } from './i18n';
+import { localizeRecords } from './directus-i18n';
+
+// LAT-2575 — vertaalbare accommodatie-velden (native Directus translations, LAT-2574).
+const ACCOMMODATIONS_TRANSLATABLE = ['description', 'why_this_one', 'why_regel', 'prijs_disclaimer', 'meta_title', 'meta_description', 'hero_alt'];
 
 async function downloadAsset(assetId: string, directusUrl: string, token: string): Promise<string | null> {
     const { writeFileSync, mkdirSync, existsSync } = await import('node:fs');
@@ -94,7 +99,7 @@ interface RawAcc {
     streekName: string;
 }
 
-async function fetchAccommodations(url: string, token: string): Promise<RawAcc[]> {
+async function fetchAccommodations(url: string, token: string, locale: Locale): Promise<RawAcc[]> {
     const env = readDirectusEnv();
     const headers = { Authorization: `Bearer ${token}` };
     const sort = '&sort=name';
@@ -131,7 +136,14 @@ async function fetchAccommodations(url: string, token: string): Promise<RawAcc[]
         const body = await res.text().catch(() => '');
         throw new Error(`[loadAccommodaties] Directus gaf ${res.status}: ${body.slice(0, 300)}`);
     }
-    const rows = ((await res.json()).data || []) as Record<string, unknown>[];
+    const rawRows = ((await res.json()).data || []) as Record<string, unknown>[];
+    const rows = await localizeRecords(rawRows, {
+        env,
+        junction: 'accommodations_translations',
+        parentIdField: 'accommodations_id',
+        fields: ACCOMMODATIONS_TRANSLATABLE,
+        locale,
+    });
     return rows.map((row) => {
         const streek = (row.streek_id && typeof row.streek_id === 'object' ? row.streek_id : {}) as Record<string, unknown>;
         return { row, streekSlug: String(streek.slug || ''), streekName: String(streek.name || '') };
@@ -145,10 +157,10 @@ async function fetchAccommodations(url: string, token: string): Promise<RawAcc[]
  * één blok, plaatsen door elkaar gemengd. Ontbreekt lat/lng nog, dan valt het
  * cluster terug op groeperen per plaats.
  */
-export async function loadAccommodatieRoundupsByStreek(): Promise<Map<string, AccommodatieRoundup>> {
+export async function loadAccommodatieRoundupsByStreek(locale: Locale = DEFAULT_LOCALE): Promise<Map<string, AccommodatieRoundup>> {
     const env = readDirectusEnv();
     assertDirectusConfigured('loadAccommodaties', env);
-    const raws = await fetchAccommodations(env.url, env.token);
+    const raws = await fetchAccommodations(env.url, env.token, locale);
 
     // Eerst de fotos downloaden (parallel), dan groeperen.
     const kaarten = await Promise.all(

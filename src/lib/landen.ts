@@ -124,6 +124,11 @@ import {
     assetUrl,
     assertCollectionReadableOrDegrade,
 } from './directus-config';
+import { DEFAULT_LOCALE, type Locale } from './i18n';
+import { localizeRecords } from './directus-i18n';
+
+// LAT-2575 — vertaalbare landen-velden (native Directus translations, LAT-2574).
+const LANDEN_TRANSLATABLE = ['name', 'description', 'body', 'climate', 'wine_history', 'best_time_to_visit', 'hub_h1', 'infographic_kicker', 'meta_title', 'meta_description', 'hero_alt'];
 
 const assetDebug: Array<Record<string, unknown>> = [];
 
@@ -401,8 +406,15 @@ async function fetchLandenItems(url: string, token: string): Promise<Record<stri
     throw new Error(`[loadLanden] Directus returned ${res.status} ${res.statusText}: ${body.slice(0, 300)}`);
 }
 
-async function loadFromDirectus(url: string, token: string): Promise<Land[]> {
-    const data = await fetchLandenItems(url, token);
+async function loadFromDirectus(url: string, token: string, locale: Locale): Promise<Land[]> {
+    const raw = await fetchLandenItems(url, token);
+    const data = await localizeRecords(raw, {
+        env: readDirectusEnv(),
+        junction: 'landen_translations',
+        parentIdField: 'landen_id',
+        fields: LANDEN_TRANSLATABLE,
+        locale,
+    });
     const items = await Promise.all(
         data.map(async (r) => {
             const bodyHtml = r.body ? await markdownToHtml(stripGridPlaceholders(String(r.body))) : '';
@@ -420,10 +432,10 @@ async function loadFromDirectus(url: string, token: string): Promise<Land[]> {
     return items;
 }
 
-export async function loadLanden(): Promise<Land[]> {
+export async function loadLanden(locale: Locale = DEFAULT_LOCALE): Promise<Land[]> {
     const env = readDirectusEnv();
     assertDirectusConfigured('loadLanden', env);
-    return loadFromDirectus(env.url, env.token);
+    return loadFromDirectus(env.url, env.token, locale);
 }
 
 export interface NavLand {
