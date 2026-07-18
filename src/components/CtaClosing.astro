@@ -15,7 +15,7 @@ interface Props {
 const { data, sid, locale = DEFAULT_LOCALE } = Astro.props;
 const ui = await loadUiStrings(locale);
 const placement = 'cta-closing';
-const href = data ? resolveCtaHref(data.link, `${placement}-${sid}`) : '';
+const href = data ? resolveCtaHref(data.link, `${placement}-${sid}`, locale) : '';
 ---
 
 {data && (

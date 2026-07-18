@@ -25,7 +25,7 @@ const options = (data?.options ?? []).slice(0, 3);
     {data.intro && <p class="vm-cta-compare__intro">{data.intro}</p>}
     <div class="vm-cta-compare__grid" data-count={options.length}>
       {options.map((opt, i) => {
-        const href = resolveCtaHref(opt.link, `${placement}-${opt.tier ?? i}-${sid}`);
+        const href = resolveCtaHref(opt.link, `${placement}-${opt.tier ?? i}-${sid}`, locale);
         return (
           <article class="vm-cta-compare__card">
             <p class="vm-cta-compare__title">{opt.title}</p>
