@@ -65,6 +65,18 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     // wanneer de Land→Streek-keten (nog) onbekend is.
     'wijnhuis.breadcrumb.index': 'Wijnhuizen',
 
+    // Wijnroute-detailpagina chrome (LAT-2638, RouteDetail.astro).
+    'route.breadcrumb.index': 'Wijnroutes',
+    'route.daysAria': 'Dagen op deze route',
+    'route.wijnhuizenOpRoute': 'Wijnhuizen op deze route',
+    'route.leesPortret': 'Lees portret',
+    'route.info.heading': 'Route info',
+    'route.info.duur': 'Duur:',
+    'route.info.vervoer': 'Vervoer:',
+    'route.info.stijl': 'Stijl:',
+    'route.highlights': 'Highlights',
+    'route.boekDag1': 'Boek dag 1',
+
     // Streek-feitenblok (StreekFeitenblok.astro, LAT-2009). Rij-labels + kop; de
     // tier-badge hergebruikt de bestaande `ui.badge.*`-keys.
     'streek.feit.heading': 'In het kort',
