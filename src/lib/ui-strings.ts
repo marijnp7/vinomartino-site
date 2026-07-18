@@ -433,6 +433,21 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'accommodaties.index.empty.descLink': 'wijnstreken',
     'accommodaties.index.empty.descPost': '.',
 
+    // LAT-2693 — accommodatie-roundup per streek (gedeelde detailpagina). Chrome
+    // via ui.t(); pagina-inhoud (roundup-tekst) blijft NL tot LAT-2687. {regio}
+    // wordt via pre/post-concatenatie ingevoegd (t() kent geen interpolatie).
+    'accommodaties.roundup.crumbsAria': 'Kruimelpad',
+    'accommodaties.roundup.heroLabel': 'Waar slapen',
+    'accommodaties.roundup.h1Pre': 'Verblijven in ',
+    'accommodaties.roundup.heroDesc': "Handgekozen adressen per bestemming, geen willekeurig hotelaanbod. Plekken die we zelf zouden boeken, met echte foto's en een eerlijke prijsindicatie.",
+    'accommodaties.roundup.readGuidePre': 'Lees de wijngids over ',
+    'accommodaties.roundup.readGuidePost': ' →',
+    'accommodaties.roundup.planningAria': 'Je reis plannen',
+    'accommodaties.roundup.meta.titlePre': 'Waar slapen in ',
+    'accommodaties.roundup.meta.titlePost': '? Handgekozen verblijven | VinoMartino',
+    'accommodaties.roundup.meta.descPre': 'Een persoonlijke selectie verblijven in ',
+    'accommodaties.roundup.meta.descPost': ", met echte foto's, locatie en prijsindicatie. Geen willekeurig hotelaanbod, maar adressen die we zelf zouden boeken.",
+
     // LAT-2693 — auteurs-overzicht + auteur-detail (bios blijven NL; vertaling later)
     'auteurs.breadcrumb.index': 'Auteurs',
     'auteurs.index.meta.title': 'Auteurs — VinoMartino',
