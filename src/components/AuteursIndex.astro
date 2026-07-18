@@ -1,0 +1,199 @@
+---
+// LAT-2693 — gedeeld auteurs-overzicht. NL-route + /en/-tegenhanger renderen dit
+// component; `locale` stuurt de UI-dictionary en de padopbouw. Auteur-bio's blijven
+// NL (vertaling volgt via een apart translation-ticket). NL byte-identiek via NL-defaults.
+import SiteLayout from '../layouts/SiteLayout.astro';
+import { AUTHORS, bioParagraphs } from '../lib/authors';
+import { breadcrumbSchema } from '../lib/seo';
+import { loadUiStrings } from '../lib/ui-strings';
+import { DEFAULT_LOCALE, localizePath, type Locale } from '../lib/i18n';
+
+interface Props {
+  locale?: Locale;
+  alternates?: Partial<Record<Locale, string>>;
+}
+
+const { locale = DEFAULT_LOCALE, alternates } = Astro.props;
+const ui = await loadUiStrings(locale);
+
+const SITE_URL = 'https://vinomartino.com';
+const pageUrl = new URL(localizePath('/auteurs/', locale), Astro.site ?? SITE_URL).href;
+
+const schema = [
+  breadcrumbSchema([
+    { name: ui.t('streek.breadcrumb.home'), url: localizePath('/', locale) },
+    { name: ui.t('auteurs.breadcrumb.index'), url: pageUrl },
+  ]),
+];
+---
+
+<SiteLayout
+  title={ui.t('auteurs.index.meta.title')}
+  description={ui.t('auteurs.index.meta.description')}
+  schema={schema}
+  locale={locale}
+  alternates={alternates}
+>
+  <section class="auteurs container">
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+      <a href={localizePath('/', locale)}>{ui.t('streek.breadcrumb.home')}</a> / <span>{ui.t('auteurs.breadcrumb.index')}</span>
+    </nav>
+
+    <header class="auteurs-header">
+      <span class="kicker">{ui.t('auteurs.index.kicker')}</span>
+      <h1>{ui.t('auteurs.index.h1')}</h1>
+      <p class="lead">{ui.t('auteurs.index.lead')}</p>
+    </header>
+
+    <ul class="auteurs-grid">
+      {AUTHORS.map((author) => (
+        <li class="auteur-card">
+          <a href={localizePath(`/auteurs/${author.slug}/`, locale)} class="auteur-link">
+            {author.portrait && (
+              <div class="auteur-portrait">
+                <img src={author.portrait} alt={author.portraitAlt} width="280" height="280" loading="lazy" />
+              </div>
+            )}
+            <div class="auteur-body">
+              <h2>{author.name}</h2>
+              {author.tagline && <p class="auteur-tagline">{author.tagline}</p>}
+              {author.role && <p class="auteur-role">{author.role}</p>}
+              <p>{bioParagraphs(author.bio)[0]}</p>
+              <span class="read-more">{ui.t('auteurs.index.readMorePre')}{author.name}{ui.t('auteurs.index.readMorePost')}</span>
+            </div>
+          </a>
+        </li>
+      ))}
+    </ul>
+  </section>
+</SiteLayout>
+
+<style>
+  .auteurs {
+    padding: var(--space-12) 0 var(--space-16);
+    max-width: 60rem;
+  }
+  .breadcrumb {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--inkFaint);
+    margin-bottom: var(--space-8);
+  }
+  .breadcrumb a {
+    color: var(--inkSoft);
+    text-decoration: none;
+  }
+  .breadcrumb a:hover { text-decoration: underline; }
+
+  .auteurs-header {
+    margin-bottom: var(--space-12);
+  }
+  .kicker {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: var(--rust);
+    display: block;
+    margin-bottom: var(--space-3);
+  }
+  .auteurs-header h1 {
+    font-family: var(--font-display);
+    font-size: clamp(2.25rem, 1.8rem + 1.6vw, 3.25rem);
+    font-style: italic;
+    font-weight: 400;
+    color: var(--ink);
+    line-height: 1.1;
+    margin-bottom: var(--space-4);
+  }
+  .lead {
+    font-family: var(--font-body);
+    font-size: 1.0625rem;
+    color: var(--inkSoft);
+    line-height: 1.7;
+    max-width: 36rem;
+  }
+
+  .auteurs-grid {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-10);
+  }
+  .auteur-card {
+    border-top: 1px solid var(--color-border-light, rgba(0, 0, 0, 0.08));
+    padding-top: var(--space-10);
+  }
+  .auteur-link {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: var(--space-8);
+    align-items: start;
+    text-decoration: none;
+    color: inherit;
+  }
+  .auteur-portrait {
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+  }
+  .auteur-portrait img {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    display: block;
+  }
+  .auteur-body h2 {
+    font-family: var(--font-display);
+    font-size: 1.875rem;
+    font-style: italic;
+    font-weight: 400;
+    color: var(--ink);
+    margin: 0 0 var(--space-3);
+  }
+  .auteur-link:hover .auteur-body h2 {
+    color: var(--burgundy);
+  }
+  .auteur-tagline {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.02em;
+    color: var(--rust);
+    margin: 0 0 var(--space-2);
+  }
+  .auteur-role {
+    font-family: var(--font-body);
+    font-size: 0.875rem;
+    font-style: italic;
+    color: var(--inkSoft);
+    margin: 0 0 var(--space-3);
+  }
+  .auteur-body p {
+    font-family: var(--font-body);
+    font-size: 1rem;
+    color: var(--ink);
+    line-height: 1.7;
+    margin: 0 0 var(--space-4);
+  }
+  .read-more {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--burgundy);
+  }
+
+  @media (max-width: 720px) {
+    .auteur-link {
+      grid-template-columns: 1fr;
+      gap: var(--space-5);
+    }
+    .auteur-portrait {
+      max-width: 200px;
+    }
+  }
+</style>

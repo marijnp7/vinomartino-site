@@ -5,24 +5,30 @@
 import SmartImg from './SmartImg.astro';
 import ZelfGereisdBadge from './ZelfGereisdBadge.astro';
 import type { Streek } from '../lib/streken';
+// LAT-2693: locale-aware — href + "Begin hier"-hint volgen de pagina-locale zodat
+// de /en/-overzichtsroute naar /en/streken/<slug>/ linkt (NL blijft byte-identiek).
+import { DEFAULT_LOCALE, localizePath, type Locale } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
 
 interface Props {
   entry: Streek;
   beginHier?: boolean;
+  locale?: Locale;
 }
 
-const { entry, beginHier = false } = Astro.props;
+const { entry, beginHier = false, locale = DEFAULT_LOCALE } = Astro.props;
+const ui = await loadUiStrings(locale);
 ---
 
-<a href={`/streken/${entry.slug}/`} class="card card-link">
+<a href={localizePath(`/streken/${entry.slug}/`, locale)} class="card card-link">
   <div class:list={['card-img-wrap', !entry.heroImage && 'is-empty']}>
     <SmartImg src={entry.heroImage || undefined} alt={entry.name} theme="vineyard" class="card-img" />
-    {beginHier && <span class="begin-hier">Begin hier</span>}
+    {beginHier && <span class="begin-hier">{ui.t('streken.card.beginHier')}</span>}
   </div>
   <div class="card-body">
     <div class="card-meta">
       {entry.country && <span class="card-country">{entry.country}</span>}
-      <ZelfGereisdBadge visited={entry.zelfGereisd} year={entry.bezoekjaar} />
+      <ZelfGereisdBadge visited={entry.zelfGereisd} year={entry.bezoekjaar} locale={locale} />
     </div>
     <h2 class="card-title">{entry.name}</h2>
     {entry.description && <p class="card-desc">{entry.description}</p>}

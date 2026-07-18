@@ -1,0 +1,7 @@
+---
+// LAT-2693 — EN wijnhuizen-overzicht onder /en/. Zelfde WijnhuizenIndex-component;
+// locale="en" activeert de EN-loader (no-translation-guard) en ui_strings-overlay.
+import WijnhuizenIndex from '../../../components/WijnhuizenIndex.astro';
+---
+
+<WijnhuizenIndex locale="en" alternates={{ nl: '/wijnhuizen/', en: '/en/wijnhuizen/' }} />

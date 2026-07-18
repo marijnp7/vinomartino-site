@@ -1,0 +1,217 @@
+---
+// LAT-2693 — gedeeld streken-overzicht (listing-index). De NL-route
+// (src/pages/streken/index.astro) en de /en/-tegenhanger
+// (src/pages/en/streken/index.astro) renderen dit component; `locale` stuurt de
+// data-loaders (no-translation-guard) en de UI-dictionary (ui.t). NL is
+// byte-identiek: elke chrome-string valt terug op de NL-default in UI_STRING_DEFAULTS.
+import SiteLayout from '../layouts/SiteLayout.astro';
+import StreekCard from '../components/StreekCard.astro';
+import { loadStreken, type Streek } from '../lib/streken';
+import { organizationSchema, breadcrumbSchema } from '../lib/seo';
+import { loadUiStrings } from '../lib/ui-strings';
+import { DEFAULT_LOCALE, localizePath, type Locale } from '../lib/i18n';
+
+interface Props {
+  locale?: Locale;
+  alternates?: Partial<Record<Locale, string>>;
+}
+
+const { locale = DEFAULT_LOCALE, alternates } = Astro.props;
+const ui = await loadUiStrings(locale);
+const collation = locale === 'en' ? 'en' : 'nl';
+
+const entries = await loadStreken(locale);
+
+// LAT-2006 (VIS-BL-07) - twee-tier ordening van het streken-overzicht:
+//   Tier 1 = "Zelf gereisd" (zelfGereisd=true) bovenaan, met badge.
+//   Tier 2 = "Redactiegidsen" (zelfGereisd=false), per land gegroepeerd.
+// Beide tiers degraderen gracieus: is een tier leeg dan verdwijnt de sectie.
+const tier1 = entries.filter(e => e.zelfGereisd);
+const tier2 = entries.filter(e => !e.zelfGereisd);
+
+// "Begin hier"-hint op de sterkste zelf-gereisde streken. Sterkte = compleetheid
+// (heldenbeeld + omschrijving + druiven) zodat de hint data-driven blijft en niet
+// op een fragiele slug-lijst leunt.
+function strength(e: Streek): number {
+  return (e.heroImage ? 2 : 0) + (e.description ? 1 : 0) + Math.min(e.mainGrapes?.length ?? 0, 3);
+}
+const beginHier = new Set(
+  [...tier1]
+    .sort((a, b) => strength(b) - strength(a))
+    .slice(0, 4)
+    .map(e => e.slug),
+);
+
+// Tier 2 per land: landen alfabetisch, streken op naam. Streken zonder land
+// vallen onder "Overig" (localiseerbaar) en komen achteraan.
+const OVERIG = ui.t('streken.index.overig');
+const tier2Groups = (() => {
+  const map = new Map<string, Streek[]>();
+  for (const e of tier2) {
+    const key = e.country || OVERIG;
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(e);
+  }
+  return [...map.entries()]
+    .sort(([a], [b]) => {
+      if (a === OVERIG) return 1;
+      if (b === OVERIG) return -1;
+      return a.localeCompare(b, collation);
+    })
+    .map(([country, items]) => ({
+      country,
+      items: items.sort((x, y) => x.name.localeCompare(y.name, collation)),
+    }));
+})();
+
+const schema = [
+  organizationSchema(),
+  breadcrumbSchema([
+    { name: ui.t('streek.breadcrumb.home'), url: localizePath('/', locale) },
+    { name: ui.t('streek.breadcrumb.streken'), url: localizePath('/streken/', locale) },
+  ]),
+];
+---
+
+<SiteLayout
+  title={ui.t('streken.index.meta.title')}
+  description={ui.t('streken.index.meta.description')}
+  schema={schema}
+  activeNav="streken"
+  locale={locale}
+  alternates={alternates}
+>
+  <section class="hero-sm">
+    <div class="container">
+      <span class="section-label">{ui.t('streken.index.hero.label')}</span>
+      <h1 set:html={ui.t('streken.index.hero.h1')} />
+      <p class="hero-desc">{ui.t('streken.index.hero.desc')}</p>
+    </div>
+  </section>
+
+  <section class="section container">
+    {entries.length > 0 ? (
+      <>
+        {tier1.length > 0 && (
+          <div class="tier">
+            <div class="tier-head">
+              <span class="section-label">{ui.t('streken.index.tier1.label')}</span>
+              <h2 class="tier-title">{ui.t('streken.index.tier1.title')}</h2>
+              <p class="tier-desc">{ui.t('streken.index.tier1.desc')}</p>
+            </div>
+            <div class="grid">
+              {tier1.map(entry => (
+                <StreekCard entry={entry} beginHier={beginHier.has(entry.slug)} locale={locale} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {tier2Groups.length > 0 && (
+          <div class="tier">
+            <div class="tier-head">
+              <span class="section-label">{ui.t('streken.index.tier2.label')}</span>
+              <h2 class="tier-title">{ui.t('streken.index.tier2.title')}</h2>
+              <p class="tier-desc">{ui.t('streken.index.tier2.desc')}</p>
+            </div>
+            {tier2Groups.map(group => (
+              <div class="country-group">
+                <h3 class="country-title">{group.country}</h3>
+                <div class="grid">
+                  {group.items.map(entry => (
+                    <StreekCard entry={entry} locale={locale} />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </>
+    ) : (
+      <div class="empty-state">
+        <h2>{ui.t('streken.index.empty.title')}</h2>
+        <p>{ui.t('streken.index.empty.descPre')}<a href={localizePath('/artikelen/', locale)}>{ui.t('streken.index.empty.descLink')}</a>{ui.t('streken.index.empty.descPost')}</p>
+      </div>
+    )}
+  </section>
+</SiteLayout>
+
+<style>
+  .hero-sm {
+    background: var(--paperDeep);
+    padding: var(--space-12) 0 var(--space-8);
+    text-align: center;
+  }
+  .hero-sm h1 {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 1.6rem + 1.5vw, 3rem);
+    font-weight: 400;
+    font-style: italic;
+    color: var(--ink);
+    margin-top: var(--space-3);
+  }
+  .hero-desc {
+    font-family: var(--font-body);
+    font-size: 1rem;
+    color: var(--inkSoft);
+    margin-top: var(--space-3);
+    max-width: 36rem;
+    margin-inline: auto;
+  }
+  .tier { margin-bottom: var(--space-12); }
+  .tier:last-child { margin-bottom: 0; }
+  .tier-head { margin-bottom: var(--space-6); }
+  .tier-title {
+    font-family: var(--font-display);
+    font-size: clamp(1.5rem, 1.3rem + 1vw, 2rem);
+    font-weight: 400;
+    font-style: italic;
+    color: var(--ink);
+    margin-top: var(--space-2);
+  }
+  .tier-desc {
+    font-family: var(--font-body);
+    font-size: 0.9375rem;
+    color: var(--inkSoft);
+    margin-top: var(--space-2);
+    max-width: 40rem;
+  }
+  .country-group { margin-bottom: var(--space-8); }
+  .country-group:last-child { margin-bottom: 0; }
+  .country-title {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--rust);
+    padding-bottom: var(--space-2);
+    border-bottom: 1px solid var(--paperShade, #e6ddca);
+    margin-bottom: var(--space-5);
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: var(--space-6);
+  }
+  /* LAT-1118 (M5-hardening): voorkom horizontale overflow op smalle telefoons
+     (<=360px Android / 320px iPhone SE) waar de track de viewport overschrijdt. */
+  @media (max-width: 420px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+  .empty-state {
+    text-align: center;
+    padding: var(--space-16) var(--space-4);
+  }
+  .empty-state h2 {
+    font-family: var(--font-display);
+    font-size: 1.75rem;
+    font-weight: 400;
+    font-style: italic;
+    color: var(--ink);
+    margin-bottom: var(--space-3);
+  }
+  .empty-state p {
+    font-size: 1rem;
+    color: var(--inkSoft);
+  }
+</style>

@@ -1,0 +1,18 @@
+---
+// LAT-2693 — EN auteur-detailpagina onder /en/. getStaticPaths spiegelt de NL-set;
+// AuteurDetail rendert met locale="en". Auteur-bio's blijven NL (vertaling volgt apart).
+import AuteurDetail from '../../../components/AuteurDetail.astro';
+import { AUTHORS, type Author } from '../../../lib/authors';
+
+export async function getStaticPaths() {
+  return AUTHORS.map((author) => ({ params: { slug: author.slug }, props: { author } }));
+}
+
+const { author } = Astro.props as { author: Author };
+---
+
+<AuteurDetail
+  author={author}
+  locale="en"
+  alternates={{ nl: `/auteurs/${author.slug}/`, en: `/en/auteurs/${author.slug}/` }}
+/>

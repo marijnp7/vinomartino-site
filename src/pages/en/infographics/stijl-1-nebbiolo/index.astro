@@ -1,0 +1,10 @@
+---
+// LAT-2693 — EN Stijl-1 Nebbiolo-mockup onder /en/ (noindex). Zelfde
+// Stijl1Nebbiolo-component; locale="en" zorgt voor EN-chrome + hreflang.
+import Stijl1Nebbiolo from '../../../../components/Stijl1Nebbiolo.astro';
+---
+
+<Stijl1Nebbiolo
+  locale="en"
+  alternates={{ nl: '/infographics/stijl-1-nebbiolo/', en: '/en/infographics/stijl-1-nebbiolo/' }}
+/>

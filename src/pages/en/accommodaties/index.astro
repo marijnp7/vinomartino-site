@@ -1,0 +1,8 @@
+---
+// LAT-2693 — EN accommodaties-overzicht onder /en/. Zelfde AccommodatiesIndex-
+// component; locale="en" activeert de EN-loaders (no-translation-guard) +
+// ui_strings-overlay.
+import AccommodatiesIndex from '../../../components/AccommodatiesIndex.astro';
+---
+
+<AccommodatiesIndex locale="en" alternates={{ nl: '/accommodaties/', en: '/en/accommodaties/' }} />

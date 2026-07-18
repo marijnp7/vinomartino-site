@@ -348,6 +348,108 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'ui.cta.comparison.fallbackCta': 'Bekijk',
     'ui.cta.closing.aria': 'Onze aanbeveling',
     'ui.cta.closing.fallbackCta': 'Plan je bezoek',
+
+    // ── LAT-2693: listing-index chrome (go-live /en/ overzichtsroutes) ──────
+    // Elke index-pagina (streken/wijnhuizen/wijnroutes/artikelen/accommodaties +
+    // auteurs/infographics) deelt nu een locale-aware component. De NL-defaults
+    // hieronder zijn byte-identiek aan de oude hardcoded literals; EN valt terug
+    // op NL tot de ui_strings-vertaling landt (T4). Bare `&` in koppen wordt via
+    // set:html gerenderd zodat NL byte-identiek blijft.
+
+    // StreekCard.astro — "Begin hier"-hint op het overzicht.
+    'streken.card.beginHier': 'Begin hier',
+
+    // StrekenIndex.astro (/streken/).
+    'streken.index.meta.title': 'Wijnstreken, Van Piemonte tot de Mosel | VinoMartino',
+    'streken.index.meta.description': 'Ontdek de grote wijnstreken van Europa, terroir, druivenrassen, klimaat en de beste producenten. Diepgaande gidsen voor wijnliefhebbers.',
+    'streken.index.hero.label': 'Wijnstreken',
+    'streken.index.hero.h1': 'Terroir, druiven & traditie',
+    'streken.index.hero.desc': 'Piemonte, Etna, Bourgogne, Mosel, elke streek heeft een eigen logica van bodem, klimaat en druif. Hier leg ik ze uit zoals ik ze heb leren kennen: door er naartoe te rijden.',
+    'streken.index.tier1.label': 'Zelf gereisd',
+    'streken.index.tier1.title': 'Streken waar ik zelf reed',
+    'streken.index.tier1.desc': 'Deze gidsen schreef ik na eigen bezoek. Weet je niet waar te beginnen? Start bij de vier met een "Begin hier"-label.',
+    'streken.index.tier2.label': 'Redactiegidsen',
+    'streken.index.tier2.title': 'Gidsen per land',
+    'streken.index.tier2.desc': 'Zorgvuldig samengesteld op basis van primaire bronnen en lokale kennis, gegroepeerd per land.',
+    'streken.index.overig': 'Overig',
+    'streken.index.empty.title': 'De gidsen zijn onderweg',
+    'streken.index.empty.descPre': 'Piemonte, Etna, Bourgogne, Mosel en Priorat staan bovenaan de lijst. Ik schrijf ze liever goed dan snel, begin ondertussen bij de ',
+    'streken.index.empty.descLink': 'artikelen',
+    'streken.index.empty.descPost': '.',
+
+    // WijnhuizenIndex.astro (/wijnhuizen/).
+    'wijnhuizen.index.meta.title': 'Wijnhuizen, Producenten & wijnmakerijen | VinoMartino',
+    'wijnhuizen.index.meta.description': 'Ontdek de wijnhuizen achter de fles, van eigenzinnige Barolo-producenten tot vulkanische pioniers op de Etna. Persoonlijke portretten van wijnmakers die er echt toe doen.',
+    'wijnhuizen.index.hero.label': 'Wijnhuizen',
+    'wijnhuizen.index.hero.h1': 'Producenten & wijnmakerijen',
+    'wijnhuizen.index.hero.desc': 'Niet de fles, maar de mensen erachter. Wijnmakers die ik heb bezocht, met wie ik heb gesproken, van oude Piëmontese families tot radicale nieuwe-golf producenten op de Etna.',
+    'wijnhuizen.index.empty.title': 'De portretten zijn onderweg',
+    'wijnhuizen.index.empty.descPre': 'Elk wijnhuis krijgt één verhaal, geen scorekaart. De eerste portretten verschijnen zodra ik de bezoeken achter me heb. Begin ondertussen bij de ',
+    'wijnhuizen.index.empty.descLink': 'reisartikelen',
+    'wijnhuizen.index.empty.descPost': '.',
+
+    // WijnroutesIndex.astro (/wijnroutes/).
+    'wijnroutes.index.meta.title': 'Wijnroutes, Gids voor wijnreizen | VinoMartino',
+    'wijnroutes.index.meta.description': 'Doorloop de mooiste wijnroutes ter wereld, van de steile Etna-noordflank tot de kronkelende Mosel. Praktische routes voor wijnliefhebbers die zelf op pad gaan.',
+    'wijnroutes.index.hero.label': 'Wijnroutes',
+    'wijnroutes.index.hero.h1': 'Gids voor wijnreizen',
+    'wijnroutes.index.hero.desc': 'Routes die ik zelf heb gereden, met de Fiat Panda, de trein, soms met een koffer te veel. Dagindelingen, slaapadressen en de producenten die het waard zijn om twee weken vooruit voor te bellen.',
+    'wijnroutes.index.map.title': 'Alle routes op de kaart',
+    'wijnroutes.index.empty.title': 'Routes zijn onderweg',
+    'wijnroutes.index.empty.descPre': 'Langhe, Etna, Mosel en Wachau staan als eerste op de planning. Intussen: de ',
+    'wijnroutes.index.empty.descLink': 'reisartikelen',
+    'wijnroutes.index.empty.descPost': ' bevatten al logistieke details per regio.',
+
+    // LAT-2693 — artikelen-overzicht (listing-index + facet-filter)
+    'artikelen.index.meta.title': 'Artikelen, Wijnverhalen en reistips',
+    'artikelen.index.meta.description': 'Lees onze wijnverhalen, regio-gidsen en proefnotities, geschreven door wijnliefhebbers met passie voor terroir.',
+    'artikelen.index.hero.label': 'Artikelen',
+    'artikelen.index.hero.h1': 'Wijnverhalen & regiogidsen',
+    'artikelen.index.hero.desc': 'Eerlijke verhalen, proefnotities en diepgaande regiogidsen, geschreven door wijnliefhebbers.',
+    'artikelen.index.filter.rubriek': 'Rubriek',
+    'artikelen.index.filter.land': 'Land',
+    'artikelen.index.filter.streek': 'Streek',
+    'artikelen.index.filter.toggle': 'Filteren',
+    'artikelen.index.filter.countOf': 'van',
+    'artikelen.index.filter.countItems': 'artikelen',
+    'artikelen.index.filter.clear': 'Wis filters',
+    'artikelen.index.filterEmpty.title': 'Geen artikelen voor deze filters',
+    'artikelen.index.filterEmpty.desc': 'Pas je selectie aan of wis de filters om alles te zien.',
+    'artikelen.index.empty.title': 'Artikelen komen eraan',
+    'artikelen.index.empty.desc': 'We werken aan wijnverhalen en regiogidsen vanuit eigen bezoek aan de wijngaarden.',
+
+    // LAT-2693 — accommodaties-overzicht (listing-index)
+    'accommodaties.breadcrumb.index': 'Accommodaties',
+    'accommodaties.index.meta.title': "Accommodaties in wijnregio's, handgekozen verblijven | VinoMartino",
+    'accommodaties.index.meta.description': "Per wijnregio een persoonlijke selectie verblijven met echte foto's, locatie en prijsindicatie. Geen willekeurig hotelaanbod, maar adressen die we zelf zouden boeken.",
+    'accommodaties.index.hero.label': 'Accommodaties',
+    'accommodaties.index.hero.h1': 'Waar te slapen in de wijnstreek',
+    'accommodaties.index.hero.desc': 'Voor elke regio een handgekozen selectie verblijven, geen willekeurig hotelaanbod. Kies een streek en vind adressen die we zelf zouden boeken.',
+    'accommodaties.index.card.stayOne': 'verblijf',
+    'accommodaties.index.card.stayMany': 'verblijven',
+    'accommodaties.index.card.selected': 'geselecteerd',
+    'accommodaties.index.empty.title': 'De selecties zijn onderweg',
+    'accommodaties.index.empty.descPre': "We curateren per regio een handvol verblijven met echte foto's. Begin ondertussen bij de ",
+    'accommodaties.index.empty.descLink': 'wijnstreken',
+    'accommodaties.index.empty.descPost': '.',
+
+    // LAT-2693 — auteurs-overzicht + auteur-detail (bios blijven NL; vertaling later)
+    'auteurs.breadcrumb.index': 'Auteurs',
+    'auteurs.index.meta.title': 'Auteurs — VinoMartino',
+    'auteurs.index.meta.description': 'Wie schrijft VinoMartino? Maak kennis met de schrijvers achter onze wijnreizen en proefnotities.',
+    'auteurs.index.kicker': 'Auteurs',
+    'auteurs.index.h1': 'Wie schrijft VinoMartino',
+    'auteurs.index.lead': 'Eén notitieboekje per reis, een eigen stem per schrijver. Hieronder vindt u wie er achter de stukken zit.',
+    'auteurs.index.readMorePre': 'Lees artikelen van ',
+    'auteurs.index.readMorePost': ' →',
+    'auteurs.detail.kicker': 'Auteur',
+    'auteurs.detail.metaTitleSuffix': ' — Auteur | VinoMartino',
+    'auteurs.detail.regionsHeading': 'Bereisde streken',
+    'auteurs.detail.socialPre': 'Volg ',
+    'auteurs.detail.socialPost': ' op Instagram',
+    'auteurs.detail.articlesHeadingPre': 'Artikelen van ',
+    'auteurs.detail.emptyPre': 'Er zijn nog geen gepubliceerde artikelen van ',
+    'auteurs.detail.emptyPost': '. Houd deze pagina in de gaten; nieuw werk verschijnt hier zodra het live staat.',
 };
 
 /** Resolver over de UI-dictionary: EN-value indien aanwezig, anders NL-default. */
