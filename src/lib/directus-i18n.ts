@@ -148,3 +148,42 @@ export async function localizeRecords<T extends Record<string, unknown>>(
     const overlay = await fetchTranslationOverlay(opts);
     return applyTranslationGuard(records, overlay, opts.locale, recordIdKey);
 }
+
+/**
+ * "Zachte" overlay ZONDER no-translation-guard: leg vertaalde velden over de
+ * NL-basis, maar HOUD records zonder vertaling met hun NL-waarde. Bedoeld voor
+ * de globale nav-dropdown (loadLandenNav/loadStrekenNav): de header moet compleet
+ * blijven — een streek zonder EN-naam mag niet uit het menu vallen — en de links
+ * blijven sowieso NL-absoluut, dus de NL-naam is een veilige fallback. Anders dan
+ * applyTranslationGuard (die dropt) verliest dit dus nooit records.
+ */
+export function applyTranslationOverlaySoft<T extends Record<string, unknown>>(
+    records: T[],
+    overlay: Map<string, Record<string, unknown>>,
+    locale: Locale,
+    recordIdKey = 'id',
+): T[] {
+    if (locale === DEFAULT_LOCALE) return records;
+    return records.map((r) => {
+        const translated = overlay.get(String(r[recordIdKey] ?? ''));
+        if (!translated) return r;
+        const merged: Record<string, unknown> = { ...r };
+        for (const [f, v] of Object.entries(translated)) {
+            merged[f] = mergeTranslatedValue(r[f], v);
+        }
+        return merged as T;
+    });
+}
+
+/**
+ * Gemaksfunctie: fetch overlay + zachte merge (geen drop) in één stap.
+ */
+export async function localizeRecordsSoft<T extends Record<string, unknown>>(
+    records: T[],
+    opts: TranslationOverlayOptions,
+    recordIdKey = 'id',
+): Promise<T[]> {
+    if (opts.locale === DEFAULT_LOCALE) return records;
+    const overlay = await fetchTranslationOverlay(opts);
+    return applyTranslationOverlaySoft(records, overlay, opts.locale, recordIdKey);
+}

@@ -19,7 +19,7 @@ const nav = await loadNavigation();
 // klikbare kop naar de landenpagina, met de STREKEN van dat land eronder als
 // lijst naar de streekpagina's. Geen continent-groepering. Schaalt automatisch
 // mee zodra er landen/streken aan Directus worden toegevoegd.
-const [landen, streken] = await Promise.all([loadLandenNav(), loadStrekenNav()]);
+const [landen, streken] = await Promise.all([loadLandenNav(locale), loadStrekenNav(locale)]);
 
 // Streken per land-slug, alfabetisch.
 const strekenByLand = streken.reduce<Record<string, typeof streken>>((acc, s) => {
@@ -44,6 +44,16 @@ const hasOntdek = ontdekLandGroups.length > 0;
 // "Ontdek"-nav-item zodat het niet dubbel naast de trigger staat; bij geen
 // dropdown (geen landen) blijft de gewone "Ontdek"-link wel staan.
 const navItems = hasOntdek ? nav.filter(item => item.key !== 'ontdek') : nav;
+
+// nav_items heeft geen translations-junction: voor NL rendert de CMS-label
+// byte-identiek; voor EN overlayt de UI-dictionary op key `nav.<navKey>` en valt
+// terug op de CMS-label wanneer er (nog) geen vertaling/seed is.
+const navLabel = (item: { key: string; label: string }): string => {
+  if (locale === DEFAULT_LOCALE) return item.label;
+  const dictKey = `nav.${item.key}`;
+  const val = ui.t(dictKey);
+  return val === dictKey ? item.label : val;
+};
 
 // Vast redactioneel promo-blok naast de landenkolommen.
 const ontdekPromo = {
@@ -120,7 +130,7 @@ const ontdekPromo = {
             href={item.href}
             class={`nav-link ${activeNav === item.key ? 'nav-link--active' : ''}`}
           >
-            {item.label}
+            {navLabel(item)}
           </a>
         ))}
       </nav>
@@ -201,7 +211,7 @@ const ontdekPromo = {
         </div>
       )}
       {navItems.map(item => (
-        <a href={item.href} class="mobile-nav-link">{item.label}</a>
+        <a href={item.href} class="mobile-nav-link">{navLabel(item)}</a>
       ))}
     </nav>
   </div>

@@ -125,7 +125,7 @@ import {
     assertCollectionReadableOrDegrade,
 } from './directus-config';
 import { DEFAULT_LOCALE, type Locale } from './i18n';
-import { localizeRecords } from './directus-i18n';
+import { localizeRecords, localizeRecordsSoft } from './directus-i18n';
 
 // LAT-2575 — vertaalbare landen-velden (native Directus translations, LAT-2574).
 // LAT-2602 — main_grapes/cta_blocks zijn JSON-blobs; EN levert alléén de
@@ -452,10 +452,11 @@ export interface NavLand {
  * de globale header op elke pagina goedkoop blijft. Volgt het fail-loud-contract
  * (LAT-1078): zonder Directus-config gooit dit, net als loadLanden().
  */
-export async function loadLandenNav(): Promise<NavLand[]> {
+export async function loadLandenNav(locale: Locale = DEFAULT_LOCALE): Promise<NavLand[]> {
     const env = readDirectusEnv();
     assertDirectusConfigured('loadLandenNav', env);
-    const fields = 'slug,name,continent,status';
+    // `id` nodig voor de EN-naam-overlay (overlay keyt op parent-PK).
+    const fields = 'id,slug,name,continent,status';
     const url = `${env.url}/items/landen?limit=-1&fields=${fields}${statusFilterQuery(env)}&sort=name`;
     const res = await fetch(url, {
         headers: { Authorization: `Bearer ${env.token}` },
@@ -466,7 +467,16 @@ export async function loadLandenNav(): Promise<NavLand[]> {
         throw new Error(`[loadLandenNav] Directus returned ${res.status} ${res.statusText}: ${body.slice(0, 300)}`);
     }
     const json = await res.json();
-    const data = (json.data || []) as Record<string, unknown>[];
+    let data = (json.data || []) as Record<string, unknown>[];
+    // Zachte EN-naam-overlay: nav blijft compleet, landen zonder vertaling
+    // houden hun NL-naam (links zijn sowieso NL-absoluut).
+    data = await localizeRecordsSoft(data, {
+        env,
+        junction: 'landen_translations',
+        parentIdField: 'landen_id',
+        fields: ['name'],
+        locale,
+    });
     return data
         .filter((r) => r.slug && r.name)
         .map((r) => ({

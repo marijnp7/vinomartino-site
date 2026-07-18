@@ -157,6 +157,18 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'footer.copy.rights': 'Alle rechten voorbehouden.',
     'footer.affiliateNote': 'Sommige links op deze site zijn affiliate-links. Wij ontvangen een kleine commissie als je via onze link boekt, zonder extra kosten voor jou.',
 
+    // Top-nav labels (SiteHeader.astro, LAT-2638). `nav_items` heeft géén
+    // translations-junction, dus de EN-labels komen via deze dictionary op key
+    // `nav.<navKey>` met de NL-`label` als default. NL rendert altijd de CMS-label
+    // (component bypasst t() voor de standaardtaal), dus deze seeds raken NL niet;
+    // ze zijn de T4-EN-spec + de EN-fallback wanneer een vertaling nog ontbreekt.
+    'nav.ontdek': 'Ontdek',
+    'nav.wijnhuizen': 'Wijnhuizen',
+    'nav.accommodaties': 'Overnachten',
+    'nav.artikelen': 'Artikelen',
+    'nav.de-brief': 'De brief',
+    'nav.over-ons': 'Ons verhaal',
+
     // Streek-feitenblok (StreekFeitenblok.astro, LAT-2009). Rij-labels + kop; de
     // tier-badge hergebruikt de bestaande `ui.badge.*`-keys.
     'streek.feit.heading': 'In het kort',
