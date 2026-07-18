@@ -7,6 +7,10 @@
 //   - Stay22 Allez `/roam`: de redirect naar de OTA (Booking) lokaliseert op bezoeker-geo /
 //     Accept-Language; een `lang`-param wordt NIET doorgegeven. Best-effort dus (schadeloos):
 //     echte EN-bezoekers krijgen vanzelf een Engelse OTA-pagina.
+//   - Sunny Cars (TradeTracker, autohuur): de Engelse storefront leeft onder pad-prefix `/en`
+//     (browser-geverifieerd 2026-07-18: sunnycars.nl/en → htmlLang=en, volledig Engelse UI +
+//     "24/7 English-speaking customer service"). EN-pagina's krijgen dus de /en-storefront i.p.v.
+//     een dode link — gracieus weglaten is niet nodig want EN-support bestaat.
 // NL blijft byte-identiek: EN-parameters worden UITSLUITEND toegevoegd voor locale 'en'.
 import type { Locale } from './i18n';
 
@@ -28,5 +32,28 @@ export function applyBookingLocale(bookingUrl: string, locale: Locale): string {
     return u.toString();
   } catch {
     return bookingUrl;
+  }
+}
+
+// Sunny Cars-basisbestemming per locale. NL prefixloos (huidig gedrag), EN → `/en`-storefront.
+export const SUNNYCARS_DEFAULT_DEST: Record<Locale, string> = {
+  nl: 'https://www.sunnycars.nl/',
+  en: 'https://www.sunnycars.nl/en/',
+};
+
+/**
+ * Prefix een sunnycars-doel-URL met `/en` voor EN (idempotent). Laat NL, niet-parseerbare en
+ * niet-sunnycars-URLs ongemoeid, zodat een expliciete Directus-bookingUrl niet corrumpeert.
+ */
+export function applySunnyCarsLocale(dest: string, locale: Locale): string {
+  if (locale !== 'en') return dest;
+  try {
+    const u = new URL(dest);
+    if (!/(^|\.)sunnycars\.[a-z.]+$/i.test(u.hostname)) return dest;
+    if (u.pathname === '/en' || u.pathname.startsWith('/en/')) return dest;
+    u.pathname = u.pathname === '/' ? '/en/' : `/en${u.pathname}`;
+    return u.toString();
+  } catch {
+    return dest;
   }
 }
