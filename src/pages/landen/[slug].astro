@@ -1,33 +1,26 @@
 ---
-import SiteLayout from '../../layouts/SiteLayout.astro';
-import LandPageContent from '../../components/pages/LandPageContent.astro';
-import RelatedArticles from '../../components/RelatedArticles.astro';
-import InfographicAtlasInteractive from '../../components/InfographicAtlasInteractive.astro';
-import CountryRegionMap, { type RegionMeta } from '../../components/CountryRegionMap.astro';
-import CtaStructure from '../../components/CtaStructure.astro';
-import { loadAtlasForLand, type AtlasData } from '../../lib/atlas-data';
+// LAT-2638 — NL land-detailroute (prefixloos). Dunne wrapper rond het gedeelde
+// LandDetail-component; de EN-tegenhanger leeft onder /en/landen/. hreflang-
+// alternates worden alleen gezet wanneer er een EN-vertaling bestaat (launch-
+// gate: geen en-hreflang zonder tegenhanger).
+import LandDetail from '../../components/LandDetail.astro';
 import { loadLanden, type Land } from '../../lib/landen';
 import { loadStreken } from '../../lib/streken';
 import { loadWijnhuizen } from '../../lib/wijnhuizen';
 import { loadRoutes } from '../../lib/routes';
-import { breadcrumbSchema, landSchema, organizationSchema, faqPageSchema, landMetaTitle, landMetaDescription } from '../../lib/seo';
-import {
-  strekenForLand,
-  streekToCard,
-  wijnhuisToCard,
-  routeToCard,
-  type StreekCard,
-  type WijnhuisCard,
-  type RouteCard,
-} from '../../lib/landen-cards';
+import { loadAtlasForLand, type AtlasData } from '../../lib/atlas-data';
+import { strekenForLand, streekToCard, wijnhuisToCard, routeToCard, type StreekCard, type WijnhuisCard, type RouteCard } from '../../lib/landen-cards';
+import { DEFAULT_LOCALE } from '../../lib/i18n';
 
 export async function getStaticPaths() {
-  const [entries, allStreken, allWijnhuizen, allRoutes] = await Promise.all([
+  const [entries, allStreken, allWijnhuizen, allRoutes, enEntries] = await Promise.all([
     loadLanden(),
     loadStreken(),
     loadWijnhuizen(),
     loadRoutes(),
+    loadLanden('en'),
   ]);
+  const enSlugs = new Set(enEntries.map(e => e.slug));
   if (entries.length > 0) {
     return Promise.all(entries.map(async entry => {
       const landStreken = strekenForLand(entry, allStreken);
@@ -47,12 +40,15 @@ export async function getStaticPaths() {
           strekenCards: landStreken.map(streekToCard),
           wijnhuisCards: landWijnhuizen.slice(0, 6).map(wijnhuisToCard),
           routeCards: landRoutes.map(routeToCard),
+          alternates: enSlugs.has(entry.slug)
+            ? { nl: `/landen/${entry.slug}/`, en: `/en/landen/${entry.slug}/` }
+            : undefined,
         },
       };
     }));
   }
   // Showcase fallback slugs when no CMS data
-  const empty = { entry: null, atlas: null, strekenCards: [], wijnhuisCards: [], routeCards: [] };
+  const empty = { entry: null, atlas: null, strekenCards: [], wijnhuisCards: [], routeCards: [], alternates: undefined };
   return [
     { params: { slug: 'italie' }, props: { ...empty } },
     { params: { slug: 'duitsland' }, props: { ...empty } },
@@ -64,306 +60,23 @@ export async function getStaticPaths() {
 }
 
 const { slug } = Astro.params;
-const { entry, atlas, strekenCards, wijnhuisCards, routeCards } = Astro.props as {
+const { entry, atlas, strekenCards, wijnhuisCards, routeCards, alternates } = Astro.props as {
   entry: Land | null;
   atlas: AtlasData | null;
   strekenCards: StreekCard[];
   wijnhuisCards: WijnhuisCard[];
   routeCards: RouteCard[];
+  alternates?: Record<string, string>;
 };
-
-// ── Showcase data for Italië (V3 design example) ─────────
-const showcaseData: Record<string, {
-  name: string; flagEmoji?: string; continent?: string; description: string;
-  stats?: { label: string; value: string }[];
-  streken?: { name: string; slug: string; badge: string; description: string }[];
-  topWijnhuizen?: { name: string; slug: string; region: string; badge?: string }[];
-  druiven?: { name: string; color: 'rood' | 'wit' | 'rosé'; description: string; wines?: string[] }[];
-  routes?: { title: string; slug: string; days: number; transport: string; style?: string }[];
-  practical?: { key: string; value: string }[];
-  climate?: string;
-}> = {
-  italie: {
-    name: 'Italië',
-    flagEmoji: '🇮🇹',
-    continent: 'Europa',
-    description: 'Van de nevels van de Langhe tot de vulkaanhellingen van de Etna, Italië maakt wijnen die nergens anders op aarde worden gemaakt.',
-    stats: [
-      { label: 'Wijnstreken', value: '20 officiële regio\'s' },
-      { label: 'Inheemse druiven', value: '~2.000 rassen' },
-      { label: 'Beste tijd', value: 'Sep–okt (oogstseizoen)' },
-      { label: 'Topappellations', value: 'Barolo · Brunello · Amarone' },
-    ],
-    streken: [
-      { name: 'Langhe', slug: 'langhe-piemonte', badge: 'Piemonte · Nebbiolo', description: 'Barolo en Barbaresco, beide van Nebbiolo, in de zuidelijke heuvels van Piemonte.' },
-    ],
-    topWijnhuizen: [
-      { name: 'Bartolo Mascarello', slug: 'bartolo-mascarello-barolo', region: 'Castiglione Falletto', badge: 'Barolo' },
-      { name: 'Cornelissen', slug: 'cornelissen-etna-sicilie', region: 'Etna · Sicilië', badge: 'Etna Rosso' },
-    ],
-    druiven: [
-      { name: 'Nebbiolo', color: 'rood', description: 'Koningin van Piemonte. Hoge tannine, hoge zuur, transformeert na jaren tot iets transcendents.', wines: ['Barolo', 'Barbaresco', 'Gattinara'] },
-      { name: 'Sangiovese', color: 'rood', description: 'De ruggengraat van Toscane. Van lichte Chianti tot de lange Brunello di Montalcino.', wines: ['Chianti Classico', 'Brunello', 'Morellino'] },
-      { name: 'Nerello Mascalese', color: 'rood', description: 'De Nebbiolo van Sicilië. Licht van kleur, complex van geur, vulkanisch van mineraal.', wines: ['Etna Rosso', 'Faro'] },
-      { name: 'Vermentino', color: 'wit', description: 'Frisse witte wijn uit Sardinië en de Ligurische kust. Kruiden, limoen, brak zout.', wines: ['Vermentino di Gallura', 'Vermentino di Sardegna'] },
-    ],
-    routes: [
-      { title: 'Etna noord: Randazzo & Solicchiata', slug: 'etna-noord-randazzo-solicchiata', days: 2, transport: 'Auto', style: 'Vulkaan' },
-    ],
-    practical: [
-      { key: 'Vliegen op', value: 'Milano Malpensa (MXP), Turijn (TRN), Rome (FCO)' },
-      { key: 'Beste tijd', value: 'Sep–okt voor oogst. Apr–mei voor lente zonder drukte.' },
-      { key: 'Taal', value: 'Italiaans werkt het best bij familiebedrijven. Engels op grotere huizen.' },
-      { key: 'Reserveren', value: 'Altijd vooraf, minimaal 48 uur. Geen drop-in zoals in Frankrijk.' },
-      { key: 'Proeverij', value: '€15–40 voor 4–6 wijnen. Soms gratis bij aankoop fles.' },
-      { key: 'Vervoer', value: 'Huurauto onmisbaar buiten steden. Wegen zijn smal maar rijdbaar.' },
-    ],
-    climate: 'Van continentaal-koel in Piemonte (Alpen geven scherpe winters en hete zomers) tot mediterraan in Sicilië. Droogtes nemen toe; hoogte speelt een steeds grotere rol.',
-  },
-  // LAT-1105: showcase-mapping voor 4 landen, alleen slugs die vandaag al op prod
-  // staan. Geen 404-traps: elke slug hier is geverifieerd via curl 200 op
-  // vinomartino.com (2026-06-02). Geen nieuwe Directus-entries; cards verwijzen
-  // naar bestaande streek/wijnhuis/route-pagina's. Oostenrijk blijft bewust leeg
-  // tot Lead Editor (LAT-1099) content toevoegt.
-  frankrijk: {
-    name: 'Frankrijk',
-    flagEmoji: '🇫🇷',
-    continent: 'Europa',
-    description: 'Bourgogne, Bordeaux, Champagne: Frankrijk schreef de regels voor wijnstreken zoals de wereld ze leerde kennen.',
-    streken: [
-      { name: 'Champagne', slug: 'champagne', badge: 'Champagne · Pinot Noir & Chardonnay', description: 'Krijthellingen tussen Reims en Épernay, waar koel klimaat en tweede fermentatie de mousserende standaard zetten.' },
-    ],
-  },
-  duitsland: {
-    name: 'Duitsland',
-    flagEmoji: '🇩🇪',
-    continent: 'Europa',
-    description: 'Steile leisteenhellingen langs de Mosel en Rijn, waar Riesling laat in het seizoen rijpt tot iets dat nergens anders bestaat.',
-    streken: [
-      { name: 'Mosel', slug: 'mosel-duitsland', badge: 'Mosel · Riesling', description: 'Blauwe Devonische leisteen langs de kronkelende rivier; steile zuidhellingen die Riesling tot november aan de stok houden.' },
-    ],
-    routes: [
-      { title: 'Langs de Mosel: Bernkastel naar Traben-Trarbach', slug: 'mosel-bernkastel-traben-trarbach', days: 3, transport: 'Auto', style: 'Klassiek' },
-    ],
-  },
-  portugal: {
-    name: 'Portugal',
-    flagEmoji: '🇵🇹',
-    continent: 'Europa',
-    description: 'Van de Port-quintas in de Douro tot de Atlantische Vinho Verde: Portugal werkt met inheemse druiven die je elders niet vindt.',
-    streken: [
-      { name: 'Douro', slug: 'douro-portugal', badge: 'Douro · Touriga Nacional', description: 'Xisto-schist, terrasvormige wijngaarden langs de rivier en quinta-cultuur die meer maakt dan alleen Port.' },
-    ],
-    topWijnhuizen: [
-      { name: 'Niepoort', slug: 'niepoort-douro-portugal', region: 'Douro · Portugal', badge: 'Port & Redoma' },
-    ],
-  },
-  spanje: {
-    name: 'Spanje',
-    flagEmoji: '🇪🇸',
-    continent: 'Europa',
-    description: 'Van Rioja\'s Tempranillo tot de llicorella van Priorat: Spanje koppelt extreme bodems aan diepgewortelde wijnbouwtraditie.',
-    routes: [
-      { title: 'Door het hart van de Priorat: Porrera naar Gratallops', slug: 'priorat-porrera-gratallops', days: 1, transport: 'Auto', style: 'Compact' },
-    ],
-  },
-};
-
-// Build props from entry or showcase data
-const showcase = showcaseData[slug!];
-// LAT-1090: merge Directus entry over showcase for rich fields (streken/wijnhuizen/druiven/
-// routes/practical/climate) zodat een Directus-record met alleen name+capital niet alle
-// content kapotmaakt. Directus wint voor wat het levert; showcase vult de rest.
-const pageData = entry
-  ? {
-      name: entry.name,
-      continent: entry.continent || showcase?.continent || undefined,
-      description: entry.description,
-      heroImage: entry.heroImage || undefined,
-      stats: [
-        ...(entry.bestTimeToVisit ? [{ label: 'Beste reistijd', value: entry.bestTimeToVisit }] : []),
-        ...(entry.mainGrapes.length > 0 ? [{ label: 'Druivenrassen', value: entry.mainGrapes.slice(0, 4).join(', ') }] : []),
-        ...(entry.capital ? [{ label: 'Hoofdstad', value: entry.capital }] : []),
-        ...(showcase?.stats ?? []).filter((s) => {
-          const hasEntryBestTime = Boolean(entry.bestTimeToVisit) && s.label === 'Beste reistijd';
-          const hasEntryGrapes = entry.mainGrapes.length > 0 && s.label === 'Druivenrassen';
-          const hasEntryCapital = Boolean(entry.capital) && s.label === 'Hoofdstad';
-          return !(hasEntryBestTime || hasEntryGrapes || hasEntryCapital);
-        }),
-      ],
-      climate: entry.climate || showcase?.climate || undefined,
-      // LAT-1199: Directus relaties zijn nu de bron voor streken + topwijnhuizen
-      // (kern-gat #2). Showcase blijft alleen optionele redactionele fallback
-      // zolang de relatie nog leeg is.
-      streken: strekenCards.length > 0 ? strekenCards : (showcase?.streken ?? []),
-      topWijnhuizen: wijnhuisCards.length > 0 ? wijnhuisCards : (showcase?.topWijnhuizen ?? []),
-      // LAT-1760: proefprofiel data-driven via Directus landen.druiven.
-      // Showcase blijft redactionele fallback zolang het veld leeg is.
-      druiven: entry.druiven.length > 0 ? entry.druiven : (showcase?.druiven ?? []),
-      // LAT-1199: routes data-driven via routes.streek_id→land-keten (LAT-1198),
-      // met M2M-junction routes_streken als fallback zolang streek_id leeg is.
-      // Showcase blijft enkel redactionele fallback als de relatie nog leeg is.
-      routes: routeCards.length > 0 ? routeCards : (showcase?.routes ?? []),
-      // LAT-1760: praktische tips data-driven via Directus landen.practical.
-      practical: entry.practical.length > 0 ? entry.practical : (showcase?.practical ?? []),
-    }
-  : showcase ?? {
-      name: slug ? slug.charAt(0).toUpperCase() + slug.slice(1) : 'Wijnland',
-      continent: 'Europa',
-      description: 'Dit wijnland krijgt zijn gids zodra wij er zelf zijn geweest.',
-      streken: [], topWijnhuizen: [], druiven: [], routes: [], practical: [],
-    };
-
-const pageUrl = new URL(`/landen/${slug}/`, Astro.site ?? 'https://vinomartino.com').href;
-
-// ── LAT-1662: wijngebieden in échte geometrie ───────────────
-// Vervangt op landen mét region-geometrie de oude blob-atlas door
-// <CountryRegionMap>. Detecteer of er een src/data/atlas/regions/{slug}.json is.
-const regionGeoKeys = Object.keys(
-  import.meta.glob('../../data/atlas/regions/*.json'),
-);
-const hasRegionGeo = regionGeoKeys.includes(`../../data/atlas/regions/${slug}.json`);
-
-// Streek-metadata (naam/kleur/badge/klikbaar) voor de region-kaart. Bron =
-// atlas-zones (zelfde slugs + statusfilter als de /streken/-generator), met de
-// streek-cards als aanvulling. Region-keys hierbuiten = inerte context.
-const ACCENT_HEX: Record<string, string> = {
-  burgundy: '#5A1A1F',
-  rust: '#A14F2A',
-  vine: '#5C6B3F',
-};
-const regionMeta: Record<string, RegionMeta> = {};
-for (const z of atlas?.zones ?? []) {
-  regionMeta[z.slug] = {
-    color: z.zoneColor ? ACCENT_HEX[z.zoneColor] : undefined,
-    badge: z.dominantGrape || undefined,
-    linkable: z.linkable !== false,
-  };
-}
-for (const c of strekenCards) {
-  if (!regionMeta[c.slug]) regionMeta[c.slug] = { badge: c.badge || undefined, linkable: true };
-}
-
-// Prefer Directus o2m join `entry.wijnstreken` (LAT-1008). Fall back to showcase-derived
-// names so JSON-LD stays populated until editors fill the relation.
-const landStrekenForSchema: Array<string | { name: string; slug?: string }> =
-  entry?.wijnstreken && entry.wijnstreken.length > 0
-    ? entry.wijnstreken
-    : (pageData.streken?.map((s) => s.name) ?? []).filter((n): n is string => Boolean(n));
-const landGrapesForSchema =
-  entry?.mainGrapes ?? pageData.druiven?.map((d) => d.name) ?? [];
-const landCapitalForSchema = entry?.capital && entry.capital.trim().length > 0 ? entry.capital : undefined;
-const landHeroImage = 'heroImage' in pageData ? pageData.heroImage ?? null : null;
-// og:image: explicit `og_image` (LAT-1008) wins, then hero_image fallback.
-const landOgImage = entry?.ogImage ?? landHeroImage;
-const landImageForSchema = landOgImage;
-
-// LAT-1823: FAQPage alleen wanneer de redactie een zichtbare FAQ heeft gevuld
-// (Directus `faq`). Google's structured-data-beleid eist dat de schema de
-// zichtbare Q&A op de pagina spiegelt, dus emit niets zolang faq leeg is.
-const landFaq = entry?.faq ?? [];
-const schema = [
-  landSchema({
-    name: pageData.name,
-    description: pageData.description,
-    image: landImageForSchema,
-    continent: pageData.continent,
-    capital: landCapitalForSchema,
-    wijnstreken: landStrekenForSchema,
-    grapeVarieties: landGrapesForSchema,
-    pageUrl,
-  }),
-  breadcrumbSchema([
-    { name: 'Home', url: '/' },
-    { name: 'Landen', url: '/landen/' },
-    { name: pageData.name, url: pageUrl },
-  ]),
-  // Organization (publisher). sameAs blijft leeg tot Marketing/Marijn de
-  // geverifieerde social-profiel-URLs aanlevert (LAT-1823 follow-up).
-  organizationSchema(),
-  ...(landFaq.length > 0 ? [faqPageSchema(landFaq)] : []),
-];
 ---
 
-<SiteLayout
-  title={landMetaTitle(pageData.name, pageData.continent)}
-  description={landMetaDescription({
-    name: pageData.name,
-    wijnstreken: landStrekenForSchema,
-    grapeVarieties: landGrapesForSchema,
-    // LAT-2418: de <meta name="description"> voedt uit het Directus-veld
-    // meta_description (SEO), niet uit description (artikel-excerpt in lijsten).
-    // Loader valt meta_description → description terug; showcase-only landen
-    // (geen entry) houden de generatieve fallback.
-    description: entry?.metaDescription || pageData.description,
-  })}
-  ogImage={landOgImage || undefined}
-  schema={schema}
-  activeNav="landen"
->
-  <LandPageContent
-    name={pageData.name}
-    flagEmoji={'flagEmoji' in pageData ? pageData.flagEmoji : undefined}
-    continent={pageData.continent}
-    description={pageData.description}
-    heroImage={'heroImage' in pageData ? pageData.heroImage : undefined}
-    stats={pageData.stats}
-    bodyHtml={entry?.bodyHtml || undefined}
-    streken={pageData.streken}
-    topWijnhuizen={pageData.topWijnhuizen}
-    druiven={pageData.druiven}
-    routes={pageData.routes}
-    practical={pageData.practical}
-    climate={pageData.climate}
-    faq={landFaq}
-    hubTitle={entry?.hubH1 || undefined}
-    reistijd={entry?.reistijd ?? []}
-    budget={entry?.budget ?? []}
-  >
-    {hasRegionGeo ? (
-      <div slot="atlas">
-        <CountryRegionMap landSlug={slug!} landName={pageData.name} meta={regionMeta} />
-      </div>
-    ) : atlas && atlas.zones.length > 0 ? (
-      <InfographicAtlasInteractive
-        slot="atlas"
-        variant="compact"
-        kicker={atlas.kicker ?? `Wijnatlas · ${pageData.name}`}
-        title={`${pageData.name} in kaart`}
-        subtitle="Streken, druiven en appellaties op één kaart"
-        intro="Drie lagen over dezelfde geografie. Kies een laag, beweeg over een zone voor de kerngetallen en klik door naar de streekgids."
-        map={atlas.map}
-        zones={atlas.zones}
-        facts={atlas.facts}
-        source="VinoMartino redactie"
-        alt={`Interactieve kaart van ${pageData.name} met schakelbare lagen voor streken, druiven en appellaties; zones tonen kerngetallen bij hover en linken naar de streekgids.`}
-      />
-    ) : null}
-    {entry && slug === 'italie' && (
-      // LAT-1842 — VROEGE CTA-slot (variant 'early'): ná de editorial-body (sectie 3),
-      // bóven de listings. Default verborgen via CSS; initCtaExperiment() toont 'm
-      // alleen bij variant 'early'. Eigen [data-cta-experiment]-marker → eigen event-scope.
-      <div slot="cta-early" data-cta-experiment data-cta-slot="early">
-        <CtaStructure data={entry.cta} sid={slug!} />
-      </div>
-    )}
-  </LandPageContent>
-  {entry && (slug === 'italie' ? (
-    // LAT-1843/LAT-1842 — LATE CTA-slot (variant 'late', default): aan het einde van
-    // de hub. initCtaExperiment() verbergt 'm bij variant 'early'. Marker = event-scope.
-    <div data-cta-experiment data-cta-slot="late"><CtaStructure data={entry.cta} sid={slug!} /></div>
-  ) : (
-    <CtaStructure data={entry.cta} sid={slug!} />
-  ))}
-  {entry && <RelatedArticles items={entry.relatedArticles} />}
-</SiteLayout>
-
-<!-- LAT-1842 — CTA A/B placement-gate. Default (geen JS / nog geen variant): -->
-<!-- alleen de late (eind) CTA is zichtbaar = gedrag vóór de test, no-JS-safe. -->
-<!-- initCtaExperiment() zet data-cta-variant op beide markers → CSS toont de -->
-<!-- juiste slot. is:global omdat de slot-inhoud buiten deze component-scope valt. -->
-<style is:global>
-  [data-cta-experiment][data-cta-slot="early"] { display: none; }
-  [data-cta-experiment][data-cta-variant="early"][data-cta-slot="early"] { display: block; }
-  [data-cta-experiment][data-cta-variant="early"][data-cta-slot="late"] { display: none; }
-</style>
+<LandDetail
+  slug={slug!}
+  entry={entry}
+  atlas={atlas}
+  strekenCards={strekenCards}
+  wijnhuisCards={wijnhuisCards}
+  routeCards={routeCards}
+  locale={DEFAULT_LOCALE}
+  alternates={alternates}
+/>

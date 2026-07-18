@@ -77,6 +77,40 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'route.highlights': 'Highlights',
     'route.boekDag1': 'Boek dag 1',
 
+    // Land-detailpagina chrome (LAT-2638, LandDetail.astro + LandPageContent.astro).
+    // `strekenVanPrefix`/`reisroutesDoorPrefix` staan vóór de landnaam:
+    // "<prefix> {name}". De "Alle …"-links dragen de pijl in de waarde zodat de
+    // gerenderde NL-HTML byte-identiek blijft (letterlijke → i.p.v. entity).
+    'land.hero.wijnland': 'Wijnland',
+    'land.stat.reistijd': 'Beste reistijd',
+    'land.stat.druiven': 'Druivenrassen',
+    'land.stat.hoofdstad': 'Hoofdstad',
+    'land.section.wijnstreken': 'Wijnstreken',
+    'land.section.strekenVanPrefix': 'De streken van',
+    'land.link.alleStreken': 'Alle streken →',
+    'land.section.topWijnhuizen': 'Top wijnhuizen',
+    'land.section.topWijnhuizenTitle': 'Adressen die we zelf bezochten',
+    'land.link.alleWijnhuizen': 'Alle wijnhuizen →',
+    'land.section.druiven': 'Druiven',
+    'land.section.druivenTitle': 'Wat je hier proeft',
+    'land.section.routes': 'Routes',
+    'land.section.reisroutesDoorPrefix': 'Reisroutes door',
+    'land.link.alleRoutes': 'Alle routes →',
+    'land.section.planJeReis': 'Plan je reis',
+    'land.section.reistijd': 'Reistijd',
+    'land.section.reistijdTitle': 'Hoe lang doe je erover',
+    'land.reistijd.thRegio': 'Regio',
+    'land.reistijd.thVliegveld': 'Dichtstbijzijnde luchthaven',
+    'land.reistijd.thReistijd': 'Reistijd met de auto',
+    'land.reistijd.thPeriode': 'Beste reisperiode',
+    'land.section.budget': 'Budget',
+    'land.section.budgetTitle': 'Wat kost een wijnreis',
+    'land.budget.note': "Richtprijzen in euro's, per persoon tenzij anders vermeld.",
+    'land.section.praktisch': 'Praktisch',
+    'land.section.praktischTitle': 'Voor je gaat',
+    'land.section.faq': 'Veelgestelde vragen',
+    'land.section.faqTitle': 'Goed om te weten',
+
     // Streek-feitenblok (StreekFeitenblok.astro, LAT-2009). Rij-labels + kop; de
     // tier-badge hergebruikt de bestaande `ui.badge.*`-keys.
     'streek.feit.heading': 'In het kort',
