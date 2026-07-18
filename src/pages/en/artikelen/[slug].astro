@@ -1,29 +1,27 @@
 ---
-// LAT-2638 — NL artikel-detailroute (prefixloos). Dunne wrapper rond het gedeelde
-// ArtikelDetail-component; de EN-tegenhanger leeft onder /en/artikelen/. hreflang-
-// alternates worden alleen gezet wanneer er een EN-vertaling bestaat (launch-gate:
-// geen en-hreflang zonder tegenhanger).
-import ArtikelDetail, { type ArticleRoundup, type ArticleVoetblok } from '../../components/ArtikelDetail.astro';
-import { type VoetblokRoute, type VoetblokHotel } from '../../components/ArtikelVoetblok.astro';
-import { loadArticles } from '../../lib/articles';
-import { loadRoutes } from '../../lib/routes';
-import { loadAccommodatieRoundupsByStreek } from '../../lib/accommodaties-loader';
-import { filterRoundupOpFotos, roundupKaartAantal } from '../../lib/accommodaties';
-import { DEFAULT_LOCALE } from '../../lib/i18n';
+// LAT-2638 — EN artikel-detailroute onder /en/. Identieke markup als de NL-route
+// via het gedeelde ArtikelDetail-component, met de per-locale loaders:
+// loadArticles('en') past de no-translation-guard toe (directus-i18n.ts), dus
+// artikelen zónder EN-vertaling vallen weg uit `articles` → er wordt géén
+// /en/artikelen/<slug>/ gegenereerd (404 i.p.v. NL-lek). Roundups/routes-relaties
+// gebruiken de EN-loaders.
+import ArtikelDetail, { type ArticleRoundup, type ArticleVoetblok } from '../../../components/ArtikelDetail.astro';
+import { type VoetblokRoute, type VoetblokHotel } from '../../../components/ArtikelVoetblok.astro';
+import { loadArticles } from '../../../lib/articles';
+import { loadRoutes } from '../../../lib/routes';
+import { loadAccommodatieRoundupsByStreek } from '../../../lib/accommodaties-loader';
+import { filterRoundupOpFotos, roundupKaartAantal } from '../../../lib/accommodaties';
+
+const EN = 'en' as const;
 
 export async function getStaticPaths() {
-  const [articles, accRoundupsByStreek, routes, enArticles] = await Promise.all([
-    loadArticles(),
-    loadAccommodatieRoundupsByStreek(),
-    loadRoutes(),
+  const [articles, accRoundupsByStreek, routes] = await Promise.all([
     loadArticles('en'),
+    loadAccommodatieRoundupsByStreek('en'),
+    loadRoutes('en'),
   ]);
-  const enSlugs = new Set(enArticles.map((a) => a.slug));
   const routeBySlug = new Map(routes.map((r) => [r.slug, r]));
   return articles.map((a) => {
-    // LAT-1364: koppel de reisjunk-roundup aan het artikel via related_streken,
-    // zodat reisartikelen met curated properties dezelfde CJ-kaart krijgen als
-    // de streek-pagina's i.p.v. de generieke Stay22-widget.
     const accRoundups: ArticleRoundup[] = a.relatedStreken
       .map((s) => ({ slug: s.slug, roundup: accRoundupsByStreek.get(s.slug) }))
       .filter((x): x is ArticleRoundup =>
@@ -32,10 +30,6 @@ export async function getStaticPaths() {
     const streekRef = a.relatedStreken[0] ?? null;
     const routeRef = a.relatedWijnroutes[0] ?? null;
     const routeEntry = routeRef ? routeBySlug.get(routeRef.slug) : undefined;
-    // Stops voor de schematische mini-thumbnail: veel routes hebben een leeg
-    // tekstueel `stops`-veld en dragen hun plaatsnamen in `stops_geo` (naam). Val
-    // daarom door: stops → stops_geo.naam → highlights, zodat de thumbnail rendert
-    // zodra de route ergens ≥2 benoemde punten heeft.
     const routeStops = routeEntry
       ? (routeEntry.stops.length >= 2
           ? routeEntry.stops
@@ -61,9 +55,8 @@ export async function getStaticPaths() {
         article: a,
         accRoundups,
         voetblok,
-        alternates: enSlugs.has(a.slug)
-          ? { nl: `/artikelen/${a.slug}/`, en: `/en/artikelen/${a.slug}/` }
-          : undefined,
+        // Deze route bestaat per definitie alleen voor EN-vertaalde artikelen.
+        alternates: { nl: `/artikelen/${a.slug}/`, en: `/en/artikelen/${a.slug}/` },
       },
     };
   });
@@ -76,6 +69,6 @@ const { article, accRoundups, voetblok, alternates } = Astro.props;
   article={article}
   accRoundups={accRoundups}
   voetblok={voetblok}
-  locale={DEFAULT_LOCALE}
+  locale={EN}
   alternates={alternates}
 />

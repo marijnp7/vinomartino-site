@@ -111,6 +111,17 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'land.section.faq': 'Veelgestelde vragen',
     'land.section.faqTitle': 'Goed om te weten',
 
+    // Artikel-detailpagina chrome (LAT-2638, ArtikelDetail.astro). Breadcrumb `home`
+    // hergebruikt `streek.breadcrumb.home`. De datum-locale wordt in het component
+    // uit de `locale`-prop afgeleid (nl-NL / en-GB), niet via de dictionary.
+    'artikel.breadcrumb.index': 'Artikelen',
+    'artikel.meta.minLezen': 'min lezen',
+    'artikel.toc.springNaar': 'Inhoud: spring naar',
+    'artikel.toc.aria': 'Inhoudsopgave',
+    'artikel.toc.heading': 'Inhoud',
+    'artikel.author.overDeAuteur': 'Over de auteur',
+    'artikel.author.meerArtikelenVan': 'Meer artikelen van',
+
     // Streek-feitenblok (StreekFeitenblok.astro, LAT-2009). Rij-labels + kop; de
     // tier-badge hergebruikt de bestaande `ui.badge.*`-keys.
     'streek.feit.heading': 'In het kort',
