@@ -122,6 +122,41 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'artikel.author.overDeAuteur': 'Over de auteur',
     'artikel.author.meerArtikelenVan': 'Meer artikelen van',
 
+    // Sitebrede chrome: header (SiteHeader.astro) + footer (SiteFooter.astro),
+    // LAT-2638. Alléén de statische chrome zit hier; nav-item-labels en de land/
+    // streek-namen in "Ontdek" komen uit CMS-data (nav_items/landen/streken) en
+    // worden pas EN zodra die loaders locale-aware zijn (data-overlay follow-up).
+    // De pijlen (→) blijven als HTML-entity in de markup; alleen de tekst is hier.
+    'header.utility.tagline': 'Wijnreizen met karakter',
+    'header.nav.aria': 'Hoofdnavigatie',
+    'header.ontdek.trigger': 'Ontdek',
+    'header.ontdek.promoKicker': 'Zelf gereisd',
+    'header.ontdek.promoTitle': 'Met liefde geselecteerd',
+    'header.ontdek.promoBody': 'Elke landengids hier komt voort uit een eigen wijnreis: geen bureautips, maar streken, telers en flessen die we zelf bezochten en proefden.',
+    'header.ontdek.alleLanden': 'Alle landen',
+    'header.search.openAria': 'Zoeken openen',
+    'header.search.label': 'Zoeken',
+    'header.cellar.enterAria': 'Ga naar de kelder (donkere modus)',
+    'header.cellar.enterLabel': 'Naar de kelder',
+    'header.cellar.exitLabel': 'Naar buiten',
+    'header.mobile.menuAria': 'Menu openen',
+    'header.mobile.ontdekHeader': 'Kies je bestemming',
+    'header.mobile.ontdekSubhead': 'Ontdek een wijnregio',
+    'header.mobile.ontdekAll': 'Naar de Ontdek-atlas',
+    'footer.desc': 'Wijnreizen met karakter. Geschreven door wijnliefhebbers, voor wijnliefhebbers.',
+    'footer.nav.heading': 'Navigatie',
+    'footer.nav.artikelen': 'Artikelen',
+    'footer.nav.auteurs': 'Auteurs',
+    'footer.nav.overOns': 'Ons verhaal',
+    'footer.nav.samenwerken': 'Samenwerken',
+    'footer.legal.heading': 'Juridisch',
+    'footer.legal.colofon': 'Colofon',
+    'footer.legal.privacy': 'Privacy',
+    'footer.legal.cookies': 'Cookies',
+    'footer.legal.affiliate': 'Affiliate-verklaring',
+    'footer.copy.rights': 'Alle rechten voorbehouden.',
+    'footer.affiliateNote': 'Sommige links op deze site zijn affiliate-links. Wij ontvangen een kleine commissie als je via onze link boekt, zonder extra kosten voor jou.',
+
     // Streek-feitenblok (StreekFeitenblok.astro, LAT-2009). Rij-labels + kop; de
     // tier-badge hergebruikt de bestaande `ui.badge.*`-keys.
     'streek.feit.heading': 'In het kort',

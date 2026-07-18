@@ -232,11 +232,11 @@ const articleTags = article?.tags?.filter((tag): tag is string => Boolean(tag &&
     </script>
   </head>
   <body>
-    <SiteHeader activeNav={activeNav} />
+    <SiteHeader activeNav={activeNav} locale={currentLocale} />
     <main>
       <slot />
     </main>
-    <SiteFooter />
+    <SiteFooter locale={currentLocale} />
     <SearchDialog />
     <script>
       import { initAffiliateTracker } from '../lib/click-tracker';

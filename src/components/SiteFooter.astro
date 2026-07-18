@@ -1,4 +1,13 @@
 ---
+import { loadUiStrings } from '../lib/ui-strings';
+import { type Locale, DEFAULT_LOCALE } from '../lib/i18n';
+
+interface Props {
+  locale?: Locale;
+}
+
+const { locale = DEFAULT_LOCALE } = Astro.props;
+const ui = await loadUiStrings(locale);
 const year = new Date().getFullYear();
 ---
 
@@ -7,7 +16,7 @@ const year = new Date().getFullYear();
     <div class="footer-grid">
       <div class="footer-col">
         <h4 class="footer-heading">VinoMartino</h4>
-        <p class="footer-desc">Wijnreizen met karakter. Geschreven door wijnliefhebbers, voor wijnliefhebbers.</p>
+        <p class="footer-desc">{ui.t('footer.desc')}</p>
         <a
           class="footer-social"
           href="https://www.instagram.com/vinomartino.travel/"
@@ -24,28 +33,28 @@ const year = new Date().getFullYear();
         </a>
       </div>
       <div class="footer-col">
-        <h4 class="footer-heading">Navigatie</h4>
+        <h4 class="footer-heading">{ui.t('footer.nav.heading')}</h4>
         <ul class="footer-links">
-          <li><a href="/artikelen/">Artikelen</a></li>
-          <li><a href="/auteurs/">Auteurs</a></li>
-          <li><a href="/over-ons/">Ons verhaal</a></li>
-          <li><a href="/voor-accommodaties/">Samenwerken</a></li>
+          <li><a href="/artikelen/">{ui.t('footer.nav.artikelen')}</a></li>
+          <li><a href="/auteurs/">{ui.t('footer.nav.auteurs')}</a></li>
+          <li><a href="/over-ons/">{ui.t('footer.nav.overOns')}</a></li>
+          <li><a href="/voor-accommodaties/">{ui.t('footer.nav.samenwerken')}</a></li>
         </ul>
       </div>
       <div class="footer-col">
-        <h4 class="footer-heading">Juridisch</h4>
+        <h4 class="footer-heading">{ui.t('footer.legal.heading')}</h4>
         <ul class="footer-links">
-          <li><a href="/colofon/">Colofon</a></li>
-          <li><a href="/privacy/">Privacy</a></li>
-          <li><a href="/cookies/">Cookies</a></li>
-          <li><a href="/affiliate-verklaring/">Affiliate-verklaring</a></li>
+          <li><a href="/colofon/">{ui.t('footer.legal.colofon')}</a></li>
+          <li><a href="/privacy/">{ui.t('footer.legal.privacy')}</a></li>
+          <li><a href="/cookies/">{ui.t('footer.legal.cookies')}</a></li>
+          <li><a href="/affiliate-verklaring/">{ui.t('footer.legal.affiliate')}</a></li>
         </ul>
       </div>
     </div>
     <div class="footer-bottom">
-      <p class="footer-copy">&copy; {year} VinoMartino. Alle rechten voorbehouden.</p>
+      <p class="footer-copy">&copy; {year} VinoMartino. {ui.t('footer.copy.rights')}</p>
       <p class="footer-affiliate-note">
-        Sommige links op deze site zijn affiliate-links. Wij ontvangen een kleine commissie als je via onze link boekt, zonder extra kosten voor jou.
+        {ui.t('footer.affiliateNote')}
       </p>
     </div>
   </div>
