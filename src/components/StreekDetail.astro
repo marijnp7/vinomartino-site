@@ -246,8 +246,8 @@ const hasFactBox = Boolean(
 ---
 
 <SiteLayout
-  title={streekMetaTitle(entry.name, entry.country)}
-  description={streekMetaDescription({ name: entry.name, country: entry.country, grapeVarieties: entry.mainGrapes, description: entry.description })}
+  title={streekMetaTitle(entry.name, entry.country, locale)}
+  description={streekMetaDescription({ name: entry.name, country: entry.country, grapeVarieties: entry.mainGrapes, description: entry.description }, locale)}
   ogImage={entry.ogImage || entry.heroImage || undefined}
   schema={schema}
   activeNav="streken"

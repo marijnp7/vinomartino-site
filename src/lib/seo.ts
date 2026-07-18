@@ -1,3 +1,5 @@
+import { type Locale, DEFAULT_LOCALE } from './i18n';
+
 const SITE_URL = 'https://vinomartino.com';
 const SITE_NAME = 'VinoMartino';
 
@@ -219,7 +221,12 @@ export function streekSchema(data: StreekSchemaData) {
 
 // ─── Meta description templates ───────────────────────────────────────────────
 
-export function wijnhuisMetaTitle(name: string, region?: string): string {
+export function wijnhuisMetaTitle(name: string, region?: string, locale: Locale = DEFAULT_LOCALE): string {
+  if (locale === 'en') {
+    return region
+      ? `${name}, Winery in ${region} | VinoMartino`
+      : `${name}, Winery | VinoMartino`;
+  }
   return region
     ? `${name}, Wijnhuis in ${region} | VinoMartino`
     : `${name}, Wijnhuis | VinoMartino`;
@@ -230,13 +237,21 @@ export function wijnhuisMetaDescription(data: {
   region?: string;
   country?: string;
   description?: string;
-}): string {
+}, locale: Locale = DEFAULT_LOCALE): string {
   if (data.description) return data.description.slice(0, 155);
   const location = [data.region, data.country].filter(Boolean).join(', ');
+  if (locale === 'en') {
+    return `Discover ${data.name}${location ? ` in ${location}` : ''}, wines, grape varieties and production style. All about this winery on VinoMartino.`;
+  }
   return `Ontdek ${data.name}${location ? ` in ${location}` : ''}, wijnen, druivenrassen en productiestijl. Alles over dit wijnhuis op VinoMartino.`;
 }
 
-export function wijnrouteMetaTitle(name: string, region?: string): string {
+export function wijnrouteMetaTitle(name: string, region?: string, locale: Locale = DEFAULT_LOCALE): string {
+  if (locale === 'en') {
+    return region
+      ? `${name}, Wine route through ${region} | VinoMartino`
+      : `${name}, Wine route | VinoMartino`;
+  }
   return region
     ? `${name}, Wijnroute door ${region} | VinoMartino`
     : `${name}, Wijnroute | VinoMartino`;
@@ -247,8 +262,15 @@ export function wijnrouteMetaDescription(data: {
   region?: string;
   duration?: string;
   description?: string;
-}): string {
+}, locale: Locale = DEFAULT_LOCALE): string {
   if (data.description) return data.description.slice(0, 155);
+  if (locale === 'en') {
+    const parts: string[] = [`Follow the ${data.name}`];
+    if (data.region) parts.push(`through ${data.region}`);
+    if (data.duration) parts.push(`(${data.duration})`);
+    parts.push('— the finest wine route with tips for wineries and tastings on VinoMartino.');
+    return parts.join(' ');
+  }
   const parts: string[] = [`Volg de ${data.name}`];
   if (data.region) parts.push(`door ${data.region}`);
   if (data.duration) parts.push(`(${data.duration})`);
@@ -256,7 +278,12 @@ export function wijnrouteMetaDescription(data: {
   return parts.join(' ');
 }
 
-export function streekMetaTitle(name: string, country?: string): string {
+export function streekMetaTitle(name: string, country?: string, locale: Locale = DEFAULT_LOCALE): string {
+  if (locale === 'en') {
+    return country
+      ? `${name}, Wine region in ${country} | VinoMartino`
+      : `${name}, Wine region | VinoMartino`;
+  }
   return country
     ? `${name}, Wijnstreek in ${country} | VinoMartino`
     : `${name}, Wijnstreek | VinoMartino`;
@@ -267,13 +294,20 @@ export function streekMetaDescription(data: {
   country?: string;
   grapeVarieties?: string[];
   description?: string;
-}): string {
+}, locale: Locale = DEFAULT_LOCALE): string {
   if (data.description) return data.description.slice(0, 155);
+  const inCountry = data.country ? ` in ${data.country}` : '';
+  if (locale === 'en') {
+    const grapes =
+      data.grapeVarieties && data.grapeVarieties.length > 0
+        ? ` with ${data.grapeVarieties.slice(0, 3).join(', ')}`
+        : '';
+    return `Everything about the ${data.name} wine region${inCountry}${grapes}, climate, terroir, wineries and wine tips from VinoMartino.`;
+  }
   const grapes =
     data.grapeVarieties && data.grapeVarieties.length > 0
       ? ` met ${data.grapeVarieties.slice(0, 3).join(', ')}`
       : '';
-  const inCountry = data.country ? ` in ${data.country}` : '';
   return `Alles over de wijnstreek ${data.name}${inCountry}${grapes}, klimaat, terroir, wijnhuizen en wijntips van VinoMartino.`;
 }
 
@@ -329,7 +363,12 @@ export function landSchema(data: LandSchemaData) {
   };
 }
 
-export function landMetaTitle(name: string, continent?: string): string {
+export function landMetaTitle(name: string, continent?: string, locale: Locale = DEFAULT_LOCALE): string {
+  if (locale === 'en') {
+    return continent
+      ? `${name}, Wines & wine regions in ${continent} | VinoMartino`
+      : `${name}, Wines & wine regions | VinoMartino`;
+  }
   return continent
     ? `${name}, Wijnen & wijnstreken in ${continent} | VinoMartino`
     : `${name}, Wijnen & wijnstreken | VinoMartino`;
@@ -340,12 +379,21 @@ export function landMetaDescription(data: {
   wijnstreken?: Array<string | { name: string; slug?: string }>;
   grapeVarieties?: string[];
   description?: string;
-}): string {
+}, locale: Locale = DEFAULT_LOCALE): string {
   if (data.description) return data.description.slice(0, 155);
   const strekenNames =
     data.wijnstreken
       ?.map((s) => (typeof s === 'string' ? s : s.name))
       .filter((n): n is string => Boolean(n)) ?? [];
+  if (locale === 'en') {
+    const streken =
+      strekenNames.length > 0 ? `, regions like ${strekenNames.slice(0, 3).join(', ')}` : '';
+    const grapes =
+      data.grapeVarieties && data.grapeVarieties.length > 0
+        ? `, grape varieties like ${data.grapeVarieties.slice(0, 3).join(', ')}`
+        : '';
+    return `Discover the wines of ${data.name}${streken}${grapes}. Wineries, routes and travel tips from VinoMartino.`;
+  }
   const streken =
     strekenNames.length > 0 ? `, streken als ${strekenNames.slice(0, 3).join(', ')}` : '';
   const grapes =
