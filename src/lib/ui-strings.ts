@@ -61,6 +61,10 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'streek.section.appellations': 'Appellations',
     'streek.hero.bron': 'bron',
 
+    // Wijnhuis-detailpagina breadcrumb-fallback (LAT-2638). Laterale index-crumb
+    // wanneer de Land→Streek-keten (nog) onbekend is.
+    'wijnhuis.breadcrumb.index': 'Wijnhuizen',
+
     // Streek-feitenblok (StreekFeitenblok.astro, LAT-2009). Rij-labels + kop; de
     // tier-badge hergebruikt de bestaande `ui.badge.*`-keys.
     'streek.feit.heading': 'In het kort',

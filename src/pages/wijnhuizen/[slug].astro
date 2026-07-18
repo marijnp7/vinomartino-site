@@ -1,16 +1,17 @@
 ---
-import SiteLayout from '../../layouts/SiteLayout.astro';
-import WijnhuisPageContent from '../../components/pages/WijnhuisPageContent.astro';
-import WijnhuisStayNear from '../../components/WijnhuisStayNear.astro';
-import RelatedArticles from '../../components/RelatedArticles.astro';
-import CtaStructure from '../../components/CtaStructure.astro';
+// LAT-2638 — NL wijnhuis-detailroute (prefixloos). Dunne wrapper rond het
+// gedeelde WijnhuisDetail-component; de EN-tegenhanger leeft onder
+// /en/wijnhuizen/. hreflang-alternates worden alleen gezet wanneer er een
+// EN-vertaling bestaat (launch-gate: geen en-hreflang zonder tegenhanger).
+import WijnhuisDetail from '../../components/WijnhuisDetail.astro';
 import { loadWijnhuizen, type Wijnhuis } from '../../lib/wijnhuizen';
 import { loadStreken } from '../../lib/streken';
 import { loadRoutes } from '../../lib/routes';
-import { wijnhuisSchema, wijnhuisMetaTitle, wijnhuisMetaDescription, breadcrumbSchema } from '../../lib/seo';
+import { DEFAULT_LOCALE } from '../../lib/i18n';
 
 export async function getStaticPaths() {
-  const [entries, streken, routes] = await Promise.all([loadWijnhuizen(), loadStreken(), loadRoutes()]);
+  const [entries, streken, routes, enEntries] = await Promise.all([loadWijnhuizen(), loadStreken(), loadRoutes(), loadWijnhuizen('en')]);
+  const enSlugs = new Set(enEntries.map(e => e.slug));
   const streekBySlug = new Map(streken.map(s => [s.slug, s]));
   // LAT-2010 [VIS-BL-11]: koppel elk wijnhuis aan een wijnroute. Voorkeur: de route
   // die dit huis expliciet als stop noemt (stops_geo kind=wijnhuis + slug, na
@@ -45,77 +46,15 @@ export async function getStaticPaths() {
         landName: streek?.country ?? '',
         routeHref: route ? `/wijnroutes/${route.slug}/` : '',
         routeLabel: route?.title ?? '',
+        alternates: enSlugs.has(entry.slug)
+          ? { nl: `/wijnhuizen/${entry.slug}/`, en: `/en/wijnhuizen/${entry.slug}/` }
+          : undefined,
       },
     };
   });
 }
 
-const { entry, landSlug, landName, routeHref, routeLabel } = Astro.props as { entry: Wijnhuis; landSlug: string; landName: string; routeHref: string; routeLabel: string };
-const pageUrl = new URL(`/wijnhuizen/${entry.slug}/`, Astro.site ?? 'https://vinomartino.com').href;
-
-// LAT-1199: verticale kruimel Land → Streek → Wijnhuis, met graceful fallback
-// op de laterale Wijnhuizen-index wanneer de keten (nog) onbekend is.
-const hasParentLand = Boolean(landSlug && landName);
-const hasParentStreek = Boolean(entry.streekSlug && entry.region);
-
-const crumbs = [{ name: 'Home', url: '/' }];
-if (hasParentLand) {
-  crumbs.push({ name: 'Landen', url: '/landen/' });
-  crumbs.push({ name: landName, url: `/landen/${landSlug}/` });
-} else {
-  crumbs.push({ name: 'Wijnhuizen', url: '/wijnhuizen/' });
-}
-if (hasParentStreek) {
-  crumbs.push({ name: entry.region, url: `/streken/${entry.streekSlug}/` });
-}
-crumbs.push({ name: entry.name, url: pageUrl });
-
-// Visible breadcrumb chain for WijnhuisPageContent (component appends the
-// current wijnhuis name itself, so omit the trailing crumb here).
-const visibleBreadcrumb = crumbs.slice(0, -1).map(c => ({ label: c.name, href: c.url }));
-
-const schema = [
-  wijnhuisSchema({
-    name: entry.name,
-    description: entry.description,
-    website: entry.website,
-    image: entry.heroImage,
-    address: entry.address,
-    region: entry.region,
-    country: entry.country,
-    grapes: entry.grapes,
-    established: entry.established ?? undefined,
-    pageUrl,
-  }),
-  breadcrumbSchema(crumbs),
-];
+const { entry, landSlug, landName, routeHref, routeLabel, alternates } = Astro.props as { entry: Wijnhuis; landSlug: string; landName: string; routeHref: string; routeLabel: string; alternates?: Record<string, string> };
 ---
 
-<SiteLayout
-  title={wijnhuisMetaTitle(entry.name, entry.region)}
-  description={wijnhuisMetaDescription({ name: entry.name, region: entry.region, country: entry.country, description: entry.description })}
-  ogImage={entry.ogImage || entry.heroImage || undefined}
-  schema={schema}
-  activeNav="wijnhuizen"
->
-  <WijnhuisPageContent
-    name={entry.name}
-    subtitle={entry.description}
-    breadcrumb={visibleBreadcrumb}
-    region={[entry.region, entry.country].filter(Boolean).join(' · ')}
-    regionHref={entry.streekSlug ? `/streken/${entry.streekSlug}/` : undefined}
-    routeHref={routeHref || undefined}
-    routeLabel={routeLabel || undefined}
-    since={entry.established ? String(entry.established) : undefined}
-    hectaren={entry.hectares || undefined}
-    biologisch={entry.biodynamisch ? 'Ja' : undefined}
-    heroImage={entry.heroImage || undefined}
-    heroImageId={entry.heroImageId}
-    drieluik={entry.drieluik}
-  >
-    {entry.bodyHtml && <div slot="story" set:html={entry.bodyHtml} />}
-  </WijnhuisPageContent>
-  <CtaStructure data={entry.cta} sid={entry.slug} />
-  <RelatedArticles items={entry.relatedArticles} />
-  <WijnhuisStayNear naam={entry.name} region={entry.region} country={entry.country} slug={entry.slug} />
-</SiteLayout>
+<WijnhuisDetail entry={entry} landSlug={landSlug} landName={landName} routeHref={routeHref} routeLabel={routeLabel} locale={DEFAULT_LOCALE} alternates={alternates} />

@@ -1,0 +1,60 @@
+---
+// LAT-2638 — EN wijnhuis-detailroute onder /en/. Identieke markup als de
+// NL-route via het gedeelde WijnhuisDetail-component, met de per-locale loaders:
+// loadWijnhuizen('en') past de no-translation-guard toe (directus-i18n.ts), dus
+// wijnhuizen zónder EN-vertaling vallen weg uit `entries` → er wordt géén
+// /en/wijnhuizen/<slug>/ gegenereerd (404 i.p.v. NL-lek). Streek/route-relaties
+// gebruiken de EN-loaders zodat de kruimel/route-meta ook EN-vertaalde records
+// pakt (niet-vertaalde vallen weg → leeg i.p.v. gemengd NL/EN).
+import WijnhuisDetail from '../../../components/WijnhuisDetail.astro';
+import { loadWijnhuizen, type Wijnhuis } from '../../../lib/wijnhuizen';
+import { loadStreken } from '../../../lib/streken';
+import { loadRoutes } from '../../../lib/routes';
+
+const EN = 'en' as const;
+
+export async function getStaticPaths() {
+  const [entries, streken, routes] = await Promise.all([loadWijnhuizen('en'), loadStreken('en'), loadRoutes('en')]);
+  const streekBySlug = new Map(streken.map(s => [s.slug, s]));
+  const routesByStreek = new Map<string, typeof routes>();
+  for (const r of routes) {
+    if (!r.streekSlug) continue;
+    const list = routesByStreek.get(r.streekSlug) ?? [];
+    list.push(r);
+    routesByStreek.set(r.streekSlug, list);
+  }
+  const routeByWijnhuisSlug = new Map<string, typeof routes[number]>();
+  for (const r of routes) {
+    for (const stop of r.stopsGeo) {
+      if (stop.kind === 'wijnhuis' && stop.slug && !routeByWijnhuisSlug.has(stop.slug)) {
+        routeByWijnhuisSlug.set(stop.slug, r);
+      }
+    }
+  }
+  return entries.map(entry => {
+    const streek = entry.streekSlug ? streekBySlug.get(entry.streekSlug) : undefined;
+    const route = routeByWijnhuisSlug.get(entry.slug)
+      ?? (entry.streekSlug ? routesByStreek.get(entry.streekSlug)?.[0] : undefined);
+    return {
+      params: { slug: entry.slug },
+      props: {
+        entry,
+        landSlug: streek?.landSlug ?? '',
+        landName: streek?.country ?? '',
+        // Interne links blijven NL-absoluut tot de aparte link-localisatie-pas
+        // (scope #3, LAT-2638); zo ontstaan geen dode /en/-links naar (nog) niet
+        // vertaalde tegenhangers. Consistent met de streken-pilot.
+        routeHref: route ? `/wijnroutes/${route.slug}/` : '',
+        routeLabel: route?.title ?? '',
+        // Deze route bestaat per definitie alleen voor EN-vertaalde wijnhuizen,
+        // dus beide hreflang-tegenhangers zijn altijd aanwezig.
+        alternates: { nl: `/wijnhuizen/${entry.slug}/`, en: `/en/wijnhuizen/${entry.slug}/` },
+      },
+    };
+  });
+}
+
+const { entry, landSlug, landName, routeHref, routeLabel, alternates } = Astro.props as { entry: Wijnhuis; landSlug: string; landName: string; routeHref: string; routeLabel: string; alternates: Record<string, string> };
+---
+
+<WijnhuisDetail entry={entry} landSlug={landSlug} landName={landName} routeHref={routeHref} routeLabel={routeLabel} locale={EN} alternates={alternates} />
