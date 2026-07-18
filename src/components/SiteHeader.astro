@@ -4,14 +4,24 @@ import { loadLandenNav } from '../lib/landen';
 import { loadStrekenNav } from '../lib/streken';
 import { loadUiStrings } from '../lib/ui-strings';
 import { type Locale, DEFAULT_LOCALE } from '../lib/i18n';
+import LanguageSwitcher from './LanguageSwitcher.astro';
 
 interface Props {
   activeNav?: string;
   locale?: Locale;
+  /** Bestaat er een gepubliceerde EN-tegenhanger voor deze pagina? Stuurt de
+   *  launch-gate van de taal-switcher (geen dode /en/-link). */
+  counterpartExists?: boolean;
 }
 
-const { activeNav, locale = DEFAULT_LOCALE } = Astro.props;
+const { activeNav, locale = DEFAULT_LOCALE, counterpartExists = false } = Astro.props;
 const ui = await loadUiStrings(locale);
+
+// Taal-switcher alleen tonen wanneer er écht een alternatief is: op /en/ bestaat
+// NL altijd; op NL-pagina's pas zodra er een EN-tegenhanger is. Op NL-pagina's
+// zónder tegenhanger rendert de expressie niets — direct tegen </span> geplakt
+// zodat de NL-HTML byte-identiek blijft (geen losstaande whitespace-node).
+const showSwitcher = locale !== DEFAULT_LOCALE || counterpartExists;
 
 const nav = await loadNavigation();
 
@@ -66,7 +76,7 @@ const ontdekPromo = {
 <header class="site-header">
   <div class="header-utility">
     <div class="header-utility-inner">
-      <span>{ui.t('header.utility.tagline')}</span>
+      <span>{ui.t('header.utility.tagline')}</span>{showSwitcher && <LanguageSwitcher counterpartExists={counterpartExists} />}
     </div>
   </div>
 

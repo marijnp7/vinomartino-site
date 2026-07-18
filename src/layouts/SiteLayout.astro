@@ -232,7 +232,7 @@ const articleTags = article?.tags?.filter((tag): tag is string => Boolean(tag &&
     </script>
   </head>
   <body>
-    <SiteHeader activeNav={activeNav} locale={currentLocale} />
+    <SiteHeader activeNav={activeNav} locale={currentLocale} counterpartExists={Boolean(alternates?.en)} />
     <main>
       <slot />
     </main>
