@@ -25,6 +25,7 @@
  */
 import europeGeo from '../data/atlas/europe-countries.json';
 import overseasGeo from '../data/atlas/overseas-countries.json';
+import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
 
 export interface MapCountry {
   slug: string;
@@ -41,9 +42,19 @@ export interface Props {
   /** Gepubliceerde landen (met /landen/{slug}/). Bepaalt klikbaarheid + kleur. */
   countries: MapCountry[];
   class?: string;
+  locale?: Locale;
 }
 
-const { countries, class: className } = Astro.props;
+const { countries, class: className, locale = DEFAULT_LOCALE } = Astro.props;
+
+// LAT-2582 — chrome-labels locale-aware; NL-default byte-identiek aan de oude tekst.
+const isEn = locale === 'en';
+const mapTitle = isEn ? 'Wine map of Europe' : 'Wijnkaart van Europa';
+const mapTitleClickable = isEn ? 'Clickable wine map of Europe' : 'Klikbare wijnkaart van Europa';
+const railHead = isEn ? 'Wine countries overseas' : 'Wijnlanden overzee';
+const railAria = isEn ? 'Wine countries outside Europe' : 'Wijnlanden buiten Europa';
+const regionCountLabel = (n: number) =>
+  isEn ? `${n} ${n === 1 ? 'region' : 'regions'}` : `${n} ${n === 1 ? 'streek' : 'streken'}`;
 
 interface GeoEntry { name: string; d: string; labelOffset?: { x: number; y: number } }
 const viewBox = (europeGeo._meta?.viewBox as string) || '0 0 800 700';
@@ -116,16 +127,16 @@ const linkableCount = drawn.filter((d) => d.land).length;
 
 {linkableCount > 0 && (
   <div class:list={['dme', className]}>
-    <nav class="dme-mapwrap" aria-label="Wijnkaart van Europa">
+    <nav class="dme-mapwrap" aria-label={mapTitle}>
       <div class="dme-wrap" style={`--map-aspect: ${aspect};`}>
         <svg
           viewBox={viewBox}
           class="dme-map"
           role="img"
-          aria-label="Klikbare wijnkaart van Europa"
+          aria-label={mapTitleClickable}
           xmlns="http://www.w3.org/2000/svg"
         >
-          <title>Wijnkaart van Europa</title>
+          <title>{mapTitle}</title>
 
           {/* ── Context-onderlaag: landen zonder pagina (inert, geen label) ── */}
           <g class="dme-context" aria-hidden="true">
@@ -141,7 +152,7 @@ const linkableCount = drawn.filter((d) => d.land).length;
           <g class="dme-countries">
             {drawn.filter((d) => d.land).map((d) => {
               const land = d.land!;
-              const countLabel = `${land.regionCount} ${land.regionCount === 1 ? 'streek' : 'streken'}`;
+              const countLabel = regionCountLabel(land.regionCount);
               // LAT-2451 — kerndruif meelezen in de tooltip/titel als het land die draagt.
               const meta = land.grapes ? `${countLabel} · ${land.grapes}` : countLabel;
               const tip = `${land.name}, ${meta}`;
@@ -177,8 +188,8 @@ const linkableCount = drawn.filter((d) => d.land).length;
     </nav>
 
     {overseas.length > 0 && (
-      <aside class="dme-rail" aria-label="Wijnlanden buiten Europa">
-        <p class="dme-rail-head">Wijnlanden overzee</p>
+      <aside class="dme-rail" aria-label={railAria}>
+        <p class="dme-rail-head">{railHead}</p>
         <ul class="dme-rail-list">
           {overseas.map(({ land, geo }) => (
             <li>
@@ -186,7 +197,7 @@ const linkableCount = drawn.filter((d) => d.land).length;
                 href={`/landen/${land.slug}/`}
                 class="dme-card"
                 style={`--c: ${land.color};`}
-                aria-label={`${land.name}, ${land.regionCount} ${land.regionCount === 1 ? 'streek' : 'streken'}`}
+                aria-label={`${land.name}, ${regionCountLabel(land.regionCount)}`}
               >
                 <span class="dme-card-shape">
                   <svg viewBox={geo.viewBox} role="img" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
@@ -195,7 +206,7 @@ const linkableCount = drawn.filter((d) => d.land).length;
                 </span>
                 <span class="dme-card-text">
                   <span class="dme-card-name">{land.name}</span>
-                  <span class="dme-card-meta">{land.regionCount} {land.regionCount === 1 ? 'streek' : 'streken'}</span>
+                  <span class="dme-card-meta">{regionCountLabel(land.regionCount)}</span>
                 </span>
               </a>
             </li>

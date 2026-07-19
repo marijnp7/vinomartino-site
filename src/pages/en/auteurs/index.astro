@@ -1,0 +1,7 @@
+---
+// LAT-2693 — EN auteurs-overzicht onder /en/. Zelfde AuteursIndex-component;
+// locale="en" activeert de UI-dictionary-overlay. Auteur-bio's blijven NL.
+import AuteursIndex from '../../../components/AuteursIndex.astro';
+---
+
+<AuteursIndex locale="en" alternates={{ nl: '/auteurs/', en: '/en/auteurs/' }} />

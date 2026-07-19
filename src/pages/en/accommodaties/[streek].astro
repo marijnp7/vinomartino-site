@@ -1,0 +1,31 @@
+---
+// LAT-2693 — EN accommodatie-roundup per streek onder /en/. Identieke markup als
+// de NL-route via het gedeelde AccommodatieRoundupPage-component, met de
+// EN-loaders (loadAccommodatieRoundupPaths('en') past de no-translation-guard
+// toe via loadStreken('en') → streken zónder EN-vertaling vallen weg, géén
+// /en/accommodaties/<slug>/ i.p.v. NL-lek). Chrome toont EN via locale="en"; de
+// roundup-inhoud blijft NL tot LAT-2687 (OPTIE A-scopegrens).
+import AccommodatieRoundupPage from '../../../components/AccommodatieRoundupPage.astro';
+import { loadAccommodatieRoundupPaths, type AccommodatieRoundupPathProps } from '../../../lib/accommodatie-roundup-paths';
+
+const EN = 'en' as const;
+
+export async function getStaticPaths() {
+  const paths = await loadAccommodatieRoundupPaths('en');
+  return paths.map((p) => ({
+    params: p.params,
+    props: {
+      ...p.props,
+      // Deze route bestaat per definitie alleen voor EN-vertaalde streken, dus
+      // beide hreflang-tegenhangers zijn altijd aanwezig.
+      alternates: { nl: `/accommodaties/${p.params.streek}/`, en: `/en/accommodaties/${p.params.streek}/` },
+    },
+  }));
+}
+
+const { roundup, streek, streekSlug, alternates } = Astro.props as AccommodatieRoundupPathProps & {
+  alternates: Record<string, string>;
+};
+---
+
+<AccommodatieRoundupPage roundup={roundup} streek={streek} streekSlug={streekSlug} locale={EN} alternates={alternates} />

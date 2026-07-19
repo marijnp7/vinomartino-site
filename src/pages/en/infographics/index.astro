@@ -1,0 +1,7 @@
+---
+// LAT-2693 — EN infographics-preview onder /en/ (noindex). Zelfde
+// InfographicsPreview-component; locale="en" zorgt voor EN-chrome + hreflang.
+import InfographicsPreview from '../../../components/InfographicsPreview.astro';
+---
+
+<InfographicsPreview locale="en" alternates={{ nl: '/infographics/', en: '/en/infographics/' }} />

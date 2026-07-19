@@ -19,6 +19,8 @@
 
 import { buildAffiliateLink, type AffiliateType, type AffiliatePartner } from './affiliate-regio';
 import { buildBookingSearchLink, buildCjBookingLink } from './affiliates';
+import type { Locale } from './i18n';
+import { SUNNYCARS_DEFAULT_DEST, applySunnyCarsLocale } from './affiliate-locale';
 
 // Wijn-retail (Grapedistrict) landt nog op de feature-branch van LAT-1780. Tot
 // die merge houden we de resolver onafhankelijk met een lokale, identiek
@@ -56,10 +58,17 @@ export type CtaPartner =
 // zijn, linken we naar de kale Sunny Cars-deeplink (`bookingUrl`) — werkt, maar
 // nog niet ge-attribueerd. `booking-direct` is GEEN alternatief: die helper
 // onthopt+her-aid't een booking.com-URL en zou een sunnycars-URL corrumperen.
-function buildSunnyCarsHref(link: CtaLink, sid: string): string {
-  const dest = (link.bookingUrl && link.bookingUrl.trim())
-    ? link.bookingUrl.trim()
-    : 'https://www.sunnycars.nl/';
+//
+// LAT-2576 — taal: EN-pagina's krijgen de Engelse storefront (`/en`-pad-prefix,
+// browser-geverifieerd). De TradeTracker-`u`-doel-URL wordt gelokaliseerd vóór de
+// wrap; NL blijft de prefixloze .nl-bestemming.
+function buildSunnyCarsHref(link: CtaLink, sid: string, locale: Locale = 'nl'): string {
+  const dest = applySunnyCarsLocale(
+    (link.bookingUrl && link.bookingUrl.trim())
+      ? link.bookingUrl.trim()
+      : SUNNYCARS_DEFAULT_DEST[locale],
+    locale,
+  );
   const campaign = (process.env['TRADETRACKER_SUNNYCARS_CAMPAIGN'] || '').trim();
   const affiliate = (process.env['TRADETRACKER_AFFILIATE_ID'] || '').trim();
   if (!campaign || !affiliate) return dest;
@@ -135,9 +144,10 @@ export interface CtaStructure {
 /**
  * Resolveer een CtaLink → definitieve href. Centrale routing zodat elke CTA
  * dezelfde tracking-/aid-discipline volgt. `sid` voedt de CJ-/campagnelabel-
- * attributie per plaatsing (bv. `cta-primary-langhe-piemonte`).
+ * attributie per plaatsing (bv. `cta-primary-langhe-piemonte`). `locale` (default
+ * NL, huidig gedrag) schakelt de affiliate-taalparameters in voor EN-pagina's.
  */
-export function resolveCtaHref(link: CtaLink, sid: string): string {
+export function resolveCtaHref(link: CtaLink, sid: string, locale: Locale = 'nl'): string {
   switch (link.partner) {
     case 'getyourguide':
     case 'booking-awin': {
@@ -149,19 +159,20 @@ export function resolveCtaHref(link: CtaLink, sid: string): string {
         partner,
         query: link.query,
         bookingUrl: link.bookingUrl,
+        locale,
       }).href;
     }
     case 'wine-retail':
       return buildWineRetailHref(link.query ?? '', sid);
     case 'sunny-cars':
-      return buildSunnyCarsHref(link, sid);
+      return buildSunnyCarsHref(link, sid, locale);
     case 'booking-direct':
     default:
       // aid-818285-norm: expliciete property-URL → onthopt+ge-aid; anders een
       // directe booking.com-SEARCH-landing op de query.
       return link.bookingUrl
-        ? buildCjBookingLink(link.bookingUrl, sid)
-        : buildBookingSearchLink(link.query ?? '', sid);
+        ? buildCjBookingLink(link.bookingUrl, sid, locale)
+        : buildBookingSearchLink(link.query ?? '', sid, locale);
   }
 }
 

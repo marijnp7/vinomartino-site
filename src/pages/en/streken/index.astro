@@ -1,0 +1,9 @@
+---
+// LAT-2693 — EN streken-overzicht onder /en/. Zelfde StrekenIndex-component als
+// de NL-route; locale="en" activeert de EN-loaders (no-translation-guard: streken
+// zonder EN-vertaling vallen weg) en de ui_strings-overlay. alternates voedt
+// hreflang terug naar de NL-index.
+import StrekenIndex from '../../../components/StrekenIndex.astro';
+---
+
+<StrekenIndex locale="en" alternates={{ nl: '/streken/', en: '/en/streken/' }} />

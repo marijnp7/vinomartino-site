@@ -4,24 +4,28 @@
 // eigen "waarom dit logisch is". Data-driven uit Directus (cta_blocks.comparison).
 // Meer dan 3 opties wordt afgekapt — geen banner-wand.
 import { resolveCtaHref, ctaTrackPartner, type CtaComparisonData } from '../lib/cta-blocks';
+import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
 
 interface Props {
   data?: CtaComparisonData;
   sid: string;
+  locale?: Locale;
 }
 
-const { data, sid } = Astro.props;
+const { data, sid, locale = DEFAULT_LOCALE } = Astro.props;
+const ui = await loadUiStrings(locale);
 const placement = 'cta-comparison';
 const options = (data?.options ?? []).slice(0, 3);
 ---
 
 {data && options.length > 0 && (
-  <section class="vm-cta-compare" aria-label="Vergelijk je opties">
+  <section class="vm-cta-compare" aria-label={ui.t('ui.cta.comparison.aria')}>
     {data.heading && <h3 class="vm-cta-compare__heading">{data.heading}</h3>}
     {data.intro && <p class="vm-cta-compare__intro">{data.intro}</p>}
     <div class="vm-cta-compare__grid" data-count={options.length}>
       {options.map((opt, i) => {
-        const href = resolveCtaHref(opt.link, `${placement}-${opt.tier ?? i}-${sid}`);
+        const href = resolveCtaHref(opt.link, `${placement}-${opt.tier ?? i}-${sid}`, locale);
         return (
           <article class="vm-cta-compare__card">
             <p class="vm-cta-compare__title">{opt.title}</p>
@@ -36,7 +40,7 @@ const options = (data?.options ?? []).slice(0, 3);
               data-affiliate-placement={placement}
               data-affiliate-context={`${opt.tier ?? i}-${sid}`}
             >
-              {opt.link.label ?? 'Bekijk'}
+              {opt.link.label ?? ui.t('ui.cta.comparison.fallbackCta')}
             </a>
           </article>
         );

@@ -6,11 +6,15 @@
 
 import type { AccommodatieRoundup } from '../lib/accommodaties';
 import AccommodatieKaart from './AccommodatieKaart.astro';
+import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
 
 interface Props {
   roundup: AccommodatieRoundup;
   /** Context-slug voor affiliate-tracking, bv. de regio-slug. */
   context?: string;
+  /** LAT-2575: NL byte-identiek op DEFAULT_LOCALE; /en/ geeft "en" mee. */
+  locale?: Locale;
   /**
    * Onderdruk de eigen kop/intro wanneer de pagina al een hero met dezelfde
    * boodschap levert (bv. de dedicated /accommodaties/<streek>/-pagina), om
@@ -23,7 +27,8 @@ interface Props {
   displayValuta?: string;
 }
 
-const { roundup, context, hideHead = false, bronValuta, displayValuta = 'EUR' } = Astro.props;
+const { roundup, context, hideHead = false, bronValuta, displayValuta = 'EUR', locale = DEFAULT_LOCALE } = Astro.props;
+const ui = await loadUiStrings(locale);
 
 // Alleen clusters met daadwerkelijke kaarten tonen (LAT-1406).
 const groepen = roundup.clusters.filter((c) => c.kaarten.length > 0);
@@ -36,22 +41,19 @@ const sectionId = `acc-roundup-${(context || roundup.regio).toLowerCase().replac
     class:list={['acc-roundup', { 'acc-roundup--headless': hideHead }]}
     id={sectionId}
     aria-labelledby={hideHead ? undefined : `${sectionId}-title`}
-    aria-label={hideHead ? `Verblijven in ${roundup.regio}` : undefined}
+    aria-label={hideHead ? `${ui.t('acc.ariaVerblijvenPrefix')} ${roundup.regio}` : undefined}
   >
     {!hideHead && (
       <header class="acc-roundup__head">
-        <span class="acc-roundup__kicker">Waar te slapen</span>
-        <h2 id={`${sectionId}-title`} class="acc-roundup__title">Leuke hotels in {roundup.regio}</h2>
-        <p class="acc-roundup__intro">
-          Een handgekozen selectie verblijven per bestemming, geen willekeurig hotelaanbod, maar adressen
-          die we zelf zouden boeken. Prijzen zijn indicatief "vanaf"-tarieven en variëren per seizoen.
-        </p>
+        <span class="acc-roundup__kicker">{ui.t('acc.kicker')}</span>
+        <h2 id={`${sectionId}-title`} class="acc-roundup__title">{`${ui.t('acc.hotelsInPrefix')} ${roundup.regio}`}</h2>
+        <p class="acc-roundup__intro">{ui.t('acc.intro')}</p>
       </header>
     )}
 
     {heeftNav && (
-      <nav class="acc-roundup__nav" aria-label="Spring naar een bestemming">
-        <span class="acc-roundup__nav-label">Voor welke bestemming zoek je een accommodatie?</span>
+      <nav class="acc-roundup__nav" aria-label={ui.t('acc.navAria')}>
+        <span class="acc-roundup__nav-label">{ui.t('acc.navLabel')}</span>
         <ul class="acc-roundup__pills">
           {groepen.map((g) => (
             <li>
@@ -65,10 +67,10 @@ const sectionId = `acc-roundup-${(context || roundup.regio).toLowerCase().replac
     {groepen.map((g) => (
       <div class="acc-roundup__groep" id={`${sectionId}-${g.slug}`}>
         <h3 class="acc-roundup__groep-title">
-          {g.plaatsen.length > 1 ? `Leuke hotels rond ${g.titel}` : `Leuke hotels in ${g.titel}`}
+          {g.plaatsen.length > 1 ? `${ui.t('acc.hotelsRondPrefix')} ${g.titel}` : `${ui.t('acc.hotelsInPrefix')} ${g.titel}`}
         </h3>
         {g.plaatsen.length > 1 && (
-          <p class="acc-roundup__groep-note">Allemaal binnen ~40 min rijden van elkaar</p>
+          <p class="acc-roundup__groep-note">{ui.t('acc.groepNote')}</p>
         )}
         <div class="acc-roundup__grid">
           {g.kaarten.map((kaart) => (
@@ -78,10 +80,7 @@ const sectionId = `acc-roundup-${(context || roundup.regio).toLowerCase().replac
       </div>
     ))}
 
-    <p class="acc-roundup__disclosure">
-      Affiliate-links · we kunnen een commissie ontvangen als je via deze links boekt; jij betaalt niets extra.
-      We tonen alleen accommodaties en foto's die onder ons affiliate-/licentieprogramma zijn toegestaan.
-    </p>
+    <p class="acc-roundup__disclosure">{ui.t('acc.disclosure')}</p>
   </section>
 )}
 

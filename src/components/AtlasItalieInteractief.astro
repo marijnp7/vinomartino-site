@@ -1,0 +1,153 @@
+---
+// LAT-2693 — gedeelde interactieve Italië-atlas (noindex mockup). NL-route +
+// /en/-tegenhanger renderen dit component; `locale` stuurt de chrome + hreflang
+// en de terug-link. Mockup-inhoud blijft hard-coded NL (redactie-review) → NL
+// byte-identiek.
+import SiteLayout from '../layouts/SiteLayout.astro';
+import InfographicAtlasInteractive from '../components/InfographicAtlasInteractive.astro';
+import { mapConfigToProps, buildZones } from '../lib/atlas';
+import seed from '../data/atlas/italie.seed.json';
+import { DEFAULT_LOCALE, localizePath, type Locale } from '../lib/i18n';
+
+interface Props {
+  locale?: Locale;
+  alternates?: Partial<Record<Locale, string>>;
+}
+
+const { locale = DEFAULT_LOCALE, alternates } = Astro.props;
+
+/**
+ * LAT-1122 — interactieve Italië-landenkaart, design-review mockup.
+ *
+ * Doel: Marijn de interactie (3 toggle-lagen, hover-facts, mobiele
+ * lijst-fallback) en de ECHTE cartografie laten reviewen vóórdat de live
+ * versie op /landen/italie/ uit Directus wordt gevoed.
+ *
+ * Data: de definitieve LAT-1121-geometrie (italie.seed.json), via dezelfde
+ * adapter (lib/atlas) die straks de Directus-rijen mapt. Geen placeholder meer.
+ *
+ * 404-veiligheid: `publishedSlugs` is hier LEEG, dus geen enkele zone is
+ * klikbaar — de seed-slugs (langhe, veneto, …) hebben nog geen streekpagina
+ * (die maakt LAT-1123 aan). Drill-down-navigatie wordt getest op /landen/italie/
+ * zodra LAT-1123 de streken seedt. Zo geen 404-traps in de mockup.
+ *
+ * Route is noindex via SiteLayout; pagina is puur voor redactie-review.
+ */
+
+const mapConfig = (seed as Record<string, any>)['landen.map_config[italie]'];
+const strekenRows = (seed as Record<string, any>)['streken[]'] as Record<string, unknown>[];
+const appellatieRows = (seed as Record<string, any>)['appellaties[]'] as Record<string, unknown>[];
+
+const map = mapConfigToProps(mapConfig);
+// Mockup: geen gepubliceerde streekpagina's → alle zones niet-klikbaar.
+const zones = buildZones(strekenRows, appellatieRows, []);
+
+const facts = [
+  { label: 'Wijnstreken', value: '20 regio\'s' },
+  { label: 'Kern-druiven', value: 'Nebbiolo · Sangiovese · Nerello' },
+  { label: 'Appellaties', value: '~530 DOC/DOCG' },
+  { label: 'Beste reisseizoen', value: 'Sep–okt (oogst)' },
+];
+---
+
+<SiteLayout
+  title="Italië, interactieve wijnatlas | LAT-1122 mockup"
+  description="Design-review mockup van de interactieve Italië-landenkaart: 3 toggle-lagen, hover-facts en klik-drill-down. Pilot voor LAT-1122."
+  activeNav=""
+  schema={[]}
+  noindex={true}
+  locale={locale}
+  alternates={alternates}
+>
+  <main class="atlas-demo">
+    <div class="wrap">
+      <header class="demo-head">
+        <p class="eyebrow">REDACTIE-MOCKUP · LAT-1122</p>
+        <h1 class="display">Italië, in drie doorsnedes</h1>
+        <p class="standfirst">
+          Eén kaart, drie lezingen: streken, druiven en appellaties. Schakel met
+          de knoppen, beweeg over een zone voor de kerngetallen en klik om naar
+          de streekgids te gaan. Op smalle schermen valt de kaart terug op een
+          gestapelde lijst.
+        </p>
+        <div class="notice">
+          <p>
+            <strong>Let op: mockup.</strong> De kaartvormen zijn de definitieve
+            cartografie (LAT-1121), maar de kerngetallen en koppelingen komen op
+            de live pagina uit Directus (LAT-1120). In deze mockup zijn de zones
+            bewust <em>niet</em> klikbaar: de streekpagina's worden door LAT-1123
+            aangemaakt. De drill-down-navigatie testen we op
+            <em>/landen/italie/</em> zodra die streken bestaan.
+          </p>
+        </div>
+      </header>
+
+      <InfographicAtlasInteractive
+        kicker="WIJNATLAS · ITALIË"
+        title="Van de Langhe tot de Etna"
+        subtitle="Streken, druiven en appellaties op één kaart"
+        intro="Drie lagen over dezelfde geografie. Kies een laag, beweeg over een zone en klik door naar de streek."
+        map={map}
+        zones={zones}
+        facts={facts}
+        source="VinoMartino redactie · cartografie LAT-1121"
+        alt="Interactieve kaart van Italië met schakelbare lagen voor streken, druiven en appellaties; zones tonen kerngetallen bij hover en linken naar de streekgids."
+      />
+
+      <p class="back">
+        <a href={localizePath('/infographics/', locale)}>← Terug naar alle infographics</a>
+      </p>
+    </div>
+  </main>
+</SiteLayout>
+
+<style>
+  .atlas-demo {
+    background: #FAF5E9;
+    color: #1F1A16;
+    padding: clamp(2rem, 5vw, 4.5rem) clamp(1rem, 3vw, 2rem) clamp(4rem, 8vw, 7rem);
+  }
+  .wrap {
+    max-width: 60rem;
+    margin: 0 auto;
+    font-family: 'Source Serif 4', Georgia, serif;
+  }
+  .demo-head {
+    max-width: 44rem;
+    margin: 0 auto clamp(2rem, 4vw, 3rem);
+    text-align: center;
+  }
+  .eyebrow {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 0.75rem; letter-spacing: 0.22em; text-transform: uppercase;
+    color: #5A1A1F; margin: 0 0 1rem;
+  }
+  .display {
+    font-family: 'Cormorant Garamond', 'EB Garamond', Georgia, serif;
+    font-size: clamp(2.25rem, 5.5vw, 4rem); font-style: italic; font-weight: 500;
+    line-height: 1.04; margin: 0 0 1rem;
+  }
+  .standfirst {
+    max-width: 38rem; margin: 0 auto;
+    font-size: clamp(1.02rem, 1.5vw, 1.18rem); line-height: 1.6; color: #5A4F45;
+  }
+  .notice {
+    margin: 1.75rem auto 0; max-width: 40rem;
+    border: 1px solid #C9B98F; background: #F0E6D0;
+    padding: 0.9rem 1.1rem; text-align: left;
+  }
+  .notice p {
+    margin: 0; font-size: 0.92rem; line-height: 1.55; color: #5A4F45;
+  }
+  .notice strong { color: #5A1A1F; }
+  .back {
+    margin: clamp(2rem, 4vw, 3rem) 0 0; text-align: center;
+  }
+  .back a {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 0.75rem; letter-spacing: 0.16em; text-transform: uppercase;
+    color: #5A1A1F; text-decoration: none; border-bottom: 1px solid currentColor;
+    padding-bottom: 0.15rem;
+  }
+  .back a:hover { color: #1F1A16; }
+</style>

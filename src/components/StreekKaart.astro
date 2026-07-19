@@ -11,6 +11,8 @@
 // nooit "coming soon" (Martin-stem, plan 4b).
 
 import PoiCard, { type PoiCardTheme } from './PoiCard.astro';
+import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
 
 export interface StreekPoiInput {
   naam: string;
@@ -61,6 +63,8 @@ interface Props {
   overnachten?: StreekPoiInput[];
   eten?: StreekPoiInput[];
   activiteiten?: StreekPoiInput[];
+  /** LAT-2575: NL byte-identiek op DEFAULT_LOCALE; /en/ geeft "en" mee. */
+  locale?: Locale;
 }
 
 const {
@@ -71,15 +75,18 @@ const {
   overnachten = [],
   eten = [],
   activiteiten = [],
+  locale = DEFAULT_LOCALE,
 } = Astro.props;
+
+const ui = await loadUiStrings(locale);
 
 type CatKey = 'wijnhuizen' | 'eten' | 'overnachten' | 'activiteiten';
 
 const CATEGORY_META: Record<CatKey, { label: string; color: string; theme: PoiCardTheme }> = {
-  wijnhuizen: { label: 'Wijnhuizen', color: '#5A1A1F', theme: 'winery' },
-  eten: { label: 'Eten', color: '#A14F2A', theme: 'region' },
-  overnachten: { label: 'Overnachten', color: '#5C6B3F', theme: 'winery' },
-  activiteiten: { label: 'Activiteiten', color: '#2F6B7A', theme: 'vineyard' },
+  wijnhuizen: { label: ui.t('streekkaart.cat.wijnhuizen'), color: '#5A1A1F', theme: 'winery' },
+  eten: { label: ui.t('streekkaart.cat.eten'), color: '#A14F2A', theme: 'region' },
+  overnachten: { label: ui.t('streekkaart.cat.overnachten'), color: '#5C6B3F', theme: 'winery' },
+  activiteiten: { label: ui.t('streekkaart.cat.activiteiten'), color: '#2F6B7A', theme: 'vineyard' },
 };
 // Volgorde van de blokken én van de gedeelde nummering (plan 2C).
 const CATEGORY_ORDER: CatKey[] = ['wijnhuizen', 'eten', 'overnachten', 'activiteiten'];
@@ -158,14 +165,15 @@ const hasSticky = Boolean(bookableSection);
 const stickyTargetId = bookableSection ? `${mapId}-${bookableSection.key}` : '';
 
 function ctaLabel(category: CatKey): string {
-  if (category === 'overnachten') return 'Bekijk & boek';
-  if (category === 'activiteiten') return 'Reserveer een plek';
-  if (category === 'eten') return 'Reserveer';
-  return 'Plan een bezoek';
+  if (category === 'overnachten') return ui.t('streekkaart.cta.overnachten');
+  if (category === 'activiteiten') return ui.t('streekkaart.cta.activiteiten');
+  if (category === 'eten') return ui.t('streekkaart.cta.eten');
+  return ui.t('streekkaart.cta.default');
 }
 
 const mapData = {
   slug,
+  leesMeer: ui.t('streekkaart.popupLeesMeer'),
   pins: geoItems.map((it) => ({
     n: it.n,
     naam: it.naam,
@@ -189,13 +197,9 @@ const usedCats = sections.map((s) => s.key);
 {sections.length > 0 && (
   <section class="streekkaart" data-streekkaart id={mapId} aria-labelledby={`${mapId}-title`}>
     <header class="streekkaart__head">
-      <span class="streekkaart__kicker">Op de kaart</span>
-      <h2 id={`${mapId}-title`} class="streekkaart__title">Ontdek {streek}</h2>
-      <p class="streekkaart__intro">
-        Onze handgekozen adressen in {streek}{country && <>, {country}</>}: wijnhuizen,
-        plekken om te eten, te slapen en te beleven. De nummers op de kaart komen
-        overeen met de lijst eronder.
-      </p>
+      <span class="streekkaart__kicker">{ui.t('streekkaart.kicker')}</span>
+      <h2 id={`${mapId}-title`} class="streekkaart__title">{`${ui.t('streekkaart.titlePrefix')} ${streek}`}</h2>
+      <p class="streekkaart__intro">{`${ui.t('streekkaart.introPrefix')} ${streek}`}{country && <>, {country}</>}{ui.t('streekkaart.introSuffix')}</p>
     </header>
 
     {hasMap && (
@@ -208,7 +212,7 @@ const usedCats = sections.map((s) => s.key);
             class="streekkaart__detail-canvas"
             data-streekkaart-canvas
             role="application"
-            aria-label={`Kaart met genummerde adressen in ${streek}`}
+            aria-label={`${ui.t('streekkaart.ariaDetailMap')} ${streek}`}
           ></div>
           {centroid && (
             <div class="streekkaart__locator-inset">
@@ -219,7 +223,7 @@ const usedCats = sections.map((s) => s.key);
                 data-lng={centroid.lng}
                 data-naam={streek}
                 role="img"
-                aria-label={`Locatie van ${streek}${country ? `, ${country}` : ''} binnen het land`}
+                aria-label={`${ui.t('streekkaart.locatorPrefix')} ${streek}${country ? `, ${country}` : ''}${ui.t('streekkaart.locatorSuffix')}`}
               ></div>
             </div>
           )}
@@ -255,8 +259,8 @@ const usedCats = sections.map((s) => s.key);
                 return (
                   <h4 class="skz-tier-head" style={`color:${CATEGORY_META.overnachten.color}`}>
                     <span class="skz-tier-head__dot" style={`background:${CATEGORY_META.overnachten.color}`}></span>
-                    {titel || 'Verblijven in de buurt'}
-                    <span class="skz-cluster-head__note">binnen ~40 min rijden</span>
+                    {titel || ui.t('streekkaart.clusterFallbackTitel')}
+                    <span class="skz-cluster-head__note">{ui.t('streekkaart.clusterNote')}</span>
                   </h4>
                 );
               }
@@ -295,9 +299,7 @@ const usedCats = sections.map((s) => s.key);
       ))}
     </div>
 
-    <p class="streekkaart__disclosure">
-      Affiliate-links &middot; Sommige links op deze pagina (Stay22, GetYourGuide) zijn partnerlinks. Als je hiervia boekt, ontvangen we mogelijk een kleine commissie. Jij betaalt niets extra.
-    </p>
+    <p class="streekkaart__disclosure">{ui.t('streekkaart.disclosure')}</p>
 
     <div data-skz-end aria-hidden="true"></div>
   </section>
@@ -306,9 +308,9 @@ const usedCats = sections.map((s) => s.key);
 {hasSticky && (
   <div class="skz-sticky" data-skz-sticky data-skz-target={stickyTargetId} hidden>
     <div class="skz-sticky__inner">
-      <span class="skz-sticky__label">Plan je bezoek aan {streek}</span>
+      <span class="skz-sticky__label">{`${ui.t('streekkaart.stickyLabelPrefix')} ${streek}`}</span>
       <a class="skz-sticky__cta" href={`#${stickyTargetId}`} data-skz-sticky-cta>
-        {bookableSection?.key === 'activiteiten' ? 'Bekijk activiteiten' : 'Bekijk overnachtingen'} &darr;
+        {bookableSection?.key === 'activiteiten' ? ui.t('streekkaart.stickyCtaActiviteiten') : ui.t('streekkaart.stickyCtaOvernachten')} &darr;
       </a>
     </div>
   </div>
@@ -322,7 +324,7 @@ const usedCats = sections.map((s) => s.key);
     lat: number; lng: number; prijs: string | null; boeklink: string | null;
     detailUrl: string | null; cta: string; partner: string;
   };
-  type MapData = { slug: string; pins: Pin[] };
+  type MapData = { slug: string; leesMeer?: string; pins: Pin[] };
 
   let leafletPromise: Promise<any> | null = null;
   function loadLeaflet(): Promise<any> {
@@ -390,7 +392,7 @@ const usedCats = sections.map((s) => s.key);
           + ` data-affiliate-placement="streek-map-${esc(p.category)}" data-affiliate-context="streek-${esc(data.slug)}">`
           + `${esc(p.cta)} &rarr;</a>`;
       } else if (p.detailUrl) {
-        ctaHtml = `<a class="skz-popup__cta skz-popup__cta--ghost" href="${esc(p.detailUrl)}">Lees meer &rarr;</a>`;
+        ctaHtml = `<a class="skz-popup__cta skz-popup__cta--ghost" href="${esc(p.detailUrl)}">${esc(data.leesMeer || 'Lees meer')} &rarr;</a>`;
       }
       const imgHtml = p.foto
         ? `<img class="skz-popup__img" src="${esc(p.foto)}" alt="${esc(p.fotoAlt)}" loading="lazy" decoding="async" />`

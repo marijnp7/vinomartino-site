@@ -193,6 +193,32 @@ import {
     assetUrl,
     assertCollectionReadableOrDegrade,
 } from './directus-config';
+import { DEFAULT_LOCALE, type Locale } from './i18n';
+import { localizeRecords, localizeRecordsSoft } from './directus-i18n';
+
+// LAT-2575 — vertaalbare streek-velden (native Directus translations, LAT-2574).
+// Identiek aan de parent-veldnamen zodat de overlay ze 1-op-1 kan overschrijven.
+const STREKEN_TRANSLATABLE = [
+    'name',
+    'description',
+    'body',
+    'climate',
+    'soil',
+    'waar_slapen_intro',
+    'trust_bewijs',
+    'card_blurb',
+    'meta_title',
+    'meta_description',
+    'hero_alt',
+    // LAT-2602 — JSON-blobs met leestekst; EN bevat alléén de vertaalbare keys en
+    // wordt diep over de NL-basis gemerged (directus-i18n mergeTranslatedValue),
+    // zodat url/coords/partner uit NL behouden blijven. Pins (wijnhuizen/
+    // accommodaties) blijven bewust nog buiten scope (relatie-vs-JSON).
+    'main_grapes',
+    'cta_blocks',
+    'accom_cta_blocks',
+    'gyg_tours',
+];
 
 const assetDebug: Array<Record<string, unknown>> = [];
 
@@ -727,8 +753,17 @@ async function fetchStrekenItems(url: string, token: string): Promise<Record<str
     throw new Error(`[loadStreken] Directus returned ${res.status} ${res.statusText}: ${body.slice(0, 300)}`);
 }
 
-async function loadFromDirectus(url: string, token: string): Promise<Streek[]> {
-    const data = await fetchStrekenItems(url, token);
+async function loadFromDirectus(url: string, token: string, locale: Locale): Promise<Streek[]> {
+    const raw = await fetchStrekenItems(url, token);
+    // LAT-2575 — EN: overlay native translations + no-translation-guard (streken
+    // zonder EN-vertaling vallen weg → geen /en/-pagina). NL: ongewijzigd.
+    const data = await localizeRecords(raw, {
+        env: readDirectusEnv(),
+        junction: 'streken_translations',
+        parentIdField: 'streken_id',
+        fields: STREKEN_TRANSLATABLE,
+        locale,
+    });
     const items = await Promise.all(
         data.map(async (r) => {
             const land = r.land_id as Record<string, unknown> | null;
@@ -777,10 +812,10 @@ async function loadFromDirectus(url: string, token: string): Promise<Streek[]> {
     return items;
 }
 
-export async function loadStreken(): Promise<Streek[]> {
+export async function loadStreken(locale: Locale = DEFAULT_LOCALE): Promise<Streek[]> {
     const env = readDirectusEnv();
     assertDirectusConfigured('loadStreken', env);
-    const items = await loadFromDirectus(env.url, env.token);
+    const items = await loadFromDirectus(env.url, env.token, locale);
     await writeAssetDebug('directus');
     return items;
 }
@@ -797,12 +832,13 @@ export interface NavStreek {
  * de globale header op elke pagina goedkoop blijft. Volgt het fail-loud-contract
  * (LAT-1078): zonder Directus-config gooit dit, net als loadStreken().
  */
-export async function loadStrekenNav(): Promise<NavStreek[]> {
+export async function loadStrekenNav(locale: Locale = DEFAULT_LOCALE): Promise<NavStreek[]> {
     const env = readDirectusEnv();
     assertDirectusConfigured('loadStrekenNav', env);
     const filterSort = `${statusFilterQuery(env)}&sort=name`;
     const headers = { Authorization: `Bearer ${env.token}` };
-    let res = await fetch(`${env.url}/items/streken?limit=-1&fields=slug,name,land_id.slug${filterSort}`, {
+    // `id` nodig voor de EN-naam-overlay (overlay keyt op parent-PK).
+    let res = await fetch(`${env.url}/items/streken?limit=-1&fields=id,slug,name,land_id.slug${filterSort}`, {
         headers,
         signal: AbortSignal.timeout(15000),
     });
@@ -810,7 +846,7 @@ export async function loadStrekenNav(): Promise<NavStreek[]> {
     // zonder land-koppeling; de header valt dan terug op landen-only.
     if (res.status === 400 || res.status === 403) {
         console.warn(`[loadStrekenNav] Directus rejected land_id.slug (HTTP ${res.status}) — retry zonder land-koppeling.`);
-        res = await fetch(`${env.url}/items/streken?limit=-1&fields=slug,name${filterSort}`, {
+        res = await fetch(`${env.url}/items/streken?limit=-1&fields=id,slug,name${filterSort}`, {
             headers,
             signal: AbortSignal.timeout(15000),
         });
@@ -820,7 +856,16 @@ export async function loadStrekenNav(): Promise<NavStreek[]> {
         throw new Error(`[loadStrekenNav] Directus returned ${res.status} ${res.statusText}: ${body.slice(0, 300)}`);
     }
     const json = await res.json();
-    const data = (json.data || []) as Record<string, unknown>[];
+    let data = (json.data || []) as Record<string, unknown>[];
+    // Zachte EN-naam-overlay: nav blijft compleet, streken zonder vertaling
+    // houden hun NL-naam (links zijn sowieso NL-absoluut).
+    data = await localizeRecordsSoft(data, {
+        env,
+        junction: 'streken_translations',
+        parentIdField: 'streken_id',
+        fields: ['name'],
+        locale,
+    });
     return data
         .filter((r) => r.slug && r.name)
         .map((r) => {

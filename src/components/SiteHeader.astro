@@ -2,12 +2,26 @@
 import { loadNavigation } from '../lib/navigation';
 import { loadLandenNav } from '../lib/landen';
 import { loadStrekenNav } from '../lib/streken';
+import { loadUiStrings } from '../lib/ui-strings';
+import { type Locale, DEFAULT_LOCALE } from '../lib/i18n';
+import LanguageSwitcher from './LanguageSwitcher.astro';
 
 interface Props {
   activeNav?: string;
+  locale?: Locale;
+  /** Bestaat er een gepubliceerde EN-tegenhanger voor deze pagina? Stuurt de
+   *  launch-gate van de taal-switcher (geen dode /en/-link). */
+  counterpartExists?: boolean;
 }
 
-const { activeNav } = Astro.props;
+const { activeNav, locale = DEFAULT_LOCALE, counterpartExists = false } = Astro.props;
+const ui = await loadUiStrings(locale);
+
+// Taal-switcher alleen tonen wanneer er écht een alternatief is: op /en/ bestaat
+// NL altijd; op NL-pagina's pas zodra er een EN-tegenhanger is. Op NL-pagina's
+// zónder tegenhanger rendert de expressie niets — direct tegen </span> geplakt
+// zodat de NL-HTML byte-identiek blijft (geen losstaande whitespace-node).
+const showSwitcher = locale !== DEFAULT_LOCALE || counterpartExists;
 
 const nav = await loadNavigation();
 
@@ -15,7 +29,7 @@ const nav = await loadNavigation();
 // klikbare kop naar de landenpagina, met de STREKEN van dat land eronder als
 // lijst naar de streekpagina's. Geen continent-groepering. Schaalt automatisch
 // mee zodra er landen/streken aan Directus worden toegevoegd.
-const [landen, streken] = await Promise.all([loadLandenNav(), loadStrekenNav()]);
+const [landen, streken] = await Promise.all([loadLandenNav(locale), loadStrekenNav(locale)]);
 
 // Streken per land-slug, alfabetisch.
 const strekenByLand = streken.reduce<Record<string, typeof streken>>((acc, s) => {
@@ -41,18 +55,28 @@ const hasOntdek = ontdekLandGroups.length > 0;
 // dropdown (geen landen) blijft de gewone "Ontdek"-link wel staan.
 const navItems = hasOntdek ? nav.filter(item => item.key !== 'ontdek') : nav;
 
+// nav_items heeft geen translations-junction: voor NL rendert de CMS-label
+// byte-identiek; voor EN overlayt de UI-dictionary op key `nav.<navKey>` en valt
+// terug op de CMS-label wanneer er (nog) geen vertaling/seed is.
+const navLabel = (item: { key: string; label: string }): string => {
+  if (locale === DEFAULT_LOCALE) return item.label;
+  const dictKey = `nav.${item.key}`;
+  const val = ui.t(dictKey);
+  return val === dictKey ? item.label : val;
+};
+
 // Vast redactioneel promo-blok naast de landenkolommen.
 const ontdekPromo = {
-  kicker: 'Zelf gereisd',
-  title: 'Met liefde geselecteerd',
-  body: 'Elke landengids hier komt voort uit een eigen wijnreis: geen bureautips, maar streken, telers en flessen die we zelf bezochten en proefden.',
+  kicker: ui.t('header.ontdek.promoKicker'),
+  title: ui.t('header.ontdek.promoTitle'),
+  body: ui.t('header.ontdek.promoBody'),
 };
 ---
 
 <header class="site-header">
   <div class="header-utility">
     <div class="header-utility-inner">
-      <span>Wijnreizen met karakter</span>
+      <span>{ui.t('header.utility.tagline')}</span>{showSwitcher && <LanguageSwitcher counterpartExists={counterpartExists} />}
     </div>
   </div>
 
@@ -62,7 +86,7 @@ const ontdekPromo = {
         Vino<span class="logo-dot">·</span>Martino
       </a>
 
-      <nav class="header-nav" aria-label="Hoofdnavigatie">
+      <nav class="header-nav" aria-label={ui.t('header.nav.aria')}>
         {hasOntdek && (
           <div class="nav-dropdown" data-nav-dropdown>
             <a
@@ -72,7 +96,7 @@ const ontdekPromo = {
               aria-expanded="false"
               aria-controls="ontdek-menu"
             >
-              Ontdek
+              {ui.t('header.ontdek.trigger')}
               <svg class="nav-chevron" width="10" height="6" viewBox="0 0 10 6" aria-hidden="true">
                 <path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
               </svg>
@@ -89,7 +113,7 @@ const ontdekPromo = {
                   <span class="ontdek-promo-kicker">{ontdekPromo.kicker}</span>
                   <h2 class="ontdek-promo-title">{ontdekPromo.title}</h2>
                   <p class="ontdek-promo-body">{ontdekPromo.body}</p>
-                  <a class="ontdek-promo-link" href="/landen/">Alle landen<span aria-hidden="true"> &rarr;</span></a>
+                  <a class="ontdek-promo-link" href="/landen/">{ui.t('header.ontdek.alleLanden')}<span aria-hidden="true"> &rarr;</span></a>
                 </aside>
                 <div class="ontdek-columns">
                   {ontdekLandGroups.map(({ land, streken }) => (
@@ -116,7 +140,7 @@ const ontdekPromo = {
             href={item.href}
             class={`nav-link ${activeNav === item.key ? 'nav-link--active' : ''}`}
           >
-            {item.label}
+            {navLabel(item)}
           </a>
         ))}
       </nav>
@@ -126,31 +150,31 @@ const ontdekPromo = {
           class="search-trigger"
           type="button"
           data-search-open
-          aria-label="Zoeken openen"
+          aria-label={ui.t('header.search.openAria')}
           aria-keyshortcuts="Meta+K Control+K"
         >
           <svg class="search-trigger-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6">
             <circle cx="11" cy="11" r="7"></circle>
             <line x1="16.5" y1="16.5" x2="21" y2="21" stroke-linecap="round"></line>
           </svg>
-          <span class="search-trigger-label">Zoeken</span>
+          <span class="search-trigger-label">{ui.t('header.search.label')}</span>
           <kbd class="search-trigger-kbd" aria-hidden="true">⌘K</kbd>
         </button>
 
         <button
           class="cellar-toggle"
           type="button"
-          aria-label="Ga naar de kelder (donkere modus)"
+          aria-label={ui.t('header.cellar.enterAria')}
           aria-pressed="false"
           data-cellar-toggle
         >
           <span class="cellar-icon cellar-icon--enter" aria-hidden="true">🌙</span>
           <span class="cellar-icon cellar-icon--exit" aria-hidden="true">☀️</span>
-          <span class="cellar-label cellar-label--enter">Naar de kelder</span>
-          <span class="cellar-label cellar-label--exit">Naar buiten</span>
+          <span class="cellar-label cellar-label--enter">{ui.t('header.cellar.enterLabel')}</span>
+          <span class="cellar-label cellar-label--exit">{ui.t('header.cellar.exitLabel')}</span>
         </button>
 
-        <button class="mobile-toggle" aria-label="Menu openen" aria-expanded="false" aria-controls="mobile-menu">
+        <button class="mobile-toggle" aria-label={ui.t('header.mobile.menuAria')} aria-expanded="false" aria-controls="mobile-menu">
           <span></span><span></span><span></span>
         </button>
       </div>
@@ -164,7 +188,7 @@ const ontdekPromo = {
           <circle cx="11" cy="11" r="7"></circle>
           <line x1="16.5" y1="16.5" x2="21" y2="21" stroke-linecap="round"></line>
         </svg>
-        Zoeken
+        {ui.t('header.search.label')}
       </button>
       {hasOntdek && (
         <div class="mobile-dropdown" data-mobile-dropdown>
@@ -174,15 +198,15 @@ const ontdekPromo = {
             aria-expanded="false"
             aria-controls="mobile-ontdek"
           >
-            Ontdek
+            {ui.t('header.ontdek.trigger')}
             <svg class="nav-chevron" width="12" height="7" viewBox="0 0 10 6" aria-hidden="true">
               <path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
             </svg>
           </button>
           <div class="mobile-dropdown-panel" id="mobile-ontdek" hidden>
             <div class="mobile-ontdek-intro">
-              <span class="mobile-ontdek-header">Kies je bestemming</span>
-              <span class="mobile-ontdek-subhead">Ontdek een wijnregio</span>
+              <span class="mobile-ontdek-header">{ui.t('header.mobile.ontdekHeader')}</span>
+              <span class="mobile-ontdek-subhead">{ui.t('header.mobile.ontdekSubhead')}</span>
             </div>
             {ontdekLandGroups.map(({ land, streken }) => (
               <div class="mobile-ontdek-group">
@@ -192,12 +216,12 @@ const ontdekPromo = {
                 ))}
               </div>
             ))}
-            <a href="/ontdek/" class="mobile-ontdek-link mobile-ontdek-all">Naar de Ontdek-atlas &rarr;</a>
+            <a href="/ontdek/" class="mobile-ontdek-link mobile-ontdek-all">{ui.t('header.mobile.ontdekAll')} &rarr;</a>
           </div>
         </div>
       )}
       {navItems.map(item => (
-        <a href={item.href} class="mobile-nav-link">{item.label}</a>
+        <a href={item.href} class="mobile-nav-link">{navLabel(item)}</a>
       ))}
     </nav>
   </div>

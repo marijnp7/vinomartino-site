@@ -104,6 +104,14 @@ import {
     assetUrl,
     assertCollectionReadableOrDegrade,
 } from './directus-config';
+import { DEFAULT_LOCALE, type Locale } from './i18n';
+import { localizeRecords } from './directus-i18n';
+
+// LAT-2575 — vertaalbare route-velden (native Directus translations, LAT-2574).
+// LAT-2602 — itinerary is een geneste JSON-blob (days[].title/summary,
+// stops[].naam/why/duur); EN levert alléén de leestekst en wordt diep gemerged
+// over de NL-basis (directus-i18n mergeTranslatedValue), zodat stop-geo/slug behouden blijft.
+const ROUTES_TRANSLATABLE = ['title', 'description', 'body', 'duration', 'transport', 'style', 'meta_title', 'meta_description', 'hero_alt', 'itinerary'];
 
 const assetDebug: Array<Record<string, unknown>> = [];
 
@@ -401,11 +409,18 @@ async function loadRouteStreekJunction(url: string, token: string): Promise<Map<
     return map;
 }
 
-async function loadFromDirectus(url: string, token: string): Promise<WijnRoute[]> {
-    const [data, junction] = await Promise.all([
+async function loadFromDirectus(url: string, token: string, locale: Locale): Promise<WijnRoute[]> {
+    const [raw, junction] = await Promise.all([
         fetchRoutesItems(url, token),
         loadRouteStreekJunction(url, token),
     ]);
+    const data = await localizeRecords(raw, {
+        env: readDirectusEnv(),
+        junction: 'routes_translations',
+        parentIdField: 'routes_id',
+        fields: ROUTES_TRANSLATABLE,
+        locale,
+    });
     const items = await Promise.all(
         data.map(async (r) => {
             const bodyHtml = r.body
@@ -430,10 +445,10 @@ async function loadFromDirectus(url: string, token: string): Promise<WijnRoute[]
     return items;
 }
 
-export async function loadRoutes(): Promise<WijnRoute[]> {
+export async function loadRoutes(locale: Locale = DEFAULT_LOCALE): Promise<WijnRoute[]> {
     const env = readDirectusEnv();
     assertDirectusConfigured('loadRoutes', env);
-    const items = await loadFromDirectus(env.url, env.token);
+    const items = await loadFromDirectus(env.url, env.token, locale);
     await writeAssetDebug('directus');
     return items;
 }

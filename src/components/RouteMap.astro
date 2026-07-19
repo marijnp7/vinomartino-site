@@ -4,18 +4,25 @@
 // een geordende string[]), dus dit is een schematische strip i.p.v. een geografische
 // kaart. Eerste stop = vertrek (Van), laatste = bestemming (Naar), tussenliggende
 // stops als genummerde knooppunten. variant="mini" geeft een compacte kaart-strip.
+import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
+
 export interface Props {
   stops: string[];
   duration?: string | null;
   transport?: string | null;
   variant?: 'full' | 'mini';
+  /** LAT-2575: NL byte-identiek op DEFAULT_LOCALE; /en/ geeft "en" mee. */
+  locale?: Locale;
 }
 
-const { stops = [], duration = null, transport = null, variant = 'full' } = Astro.props;
+const { stops = [], duration = null, transport = null, variant = 'full', locale = DEFAULT_LOCALE } = Astro.props;
+const ui = await loadUiStrings(locale);
 
 const clean = stops.map(s => (s ?? '').trim()).filter(Boolean);
 const hasRoute = clean.length >= 2;
 const lastIndex = clean.length - 1;
+const routeAria = `${ui.t('routemap.ariaPrefix')} ${clean[0]} ${ui.t('routemap.ariaMid')} ${clean[lastIndex]}`;
 
 function nodeRole(i: number): 'van' | 'naar' | 'stop' {
   if (i === 0) return 'van';
@@ -27,16 +34,16 @@ function nodeRole(i: number): 'van' | 'naar' | 'stop' {
 {hasRoute && variant === 'full' && (
   <figure class="routemap">
     <figcaption class="routemap__cap">
-      <span class="routemap__label">Routekaart</span>
+      <span class="routemap__label">{ui.t('routemap.label')}</span>
       <span class="routemap__from-to">{clean[0]} <span class="routemap__arrow">&rarr;</span> {clean[lastIndex]}</span>
     </figcaption>
-    <ol class="routemap__track" aria-label={`Route van ${clean[0]} naar ${clean[lastIndex]}`}>
+    <ol class="routemap__track" aria-label={routeAria}>
       {clean.map((stop, i) => (
         <li class:list={['routemap__node', `routemap__node--${nodeRole(i)}`]}>
           <span class="routemap__dot" aria-hidden="true">{i === 0 || i === lastIndex ? '' : i + 1}</span>
           <span class="routemap__stop">
             {nodeRole(i) !== 'stop' && (
-              <span class="routemap__endpoint">{nodeRole(i) === 'van' ? 'Van' : 'Naar'}</span>
+              <span class="routemap__endpoint">{nodeRole(i) === 'van' ? ui.t('routemap.endpointVan') : ui.t('routemap.endpointNaar')}</span>
             )}
             {stop}
           </span>
@@ -47,14 +54,14 @@ function nodeRole(i: number): 'van' | 'naar' | 'stop' {
       <div class="routemap__meta">
         {duration && <span class="routemap__tag">{duration}</span>}
         {transport && <span class="routemap__tag">{transport}</span>}
-        {clean.length > 2 && <span class="routemap__tag">{clean.length} stops</span>}
+        {clean.length > 2 && <span class="routemap__tag">{`${clean.length} ${ui.t('routemap.stopsSuffix')}`}</span>}
       </div>
     )}
   </figure>
 )}
 
 {hasRoute && variant === 'mini' && (
-  <div class="routemap-mini" aria-label={`Route van ${clean[0]} naar ${clean[lastIndex]}`}>
+  <div class="routemap-mini" aria-label={routeAria}>
     <span class="routemap-mini__end">{clean[0]}</span>
     <span class="routemap-mini__line" aria-hidden="true">
       {Array.from({ length: Math.max(0, clean.length - 1) }).map(() => <span class="routemap-mini__seg" />)}

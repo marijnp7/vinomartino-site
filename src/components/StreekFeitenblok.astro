@@ -10,8 +10,11 @@
 //
 // Content komt uit Directus (streken-loader); `aantalAdressen` is afgeleid uit de
 // gerenderde POI-telling. De tier-badge komt uit het twee-tier model (LAT-1958):
-// Tier 1 = zelf gereisd, Tier 2 = redactiegids. Labels via centrale UI-copy.
-import { UI_COPY } from '../lib/ui-copy';
+// Tier 1 = zelf gereisd, Tier 2 = redactiegids. Labels via de UI-dictionary
+// (LAT-2575): NL draait op DEFAULT_LOCALE → byte-identiek aan de bestaande copy;
+// de /en/-tegenhanger geeft `locale="en"` mee zodat dezelfde keys EN overlayen.
+import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
 
 interface Props {
   dominantGrapes?: string[];
@@ -26,6 +29,7 @@ interface Props {
   tastingBudget?: string;
   visited?: boolean;
   bezoekjaar?: number | null;
+  locale?: Locale;
 }
 
 const {
@@ -41,28 +45,31 @@ const {
   tastingBudget = '',
   visited = false,
   bezoekjaar = null,
+  locale = DEFAULT_LOCALE,
 } = Astro.props;
 
-const rows: Array<{ label: string; value: string }> = [];
-if (dominantGrapes.length) rows.push({ label: 'Druiven', value: dominantGrapes.join(', ') });
-if (bestSeason.trim()) rows.push({ label: 'Beste seizoen', value: bestSeason.trim() });
-if (driveDays.trim()) rows.push({ label: 'Rijdagen', value: driveDays.trim() });
-if (nearestAirport.trim()) rows.push({ label: 'Dichtstbijzijnd vliegveld', value: nearestAirport.trim() });
-if (aantalAdressen > 0) rows.push({ label: 'Aantal adressen', value: String(aantalAdressen) });
-if (appellations.length) rows.push({ label: 'Appellatieniveau', value: appellations.join(', ') });
-if (bestVintages.trim()) rows.push({ label: 'Beste jaargangen', value: bestVintages.trim() });
-if (harvestPeriod.trim()) rows.push({ label: 'Oogstperiode', value: harvestPeriod.trim() });
-if (minVisitTime.trim()) rows.push({ label: 'Min. bezoektijd', value: minVisitTime.trim() });
-if (tastingBudget.trim()) rows.push({ label: 'Budget proeverij', value: tastingBudget.trim() });
+const ui = await loadUiStrings(locale);
 
-const tierLabel = visited ? UI_COPY.zelfGereisdBadge : UI_COPY.redactiegidsBadge;
-const tierTitle = visited ? UI_COPY.zelfGereisdBadgeTitle : UI_COPY.redactiegidsBadgeTitle;
+const rows: Array<{ label: string; value: string }> = [];
+if (dominantGrapes.length) rows.push({ label: ui.t('streek.feit.druiven'), value: dominantGrapes.join(', ') });
+if (bestSeason.trim()) rows.push({ label: ui.t('streek.feit.besteSeizoen'), value: bestSeason.trim() });
+if (driveDays.trim()) rows.push({ label: ui.t('streek.feit.rijdagen'), value: driveDays.trim() });
+if (nearestAirport.trim()) rows.push({ label: ui.t('streek.feit.vliegveld'), value: nearestAirport.trim() });
+if (aantalAdressen > 0) rows.push({ label: ui.t('streek.feit.aantalAdressen'), value: String(aantalAdressen) });
+if (appellations.length) rows.push({ label: ui.t('streek.feit.appellatieniveau'), value: appellations.join(', ') });
+if (bestVintages.trim()) rows.push({ label: ui.t('streek.feit.besteJaargangen'), value: bestVintages.trim() });
+if (harvestPeriod.trim()) rows.push({ label: ui.t('streek.feit.oogstperiode'), value: harvestPeriod.trim() });
+if (minVisitTime.trim()) rows.push({ label: ui.t('streek.feit.minBezoektijd'), value: minVisitTime.trim() });
+if (tastingBudget.trim()) rows.push({ label: ui.t('streek.feit.budgetProeverij'), value: tastingBudget.trim() });
+
+const tierLabel = visited ? ui.t('ui.badge.zelfGereisd') : ui.t('ui.badge.redactiegids');
+const tierTitle = visited ? ui.t('ui.badge.zelfGereisd.title') : ui.t('ui.badge.redactiegids.title');
 ---
 
 {rows.length > 0 && (
-  <aside class="vm-feitenblok" aria-label="Wijnregio in het kort">
+  <aside class="vm-feitenblok" aria-label={ui.t('streek.feit.ariaLabel')}>
     <div class="vm-feitenblok__head">
-      <h2 class="vm-feitenblok__heading">In het kort</h2>
+      <h2 class="vm-feitenblok__heading">{ui.t('streek.feit.heading')}</h2>
       <span
         class:list={['vm-feitenblok__tier', visited ? 'vm-feitenblok__tier--visited' : 'vm-feitenblok__tier--redactie']}
         title={tierTitle}

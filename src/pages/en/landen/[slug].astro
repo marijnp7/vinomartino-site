@@ -1,0 +1,67 @@
+---
+// LAT-2638 — EN land-detailroute onder /en/. Identieke markup als de NL-route
+// via het gedeelde LandDetail-component, met de per-locale loaders:
+// loadLanden('en') past de no-translation-guard toe (directus-i18n.ts), dus
+// landen zónder EN-vertaling vallen weg uit `entries` → er wordt géén
+// /en/landen/<slug>/ gegenereerd (404 i.p.v. NL-lek). De showcase-fallback
+// (NL-editorial) draait hier bewust NIET: zonder EN-entries genereren we geen
+// /en/-pagina's. Streek/wijnhuis/route-relaties gebruiken de EN-loaders.
+import LandDetail from '../../../components/LandDetail.astro';
+import { loadLanden, type Land } from '../../../lib/landen';
+import { loadStreken } from '../../../lib/streken';
+import { loadWijnhuizen } from '../../../lib/wijnhuizen';
+import { loadRoutes } from '../../../lib/routes';
+import { loadAtlasForLand, type AtlasData } from '../../../lib/atlas-data';
+import { strekenForLand, streekToCard, wijnhuisToCard, routeToCard, type StreekCard, type WijnhuisCard, type RouteCard } from '../../../lib/landen-cards';
+
+const EN = 'en' as const;
+
+export async function getStaticPaths() {
+  const [entries, allStreken, allWijnhuizen, allRoutes] = await Promise.all([
+    loadLanden('en'),
+    loadStreken('en'),
+    loadWijnhuizen('en'),
+    loadRoutes('en'),
+  ]);
+  return Promise.all(entries.map(async entry => {
+    const landStreken = strekenForLand(entry, allStreken);
+    const streekSlugs = new Set(landStreken.map(s => s.slug));
+    const landWijnhuizen = allWijnhuizen.filter(w => w.streekSlug && streekSlugs.has(w.streekSlug));
+    const landRoutes = allRoutes.filter(r => r.streekSlug && streekSlugs.has(r.streekSlug));
+    const atlas = await loadAtlasForLand(entry.slug).catch(() => null);
+    return {
+      params: { slug: entry.slug },
+      props: {
+        entry,
+        atlas,
+        strekenCards: landStreken.map(streekToCard),
+        wijnhuisCards: landWijnhuizen.slice(0, 6).map(wijnhuisToCard),
+        routeCards: landRoutes.map(routeToCard),
+        // Deze route bestaat per definitie alleen voor EN-vertaalde landen.
+        alternates: { nl: `/landen/${entry.slug}/`, en: `/en/landen/${entry.slug}/` },
+      },
+    };
+  }));
+}
+
+const { slug } = Astro.params;
+const { entry, atlas, strekenCards, wijnhuisCards, routeCards, alternates } = Astro.props as {
+  entry: Land | null;
+  atlas: AtlasData | null;
+  strekenCards: StreekCard[];
+  wijnhuisCards: WijnhuisCard[];
+  routeCards: RouteCard[];
+  alternates: Record<string, string>;
+};
+---
+
+<LandDetail
+  slug={slug!}
+  entry={entry}
+  atlas={atlas}
+  strekenCards={strekenCards}
+  wijnhuisCards={wijnhuisCards}
+  routeCards={routeCards}
+  locale={EN}
+  alternates={alternates}
+/>

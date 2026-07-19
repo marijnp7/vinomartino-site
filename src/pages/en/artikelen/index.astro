@@ -1,0 +1,7 @@
+---
+// LAT-2693 — EN artikelenoverzicht onder /en/. Zelfde ArtikelenIndex-component;
+// locale="en" activeert de EN-loader (no-translation-guard) + ui_strings-overlay.
+import ArtikelenIndex from '../../../components/ArtikelenIndex.astro';
+---
+
+<ArtikelenIndex locale="en" alternates={{ nl: '/artikelen/', en: '/en/artikelen/' }} />

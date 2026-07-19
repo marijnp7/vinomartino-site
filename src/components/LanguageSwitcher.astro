@@ -1,0 +1,68 @@
+---
+// LAT-2575 (LAT-2570): taal-switcher. Launch-gate — een EN-link verschijnt pas
+// als er een gepubliceerde EN-tegenhanger bestaat (counterpartExists); nooit een
+// dode link naar een niet-gegenereerde /en/-pagina. NL is primair en bestaat
+// altijd, dus vanaf een EN-pagina is de NL-link altijd zichtbaar.
+import { DEFAULT_LOCALE, HREFLANG, LOCALES, localeFromPath, localizePath } from '../lib/i18n';
+
+interface Props {
+  /** Bestaat er een gepubliceerde tegenhanger in de andere taal? Alleen relevant
+   *  voor de EN-optie (NL is primair en bestaat altijd). Default false → geen
+   *  EN-link, conform de launch-gate. */
+  counterpartExists?: boolean;
+}
+
+const { counterpartExists = false } = Astro.props;
+const pathname = Astro.url.pathname;
+const current = localeFromPath(pathname);
+
+const options = LOCALES.map((locale) => ({
+  locale,
+  href: localizePath(pathname, locale),
+  label: HREFLANG[locale].toUpperCase(),
+  isCurrent: locale === current,
+  // NL bestaat altijd; EN alleen als de tegenhanger daadwerkelijk gegenereerd is.
+  available: locale === DEFAULT_LOCALE || counterpartExists,
+}));
+
+// Alleen renderen als er een beschikbaar alternatief is naast de huidige taal.
+const hasAlternate = options.some((o) => !o.isCurrent && o.available);
+---
+
+{hasAlternate && (
+  <nav class="lang-switcher" aria-label="Taal / Language">
+    {options.map((o) =>
+      o.isCurrent ? (
+        <span class="lang-switcher__item is-current" aria-current="true" lang={o.locale}>{o.label}</span>
+      ) : o.available ? (
+        <a class="lang-switcher__item" href={o.href} lang={o.locale} hreflang={HREFLANG[o.locale]}>{o.label}</a>
+      ) : null,
+    )}
+  </nav>
+)}
+
+<style>
+  .lang-switcher {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+  .lang-switcher__item {
+    color: inherit;
+    text-decoration: none;
+    opacity: 0.6;
+    padding: 0.1rem 0.25rem;
+    border-radius: 3px;
+  }
+  .lang-switcher__item.is-current {
+    opacity: 1;
+    text-decoration: underline;
+  }
+  a.lang-switcher__item:hover,
+  a.lang-switcher__item:focus-visible {
+    opacity: 1;
+  }
+</style>

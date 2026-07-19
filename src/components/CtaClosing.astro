@@ -3,19 +3,23 @@
 // Eén redactionele eindaanbeveling + één CTA. Data-driven uit Directus
 // (cta_blocks.closing). Graceful degradation: zonder data → niets.
 import { resolveCtaHref, ctaTrackPartner, type CtaClosingData } from '../lib/cta-blocks';
+import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
 
 interface Props {
   data?: CtaClosingData;
   sid: string;
+  locale?: Locale;
 }
 
-const { data, sid } = Astro.props;
+const { data, sid, locale = DEFAULT_LOCALE } = Astro.props;
+const ui = await loadUiStrings(locale);
 const placement = 'cta-closing';
-const href = data ? resolveCtaHref(data.link, `${placement}-${sid}`) : '';
+const href = data ? resolveCtaHref(data.link, `${placement}-${sid}`, locale) : '';
 ---
 
 {data && (
-  <aside class="vm-cta vm-cta--closing" aria-label="Onze aanbeveling">
+  <aside class="vm-cta vm-cta--closing" aria-label={ui.t('ui.cta.closing.aria')}>
     {data.heading && <h3 class="vm-cta__heading">{data.heading}</h3>}
     <p class="vm-cta__recommendation">{data.recommendation}</p>
     <a
@@ -28,7 +32,7 @@ const href = data ? resolveCtaHref(data.link, `${placement}-${sid}`) : '';
       data-affiliate-placement={placement}
       data-affiliate-context={sid}
     >
-      <span>{data.link.label ?? 'Plan je bezoek'}</span>
+      <span>{data.link.label ?? ui.t('ui.cta.closing.fallbackCta')}</span>
       <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
         <path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
       </svg>

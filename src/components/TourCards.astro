@@ -10,6 +10,8 @@
 // zodat clicks per bestemming meetbaar zijn.
 import type { GygTour } from '../lib/streken';
 import { decorateGyGTourUrl } from '../lib/affiliate-regio';
+import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
 
 interface Props {
   /** Streek-slug (Directus/loadStreken). Bepaalt het cmp-label `streek-<slug>`. */
@@ -18,9 +20,12 @@ interface Props {
   streekName: string;
   /** Gecureerde tours uit Directus (entry.gygTours). Leeg = sectie rendert niet. */
   tours: GygTour[];
+  /** LAT-2575: NL byte-identiek op DEFAULT_LOCALE; /en/ geeft "en" mee. */
+  locale?: Locale;
 }
 
-const { streekSlug, streekName, tours } = Astro.props;
+const { streekSlug, streekName, tours, locale = DEFAULT_LOCALE } = Astro.props;
+const ui = await loadUiStrings(locale);
 
 const cmp = `streek-${streekSlug}`;
 const cards = (tours ?? []).map(tour => ({
@@ -33,13 +38,9 @@ const cards = (tours ?? []).map(tour => ({
   <section class="streek-tours">
     <div class="container">
       <div class="streek-tours__head">
-        <span class="section-label">Tours &amp; tickets</span>
-        <h2 class="streek-tours__title">Tours en tickets in {streekName}</h2>
-        <p class="streek-tours__intro">
-          Een handvol tours en proeverijen die passen bij de streek: geen zoeklijst,
-          maar een selectie. We werken met GetYourGuide, boek je via een van deze links
-          dan krijgen wij een kleine commissie; jij betaalt niets extra.
-        </p>
+        <span class="section-label">{ui.t('streek.tours.label')}</span>
+        <h2 class="streek-tours__title">{`${ui.t('streek.tours.titlePrefix')} ${streekName}`}</h2>
+        <p class="streek-tours__intro">{ui.t('streek.tours.intro')}</p>
       </div>
       <div class="tour-grid">
         {cards.map(card => (
@@ -59,7 +60,7 @@ const cards = (tours ?? []).map(tour => ({
               data-affiliate-placement="streek-tours"
               data-affiliate-context={cmp}
             >
-              <span>Bekijk op GetYourGuide</span>
+              <span>{ui.t('streek.tours.gygCta')}</span>
               <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
               </svg>

@@ -5,6 +5,8 @@ import AffiliateDisclosure from '../AffiliateDisclosure.astro';
 import RouteMap from '../RouteMap.astro';
 import type { FaqItem } from '../../lib/seo';
 import type { LandReistijd, LandBudget } from '../../lib/landen';
+import { loadUiStrings } from '../../lib/ui-strings';
+import { type Locale, DEFAULT_LOCALE } from '../../lib/i18n';
 
 interface LandStreek {
   name: string;
@@ -60,6 +62,7 @@ interface Props {
   hubTitle?: string;
   reistijd?: LandReistijd[];
   budget?: LandBudget[];
+  locale?: Locale;
 }
 
 const {
@@ -80,7 +83,10 @@ const {
   hubTitle,
   reistijd = [],
   budget = [],
+  locale = DEFAULT_LOCALE,
 } = Astro.props;
+
+const ui = await loadUiStrings(locale);
 ---
 
 <!-- ── HERO ──────────────────────────────────────────── -->
@@ -89,7 +95,7 @@ const {
     <div class="land-eyebrow">
       {continent && <span>{continent}</span>}
       {continent && <span>·</span>}
-      <span>Wijnland</span>
+      <span>{ui.t('land.hero.wijnland')}</span>
     </div>
     <h1 class:list={['land-title', hubTitle && 'land-title--hub']}>
       {flagEmoji && <span class="land-flag" aria-hidden="true">{flagEmoji}</span>}
@@ -153,10 +159,10 @@ const {
     <div class="container">
       <div class="land-section-head">
         <div>
-          <div class="land-section-label">Wijnstreken</div>
-          <h2 class="land-section-title">De streken van {name}</h2>
+          <div class="land-section-label">{ui.t('land.section.wijnstreken')}</div>
+          <h2 class="land-section-title">{`${ui.t('land.section.strekenVanPrefix')} ${name}`}</h2>
         </div>
-        <a href="/streken/" class="land-all-link">Alle streken →</a>
+        <a href="/streken/" class="land-all-link">{ui.t('land.link.alleStreken')}</a>
       </div>
       <div class="land-streken__grid">
         {streken.map(streek => (
@@ -182,10 +188,10 @@ const {
     <div class="container">
       <div class="land-section-head">
         <div>
-          <div class="land-section-label land-section-label--rust">Top wijnhuizen</div>
-          <h2 class="land-section-title">Adressen die we zelf bezochten</h2>
+          <div class="land-section-label land-section-label--rust">{ui.t('land.section.topWijnhuizen')}</div>
+          <h2 class="land-section-title">{ui.t('land.section.topWijnhuizenTitle')}</h2>
         </div>
-        <a href="/wijnhuizen/" class="land-all-link">Alle wijnhuizen →</a>
+        <a href="/wijnhuizen/" class="land-all-link">{ui.t('land.link.alleWijnhuizen')}</a>
       </div>
       <div class="land-wijnhuizen__grid">
         {topWijnhuizen.map((wh, i) => (
@@ -211,8 +217,8 @@ const {
 {druiven.length > 0 && (
   <section class="land-druiven">
     <div class="container">
-      <div class="land-section-label">Druiven</div>
-      <h2 class="land-section-title">Wat je hier proeft</h2>
+      <div class="land-section-label">{ui.t('land.section.druiven')}</div>
+      <h2 class="land-section-title">{ui.t('land.section.druivenTitle')}</h2>
       {climate && <p class="land-climate">{climate}</p>}
       <div class="land-druiven__grid">
         {druiven.map((d, i) => (
@@ -240,10 +246,10 @@ const {
     <div class="container">
       <div class="land-section-head">
         <div>
-          <div class="land-section-label land-section-label--rust">Routes</div>
-          <h2 class="land-section-title">Reisroutes door {name}</h2>
+          <div class="land-section-label land-section-label--rust">{ui.t('land.section.routes')}</div>
+          <h2 class="land-section-title">{`${ui.t('land.section.reisroutesDoorPrefix')} ${name}`}</h2>
         </div>
-        <a href="/wijnroutes/" class="land-all-link">Alle routes →</a>
+        <a href="/wijnroutes/" class="land-all-link">{ui.t('land.link.alleRoutes')}</a>
       </div>
       <div class="land-routes__grid">
         {routes.map(route => (
@@ -273,7 +279,7 @@ const {
 <!-- ── TRAVEL ESSENTIALS ───────────────────────────────────── -->
 <section class="land-travel">
   <div class="container">
-    <h2 class="land-section-title">Plan je reis</h2>
+    <h2 class="land-section-title">{ui.t('land.section.planJeReis')}</h2>
     {/* LAT-1640: generieke Stay22 "Waar te slapen"-widget weg (geen externe
         zoekwidget meer). Gecureerde verblijven leven per streek; de landpagina
         linkt daar via de streekkaarten naartoe. */}
@@ -291,16 +297,16 @@ const {
 {reistijd.length > 0 && (
   <section class="land-reistijd">
     <div class="container">
-      <div class="land-section-label land-section-label--rust">Reistijd</div>
-      <h2 class="land-section-title">Hoe lang doe je erover</h2>
+      <div class="land-section-label land-section-label--rust">{ui.t('land.section.reistijd')}</div>
+      <h2 class="land-section-title">{ui.t('land.section.reistijdTitle')}</h2>
       <div class="land-table-wrap">
         <table class="land-table">
           <thead>
             <tr>
-              <th>Regio</th>
-              <th>Dichtstbijzijnde luchthaven</th>
-              <th>Reistijd met de auto</th>
-              <th>Beste reisperiode</th>
+              <th>{ui.t('land.reistijd.thRegio')}</th>
+              <th>{ui.t('land.reistijd.thVliegveld')}</th>
+              <th>{ui.t('land.reistijd.thReistijd')}</th>
+              <th>{ui.t('land.reistijd.thPeriode')}</th>
             </tr>
           </thead>
           <tbody>
@@ -324,9 +330,9 @@ const {
 {budget.length > 0 && (
   <section class="land-budget">
     <div class="container">
-      <div class="land-section-label">Budget</div>
-      <h2 class="land-section-title">Wat kost een wijnreis</h2>
-      <p class="land-budget__note">Richtprijzen in euro's, per persoon tenzij anders vermeld.</p>
+      <div class="land-section-label">{ui.t('land.section.budget')}</div>
+      <h2 class="land-section-title">{ui.t('land.section.budgetTitle')}</h2>
+      <p class="land-budget__note">{ui.t('land.budget.note')}</p>
       <div class="land-budget__grid">
         {budget.map(item => (
           <div class="land-budget__item">
@@ -344,8 +350,8 @@ const {
 {practical.length > 0 && (
   <section class="land-practical">
     <div class="container">
-      <div class="land-section-label">Praktisch</div>
-      <h2 class="land-section-title">Voor je gaat</h2>
+      <div class="land-section-label">{ui.t('land.section.praktisch')}</div>
+      <h2 class="land-section-title">{ui.t('land.section.praktischTitle')}</h2>
       <div class="land-practical__grid">
         {practical.map(item => (
           <div class="land-practical__item">
@@ -361,8 +367,8 @@ const {
 {faq.length > 0 && (
   <section class="land-faq">
     <div class="container">
-      <div class="land-section-label">Veelgestelde vragen</div>
-      <h2 class="land-section-title">Goed om te weten</h2>
+      <div class="land-section-label">{ui.t('land.section.faq')}</div>
+      <h2 class="land-section-title">{ui.t('land.section.faqTitle')}</h2>
       <dl class="land-faq__list">
         {faq.map(item => (
           <div class="land-faq__item">

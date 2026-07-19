@@ -67,6 +67,11 @@ import {
     assetUrl,
     assertCollectionReadableOrDegrade,
 } from './directus-config';
+import { DEFAULT_LOCALE, type Locale } from './i18n';
+import { localizeRecords } from './directus-i18n';
+
+// LAT-2575 — vertaalbare wijnhuis-velden (native Directus translations, LAT-2574).
+const WIJNHUIZEN_TRANSLATABLE = ['description', 'body', 'meta_title', 'meta_description', 'hero_alt'];
 
 const assetDebug: Array<Record<string, unknown>> = [];
 
@@ -267,8 +272,15 @@ async function buildDrieluik(
     return beelden.filter((b): b is WijnhuisDrieluikBeeld => b !== null);
 }
 
-async function loadFromDirectus(url: string, token: string): Promise<Wijnhuis[]> {
-    const data = await fetchWijnhuizenItems(url, token);
+async function loadFromDirectus(url: string, token: string, locale: Locale): Promise<Wijnhuis[]> {
+    const raw = await fetchWijnhuizenItems(url, token);
+    const data = await localizeRecords(raw, {
+        env: readDirectusEnv(),
+        junction: 'wijnhuizen_translations',
+        parentIdField: 'wijnhuizen_id',
+        fields: WIJNHUIZEN_TRANSLATABLE,
+        locale,
+    });
     const items = await Promise.all(
         data.map(async (r) => {
             const streek = r.streek_id as Record<string, unknown> | null;
@@ -289,10 +301,10 @@ async function loadFromDirectus(url: string, token: string): Promise<Wijnhuis[]>
     return items;
 }
 
-export async function loadWijnhuizen(): Promise<Wijnhuis[]> {
+export async function loadWijnhuizen(locale: Locale = DEFAULT_LOCALE): Promise<Wijnhuis[]> {
     const env = readDirectusEnv();
     assertDirectusConfigured('loadWijnhuizen', env);
-    const items = await loadFromDirectus(env.url, env.token);
+    const items = await loadFromDirectus(env.url, env.token, locale);
     await writeAssetDebug('directus');
     return items;
 }

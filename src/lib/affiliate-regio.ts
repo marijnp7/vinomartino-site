@@ -17,6 +17,13 @@
 // rond heeft (zustertaak). De labelconventie is hier het contract; M&G hangt de
 // echte tracking-id's en de click-meting aan de knop. Vul ECHTE id's via env
 // (AWIN_AFFID / GETYOURGUIDE_PARTNER_ID) zodra bekend.
+//
+// LAT-2576 — taallokalisatie: de builders nemen een optionele `locale`. NL blijft
+// het huidige gedrag; voor 'en' krijgt GetYourGuide het pad-prefix `/en-gb` en de
+// booking.com-doel-URL `lang=en-gb` (beide browser-geverifieerd 2026-07-16).
+
+import type { Locale } from './i18n';
+import { GYG_LOCALE_PATH, applyBookingLocale } from './affiliate-locale';
 
 export type AffiliateType =
   | 'hotels'
@@ -46,6 +53,8 @@ export interface AffiliateLinkInput {
    * Awin-redirect omwikkelt (`ued`). Genegeerd voor GetYourGuide.
    */
   bookingUrl?: string;
+  /** Taal van de pagina waarop de link staat. Default NL (huidig gedrag). */
+  locale?: Locale;
 }
 
 export interface AffiliateLink {
@@ -79,10 +88,21 @@ const AWIN_BOOKING_MID = (process.env['AWIN_BOOKING_MID'] || '5818').trim(); // 
 // Default = het echte actieve account CRMZDZ6 (LAT-1688); env kan nog overschrijven.
 const GETYOURGUIDE_PARTNER_ID = (process.env['GETYOURGUIDE_PARTNER_ID'] || 'CRMZDZ6').trim();
 
-function buildGetYourGuideLink(label: string, query?: string): string {
+// Injecteer het GetYourGuide-taalpad-prefix (`/en-gb` voor EN) in een GYG-URL,
+// idempotent zodat we nooit dubbel prefixen. NL → geen prefix (huidig gedrag).
+function withGygLocale(u: URL, locale: Locale): URL {
+  const prefix = GYG_LOCALE_PATH[locale];
+  if (!prefix) return u;
+  if (u.pathname === prefix || u.pathname.startsWith(`${prefix}/`)) return u;
+  u.pathname = u.pathname === '/' ? `${prefix}/` : `${prefix}${u.pathname}`;
+  return u;
+}
+
+function buildGetYourGuideLink(label: string, query?: string, locale: Locale = 'nl'): string {
   // GetYourGuide partner-deeplink: partner_id + cmp (campagne = ons label).
   // q stuurt de zoekterm; zonder q → algemene landingspagina met tracking.
-  const u = new URL('https://www.getyourguide.com/');
+  // EN krijgt het `/en-gb`-pad-prefix (browser-geverifieerd LAT-2576).
+  const u = withGygLocale(new URL('https://www.getyourguide.com/'), locale);
   u.searchParams.set('partner_id', GETYOURGUIDE_PARTNER_ID);
   u.searchParams.set('utm_medium', 'online_publisher');
   u.searchParams.set('cmp', label);
@@ -90,16 +110,16 @@ function buildGetYourGuideLink(label: string, query?: string): string {
   return u.toString();
 }
 
-function buildBookingAwinLink(label: string, query?: string, bookingUrl?: string): string {
+function buildBookingAwinLink(label: string, query?: string, bookingUrl?: string, locale: Locale = 'nl'): string {
   // Awin cread-redirect: awinmid (merchant) + awinaffid (publisher) + clickref (=ons label).
   // `ued` = de uiteindelijke booking.com-deeplink; bij ontbreken bouwen we een
   // booking.com-zoekdeeplink op de query.
-  const target = (() => {
+  const target = applyBookingLocale((() => {
     if (bookingUrl && bookingUrl.trim()) return bookingUrl.trim();
     const b = new URL('https://www.booking.com/searchresults.html');
     if (query && query.trim()) b.searchParams.set('ss', query.trim());
     return b.toString();
-  })();
+  })(), locale);
   // Graceful degrade (LAT-2531): zolang AWIN_AFFID de placeholder is (Awin-sign-up
   // nog niet rond), levert de cread-redirect een dóde link op — hij tracked niets
   // en stuurt de gebruiker langs een niet-actief affiliate-domein. Dan liever de
@@ -122,11 +142,12 @@ function buildBookingAwinLink(label: string, query?: string, bookingUrl?: string
  */
 export function buildAffiliateLink(input: AffiliateLinkInput): AffiliateLink {
   const partner = input.partner ?? 'getyourguide';
+  const locale = input.locale ?? 'nl';
   const label = affiliateLabel(input.type, input.regio);
   const href =
     partner === 'booking-awin'
-      ? buildBookingAwinLink(label, input.query, input.bookingUrl)
-      : buildGetYourGuideLink(label, input.query);
+      ? buildBookingAwinLink(label, input.query, input.bookingUrl, locale)
+      : buildGetYourGuideLink(label, input.query, locale);
   return { href, label, partner };
 }
 
@@ -153,9 +174,10 @@ export function isGyGTourUrl(url: string): boolean {
  * Geeft de rauwe input ongewijzigd terug als het geen geldige GYG-URL is, zodat
  * één slechte CMS-rij de build niet laat crashen (graceful degrade).
  */
-export function decorateGyGTourUrl(tourUrl: string, cmpLabel: string): string {
+export function decorateGyGTourUrl(tourUrl: string, cmpLabel: string, locale: Locale = 'nl'): string {
   if (!isGyGTourUrl(tourUrl)) return tourUrl;
-  const u = new URL(tourUrl);
+  // EN: injecteer het `/en-gb`-pad-prefix zodat de concrete tour Engels rendert.
+  const u = withGygLocale(new URL(tourUrl), locale);
   u.searchParams.set('partner_id', GETYOURGUIDE_PARTNER_ID);
   u.searchParams.set('utm_medium', 'online_publisher');
   u.searchParams.set('cmp', cmpLabel);
