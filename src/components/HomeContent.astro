@@ -213,7 +213,7 @@ function formatDate(value?: string | null) {
             {ui.t('home.atlas.lede')}
           </p>
         </header>
-        <DiscoverMapEurope countries={atlasCountries} />
+        <DiscoverMapEurope countries={atlasCountries} locale={locale} />
         <ul class="atlas-fallback" aria-label={ui.t('home.atlas.fallbackAria')}>
           {atlasCountries.map((c) => (
             <li>
@@ -253,7 +253,7 @@ function formatDate(value?: string | null) {
             </div>
             {streek.visited && (
               <div class="streek-tile-badge">
-                <ZelfGereisdBadge visited={true} />
+                <ZelfGereisdBadge visited={true} locale={locale} />
               </div>
             )}
             <div class="streek-body">
@@ -278,7 +278,7 @@ function formatDate(value?: string | null) {
           {ui.t('home.routes.sub')}
         </p>
       </header>
-      <HomeRoutesMap routes={routes} />
+      <HomeRoutesMap routes={routes} title={locale === 'en' ? 'Our wine routes on the map' : undefined} />
       <div class="cards-grid">
         {featuredRoutes.map((r, idx) => (
           <a href={`/wijnroutes/${r.slug}/`} class="card-tile">
@@ -429,7 +429,7 @@ function formatDate(value?: string | null) {
             />
             <button type="submit" class="btn btn-primary" data-plausible-cta="newsletter_signup">{ui.t('home.brief.submit')}</button>
           </div>
-          <NewsletterRegionField id="brief-region" />
+          <NewsletterRegionField id="brief-region" locale={locale} />
         </form>
       </Briefkaart>
     </div>

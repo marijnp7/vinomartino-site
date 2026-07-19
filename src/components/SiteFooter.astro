@@ -1,6 +1,7 @@
 ---
 import { loadUiStrings } from '../lib/ui-strings';
 import { type Locale, DEFAULT_LOCALE } from '../lib/i18n';
+import { INSTAGRAM_URL, INSTAGRAM_HANDLE, SUBSTACK_URL } from '../lib/social';
 
 interface Props {
   locale?: Locale;
@@ -19,7 +20,7 @@ const year = new Date().getFullYear();
         <p class="footer-desc">{ui.t('footer.desc')}</p>
         <a
           class="footer-social"
-          href="https://www.instagram.com/vinomartino.travel/"
+          href={INSTAGRAM_URL}
           target="_blank"
           rel="me noopener"
           aria-label="Volg VinoMartino op Instagram (@vinomartino.travel)"
@@ -29,8 +30,22 @@ const year = new Date().getFullYear();
             <circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"></circle>
             <circle cx="17.5" cy="6.5" r="1.2" fill="currentColor"></circle>
           </svg>
-          <span>@vinomartino.travel</span>
+          <span>{INSTAGRAM_HANDLE}</span>
         </a>
+        {SUBSTACK_URL && (
+          <a
+            class="footer-social"
+            href={SUBSTACK_URL}
+            target="_blank"
+            rel="me noopener"
+            aria-label="Lees de brief van VinoMartino op Substack"
+          >
+            <svg class="footer-social-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
+              <path fill="currentColor" d="M3 3h18v2.5H3V3Zm0 5.25h18v2.5H3v-2.5ZM3 13.5 12 18l9-4.5V21l-9-4.5L3 21v-7.5Z"></path>
+            </svg>
+            <span>Lees op Substack</span>
+          </a>
+        )}
       </div>
       <div class="footer-col">
         <h4 class="footer-heading">{ui.t('footer.nav.heading')}</h4>
@@ -94,6 +109,7 @@ const year = new Date().getFullYear();
   }
   .footer-social {
     display: inline-flex;
+    margin-right: var(--space-5);
     align-items: center;
     gap: 0.5rem;
     margin-top: var(--space-4);

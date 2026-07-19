@@ -1,11 +1,17 @@
 import { type Locale, DEFAULT_LOCALE } from './i18n';
+import { INSTAGRAM_URL, SUBSTACK_URL } from './social';
 
 const SITE_URL = 'https://vinomartino.com';
 const SITE_NAME = 'VinoMartino';
 
+// Officiele kanalen van het merk. Geen enkele caller gaf `sameAs` ooit mee, dus
+// stond het overal leeg; nu is dit de default zodat Google Instagram en
+// Substack aan het merk koppelt. Callers kunnen nog steeds overriden.
+const DEFAULT_SAME_AS = [INSTAGRAM_URL, SUBSTACK_URL].filter(Boolean);
+
 // ─── Organisation (use on homepage) ──────────────────────────────────────────
 
-export function organizationSchema(sameAs: string[] = []) {
+export function organizationSchema(sameAs: string[] = DEFAULT_SAME_AS) {
   return {
     '@context': 'https://schema.org',
     '@type': 'Organization',
@@ -363,10 +369,20 @@ export function landSchema(data: LandSchemaData) {
   };
 }
 
+const CONTINENT_EN: Record<string, string> = {
+  Europa: 'Europe',
+  Afrika: 'Africa',
+  'Noord-Amerika': 'North America',
+  'Zuid-Amerika': 'South America',
+  Azië: 'Asia',
+  Oceanië: 'Oceania',
+};
+
 export function landMetaTitle(name: string, continent?: string, locale: Locale = DEFAULT_LOCALE): string {
   if (locale === 'en') {
-    return continent
-      ? `${name}, Wines & wine regions in ${continent} | VinoMartino`
+    const continentEn = continent ? (CONTINENT_EN[continent] ?? continent) : undefined;
+    return continentEn
+      ? `${name}, Wines & wine regions in ${continentEn} | VinoMartino`
       : `${name}, Wines & wine regions | VinoMartino`;
   }
   return continent
