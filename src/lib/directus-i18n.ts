@@ -137,6 +137,32 @@ export function applyTranslationGuard<T extends Record<string, unknown>>(
 }
 
 /**
+ * LAT-2697 — vertaal de weergavenaam van genestelde M2O-parent-objecten
+ * (bv. `land_id`/`streek_id` die op een streek/wijnhuis-record hangen). De
+ * child-loaders lokaliseren via localizeRecords alléén de EIGEN velden van het
+ * record; de naam van de gejoinde parent blijft de rauwe NL-waarde en lekt zo
+ * in EN meta-titles/descriptions ("Wine region in Italië"). Deze helper haalt
+ * de parent-vertaalrijen op (één query per collectie) en muteert elk parent-
+ * object in-place met de vertaalde velden. Voor de standaardtaal een no-op.
+ * Ontbreekt een vertaalrij, dan blijft de NL-naam staan (zachte fallback —
+ * alleen de weergavenaam verandert, PK/slug/link niet). Spiegelt het
+ * softOverlay-patroon uit atlas-data.ts.
+ */
+export async function localizeJoinedRefs(
+    parents: Array<Record<string, unknown> | null | undefined>,
+    opts: TranslationOverlayOptions,
+): Promise<void> {
+    if (opts.locale === DEFAULT_LOCALE) return;
+    const overlay = await fetchTranslationOverlay(opts);
+    for (const p of parents) {
+        if (!p) continue;
+        const translated = overlay.get(String(p.id ?? ''));
+        if (!translated) continue;
+        for (const [f, v] of Object.entries(translated)) p[f] = v;
+    }
+}
+
+/**
  * Gemaksfunctie: fetch overlay + pas guard toe in één stap.
  */
 export async function localizeRecords<T extends Record<string, unknown>>(
