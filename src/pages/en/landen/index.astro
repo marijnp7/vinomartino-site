@@ -1,0 +1,9 @@
+---
+// LAT-2709 — EN landen-overzicht onder /en/. Zelfde LandenIndex-component als de
+// NL-route; locale="en" activeert de EN-loader (loadLanden('en'): landen zonder
+// EN-vertaling vallen weg) en de ui_strings-overlay. alternates voedt hreflang
+// terug naar de NL-index.
+import LandenIndex from '../../../components/LandenIndex.astro';
+---
+
+<LandenIndex locale="en" alternates={{ nl: '/landen/', en: '/en/landen/' }} />

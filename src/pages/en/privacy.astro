@@ -1,0 +1,127 @@
+---
+import SiteLayout from '../../layouts/SiteLayout.astro';
+const datum = "5 July 2026";
+---
+
+<SiteLayout
+  title="Privacy Policy | VinoMartino"
+  description="How VinoMartino handles your personal data."
+  locale="en"
+  alternates={{ nl: '/privacy/', en: '/en/privacy/' }}
+>
+  <section class="legal container">
+    <article class="legal-body">
+      <h1>Privacy Policy</h1>
+      <p class="update-datum"><em>Last updated: {datum}</em></p>
+
+      <p><strong>Controller:</strong> VinoMartino (see <a href="/en/colofon/">imprint</a> for company details)<br />
+      <strong>Email:</strong> <a href="mailto:privacy@vinomartino.com">privacy@vinomartino.com</a></p>
+
+      <h2>What data do we process?</h2>
+      <ul>
+        <li><strong>Statistics</strong>: we use Plausible Analytics, a cookie-free service that stores no personal data and no IP addresses.</li>
+        <li><strong>Anonymous click tracking</strong>: when you click an affiliate link, we record the link type, partner platform, page and timestamp. No name, email address or IP address.</li>
+        <li><strong>Contact</strong>: if you email us, we use your name and email address only to answer your enquiry.</li>
+      </ul>
+
+      <h2>Cookies</h2>
+      <p>See the <a href="/en/cookies/">cookie statement</a>.</p>
+
+      <h2>Third parties</h2>
+      <p>If you click through to a booking or affiliate partner (such as CJ Affiliate, TradeTracker, GetYourGuide or Stay22), that party is responsible for processing your data and their own privacy policy applies.</p>
+
+      <h2>Retention periods</h2>
+      <p>Anonymous click records are retained for a maximum of 12 months. Contact details are deleted once your enquiry has been handled, and within 6 months at the latest.</p>
+
+      <h2>Your rights (GDPR)</h2>
+      <p>You have the right to access, rectification, erasure and to object to processing. Email <a href="mailto:privacy@vinomartino.com">privacy@vinomartino.com</a>; we will respond within 30 days. Complaints can be submitted to the <a href="https://www.autoriteitpersoonsgegevens.nl" target="_blank" rel="noopener">Netherlands Data Protection Authority</a>.</p>
+
+      <h2>Changes</h2>
+      <p>The current version of this statement is always available on this page.</p>
+    </article>
+  </section>
+</SiteLayout>
+
+<style>
+  .legal {
+    padding: var(--space-16) 0;
+  }
+  .legal-body {
+    max-width: 44rem;
+    margin: 0 auto;
+    font-family: var(--font-body);
+    color: var(--ink);
+  }
+  .legal-body h1 {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 1.6rem + 1.5vw, 2.875rem);
+    font-style: italic;
+    font-weight: 400;
+    color: var(--ink);
+    margin-bottom: var(--space-2);
+    line-height: 1.15;
+  }
+  .legal-body h2 {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-style: italic;
+    font-weight: 400;
+    color: var(--ink);
+    margin: var(--space-10) 0 var(--space-3);
+  }
+  .legal-body p,
+  .legal-body ul {
+    font-size: 1rem;
+    color: var(--inkSoft);
+    line-height: 1.7;
+    margin-bottom: var(--space-5);
+  }
+  .legal-body ul {
+    padding-left: 1.5rem;
+  }
+  .legal-body li {
+    margin-bottom: var(--space-2);
+  }
+  .legal-body a {
+    color: var(--burgundy);
+  }
+  .legal-body a:hover {
+    color: var(--burgundyDeep);
+  }
+  .legal-body strong {
+    color: var(--ink);
+  }
+  .update-datum {
+    color: var(--inkFaint);
+    font-size: 0.875rem;
+    margin-bottom: var(--space-6);
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: var(--space-6) 0;
+    font-size: 0.9375rem;
+  }
+  th {
+    background: var(--paperDeep);
+    color: var(--ink);
+    padding: 0.625rem 0.75rem;
+    text-align: left;
+    font-family: var(--font-ui);
+    font-weight: 600;
+  }
+  td {
+    padding: 0.625rem 0.75rem;
+    border-bottom: 1px solid var(--ruleSoft);
+    color: var(--inkSoft);
+  }
+  tr:last-child td { border-bottom: none; }
+  code {
+    background: var(--paperDeep);
+    padding: 0.125rem 0.375rem;
+    border-radius: 2px;
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    color: var(--ink);
+  }
+</style>

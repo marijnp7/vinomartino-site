@@ -1,0 +1,86 @@
+---
+import SiteLayout from '../../layouts/SiteLayout.astro';
+---
+
+<SiteLayout
+  locale="en"
+  title="Affiliate Disclosure | VinoMartino"
+  description="Transparency about affiliate links on VinoMartino: who we work with and how tracking works."
+  alternates={{ nl: '/affiliate-verklaring/', en: '/en/affiliate-verklaring/' }}
+>
+  <section class="legal container">
+    <article class="legal-body">
+      <h1>Affiliate Disclosure</h1>
+
+      <p>VinoMartino contains affiliate links. If you book or buy something via our links, we may receive a small commission — at no extra cost to you.</p>
+
+      <h2>Who do we work with?</h2>
+      <ul>
+        <li><strong>Booking.com</strong>: hotels and agriturismi (via Commission Junction)</li>
+        <li><strong>Sunny Cars</strong>: car rental (via TradeTracker)</li>
+        <li><strong>GetYourGuide</strong>: wine tastings, tours and other experiences</li>
+        <li><strong>Stay22</strong>: processes accommodation links on this site via their LinkSwap technology</li>
+        <li>Wine shops and other relevant partners: varies, noted per article</li>
+      </ul>
+
+      <h2>How does tracking work?</h2>
+      <p>When you click an affiliate link, we first register an anonymous click signal on our own server. You are then redirected to the partner. If you make a booking, the partner attributes a commission to us based on that click.</p>
+
+      <h2>Our commitment</h2>
+      <p>Affiliate commissions do not drive our recommendations. If Marijn recommends a winery, hotel or rental car, it is because he would choose it himself — not because of a commission. If something disappoints, he writes that too, even when the article contains an affiliate link.</p>
+
+      <p>In every article that contains affiliate links, this is stated: <em>"This article contains affiliate links."</em></p>
+    </article>
+  </section>
+</SiteLayout>
+
+<style>
+  .legal {
+    padding: var(--space-16) 0;
+  }
+  .legal-body {
+    max-width: 44rem;
+    margin: 0 auto;
+    font-family: var(--font-body);
+    color: var(--ink);
+  }
+  .legal-body h1 {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 1.6rem + 1.5vw, 2.875rem);
+    font-style: italic;
+    font-weight: 400;
+    color: var(--ink);
+    margin-bottom: var(--space-6);
+    line-height: 1.15;
+  }
+  .legal-body h2 {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-style: italic;
+    font-weight: 400;
+    color: var(--ink);
+    margin: var(--space-10) 0 var(--space-3);
+  }
+  .legal-body p,
+  .legal-body ul {
+    font-size: 1rem;
+    color: var(--inkSoft);
+    line-height: 1.7;
+    margin-bottom: var(--space-5);
+  }
+  .legal-body ul {
+    padding-left: 1.5rem;
+  }
+  .legal-body li {
+    margin-bottom: var(--space-2);
+  }
+  .legal-body a {
+    color: var(--burgundy);
+  }
+  .legal-body a:hover {
+    color: var(--burgundyDeep);
+  }
+  .legal-body strong {
+    color: var(--ink);
+  }
+</style>

@@ -1,46 +1,46 @@
 ---
-import SiteLayout from '../layouts/SiteLayout.astro';
-import { organizationSchema, breadcrumbSchema } from '../lib/seo';
-import { readDirectusEnv } from '../lib/directus-config';
+import SiteLayout from '../../layouts/SiteLayout.astro';
+import { organizationSchema, breadcrumbSchema } from '../../lib/seo';
+import { readDirectusEnv } from '../../lib/directus-config';
 
 const schema = [
   organizationSchema(),
   breadcrumbSchema([
-    { name: 'Home', url: '/' },
-    { name: 'Over ons', url: '/over-ons/' },
+    { name: 'Home', url: '/en/' },
+    { name: 'About us', url: '/en/over-ons/' },
   ]),
 ];
 
 const rules = [
   {
     n: '01',
-    h: 'Waar we zelf waren, zie je dat',
-    d: 'Gidsen gebaseerd op eigen bezoek dragen het label Zelf gereisd. In die stukken schrijf ik in eerste persoon over wat ik proefde en zag. Redactiegidsen zijn zorgvuldig samengesteld op basis van primaire bronnen en lokale kennis, maar bevatten geen ooggetuigeclaims. Het onderscheid staat bij elk artikel vermeld.',
+    h: 'What we visited, you\'ll see that',
+    d: 'Guides based on first-hand visits carry the Been there label. In those pieces I write in the first person about what I tasted and saw. Editorial guides are carefully compiled using primary sources and local knowledge, but contain no eyewitness claims. The distinction is noted for every article.',
   },
   {
     n: '02',
-    h: 'Affiliate alleen voor wat ik zelf heb getest',
-    d: 'Als een artikel een boekingslink bevat, heb ik die plek bezocht. We ontvangen commissie bij een boeking, de prijs blijft gelijk. Welke wijnhuizen en accommodaties in aanmerking komen voor een link, bepaal ik op basis van bezoekdocumentatie, niet op basis van wie er om vraagt.',
+    h: 'Affiliate links only for places I\'ve tested myself',
+    d: 'If an article contains a booking link, I\'ve visited that place. We receive a commission on a booking; the price stays the same. Which wineries and accommodations qualify for a link is based on visit documentation, not on who asks for it.',
   },
   {
     n: '03',
-    h: 'Geen advertorials, geen betaalde stukken',
-    d: 'Aanbevelingen zijn onafhankelijk van externe financiering. Affiliate-inkomsten financieren nieuwe bezoeken en het voortbestaan van VinoMartino. Ze bepalen niet wat ik schrijf.',
+    h: 'No advertorials, no paid content',
+    d: 'Recommendations are independent of external funding. Affiliate income funds new visits and keeps VinoMartino going. It does not determine what I write.',
   },
 ];
 
 const visited = [
   'Loire',
-  'Bourgogne',
+  'Burgundy',
   'Champagne',
   'Provence',
   'Mosel',
-  'Piemonte',
-  'Toscane',
-  'Kaapregio',
+  'Piedmont',
+  'Tuscany',
+  'Cape Winelands',
   'Veneto',
   'Alto Adige',
-  'Slowakije',
+  'Slovakia',
 ];
 
 // LAT-1987: twee eigen foto's van Marijn uit de DAM, gekoppeld via Directus-bestanden.
@@ -72,31 +72,32 @@ const fotoUitkijk = await fetchOverOnsFoto('dfaff3d0-675b-48db-acc8-893263eaf06d
 ---
 
 <SiteLayout
-  title="Over VinoMartino: Marijn & Sophie"
-  description="Marijn (internationaal Martino) schrijft over wijnreizen vanuit eigen bezoek. Affiliate alleen voor plekken die we zelf hebben getest. Geen advertorials."
+  title="About VinoMartino: Marijn & Sophie"
+  description="Marijn (internationally known as Martino) writes about wine travel based on first-hand visits. Affiliate links only for places we've actually been. No advertorials."
   schema={schema}
   activeNav="over-ons"
+  locale="en"
   alternates={{ nl: '/over-ons/', en: '/en/over-ons/' }}
 >
   <section class="hero">
     <div class="hero-grid container">
       <div class="hero-text">
-        <span class="kicker kicker-vine">Over VinoMartino</span>
-        <h1>Hi, ik ben <em>Marijn</em></h1>
+        <span class="kicker kicker-vine">About VinoMartino</span>
+        <h1>Hi, I'm <em>Marijn</em></h1>
         <p class="lede">
-          Bij wijnboeren van Piemonte tot de Kaap werd ik al snel "Martino" genoemd, en die naam bleef hangen. Hij werd zelfs de naam van deze site: VinoMartino. Dus internationaal ben ik Martino, thuis gewoon Marijn.
+          Among winemakers from Piedmont to the Cape, people quickly started calling me "Martino" — that nickname stuck. It even became the name of this site: VinoMartino. So internationally I'm Martino, at home just Marijn.
         </p>
         <p class="lede">
-          Ik heb een wijnkoelkast die altijd gevuld is en eigenlijk veel te weinig plek heeft.
-          Meerdere keren per jaar rij ik een smalle Fiat door Piemontese wijngaardpaden, of Siciliaanse, of Portugese, afhankelijk van het seizoen.
-          Ik probeer steeds nieuwe wijngebieden te ontdekken en schrijf op wat ik daar vond.
+          I have a wine fridge that's always full and honestly never quite big enough.
+          Several times a year I drive a compact Fiat through Piedmontese vineyard lanes — or Sicilian, or Portuguese, depending on the season.
+          I keep discovering new wine regions and write down what I find.
         </p>
         <p class="lede">
-          We zijn geen pure wijnkenners of professionals. We zijn wijnfanaten met een enorme passie die we graag delen, zodat ook jij dezelfde reizen en gebieden kunt ontdekken.
+          We're not pure wine experts or professionals. We're wine enthusiasts with a passion we love sharing, so you can discover the same journeys and regions yourself.
         </p>
       </div>
       <div class="hero-image">
-        <img src="/over-ons-hero.jpg" alt="Marijn proeft een glas wijn met de wijngaarden van Stellenbosch op de achtergrond" width="800" height="1000" loading="eager" decoding="async" />
+        <img src="/over-ons-hero.jpg" alt="Marijn tasting a glass of wine with the vineyards of Stellenbosch in the background" width="800" height="1000" loading="eager" decoding="async" />
       </div>
     </div>
   </section>
@@ -104,33 +105,31 @@ const fotoUitkijk = await fetchOverOnsFoto('dfaff3d0-675b-48db-acc8-893263eaf06d
   <section class="intro">
     <div class="container container-narrow">
       <p>
-        VinoMartino begon als een notitieboekje. Na elke reis verzamelde ik aantekeningen: de wijnmaker die ons op woensdagmiddag zijn kelderrand
-        liet proeven, het agriturismo met drie streepjes mobiel bereik waar ik toch uitstekend sliep, de Carricante die ik pas thuis begreep.
-        Op een gegeven moment was het notitieboekje zo vol dat het nuttig begon te worden voor anderen die dezelfde reizen plannen. Dat is dit.
+        VinoMartino started as a notebook. After every trip I collected notes: the winemaker who let us taste through his cellar on a Wednesday afternoon, the agriturismo with three bars of mobile signal where I still slept brilliantly, the Carricante I only understood once I was home. At some point the notebook was full enough to be useful to others planning the same journeys. That's this.
       </p>
       <p>
-        Sophie reist soms mee en leest dit alles pas als het online staat.
+        Sophie sometimes comes along and only reads all of this once it's online.
       </p>
       <p>
-        Sommige stukken gaan wat dieper dan andere, dat hangt af van de reis en wat me opviel. Ik deel vooral ervaringen en probeer mensen genoeg informatie te geven om zelf mooie reizen te plannen. Heb je zelf iets te delen dat anderen daarbij helpt? Dan bied ik de mogelijkheid om een bijdrage op de site te plaatsen.
+        Some pieces go deeper than others — that depends on the trip and what caught my attention. I share experiences and try to give people enough information to plan their own great journeys. If you have something to share that helps others, there is an option to publish a contribution on the site.
       </p>
       <p>
-        En al draait het hier om wijn: de meeste van deze streken zijn ook zonder een enkel wijnhuis al prachtig om te bezoeken. De wijn is de aanleiding, niet de enige reden.
+        And even though wine is at the centre: most of these regions are worth visiting even without a single winery. The wine is the reason to go, not the only one.
       </p>
       <p>
-        Op den duur willen we het breder trekken: restaurants en andere plekken die een reis compleet maken, krijgen straks ook een plek op de site.
+        In time we want to broaden this: restaurants and other places that complete a journey will have a home here too.
       </p>
       {fotoCalmont && (
         <figure class="over-figure">
           <img
             src={fotoCalmont}
-            alt="Marijn bij het Calmont-bord boven de Moezel, met groene heuvels en het rivierdal op de achtergrond"
+            alt="Marijn at the Calmont sign above the Mosel, with green hills and the river valley in the background"
             width="1500"
             height="2000"
             loading="lazy"
             decoding="async"
           />
-          <figcaption>Op de Calmont in Ediger, de steilste wijngaard van Duitsland.</figcaption>
+          <figcaption>On the Calmont in Ediger, the steepest vineyard in Germany.</figcaption>
         </figure>
       )}
     </div>
@@ -138,8 +137,8 @@ const fotoUitkijk = await fetchOverOnsFoto('dfaff3d0-675b-48db-acc8-893263eaf06d
 
   <section class="rules">
     <div class="container container-narrow">
-      <span class="kicker kicker-burgundy">§ Hoe dit werkt</span>
-      <h2>Drie regels</h2>
+      <span class="kicker kicker-burgundy">§ How this works</span>
+      <h2>Three rules</h2>
       <ol class="rules-list">
         {rules.map((r) => (
           <li>
@@ -156,25 +155,25 @@ const fotoUitkijk = await fetchOverOnsFoto('dfaff3d0-675b-48db-acc8-893263eaf06d
 
   <section class="visited">
     <div class="container">
-      <span class="kicker kicker-rust">Bezochte streken</span>
-      <h2>{visited.length}+ streken sinds 2019</h2>
+      <span class="kicker kicker-rust">Visited regions</span>
+      <h2>{visited.length}+ regions since 2019</h2>
       <div class="visited-list">
         {visited.map((v) => (
           <span class="visited-item">{v}</span>
         ))}
-        <span class="visited-more">… en meer</span>
+        <span class="visited-more">… and more</span>
       </div>
       {fotoUitkijk && (
         <figure class="over-figure">
           <img
             src={fotoUitkijk}
-            alt="Marijn bij een uitkijkpunt kijkt uit over een weids dal"
+            alt="Marijn at a viewpoint looking out over a broad valley"
             width="2000"
             height="1500"
             loading="lazy"
             decoding="async"
           />
-          <figcaption>Even uitkijken over het dal, onderweg naar het volgende wijngebied.</figcaption>
+          <figcaption>Taking in the view across the valley, on the way to the next wine region.</figcaption>
         </figure>
       )}
     </div>
@@ -184,7 +183,7 @@ const fotoUitkijk = await fetchOverOnsFoto('dfaff3d0-675b-48db-acc8-893263eaf06d
     <div class="container container-narrow">
       <h2>Contact</h2>
       <p>
-        Vragen, tips, of een wijnhuis dat we écht moeten bezoeken?<br />
+        Questions, tips, or a winery we really should visit?<br />
         <a href="mailto:contact@vinomartino.com">contact@vinomartino.com</a>
       </p>
     </div>

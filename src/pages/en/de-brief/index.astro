@@ -1,9 +1,9 @@
 ---
-import SiteLayout from '../../layouts/SiteLayout.astro';
-import Briefkaart from '../../components/Briefkaart.astro';
-import NewsletterRegionField from '../../components/NewsletterRegionField.astro';
-import { organizationSchema, breadcrumbSchema } from '../../lib/seo';
-import { INSTAGRAM_URL, SUBSTACK_URL } from '../../lib/social';
+import SiteLayout from '../../../layouts/SiteLayout.astro';
+import Briefkaart from '../../../components/Briefkaart.astro';
+import NewsletterRegionField from '../../../components/NewsletterRegionField.astro';
+import { organizationSchema, breadcrumbSchema } from '../../../lib/seo';
+import { INSTAGRAM_URL, SUBSTACK_URL } from '../../../lib/social';
 
 // Capture-backend = MailerLite (LAT-1188): nieuwe aanmeldingen landen rechtstreeks
 // in de groep "Newsletter Subscribers" (1896876) en starten de welkomstserie.
@@ -19,28 +19,29 @@ const FORM_ACTION =
 const schema = [
   organizationSchema(),
   breadcrumbSchema([
-    { name: 'Home', url: '/' },
-    { name: 'De brief', url: '/de-brief/' },
+    { name: 'Home', url: '/en/' },
+    { name: 'The letter', url: '/en/de-brief/' },
   ]),
 ];
 ---
 
 <SiteLayout
-  title="De brief, de nieuwsbrief van VinoMartino"
-  description="Elke twee weken stopt Marijn een brief in je inbox: over een wijnmaker die we net bezochten, een regio die opnieuw onze aandacht trok, een fles die indruk maakte. Met aanmelding stuur ik de Langhe-reisplanner meteen."
+  title="The letter, the VinoMartino newsletter"
+  description="Every two weeks Marijn puts a letter in your inbox: about a winemaker we just visited, a region that caught our attention again, a bottle that made an impression. Sign up and I'll send the Langhe travel planner straight away."
   schema={schema}
   activeNav="de-brief"
+  locale="en"
   alternates={{ nl: '/de-brief/', en: '/en/de-brief/' }}
 >
   <section class="hero">
     <div class="container container-narrow">
-      <span class="kicker">De brief · elke twee weken</span>
-      <h1>De brief</h1>
+      <span class="kicker">The letter · every two weeks</span>
+      <h1>The letter</h1>
       <p class="lede">
-        Elke twee weken stopt Marijn een brief in je inbox. Geen persberichten,
-        geen uitnodigingen voor generieke wijnfestivals, een echte brief. Over een
-        wijnmaker die we net bezochten, een regio die opnieuw onze aandacht trok, een
-        fles die indruk maakte. Bij aanmelding stuur ik de Langhe-reisplanner meteen.
+        Every two weeks Marijn puts a letter in your inbox. No press releases,
+        no invitations to generic wine festivals — a real letter. About a
+        winemaker we just visited, a region that caught our attention again, a
+        bottle that made an impression. Sign up today and I'll send the Langhe travel planner straight away.
       </p>
 
       <form
@@ -51,25 +52,25 @@ const schema = [
         data-newsletter-signup
       >
         <div class="signup__row">
-          <label for="ml-email" class="visually-hidden">E-mailadres</label>
+          <label for="ml-email" class="visually-hidden">Email address</label>
           <input
             id="ml-email"
             type="email"
             name="fields[email]"
             autocomplete="email"
-            placeholder="je@adres.nl"
+            placeholder="your@email.com"
             required
           />
-          <button type="submit" data-plausible-cta="newsletter_signup">Stuur me de brief</button>
+          <button type="submit" data-plausible-cta="newsletter_signup">Send me the letter</button>
         </div>
-        <NewsletterRegionField id="ml-region" />
+        <NewsletterRegionField id="ml-region" locale="en" />
       </form>
 
       <p class="follow">
-        Al nieuwsgierig? Volg Marijn alvast op
+        Already curious? Follow Marijn on
         <a href={INSTAGRAM_URL} target="_blank" rel="noopener">Instagram</a>{SUBSTACK_URL ? (
-          <>, of lees de brieven online op <a href={SUBSTACK_URL} target="_blank" rel="noopener" data-plausible-cta="substack_link">Substack</a></>
-        ) : null}, daar verschijnen de eerste verhalen.
+          <>, or read the letters online on <a href={SUBSTACK_URL} target="_blank" rel="noopener" data-plausible-cta="substack_link">Substack</a></>
+        ) : null}, where the first stories appear.
       </p>
     </div>
   </section>

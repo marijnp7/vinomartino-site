@@ -377,6 +377,42 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'streken.index.empty.descLink': 'artikelen',
     'streken.index.empty.descPost': '.',
 
+    // LandenIndex.astro (/landen/) — LAT-2709 (EN-route). Empty-state gebruikt
+    // pre/link/post zodat de NL-variant byte-identiek blijft (geen link → lege
+    // descLink/descPost renderen niets) terwijl EN wél naar /en/artikelen/ linkt.
+    'landen.index.meta.title': 'Wijnlanden, Wijnen & wijnstreken per land | VinoMartino',
+    'landen.index.meta.description': 'Ontdek de grote wijnlanden van Europa: Italië, Frankrijk, Spanje, Portugal, Duitsland en Oostenrijk. Per land de belangrijkste streken, druivenrassen en reistips.',
+    'landen.index.hero.label': 'Wijnlanden',
+    'landen.index.hero.h1': 'Wijnen & wijnstreken per land',
+    'landen.index.hero.desc': 'De grote wijnlanden van Europa, per land de streken, druivenrassen, tradities en reistips die ertoe doen.',
+    'landen.index.empty.title': 'Landengidsen komen eraan',
+    'landen.index.empty.descPre': "We werken aan uitgebreide wijnlandgidsen op basis van eigen bezoek aan de regio's.",
+    'landen.index.empty.descLink': '',
+    'landen.index.empty.descPost': '',
+
+    // OntdekContent.astro (/ontdek/) — LAT-2709 (EN-route). Pluraliseringen als
+    // losse singular/plural-keys omdat t() geen interpolatie kent.
+    'ontdek.index.meta.title': 'Ontdek de wijnatlas, landen & streken | VinoMartino',
+    'ontdek.index.meta.description': 'De wijnatlas van VinoMartino: blader van wijnland naar wijnstreek. Per land de streken die ertoe doen, elk met een eigen gids over terroir, druiven en reizen.',
+    'ontdek.breadcrumb': 'Ontdek',
+    'ontdek.index.hero.label': 'Wijnatlas',
+    'ontdek.index.hero.h1': 'Ontdek per land en streek',
+    'ontdek.index.hero.desc': 'Blader door de wijnlanden van de wereld. Kies een land, duik in de streken eronder en lees de gids van de regio die je trekt. Hoe meer we toevoegen, hoe rijker de atlas, zonder dat het menu meegroeit.',
+    'ontdek.continent.landen.singular': 'land',
+    'ontdek.continent.landen.plural': 'landen',
+    'ontdek.continent.overig': 'Overig',
+    'ontdek.tile.aria.prefix': 'Ontdek',
+    'ontdek.tile.region.link.prefix': 'Bekijk het land',
+    'ontdek.atlas.foot.wijnlanden.singular': 'wijnland',
+    'ontdek.atlas.foot.wijnlanden.plural': 'wijnlanden',
+    'ontdek.atlas.foot.streken.singular': 'streek',
+    'ontdek.atlas.foot.streken.plural': 'streken',
+    'ontdek.atlas.foot.tail': ' in de atlas. Elke streek is een eigen gids over terroir, druiven en reizen.',
+    'ontdek.empty.h2': 'De atlas vult zich',
+    'ontdek.empty.descPre': 'We werken aan de eerste wijnlandgidsen. Begin ondertussen bij de ',
+    'ontdek.empty.descLink': 'artikelen',
+    'ontdek.empty.descPost': '.',
+
     // WijnhuizenIndex.astro (/wijnhuizen/).
     'wijnhuizen.index.meta.title': 'Wijnhuizen, Producenten & wijnmakerijen | VinoMartino',
     'wijnhuizen.index.meta.description': 'Ontdek de wijnhuizen achter de fles, van eigenzinnige Barolo-producenten tot vulkanische pioniers op de Etna. Persoonlijke portretten van wijnmakers die er echt toe doen.',
