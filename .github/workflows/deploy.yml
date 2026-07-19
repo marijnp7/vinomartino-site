@@ -514,6 +514,52 @@ jobs:
             echo "::notice::Smoke-test OK — productie serveert correcte build $served_sha"
           fi
 
+      # ── 8b. Cloudflare edge-cache purge (LAT-2701) ───────────────────
+      # De prod smoke-test hierboven bust de edge-cache alleen voor de check
+      # (Cache-Control: no-cache) maar purget hem niet. Echte bezoekers zonder
+      # no-cache kregen stale edge-entries tot TTL-expiry — root-cause /en/
+      # go-live-incident (LAT-2582). Deze stap purget de zone-cache ná een
+      # geverifieerde prod-deploy. Secret-posture conform pipeline: geen
+      # CF-token in GHA-secrets; VPS-host bewaart het in
+      # /root/.agent-secrets/cloudflare.env.
+      - name: Purge Cloudflare edge cache (prod)
+        if: steps.env.outputs.target == 'production'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          PURGE_SCRIPT: |
+            set -euo pipefail
+            CF_ENV="/root/.agent-secrets/cloudflare.env"
+            if [ ! -r "$CF_ENV" ]; then
+              echo "::error::$CF_ENV niet leesbaar op VPS — CF-purge overgeslagen (LAT-2701)"
+              exit 1
+            fi
+            set -a; . "$CF_ENV"; set +a
+            if [ -z "${CF_API_TOKEN:-}" ] || [ -z "${CF_ZONE_ID:-}" ]; then
+              echo "::error::CF_API_TOKEN of CF_ZONE_ID ontbreekt in $CF_ENV"
+              exit 1
+            fi
+            ok=""
+            for attempt in 1 2 3; do
+              resp=$(curl -sS --max-time 20 -X POST \
+                -H "Authorization: Bearer $CF_API_TOKEN" \
+                -H "Content-Type: application/json" \
+                --data '{"purge_everything":true}' \
+                "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/purge_cache" || echo '{"success":false}')
+              if printf '%s' "$resp" | grep -qE '"success":[[:space:]]*true'; then
+                echo "::notice::Cloudflare-cache gepurged voor vinomartino.com — $resp"
+                ok=1
+                break
+              fi
+              echo "Attempt $attempt faalde: $resp"
+              sleep 4
+            done
+            if [ -z "$ok" ]; then
+              echo "::error::Cloudflare cache-purge faalde na 3 pogingen — edge kan stale content serveren. Handmatig purgen (LAT-2701)."
+              exit 1
+            fi
+        run: |
+          printf '%s\n' "$PURGE_SCRIPT" | ssh "$VPS" "bash -s"
+
       - name: Done
         run: echo "::notice::Deploy naar ${{ steps.env.outputs.target }} voltooid (${{ github.sha }})"
 
