@@ -278,7 +278,7 @@ function formatDate(value?: string | null) {
           {ui.t('home.routes.sub')}
         </p>
       </header>
-      <HomeRoutesMap routes={routes} title={locale === 'en' ? 'Our wine routes on the map' : undefined} />
+      <HomeRoutesMap routes={routes} locale={locale} />
       <div class="cards-grid">
         {featuredRoutes.map((r, idx) => (
           <a href={`/wijnroutes/${r.slug}/`} class="card-tile">

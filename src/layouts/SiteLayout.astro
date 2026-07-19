@@ -237,7 +237,7 @@ const articleTags = article?.tags?.filter((tag): tag is string => Boolean(tag &&
       <slot />
     </main>
     <SiteFooter locale={currentLocale} />
-    <SearchDialog />
+    <SearchDialog locale={currentLocale} />
     <script>
       import { initAffiliateTracker } from '../lib/click-tracker';
       import { initPlausibleInteractions } from '../lib/plausible';

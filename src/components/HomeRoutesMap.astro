@@ -18,13 +18,19 @@
 // geen enkele route bruikbare stopsGeo, dan rendert dit component niets en blijft
 // de sectie met de kaartjes intact.
 import type { WijnRoute, RouteStopGeo } from '../lib/routes';
+import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
 
 export interface Props {
   routes: WijnRoute[];
   title?: string;
+  locale?: Locale;
 }
 
-const { routes = [], title = 'Onze wijnroutes op de kaart' } = Astro.props;
+const { routes = [], title, locale = DEFAULT_LOCALE } = Astro.props;
+const isEn = locale === 'en';
+const resolvedTitle = title ?? (isEn ? 'Our wine routes on the map' : 'Onze wijnroutes op de kaart');
+const mapKicker = isEn ? 'On the map' : 'Op de kaart';
+const legendAria = isEn ? 'Routes on the map' : 'Routes op de kaart';
 
 // Merk-palet: elke route een eigen, herkenbare lijnkleur (bordeaux/olijf/goud).
 const PALETTE = ['#5A1A1F', '#5C6B3F', '#B08228'] as const;
@@ -58,11 +64,11 @@ const mapData = { routes: mapped };
 {hasMap && (
   <figure class="hrm" data-hrm aria-labelledby="hrm-cap">
     <figcaption class="hrm__cap" id="hrm-cap">
-      <span class="hrm__label">Op de kaart</span>
-      <span class="hrm__title">{title}</span>
+      <span class="hrm__label">{mapKicker}</span>
+      <span class="hrm__title">{resolvedTitle}</span>
     </figcaption>
-    <div class="hrm__canvas" data-hrm-canvas role="application" aria-label={title}></div>
-    <ul class="hrm__legend" aria-label="Routes op de kaart">
+    <div class="hrm__canvas" data-hrm-canvas role="application" aria-label={resolvedTitle}></div>
+    <ul class="hrm__legend" aria-label={legendAria}>
       {mapped.map((r) => (
         <li class="hrm__legend-item">
           <a href={`/wijnroutes/${r.slug}/`} class="hrm__legend-link">
