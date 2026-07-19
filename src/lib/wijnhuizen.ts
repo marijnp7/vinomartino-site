@@ -68,7 +68,7 @@ import {
     assertCollectionReadableOrDegrade,
 } from './directus-config';
 import { DEFAULT_LOCALE, type Locale } from './i18n';
-import { localizeRecords } from './directus-i18n';
+import { localizeRecords, localizeJoinedRefs } from './directus-i18n';
 
 // LAT-2575 — vertaalbare wijnhuis-velden (native Directus translations, LAT-2574).
 const WIJNHUIZEN_TRANSLATABLE = ['description', 'body', 'meta_title', 'meta_description', 'hero_alt'];
@@ -169,7 +169,7 @@ function mapWijnhuis(
 
 async function fetchWijnhuizenItems(url: string, token: string): Promise<Record<string, unknown>[]> {
     const env = readDirectusEnv();
-    const baseFields = 'id,slug,name,description,body,address,website,established,hectares,biodynamisch,winemaker,grapes,hero_image,status,meta_title,meta_description,streek_id.name,streek_id.slug';
+    const baseFields = 'id,slug,name,description,body,address,website,established,hectares,biodynamisch,winemaker,grapes,hero_image,status,meta_title,meta_description,streek_id.id,streek_id.name,streek_id.slug';
     const withOg = `${baseFields},og_image`;
     // LAT-1098: reverse-relation via M2M articles.related_wijnhuizen.
     const withRelations = `${withOg},related_articles.articles_id.slug,related_articles.articles_id.title`;
@@ -281,6 +281,19 @@ async function loadFromDirectus(url: string, token: string, locale: Locale): Pro
         fields: WIJNHUIZEN_TRANSLATABLE,
         locale,
     });
+    // LAT-2697 — vertaal de gejoinde streeknaam mee (anders lekt de NL-streeknaam,
+    // bv. "Toscane", in de EN wijnhuis-meta-title "…, Winery in Toscane" i.p.v.
+    // "Tuscany"). De streek-M2O wordt niet door localizeRecords geraakt.
+    await localizeJoinedRefs(
+        data.map((r) => r.streek_id as Record<string, unknown> | null),
+        {
+            env: readDirectusEnv(),
+            junction: 'streken_translations',
+            parentIdField: 'streken_id',
+            fields: ['name'],
+            locale,
+        },
+    );
     const items = await Promise.all(
         data.map(async (r) => {
             const streek = r.streek_id as Record<string, unknown> | null;

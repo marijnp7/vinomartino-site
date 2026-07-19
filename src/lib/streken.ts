@@ -194,7 +194,7 @@ import {
     assertCollectionReadableOrDegrade,
 } from './directus-config';
 import { DEFAULT_LOCALE, type Locale } from './i18n';
-import { localizeRecords, localizeRecordsSoft } from './directus-i18n';
+import { localizeRecords, localizeRecordsSoft, localizeJoinedRefs } from './directus-i18n';
 
 // LAT-2575 — vertaalbare streek-velden (native Directus translations, LAT-2574).
 // Identiek aan de parent-veldnamen zodat de overlay ze 1-op-1 kan overschrijven.
@@ -556,7 +556,7 @@ function mapStreek(
 
 async function fetchStrekenItems(url: string, token: string): Promise<Record<string, unknown>[]> {
     const env = readDirectusEnv();
-    const baseFields = 'id,slug,name,description,body,climate,soil,main_grapes,sub_regions,vineyard_area,altitude,appellations,accommodaties,wijnhuizen,hero_image,status,meta_title,meta_description,land_id.name,land_id.slug';
+    const baseFields = 'id,slug,name,description,body,climate,soil,main_grapes,sub_regions,vineyard_area,altitude,appellations,accommodaties,wijnhuizen,hero_image,status,meta_title,meta_description,land_id.id,land_id.name,land_id.slug';
     const withOg = `${baseFields},og_image`;
     // LAT-1098: reverse-relation auto-aangemaakt door Directus M2M op articles
     // (LAT-1097). Junction `articles_streken` → `articles_id.{slug,title}`.
@@ -764,6 +764,20 @@ async function loadFromDirectus(url: string, token: string, locale: Locale): Pro
         fields: STREKEN_TRANSLATABLE,
         locale,
     });
+    // LAT-2697 — vertaal de gejoinde landnaam mee (anders lekt de NL-landnaam,
+    // bv. "Italië", in de EN streek-meta-title "…, Wine region in Italië"). De
+    // land-M2O wordt niet door localizeRecords geraakt (dat lokaliseert alleen
+    // de streek-eigen velden), dus overlay de landen_translations-naam apart.
+    await localizeJoinedRefs(
+        data.map((r) => r.land_id as Record<string, unknown> | null),
+        {
+            env: readDirectusEnv(),
+            junction: 'landen_translations',
+            parentIdField: 'landen_id',
+            fields: ['name'],
+            locale,
+        },
+    );
     const items = await Promise.all(
         data.map(async (r) => {
             const land = r.land_id as Record<string, unknown> | null;
