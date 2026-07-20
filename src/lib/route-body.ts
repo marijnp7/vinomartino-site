@@ -1,27 +1,36 @@
 // LAT-2270 [VIS] — verrijkte route-body renderer. Vertaalt redactionele markdown-
-// directives (`:::foto`, `:::boek`, `:::infographic`) uit `routes.body` naar veilige
+// directives (`::foto`, `::boek`, `:::infographic`) uit `routes.body` naar veilige
 // inline-HTML die door dezelfde sanitize/toc-pas loopt als de gewone body
 // (mdastToHtmlWithToc, LAT-2270-split in markdown.ts). Zo blijven de dag-blokken
 // (route-days.ts) en de kaart ongemoeid; de directives verrijken alleen de proza.
 //
 // Contract met de redactie (Lead Editor, LAT-2268):
 //
-//   :::foto{ref="<assetId>" bijschrift="<onderschrift>" formaat="breed|inzet"}
-//     Beeld tussen de proza. `ref` = Directus-asset-id → gecommit onder
-//     public/images/routes/body-<id>.jpg (downloadFoto-closure uit routes.ts).
+// LET OP — colon-telling is betekenisdragend (LAT-2282). `foto` en `boek` dragen
+// geen markdown-inhoud en zijn dus LEAF-directives: schrijf ze met TWEE dubbele
+// punten (`::foto`, `::boek`) op een eigen regel. Schrijf je ze met drie (`:::foto`),
+// dan parst micromark ze als een ongesloten CONTAINER die alle erop volgende proza
+// (en de volgende directive) opslokt → die inhoud valt vervolgens weg. Alleen
+// `infographic` wikkelt wél inhoud en blijft daarom een container (`:::` … `:::`).
+//
+//   ::foto{ref="<assetId>" bijschrift="<onderschrift>" formaat="breed|inzet"}
+//     Beeld tussen de proza. `ref` = Directus-asset-id (VOLLEDIGE UUID) → gecommit
+//     onder public/images/routes/body-<id>.jpg (downloadFoto-closure uit routes.ts).
 //     `formaat` optioneel: breed (full-bleed) of inzet (klein/ingesprongen).
 //     Faalt de download, dan valt het hele figuur weg (deploy-safe, geen broken img).
 //
-//   :::boek{acc="<accommodationId>" label="<knoptekst>"}
-//   :::boek{zoek="<zoekterm>" label="<knoptekst>"}
+//   ::boek{acc="<accommodationId>" label="<knoptekst>"}
+//   ::boek{zoek="<zoekterm>" label="<knoptekst>"}
 //     Boek-CTA. `acc` = numeriek accommodations-id → directe booking.com-deeplink
 //     (aid=818285 via CJ, resolveBoekHref-closure). `zoek` = fallback-zoekdeeplink.
 //     Rendert een `rel="sponsored noopener"`-knop + vaste disclosure-microcopy.
 //     Zonder resolvebare href valt de CTA weg (deploy-safe).
 //
 //   :::infographic{...}
+//   :::
 //     Wikkelt de ingesloten markdown (bv. een statlijst) in een <aside class="route-
 //     infographic">. De inhoud rendert als normale markdown; puur presentatie.
+//     Container: sluit ALTIJD af met een regel `:::`.
 //
 // Onbekende directives worden genegeerd (niets gerenderd) — deploy-safe, geen regressie.
 
