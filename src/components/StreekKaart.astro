@@ -1,0 +1,757 @@
+---
+// LAT-1592 — Streek-template unify ("de geld-pagina"). Eén dubbele kaart:
+// een kleine locator (land + streek gemarkeerd) plus een detailkaart met
+// genummerde, categorie-gekleurde pins over alle vier de POI-types
+// (wijnhuizen, eten, overnachten, activiteiten). De nummering is gedeeld tussen
+// de pins en de lijst eronder. Bouwt voort op het Leaflet + Carto-Positron
+// patroon van CuratedStayMap (LAT-1127).
+//
+// Affiliate-CTA's dragen de bestaande cookieless click-tracker-attributen
+// (data-affiliate-*, LAT-1019/1029). Blokken renderen alleen als er data is —
+// nooit "coming soon" (Martin-stem, plan 4b).
+
+import PoiCard, { type PoiCardTheme } from './PoiCard.astro';
+import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
+
+export interface StreekPoiInput {
+  naam: string;
+  lat: number | null;
+  lng: number | null;
+  beschrijving?: string;
+  /** Display-label voor de prijs, bv. '€120–180 / nacht' of 'vanaf €45'. */
+  prijs?: string | null;
+  /** Externe affiliate-boeklink. Leeg = geen affiliate-CTA. */
+  boeklink?: string | null;
+  /** Interne detailpagina (bv. /wijnhuizen/{slug}/). Leeg = geen interne link. */
+  detailUrl?: string | null;
+  /** Korte badge, bv. tier-label voor overnachten. */
+  badge?: string | null;
+  /** LAT-2003 (VIS-BL-04): één cursieve waarom-regel voor boekbare kaarten. */
+  whyRegel?: string | null;
+  /** LAT-2003 (VIS-BL-04): vaste disclosure-microcopy als kaart-voetregel. */
+  disclosure?: string | null;
+  /**
+   * LAT-1607/LAT-1644: prijs-tier voor overnachten ('slim_geboekt' |
+   * 'prijs_kwaliteit' | 'pure_luxe'). De tier stuurt nu enkel de badge per kaart;
+   * de groepering loopt via clusterSlug. Andere categorieën negeren dit veld.
+   */
+  tier?: string | null;
+  /**
+   * LAT-1644: 40-min-cluster-anker voor overnachten. POI's met dezelfde
+   * clusterSlug komen in één cluster-blok (tiers gemengd). Leeg → impliciet
+   * "overig"-cluster. Andere categorieën negeren deze velden.
+   */
+  clusterSlug?: string | null;
+  /** LAT-1644: leesbare cluster-titel (bv. "Bolgheri · Castagneto Carducci"). */
+  clusterTitel?: string | null;
+  /** Affiliate-partner voor click-tracking (bv. 'stay22', 'getyourguide'). */
+  partner?: string;
+  /** Foto-URL (DAM, buildtime). Leeg = SmartImg-placeholder. */
+  foto?: string | null;
+  /** Alt-tekst voor de foto. */
+  fotoAlt?: string | null;
+  /** SmartImg-placeholder-thema wanneer er geen foto is. */
+  fotoTheme?: PoiCardTheme;
+}
+
+interface Props {
+  streek: string;
+  slug: string;
+  country?: string;
+  wijnhuizen?: StreekPoiInput[];
+  overnachten?: StreekPoiInput[];
+  eten?: StreekPoiInput[];
+  activiteiten?: StreekPoiInput[];
+  /** LAT-2575: NL byte-identiek op DEFAULT_LOCALE; /en/ geeft "en" mee. */
+  locale?: Locale;
+}
+
+const {
+  streek,
+  slug,
+  country = '',
+  wijnhuizen = [],
+  overnachten = [],
+  eten = [],
+  activiteiten = [],
+  locale = DEFAULT_LOCALE,
+} = Astro.props;
+
+const ui = await loadUiStrings(locale);
+// LAT-2704 — interne hrefs locale-aware; NL blijft byte-identiek.
+const lh = (href: string) => localizeHref(href, locale);
+
+type CatKey = 'wijnhuizen' | 'eten' | 'overnachten' | 'activiteiten';
+
+const CATEGORY_META: Record<CatKey, { label: string; color: string; theme: PoiCardTheme }> = {
+  wijnhuizen: { label: ui.t('streekkaart.cat.wijnhuizen'), color: '#5A1A1F', theme: 'winery' },
+  eten: { label: ui.t('streekkaart.cat.eten'), color: '#A14F2A', theme: 'region' },
+  overnachten: { label: ui.t('streekkaart.cat.overnachten'), color: '#5C6B3F', theme: 'winery' },
+  activiteiten: { label: ui.t('streekkaart.cat.activiteiten'), color: '#2F6B7A', theme: 'vineyard' },
+};
+// Volgorde van de blokken én van de gedeelde nummering (plan 2C).
+const CATEGORY_ORDER: CatKey[] = ['wijnhuizen', 'eten', 'overnachten', 'activiteiten'];
+
+// LAT-1644 — overnachten groepeert op 40-min-cluster (LAT-1406) i.p.v. op tier.
+// De aanroeper levert de POI's al in clustervolgorde aan (binnen cluster op tier
+// gesorteerd) met clusterSlug/clusterTitel; de tier blijft als badge per kaart.
+// Eén verblijf zonder clusterSlug valt in een impliciet "overig"-cluster zodat
+// de lijst nooit data verliest. De pins/kaart en de gedeelde nummering blijven
+// ongewijzigd.
+type StayCluster = { slug: string; titel: string; items: NumberedPoi[] };
+function groepeerOpCluster(items: NumberedPoi[]): StayCluster[] {
+  const order: string[] = [];
+  const bySlug = new Map<string, StayCluster>();
+  for (const it of items) {
+    const slug = it.clusterSlug || 'overig';
+    let g = bySlug.get(slug);
+    if (!g) {
+      g = { slug, titel: it.clusterTitel || '', items: [] };
+      bySlug.set(slug, g);
+      order.push(slug);
+    }
+    g.items.push(it);
+  }
+  return order.map((s) => bySlug.get(s)!);
+}
+
+const rawByCat: Record<CatKey, StreekPoiInput[]> = {
+  wijnhuizen,
+  eten,
+  overnachten,
+  activiteiten,
+};
+
+// Gedeelde, stabiele nummering 1..N over alle categorieën in blokvolgorde.
+// LAT-1979: alleen POI's mét coördinaten krijgen een nummer, zodat de badges in
+// de lijst aaneengesloten 1..N lopen en exact matchen met de pins op de kaart.
+// Wijnhuizen zonder lat/lng (niet-gecureerd) blijven als context in de lijst,
+// maar zonder wees-nummer dat op de kaart zou ontbreken.
+let counter = 0;
+type NumberedPoi = StreekPoiInput & { n: number | null; category: CatKey; color: string };
+const sections = CATEGORY_ORDER
+  .filter((key) => rawByCat[key].length > 0)
+  .map((key) => ({
+    key,
+    label: CATEGORY_META[key].label,
+    color: CATEGORY_META[key].color,
+    items: rawByCat[key].map<NumberedPoi>((poi) => ({
+      ...poi,
+      n: poi.lat != null && poi.lng != null ? ++counter : null,
+      category: key,
+      color: CATEGORY_META[key].color,
+    })),
+  }));
+
+const allItems = sections.flatMap((s) => s.items);
+const geoItems = allItems.filter((it) => it.lat != null && it.lng != null);
+const hasMap = geoItems.length >= 1;
+
+const mapId = `streekkaart-${slug}`.replace(/[^a-z0-9-]/gi, '');
+
+// Locator-centroid: gemiddelde van alle geplotte POI's. Geeft de streek-context
+// op een uitgezoomde kaart (land + streek gemarkeerd).
+const centroid = hasMap
+  ? {
+      lat: geoItems.reduce((s, it) => s + (it.lat as number), 0) / geoItems.length,
+      lng: geoItems.reduce((s, it) => s + (it.lng as number), 0) / geoItems.length,
+    }
+  : null;
+
+// Affiliate-categorieën die een externe boeklink dragen (sticky-bar trigger).
+const bookableSection = sections.find((s) =>
+  (s.key === 'overnachten' || s.key === 'activiteiten') && s.items.some((it) => it.boeklink),
+);
+const hasSticky = Boolean(bookableSection);
+const stickyTargetId = bookableSection ? `${mapId}-${bookableSection.key}` : '';
+
+function ctaLabel(category: CatKey): string {
+  if (category === 'overnachten') return ui.t('streekkaart.cta.overnachten');
+  if (category === 'activiteiten') return ui.t('streekkaart.cta.activiteiten');
+  if (category === 'eten') return ui.t('streekkaart.cta.eten');
+  return ui.t('streekkaart.cta.default');
+}
+
+const mapData = {
+  slug,
+  leesMeer: ui.t('streekkaart.popupLeesMeer'),
+  pins: geoItems.map((it) => ({
+    n: it.n,
+    naam: it.naam,
+    category: it.category,
+    label: CATEGORY_META[it.category].label,
+    color: it.color,
+    lat: it.lat,
+    lng: it.lng,
+    prijs: it.prijs ?? null,
+    boeklink: it.boeklink ?? null,
+    detailUrl: it.detailUrl ? lh(it.detailUrl) : null,
+    cta: ctaLabel(it.category),
+    partner: it.partner ?? '',
+    foto: it.foto ?? null,
+    fotoAlt: it.fotoAlt ?? it.naam,
+  })),
+};
+const usedCats = sections.map((s) => s.key);
+---
+
+{sections.length > 0 && (
+  <section class="streekkaart" data-streekkaart id={mapId} aria-labelledby={`${mapId}-title`}>
+    <header class="streekkaart__head">
+      <span class="streekkaart__kicker">{ui.t('streekkaart.kicker')}</span>
+      <h2 id={`${mapId}-title`} class="streekkaart__title">{`${ui.t('streekkaart.titlePrefix')} ${streek}`}</h2>
+      <p class="streekkaart__intro">{`${ui.t('streekkaart.introPrefix')} ${streek}`}{country && <>, {country}</>}{ui.t('streekkaart.introSuffix')}</p>
+    </header>
+
+    {hasMap && (
+      <figure class="streekkaart__map" data-skz-map>
+        {/* LAT-2009 (VIS-BL-10): één kaart met inzet. De detailkaart is de
+            hoofdkaart; de locator (land + streek gemarkeerd) zit als kleine inzet
+            in de rechterbovenhoek i.p.v. als losse tweede kaart ernaast. */}
+        <div class="streekkaart__stage">
+          <div
+            class="streekkaart__detail-canvas"
+            data-streekkaart-canvas
+            role="application"
+            aria-label={`${ui.t('streekkaart.ariaDetailMap')} ${streek}`}
+          ></div>
+          {centroid && (
+            <div class="streekkaart__locator-inset">
+              <div
+                class="streekkaart__locator-canvas"
+                data-streekkaart-locator
+                data-lat={centroid.lat}
+                data-lng={centroid.lng}
+                data-naam={streek}
+                role="img"
+                aria-label={`${ui.t('streekkaart.locatorPrefix')} ${streek}${country ? `, ${country}` : ''}${ui.t('streekkaart.locatorSuffix')}`}
+              ></div>
+            </div>
+          )}
+        </div>
+        <script type="application/json" data-streekkaart-data set:html={JSON.stringify(mapData)} />
+        <figcaption class="streekkaart__legend">
+          {usedCats.map((key) => (
+            <span class="streekkaart__legend-item">
+              <span class="streekkaart__swatch" style={`background:${CATEGORY_META[key].color}`}></span>
+              {CATEGORY_META[key].label}
+            </span>
+          ))}
+        </figcaption>
+      </figure>
+    )}
+
+    <div class="streekkaart__blocks">
+      {sections.map((s) => (
+        <div class="streekkaart__block" id={`${mapId}-${s.key}`}>
+          <h3 class="streekkaart__block-title">
+            <span class="streekkaart__block-dot" style={`background:${s.color}`}></span>
+            {s.label}
+          </h3>
+          <div class="streekkaart__cards">
+            {(s.key === 'overnachten'
+              ? groepeerOpCluster(s.items).flatMap((g, _gi, arr) =>
+                  arr.length > 1 ? [{ clusterHeader: g.titel }, ...g.items] : g.items,
+                )
+              : s.items
+            ).map((row) => {
+              if ('clusterHeader' in row) {
+                const titel = (row as { clusterHeader: string }).clusterHeader;
+                return (
+                  <h4 class="skz-tier-head" style={`color:${CATEGORY_META.overnachten.color}`}>
+                    <span class="skz-tier-head__dot" style={`background:${CATEGORY_META.overnachten.color}`}></span>
+                    {titel || ui.t('streekkaart.clusterFallbackTitel')}
+                    <span class="skz-cluster-head__note">{ui.t('streekkaart.clusterNote')}</span>
+                  </h4>
+                );
+              }
+              const it = row as NumberedPoi;
+              const plotted = it.lat != null && it.lng != null;
+              return (
+                <PoiCard
+                  locale={locale}
+                  poi={{
+                    n: it.n,
+                    color: it.color,
+                    naam: it.naam,
+                    foto: it.foto ?? null,
+                    fotoAlt: it.fotoAlt ?? null,
+                    fotoTheme: it.fotoTheme ?? CATEGORY_META[it.category].theme,
+                    hideMediaWhenEmpty: it.category === 'wijnhuizen',
+                    badge: it.badge ?? null,
+                    whyRegel: it.whyRegel ?? null,
+                    beschrijving: it.beschrijving ?? null,
+                    prijs: it.prijs ?? null,
+                    boeklink: it.boeklink ?? null,
+                    detailUrl: it.detailUrl ? lh(it.detailUrl) : null,
+                    cta: ctaLabel(it.category),
+                    ctaKey: it.category === 'overnachten' ? 'bekijk-boek' : undefined,
+                    partner: it.partner || '',
+                    placement: `streek-poi-${it.category}`,
+                    context: `streek-${slug}`,
+                    disclosure: it.disclosure ?? null,
+                    cardId: plotted ? `${mapId}-card-${it.n}` : undefined,
+                    plotted,
+                  }}
+                />
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+
+    <p class="streekkaart__disclosure">{ui.t('streekkaart.disclosure')}</p>
+
+    <div data-skz-end aria-hidden="true"></div>
+  </section>
+)}
+
+{hasSticky && (
+  <div class="skz-sticky" data-skz-sticky data-skz-target={stickyTargetId} hidden>
+    <div class="skz-sticky__inner">
+      <span class="skz-sticky__label">{`${ui.t('streekkaart.stickyLabelPrefix')} ${streek}`}</span>
+      <a class="skz-sticky__cta" href={`#${stickyTargetId}`} data-skz-sticky-cta>
+        {bookableSection?.key === 'activiteiten' ? ui.t('streekkaart.stickyCtaActiviteiten') : ui.t('streekkaart.stickyCtaOvernachten')} &darr;
+      </a>
+    </div>
+  </div>
+)}
+
+<script>
+  import 'leaflet/dist/leaflet.css';
+
+  type Pin = {
+    n: number; naam: string; category: string; label: string; color: string;
+    lat: number; lng: number; prijs: string | null; boeklink: string | null;
+    detailUrl: string | null; cta: string; partner: string;
+  };
+  type MapData = { slug: string; leesMeer?: string; pins: Pin[] };
+
+  let leafletPromise: Promise<any> | null = null;
+  function loadLeaflet(): Promise<any> {
+    if (!leafletPromise) leafletPromise = import('leaflet').then((m: any) => m.default ?? m);
+    return leafletPromise;
+  }
+
+  const TILE = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+  const ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>';
+
+  function esc(s: string): string {
+    return s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string));
+  }
+
+  async function initLocator(canvas: HTMLElement): Promise<void> {
+    if (canvas.dataset.ready === '1') return;
+    canvas.dataset.ready = '1';
+    const lat = Number(canvas.dataset.lat);
+    const lng = Number(canvas.dataset.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+    const L = await loadLeaflet();
+    const map = L.map(canvas, {
+      scrollWheelZoom: false, zoomControl: false, dragging: false,
+      doubleClickZoom: false, attributionControl: false, keyboard: false,
+    });
+    L.tileLayer(TILE, { subdomains: 'abcd', maxZoom: 19, attribution: ATTR }).addTo(map);
+    map.setView([lat, lng], 6);
+    const icon = L.divIcon({
+      className: '',
+      html: '<span class="skz-pin skz-pin--locator" aria-hidden="true"></span>',
+      iconSize: [22, 22], iconAnchor: [11, 11],
+    });
+    L.marker([lat, lng], { icon, keyboard: false, interactive: false }).addTo(map);
+    setTimeout(() => map.invalidateSize(), 0);
+  }
+
+  async function initDetail(section: HTMLElement): Promise<void> {
+    const canvas = section.querySelector<HTMLElement>('[data-streekkaart-canvas]');
+    const dataEl = section.querySelector<HTMLElement>('[data-streekkaart-data]');
+    if (!canvas || !dataEl || canvas.dataset.ready === '1') return;
+    canvas.dataset.ready = '1';
+
+    let data: MapData;
+    try { data = JSON.parse(dataEl.textContent || '{}'); } catch { return; }
+    if (!data.pins?.length) return;
+
+    const L = await loadLeaflet();
+    const map = L.map(canvas, { scrollWheelZoom: false, zoomControl: true, attributionControl: true });
+    L.tileLayer(TILE, { subdomains: 'abcd', maxZoom: 19, attribution: ATTR }).addTo(map);
+
+    const markersByN = new Map<number, any>();
+    const latlngs: [number, number][] = [];
+
+    for (const p of data.pins) {
+      const icon = L.divIcon({
+        className: '',
+        html: `<span class="skz-pin skz-pin--poi" style="background:${p.color}">${p.n}</span>`,
+        iconSize: [30, 30], iconAnchor: [15, 15],
+      });
+      const priceHtml = p.prijs ? `<span class="skz-popup__price">${esc(p.prijs)}</span>` : '';
+      let ctaHtml = '';
+      if (p.boeklink) {
+        ctaHtml = `<a class="skz-popup__cta" href="${esc(p.boeklink)}" target="_blank" rel="sponsored noopener"`
+          + ` data-affiliate-track data-affiliate-partner="${esc(p.partner)}"`
+          + ` data-affiliate-placement="streek-map-${esc(p.category)}" data-affiliate-context="streek-${esc(data.slug)}">`
+          + `${esc(p.cta)} &rarr;</a>`;
+      } else if (p.detailUrl) {
+        ctaHtml = `<a class="skz-popup__cta skz-popup__cta--ghost" href="${esc(p.detailUrl)}">${esc(data.leesMeer || 'Lees meer')} &rarr;</a>`;
+      }
+      const imgHtml = p.foto
+        ? `<img class="skz-popup__img" src="${esc(p.foto)}" alt="${esc(p.fotoAlt)}" loading="lazy" decoding="async" />`
+        : '';
+      const popupHtml = `<div class="skz-popup">`
+        + imgHtml
+        + `<span class="skz-popup__cat" style="color:${p.color}">${esc(p.label)}</span>`
+        + `<h4 class="skz-popup__name">${p.n}. ${esc(p.naam)}</h4>`
+        + priceHtml + ctaHtml + `</div>`;
+
+      const marker = L.marker([p.lat, p.lng], { icon, title: p.naam, riseOnHover: true })
+        .addTo(map)
+        .bindPopup(popupHtml, { minWidth: 180, autoPanPadding: [24, 24] });
+      marker.on('click', () => highlightCard(section, p.n));
+      markersByN.set(p.n, marker);
+      latlngs.push([p.lat, p.lng]);
+    }
+
+    if (latlngs.length === 1) map.setView(latlngs[0], 12);
+    else map.fitBounds(latlngs, { padding: [40, 40], maxZoom: 13 });
+    setTimeout(() => map.invalidateSize(), 0);
+
+    section.querySelectorAll<HTMLElement>('[data-skz-card]').forEach((card) => {
+      const n = Number(card.dataset.skzCard);
+      const marker = markersByN.get(n);
+      if (!marker) return;
+      const focus = (e: Event) => {
+        if ((e.target as HTMLElement).closest('a')) return;
+        map.panTo(marker.getLatLng());
+        marker.openPopup();
+      };
+      card.addEventListener('click', focus);
+      card.addEventListener('keydown', (e: KeyboardEvent) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          map.panTo(marker.getLatLng());
+          marker.openPopup();
+        }
+      });
+    });
+  }
+
+  function highlightCard(section: HTMLElement, n: number): void {
+    const card = section.querySelector<HTMLElement>(`[data-skz-card="${n}"]`);
+    if (!card) return;
+    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    card.classList.add('poi-card--active');
+    window.setTimeout(() => card.classList.remove('poi-card--active'), 1800);
+  }
+
+  function initSticky(): void {
+    const bar = document.querySelector<HTMLElement>('[data-skz-sticky]');
+    const mapFig = document.querySelector<HTMLElement>('[data-skz-map]');
+    const endEl = document.querySelector<HTMLElement>('[data-skz-end]');
+    if (!bar) return;
+    if (!('IntersectionObserver' in window)) { bar.hidden = false; return; }
+
+    let pastMap = !mapFig; // zonder kaart meteen tonen
+    let atEnd = false;
+    const apply = () => { bar.hidden = !(pastMap && !atEnd); };
+
+    if (mapFig) {
+      new IntersectionObserver((entries) => {
+        for (const e of entries) {
+          // Toon zodra de detailkaart boven de viewport is weggescrold.
+          pastMap = !e.isIntersecting && e.boundingClientRect.top < 0;
+          apply();
+        }
+      }, { threshold: 0 }).observe(mapFig);
+    }
+    if (endEl) {
+      new IntersectionObserver((entries) => {
+        for (const e of entries) { atEnd = e.isIntersecting; apply(); }
+      }, { rootMargin: '0px 0px -10% 0px' }).observe(endEl);
+    }
+  }
+
+  function ready(): void {
+    const sections = Array.from(document.querySelectorAll<HTMLElement>('section.streekkaart[data-streekkaart]'));
+    const locators = Array.from(document.querySelectorAll<HTMLElement>('[data-streekkaart-locator]'));
+
+    if (!('IntersectionObserver' in window)) {
+      sections.forEach((s) => initDetail(s));
+      locators.forEach((c) => initLocator(c));
+    } else {
+      const io = new IntersectionObserver((entries, obs) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          obs.unobserve(entry.target);
+          const el = entry.target as HTMLElement;
+          if (el.matches('[data-streekkaart-locator]')) initLocator(el);
+          else initDetail(el);
+        }
+      }, { rootMargin: '200px' });
+      sections.forEach((s) => io.observe(s));
+      locators.forEach((c) => io.observe(c));
+    }
+    initSticky();
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ready);
+  else ready();
+</script>
+
+<style>
+  .streekkaart { margin: 2.5rem 0; }
+  .streekkaart__kicker {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: var(--burgundy, #5A1A1F);
+  }
+  .streekkaart__title {
+    font-family: var(--font-display, Georgia, serif);
+    font-size: clamp(1.75rem, 1.2rem + 2vw, 2.5rem);
+    font-weight: 500;
+    color: var(--ink, #1F1A16);
+    margin: 0.4rem 0 0.5rem;
+  }
+  .streekkaart__intro {
+    font-family: var(--font-body, Georgia, serif);
+    font-size: 1.0625rem;
+    line-height: 1.55;
+    color: var(--inkSoft, #5A4F45);
+    max-width: 56ch;
+    margin: 0 0 1.75rem;
+  }
+
+  .streekkaart__map { margin: 0 0 2rem; }
+  .streekkaart__stage {
+    position: relative;
+  }
+  .streekkaart__detail-canvas {
+    width: 100%;
+    height: 460px;
+    min-height: 360px;
+    border-radius: 2px;
+    border: 1px solid var(--rule, #C9B98F);
+    background: #F0E6D0;
+    z-index: 0;
+  }
+  /* LAT-2009: locator als inzet rechtsboven op de hoofdkaart. z-index boven de
+     tile/overlay-panes; de zoomcontrol staat linksboven, dus geen botsing. */
+  .streekkaart__locator-inset {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 34%;
+    max-width: 190px;
+    min-width: 116px;
+    border-radius: 2px;
+    border: 1px solid var(--rule, #C9B98F);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+    overflow: hidden;
+    z-index: 500;
+  }
+  .streekkaart__locator-canvas {
+    width: 100%;
+    height: 120px;
+    background: #F0E6D0;
+    z-index: 0;
+  }
+  .streekkaart__legend {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.6875rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--inkSoft, #5A4F45);
+    margin-top: 0.6rem;
+  }
+  .streekkaart__legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.1rem;
+  }
+  .streekkaart__legend-item { display: inline-flex; align-items: center; gap: 0.45rem; }
+  .streekkaart__swatch { width: 13px; height: 13px; border-radius: 50%; flex-shrink: 0; }
+
+  .streekkaart__block { margin-bottom: 2.25rem; scroll-margin-top: 4rem; }
+  .streekkaart__block-title {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-family: var(--font-ui, sans-serif);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--ink, #1F1A16);
+    margin: 0 0 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--rule, #C9B98F);
+  }
+  .streekkaart__block-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+  .streekkaart__cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.25rem;
+  }
+
+  /* LAT-1644 — 40-min-cluster-subkop in het overnachten-blok. */
+  .skz-tier-head {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0.5rem 0 -0.25rem;
+    font-family: var(--font-ui, sans-serif);
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+  }
+  .skz-tier-head:first-child { margin-top: 0; }
+  .skz-tier-head__dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .skz-cluster-head__note {
+    font-weight: 400;
+    font-style: italic;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--inkFaint, #8A7E70);
+  }
+
+  .streekkaart__disclosure {
+    font-family: var(--font-body, Georgia, serif);
+    font-size: 0.75rem;
+    font-style: italic;
+    color: var(--inkFaint, #8A7D6E);
+    margin: 0.5rem 0 0;
+  }
+
+  .skz-sticky {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    z-index: 40;
+    background: var(--ink, #1F1A16);
+    border-top: 2px solid var(--burgundy, #5A1A1F);
+    box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.18);
+  }
+  .skz-sticky[hidden] { display: none; }
+  .skz-sticky__inner {
+    max-width: var(--max-width, 1200px);
+    margin: 0 auto;
+    padding: 0.7rem var(--gutter, 1.25rem);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+  .skz-sticky__label {
+    font-family: var(--font-ui, sans-serif);
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: var(--paper, #FBF7EE);
+  }
+  .skz-sticky__cta {
+    font-family: var(--font-ui, sans-serif);
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--ink, #1F1A16);
+    background: var(--paper, #FBF7EE);
+    padding: 0.55rem 1.1rem;
+    border-radius: 2px;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  .skz-sticky__cta:hover { opacity: 0.92; }
+
+  @media (max-width: 760px) {
+    .streekkaart__detail-canvas { height: 380px; }
+    .streekkaart__locator-inset { width: 38%; max-width: 150px; top: 8px; right: 8px; }
+    .streekkaart__locator-canvas { height: 96px; }
+  }
+  @media (max-width: 640px) {
+    .streekkaart__cards { grid-template-columns: 1fr; }
+    .skz-sticky__label { font-size: 0.8125rem; }
+  }
+</style>
+
+<style is:global>
+  /* Leaflet-geïnjecteerde DOM kan Astro's scoped-attribuut niet dragen. */
+  .skz-pin {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    line-height: 1;
+  }
+  .skz-pin--poi {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    border: 2px solid #FAF5E9;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+    color: #FAF5E9;
+    font-size: 0.8125rem;
+    font-weight: 600;
+  }
+  .skz-pin--locator {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: #5A1A1F;
+    border: 3px solid #FAF5E9;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  }
+  .skz-popup { font-family: var(--font-body, Georgia, serif); min-width: 170px; }
+  .skz-popup__img {
+    display: block;
+    width: 100%;
+    height: 96px;
+    object-fit: cover;
+    border-radius: 6px;
+    margin-bottom: 0.5rem;
+  }
+  .skz-popup__cat {
+    display: block;
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-size: 0.625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-weight: 600;
+    margin-bottom: 0.2rem;
+  }
+  .skz-popup__name {
+    font-family: var(--font-display, Georgia, serif);
+    font-size: 1.0625rem;
+    font-weight: 500;
+    color: #1F1A16;
+    margin: 0 0 0.25rem;
+    line-height: 1.2;
+  }
+  .skz-popup__price {
+    display: block;
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-size: 0.75rem;
+    color: #5A1A1F;
+    margin-bottom: 0.6rem;
+  }
+  .skz-popup__cta {
+    display: inline-block;
+    margin-top: 0.35rem;
+    font-family: var(--font-ui, sans-serif);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #FBF7EE;
+    background: #5A1A1F;
+    padding: 0.4rem 0.75rem;
+    border-radius: 2px;
+    text-decoration: none;
+  }
+  .skz-popup__cta--ghost { color: #5A1A1F; background: transparent; padding: 0.4rem 0; }
+  .skz-popup__cta:hover { opacity: 0.9; }
+</style>

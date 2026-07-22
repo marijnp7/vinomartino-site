@@ -1,225 +1,82 @@
 ---
-import SiteLayout from '../../layouts/SiteLayout.astro';
-import LandPageContent from '../../components/pages/LandPageContent.astro';
-import RelatedArticles from '../../components/RelatedArticles.astro';
+// LAT-2638 — NL land-detailroute (prefixloos). Dunne wrapper rond het gedeelde
+// LandDetail-component; de EN-tegenhanger leeft onder /en/landen/. hreflang-
+// alternates worden alleen gezet wanneer er een EN-vertaling bestaat (launch-
+// gate: geen en-hreflang zonder tegenhanger).
+import LandDetail from '../../components/LandDetail.astro';
 import { loadLanden, type Land } from '../../lib/landen';
-import { breadcrumbSchema, landSchema, landMetaTitle, landMetaDescription } from '../../lib/seo';
+import { loadStreken } from '../../lib/streken';
+import { loadWijnhuizen } from '../../lib/wijnhuizen';
+import { loadRoutes } from '../../lib/routes';
+import { loadAtlasForLand, type AtlasData } from '../../lib/atlas-data';
+import { strekenForLand, streekToCard, wijnhuisToCard, routeToCard, type StreekCard, type WijnhuisCard, type RouteCard } from '../../lib/landen-cards';
+import { DEFAULT_LOCALE } from '../../lib/i18n';
 
 export async function getStaticPaths() {
-  const entries = await loadLanden();
+  const [entries, allStreken, allWijnhuizen, allRoutes, enEntries] = await Promise.all([
+    loadLanden(),
+    loadStreken(),
+    loadWijnhuizen(),
+    loadRoutes(),
+    loadLanden('en'),
+  ]);
+  const enSlugs = new Set(enEntries.map(e => e.slug));
   if (entries.length > 0) {
-    return entries.map(entry => ({
-      params: { slug: entry.slug },
-      props: { entry },
+    return Promise.all(entries.map(async entry => {
+      const landStreken = strekenForLand(entry, allStreken);
+      const streekSlugs = new Set(landStreken.map(s => s.slug));
+      const landWijnhuizen = allWijnhuizen.filter(w => w.streekSlug && streekSlugs.has(w.streekSlug));
+      // LAT-1199: routes van dit land via routes.streek_id→streek→land-keten
+      // (streekSlug uit M2O of M2M-fallback in loadRoutes).
+      const landRoutes = allRoutes.filter(r => r.streekSlug && streekSlugs.has(r.streekSlug));
+      // LAT-1122: interactieve atlas (alléén landen met map_config-geometrie).
+      // Geïsoleerde loader; faalt zacht naar null → pagina rendert zonder atlas.
+      const atlas = await loadAtlasForLand(entry.slug).catch(() => null);
+      return {
+        params: { slug: entry.slug },
+        props: {
+          entry,
+          atlas,
+          strekenCards: landStreken.map(streekToCard),
+          wijnhuisCards: landWijnhuizen.slice(0, 6).map(wijnhuisToCard),
+          routeCards: landRoutes.map(routeToCard),
+          alternates: enSlugs.has(entry.slug)
+            ? { nl: `/landen/${entry.slug}/`, en: `/en/landen/${entry.slug}/` }
+            : undefined,
+        },
+      };
     }));
   }
   // Showcase fallback slugs when no CMS data
+  const empty = { entry: null, atlas: null, strekenCards: [], wijnhuisCards: [], routeCards: [], alternates: undefined };
   return [
-    { params: { slug: 'italie' }, props: { entry: null } },
-    { params: { slug: 'duitsland' }, props: { entry: null } },
-    { params: { slug: 'frankrijk' }, props: { entry: null } },
-    { params: { slug: 'spanje' }, props: { entry: null } },
-    { params: { slug: 'portugal' }, props: { entry: null } },
-    { params: { slug: 'oostenrijk' }, props: { entry: null } },
+    { params: { slug: 'italie' }, props: { ...empty } },
+    { params: { slug: 'duitsland' }, props: { ...empty } },
+    { params: { slug: 'frankrijk' }, props: { ...empty } },
+    { params: { slug: 'spanje' }, props: { ...empty } },
+    { params: { slug: 'portugal' }, props: { ...empty } },
+    { params: { slug: 'oostenrijk' }, props: { ...empty } },
   ];
 }
 
 const { slug } = Astro.params;
-const { entry } = Astro.props as { entry: Land | null };
-
-// ── Showcase data for Italië (V3 design example) ─────────
-const showcaseData: Record<string, {
-  name: string; flagEmoji?: string; continent?: string; description: string;
-  stats?: { label: string; value: string }[];
-  streken?: { name: string; slug: string; badge: string; description: string }[];
-  topWijnhuizen?: { name: string; slug: string; region: string; badge?: string }[];
-  druiven?: { name: string; color: 'rood' | 'wit' | 'rosé'; description: string; wines?: string[] }[];
-  routes?: { title: string; slug: string; days: number; transport: string; style?: string }[];
-  practical?: { key: string; value: string }[];
-  climate?: string;
-}> = {
-  italie: {
-    name: 'Italië',
-    flagEmoji: '🇮🇹',
-    continent: 'Europa',
-    description: 'Van de nevels van de Langhe tot de vulkaanhellingen van de Etna, Italië maakt wijnen die nergens anders op aarde worden gemaakt.',
-    stats: [
-      { label: 'Wijnstreken', value: '20 officiële regio\'s' },
-      { label: 'Inheemse druiven', value: '~2.000 rassen' },
-      { label: 'Beste tijd', value: 'Sep–okt (oogstseizoen)' },
-      { label: 'Topappellations', value: 'Barolo · Brunello · Amarone' },
-    ],
-    streken: [
-      { name: 'Langhe', slug: 'langhe-piemonte', badge: 'Piemonte · Nebbiolo', description: 'Barolo en Barbaresco, beide van Nebbiolo, in de zuidelijke heuvels van Piemonte.' },
-    ],
-    topWijnhuizen: [
-      { name: 'Bartolo Mascarello', slug: 'bartolo-mascarello-barolo', region: 'Castiglione Falletto', badge: 'Barolo' },
-      { name: 'Cornelissen', slug: 'cornelissen-etna-sicilie', region: 'Etna · Sicilië', badge: 'Etna Rosso' },
-    ],
-    druiven: [
-      { name: 'Nebbiolo', color: 'rood', description: 'Koningin van Piemonte. Hoge tannine, hoge zuur, transformeert na jaren tot iets transcendents.', wines: ['Barolo', 'Barbaresco', 'Gattinara'] },
-      { name: 'Sangiovese', color: 'rood', description: 'De ruggengraat van Toscane. Van lichte Chianti tot de lange Brunello di Montalcino.', wines: ['Chianti Classico', 'Brunello', 'Morellino'] },
-      { name: 'Nerello Mascalese', color: 'rood', description: 'De Nebbiolo van Sicilië. Licht van kleur, complex van geur, vulkanisch van mineraal.', wines: ['Etna Rosso', 'Faro'] },
-      { name: 'Vermentino', color: 'wit', description: 'Frisse witte wijn uit Sardinië en de Ligurische kust. Kruiden, limoen, brak zout.', wines: ['Vermentino di Gallura', 'Vermentino di Sardegna'] },
-    ],
-    routes: [
-      { title: 'Etna noord: Randazzo & Solicchiata', slug: 'etna-noord-randazzo-solicchiata', days: 2, transport: 'Auto', style: 'Vulkaan' },
-    ],
-    practical: [
-      { key: 'Vliegen op', value: 'Milano Malpensa (MXP), Turijn (TRN), Rome (FCO)' },
-      { key: 'Beste tijd', value: 'Sep–okt voor oogst. Apr–mei voor lente zonder drukte.' },
-      { key: 'Taal', value: 'Italiaans werkt het best bij familiebedrijven. Engels op grotere huizen.' },
-      { key: 'Reserveren', value: 'Altijd vooraf, minimaal 48 uur. Geen drop-in zoals in Frankrijk.' },
-      { key: 'Proeverij', value: '€15–40 voor 4–6 wijnen. Soms gratis bij aankoop fles.' },
-      { key: 'Vervoer', value: 'Huurauto onmisbaar buiten steden. Wegen zijn smal maar rijdbaar.' },
-    ],
-    climate: 'Van continentaal-koel in Piemonte (Alpen geven scherpe winters en hete zomers) tot mediterraan in Sicilië. Droogtes nemen toe; hoogte speelt een steeds grotere rol.',
-  },
-  // LAT-1105: showcase-mapping voor 4 landen, alleen slugs die vandaag al op prod
-  // staan. Geen 404-traps: elke slug hier is geverifieerd via curl 200 op
-  // vinomartino.com (2026-06-02). Geen nieuwe Directus-entries; cards verwijzen
-  // naar bestaande streek/wijnhuis/route-pagina's. Oostenrijk blijft bewust leeg
-  // tot Lead Editor (LAT-1099) content toevoegt.
-  frankrijk: {
-    name: 'Frankrijk',
-    flagEmoji: '🇫🇷',
-    continent: 'Europa',
-    description: 'Bourgogne, Bordeaux, Champagne: Frankrijk schreef de regels voor wijnstreken zoals de wereld ze leerde kennen.',
-    streken: [
-      { name: 'Champagne', slug: 'champagne', badge: 'Champagne · Pinot Noir & Chardonnay', description: 'Krijthellingen tussen Reims en Épernay, waar koel klimaat en tweede fermentatie de mousserende standaard zetten.' },
-    ],
-  },
-  duitsland: {
-    name: 'Duitsland',
-    flagEmoji: '🇩🇪',
-    continent: 'Europa',
-    description: 'Steile leisteenhellingen langs de Mosel en Rijn, waar Riesling laat in het seizoen rijpt tot iets dat nergens anders bestaat.',
-    streken: [
-      { name: 'Mosel', slug: 'mosel-duitsland', badge: 'Mosel · Riesling', description: 'Blauwe Devonische leisteen langs de kronkelende rivier; steile zuidhellingen die Riesling tot november aan de stok houden.' },
-    ],
-    routes: [
-      { title: 'Langs de Mosel: Bernkastel naar Traben-Trarbach', slug: 'mosel-bernkastel-traben-trarbach', days: 3, transport: 'Auto', style: 'Klassiek' },
-    ],
-  },
-  portugal: {
-    name: 'Portugal',
-    flagEmoji: '🇵🇹',
-    continent: 'Europa',
-    description: 'Van de Port-quintas in de Douro tot de Atlantische Vinho Verde: Portugal werkt met inheemse druiven die je elders niet vindt.',
-    streken: [
-      { name: 'Douro', slug: 'douro-portugal', badge: 'Douro · Touriga Nacional', description: 'Xisto-schist, terrasvormige wijngaarden langs de rivier en quinta-cultuur die meer maakt dan alleen Port.' },
-    ],
-    topWijnhuizen: [
-      { name: 'Niepoort', slug: 'niepoort-douro-portugal', region: 'Douro · Portugal', badge: 'Port & Redoma' },
-    ],
-  },
-  spanje: {
-    name: 'Spanje',
-    flagEmoji: '🇪🇸',
-    continent: 'Europa',
-    description: 'Van Rioja\'s Tempranillo tot de llicorella van Priorat: Spanje koppelt extreme bodems aan diepgewortelde wijnbouwtraditie.',
-    routes: [
-      { title: 'Door het hart van de Priorat: Porrera naar Gratallops', slug: 'priorat-porrera-gratallops', days: 1, transport: 'Auto', style: 'Compact' },
-    ],
-  },
+const { entry, atlas, strekenCards, wijnhuisCards, routeCards, alternates } = Astro.props as {
+  entry: Land | null;
+  atlas: AtlasData | null;
+  strekenCards: StreekCard[];
+  wijnhuisCards: WijnhuisCard[];
+  routeCards: RouteCard[];
+  alternates?: Record<string, string>;
 };
-
-// Build props from entry or showcase data
-const showcase = showcaseData[slug!];
-// LAT-1090: merge Directus entry over showcase for rich fields (streken/wijnhuizen/druiven/
-// routes/practical/climate) zodat een Directus-record met alleen name+capital niet alle
-// content kapotmaakt. Directus wint voor wat het levert; showcase vult de rest.
-const pageData = entry
-  ? {
-      name: entry.name,
-      continent: entry.continent || showcase?.continent || undefined,
-      description: entry.description,
-      heroImage: entry.heroImage || undefined,
-      stats: [
-        ...(entry.bestTimeToVisit ? [{ label: 'Beste reistijd', value: entry.bestTimeToVisit }] : []),
-        ...(entry.mainGrapes.length > 0 ? [{ label: 'Druivenrassen', value: entry.mainGrapes.slice(0, 4).join(', ') }] : []),
-        ...(entry.capital ? [{ label: 'Hoofdstad', value: entry.capital }] : []),
-        ...(showcase?.stats ?? []).filter((s) => {
-          const hasEntryBestTime = Boolean(entry.bestTimeToVisit) && s.label === 'Beste reistijd';
-          const hasEntryGrapes = entry.mainGrapes.length > 0 && s.label === 'Druivenrassen';
-          const hasEntryCapital = Boolean(entry.capital) && s.label === 'Hoofdstad';
-          return !(hasEntryBestTime || hasEntryGrapes || hasEntryCapital);
-        }),
-      ],
-      climate: entry.climate || showcase?.climate || undefined,
-      streken: showcase?.streken ?? [],
-      topWijnhuizen: showcase?.topWijnhuizen ?? [],
-      druiven: showcase?.druiven ?? [],
-      routes: showcase?.routes ?? [],
-      practical: showcase?.practical ?? [],
-    }
-  : showcase ?? {
-      name: slug ? slug.charAt(0).toUpperCase() + slug.slice(1) : 'Wijnland',
-      continent: 'Europa',
-      description: 'Dit wijnland krijgt zijn gids zodra wij er zelf zijn geweest.',
-      streken: [], topWijnhuizen: [], druiven: [], routes: [], practical: [],
-    };
-
-const pageUrl = new URL(`/landen/${slug}/`, Astro.site ?? 'https://vinomartino.com').href;
-
-// Prefer Directus o2m join `entry.wijnstreken` (LAT-1008). Fall back to showcase-derived
-// names so JSON-LD stays populated until editors fill the relation.
-const landStrekenForSchema: Array<string | { name: string; slug?: string }> =
-  entry?.wijnstreken && entry.wijnstreken.length > 0
-    ? entry.wijnstreken
-    : (pageData.streken?.map((s) => s.name) ?? []).filter((n): n is string => Boolean(n));
-const landGrapesForSchema =
-  entry?.mainGrapes ?? pageData.druiven?.map((d) => d.name) ?? [];
-const landCapitalForSchema = entry?.capital && entry.capital.trim().length > 0 ? entry.capital : undefined;
-const landHeroImage = 'heroImage' in pageData ? pageData.heroImage ?? null : null;
-// og:image: explicit `og_image` (LAT-1008) wins, then hero_image fallback.
-const landOgImage = entry?.ogImage ?? landHeroImage;
-const landImageForSchema = landOgImage;
-
-const schema = [
-  landSchema({
-    name: pageData.name,
-    description: pageData.description,
-    image: landImageForSchema,
-    continent: pageData.continent,
-    capital: landCapitalForSchema,
-    wijnstreken: landStrekenForSchema,
-    grapeVarieties: landGrapesForSchema,
-    pageUrl,
-  }),
-  breadcrumbSchema([
-    { name: 'Home', url: '/' },
-    { name: 'Landen', url: '/landen/' },
-    { name: pageData.name, url: pageUrl },
-  ]),
-];
 ---
 
-<SiteLayout
-  title={landMetaTitle(pageData.name, pageData.continent)}
-  description={landMetaDescription({
-    name: pageData.name,
-    wijnstreken: landStrekenForSchema,
-    grapeVarieties: landGrapesForSchema,
-    description: pageData.description,
-  })}
-  ogImage={landOgImage || undefined}
-  schema={schema}
-  activeNav="landen"
->
-  <LandPageContent
-    name={pageData.name}
-    flagEmoji={'flagEmoji' in pageData ? pageData.flagEmoji : undefined}
-    continent={pageData.continent}
-    description={pageData.description}
-    heroImage={'heroImage' in pageData ? pageData.heroImage : undefined}
-    stats={pageData.stats}
-    streken={pageData.streken}
-    topWijnhuizen={pageData.topWijnhuizen}
-    druiven={pageData.druiven}
-    routes={pageData.routes}
-    practical={pageData.practical}
-    climate={pageData.climate}
-  />
-  {entry && <RelatedArticles items={entry.relatedArticles} />}
-</SiteLayout>
+<LandDetail
+  slug={slug!}
+  entry={entry}
+  atlas={atlas}
+  strekenCards={strekenCards}
+  wijnhuisCards={wijnhuisCards}
+  routeCards={routeCards}
+  locale={DEFAULT_LOCALE}
+  alternates={alternates}
+/>

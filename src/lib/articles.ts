@@ -1,7 +1,13 @@
+import type { TocItem } from './markdown';
+import { getCtaStructure, type CtaStructure } from './cta-blocks';
+import { assertAssetAllowed } from './image-guard';
+
 export interface RelatedRef {
     slug: string;
     name: string;
 }
+
+export type { TocItem };
 
 export interface Article {
     slug: string;
@@ -13,15 +19,68 @@ export interface Article {
     category: string;
     tags: string[];
     heroImage: string | null;
+    // LAT-1687: ruwe Directus file-UUID van de hero, zodat de beeldcredit-registry
+    // (lib/image-credits) de attributie aan het beeld kan koppelen.
+    heroImageId: string | null;
     ogImage: string | null;
     status: string;
+    featured: boolean;
     metaTitle: string;
     metaDescription: string;
     bodyHtml: string;
+    wordCount: number;
+    readingMinutes: number;
+    toc: TocItem[];
+    // LAT-1680: rauwe FAQPage JSON-LD-string uit Directus (SEO/Content Writer input).
+    // De template doet JSON.parse + push in de schema-array; leeg = niets renderen.
+    faqSchema: string | null;
     relatedStreken: RelatedRef[];
     relatedWijnhuizen: RelatedRef[];
     relatedWijnroutes: RelatedRef[];
     relatedLanden: RelatedRef[];
+    // LAT-1619: redactioneel gekozen artikel→artikel cross-links.
+    // relatedArtikelen → rechterzijbalk "Gerelateerde stukken" (max 3).
+    // meerOver → voetblok "Meer over [druif/regio]" (max 3).
+    relatedArtikelen: RelatedRef[];
+    meerOver: RelatedRef[];
+    // LAT-1784/LAT-1795 — gestandaardiseerde 3-CTA-structuur (Directus `cta_blocks`).
+    cta: CtaStructure;
+    // LAT-1958 — twee-tier authenticiteitsmodel (regels: LAT-1957). zelfGereisd
+    // stuurt de "Zelf gereisd"-badge in de artikel-header; bezoekjaar is het jaar
+    // van bezoek (nullable).
+    zelfGereisd: boolean;
+    bezoekjaar: number | null;
+    // LAT-2112 (VIS-STRAT-03, kader LAT-2014) — rubriekenstelsel + visuele stempel.
+    // rubriek = één van de vier terugkerende formats (stuurt de rubriek-signatuur).
+    // tier = redactioneel gewicht ('1' of '2'), toegekend door Lead Editor.
+    // plaatsstempel = "BESTEMMING . MMM JJJJ" overlay op de Tier 1 header-foto.
+    // Alle drie optioneel/nullable → graceful degrade zolang schema/content ontbreekt.
+    rubriek: string | null;
+    tier: string | null;
+    plaatsstempel: string | null;
+    // proefnotities → "Uit de kelder"-kaarten; eerstDitBoeken → praktisch voetblok.
+    // Beide JSON-repeaters op articles; leeg = component rendert niets.
+    proefnotities: Proefnotitie[];
+    eerstDitBoeken: EerstDitBoekenItem[];
+}
+
+// LAT-2112 — "Uit de kelder": fles-first proefnotitie-kaart (kader LAT-2014).
+export interface Proefnotitie {
+    wijnnaam: string;
+    jaar: string;
+    wijnmaker: string;
+    appellation: string;
+    gedronkenIn: string;
+    prijs: string;
+    notitie: string;
+    etiketFoto: string | null;
+    etiketFotoAlt: string | null;
+}
+
+// LAT-2112 — "Eerst dit boeken": praktisch afsluitblok van reisartikelen.
+export interface EerstDitBoekenItem {
+    naam: string;
+    handeling: string;
 }
 
 const META_DESC_RE = /^\s*\*{0,2}Meta-description:?\*{0,2}\s*/i;
@@ -99,6 +158,13 @@ function stripLegacyMetaDescriptionLine(markdown: string): { body: string; extra
     return { body: markdown, extracted: '' };
 }
 
+// LAT-1208: routes/[slug] rendert de Directus `body` rechtstreeks en miste de
+// redactionele-header strip die artikelen al hadden. Exporteer een dunne helper
+// zodat routes.ts dezelfde EDITORIAL_KEYS-logica hergebruikt.
+export function stripEditorialHeader(markdown: string): string {
+    return stripMetaDescriptionFromBody(markdown).body;
+}
+
 function stripMetaDescriptionFromBody(markdown: string): { body: string; extracted: string } {
     const paragraphs = markdown.split(/\n\s*\n/);
     const kept: string[] = [];
@@ -129,13 +195,56 @@ function stripMetaDescriptionFromBody(markdown: string): { body: string; extract
     return { body, extracted };
 }
 
-import { markdownToHtml as renderMarkdown, normalizeEmDashes } from './markdown';
+import { markdownToHtmlWithToc, countWords, normalizeEmDashes } from './markdown';
+import { buildCjBookingLink } from './affiliates';
 
-function markdownToHtml(markdown: string): Promise<string> {
-    return renderMarkdown(substituteAffiliateTokens(markdown), { stripFirstH1: true });
+function renderArticleBody(markdown: string, slug: string): Promise<{ html: string; toc: TocItem[] }> {
+    return markdownToHtmlWithToc(substituteAffiliateTokens(markdown, slug), { stripFirstH1: true });
 }
 
-function substituteAffiliateTokens(markdown: string): string {
+// LAT-2509: harde regel DAM → CMS → Site. Body-beelden mogen NIET naar het
+// CMS-domein hotlinken: cms.vinomartino.com zit achter Cloudflare Access, dus
+// een niet-ingelogde bezoeker krijgt een 302 naar login en een kapotte <img>.
+// Anders dan hero/og downloadde de build body-assets niet, waardoor een
+// `![](https://cms.vinomartino.com/assets/<uuid>)` ongewijzigd door de sanitizer
+// liep. Deze helper herschrijft élke DAM-asset-referentie in de body naar het
+// lokale, in de build gedownloade pad `/images/articles/<uuid>.jpg` en verzamelt
+// de asset-UUID's zodat loadFromDirectus ze via downloadArticleAsset ophaalt.
+// Self-healing: vangt óók reeds-lokale referenties én eventueel gemiste hotlinks,
+// zodat een build nooit een gebroken CMS-hotlink rendert.
+const BODY_UUID = '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}';
+const CMS_HOTLINK_RE = new RegExp(`https?://cms\\.vinomartino\\.com/assets/(${BODY_UUID})(?:\\?[^\\s")']*)?`, 'g');
+const LOCAL_BODY_ASSET_RE = new RegExp(`/images/articles/(${BODY_UUID})\\.jpg`, 'g');
+
+function localizeBodyImages(markdown: string): { body: string; assetIds: string[] } {
+    const ids = new Set<string>();
+    const body = markdown.replace(CMS_HOTLINK_RE, (_m, id: string) => {
+        ids.add(id.toLowerCase());
+        return `/images/articles/${id.toLowerCase()}.jpg`;
+    });
+    for (const m of body.matchAll(LOCAL_BODY_ASSET_RE)) ids.add(m[1].toLowerCase());
+    return { body, assetIds: [...ids] };
+}
+
+// LAT-2251: wrap élke booking.com-URL in de artikel-body (markdown-link of raw
+// href) door het CJ-klikdomein, zodat de artikelpagina's dezelfde CJ-attributie
+// krijgen als de streek-/accommodatie-pagina's. buildCjBookingLink pelt een
+// bestaande CJ-hop af, stript oude aid/label en wrapt door kqzyfj.com.
+function cjWrapBookingLinksInBody(markdown: string, slug: string): string {
+    const sid = `artikel-${slug}`;
+    const isBooking = (u: string) => /^https?:\/\/(www\.)?booking\.com\//i.test(u);
+    let result = markdown.replace(
+        /(\]\()(https?:\/\/[^)\s]+)(\))/g,
+        (m, open, url, close) => (isBooking(url) ? `${open}${buildCjBookingLink(url, sid)}${close}` : m),
+    );
+    result = result.replace(
+        /(href=["'])(https?:\/\/[^"']+)(["'])/g,
+        (m, open, url, close) => (isBooking(url) ? `${open}${buildCjBookingLink(url, sid)}${close}` : m),
+    );
+    return result;
+}
+
+function substituteAffiliateTokens(markdown: string, slug: string): string {
     const bookingAid = process.env['BOOKING_AID'] || '';
     const gygPartner = process.env['GETYOURGUIDE_PARTNER'] || '';
 
@@ -160,6 +269,9 @@ function substituteAffiliateTokens(markdown: string): string {
         );
     }
 
+    // LAT-2251: na token-substitutie ALLE booking.com-links door de CJ-wrapper halen.
+    result = cjWrapBookingLinksInBody(result, slug);
+
     return result;
 }
 
@@ -167,16 +279,23 @@ import {
     readDirectusEnv,
     statusFilterQuery,
     assertDirectusConfigured,
+    assetUrl,
 } from './directus-config';
+import { DEFAULT_LOCALE, type Locale } from './i18n';
+import { localizeRecords } from './directus-i18n';
+
+// LAT-2575 — vertaalbare artikel-velden (native Directus translations, LAT-2574).
+const ARTICLES_TRANSLATABLE = ['title', 'description', 'body', 'meta_title', 'meta_description', 'hero_alt'];
 
 async function downloadArticleAsset(assetId: string, directusUrl: string, token: string): Promise<string | null> {
+    if (!assertAssetAllowed(assetId)) return null; // LAT-2361: blokkeer fout-gekoppelde/gedeelde beelden ook in artikel-hero's
     const { writeFileSync, mkdirSync, existsSync } = await import('node:fs');
     const { join } = await import('node:path');
     const outDir = join(process.cwd(), 'public', 'images', 'articles');
     const outPath = join(outDir, `${assetId}.jpg`);
     if (existsSync(outPath)) return `/images/articles/${assetId}.jpg`;
     try {
-        const res = await fetch(`${directusUrl}/assets/${assetId}`, {
+        const res = await fetch(assetUrl(directusUrl, assetId), {
             headers: { Authorization: `Bearer ${token}` },
             signal: AbortSignal.timeout(15000),
         });
@@ -215,26 +334,114 @@ function mapRelatedRefs(val: unknown, slugKey: string, nameKey: string): Related
     return out;
 }
 
-function mapArticle(a: Record<string, unknown>, heroImagePath: string | null, ogImagePath: string | null, bodyHtml: string): Article {
+// LAT-2112 — Directus JSON-velden (proefnotities, eerst_dit_boeken) komen binnen
+// als array óf als JSON-string, afhankelijk van het interface. Coerce beide naar
+// een array van objecten; ongeldige/lege input → [] zodat de component niets rendert.
+function coerceJsonArray(val: unknown): Record<string, unknown>[] {
+    let parsed: unknown = val;
+    if (typeof val === 'string') {
+        const s = val.trim();
+        if (!s) return [];
+        try { parsed = JSON.parse(s); } catch { return []; }
+    }
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((r): r is Record<string, unknown> => !!r && typeof r === 'object');
+}
+
+function mapProefnotities(val: unknown): Proefnotitie[] {
+    return coerceJsonArray(val)
+        .map((r) => ({
+            wijnnaam: normalizeEmDashes(String(r.wijnnaam ?? r.naam ?? '')),
+            jaar: String(r.jaar ?? '').trim(),
+            wijnmaker: normalizeEmDashes(String(r.wijnmaker ?? '')),
+            appellation: normalizeEmDashes(String(r.appellation ?? r.appellatie ?? '')),
+            gedronkenIn: normalizeEmDashes(String(r.gedronken_in ?? r.gedronkenIn ?? r.locatie ?? '')),
+            prijs: String(r.prijs ?? '').trim(),
+            notitie: normalizeEmDashes(String(r.notitie ?? '')),
+            etiketFoto: r.etiket_foto ? String(r.etiket_foto) : (r.etiketFoto ? String(r.etiketFoto) : null),
+            etiketFotoAlt: r.etiket_foto_alt ? String(r.etiket_foto_alt) : (r.etiketFotoAlt ? String(r.etiketFotoAlt) : null),
+        }))
+        .filter((p) => p.wijnnaam);
+}
+
+function mapEerstDitBoeken(val: unknown): EerstDitBoekenItem[] {
+    return coerceJsonArray(val)
+        .map((r) => ({
+            naam: normalizeEmDashes(String(r.naam ?? r.categorie ?? '')),
+            handeling: normalizeEmDashes(String(r.handeling ?? r.actie ?? '')),
+        }))
+        .filter((i) => i.naam || i.handeling);
+}
+
+// LAT-2358: when an article has no pub_date, do NOT fall back to the build's
+// `new Date()` — that stamps every dateless article with today and shifts it on
+// each rebuild, which is exactly the "machine-generated" smell we are removing.
+// Derive a stable date from the slug inside the historic window instead, so
+// builds are reproducible until the real pub_date is backfilled in Directus.
+function stableFallbackPubDate(slug: string): string {
+    const START = Date.UTC(2026, 0, 13); // 2026-01-13
+    const END = Date.UTC(2026, 6, 12); // 2026-07-12
+    let h = 2166136261;
+    for (let i = 0; i < slug.length; i++) {
+        h ^= slug.charCodeAt(i);
+        h = Math.imul(h, 16777619);
+    }
+    const span = (END - START) / 86400000;
+    const offsetDays = (h >>> 0) % (span + 1);
+    return new Date(START + offsetDays * 86400000).toISOString().slice(0, 10);
+}
+
+function mapArticle(
+    a: Record<string, unknown>,
+    heroImagePath: string | null,
+    ogImagePath: string | null,
+    bodyHtml: string,
+    toc: TocItem[],
+    wordCount: number,
+    readingMinutes: number,
+): Article {
     return {
           slug: String(a.slug),
           title: normalizeEmDashes(String(a.title)),
           description: normalizeEmDashes(String(a.description || '')),
           author: String(a.author || 'VinoMartino'),
-          pubDate: String(a.pub_date || new Date().toISOString().slice(0, 10)),
+          pubDate: String(a.pub_date || stableFallbackPubDate(String(a.slug))),
           updatedAt: a.updated_at ? String(a.updated_at) : null,
           category: String(a.category || ''),
           tags: (a.tags as string[]) || [],
           heroImage: heroImagePath,
+          heroImageId: a.hero_image ? String(a.hero_image) : null,
           ogImage: ogImagePath,
           status: String(a.status || 'draft'),
+          featured: a.featured === true || a.featured === 1 || a.featured === '1',
           metaTitle: normalizeEmDashes(String(a.meta_title || a.title)),
           metaDescription: normalizeEmDashes(String(a.meta_description || a.description || '')),
           bodyHtml,
+          wordCount,
+          readingMinutes,
+          toc,
+          faqSchema: a.faq_schema_json ? String(a.faq_schema_json) : null,
           relatedStreken: mapRelatedRefs(a.related_streken, 'streken_id', 'name'),
           relatedWijnhuizen: mapRelatedRefs(a.related_wijnhuizen, 'wijnhuizen_id', 'name'),
           relatedWijnroutes: mapRelatedRefs(a.related_routes, 'routes_id', 'title'),
           relatedLanden: mapRelatedRefs(a.related_landen, 'landen_id', 'name'),
+          // LAT-1619: zelf-referentiële M2M; junction-FK naar de doel-article is
+          // `related_articles_id` voor beide velden (related_articles, meer_over).
+          relatedArtikelen: mapRelatedRefs(a.related_articles, 'related_articles_id', 'title').slice(0, 3),
+          meerOver: mapRelatedRefs(a.meer_over, 'related_articles_id', 'title').slice(0, 3),
+          cta: getCtaStructure(a),
+          // LAT-1958 — twee-tier authenticiteitsmodel (regels: LAT-1957). Zelfde
+          // tolerante coercion als `featured` (Directus levert true/1/'1').
+          zelfGereisd: a.zelf_gereisd === true || a.zelf_gereisd === 1 || a.zelf_gereisd === '1',
+          bezoekjaar: Number.isFinite(Number(a.bezoekjaar)) && a.bezoekjaar !== null && a.bezoekjaar !== ''
+                ? Number(a.bezoekjaar)
+                : null,
+          // LAT-2112 — rubriekenstelsel + visuele stempel (kader LAT-2014).
+          rubriek: a.rubriek ? String(a.rubriek) : null,
+          tier: a.tier ? String(a.tier) : null,
+          plaatsstempel: a.plaatsstempel ? normalizeEmDashes(String(a.plaatsstempel)).trim() : null,
+          proefnotities: mapProefnotities(a.proefnotities),
+          eerstDitBoeken: mapEerstDitBoeken(a.eerst_dit_boeken),
     };
 }
 
@@ -251,7 +458,11 @@ function mapArticle(a: Record<string, unknown>, heroImagePath: string | null, og
 async function fetchArticlesItems(url: string, token: string): Promise<Record<string, unknown>[]> {
     const env = readDirectusEnv();
     const baseFields = 'id,slug,title,description,body,pub_date,author,category,tags,hero_image,og_image,status,meta_title,meta_description';
-    const withUpdatedAt = `${baseFields},updated_at`;
+    // LAT-1611: `featured` markeert het "verhaal van de week" op de homepage.
+    // Bewust NIET in baseFields (de laatste fallback) zodat een pre-migratie
+    // Directus zonder dit veld graceful degradeert naar nieuwste-artikel ipv
+    // hard te breken. Zodra DevOps het veld toevoegt, leest withUpdatedAt het.
+    const withUpdatedAt = `${baseFields},updated_at,featured`;
     // LAT-1098: 4 forward relations toegevoegd aan articles. Junction-tabellen
     // volgen Directus-conventie `articles_<entity>` met FK `<entity>_id`.
     // Faalt graceful met 400/403 retry naar withUpdatedAt zolang LAT-1097
@@ -261,6 +472,28 @@ async function fetchArticlesItems(url: string, token: string): Promise<Record<st
         ',related_wijnhuizen.wijnhuizen_id.slug,related_wijnhuizen.wijnhuizen_id.name' +
         ',related_routes.routes_id.slug,related_routes.routes_id.title' +
         ',related_landen.landen_id.slug,related_landen.landen_id.name';
+    // LAT-1619: artikel→artikel cross-links (zelf-referentiële M2M). Junctions
+    // `articles_related` + `articles_meer_over`, beide met FK `related_articles_id`
+    // naar de doel-article. Eigen degradatie-tier bovenop LAT-1098 zodat de
+    // bestaande entiteit-cross-links blijven werken zolang LAT-1619-schema nog
+    // niet live is.
+    const withArticleRelations = `${withRelations}` +
+        ',related_articles.related_articles_id.slug,related_articles.related_articles_id.title' +
+        ',meer_over.related_articles_id.slug,meer_over.related_articles_id.title';
+    // LAT-1680: FAQPage JSON-LD-veld. Eigen degradatie-tier bovenop zodat een
+    // pre-migratie Directus (veld bestaat niet) of een build-rol zonder read-perm
+    // graceful terugvalt naar withArticleRelations i.p.v. de build te breken.
+    const withFaqSchema = `${withArticleRelations},faq_schema_json`;
+    // LAT-1784/LAT-1795: cta_blocks als rijkste tier; degradeert per-tier zacht
+    // terug naar withFaqSchema als veld/permissie ontbreekt (CTA's renderen niets).
+    const withCta = `${withFaqSchema},cta_blocks`;
+    // LAT-1958: twee-tier authenticiteitsvelden als rijkste tier. Degradeert zacht
+    // terug naar withCta als veld/permissie ontbreekt (badge rendert dan niets).
+    const withVisited = `${withCta},zelf_gereisd,bezoekjaar`;
+    // LAT-2112: rubriekenstelsel + visuele stempel als rijkste tier. Degradeert
+    // zacht terug naar withVisited als veld/permissie ontbreekt (stempel/kaarten
+    // renderen dan niets — de rest van het artikel blijft ongewijzigd).
+    const withRubrieken = `${withVisited},rubriek,tier,plaatsstempel,proefnotities,eerst_dit_boeken`;
     // LAT-1053: scheduled publish — verberg artikelen waarvan pub_date in de toekomst
     // ligt, ook als status=published. Directus's $NOW resolvet server-side; pub_date
     // null wordt eveneens getoond (legacy/onbekend) zodat bestaande artikelen niet
@@ -268,53 +501,66 @@ async function fetchArticlesItems(url: string, token: string): Promise<Record<st
     const futureGate = '&filter[_or][0][pub_date][_lte]=$NOW&filter[_or][1][pub_date][_null]=true';
     const filterSort = `${statusFilterQuery(env)}${futureGate}&sort=-pub_date`;
     const headers = { Authorization: `Bearer ${token}` };
-    const signal = AbortSignal.timeout(15000);
-    let res: Response;
-    try {
-          res = await fetch(`${url}/items/articles?limit=-1&fields=${withRelations}${filterSort}`, { headers, signal });
-    } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
-          throw new Error(`[loadArticles] Directus unreachable at ${url}: ${msg}`);
-    }
-    if (res.ok) {
-          const json = await res.json();
-          return (json.data || []) as Record<string, unknown>[];
-    }
-    // 400 = veld bestaat niet in Directus (pre-migratie); 403 = veld bestaat wel
-    // maar de build-rol heeft geen read-permissie. Beide gevallen: degraderen
-    // door relations te droppen, dan updated_at, zodat de build nooit hard breekt.
-    if (res.status === 400 || res.status === 403) {
-          const body = await res.text().catch(() => '');
-          console.warn(`[loadArticles] Directus rejected fields=…,related_* (HTTP ${res.status}) — retrying without LAT-1098 relations. Run LAT-1097 (Directus M2M schema) en/of geef de build-rol read-permissie op related_*.`);
-          const retryRel = await fetch(`${url}/items/articles?limit=-1&fields=${withUpdatedAt}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
-          if (retryRel.ok) {
-                const json = await retryRel.json();
+
+    // Degradatie-tiers van rijk → arm. Een 400 (veld bestaat niet, pre-migratie)
+    // of 403 (veld bestaat maar build-rol mist read-permissie) zakt naar de
+    // volgende tier i.p.v. de build te breken. Elke tier laat alleen zijn eigen
+    // velden vallen, zodat bv. LAT-1619 artikel-links degraderen zonder de
+    // LAT-1098 entiteit-links mee te slepen.
+    const tiers: { fields: string; drop: string; hint: string }[] = [
+        { fields: withRubrieken, drop: 'rubriek/tier/plaatsstempel/proefnotities/eerst_dit_boeken', hint: 'Run LAT-2112 Directus-schema (directus/scripts/add-rubrieken-stempel-fields.mjs) en/of geef de build-rol read-permissie op de rubriekvelden.' },
+        { fields: withVisited, drop: 'zelf_gereisd/bezoekjaar', hint: 'Maak articles.zelf_gereisd/bezoekjaar aan (LAT-1958) en/of geef de build-rol read-permissie erop.' },
+        { fields: withCta, drop: 'cta_blocks', hint: 'Maak articles.cta_blocks aan (LAT-1784) en/of geef de build-rol read-permissie op articles.cta_blocks.' },
+        { fields: withFaqSchema, drop: 'faq_schema_json', hint: 'Run LAT-1680 Directus-schema (directus/scripts/add-faq-schema-field.mjs) en/of geef de build-rol read-permissie op articles.faq_schema_json.' },
+        { fields: withArticleRelations, drop: 'related_articles/meer_over', hint: 'Run LAT-1619 Directus M2M-schema (directus/scripts/add-related-articles-fields.mjs) en/of geef de build-rol read-permissie op related_articles + meer_over.' },
+        { fields: withRelations, drop: 'related_* (LAT-1098)', hint: 'Run LAT-1097 (Directus M2M schema) en/of geef de build-rol read-permissie op related_*.' },
+        { fields: withUpdatedAt, drop: 'updated_at', hint: 'Run directus/scripts/add-seo-meta-fields.mjs en/of geef de build-rol read-permissie op articles.updated_at.' },
+        { fields: baseFields, drop: '(none)', hint: '' },
+    ];
+
+    let lastStatus = 0;
+    let lastBody = '';
+    for (let i = 0; i < tiers.length; i++) {
+          const tier = tiers[i];
+          let res: Response;
+          try {
+                res = await fetch(`${url}/items/articles?limit=-1&fields=${tier.fields}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
+          } catch (err) {
+                const msg = err instanceof Error ? err.message : String(err);
+                throw new Error(`[loadArticles] Directus unreachable at ${url}: ${msg}`);
+          }
+          if (res.ok) {
+                const json = await res.json();
                 return (json.data || []) as Record<string, unknown>[];
           }
-          if (retryRel.status === 400 || retryRel.status === 403) {
-                const rbody1 = await retryRel.text().catch(() => '');
-                console.warn(`[loadArticles] Directus rejected fields=…,updated_at (HTTP ${retryRel.status}) — retrying without updated_at. Run directus/scripts/add-seo-meta-fields.mjs en/of geef de build-rol read-permissie op articles.updated_at.`);
-                const retry = await fetch(`${url}/items/articles?limit=-1&fields=${baseFields}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
-                if (retry.ok) {
-                      const json = await retry.json();
-                      return (json.data || []) as Record<string, unknown>[];
-                }
-                const rbody2 = await retry.text().catch(() => '');
-                throw new Error(`[loadArticles] Directus retry without updated_at failed: ${retry.status} ${retry.statusText}: ${rbody2.slice(0, 300)} | retryRel ${retryRel.status} body: ${rbody1.slice(0, 200)} | original ${res.status} body: ${body.slice(0, 200)}`);
+          lastStatus = res.status;
+          lastBody = await res.text().catch(() => '');
+          const nextTier = tiers[i + 1];
+          if ((res.status === 400 || res.status === 403) && nextTier) {
+                console.warn(`[loadArticles] Directus rejected fields incl. ${tier.drop} (HTTP ${res.status}) — retrying without them. ${tier.hint}`);
+                continue;
           }
-          const rbody = await retryRel.text().catch(() => '');
-          throw new Error(`[loadArticles] Directus retry without relations failed: ${retryRel.status} ${retryRel.statusText}: ${rbody.slice(0, 300)} | original ${res.status} body: ${body.slice(0, 200)}`);
+          break;
     }
-    const body = await res.text().catch(() => '');
-    throw new Error(`[loadArticles] Directus returned ${res.status} ${res.statusText} for /items/articles: ${body.slice(0, 300)}`);
+    throw new Error(`[loadArticles] Directus returned ${lastStatus} for /items/articles after all field-tier fallbacks: ${lastBody.slice(0, 300)}`);
 }
 
-async function loadFromDirectus(url: string, token: string): Promise<Article[]> {
-    const data = await fetchArticlesItems(url, token);
+async function loadFromDirectus(url: string, token: string, locale: Locale): Promise<Article[]> {
+    const raw = await fetchArticlesItems(url, token);
+    const data = await localizeRecords(raw, {
+        env: readDirectusEnv(),
+        junction: 'articles_translations',
+        parentIdField: 'articles_id',
+        fields: ARTICLES_TRANSLATABLE,
+        locale,
+    });
     const items = await Promise.all(
           data.map(async (a) => {
                   const rawBody = String(a.body || '');
-                  const { body: cleanBody, extracted } = stripMetaDescriptionFromBody(rawBody);
+                  const { body: strippedBody, extracted } = stripMetaDescriptionFromBody(rawBody);
+                  // LAT-2509: herschrijf CMS-hotlinks naar lokale build-paden en
+                  // verzamel de body-asset-UUID's zodat de build ze downloadt.
+                  const { body: cleanBody, assetIds: bodyAssetIds } = localizeBodyImages(strippedBody);
                   if (extracted && !a.meta_description) {
                             a.meta_description = extracted;
                   }
@@ -322,20 +568,26 @@ async function loadFromDirectus(url: string, token: string): Promise<Article[]> 
                             const firstPara = cleanBody.trim().split(/\n\n+/)[0].replace(/[#*`_~[\]()]/g, '').trim();
                             if (firstPara.length > 30) a.description = firstPara.slice(0, 160);
                   }
-                  const bodyHtml = cleanBody ? await markdownToHtml(cleanBody) : '';
+                  const wordCount = cleanBody ? countWords(cleanBody) : 0;
+                  const readingMinutes = Math.max(1, Math.ceil(wordCount / 200));
+                  const { html: bodyHtml, toc } = cleanBody
+                        ? await renderArticleBody(cleanBody, String(a.slug))
+                        : { html: '', toc: [] };
                   const [heroImagePath, ogImagePath] = await Promise.all([
                         a.hero_image ? downloadArticleAsset(String(a.hero_image), url, token) : Promise.resolve(null),
                         a.og_image ? downloadArticleAsset(String(a.og_image), url, token) : Promise.resolve(null),
+                        // LAT-2509: haal élke body-asset lokaal binnen (zelfde route als hero).
+                        ...bodyAssetIds.map((id) => downloadArticleAsset(id, url, token)),
                   ]);
-                  return mapArticle(a, heroImagePath, ogImagePath, bodyHtml);
+                  return mapArticle(a, heroImagePath, ogImagePath, bodyHtml, toc, wordCount, readingMinutes);
           }),
         );
     console.log(`[loadArticles] fetched ${items.length} articles from Directus`);
     return items;
 }
 
-export async function loadArticles(): Promise<Article[]> {
+export async function loadArticles(locale: Locale = DEFAULT_LOCALE): Promise<Article[]> {
     const env = readDirectusEnv();
     assertDirectusConfigured('loadArticles', env);
-    return loadFromDirectus(env.url, env.token);
+    return loadFromDirectus(env.url, env.token, locale);
 }

@@ -1,0 +1,212 @@
+---
+// LAT-2693 — gedeelde accommodatie-roundup per streek. NL-route +
+// /en/-tegenhanger renderen dit component; `locale` stuurt de UI-dictionary
+// (chrome EN) en de SiteLayout-hreflang. Pagina-inhoud (roundup-tekst) blijft
+// NL tot LAT-2687. NL byte-identiek via de NL-defaults van ui.t().
+// Interne link-URL's blijven NL-absoluut tot de aparte link-localisatie-pas
+// (scope #3), identiek aan StreekDetail/RouteDetail.
+import SiteLayout from '../layouts/SiteLayout.astro';
+import AccommodatieRoundup from '../components/AccommodatieRoundup.astro';
+import CtaPrimary from '../components/CtaPrimary.astro';
+import CtaComparison from '../components/CtaComparison.astro';
+import CtaClosing from '../components/CtaClosing.astro';
+import HubBacklink from '../components/HubBacklink.astro';
+import { type AccommodatieRoundup as Roundup } from '../lib/accommodaties';
+import { type Streek } from '../lib/streken';
+import { currencyForLand } from '../lib/currency';
+import { organizationSchema, breadcrumbSchema } from '../lib/seo';
+import { loadUiStrings } from '../lib/ui-strings';
+import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
+
+interface Props {
+  roundup: Roundup;
+  streek: Streek | null;
+  streekSlug: string;
+  locale?: Locale;
+  alternates?: Partial<Record<Locale, string>>;
+}
+
+const { roundup, streek, streekSlug, locale = DEFAULT_LOCALE, alternates } = Astro.props;
+
+// LAT-2704 — interne hrefs locale-aware; NL blijft byte-identiek.
+const lh = (href: string) => localizeHref(href, locale);
+const ui = await loadUiStrings(locale);
+const regio = roundup.regio || streek?.name || streekSlug;
+// LAT-1664: bron-valuta volgt het land van de streek (Zuid-Afrika → ZAR); de
+// roundup converteert naar EUR voor weergave. Display blijft EUR (board-besluit).
+const bronValuta = currencyForLand(streek?.landSlug);
+
+// LAT-1821: aparte 3-CTA-structuur voor de accommodatie-surface (eigen veld
+// streken.accom_cta_blocks, pre-geparsed in de loader als accomCta). Andere copy
+// dan de streek-CTA. Leeg/ontbrekend → componenten renderen niets.
+const accomCta = streek?.accomCta ?? {};
+
+// LAT-1898 — Piemonte-funnel: redactioneel intro-blok 'Slapen in de Langhe'
+// (markdown→HTML) VÓÓR de lijst + beknopte planningspassage(s) NÁ de lijst. Beide
+// uit de loader (streken.waar_slapen_intro / streken.accom_cta_blocks.planning).
+const waarSlapenIntroHtml = streek?.waarSlapenIntroHtml ?? '';
+const accomPlanning = streek?.accomPlanning ?? [];
+
+const schema = [
+  organizationSchema(),
+  breadcrumbSchema([
+    { name: ui.t('streek.breadcrumb.home'), url: '/' },
+    { name: ui.t('accommodaties.breadcrumb.index'), url: '/accommodaties/' },
+    { name: regio, url: `/accommodaties/${streekSlug}/` },
+  ]),
+];
+---
+
+<SiteLayout
+  title={`${ui.t('accommodaties.roundup.meta.titlePre')}${regio}${ui.t('accommodaties.roundup.meta.titlePost')}`}
+  description={`${ui.t('accommodaties.roundup.meta.descPre')}${regio}${ui.t('accommodaties.roundup.meta.descPost')}`}
+  ogImage={streek?.ogImage || streek?.heroImage || undefined}
+  schema={schema}
+  activeNav="accommodaties"
+  locale={locale}
+  alternates={alternates}
+>
+  <section class="hero-sm">
+    <div class="container">
+      <nav class="crumbs" aria-label={ui.t('accommodaties.roundup.crumbsAria')}>
+        <a href={lh('/accommodaties/')}>{ui.t('accommodaties.breadcrumb.index')}</a>
+        <span aria-hidden="true">/</span>
+        <span>{regio}</span>
+      </nav>
+      <span class="section-label">{ui.t('accommodaties.roundup.heroLabel')}</span>
+      <h1>{ui.t('accommodaties.roundup.h1Pre')}{regio}</h1>
+      <p class="hero-desc">{ui.t('accommodaties.roundup.heroDesc')}</p>
+      {streek && (
+        <p class="hero-link"><a href={lh(`/streken/${streek.slug}/`)}>{ui.t('accommodaties.roundup.readGuidePre')}{regio}{ui.t('accommodaties.roundup.readGuidePost')}</a></p>
+      )}
+    </div>
+  </section>
+
+  <div class="container">
+    <CtaPrimary data={accomCta.primary} sid={streekSlug} />
+  </div>
+
+  {waarSlapenIntroHtml && (
+    <div class="container">
+      <section class="waar-slapen-intro">
+        <div class="waar-slapen-intro__prose" set:html={waarSlapenIntroHtml} />
+      </section>
+    </div>
+  )}
+
+  <div class="container">
+    <AccommodatieRoundup roundup={roundup} context={streekSlug} bronValuta={bronValuta} hideHead />
+  </div>
+
+  {accomPlanning.length > 0 && (
+    <div class="container">
+      <section class="accom-planning" aria-label={ui.t('accommodaties.roundup.planningAria')}>
+        {accomPlanning.map((block) => (
+          <div class="accom-planning__block">
+            {block.heading && <h2>{block.heading}</h2>}
+            {block.text && <p>{block.text}</p>}
+          </div>
+        ))}
+      </section>
+    </div>
+  )}
+
+  <div class="container">
+    <CtaComparison data={accomCta.comparison} sid={streekSlug} />
+    <CtaClosing data={accomCta.closing} sid={streekSlug} />
+    <HubBacklink type="accommodatie" slug={streekSlug} locale={locale} />
+  </div>
+</SiteLayout>
+
+<style>
+  .hero-sm {
+    background: var(--paperDeep);
+    padding: var(--space-12) 0 var(--space-8);
+    text-align: center;
+  }
+  .crumbs {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--inkSoft);
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+    margin-bottom: var(--space-3);
+  }
+  .crumbs a { color: var(--rust); text-decoration: none; }
+  .hero-sm h1 {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 1.6rem + 1.5vw, 3rem);
+    font-weight: 400;
+    font-style: italic;
+    color: var(--ink);
+    margin-top: var(--space-3);
+  }
+  .hero-desc {
+    font-family: var(--font-body);
+    font-size: 1rem;
+    color: var(--inkSoft);
+    margin-top: var(--space-3);
+    max-width: 36rem;
+    margin-inline: auto;
+  }
+  .hero-link {
+    margin-top: var(--space-4);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+  }
+  .hero-link a { color: var(--rust); text-decoration: none; }
+
+  /* LAT-1898 — intro-blok 'Slapen in de Langhe', vóór de accommodatielijst. */
+  .waar-slapen-intro {
+    max-width: var(--max-width-narrow);
+    margin: var(--space-8) auto var(--space-4);
+  }
+  .waar-slapen-intro__prose {
+    font-family: var(--font-body);
+    font-size: 1.0625rem;
+    line-height: 1.7;
+    color: var(--ink);
+  }
+  .waar-slapen-intro__prose :global(p) { margin-bottom: 1.1rem; }
+  .waar-slapen-intro__prose :global(h2) {
+    font-family: var(--font-display);
+    font-size: 1.625rem;
+    font-weight: 500;
+    margin: 0 0 1rem;
+  }
+  .waar-slapen-intro__prose :global(h3) {
+    font-family: var(--font-ui);
+    font-size: 1.0625rem;
+    font-weight: 600;
+    margin: 1.75rem 0 0.5rem;
+  }
+  .waar-slapen-intro__prose :global(a) { color: var(--rust); }
+
+  /* LAT-1898 — beknopte planningspassage ná de accommodatielijst. */
+  .accom-planning {
+    max-width: var(--max-width-narrow);
+    margin: var(--space-8) auto;
+    padding: var(--space-6);
+    background: var(--paperDeep);
+    border: 1px solid var(--rule);
+  }
+  .accom-planning__block + .accom-planning__block { margin-top: var(--space-5); }
+  .accom-planning__block h2 {
+    font-family: var(--font-display);
+    font-size: 1.375rem;
+    font-weight: 500;
+    color: var(--ink);
+    margin: 0 0 0.5rem;
+  }
+  .accom-planning__block p {
+    font-family: var(--font-body);
+    font-size: 1.0625rem;
+    line-height: 1.6;
+    color: var(--inkSoft);
+    margin: 0;
+  }
+</style>

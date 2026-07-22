@@ -1,0 +1,641 @@
+---
+// LAT-2638 — gedeeld wijnroute-detailsjabloon. Geëxtraheerd uit
+// src/pages/wijnroutes/[slug].astro zodat zowel de NL-route (prefixloos) als de
+// /en/-route dezelfde markup delen. Page-chrome loopt via de UI-dictionary
+// (loadUiStrings(locale)); vertaalde content (titel/beschrijving/body) komt uit
+// de per-locale loaders in getStaticPaths. Op DEFAULT_LOCALE geeft t() de
+// bestaande NL-copy byte-identiek terug (nul NL-regressie); /en/ overlayt EN.
+import SiteLayout from '../layouts/SiteLayout.astro';
+import RelatedArticles from './RelatedArticles.astro';
+import HubBacklink from './HubBacklink.astro';
+import RouteMap from './RouteMap.astro';
+import RouteGeoMap from './RouteGeoMap.astro';
+import RouteItineraryDays from './RouteItineraryDays.astro';
+import RouteStatStrip from './RouteStatStrip.astro';
+import StaysTeaser from './StaysTeaser.astro';
+import CtaStructure from './CtaStructure.astro';
+import { type WijnRoute } from '../lib/routes';
+import { splitRouteBody } from '../lib/route-days';
+import { type Wijnhuis } from '../lib/wijnhuizen';
+import { type AccommodatieRoundup as AccommodatieRoundupData } from '../lib/accommodaties';
+import { wijnrouteSchema, wijnrouteMetaTitle, wijnrouteMetaDescription, breadcrumbSchema } from '../lib/seo';
+import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
+
+interface Props {
+  entry: WijnRoute;
+  streekName: string;
+  landSlug: string;
+  landName: string;
+  wijnhuizen: Wijnhuis[];
+  staysRoundup: AccommodatieRoundupData | null;
+  /** LAT-2638: NL byte-identiek op DEFAULT_LOCALE; /en/ geeft "en" mee. */
+  locale?: Locale;
+  /** LAT-2638: pad-URLs van de tegenhanger per taal voor hreflang. */
+  alternates?: Partial<Record<Locale, string>>;
+}
+
+const { entry, streekName, landSlug, landName, wijnhuizen, staysRoundup, locale = DEFAULT_LOCALE, alternates } = Astro.props;
+
+// LAT-2704 — interne hrefs locale-aware; NL blijft byte-identiek.
+const lh = (href: string) => localizeHref(href, locale);
+const ui = await loadUiStrings(locale);
+const localePrefix = locale === DEFAULT_LOCALE ? '' : `/${locale}`;
+const pageUrl = new URL(`${localePrefix}/wijnroutes/${entry.slug}/`, Astro.site ?? 'https://vinomartino.com').href;
+
+// LAT-1199: verticale kruimel Land → Streek → Route, met graceful fallback op de
+// laterale Wijnroutes-index wanneer de keten (nog) onbekend is.
+const hasParentLand = Boolean(landSlug && landName);
+const hasParentStreek = Boolean(entry.streekSlug && streekName);
+
+const crumbs = [{ name: ui.t('streek.breadcrumb.home'), url: '/' }];
+if (hasParentLand) {
+  crumbs.push({ name: ui.t('streek.breadcrumb.landen'), url: '/landen/' });
+  crumbs.push({ name: landName, url: `/landen/${landSlug}/` });
+} else {
+  crumbs.push({ name: ui.t('route.breadcrumb.index'), url: '/wijnroutes/' });
+}
+if (hasParentStreek) {
+  crumbs.push({ name: streekName, url: `/streken/${entry.streekSlug}/` });
+}
+crumbs.push({ name: entry.title, url: pageUrl });
+
+const schema = [
+  wijnrouteSchema({
+    name: entry.title,
+    description: entry.description,
+    image: entry.heroImage,
+    duration: entry.duration,
+    stops: entry.highlights.length > 0 ? entry.highlights : entry.stops,
+    pageUrl,
+  }),
+  breadcrumbSchema(crumbs),
+];
+
+// LAT-2013 [VIS-STRAT-02]: als de route een gestructureerde itinerary in Directus
+// heeft, drijft die de dag-blokken/boekblokken (RouteItineraryDays). Zonder itinerary
+// (nog het geval op alle bestaande routes) valt de pagina terug op LAT-2005:
+// LAT-2005 [VIS-BL-06] splitst de doorlopende route-body in visuele dag-blokken zodra
+// er ≥2 `Dag N`-koppen zijn. Bij minder valt de pagina terug op de bestaande proza.
+const hasItinerary = Boolean(entry.itinerary);
+const routeBody = splitRouteBody(entry.bodyHtml);
+// Sticky "Boek dag 1" verwijst naar de boekbare accommodatie-pagina van de streek
+// (bestaat alleen als er verblijven met echte foto's zijn — zelfde poort als de
+// StaysTeaser). Zonder boekbaar doel tonen we de knop niet.
+const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.streekSlug}/` : null;
+---
+
+<SiteLayout
+  title={wijnrouteMetaTitle(entry.title, undefined, locale)}
+  description={wijnrouteMetaDescription({ name: entry.title, duration: entry.duration, description: entry.description }, locale)}
+  ogImage={entry.ogImage || entry.heroImage || undefined}
+  schema={schema}
+  activeNav="wijnroutes"
+  locale={locale}
+  alternates={alternates}
+>
+  <article class="route-page">
+    {entry.heroImage && (
+      <div class="page-hero">
+        <img src={entry.heroImage} alt={entry.title} class="page-hero-img" />
+      </div>
+    )}
+
+    <div class="container page-layout">
+      <div class="page-main">
+        <header class="page-header">
+          <nav class="breadcrumb" aria-label="Breadcrumb">
+            {crumbs.slice(0, -1).map(c => (
+              <><a href={lh(c.url)}>{c.name}</a> / </>
+            ))}
+            <span>{entry.title}</span>
+          </nav>
+          <div class="page-meta-row">
+            {entry.duration && <span class="page-badge">{entry.duration}</span>}
+            {entry.transport && <span class="page-badge">{entry.transport}</span>}
+            {entry.style && <span class="page-badge">{entry.style}</span>}
+          </div>
+          <h1>{entry.title}</h1>
+        </header>
+
+        <RouteStatStrip
+          duration={entry.duration}
+          transport={entry.transport}
+          style={entry.style}
+          stopsCount={entry.stopsGeo.length || entry.stops.length}
+          wijnhuisCount={wijnhuizen.length}
+        />
+
+        <div class="page-routemap">
+          {entry.stopsGeo.length >= 2 ? (
+            <RouteGeoMap
+              locale={locale}
+              stops={entry.stopsGeo}
+              title={entry.title}
+              slug={entry.slug}
+              duration={entry.duration}
+              transport={entry.transport}
+            />
+          ) : (
+            <RouteMap
+              stops={entry.stops.length > 0 ? entry.stops : entry.highlights}
+              duration={entry.duration}
+              transport={entry.transport}
+              variant="full"
+            />
+          )}
+        </div>
+
+        {entry.bodyHtml && (
+          hasItinerary ? (
+            <div class="page-prose" set:html={entry.bodyHtml} />
+          ) : routeBody.hasDays ? (
+            <div class="route-days-wrap">
+              <nav class="route-daystrip" aria-label={ui.t('route.daysAria')}>
+                {routeBody.days.map(d => (
+                  <a class="route-daychip" href={`#${d.anchor}`}>
+                    <span class="route-daychip__label">{d.label}</span>
+                    {d.title && <span class="route-daychip__title">{d.title}</span>}
+                  </a>
+                ))}
+              </nav>
+
+              <div class="route-days">
+                {routeBody.segments.map(seg => (
+                  seg.kind === 'day' && seg.day ? (
+                    <section class="route-day" id={seg.day.anchor}>
+                      <header class="route-day__head">
+                        <span class="route-day__label">{seg.day.label}</span>
+                        <h2 class="route-day__etappe">{seg.day.title || seg.day.label}</h2>
+                      </header>
+                      <div class="page-prose route-day__body" set:html={seg.html} />
+                    </section>
+                  ) : (
+                    <div class="page-prose" set:html={seg.html} />
+                  )
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div class="page-prose" set:html={entry.bodyHtml} />
+          )
+        )}
+
+        {hasItinerary && entry.itinerary && (
+          <RouteItineraryDays
+            locale={locale}
+            itinerary={entry.itinerary}
+            streekSlug={entry.streekSlug}
+            boekbaar={Boolean(staysRoundup)}
+            context={`route-${entry.slug}`}
+          />
+        )}
+
+        {wijnhuizen.length > 0 && (
+          <section class="route-wijnhuizen">
+            <span class="section-label">{ui.t('route.wijnhuizenOpRoute')}</span>
+            <div class="wijnhuis-grid">
+              {wijnhuizen.map(wh => (
+                <a class="wijnhuis-card" href={lh(`/wijnhuizen/${wh.slug}/`)}>
+                  <span class="wijnhuis-card__name">{wh.name}</span>
+                  {wh.description && <span class="wijnhuis-card__desc">{wh.description}</span>}
+                  <span class="wijnhuis-card__cta">{ui.t('route.leesPortret')} &rarr;</span>
+                </a>
+              ))}
+            </div>
+          </section>
+        )}
+
+        <CtaStructure data={entry.cta} sid={entry.slug} locale={locale} />
+      </div>
+
+      <aside class="page-sidebar">
+        {staysRoundup && entry.streekSlug && (
+          <StaysTeaser
+            locale={locale}
+            roundup={staysRoundup}
+            streekSlug={entry.streekSlug}
+            regio={streekName}
+            context={`route-${entry.slug}`}
+            placement="sidebar"
+          />
+        )}
+
+        <div class="sidebar-card">
+          <h3>{ui.t('route.info.heading')}</h3>
+          {entry.duration && <p><strong>{ui.t('route.info.duur')}</strong> {entry.duration}</p>}
+          {entry.transport && <p><strong>{ui.t('route.info.vervoer')}</strong> {entry.transport}</p>}
+          {entry.style && <p><strong>{ui.t('route.info.stijl')}</strong> {entry.style}</p>}
+        </div>
+
+        {entry.highlights && entry.highlights.length > 0 && (
+          <div class="sidebar-card sidebar-highlights">
+            <h3>{ui.t('route.highlights')}</h3>
+            <ul>
+              {entry.highlights.map(h => <li>{h}</li>)}
+            </ul>
+          </div>
+        )}
+      </aside>
+    </div>
+
+    <RelatedArticles items={entry.relatedArticles} locale={locale} />
+
+    <HubBacklink type="route" slug={entry.slug} locale={locale} />
+
+    {!hasItinerary && routeBody.hasDays && bookHref && (
+      <a class="route-book-sticky" href={bookHref}>{ui.t('route.boekDag1')}</a>
+    )}
+  </article>
+</SiteLayout>
+
+<style>
+  .page-hero {
+    height: 45vh;
+    min-height: 300px;
+    overflow: hidden;
+  }
+  .page-hero-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .page-layout {
+    display: grid;
+    grid-template-columns: 1fr 280px;
+    gap: var(--space-10);
+    padding-top: var(--space-10);
+    padding-bottom: var(--space-12);
+  }
+  /* LAT-2430: grid-kinderen mogen niet oprekken door hun min-content-breedte
+     (o.a. .route-days-wrap ~424px) → anders horizontale scroll op mobiel. */
+  .page-layout > * { min-width: 0; }
+  .breadcrumb {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--inkFaint);
+    margin-bottom: var(--space-4);
+  }
+  .breadcrumb a {
+    color: var(--inkSoft);
+    text-decoration: none;
+  }
+  .breadcrumb a:hover { text-decoration: underline; }
+  .page-meta-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: var(--space-3);
+    flex-wrap: wrap;
+  }
+  .page-badge {
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    background: var(--paperDeep);
+    color: var(--inkSoft);
+    padding: 0.2rem 0.625rem;
+    border-radius: 1px;
+  }
+  .page-header h1 {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 1.6rem + 1.5vw, 3rem);
+    font-weight: 400;
+    font-style: italic;
+    color: var(--ink);
+    line-height: 1.15;
+    margin-bottom: var(--space-8);
+  }
+  .page-routemap {
+    margin-bottom: var(--space-8);
+  }
+
+  /* LAT-2005 [VIS-BL-06]: dag-blokken + mobiele swipe-strip */
+  .route-daystrip {
+    display: flex;
+    gap: 0.5rem;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 0.5rem;
+    margin-bottom: var(--space-6);
+    scrollbar-width: thin;
+  }
+  .route-daychip {
+    flex: 0 0 auto;
+    scroll-snap-align: start;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 8.5rem;
+    max-width: 12rem;
+    text-decoration: none;
+    background: var(--paperDeep);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-sm);
+    padding: 0.6rem 0.8rem;
+    transition: box-shadow 0.15s, border-color 0.15s;
+  }
+  .route-daychip:hover {
+    border-color: var(--burgundy);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+  .route-daychip__label {
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--burgundy);
+  }
+  .route-daychip__title {
+    font-family: var(--font-ui);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--ink);
+    line-height: 1.25;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .route-day {
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-sm);
+    background: var(--paper);
+    padding: var(--space-6) var(--space-6) var(--space-2);
+    margin-bottom: var(--space-6);
+    scroll-margin-top: var(--space-6);
+  }
+  .route-day__head {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding-bottom: var(--space-3);
+    margin-bottom: var(--space-4);
+    border-bottom: 2px solid var(--burgundy);
+  }
+  .route-day__label {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--burgundy);
+  }
+  .route-day__etappe {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-weight: 500;
+    line-height: 1.2;
+    color: var(--ink);
+    margin: 0;
+  }
+  .route-day__body :global(h2:first-child) { margin-top: 0; }
+  .route-book-sticky { display: none; }
+  .page-prose {
+    font-family: var(--font-body);
+    font-size: 1.0625rem;
+    line-height: 1.8;
+    color: var(--ink);
+    max-width: var(--article-body-max);
+  }
+  .page-prose :global(h2) {
+    font-family: var(--font-display);
+    font-size: 1.625rem;
+    font-weight: 500;
+    margin: var(--space-10) 0 var(--space-4);
+  }
+  .page-prose :global(h3) {
+    font-family: var(--font-ui);
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin: var(--space-8) 0 var(--space-3);
+  }
+  .page-prose :global(p) { margin-bottom: var(--space-5); }
+  .page-prose :global(ul), .page-prose :global(ol) {
+    padding-left: 1.5rem;
+    margin-bottom: var(--space-5);
+  }
+  .page-prose :global(li) { margin-bottom: 0.375rem; }
+  .page-prose :global(blockquote) {
+    border-left: 3px solid var(--burgundy);
+    padding-left: 1.5rem;
+    margin: var(--space-6) 0;
+    font-style: italic;
+    color: var(--inkSoft);
+  }
+  /* LAT-2430: brede body-tabellen scrollen intern i.p.v. de pagina op te rekken
+     (voorkomt horizontale scroll op smalle viewports). */
+  .page-prose :global(table) {
+    display: block;
+    width: max-content;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  /* LAT-2270: verrijkte body-directives (`:::foto`/`:::boek`/`:::infographic`),
+     als set:html in de proza gerenderd → :global. Token-styling, geen inline hex/px. */
+  .page-prose :global(.route-foto) {
+    margin: var(--space-8) 0;
+  }
+  .page-prose :global(.route-foto img) {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: var(--radius-sm);
+    /* LAT-2432: vlakke tint i.p.v. wit terwijl het (lazy) beeld laadt. */
+    background: var(--paperDeep);
+  }
+  /* LAT-2432: fallback wanneer de build geen intrinsieke width/height kon
+     bepalen — reserveert alsnog ruimte zodat de content niet springt (CLS). */
+  .page-prose :global(.route-foto img:not([width])) {
+    aspect-ratio: 3 / 2;
+    object-fit: cover;
+  }
+  .page-prose :global(.route-foto figcaption) {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.04em;
+    color: var(--inkFaint);
+    margin-top: 0.6rem;
+    line-height: 1.5;
+  }
+  .page-prose :global(.route-foto--breed) {
+    margin-left: calc(-1 * var(--space-6));
+    margin-right: calc(-1 * var(--space-6));
+  }
+  /* LAT-2430: op mobiel is de container-gutter 1rem (tokens.css: --gutter @768px),
+     kleiner dan --space-6 (1.5rem) → breed-uitbraak stak 8px buiten de viewport.
+     Breek uit tot precies de gutter zodat het beeld edge-to-edge blijft zonder
+     horizontale scroll. */
+  @media (max-width: 768px) {
+    .page-prose :global(.route-foto--breed) {
+      margin-left: calc(-1 * var(--gutter));
+      margin-right: calc(-1 * var(--gutter));
+    }
+  }
+  .page-prose :global(.route-foto--inzet) {
+    max-width: 20rem;
+    float: right;
+    margin: 0 0 var(--space-5) var(--space-6);
+  }
+  .page-prose :global(.route-boek) {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: flex-start;
+    background: var(--paperDeep);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--burgundy);
+    border-radius: var(--radius-sm);
+    padding: var(--space-5);
+    margin: var(--space-6) 0;
+  }
+  .page-prose :global(.route-boek__cta) {
+    display: inline-block;
+    font-family: var(--font-ui);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    text-decoration: none;
+    color: var(--paper);
+    background: var(--burgundy);
+    padding: 0.7rem 1.4rem;
+    border-radius: var(--radius-sm);
+  }
+  .page-prose :global(.route-boek__cta:hover) {
+    text-decoration: underline;
+  }
+  .page-prose :global(.route-boek__disclosure) {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.03em;
+    line-height: 1.5;
+    color: var(--inkFaint);
+    margin: 0;
+  }
+  .page-prose :global(.route-infographic) {
+    background: var(--paperDeep);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-sm);
+    padding: var(--space-5) var(--space-6);
+    margin: var(--space-6) 0;
+  }
+  .page-prose :global(.route-infographic > :first-child) { margin-top: 0; }
+  .page-prose :global(.route-infographic > :last-child) { margin-bottom: 0; }
+  .sidebar-card {
+    background: var(--paperDeep);
+    border-radius: var(--radius-sm);
+    padding: 1.25rem;
+    font-family: var(--font-ui);
+    font-size: 0.875rem;
+    line-height: 1.6;
+    margin-bottom: var(--space-4);
+  }
+  .sidebar-card h3 {
+    font-family: var(--font-display);
+    font-size: 1.125rem;
+    font-weight: 500;
+    font-style: italic;
+    margin-bottom: var(--space-4);
+    color: var(--ink);
+  }
+  .sidebar-card p {
+    margin-bottom: var(--space-2);
+    color: var(--inkSoft);
+  }
+  .sidebar-highlights ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .sidebar-highlights li {
+    font-size: 0.8125rem;
+    color: var(--inkSoft);
+    padding: 0.25rem 0;
+    border-bottom: 1px solid var(--ruleSoft);
+  }
+  .sidebar-highlights li:last-child { border-bottom: none; }
+  .route-wijnhuizen {
+    margin-top: var(--space-10);
+    padding-top: var(--space-8);
+    border-top: 1px solid var(--rule);
+  }
+  .route-wijnhuizen .section-label {
+    display: block;
+    margin-bottom: var(--space-4);
+  }
+  .wijnhuis-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+  .wijnhuis-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    text-decoration: none;
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    padding: 1.25rem;
+    transition: box-shadow 0.15s;
+  }
+  .wijnhuis-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+  .wijnhuis-card__name {
+    font-family: var(--font-display);
+    font-size: 1.375rem;
+    font-weight: 500;
+    color: var(--ink);
+  }
+  .wijnhuis-card__desc {
+    font-family: var(--font-body);
+    font-size: 0.9375rem;
+    line-height: 1.5;
+    color: var(--inkSoft);
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .wijnhuis-card__cta {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--burgundy);
+    margin-top: auto;
+  }
+  @media (max-width: 900px) {
+    .page-layout { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 640px) {
+    .wijnhuis-grid { grid-template-columns: 1fr; }
+    .route-day {
+      padding: var(--space-5) var(--space-4) var(--space-1);
+    }
+    .route-day__etappe { font-size: 1.3125rem; }
+    /* Compacte sticky "Boek dag 1"-knop, alleen op mobiel, alleen de knop. */
+    .route-book-sticky {
+      display: block;
+      position: sticky;
+      bottom: 0.75rem;
+      z-index: 20;
+      width: calc(100% - 2rem);
+      margin: var(--space-6) auto 0;
+      padding: 0.9rem 1rem;
+      text-align: center;
+      text-decoration: none;
+      font-family: var(--font-ui);
+      font-size: 0.9375rem;
+      font-weight: 600;
+      color: var(--paper);
+      background: var(--burgundy);
+      border-radius: var(--radius-sm);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.22);
+    }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .route-daystrip { scroll-behavior: smooth; }
+  }
+</style>

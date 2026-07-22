@@ -1,0 +1,311 @@
+{
+  "landen.map_config[italie]": {
+    "viewBox": "0 0 800 1000",
+    "bbox": [
+      "46.7°N · 6.6°E",
+      "46.7°N · 18.5°E",
+      "36.6°N · 18.5°E",
+      "36.6°N · 6.6°E"
+    ],
+    "compass": true,
+    "scaleBar": {
+      "kmTo": 200,
+      "pxLength": 125
+    },
+    "backgroundPattern": "contour",
+    "base_layers": [
+      {
+        "kind": "zone",
+        "role": "landmass",
+        "d": "M68.6 173.8 L162.5 123.6 L287.7 123.6 L406.6 106.9 L481.8 182.1 L444.2 198.8 L412.9 257.4 L475.5 332.6 L506.8 458 L600.7 508.2 L644.5 550 L757.2 625.2 L782.2 667 L757.2 683.7 L707.1 625.2 L663.3 683.7 L700.9 759 L669.6 809.1 L607 825.8 L638.3 775.7 L632 700.4 L569.4 667 L563.1 616.8 L506.8 600.1 L488 566.7 L444.2 566.7 L419.2 541.6 L369.1 466.4 L331.5 466.4 L300.2 416.2 L275.2 349.3 L243.9 324.2 L193.8 299.2 L131.2 324.2 L99.9 349.3 L99.9 290.8 L68.6 274.1 L49.8 240.6 Z",
+        "color": "vine"
+      },
+      {
+        "kind": "zone",
+        "role": "landmass",
+        "d": "M406.6 834.2 L575.7 809.1 L607 817.5 L575.7 942.9 L406.6 867.6 Z",
+        "color": "vine"
+      },
+      {
+        "kind": "zone",
+        "role": "landmass",
+        "d": "M143.7 566.7 L212.6 566.7 L243.9 625.2 L237.6 733.9 L200.1 750.6 L156.2 759 L156.2 667 Z",
+        "color": "vine"
+      },
+      {
+        "kind": "point",
+        "type": "city",
+        "x": 412.9,
+        "y": 508.2,
+        "label": "Roma"
+      },
+      {
+        "kind": "point",
+        "type": "city",
+        "x": 206.3,
+        "y": 207.2,
+        "label": "Milano"
+      }
+    ]
+  },
+  "streken[]": [
+    {
+      "slug": "langhe",
+      "label": "Piemonte · Langhe",
+      "zone_path": "M93.6 232.3 L162.5 240.6 L175 282.4 L131.2 307.5 L93.6 282.4 Z",
+      "zone_color": "burgundy",
+      "zone_label_offset": {
+        "x": 131.2,
+        "y": 269
+      },
+      "grape_color": "burgundy",
+      "grape_label": "Nebbiolo",
+      "facts": [
+        {
+          "label": "Kerndruif",
+          "value": "Nebbiolo"
+        },
+        {
+          "label": "Top-DOCG",
+          "value": "Barolo · Barbaresco"
+        },
+        {
+          "label": "Reisseizoen",
+          "value": "sep–okt"
+        }
+      ]
+    },
+    {
+      "slug": "veneto",
+      "label": "Veneto",
+      "zone_path": "M306.5 182.1 L406.6 190.5 L419.2 240.6 L319 249 L300.2 215.6 Z",
+      "zone_color": "vine",
+      "zone_label_offset": {
+        "x": 350.3,
+        "y": 215.6
+      },
+      "grape_color": "vine",
+      "grape_label": "Corvina · Glera",
+      "facts": [
+        {
+          "label": "Kerndruif",
+          "value": "Corvina · Glera"
+        },
+        {
+          "label": "Top-wijn",
+          "value": "Amarone · Prosecco"
+        },
+        {
+          "label": "Reisseizoen",
+          "value": "apr–jun"
+        }
+      ]
+    },
+    {
+      "slug": "toscane",
+      "label": "Toscane",
+      "zone_path": "M287.7 332.6 L375.3 349.3 L381.6 424.6 L319 432.9 L287.7 382.8 Z",
+      "zone_color": "burgundy",
+      "zone_label_offset": {
+        "x": 330.3,
+        "y": 384.4
+      },
+      "grape_color": "burgundy",
+      "grape_label": "Sangiovese",
+      "facts": [
+        {
+          "label": "Kerndruif",
+          "value": "Sangiovese"
+        },
+        {
+          "label": "Top-DOCG",
+          "value": "Chianti · Brunello"
+        },
+        {
+          "label": "Reisseizoen",
+          "value": "mei–okt"
+        }
+      ]
+    },
+    {
+      "slug": "lazio",
+      "label": "Lazio",
+      "zone_path": "M362.8 466.4 L444.2 474.7 L437.9 550 L381.6 550 L362.8 508.2 Z",
+      "zone_color": "rust",
+      "zone_label_offset": {
+        "x": 397.9,
+        "y": 509.9
+      },
+      "grape_color": "vine",
+      "grape_label": "Trebbiano · Malvasia",
+      "facts": [
+        {
+          "label": "Kerndruif",
+          "value": "Trebbiano · Malvasia"
+        },
+        {
+          "label": "Top-wijn",
+          "value": "Frascati"
+        },
+        {
+          "label": "Reisseizoen",
+          "value": "apr–jun"
+        }
+      ]
+    },
+    {
+      "slug": "campania",
+      "label": "Campania",
+      "zone_path": "M506.8 575 L594.4 583.4 L600.7 658.6 L538.1 667 L506.8 625.2 Z",
+      "zone_color": "rust",
+      "zone_label_offset": {
+        "x": 549.4,
+        "y": 621.8
+      },
+      "grape_color": "burgundy",
+      "grape_label": "Aglianico",
+      "facts": [
+        {
+          "label": "Kerndruif",
+          "value": "Aglianico"
+        },
+        {
+          "label": "Top-DOCG",
+          "value": "Taurasi"
+        },
+        {
+          "label": "Reisseizoen",
+          "value": "sep–okt"
+        }
+      ]
+    },
+    {
+      "slug": "puglia",
+      "label": "Puglia",
+      "zone_path": "M632 516.5 L725.9 550 L782.2 658.6 L744.7 675.4 L657 616.8 L625.7 558.3 Z",
+      "zone_color": "rust",
+      "zone_label_offset": {
+        "x": 694.6,
+        "y": 595.9
+      },
+      "grape_color": "rust",
+      "grape_label": "Primitivo · Negroamaro",
+      "facts": [
+        {
+          "label": "Kerndruif",
+          "value": "Primitivo"
+        },
+        {
+          "label": "Top-wijn",
+          "value": "Primitivo di Manduria"
+        },
+        {
+          "label": "Reisseizoen",
+          "value": "mei–jun"
+        }
+      ]
+    },
+    {
+      "slug": "sicilie",
+      "label": "Sicilië · Etna",
+      "zone_path": "M406.6 834.2 L575.7 809.1 L607 817.5 L575.7 942.9 L406.6 867.6 Z",
+      "zone_color": "rust",
+      "zone_label_offset": {
+        "x": 514.3,
+        "y": 854.3
+      },
+      "grape_color": "rust",
+      "grape_label": "Nerello Mascalese",
+      "facts": [
+        {
+          "label": "Kerndruif",
+          "value": "Nerello Mascalese"
+        },
+        {
+          "label": "Top-DOC",
+          "value": "Etna Rosso"
+        },
+        {
+          "label": "Reisseizoen",
+          "value": "apr–okt"
+        }
+      ]
+    },
+    {
+      "slug": "sardinie",
+      "label": "Sardinië",
+      "zone_path": "M143.7 566.7 L212.6 566.7 L243.9 625.2 L237.6 733.9 L200.1 750.6 L156.2 759 L156.2 667 Z",
+      "zone_color": "vine",
+      "zone_label_offset": {
+        "x": 192.9,
+        "y": 667
+      },
+      "grape_color": "vine",
+      "grape_label": "Vermentino · Cannonau",
+      "facts": [
+        {
+          "label": "Kerndruif",
+          "value": "Vermentino · Cannonau"
+        },
+        {
+          "label": "Top-wijn",
+          "value": "Vermentino di Gallura"
+        },
+        {
+          "label": "Reisseizoen",
+          "value": "mei–jun"
+        }
+      ]
+    }
+  ],
+  "appellaties[]": [
+    {
+      "slug": "barolo",
+      "parent_streek": "langhe",
+      "label": "Barolo DOCG",
+      "classificatie": "DOCG",
+      "zone_color": "burgundy",
+      "zone_path": "M124.9 272.4 L135 274.1 L137.5 282.4 L126.2 284.1 L122.4 277.4 Z"
+    },
+    {
+      "slug": "barbaresco",
+      "parent_streek": "langhe",
+      "label": "Barbaresco DOCG",
+      "classificatie": "DOCG",
+      "zone_color": "burgundy",
+      "zone_path": "M135 269.1 L142.5 269.9 L143.7 274.9 L136.2 275.8 Z"
+    },
+    {
+      "slug": "valpolicella",
+      "parent_streek": "veneto",
+      "label": "Valpolicella · Amarone DOCG",
+      "classificatie": "DOCG",
+      "zone_color": "vine",
+      "zone_path": "M309.6 200.5 L325.3 201.3 L326.5 211.4 L311.5 211.4 Z"
+    },
+    {
+      "slug": "chianti-classico",
+      "parent_streek": "toscane",
+      "label": "Chianti Classico DOCG",
+      "classificatie": "DOCG",
+      "zone_color": "burgundy",
+      "zone_path": "M331.5 364.4 L347.8 366 L350.3 391.1 L334 391.1 Z"
+    },
+    {
+      "slug": "brunello-montalcino",
+      "parent_streek": "toscane",
+      "label": "Brunello di Montalcino DOCG",
+      "classificatie": "DOCG",
+      "zone_color": "burgundy",
+      "zone_path": "M345.3 407.8 L355.3 408.7 L356.6 417.9 L346.5 418.7 Z"
+    },
+    {
+      "slug": "etna-doc",
+      "parent_streek": "sicilie",
+      "label": "Etna DOC",
+      "classificatie": "DOC",
+      "zone_color": "rust",
+      "zone_path": "M561.9 840.9 L573.2 842.6 L575.7 866 L564.4 867.6 Z"
+    }
+  ]
+}

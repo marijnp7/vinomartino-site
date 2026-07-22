@@ -1,0 +1,745 @@
+---
+// LAT-2638 — gedeeld artikel-detailcomponent. De NL-route (/artikelen/<slug>/) en
+// de EN-route (/en/artikelen/<slug>/) zijn dunne wrappers die alléén de per-locale
+// loaders + de `locale`-prop leveren. Chrome (breadcrumb/TOC/auteurskaart) komt uit
+// loadUiStrings(locale); de content (titel/body) komt vertaald uit de loader met
+// no-translation-guard, dus dit lekt geen NL-artikelen naar /en/. Interne links en
+// de 11 artikel-specifieke childcomponenten (RelatedEntities, HubBacklink, e.d.)
+// blijven voorlopig NL — dat is een bewuste follow-up (childthreading), net als bij
+// StreekDetail. De 5 gedeelde children (Affiliate/Cta/Roundup/Newsletter/Badge)
+// krijgen wél de locale-prop.
+import SiteLayout from '../layouts/SiteLayout.astro';
+import AffiliatePlaceholder from './AffiliatePlaceholder.astro';
+import RelatedEntities from './RelatedEntities.astro';
+import HubBacklink from './HubBacklink.astro';
+import ArtikelGerelateerdeStukken from './ArtikelGerelateerdeStukken.astro';
+import ArtikelMeerOver from './ArtikelMeerOver.astro';
+import AccommodatieRoundup from './AccommodatieRoundup.astro';
+import CtaStructure from './CtaStructure.astro';
+import RhoneMap from './RhoneMap.astro';
+import ZelfGereisdBadge from './ZelfGereisdBadge.astro';
+import PlaatsStempel from './PlaatsStempel.astro';
+import RubriekSignatuur from './RubriekSignatuur.astro';
+import ProefnotitieKaart from './ProefnotitieKaart.astro';
+import EerstDitBoeken from './EerstDitBoeken.astro';
+import LangheCaptureBlock from './LangheCaptureBlock.astro';
+import ArtikelVoetblok, { type VoetblokRoute, type VoetblokHotel } from './ArtikelVoetblok.astro';
+import NewsletterFooter from './NewsletterFooter.astro';
+import { splitBodyForRhoneMap } from '../lib/rhone-maps';
+import { type Article } from '../lib/articles';
+import { articleSchema, breadcrumbSchema } from '../lib/seo';
+import { getAffiliateBlock, resolveAccommodationHref } from '../lib/affiliates';
+import { getAuthorByByline } from '../lib/authors';
+import { getImageCredit } from '../lib/image-credits';
+import { type AccommodatieRoundup as AccommodatieRoundupData } from '../lib/accommodaties';
+import { loadUiStrings } from '../lib/ui-strings';
+import { type Locale, DEFAULT_LOCALE, localizeHref } from '../lib/i18n';
+
+export type ArticleRoundup = { slug: string; roundup: AccommodatieRoundupData };
+// LAT-2010 [VIS-BL-11]: het "hoort bij"-voetblok. Primaire streek/route komen uit
+// de related_* M2M van het artikel; de route wordt verrijkt met zijn stops voor de
+// schematische thumbnail. De hotel-CTA verwijst naar /accommodaties/{streek}/ maar
+// alléén als die pagina bestaat (roundup met echte DAM-foto's, zelfde poort als
+// LAT-1371) — anders valt de laag stil weg.
+export type ArticleVoetblok = { streek: { slug: string; name: string } | null; route: VoetblokRoute | null; hotel: VoetblokHotel | null };
+
+const { article, accRoundups, voetblok, locale = DEFAULT_LOCALE, alternates } = Astro.props as {
+  article: Article;
+  accRoundups: ArticleRoundup[];
+  voetblok: ArticleVoetblok;
+  locale?: Locale;
+  alternates?: Record<string, string>;
+};
+
+// LAT-2704 — interne hrefs locale-aware; NL blijft byte-identiek.
+const lh = (href: string) => localizeHref(href, locale);
+
+const ui = await loadUiStrings(locale);
+const dateLocale = locale === 'en' ? 'en-GB' : 'nl-NL';
+
+const hasReisjunkRoundup = accRoundups.length > 0;
+const accommodationBlock = getAffiliateBlock(article.slug, 'accommodation');
+const activity = getAffiliateBlock(article.slug, 'activity');
+const sidebarBlock = getAffiliateBlock(article.slug, 'sidebar');
+
+// Resolve Directus booking_url + CJ wrapper for accommodation/sidebar blocks.
+const [accommodationHref, sidebarHref] = await Promise.all([
+  accommodationBlock?.accommodationId
+    ? resolveAccommodationHref(accommodationBlock.accommodationId)
+    : Promise.resolve(accommodationBlock?.href),
+  sidebarBlock?.accommodationId
+    ? resolveAccommodationHref(sidebarBlock.accommodationId)
+    : Promise.resolve(sidebarBlock?.href),
+]);
+
+const accommodation = accommodationBlock && accommodationHref
+  ? { ...accommodationBlock, href: accommodationHref }
+  : (accommodationBlock?.href ? accommodationBlock : undefined);
+const sidebar = sidebarBlock && sidebarHref
+  ? { ...sidebarBlock, href: sidebarHref }
+  : (sidebarBlock?.href ? sidebarBlock : undefined);
+
+const pageUrl = new URL(`/artikelen/${article.slug}/`, Astro.site ?? 'https://vinomartino.com').href;
+const authorProfile = getAuthorByByline(article.author);
+// LAT-1848: toon/serialiseer altijd de gecanoniseerde auteursnaam uit het
+// auteur-record (bv. "Marijn"), niet het ruwe Directus author-stringveld (dat
+// nog "Martin" kan zijn). Zo resolveren byline, author-card en JSON-LD via een
+// bron van waarheid; het ruwe veld blijft alleen fallback als er geen record matcht.
+const authorDisplayName = authorProfile?.name ?? article.author;
+
+const modifiedTime = article.updatedAt || article.pubDate;
+
+// LAT-1719: de twee Rhône-artikelen krijgen een interactieve Leaflet-kaart inline
+// in de body. splitBodyForRhoneMap() knipt de bodyHtml op een vast anker; null
+// voor alle andere artikelen (dan rendert de body ongewijzigd).
+const rhoneMap = splitBodyForRhoneMap(article.bodyHtml, article.slug);
+
+// LAT-1687: verplichte beeldcredit (bv. Wikimedia Commons CC BY-SA) bij de hero.
+const heroCredit = getImageCredit(article.heroImageId);
+
+// LAT-1118: TOC alleen op langere stukken (>= 3 h2-koppen); korte artikelen
+// blijven schoon. Volledig afgeleid uit de koppen, geen handmatig onderhoud.
+const toc = article.toc ?? [];
+const showToc = toc.filter((t) => t.depth === 2).length >= 3;
+
+const schema = [
+  articleSchema({
+    title: article.title,
+    description: article.description,
+    author: authorDisplayName,
+    datePublished: article.pubDate,
+    dateModified: modifiedTime,
+    image: article.heroImage,
+    url: pageUrl,
+  }),
+  breadcrumbSchema([
+    { name: ui.t('streek.breadcrumb.home'), url: '/' },
+    { name: ui.t('artikel.breadcrumb.index'), url: '/artikelen/' },
+    { name: article.title, url: pageUrl },
+  ]),
+];
+
+// LAT-1680: optionele FAQPage JSON-LD uit Directus (faq_schema_json). Empty-safe:
+// alleen pushen als het veld een geldig JSON-object bevat. Ongeldige JSON wordt
+// gelogd en overgeslagen i.p.v. de build te breken.
+if (article.faqSchema) {
+  try {
+    const faq = JSON.parse(article.faqSchema);
+    if (faq && typeof faq === 'object') schema.push(faq);
+  } catch (err) {
+    console.warn(`[artikel] ongeldige faq_schema_json voor ${article.slug}: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+---
+
+<SiteLayout
+  title={article.metaTitle || article.title}
+  description={article.metaDescription || article.description}
+  ogImage={article.ogImage || article.heroImage || undefined}
+  ogType="article"
+  article={{
+    publishedTime: article.pubDate,
+    modifiedTime,
+    author: authorDisplayName,
+    section: article.category,
+    tags: article.tags,
+  }}
+  schema={schema}
+  activeNav="artikelen"
+  locale={locale}
+  alternates={alternates}
+>
+  <article class="article-page">
+    {article.heroImage && (
+      <figure class="article-hero">
+        <img src={article.heroImage} alt={article.title} class="article-hero-img" />
+        <PlaatsStempel text={article.plaatsstempel} variant="hero" />
+        {heroCredit && (
+          <figcaption class="article-hero-credit">
+            {heroCredit.author}, <a href={heroCredit.licenseUrl} rel="license noopener" target="_blank">{heroCredit.licenseLabel}</a>
+          </figcaption>
+        )}
+      </figure>
+    )}
+
+    <div class="container article-layout">
+      <div class="article-main">
+        <header class="article-header">
+          <nav class="breadcrumb" aria-label="Breadcrumb">
+            <a href={lh('/')}>{ui.t('streek.breadcrumb.home')}</a> / <a href={lh('/artikelen/')}>{ui.t('artikel.breadcrumb.index')}</a> / <span>{article.title}</span>
+          </nav>
+          {article.category && <span class="article-cat">{article.category}</span>}
+          <RubriekSignatuur rubriek={article.rubriek} tier={article.tier} />
+          <ZelfGereisdBadge visited={article.zelfGereisd} year={article.bezoekjaar} locale={locale} />
+          <h1>{article.title}</h1>
+          <div class="article-meta">
+            {authorProfile ? (
+              <a class="article-author author-link" href={lh(`/auteurs/${authorProfile.slug}/`)} rel="author">{authorProfile.name}</a>
+            ) : (
+              <span class="article-author">{article.author}</span>
+            )}
+            <span class="article-date">{new Date(article.pubDate).toLocaleDateString(dateLocale, { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+            <span class="article-reading">· {`${article.readingMinutes} ${ui.t('artikel.meta.minLezen')}`}</span>
+          </div>
+          {article.tags && article.tags.length > 0 && (
+            <div class="article-tags">
+              {article.tags.map(tag => <span class="tag">{tag}</span>)}
+            </div>
+          )}
+        </header>
+
+        {showToc && (
+          <details class="toc-mobile">
+            <summary>{ui.t('artikel.toc.springNaar')}</summary>
+            <nav aria-label={ui.t('artikel.toc.aria')}>
+              <ol class="toc-list">
+                {toc.map((item) => (
+                  <li class={`toc-item toc-depth-${item.depth}`}>
+                    <a href={`#${item.id}`}>{item.text}</a>
+                  </li>
+                ))}
+              </ol>
+            </nav>
+          </details>
+        )}
+
+        {rhoneMap ? (
+          <Fragment>
+            <div class="article-prose" set:html={rhoneMap.before} />
+            <RhoneMap slug={article.slug} {...rhoneMap.config} />
+            <div class="article-prose" set:html={rhoneMap.after} />
+          </Fragment>
+        ) : (
+          <div class="article-prose" set:html={article.bodyHtml} />
+        )}
+
+        {/* LAT-2112 — "Uit de kelder": fles-first proefnotitie-kaarten (kader LAT-2014). */}
+        <ProefnotitieKaart proefnotities={article.proefnotities} />
+
+        {/* LAT-2112 — "Eerst dit boeken": praktisch afsluitblok van reisartikelen. */}
+        <EerstDitBoeken items={article.eerstDitBoeken} />
+
+        {article.slug === 'langhe-piemonte-4-dagen-route' && (
+          <LangheCaptureBlock variant="a" />
+        )}
+
+        {authorProfile && (
+          <aside class="article-author-card" aria-label={`${ui.t('artikel.author.overDeAuteur')}: ${authorProfile.name}`}>
+            {authorProfile.portrait && (
+              <a class="author-card-portrait" href={lh(`/auteurs/${authorProfile.slug}/`)}>
+                <img src={authorProfile.portrait} alt={authorProfile.portraitAlt} width="96" height="96" loading="lazy" />
+              </a>
+            )}
+            <div class="author-card-body">
+              <span class="author-card-kicker">{ui.t('artikel.author.overDeAuteur')}</span>
+              <h2 class="author-card-name">
+                <a href={lh(`/auteurs/${authorProfile.slug}/`)} rel="author">{authorProfile.name}</a>
+              </h2>
+              <p class="author-card-bio">{authorProfile.bio}</p>
+              <a class="author-card-link" href={lh(`/auteurs/${authorProfile.slug}/`)}>{`${ui.t('artikel.author.meerArtikelenVan')} ${authorProfile.name} →`}</a>
+            </div>
+          </aside>
+        )}
+
+        {/* LAT-1381: als de reisjunk-roundup (CJ-kaarten) er is, bezit die de
+            accommodatie-route. Onderdruk het losse inline accommodatie-blok zodat
+            een property niet dubbel verschijnt (EPIC LAT-1330: één placement = één route).
+            Mirror van de streek-template. */}
+        {!hasReisjunkRoundup && accommodation && (
+          <AffiliatePlaceholder
+            type="accommodation"
+            context={article.slug}
+            partner={accommodation.linkBron === 'Booking.com' ? 'booking.com' : accommodation.linkBron === 'GetYourGuide' ? 'getyourguide' : undefined}
+            placement="inline-mid"
+            href={accommodation.href}
+            producent={accommodation.producent}
+            bezoekMaand={accommodation.bezoekMaand}
+            bezoekJaar={accommodation.bezoekJaar}
+            linkBron={accommodation.linkBron}
+            ctaLabel={accommodation.ctaLabel}
+            description={accommodation.description}
+            locale={locale}
+          />
+        )}
+        {activity && (
+          <AffiliatePlaceholder
+            type="activity"
+            context={article.slug}
+            partner={activity.linkBron === 'Booking.com' ? 'booking.com' : activity.linkBron === 'GetYourGuide' ? 'getyourguide' : undefined}
+            placement="inline-end"
+            href={activity.href}
+            producent={activity.producent}
+            bezoekMaand={activity.bezoekMaand}
+            bezoekJaar={activity.bezoekJaar}
+            linkBron={activity.linkBron}
+            ctaLabel={activity.ctaLabel}
+            description={activity.description}
+            locale={locale}
+          />
+        )}
+
+        {/* LAT-1609: de oude harde "Waar te slapen"-fallback (Stay22-widget) is
+            weggehaald. Met curated verblijven toont de reisjunk-roundup; zonder
+            curated data vervangen de cross-links onderaan (RelatedEntities) het
+            blok i.p.v. een generieke affiliate-widget. */}
+        {hasReisjunkRoundup && accRoundups.map(({ slug, roundup }) => (
+          <AccommodatieRoundup roundup={roundup} context={slug} locale={locale} />
+        ))}
+      </div>
+
+      <aside class="article-sidebar">
+        {showToc && (
+          <nav class="toc-desktop" aria-label={ui.t('artikel.toc.aria')}>
+            <p class="toc-heading">{ui.t('artikel.toc.heading')}</p>
+            <ol class="toc-list">
+              {toc.map((item) => (
+                <li class={`toc-item toc-depth-${item.depth}`}>
+                  <a href={`#${item.id}`} data-toc-link={item.id}>{item.text}</a>
+                </li>
+              ))}
+            </ol>
+          </nav>
+        )}
+        {sidebar && (
+          <AffiliatePlaceholder
+            type="sidebar"
+            context={article.slug}
+            partner={sidebar.linkBron === 'Booking.com' ? 'booking.com' : sidebar.linkBron === 'GetYourGuide' ? 'getyourguide' : undefined}
+            placement="sidebar"
+            href={sidebar.href}
+            producent={sidebar.producent}
+            bezoekMaand={sidebar.bezoekMaand}
+            bezoekJaar={sidebar.bezoekJaar}
+            linkBron={sidebar.linkBron}
+            ctaLabel={sidebar.ctaLabel}
+            description={sidebar.description}
+            locale={locale}
+          />
+        )}
+        <ArtikelGerelateerdeStukken items={article.relatedArtikelen} locale={locale} />
+      </aside>
+    </div>
+
+    <CtaStructure data={article.cta} sid={article.slug} locale={locale} />
+
+    <ArtikelMeerOver items={article.meerOver} topic={article.tags?.[0] ?? undefined} locale={locale} />
+
+    <RelatedEntities
+      locale={locale}
+      streken={article.relatedStreken}
+      wijnhuizen={article.relatedWijnhuizen}
+      wijnroutes={article.relatedWijnroutes}
+      landen={article.relatedLanden}
+    />
+
+    <HubBacklink type="artikel" slug={article.slug} locale={locale} />
+
+    <ArtikelVoetblok streek={voetblok.streek} route={voetblok.route} hotel={voetblok.hotel} locale={locale} />
+  </article>
+
+  <NewsletterFooter locale={locale} />
+</SiteLayout>
+
+<style>
+  .article-hero {
+    position: relative;
+    height: 45vh;
+    min-height: 300px;
+    overflow: hidden;
+    margin: 0;
+  }
+  .article-hero-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .article-hero-credit {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    max-width: 100%;
+    padding: 0.25rem 0.625rem;
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    line-height: 1.4;
+    letter-spacing: 0.02em;
+    color: #fff;
+    background: rgba(0, 0, 0, 0.55);
+  }
+  .article-hero-credit a {
+    color: inherit;
+    text-decoration: underline;
+  }
+  .article-layout {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: var(--space-10);
+    padding-top: var(--space-10);
+    padding-bottom: var(--space-12);
+  }
+  .breadcrumb {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--inkFaint);
+    margin-bottom: var(--space-4);
+  }
+  .breadcrumb a {
+    color: var(--inkSoft);
+    text-decoration: none;
+  }
+  .breadcrumb a:hover { text-decoration: underline; }
+  .article-cat {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--rust);
+    display: block;
+    margin-bottom: var(--space-2);
+  }
+  .article-header h1 {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 1.6rem + 1.5vw, 3rem);
+    font-weight: 400;
+    font-style: italic;
+    color: var(--ink);
+    line-height: 1.15;
+    margin-bottom: var(--space-4);
+  }
+  .article-meta {
+    display: flex;
+    gap: 1rem;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--inkSoft);
+    margin-bottom: var(--space-3);
+  }
+  .author-link {
+    color: var(--inkSoft);
+    text-decoration: none;
+    border-bottom: 1px solid var(--color-border-light, rgba(0, 0, 0, 0.15));
+  }
+  .author-link:hover {
+    color: var(--burgundy);
+  }
+  .article-author-card {
+    margin-top: var(--space-12);
+    padding: var(--space-6);
+    background: var(--paperDeep);
+    border-left: 3px solid var(--burgundy);
+    border-radius: var(--radius-sm);
+    display: grid;
+    grid-template-columns: 96px 1fr;
+    gap: var(--space-5);
+    align-items: start;
+  }
+  .author-card-portrait img {
+    width: 96px;
+    height: 96px;
+    border-radius: 999px;
+    object-fit: cover;
+    display: block;
+  }
+  .author-card-kicker {
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--rust);
+    display: block;
+    margin-bottom: var(--space-1);
+  }
+  .author-card-name {
+    font-family: var(--font-display);
+    font-size: 1.375rem;
+    font-style: italic;
+    font-weight: 400;
+    color: var(--ink);
+    margin: 0 0 var(--space-2);
+  }
+  .author-card-name a {
+    color: inherit;
+    text-decoration: none;
+  }
+  .author-card-name a:hover {
+    color: var(--burgundy);
+  }
+  .author-card-bio {
+    font-family: var(--font-body);
+    font-size: 0.9375rem;
+    color: var(--ink);
+    line-height: 1.65;
+    margin: 0 0 var(--space-3);
+  }
+  .author-card-link {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--burgundy);
+  }
+  @media (max-width: 640px) {
+    .article-author-card {
+      grid-template-columns: 1fr;
+    }
+    .author-card-portrait img {
+      width: 80px;
+      height: 80px;
+    }
+  }
+  .article-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+    margin-bottom: var(--space-8);
+  }
+  .tag {
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    background: var(--paperDeep);
+    color: var(--inkSoft);
+    padding: 0.25rem 0.625rem;
+    border-radius: 1px;
+  }
+
+  .article-prose {
+    font-family: var(--font-body);
+    font-size: 1.0625rem;
+    line-height: 1.8;
+    color: var(--ink);
+    max-width: var(--article-body-max);
+  }
+  .article-prose :global(h2) {
+    font-family: var(--font-display);
+    font-size: 1.625rem;
+    font-weight: 500;
+    margin: var(--space-10) 0 var(--space-4);
+    scroll-margin-top: var(--space-8);
+  }
+  .article-prose :global(h3) {
+    font-family: var(--font-ui);
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin: var(--space-8) 0 var(--space-3);
+    scroll-margin-top: var(--space-8);
+  }
+  .article-prose :global(p) {
+    margin-bottom: var(--space-5);
+  }
+  .article-prose :global(ul), .article-prose :global(ol) {
+    padding-left: 1.5rem;
+    margin-bottom: var(--space-5);
+  }
+  .article-prose :global(li) {
+    margin-bottom: 0.375rem;
+  }
+  .article-prose :global(blockquote) {
+    border-left: 3px solid var(--burgundy);
+    padding-left: 1.5rem;
+    margin: var(--space-6) 0;
+    font-style: italic;
+    color: var(--inkSoft);
+  }
+  .article-prose :global(img) {
+    border-radius: var(--radius-sm);
+    margin: var(--space-6) 0;
+  }
+
+  /* LAT-2067: proefnotitie-kaarten (ruwe <aside class="tasting-note"> in body-HTML).
+     Globaal gespiegeld vanuit TastingNote.astro (component-styles zijn scoped en
+     raken set:html-bodies niet). */
+  .article-prose :global(.tasting-note) {
+    border: 1px solid var(--rule);
+    background: var(--paperDeep);
+    padding: var(--space-6);
+    margin: var(--space-8) 0;
+    position: relative;
+  }
+  .article-prose :global(.tasting-note)::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 3px;
+    height: 100%;
+    background: var(--burgundy);
+  }
+  .article-prose :global(.tn-header) { margin-bottom: var(--space-4); }
+  .article-prose :global(.tn-label) {
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--rust);
+    display: block;
+    margin-bottom: var(--space-2);
+  }
+  .article-prose :global(.tn-wine) {
+    font-family: var(--font-display);
+    font-size: 1.1875rem;
+    font-style: italic;
+    font-weight: 400;
+    color: var(--ink);
+    line-height: 1.2;
+    margin-bottom: var(--space-1);
+  }
+  .article-prose :global(.tn-winery) {
+    font-family: var(--font-ui);
+    font-size: 0.8125rem;
+    color: var(--inkSoft);
+    display: block;
+  }
+  .article-prose :global(.tn-meta) {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-3) var(--space-4);
+    padding: var(--space-4) 0;
+    border-top: 1px solid var(--rule-20);
+    border-bottom: 1px solid var(--rule-20);
+    margin-bottom: var(--space-4);
+  }
+  .article-prose :global(.tn-pair) {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .article-prose :global(.tn-pair span) {
+    font-family: var(--font-mono);
+    font-size: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--inkSoft);
+    opacity: 0.7;
+  }
+  .article-prose :global(.tn-pair strong) {
+    font-family: var(--font-ui);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .article-prose :global(.tn-score) { color: var(--burgundy); }
+  .article-prose :global(.tn-body) {
+    font-family: var(--font-body);
+    font-size: 0.9375rem;
+    line-height: 1.7;
+    color: var(--inkSoft);
+  }
+  .article-prose :global(.tn-body p) { margin-bottom: var(--space-3); }
+  .article-prose :global(.tn-body p:last-child) { margin-bottom: 0; }
+  @media (max-width: 640px) {
+    .article-prose :global(.tn-meta) { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  /* LAT-1118: inhoudsopgave */
+  .toc-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .toc-item {
+    margin: 0;
+    line-height: 1.4;
+  }
+  .toc-item + .toc-item {
+    margin-top: var(--space-2);
+  }
+  .toc-depth-3 {
+    padding-left: var(--space-4);
+  }
+  .toc-list a {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--inkSoft);
+    text-decoration: none;
+    border-left: 2px solid transparent;
+    padding-left: var(--space-3);
+    display: block;
+  }
+  .toc-list a:hover {
+    color: var(--ink);
+  }
+  .toc-list a.toc-active {
+    color: var(--rust);
+    border-left-color: var(--rust);
+  }
+
+  .toc-desktop {
+    position: sticky;
+    top: var(--space-8);
+    width: var(--article-toc-width);
+  }
+  .toc-heading {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--inkFaint);
+    margin: 0 0 var(--space-3);
+    padding-left: var(--space-3);
+  }
+
+  .toc-mobile {
+    display: none;
+    border-top: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: var(--space-8);
+    padding: var(--space-3) 0;
+  }
+  .toc-mobile summary {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--inkSoft);
+    cursor: pointer;
+  }
+  .toc-mobile nav {
+    margin-top: var(--space-4);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    html { scroll-behavior: smooth; }
+  }
+
+  @media (max-width: 900px) {
+    .article-layout { grid-template-columns: 1fr; }
+    .toc-desktop { display: none; }
+    .toc-mobile { display: block; }
+  }
+</style>
+
+<script>
+  // LAT-1118: highlight de actieve sectie in de desktop-TOC. Progressive
+  // enhancement — zonder JS blijft het een werkende anchor-lijst.
+  const links = Array.from(
+    document.querySelectorAll<HTMLAnchorElement>('.toc-desktop a[data-toc-link]'),
+  );
+  if (links.length > 0 && 'IntersectionObserver' in window) {
+    const byId = new Map(links.map((a) => [a.dataset.tocLink ?? '', a]));
+    const headings = links
+      .map((a) => document.getElementById(a.dataset.tocLink ?? ''))
+      .filter((el): el is HTMLElement => el !== null);
+    const visible = new Set<string>();
+    const setActive = (id: string | null) => {
+      for (const a of links) a.classList.remove('toc-active');
+      if (id) byId.get(id)?.classList.add('toc-active');
+    };
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) visible.add(entry.target.id);
+          else visible.delete(entry.target.id);
+        }
+        const firstVisible = headings.find((h) => visible.has(h.id));
+        if (firstVisible) setActive(firstVisible.id);
+      },
+      { rootMargin: '0px 0px -70% 0px', threshold: 0 },
+    );
+    for (const h of headings) observer.observe(h);
+  }
+</script>

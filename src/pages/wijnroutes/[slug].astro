@@ -1,217 +1,75 @@
 ---
-import SiteLayout from '../../layouts/SiteLayout.astro';
-import RelatedArticles from '../../components/RelatedArticles.astro';
-import Stay22Stay from '../../components/Stay22Stay.astro';
+// LAT-2638 — NL wijnroute-detailroute (prefixloos). Dunne wrapper rond het
+// gedeelde RouteDetail-component; de EN-tegenhanger leeft onder /en/wijnroutes/.
+// hreflang-alternates worden alleen gezet wanneer er een EN-vertaling bestaat
+// (launch-gate: geen en-hreflang zonder tegenhanger).
+import RouteDetail from '../../components/RouteDetail.astro';
 import { loadRoutes, type WijnRoute } from '../../lib/routes';
-import { wijnrouteSchema, wijnrouteMetaTitle, wijnrouteMetaDescription, breadcrumbSchema } from '../../lib/seo';
+import { loadStreken } from '../../lib/streken';
+import { loadWijnhuizen, type Wijnhuis } from '../../lib/wijnhuizen';
+import { loadAccommodatieRoundupsByStreek } from '../../lib/accommodaties-loader';
+import { filterRoundupOpFotos, roundupKaartAantal, type AccommodatieRoundup as AccommodatieRoundupData } from '../../lib/accommodaties';
+import { DEFAULT_LOCALE } from '../../lib/i18n';
 
 export async function getStaticPaths() {
-  const entries = await loadRoutes();
-  return entries.map(entry => ({
-    params: { slug: entry.slug },
-    props: { entry },
-  }));
+  const [entries, streken, wijnhuizen, accRoundupsByStreek, enEntries] = await Promise.all([loadRoutes(), loadStreken(), loadWijnhuizen(), loadAccommodatieRoundupsByStreek(), loadRoutes('en')]);
+  const enSlugs = new Set(enEntries.map(e => e.slug));
+  const streekBySlug = new Map(streken.map(s => [s.slug, s]));
+  // LAT-1201: wijnhuizen per streek zodat een route → wijnhuizen-selectie afgeleid
+  // wordt uit routes.streek_id (route kent zelf geen wijnhuis-relatie). Zelfde
+  // transition-safe keten als de streek-pagina's "Wijnhuizen in <streek>".
+  const wijnhuizenByStreek = new Map<string, Wijnhuis[]>();
+  for (const wh of wijnhuizen) {
+    if (!wh.streekSlug) continue;
+    const list = wijnhuizenByStreek.get(wh.streekSlug) ?? [];
+    list.push(wh);
+    wijnhuizenByStreek.set(wh.streekSlug, list);
+  }
+  const wijnhuisBySlug = new Map(wijnhuizen.map(wh => [wh.slug, wh]));
+  return entries.map(entry => {
+    // LAT-1199: leid de keten Land → Streek af via routes.streek_id → streek→land
+    // voor de verticale kruimel (route kent zelf geen land).
+    const streek = entry.streekSlug ? streekBySlug.get(entry.streekSlug) : undefined;
+    // LAT-2010 [VIS-BL-11] / LAT-1994: als de route expliciet wijnhuis-stops noemt
+    // (stops_geo kind=wijnhuis + slug), toon alléén die huizen — in route-volgorde —
+    // zodat de route enkel naar huizen linkt die er écht op liggen. Zonder die data
+    // (vóór de datafix) val terug op de streek-brede selectie (bestaand gedrag).
+    const routeWijnhuisSlugs = entry.stopsGeo
+      .filter(s => s.kind === 'wijnhuis' && s.slug)
+      .map(s => s.slug as string);
+    const routeWijnhuizen = routeWijnhuisSlugs
+      .map(slug => wijnhuisBySlug.get(slug))
+      .filter((wh): wh is Wijnhuis => Boolean(wh));
+    // LAT-1609: curated verblijven voor de streek van deze route. Alleen kaarten
+    // met echte DAM-foto tellen — gelijk aan de regel die bepaalt of
+    // /accommodaties/<streek>/ bestaat (LAT-1371). Geen foto's → geen teaser.
+    const rawRoundup = entry.streekSlug ? accRoundupsByStreek.get(entry.streekSlug) : undefined;
+    const staysRoundup = rawRoundup && roundupKaartAantal(filterRoundupOpFotos(rawRoundup)) > 0
+      ? filterRoundupOpFotos(rawRoundup)
+      : null;
+    return {
+      params: { slug: entry.slug },
+      props: {
+        entry,
+        streekName: streek?.name ?? '',
+        landSlug: streek?.landSlug ?? '',
+        landName: streek?.country ?? '',
+        wijnhuizen: routeWijnhuizen.length > 0
+          ? routeWijnhuizen
+          : (entry.streekSlug ? (wijnhuizenByStreek.get(entry.streekSlug) ?? []) : []),
+        staysRoundup,
+        alternates: enSlugs.has(entry.slug)
+          ? { nl: `/wijnroutes/${entry.slug}/`, en: `/en/wijnroutes/${entry.slug}/` }
+          : undefined,
+      },
+    };
+  });
 }
 
-const { entry } = Astro.props as { entry: WijnRoute };
-const pageUrl = new URL(`/wijnroutes/${entry.slug}/`, Astro.site ?? 'https://vinomartino.com').href;
-
-const schema = [
-  wijnrouteSchema({
-    name: entry.title,
-    description: entry.description,
-    image: entry.heroImage,
-    duration: entry.duration,
-    stops: entry.highlights.length > 0 ? entry.highlights : entry.stops,
-    pageUrl,
-  }),
-  breadcrumbSchema([
-    { name: 'Home', url: '/' },
-    { name: 'Wijnroutes', url: '/wijnroutes/' },
-    { name: entry.title, url: pageUrl },
-  ]),
-];
+const { entry, streekName, landSlug, landName, wijnhuizen, staysRoundup, alternates } = Astro.props as {
+  entry: WijnRoute; streekName: string; landSlug: string; landName: string; wijnhuizen: Wijnhuis[];
+  staysRoundup: AccommodatieRoundupData | null; alternates?: Record<string, string>;
+};
 ---
 
-<SiteLayout
-  title={wijnrouteMetaTitle(entry.title)}
-  description={wijnrouteMetaDescription({ name: entry.title, duration: entry.duration, description: entry.description })}
-  ogImage={entry.ogImage || entry.heroImage || undefined}
-  schema={schema}
-  activeNav="wijnroutes"
->
-  <article class="route-page">
-    {entry.heroImage && (
-      <div class="page-hero">
-        <img src={entry.heroImage} alt={entry.title} class="page-hero-img" />
-      </div>
-    )}
-
-    <div class="container page-layout">
-      <div class="page-main">
-        <header class="page-header">
-          <nav class="breadcrumb" aria-label="Breadcrumb">
-            <a href="/">Home</a> / <a href="/wijnroutes/">Wijnroutes</a> / <span>{entry.title}</span>
-          </nav>
-          <div class="page-meta-row">
-            {entry.duration && <span class="page-badge">{entry.duration}</span>}
-            {entry.transport && <span class="page-badge">{entry.transport}</span>}
-            {entry.style && <span class="page-badge">{entry.style}</span>}
-          </div>
-          <h1>{entry.title}</h1>
-        </header>
-
-        {entry.bodyHtml && <div class="page-prose" set:html={entry.bodyHtml} />}
-      </div>
-
-      <aside class="page-sidebar">
-        <Stay22Stay location={entry.title} context={`route-${entry.slug}`} placement="sidebar" heading="Waar te slapen op deze route" />
-
-        <div class="sidebar-card">
-          <h3>Route info</h3>
-          {entry.duration && <p><strong>Duur:</strong> {entry.duration}</p>}
-          {entry.transport && <p><strong>Vervoer:</strong> {entry.transport}</p>}
-          {entry.style && <p><strong>Stijl:</strong> {entry.style}</p>}
-        </div>
-
-        {entry.highlights && entry.highlights.length > 0 && (
-          <div class="sidebar-card sidebar-highlights">
-            <h3>Highlights</h3>
-            <ul>
-              {entry.highlights.map(h => <li>{h}</li>)}
-            </ul>
-          </div>
-        )}
-      </aside>
-    </div>
-
-    <RelatedArticles items={entry.relatedArticles} />
-  </article>
-</SiteLayout>
-
-<style>
-  .page-hero {
-    height: 45vh;
-    min-height: 300px;
-    overflow: hidden;
-  }
-  .page-hero-img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-  .page-layout {
-    display: grid;
-    grid-template-columns: 1fr 280px;
-    gap: var(--space-10);
-    padding-top: var(--space-10);
-    padding-bottom: var(--space-12);
-  }
-  .breadcrumb {
-    font-family: var(--font-mono);
-    font-size: 0.6875rem;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--inkFaint);
-    margin-bottom: var(--space-4);
-  }
-  .breadcrumb a {
-    color: var(--inkSoft);
-    text-decoration: none;
-  }
-  .breadcrumb a:hover { text-decoration: underline; }
-  .page-meta-row {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    margin-bottom: var(--space-3);
-    flex-wrap: wrap;
-  }
-  .page-badge {
-    font-family: var(--font-mono);
-    font-size: 0.5625rem;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    background: var(--paperDeep);
-    color: var(--inkSoft);
-    padding: 0.2rem 0.625rem;
-    border-radius: 1px;
-  }
-  .page-header h1 {
-    font-family: var(--font-display);
-    font-size: clamp(2rem, 1.6rem + 1.5vw, 3rem);
-    font-weight: 400;
-    font-style: italic;
-    color: var(--ink);
-    line-height: 1.15;
-    margin-bottom: var(--space-8);
-  }
-  .page-prose {
-    font-family: var(--font-body);
-    font-size: 1.0625rem;
-    line-height: 1.8;
-    color: var(--ink);
-    max-width: var(--article-body-max);
-  }
-  .page-prose :global(h2) {
-    font-family: var(--font-display);
-    font-size: 1.625rem;
-    font-weight: 500;
-    margin: var(--space-10) 0 var(--space-4);
-  }
-  .page-prose :global(h3) {
-    font-family: var(--font-ui);
-    font-size: 1.125rem;
-    font-weight: 600;
-    margin: var(--space-8) 0 var(--space-3);
-  }
-  .page-prose :global(p) { margin-bottom: var(--space-5); }
-  .page-prose :global(ul), .page-prose :global(ol) {
-    padding-left: 1.5rem;
-    margin-bottom: var(--space-5);
-  }
-  .page-prose :global(li) { margin-bottom: 0.375rem; }
-  .page-prose :global(blockquote) {
-    border-left: 3px solid var(--burgundy);
-    padding-left: 1.5rem;
-    margin: var(--space-6) 0;
-    font-style: italic;
-    color: var(--inkSoft);
-  }
-  .sidebar-card {
-    background: var(--paperDeep);
-    border-radius: var(--radius-sm);
-    padding: 1.25rem;
-    font-family: var(--font-ui);
-    font-size: 0.875rem;
-    line-height: 1.6;
-    margin-bottom: var(--space-4);
-  }
-  .sidebar-card h3 {
-    font-family: var(--font-display);
-    font-size: 1.125rem;
-    font-weight: 500;
-    font-style: italic;
-    margin-bottom: var(--space-4);
-    color: var(--ink);
-  }
-  .sidebar-card p {
-    margin-bottom: var(--space-2);
-    color: var(--inkSoft);
-  }
-  .sidebar-highlights ul {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-  }
-  .sidebar-highlights li {
-    font-size: 0.8125rem;
-    color: var(--inkSoft);
-    padding: 0.25rem 0;
-    border-bottom: 1px solid var(--ruleSoft);
-  }
-  .sidebar-highlights li:last-child { border-bottom: none; }
-  @media (max-width: 900px) {
-    .page-layout { grid-template-columns: 1fr; }
-  }
-</style>
+<RouteDetail entry={entry} streekName={streekName} landSlug={landSlug} landName={landName} wijnhuizen={wijnhuizen} staysRoundup={staysRoundup} locale={DEFAULT_LOCALE} alternates={alternates} />

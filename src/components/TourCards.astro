@@ -1,0 +1,164 @@
+---
+// LAT-2252 — "Tours en tickets"-sectie per streek. Rendert de gecureerde
+// GetYourGuide-tours die uit Directus komen (streken.gyg_tours, geladen door
+// loadStreken → entry.gygTours). Elke kaart krijgt een affiliate-deeplink met
+// partner_id=CRMZDZ6 + cmp=streek-<slug> via decorateGyGTourUrl.
+//
+// Kanaalregel (één placement, één route): GYG = activiteiten/tours; botst niet
+// met Stay22 (kaart/accommodatie) of Booking-CJ (overnachten). Geen banner:
+// één subtiele ghost-knop per kaart, met de bestaande data-affiliate-* hooks
+// zodat clicks per bestemming meetbaar zijn.
+import type { GygTour } from '../lib/streken';
+import { decorateGyGTourUrl } from '../lib/affiliate-regio';
+import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
+
+interface Props {
+  /** Streek-slug (Directus/loadStreken). Bepaalt het cmp-label `streek-<slug>`. */
+  streekSlug: string;
+  /** Streek-naam voor de kop. */
+  streekName: string;
+  /** Gecureerde tours uit Directus (entry.gygTours). Leeg = sectie rendert niet. */
+  tours: GygTour[];
+  /** LAT-2575: NL byte-identiek op DEFAULT_LOCALE; /en/ geeft "en" mee. */
+  locale?: Locale;
+}
+
+const { streekSlug, streekName, tours, locale = DEFAULT_LOCALE } = Astro.props;
+const ui = await loadUiStrings(locale);
+
+const cmp = `streek-${streekSlug}`;
+const cards = (tours ?? []).map(tour => ({
+  ...tour,
+  href: decorateGyGTourUrl(tour.url, cmp),
+}));
+---
+
+{cards.length > 0 && (
+  <section class="streek-tours">
+    <div class="container">
+      <div class="streek-tours__head">
+        <span class="section-label">{ui.t('streek.tours.label')}</span>
+        <h2 class="streek-tours__title">{`${ui.t('streek.tours.titlePrefix')} ${streekName}`}</h2>
+        <p class="streek-tours__intro">{ui.t('streek.tours.intro')}</p>
+      </div>
+      <div class="tour-grid">
+        {cards.map(card => (
+          <article class="tour-card">
+            <div class="tour-card__body">
+              {card.duration && <span class="tour-card__duration">{card.duration}</span>}
+              <h3 class="tour-card__name">{card.title}</h3>
+              {card.blurb && <p class="tour-card__desc">{card.blurb}</p>}
+            </div>
+            <a
+              class="tour-card__cta"
+              href={card.href}
+              target="_blank"
+              rel="sponsored nofollow noopener"
+              data-affiliate-track
+              data-affiliate-partner="getyourguide"
+              data-affiliate-placement="streek-tours"
+              data-affiliate-context={cmp}
+            >
+              <span>{ui.t('streek.tours.gygCta')}</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </a>
+          </article>
+        ))}
+      </div>
+    </div>
+  </section>
+)}
+
+<style>
+  .streek-tours {
+    padding: clamp(2rem, 5vw, 3.5rem) 0;
+  }
+  .streek-tours__head {
+    max-width: 46rem;
+    margin-bottom: 1.75rem;
+  }
+  .streek-tours__title {
+    font-family: var(--font-display, Georgia, serif);
+    font-size: clamp(1.5rem, 3vw, 2rem);
+    margin: 0.3rem 0 0.5rem;
+    color: var(--ink, #1c1a17);
+  }
+  .streek-tours__intro {
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: var(--ink-soft, #4a4640);
+    margin: 0;
+  }
+  .tour-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr));
+    gap: 1.25rem;
+  }
+  .tour-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.25rem;
+    border: 1px solid var(--border, #e5ded1);
+    border-radius: var(--radius-md, 2px);
+    background: var(--paper, #faf5e9);
+  }
+  .tour-card__duration {
+    display: inline-block;
+    font-family: var(--font-ui, system-ui, sans-serif);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--burgundy, #5a1a1f);
+    margin-bottom: 0.5rem;
+  }
+  .tour-card__name {
+    font-family: var(--font-display, Georgia, serif);
+    font-size: 1.1rem;
+    line-height: 1.3;
+    margin: 0 0 0.5rem;
+    color: var(--ink, #1c1a17);
+  }
+  .tour-card__desc {
+    font-size: 0.9rem;
+    line-height: 1.55;
+    color: var(--ink-soft, #4a4640);
+    margin: 0;
+  }
+  .tour-card__cta {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 0.9rem;
+    border: 1px solid var(--burgundy, #5a1a1f);
+    border-radius: var(--radius-md, 2px);
+    background: transparent;
+    color: var(--burgundy, #5a1a1f);
+    font-family: var(--font-ui, system-ui, sans-serif);
+    font-size: 0.82rem;
+    font-weight: 600;
+    text-decoration: none;
+    line-height: 1;
+    transition:
+      background var(--duration-fast, 150ms) var(--ease-out, ease),
+      color var(--duration-fast, 150ms) var(--ease-out, ease);
+  }
+  .tour-card__cta:hover,
+  .tour-card__cta:focus-visible {
+    background: var(--burgundy, #5a1a1f);
+    color: var(--paper, #faf5e9);
+  }
+  .tour-card__cta svg {
+    transition: transform var(--duration-fast, 150ms) var(--ease-out, ease);
+  }
+  .tour-card__cta:hover svg,
+  .tour-card__cta:focus-visible svg {
+    transform: translateX(2px);
+  }
+</style>

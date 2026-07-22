@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" role="img" aria-label="Sophie — silhouet in zijaanzicht, met een glas oranje wijn">
+  <defs>
+    <radialGradient id="warmLight2" cx="0.65" cy="0.3" r="0.95">
+      <stop offset="0%" stop-color="#f6e6c4"/>
+      <stop offset="55%" stop-color="#caa05c"/>
+      <stop offset="100%" stop-color="#5b3a1e"/>
+    </radialGradient>
+    <linearGradient id="silhouette2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2f1c12"/>
+      <stop offset="100%" stop-color="#180e08"/>
+    </linearGradient>
+    <filter id="grain2" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="13"/>
+      <feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.18 0"/>
+      <feComposite in2="SourceGraphic" operator="in"/>
+    </filter>
+  </defs>
+  <rect width="600" height="600" fill="url(#warmLight2)"/>
+  <g opacity="0.92">
+    <path d="M220 600 V410 C220 360 240 320 270 305 C280 300 285 290 285 280 C285 240 280 215 285 195 C290 170 310 150 335 145 C360 142 380 160 385 185 C388 200 388 220 386 240 C382 270 390 285 405 295 C440 312 460 350 460 405 V600 Z" fill="url(#silhouette2)"/>
+    <ellipse cx="378" cy="265" rx="20" ry="14" fill="#1a0f08" opacity="0.7"/>
+    <path d="M200 420 C200 420 220 415 240 425 C245 427 250 432 248 440 L240 470 C238 478 232 482 226 478 L208 467 C202 463 198 458 198 450 Z" fill="#c8651c" opacity="0.78"/>
+    <ellipse cx="222" cy="438" rx="14" ry="6" fill="#7a3a10" opacity="0.55"/>
+  </g>
+  <rect width="600" height="600" fill="#000000" opacity="0.10" filter="url(#grain2)"/>
+</svg>

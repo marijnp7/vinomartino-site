@@ -31,6 +31,22 @@ export function readDirectusEnv(): DirectusEnv {
     };
 }
 
+/**
+ * Directus on-the-fly image transform for build-time downloads (LAT-1770).
+ * Originals are 3-7 MB; capping at 1600px width / quality 75 keeps heroes crisp
+ * on retina while cutting per-asset weight ~95%. JPEG is kept so the `.jpg`
+ * filenames and content-type stay unchanged (no template work). `fit=inside`
+ * never upscales smaller sources. `format=jpg` is required: without it Directus
+ * preserves the source format, so PNG-origin photos stay ~1 MB and serve as
+ * image/png under a `.jpg` name.
+ */
+export const ASSET_TRANSFORM = 'width=1600&quality=75&fit=inside&format=jpg';
+
+/** Append the shared transform to a Directus `/assets/<id>` URL. */
+export function assetUrl(directusUrl: string, assetId: string): string {
+    return `${directusUrl}/assets/${assetId}?${ASSET_TRANSFORM}`;
+}
+
 /** Directus query fragment selecting only publishable rows. */
 export function statusFilterQuery(env: DirectusEnv): string {
     return env.includeDrafts
@@ -49,5 +65,51 @@ export function assertDirectusConfigured(loaderName: string, env: DirectusEnv): 
         `[${loaderName}] DIRECTUS_URL and DIRECTUS_TOKEN are required. ` +
             `Local Markdown under src/content/_legacy/ is archive-only since LAT-1078 ` +
             `and is no longer a runtime fallback. Configure Directus or point the build at a preview Directus instance.`,
+    );
+}
+
+/**
+ * LAT-1768 — is soft-degradation (return [] on a collection-level 403/404) allowed?
+ *
+ * Production builds must fail loud: a broken Directus/DAM coupling should block
+ * the deploy before publication instead of silently shipping empty pages. The
+ * only builds permitted to degrade are preview/dev:
+ * - preview builds set DIRECTUS_INCLUDE_DRAFTS=1 (deploy.yml), so Marijn can
+ *   still review the rest of the site even when one collection's permission is
+ *   mid-migration.
+ * - local/dev builds can opt in explicitly with ALLOW_CONTENT_DEGRADE=1.
+ *
+ * Default (production: neither flag set) returns false → callers throw.
+ */
+export function allowContentDegrade(env: DirectusEnv): boolean {
+    return env.includeDrafts || process.env['ALLOW_CONTENT_DEGRADE'] === '1';
+}
+
+/**
+ * LAT-1768 — handle a collection-level access failure (the build-role cannot
+ * read the whole collection: terminal 403/404 after all field-tier fallbacks).
+ * In production this throws so the build fails loud; in preview/dev it logs and
+ * lets the caller degrade to an empty list. This is distinct from field-tier
+ * 400/403 fallbacks, which legitimately mean "field not migrated yet" and must
+ * stay tolerant.
+ */
+export function assertCollectionReadableOrDegrade(
+    loaderName: string,
+    collection: string,
+    status: number,
+    env: DirectusEnv,
+    bodySnippet = '',
+): void {
+    const base =
+        `[${loaderName}] Directus collection '${collection}' ontoegankelijk voor build-rol (HTTP ${status}).` +
+        (bodySnippet ? ` Body: ${bodySnippet}` : '');
+    if (allowContentDegrade(env)) {
+        console.error(`${base} Preview/dev degradeert naar lege lijst — fix Directus-permissies (LAT-1013).`);
+        return;
+    }
+    throw new Error(
+        `${base} Productie-build afgebroken (LAT-1768 fail-loud): een kapotte CMS/DAM-koppeling ` +
+            `mag geen lege pagina's publiceren. Fix de Directus-permissie, of zet ALLOW_CONTENT_DEGRADE=1 ` +
+            `voor een expliciete preview/dev-build.`,
     );
 }

@@ -1,0 +1,10 @@
+---
+// LAT-2693 — EN interactieve Italië-atlas onder /en/ (noindex). Zelfde
+// AtlasItalieInteractief-component; locale="en" zorgt voor EN-chrome + hreflang.
+import AtlasItalieInteractief from '../../../../components/AtlasItalieInteractief.astro';
+---
+
+<AtlasItalieInteractief
+  locale="en"
+  alternates={{ nl: '/infographics/atlas-italie-interactief/', en: '/en/infographics/atlas-italie-interactief/' }}
+/>

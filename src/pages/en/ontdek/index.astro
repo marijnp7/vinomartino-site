@@ -1,0 +1,9 @@
+---
+// LAT-2709 — EN wijnatlas onder /en/. Zelfde OntdekContent-component als de
+// NL-route; locale="en" activeert de EN-loaders (loadLanden/loadStreken('en'):
+// landen/streken zonder EN-vertaling vallen weg) en de ui_strings-overlay.
+// alternates voedt hreflang terug naar de NL-index.
+import OntdekContent from '../../../components/OntdekContent.astro';
+---
+
+<OntdekContent locale="en" alternates={{ nl: '/ontdek/', en: '/en/ontdek/' }} />

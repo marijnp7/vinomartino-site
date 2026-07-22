@@ -1,0 +1,71 @@
+---
+// Crème briefpapier-kaart voor De Brief (LAT-2004): datumregel, korte inhoud,
+// handtekening "Marijn" (alleen voornaam, huisregel). Vaste crème/ink kleuren
+// zodat de kaart in beide thema's als echt briefpapier oogt.
+interface Props {
+  dateline: string;
+  signature?: string;
+  align?: 'left' | 'center';
+}
+const { dateline, signature = 'Marijn', align = 'left' } = Astro.props;
+---
+
+<article class:list={['briefkaart', `is-${align}`]}>
+  <p class="briefkaart-date">{dateline}</p>
+  <div class="briefkaart-body">
+    <slot />
+  </div>
+  <p class="briefkaart-sign">{signature}</p>
+</article>
+
+<style>
+  .briefkaart {
+    background: var(--fixed-cream);
+    color: var(--fixed-ink);
+    border: 1px solid var(--paperShade, #E8DCC0);
+    border-radius: 3px;
+    padding: clamp(1.75rem, 3vw, 2.75rem);
+    box-shadow: 0 18px 48px -22px rgba(31, 17, 21, 0.55);
+    position: relative;
+    max-width: 42rem;
+  }
+  .briefkaart.is-center {
+    margin-inline: auto;
+    text-align: center;
+  }
+  /* subtiele vouwlijn als van een gevouwen brief */
+  .briefkaart::before {
+    content: '';
+    position: absolute;
+    inset-inline: clamp(1.75rem, 3vw, 2.75rem);
+    top: 0;
+    height: 3px;
+    background: var(--gold, #E5C99B);
+    opacity: 0.7;
+  }
+  .briefkaart-date {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--burgundy, #5A1A1F);
+    margin: 0 0 1.1rem;
+  }
+  .briefkaart-body {
+    font-family: var(--font-body);
+    font-size: 1.0625rem;
+    line-height: 1.65;
+    color: color-mix(in srgb, var(--fixed-ink) 88%, transparent);
+  }
+  .briefkaart-body :global(p) { margin: 0 0 0.9rem; }
+  .briefkaart-body :global(p:last-child) { margin-bottom: 0; }
+  .briefkaart-sign {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 500;
+    font-size: 1.85rem;
+    line-height: 1;
+    color: var(--burgundy, #5A1A1F);
+    margin: 1.5rem 0 0;
+  }
+</style>

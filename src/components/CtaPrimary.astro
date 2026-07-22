@@ -1,0 +1,92 @@
+---
+// LAT-1784 — CTA-moment 1: hoofd-CTA bovenaan (bij koopintentie).
+// Data-driven uit Directus (cta_blocks.primary). Géén hardcoded copy: heading,
+// why en label komen uit de data. Graceful degradation: zonder data → niets.
+import { resolveCtaHref, ctaTrackPartner, type CtaPrimaryData } from '../lib/cta-blocks';
+import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
+
+interface Props {
+  data?: CtaPrimaryData;
+  /** Stabiele tracking-id-stam, bv. de streek-/pagina-slug. */
+  sid: string;
+  locale?: Locale;
+}
+
+const { data, sid, locale = DEFAULT_LOCALE } = Astro.props;
+
+// LAT-2704 — interne hrefs locale-aware; NL blijft byte-identiek.
+const lh = (href: string) => localizeHref(href, locale);
+const ui = await loadUiStrings(locale);
+const placement = 'cta-primary';
+const href = data ? resolveCtaHref(data.link, `${placement}-${sid}`, locale) : '';
+const label = data?.link.label ?? ui.t('ui.cta.primary.fallbackCta');
+---
+
+{data && (
+  <aside class="vm-cta vm-cta--primary" aria-label={ui.t('ui.cta.primary.aria')}>
+    {data.heading && <h3 class="vm-cta__heading">{data.heading}</h3>}
+    <a
+      class="vm-cta__btn"
+      href={lh(href)}
+      target="_blank"
+      rel="sponsored nofollow noopener"
+      data-affiliate-track
+      data-affiliate-partner={ctaTrackPartner(data.link)}
+      data-affiliate-placement={placement}
+      data-affiliate-context={sid}
+    >
+      <span>{label}</span>
+      <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+    </a>
+    <p class="vm-cta__why">{data.why}</p>
+  </aside>
+)}
+
+<style>
+  .vm-cta--primary {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 1rem 1.1rem;
+    margin: 1.25rem 0;
+    border-left: 3px solid var(--burgundy, #5a1a1f);
+    background: color-mix(in srgb, var(--burgundy, #5a1a1f) 4%, transparent);
+    border-radius: var(--radius-md, 2px);
+  }
+  .vm-cta__heading {
+    margin: 0;
+    font-family: var(--font-display, serif);
+    font-size: 1.05rem;
+    color: var(--ink, #2b2622);
+  }
+  .vm-cta__btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 0.9rem;
+    border: 1px solid var(--burgundy, #5a1a1f);
+    border-radius: var(--radius-md, 2px);
+    background: var(--burgundy, #5a1a1f);
+    color: var(--paper, #faf5e9);
+    font-family: var(--font-ui, system-ui, sans-serif);
+    font-size: 0.82rem;
+    font-weight: 600;
+    text-decoration: none;
+    line-height: 1;
+    transition: opacity var(--duration-fast, 150ms) var(--ease-out, ease);
+  }
+  .vm-cta__btn:hover,
+  .vm-cta__btn:focus-visible { opacity: 0.88; }
+  .vm-cta__why {
+    margin: 0;
+    font-family: var(--font-body, serif);
+    font-style: italic;
+    font-size: 0.82rem;
+    line-height: 1.5;
+    color: var(--inkSoft, #5a4f45);
+  }
+</style>

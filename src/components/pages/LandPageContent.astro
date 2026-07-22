@@ -2,7 +2,11 @@
 import SmartImg from '../SmartImg.astro';
 import AffiliatePlaceholder from '../AffiliatePlaceholder.astro';
 import AffiliateDisclosure from '../AffiliateDisclosure.astro';
-import Stay22Stay from '../Stay22Stay.astro';
+import RouteMap from '../RouteMap.astro';
+import type { FaqItem } from '../../lib/seo';
+import type { LandReistijd, LandBudget } from '../../lib/landen';
+import { loadUiStrings } from '../../lib/ui-strings';
+import { type Locale, DEFAULT_LOCALE } from '../../lib/i18n';
 
 interface LandStreek {
   name: string;
@@ -22,9 +26,10 @@ interface LandWijnhuis {
 interface LandRoute {
   title: string;
   slug: string;
-  days: number;
-  transport: string;
+  days?: number;
+  transport?: string;
   style?: string;
+  stops?: string[];
 }
 
 interface LandDruif {
@@ -46,12 +51,18 @@ interface Props {
   description: string;
   heroImage?: string;
   stats?: { label: string; value: string }[];
+  bodyHtml?: string;
   streken?: LandStreek[];
   topWijnhuizen?: LandWijnhuis[];
   routes?: LandRoute[];
   druiven?: LandDruif[];
   practical?: LandPractical[];
   climate?: string;
+  faq?: FaqItem[];
+  hubTitle?: string;
+  reistijd?: LandReistijd[];
+  budget?: LandBudget[];
+  locale?: Locale;
 }
 
 const {
@@ -61,13 +72,21 @@ const {
   description,
   heroImage,
   stats = [],
+  bodyHtml,
   streken = [],
   topWijnhuizen = [],
   routes = [],
   druiven = [],
   practical = [],
   climate,
+  faq = [],
+  hubTitle,
+  reistijd = [],
+  budget = [],
+  locale = DEFAULT_LOCALE,
 } = Astro.props;
+
+const ui = await loadUiStrings(locale);
 ---
 
 <!-- ── HERO ──────────────────────────────────────────── -->
@@ -76,11 +95,11 @@ const {
     <div class="land-eyebrow">
       {continent && <span>{continent}</span>}
       {continent && <span>·</span>}
-      <span>Wijnland</span>
+      <span>{ui.t('land.hero.wijnland')}</span>
     </div>
-    <h1 class="land-title">
+    <h1 class:list={['land-title', hubTitle && 'land-title--hub']}>
       {flagEmoji && <span class="land-flag" aria-hidden="true">{flagEmoji}</span>}
-      {name}
+      {hubTitle || name}
     </h1>
     <p class="land-subtitle">{description}</p>
 
@@ -107,21 +126,48 @@ const {
   </div>
 </section>
 
+<!-- ── ATLAS (LAT-1119/LAT-1295): interactieve kaart direct ná de hero/facts, -->
+<!-- bóven de streek-cards. .container kilt de full-bleed (kaart op dezelfde -->
+<!-- kolom als de rest). Sectie rendert niet als er geen atlas-slot is, zodat -->
+<!-- landen zonder kaart-geometrie geen lege witte band krijgen. ─────────── -->
+{Astro.slots.has('atlas') && (
+  <section class="land-atlas">
+    <div class="container">
+      <slot name="atlas" />
+    </div>
+  </section>
+)}
+
+<!-- ── LONG-FORM EDITORIAL (LAT-1657): Directus `body` markdown → bodyHtml. -->
+<!-- Direct ná hero/stats/atlas, bóven de streek-cards. Rendert niet als er -->
+<!-- geen body is, zodat showcase-fallback-landen geen lege band krijgen. ─ -->
+{bodyHtml && (
+  <section class="land-body">
+    <div class="land-body__inner">
+      <div class="land-prose" set:html={bodyHtml} />
+    </div>
+  </section>
+)}
+
+<!-- LAT-1842: vroege CTA-injectie (variant 'early'), ná de editorial-body -->
+<!-- (sectie 3), bóven de listings. Leeg voor niet-pilot landen. -->
+<slot name="cta-early" />
+
 <!-- ── STREKEN ────────────────────────────────────────── -->
 {streken.length > 0 && (
   <section class="land-streken">
     <div class="container">
       <div class="land-section-head">
         <div>
-          <div class="land-section-label">Wijnstreken</div>
-          <h2 class="land-section-title">De streken van {name}</h2>
+          <div class="land-section-label">{ui.t('land.section.wijnstreken')}</div>
+          <h2 class="land-section-title">{`${ui.t('land.section.strekenVanPrefix')} ${name}`}</h2>
         </div>
-        <a href="/streken/" class="land-all-link">Alle streken →</a>
+        <a href="/streken/" class="land-all-link">{ui.t('land.link.alleStreken')}</a>
       </div>
       <div class="land-streken__grid">
         {streken.map(streek => (
           <a href={`/streken/${streek.slug}/`} class="land-streek-card">
-            <div class="land-streek-card__img">
+            <div class:list={['land-streek-card__img', !streek.image && 'is-empty']}>
               <SmartImg src={streek.image} alt={streek.name} theme="vineyard" class="land-streek-card__img-inner" />
               <span class="land-streek-card__badge">{streek.badge}</span>
             </div>
@@ -142,10 +188,10 @@ const {
     <div class="container">
       <div class="land-section-head">
         <div>
-          <div class="land-section-label land-section-label--rust">Top wijnhuizen</div>
-          <h2 class="land-section-title">Adressen die we zelf bezochten</h2>
+          <div class="land-section-label land-section-label--rust">{ui.t('land.section.topWijnhuizen')}</div>
+          <h2 class="land-section-title">{ui.t('land.section.topWijnhuizenTitle')}</h2>
         </div>
-        <a href="/wijnhuizen/" class="land-all-link">Alle wijnhuizen →</a>
+        <a href="/wijnhuizen/" class="land-all-link">{ui.t('land.link.alleWijnhuizen')}</a>
       </div>
       <div class="land-wijnhuizen__grid">
         {topWijnhuizen.map((wh, i) => (
@@ -171,8 +217,8 @@ const {
 {druiven.length > 0 && (
   <section class="land-druiven">
     <div class="container">
-      <div class="land-section-label">Druiven</div>
-      <h2 class="land-section-title">Wat je hier proeft</h2>
+      <div class="land-section-label">{ui.t('land.section.druiven')}</div>
+      <h2 class="land-section-title">{ui.t('land.section.druivenTitle')}</h2>
       {climate && <p class="land-climate">{climate}</p>}
       <div class="land-druiven__grid">
         {druiven.map((d, i) => (
@@ -200,22 +246,27 @@ const {
     <div class="container">
       <div class="land-section-head">
         <div>
-          <div class="land-section-label land-section-label--rust">Routes</div>
-          <h2 class="land-section-title">Reisroutes door {name}</h2>
+          <div class="land-section-label land-section-label--rust">{ui.t('land.section.routes')}</div>
+          <h2 class="land-section-title">{`${ui.t('land.section.reisroutesDoorPrefix')} ${name}`}</h2>
         </div>
-        <a href="/wijnroutes/" class="land-all-link">Alle routes →</a>
+        <a href="/wijnroutes/" class="land-all-link">{ui.t('land.link.alleRoutes')}</a>
       </div>
       <div class="land-routes__grid">
         {routes.map(route => (
           <a href={`/wijnroutes/${route.slug}/`} class="land-route-card">
             <div class="land-route-card__img">
               <div class="land-route-card__badges">
-                <span class="land-badge land-badge--days">{route.days}d</span>
-                <span class="land-badge land-badge--transport">{route.transport}</span>
+                {route.days && <span class="land-badge land-badge--days">{route.days}d</span>}
+                {route.transport && <span class="land-badge land-badge--transport">{route.transport}</span>}
               </div>
             </div>
             <div class="land-route-card__body">
               <h3 class="land-route-card__title">{route.title}</h3>
+              {route.stops && route.stops.length >= 2 && (
+                <div class="land-route-card__strip">
+                  <RouteMap stops={route.stops} variant="mini" />
+                </div>
+              )}
               {route.style && <span class="land-route-card__style">{route.style}</span>}
             </div>
           </a>
@@ -228,8 +279,10 @@ const {
 <!-- ── TRAVEL ESSENTIALS ───────────────────────────────────── -->
 <section class="land-travel">
   <div class="container">
-    <h2 class="land-section-title">Plan je reis</h2>
-    <Stay22Stay location={name} context={`land-${name.toLowerCase()}`} placement="sidebar" heading={`Waar te slapen in ${name}`} />
+    <h2 class="land-section-title">{ui.t('land.section.planJeReis')}</h2>
+    {/* LAT-1640: generieke Stay22 "Waar te slapen"-widget weg (geen externe
+        zoekwidget meer). Gecureerde verblijven leven per streek; de landpagina
+        linkt daar via de streekkaarten naartoe. */}
     <div class="land-travel__grid">
       <AffiliatePlaceholder type="accommodation" partner="booking.com" region={name} placement="sidebar" context="land-accommodation" />
       <AffiliatePlaceholder type="flight" partner="skyscanner" region={name} placement="sidebar" context="land-flight" />
@@ -239,12 +292,66 @@ const {
   </div>
 </section>
 
+<!-- ── REISTIJD-TABEL (LAT-1871): per-regio reistijd, alleen op pillar-hubs -->
+<!-- (Directus reistijd_tabel). Rendert niets als de redactie het niet vult. -->
+{reistijd.length > 0 && (
+  <section class="land-reistijd">
+    <div class="container">
+      <div class="land-section-label land-section-label--rust">{ui.t('land.section.reistijd')}</div>
+      <h2 class="land-section-title">{ui.t('land.section.reistijdTitle')}</h2>
+      <div class="land-table-wrap">
+        <table class="land-table">
+          <thead>
+            <tr>
+              <th>{ui.t('land.reistijd.thRegio')}</th>
+              <th>{ui.t('land.reistijd.thVliegveld')}</th>
+              <th>{ui.t('land.reistijd.thReistijd')}</th>
+              <th>{ui.t('land.reistijd.thPeriode')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {reistijd.map(row => (
+              <tr>
+                <td class="land-table__head-cell">{row.regio}</td>
+                <td>{row.vliegveld}</td>
+                <td>{row.reistijd}</td>
+                <td>{row.besteReistijd}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+)}
+
+<!-- ── BUDGETBLOK (LAT-1871): EUR-richtprijzen (valuta-regel LAT-1663). -->
+<!-- Alleen op pillar-hubs (Directus budget_tabel); rendert niets indien leeg. -->
+{budget.length > 0 && (
+  <section class="land-budget">
+    <div class="container">
+      <div class="land-section-label">{ui.t('land.section.budget')}</div>
+      <h2 class="land-section-title">{ui.t('land.section.budgetTitle')}</h2>
+      <p class="land-budget__note">{ui.t('land.budget.note')}</p>
+      <div class="land-budget__grid">
+        {budget.map(item => (
+          <div class="land-budget__item">
+            <div class="land-budget__cat">{item.categorie}</div>
+            <div class="land-budget__amount">{item.bedrag}</div>
+            {item.toelichting && <p class="land-budget__note-sm">{item.toelichting}</p>}
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+)}
+
 <!-- ── PRACTICAL ─────────────────────────────────────── -->
 {practical.length > 0 && (
   <section class="land-practical">
     <div class="container">
-      <div class="land-section-label">Praktisch</div>
-      <h2 class="land-section-title">Voor je gaat</h2>
+      <div class="land-section-label">{ui.t('land.section.praktisch')}</div>
+      <h2 class="land-section-title">{ui.t('land.section.praktischTitle')}</h2>
       <div class="land-practical__grid">
         {practical.map(item => (
           <div class="land-practical__item">
@@ -253,6 +360,23 @@ const {
           </div>
         ))}
       </div>
+    </div>
+  </section>
+)}
+
+{faq.length > 0 && (
+  <section class="land-faq">
+    <div class="container">
+      <div class="land-section-label">{ui.t('land.section.faq')}</div>
+      <h2 class="land-section-title">{ui.t('land.section.faqTitle')}</h2>
+      <dl class="land-faq__list">
+        {faq.map(item => (
+          <div class="land-faq__item">
+            <dt class="land-faq__q">{item.question}</dt>
+            <dd class="land-faq__a">{item.answer}</dd>
+          </div>
+        ))}
+      </dl>
     </div>
   </section>
 )}
@@ -309,8 +433,8 @@ const {
 
   /* ── Hero ── */
   .land-hero {
-    background: var(--ink);
-    color: var(--paper);
+    background: var(--fixed-ink);
+    color: var(--fixed-cream);
     padding-top: 5rem;
     padding-bottom: 0;
   }
@@ -323,7 +447,7 @@ const {
     font-weight: 500;
     line-height: 0.9;
     letter-spacing: -0.02em;
-    color: var(--paper);
+    color: var(--fixed-cream);
     margin: 0 0 1.25rem;
   }
 
@@ -383,6 +507,49 @@ const {
     opacity: 0.7;
   }
 
+  /* ── Atlas (LAT-1295) ── */
+  .land-atlas {
+    padding: clamp(3.5rem, 7vw, 6rem) 0;
+    background: var(--paper);
+    border-bottom: 1px solid var(--rule);
+  }
+
+  /* ── Long-form editorial (LAT-1657) ── */
+  .land-body {
+    padding: clamp(3.5rem, 7vw, 6rem) 0;
+    background: var(--paper);
+    border-bottom: 1px solid var(--rule);
+  }
+  .land-body__inner {
+    max-width: var(--max-width-narrow);
+    margin: 0 auto;
+    padding: 0 var(--gutter);
+  }
+  .land-prose {
+    font-family: var(--font-body);
+    font-size: 1.125rem;
+    line-height: 1.7;
+    color: var(--ink);
+  }
+  .land-prose :global(p) { margin-bottom: 1.25rem; }
+  .land-prose :global(h2) {
+    font-family: var(--font-display);
+    font-size: 1.75rem;
+    font-weight: 500;
+    margin: 2.5rem 0 1rem;
+  }
+  .land-prose :global(h3) {
+    font-family: var(--font-ui);
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin: 2rem 0 0.75rem;
+  }
+  .land-prose :global(a) { color: var(--burgundy); }
+  .land-prose :global(ul), .land-prose :global(ol) {
+    margin: 0 0 1.25rem 1.25rem;
+  }
+  .land-prose :global(li) { margin-bottom: 0.5rem; }
+
   /* ── Streken ── */
   .land-streken {
     padding: 5rem 0;
@@ -411,6 +578,11 @@ const {
     overflow: hidden;
     position: relative;
   }
+  /* LAT-2455: geen beeld → compacte branded band i.p.v. loze reuzenvlak op mobiel. */
+  .land-streek-card__img.is-empty {
+    aspect-ratio: auto;
+    height: clamp(96px, 26vw, 140px);
+  }
 
   .land-streek-card__img-inner {
     width: 100%;
@@ -427,7 +599,7 @@ const {
     letter-spacing: 0.15em;
     text-transform: uppercase;
     background: var(--burgundy);
-    color: var(--paper);
+    color: var(--fixed-cream);
     padding: 0.25rem 0.625rem;
   }
 
@@ -598,8 +770,10 @@ const {
     display: block;
   }
 
+  /* LAT-2455: deze media-slot heeft nooit een foto (alleen badges). Geen loze
+     3/2-reuzenvlak meer op mobiel; compacte badge-strip die alleen zo hoog is
+     als de badges zelf. */
   .land-route-card__img {
-    aspect-ratio: 3 / 2;
     background: var(--paperShade);
     padding: 0.75rem;
     display: flex;
@@ -616,7 +790,7 @@ const {
     font-weight: 600;
   }
   .land-badge--days { background: var(--paper); color: var(--ink); border: 1px solid var(--rule); margin-right: 0.375rem; }
-  .land-badge--transport { background: var(--burgundy); color: var(--paper); }
+  .land-badge--transport { background: var(--burgundy); color: var(--fixed-cream); }
 
   .land-route-card__body { padding: 1rem; }
 
@@ -627,6 +801,8 @@ const {
     color: var(--ink);
     margin: 0 0 0.375rem;
   }
+
+  .land-route-card__strip { margin: 0 0 0.625rem; }
 
   .land-route-card__style {
     font-family: var(--font-mono);
@@ -652,11 +828,11 @@ const {
   .land-practical {
     padding: 4.5rem 0;
     background: var(--burgundyDeep);
-    color: var(--paper);
+    color: var(--fixed-cream);
   }
 
   .land-practical .land-section-label { color: var(--gold); }
-  .land-practical .land-section-title { color: var(--paper); margin-bottom: 2rem; }
+  .land-practical .land-section-title { color: var(--fixed-cream); margin-bottom: 2rem; }
 
   .land-practical__grid {
     display: grid;
@@ -712,4 +888,131 @@ const {
     .land-druif--border { border-right: none; border-bottom: 1px solid var(--ruleSoft); }
     .land-wh-cell--border-left { border-left: none; border-top: 1px solid var(--ruleSoft); }
   }
-</style>
+
+  /* ── FAQ ── */
+  .land-faq {
+    padding: var(--space-12, 4rem) 0;
+    border-top: 1px solid var(--ruleSoft);
+  }
+  .land-faq .land-section-title { margin-bottom: 2rem; }
+  .land-faq__list {
+    margin: 0;
+    max-width: 48rem;
+  }
+  .land-faq__item {
+    padding: 1.25rem 0;
+    border-bottom: 1px solid var(--ruleSoft);
+  }
+  .land-faq__item:first-child { border-top: 1px solid var(--ruleSoft); }
+  .land-faq__q {
+    font-family: var(--font-display);
+    font-size: 1.125rem;
+    color: var(--ink);
+    margin: 0 0 0.5rem;
+  }
+  .land-faq__a {
+    margin: 0;
+    color: var(--inkSoft);
+    line-height: 1.6;
+  }
+
+  /* ── Hero hub-variant (LAT-1871): sentence-length pillar-hub H1 ── */
+  .land-title--hub {
+    font-size: clamp(2.25rem, 1.5rem + 3.5vw, 4.25rem);
+    line-height: 1;
+    max-width: 18ch;
+  }
+
+  /* ── Reistijd-tabel (LAT-1871) ── */
+  .land-reistijd {
+    padding: 4.5rem 0;
+    background: var(--paper);
+    border-bottom: 1px solid var(--rule);
+  }
+  .land-reistijd .land-section-title { margin-bottom: 1.5rem; }
+  .land-table-wrap { overflow-x: auto; }
+  .land-table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid var(--rule);
+    background: var(--paper);
+  }
+  .land-table th {
+    text-align: left;
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--rust);
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--rule);
+    background: var(--paperDeep);
+    white-space: nowrap;
+  }
+  .land-table td {
+    font-family: var(--font-body);
+    font-size: 0.9375rem;
+    color: var(--inkSoft);
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--ruleSoft);
+  }
+  .land-table tr:last-child td { border-bottom: none; }
+  .land-table__head-cell {
+    font-family: var(--font-display) !important;
+    font-size: 1.0625rem !important;
+    color: var(--ink) !important;
+  }
+
+  /* ── Budgetblok (LAT-1871) ── */
+  .land-budget {
+    padding: 4.5rem 0;
+    background: var(--paperDeep);
+    border-bottom: 1px solid var(--rule);
+  }
+  .land-budget__note {
+    font-family: var(--font-body);
+    font-size: 0.9375rem;
+    font-style: italic;
+    color: var(--inkSoft);
+    margin: 0.5rem 0 2rem;
+  }
+  .land-budget__grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    border: 1px solid var(--rule);
+    background: var(--paper);
+  }
+  .land-budget__item {
+    padding: 1.5rem;
+    border-right: 1px solid var(--ruleSoft);
+    border-bottom: 1px solid var(--ruleSoft);
+  }
+  .land-budget__cat {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--burgundy);
+    margin-bottom: 0.5rem;
+  }
+  .land-budget__amount {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-weight: 500;
+    color: var(--ink);
+  }
+  .land-budget__note-sm {
+    font-family: var(--font-body);
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: var(--inkSoft);
+    margin: 0.5rem 0 0;
+  }
+  @media (max-width: 900px) {
+    .land-budget__grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 640px) {
+    .land-budget__grid { grid-template-columns: 1fr; }
+    .land-budget__item { border-right: none; }
+  }
+</style></style>

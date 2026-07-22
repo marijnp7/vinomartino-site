@@ -1,0 +1,9 @@
+---
+// LAT-2709 — NL wijnatlas (prefixloos, DEFAULT_LOCALE). Markup + logica zitten in
+// het gedeelde OntdekContent-component; de /en/-tegenhanger
+// (src/pages/en/ontdek/index.astro) rendert hetzelfde component met locale="en".
+// De atlas-index bestaat altijd in beide talen, dus hreflang wijst wederzijds.
+import OntdekContent from '../../components/OntdekContent.astro';
+---
+
+<OntdekContent alternates={{ nl: '/ontdek/', en: '/en/ontdek/' }} />

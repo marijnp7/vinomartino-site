@@ -1,0 +1,119 @@
+# LAT-2532 — nightly live affiliate-eindbestemmings-check (NIET-blokkerend).
+#
+# Waarom apart van deploy.yml:
+#   • De reguliere build draait op de VPS (Directus zit in het VPS-Docker-netwerk
+#     en is niet bereikbaar vanaf GitHub-hosted runners) → hier bouwen kan niet.
+#   • Deze check heeft een echte headless browser nodig (GetYourGuide geeft 403
+#     op curl) en raakt externe hosts. Een flaky externe host mag NOOIT een
+#     deploy vals-rood maken → daarom een losse, niet-blokkerende nightly.
+#   • Playwright staat BEWUST niet in package.json (zou de blokkerende VPS-build
+#     `npm ci` belasten met een chromium-download). We installeren het hier
+#     CI-only, ephemeer.
+#
+# Wat hij checkt: crawlt de live prod-sitemap, verzamelt alle affiliate-links en
+# opent elke unieke eind-URL in chromium. Rood = 4xx/5xx of soft-redirect naar
+# een zoek-/home-/fallbackpagina (GYG `/s?...`, Booking-home) ondanks HTTP 200.
+# Bij rood maakt hij (of update hij) een GitHub-issue met een per-link rapport.
+# Netwerktimeout ≠ rood (→ waarschuwing).
+
+name: Affiliate links nightly (live)
+
+on:
+  schedule:
+    - cron: "15 3 * * *" # elke nacht 03:15 UTC
+  workflow_dispatch:
+    inputs:
+      site:
+        description: "Te checken site (prod of preview)"
+        required: false
+        default: "https://vinomartino.com"
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: affiliate-links-nightly
+  cancel-in-progress: true
+
+jobs:
+  live-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      AFFILIATE_LIVE_SITE: ${{ github.event.inputs.site || 'https://vinomartino.com' }}
+      AFFILIATE_LIVE_REPORT: affiliate-live-report.md
+      # Aparte, gecapte issue-body — GitHub weigert een issue-body >65536 tekens.
+      AFFILIATE_LIVE_ISSUE_BODY: affiliate-live-issue.md
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # Playwright CI-only installeren (niet in package.json — zie kop).
+      - name: Install Playwright (chromium)
+        run: |
+          npm install --no-save playwright@^1.45.0
+          npx playwright install --with-deps chromium
+
+      - name: Run live affiliate-check
+        id: check
+        run: |
+          set +e
+          node scripts/check-affiliate-links-live.mjs
+          code=$?
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          set -e
+          if [ -f "$AFFILIATE_LIVE_REPORT" ]; then
+            cat "$AFFILIATE_LIVE_REPORT" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          # code 0 = schoon/onbereikbaar, 2 = kapotte link(s), 1 = scriptfout
+          exit 0
+
+      - name: Upload rapport
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: affiliate-live-report
+          path: |
+            affiliate-live-report.md
+            affiliate-live-issue.md
+          if-no-files-found: ignore
+
+      # Bij kapotte eindbestemming(en): open of update één issue (dedup op label).
+      - name: Open/update issue bij kapotte link
+        if: steps.check.outputs.exit_code == '2'
+        run: |
+          set -euo pipefail
+          label="affiliate-nightly"
+          gh label create "$label" --color b60205 \
+            --description "Kapotte affiliate-eindbestemming (LAT-2532 nightly)" 2>/dev/null || true
+          title="Nightly: kapotte affiliate-eindbestemming(en) op $AFFILIATE_LIVE_SITE"
+          # Gecapte body (script schrijft top-N + breakdown); volledige lijst = artifact.
+          body_file="$AFFILIATE_LIVE_ISSUE_BODY"
+          [ -f "$body_file" ] || body_file="affiliate-live-report.md"
+          existing=$(gh issue list --state open --label "$label" --json number --jq '.[0].number' || echo "")
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body-file "$body_file"
+            echo "::notice::Bestaand issue #$existing bijgewerkt."
+          else
+            gh issue create --title "$title" --label "$label" --body-file "$body_file"
+            echo "::notice::Nieuw issue aangemaakt."
+          fi
+
+      - name: Markeer run rood bij kapotte link
+        if: steps.check.outputs.exit_code == '2'
+        run: |
+          echo "::error::Live affiliate-check vond kapotte eindbestemming(en) — zie het aangemaakte issue en de job summary."
+          exit 1
+
+      - name: Faal op onverwachte scriptfout
+        if: steps.check.outputs.exit_code == '1'
+        run: |
+          echo "::error::Live affiliate-check faalde met een scriptfout (exit 1) — geen betrouwbaar oordeel."
+          exit 1

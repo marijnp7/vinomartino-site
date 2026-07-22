@@ -1,0 +1,90 @@
+---
+// LAT-1676 — noindex preview/review-pagina voor de Piemonte-cluster componenten.
+// Toont de drie nieuwe herbruikbare bouwstenen met dummy-props zodat Marijn de
+// template-laag visueel kan keuren en de Content Writer ziet hoe ze te gebruiken.
+// NIET geïndexeerd (noindex), geen navigatie-link. Voorbeeld-data hier is alleen
+// voor de review; in productie komen alle waarden uit Directus.
+import SiteLayout from '../../layouts/SiteLayout.astro';
+import DestinationCard from '../../components/DestinationCard.astro';
+import WijnFactBox from '../../components/WijnFactBox.astro';
+import AffiliateButton from '../../components/AffiliateButton.astro';
+---
+
+<SiteLayout
+  title="LAT-1676 componenten (preview)"
+  description="Interne review van de Piemonte-cluster componenten."
+  noindex={true}
+>
+  <article class="lat1676">
+    <div class="container">
+      <header class="lat1676__intro">
+        <span class="section-label">Interne preview</span>
+        <h1>Piemonte-cluster componenten</h1>
+        <p>Review-surface voor LAT-1676. Drie herbruikbare bouwstenen; in productie komen alle waarden uit Directus.</p>
+      </header>
+
+      <section class="lat1676__block">
+        <h2>1. WijnFactBox</h2>
+        <p class="lat1676__note">Compacte wijnfeiten bovenaan een regiopagina. Lege velden vallen weg.</p>
+        <WijnFactBox
+          dominantGrapes={['Nebbiolo', 'Barbera', 'Dolcetto']}
+          appellations={['Barolo DOCG', 'Barbaresco DOCG', 'Langhe DOC']}
+          bestVintages="2016, 2019, 2020"
+          harvestPeriod="September–oktober"
+          minVisitTime="3 dagen"
+          tastingBudget="€15–35 per proeverij"
+        />
+      </section>
+
+      <section class="lat1676__block">
+        <h2>2. DestinationCard</h2>
+        <p class="lat1676__note">De speelse template-laag: afgeronde card, hero (Directus of placeholder), tekst-overlay.</p>
+        <div class="lat1676__cards">
+          <DestinationCard
+            href="/streken/langhe-piemonte/"
+            kicker="Piemonte"
+            title="Langhe"
+            subtitle="Barolo, Barbaresco en de heuvels daartussenin."
+            theme="vineyard"
+          />
+          <DestinationCard
+            href="/streken/"
+            kicker="Italië"
+            title="Monferrato"
+            subtitle="Glooiend UNESCO-landschap, Barbera in de hoofdrol."
+            theme="region"
+          />
+          <DestinationCard
+            href="/streken/"
+            kicker="Piemonte"
+            title="Roero"
+            subtitle="Zandgrond, Arneis en stille wijndorpen."
+            theme="winery"
+          />
+        </div>
+      </section>
+
+      <section class="lat1676__block">
+        <h2>3. AffiliateButton</h2>
+        <p class="lat1676__note">Partner-agnostisch, label <code>[type]-[regio]</code>. GetYourGuide-first, Booking via Awin. Subtiel, geen banner.</p>
+        <div class="lat1676__btns">
+          <AffiliateButton type="tours" regio="piemonte" query="Piemonte wine tour" placement="preview" />
+          <AffiliateButton type="hotels" regio="piemonte" partner="booking-awin" query="La Morra, Piemonte" placement="preview" label="Bekijk overnachtingen" />
+        </div>
+      </section>
+    </div>
+  </article>
+</SiteLayout>
+
+<style>
+  .lat1676 { padding: 3rem 0 5rem; }
+  .lat1676__intro { margin-bottom: 2.5rem; }
+  .lat1676__block { padding: 2rem 0; border-top: 1px solid var(--rule, #c9b98f); }
+  .lat1676__note { color: var(--inkSoft, #5a4f45); margin: 0.25rem 0 1.25rem; }
+  .lat1676__cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1.25rem;
+  }
+  .lat1676__btns { display: flex; flex-wrap: wrap; gap: 1rem; }
+</style>

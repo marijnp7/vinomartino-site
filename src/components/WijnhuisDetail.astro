@@ -1,0 +1,102 @@
+---
+// LAT-2638 — gedeeld wijnhuis-detailsjabloon. Geëxtraheerd uit
+// src/pages/wijnhuizen/[slug].astro zodat zowel de NL-route (prefixloos) als de
+// /en/-route dezelfde markup delen. Page-chrome (breadcrumb) loopt via de
+// UI-dictionary (loadUiStrings(locale)); vertaalde content (naam/beschrijving/
+// body) komt uit de per-locale loaders in getStaticPaths. Op DEFAULT_LOCALE geeft
+// t() de bestaande NL-copy byte-identiek terug (nul NL-regressie); /en/ overlayt EN.
+import SiteLayout from '../layouts/SiteLayout.astro';
+import WijnhuisPageContent from './pages/WijnhuisPageContent.astro';
+import WijnhuisStayNear from './WijnhuisStayNear.astro';
+import RelatedArticles from './RelatedArticles.astro';
+import CtaStructure from './CtaStructure.astro';
+import { type Wijnhuis } from '../lib/wijnhuizen';
+import { wijnhuisSchema, wijnhuisMetaTitle, wijnhuisMetaDescription, breadcrumbSchema } from '../lib/seo';
+import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
+
+interface Props {
+  entry: Wijnhuis;
+  landSlug: string;
+  landName: string;
+  routeHref: string;
+  routeLabel: string;
+  /** LAT-2638: NL byte-identiek op DEFAULT_LOCALE; /en/ geeft "en" mee. */
+  locale?: Locale;
+  /** LAT-2638: pad-URLs van de tegenhanger per taal voor hreflang. */
+  alternates?: Partial<Record<Locale, string>>;
+}
+
+const { entry, landSlug, landName, routeHref, routeLabel, locale = DEFAULT_LOCALE, alternates } = Astro.props;
+const ui = await loadUiStrings(locale);
+const localePrefix = locale === DEFAULT_LOCALE ? '' : `/${locale}`;
+const pageUrl = new URL(`${localePrefix}/wijnhuizen/${entry.slug}/`, Astro.site ?? 'https://vinomartino.com').href;
+
+// LAT-1199: verticale kruimel Land → Streek → Wijnhuis, met graceful fallback
+// op de laterale Wijnhuizen-index wanneer de keten (nog) onbekend is.
+const hasParentLand = Boolean(landSlug && landName);
+const hasParentStreek = Boolean(entry.streekSlug && entry.region);
+
+const crumbs = [{ name: ui.t('streek.breadcrumb.home'), url: '/' }];
+if (hasParentLand) {
+  crumbs.push({ name: ui.t('streek.breadcrumb.landen'), url: '/landen/' });
+  crumbs.push({ name: landName, url: `/landen/${landSlug}/` });
+} else {
+  crumbs.push({ name: ui.t('wijnhuis.breadcrumb.index'), url: '/wijnhuizen/' });
+}
+if (hasParentStreek) {
+  crumbs.push({ name: entry.region, url: `/streken/${entry.streekSlug}/` });
+}
+crumbs.push({ name: entry.name, url: pageUrl });
+
+// Visible breadcrumb chain for WijnhuisPageContent (component appends the
+// current wijnhuis name itself, so omit the trailing crumb here).
+const visibleBreadcrumb = crumbs.slice(0, -1).map(c => ({ label: c.name, href: c.url }));
+
+const schema = [
+  wijnhuisSchema({
+    name: entry.name,
+    description: entry.description,
+    website: entry.website,
+    image: entry.heroImage,
+    address: entry.address,
+    region: entry.region,
+    country: entry.country,
+    grapes: entry.grapes,
+    established: entry.established ?? undefined,
+    pageUrl,
+  }),
+  breadcrumbSchema(crumbs),
+];
+---
+
+<SiteLayout
+  title={wijnhuisMetaTitle(entry.name, entry.region, locale)}
+  description={wijnhuisMetaDescription({ name: entry.name, region: entry.region, country: entry.country, description: entry.description }, locale)}
+  ogImage={entry.ogImage || entry.heroImage || undefined}
+  schema={schema}
+  activeNav="wijnhuizen"
+  locale={locale}
+  alternates={alternates}
+>
+  <WijnhuisPageContent
+    name={entry.name}
+    subtitle={entry.description}
+    breadcrumb={visibleBreadcrumb}
+    region={[entry.region, entry.country].filter(Boolean).join(' · ')}
+    regionHref={entry.streekSlug ? `/streken/${entry.streekSlug}/` : undefined}
+    routeHref={routeHref || undefined}
+    routeLabel={routeLabel || undefined}
+    since={entry.established ? String(entry.established) : undefined}
+    hectaren={entry.hectares || undefined}
+    biologisch={entry.biodynamisch ? 'Ja' : undefined}
+    heroImage={entry.heroImage || undefined}
+    heroImageId={entry.heroImageId}
+    drieluik={entry.drieluik}
+  >
+    {entry.bodyHtml && <div slot="story" set:html={entry.bodyHtml} />}
+  </WijnhuisPageContent>
+  <CtaStructure data={entry.cta} sid={entry.slug} locale={locale} />
+  <RelatedArticles items={entry.relatedArticles} locale={locale} />
+  <WijnhuisStayNear naam={entry.name} region={entry.region} country={entry.country} slug={entry.slug} />
+</SiteLayout>

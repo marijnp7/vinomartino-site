@@ -1,0 +1,134 @@
+---
+// LAT-1784 — CTA-moment 2: vergelijkingsblok halverwege.
+// 2–3 opties (bv. tiers slim_geboekt / prijs_kwaliteit / pure_luxe), elk met een
+// eigen "waarom dit logisch is". Data-driven uit Directus (cta_blocks.comparison).
+// Meer dan 3 opties wordt afgekapt — geen banner-wand.
+import { resolveCtaHref, ctaTrackPartner, type CtaComparisonData } from '../lib/cta-blocks';
+import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
+
+interface Props {
+  data?: CtaComparisonData;
+  sid: string;
+  locale?: Locale;
+}
+
+const { data, sid, locale = DEFAULT_LOCALE } = Astro.props;
+
+// LAT-2704 — interne hrefs locale-aware; NL blijft byte-identiek.
+const lh = (href: string) => localizeHref(href, locale);
+const ui = await loadUiStrings(locale);
+const placement = 'cta-comparison';
+const options = (data?.options ?? []).slice(0, 3);
+---
+
+{data && options.length > 0 && (
+  <section class="vm-cta-compare" aria-label={ui.t('ui.cta.comparison.aria')}>
+    {data.heading && <h3 class="vm-cta-compare__heading">{data.heading}</h3>}
+    {data.intro && <p class="vm-cta-compare__intro">{data.intro}</p>}
+    <div class="vm-cta-compare__grid" data-count={options.length}>
+      {options.map((opt, i) => {
+        const href = resolveCtaHref(opt.link, `${placement}-${opt.tier ?? i}-${sid}`, locale);
+        return (
+          <article class="vm-cta-compare__card">
+            <p class="vm-cta-compare__title">{opt.title}</p>
+            <p class="vm-cta-compare__why">{opt.why}</p>
+            <a
+              class="vm-cta-compare__btn"
+              href={lh(href)}
+              target="_blank"
+              rel="sponsored nofollow noopener"
+              data-affiliate-track
+              data-affiliate-partner={ctaTrackPartner(opt.link)}
+              data-affiliate-placement={placement}
+              data-affiliate-context={`${opt.tier ?? i}-${sid}`}
+            >
+              {opt.link.label ?? ui.t('ui.cta.comparison.fallbackCta')}
+            </a>
+          </article>
+        );
+      })}
+    </div>
+    {data.why && <p class="vm-cta-compare__rationale">{data.why}</p>}
+  </section>
+)}
+
+<style>
+  .vm-cta-compare {
+    margin: 1.75rem 0;
+    padding: 1.1rem 1.2rem;
+    border: 1px solid var(--line, #e3dccd);
+    border-radius: var(--radius-md, 2px);
+    background: var(--paperSoft, #f6efe1);
+  }
+  .vm-cta-compare__heading {
+    margin: 0 0 0.35rem;
+    font-family: var(--font-display, serif);
+    font-size: 1.1rem;
+    color: var(--ink, #2b2622);
+  }
+  .vm-cta-compare__intro {
+    margin: 0 0 0.9rem;
+    font-family: var(--font-body, serif);
+    font-size: 0.9rem;
+    line-height: 1.55;
+    color: var(--inkSoft, #5a4f45);
+  }
+  .vm-cta-compare__grid {
+    display: grid;
+    gap: 0.8rem;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  }
+  .vm-cta-compare__card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    padding: 0.85rem;
+    background: var(--paper, #faf5e9);
+    border: 1px solid var(--line, #e3dccd);
+    border-radius: var(--radius-md, 2px);
+  }
+  .vm-cta-compare__title {
+    margin: 0;
+    font-family: var(--font-ui, system-ui, sans-serif);
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: var(--ink, #2b2622);
+  }
+  .vm-cta-compare__why {
+    margin: 0;
+    flex: 1;
+    font-family: var(--font-body, serif);
+    font-size: 0.82rem;
+    line-height: 1.5;
+    color: var(--inkSoft, #5a4f45);
+  }
+  .vm-cta-compare__btn {
+    align-self: flex-start;
+    padding: 0.4rem 0.8rem;
+    border: 1px solid var(--burgundy, #5a1a1f);
+    border-radius: var(--radius-md, 2px);
+    background: transparent;
+    color: var(--burgundy, #5a1a1f);
+    font-family: var(--font-ui, system-ui, sans-serif);
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-decoration: none;
+    line-height: 1;
+    transition: background var(--duration-fast, 150ms) var(--ease-out, ease),
+      color var(--duration-fast, 150ms) var(--ease-out, ease);
+  }
+  .vm-cta-compare__btn:hover,
+  .vm-cta-compare__btn:focus-visible {
+    background: var(--burgundy, #5a1a1f);
+    color: var(--paper, #faf5e9);
+  }
+  .vm-cta-compare__rationale {
+    margin: 0.9rem 0 0;
+    font-family: var(--font-body, serif);
+    font-style: italic;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: var(--inkSoft, #5a4f45);
+  }
+</style>

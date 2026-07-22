@@ -1,0 +1,342 @@
+---
+// LAT-2693 — gedeelde auteur-detailpagina. NL-route + /en/-tegenhanger renderen
+// dit component; `locale` stuurt de UI-dictionary, de artikel-loader, de datum-locale
+// en de padopbouw. Bio is EN op /en/ via `bioEn ?? bio`. NL byte-identiek via NL-defaults.
+import SiteLayout from '../layouts/SiteLayout.astro';
+import { type Author, getAuthorByByline, bioParagraphs } from '../lib/authors';
+import { loadArticles, type Article } from '../lib/articles';
+import { breadcrumbSchema } from '../lib/seo';
+import { loadUiStrings } from '../lib/ui-strings';
+import { DEFAULT_LOCALE, localizePath, type Locale } from '../lib/i18n';
+
+interface Props {
+  author: Author;
+  locale?: Locale;
+  alternates?: Partial<Record<Locale, string>>;
+}
+
+const { author, locale = DEFAULT_LOCALE, alternates } = Astro.props;
+const ui = await loadUiStrings(locale);
+const dateLocale = locale === 'en' ? 'en-GB' : 'nl-NL';
+const bio = locale === 'en' ? author.bioEn ?? author.bio : author.bio;
+
+const SITE_URL = 'https://vinomartino.com';
+const pageUrl = new URL(localizePath(`/auteurs/${author.slug}/`, locale), Astro.site ?? SITE_URL).href;
+
+const allArticles = await loadArticles(locale);
+const articles: Article[] = allArticles.filter((a) => {
+  const matched = getAuthorByByline(a.author);
+  return matched?.slug === author.slug;
+});
+
+const personSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'Person',
+  name: author.name,
+  description: bio,
+  url: pageUrl,
+  image: author.portrait ? new URL(author.portrait, Astro.site ?? SITE_URL).href : undefined,
+  worksFor: { '@type': 'Organization', name: 'VinoMartino', url: SITE_URL },
+  inLanguage: locale,
+};
+
+const schema = [
+  personSchema,
+  breadcrumbSchema([
+    { name: ui.t('streek.breadcrumb.home'), url: localizePath('/', locale) },
+    { name: ui.t('auteurs.breadcrumb.index'), url: localizePath('/auteurs/', locale) },
+    { name: author.name, url: pageUrl },
+  ]),
+];
+
+const paragraphs = bioParagraphs(bio);
+const instagramUrl = author.instagramHandle
+  ? `https://www.instagram.com/${author.instagramHandle.replace(/^@/, '')}/`
+  : null;
+
+const metaTitle = `${author.name}${ui.t('auteurs.detail.metaTitleSuffix')}`;
+const metaDescription = (paragraphs[0] ?? bio).slice(0, 155);
+---
+
+<SiteLayout
+  title={metaTitle}
+  description={metaDescription}
+  ogType="profile"
+  ogImage={author.portrait || undefined}
+  schema={schema}
+  locale={locale}
+  alternates={alternates}
+>
+  <section class="author-page container">
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+      <a href={localizePath('/', locale)}>{ui.t('streek.breadcrumb.home')}</a> / <a href={localizePath('/auteurs/', locale)}>{ui.t('auteurs.breadcrumb.index')}</a> / <span>{author.name}</span>
+    </nav>
+
+    <header class="author-header">
+      {author.portrait && (
+        <div class="author-portrait">
+          <img src={author.portrait} alt={author.portraitAlt} width="320" height="320" loading="eager" />
+        </div>
+      )}
+      <div class="author-intro">
+        <span class="kicker">{ui.t('auteurs.detail.kicker')}</span>
+        <h1>{author.name}</h1>
+        {author.tagline && <p class="author-tagline">{author.tagline}</p>}
+        {author.role && <p class="author-role">{author.role}</p>}
+        <div class="author-bio">
+          {paragraphs.map((p) => <p>{p}</p>)}
+        </div>
+        {author.regions && author.regions.length > 0 && (
+          <div class="author-regions">
+            <h2 class="regions-heading">{ui.t('auteurs.detail.regionsHeading')}</h2>
+            <ul>
+              {author.regions.map((region) => <li>{region}</li>)}
+            </ul>
+          </div>
+        )}
+        {instagramUrl && (
+          <p class="author-social">
+            <a href={instagramUrl} rel="me noopener" target="_blank">{ui.t('auteurs.detail.socialPre')}{author.instagramHandle}{ui.t('auteurs.detail.socialPost')}</a>
+          </p>
+        )}
+      </div>
+    </header>
+
+    <section class="author-articles">
+      <h2 class="section-heading">{ui.t('auteurs.detail.articlesHeadingPre')}{author.name}</h2>
+      {articles.length > 0 ? (
+        <ul class="article-list">
+          {articles.map((article) => (
+            <li class="article-item">
+              <a href={localizePath(`/artikelen/${article.slug}/`, locale)} class="article-link">
+                {article.category && <span class="article-cat">{article.category}</span>}
+                <h3 class="article-title">{article.title}</h3>
+                {article.description && <p class="article-desc">{article.description}</p>}
+                <span class="article-date">
+                  {new Date(article.pubDate).toLocaleDateString(dateLocale, { day: 'numeric', month: 'long', year: 'numeric' })}
+                </span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p class="empty">{ui.t('auteurs.detail.emptyPre')}{author.name}{ui.t('auteurs.detail.emptyPost')}</p>
+      )}
+    </section>
+  </section>
+</SiteLayout>
+
+<style>
+  .author-page {
+    padding: var(--space-12) 0 var(--space-16);
+    max-width: 56rem;
+  }
+  .breadcrumb {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--inkFaint);
+    margin-bottom: var(--space-8);
+  }
+  .breadcrumb a {
+    color: var(--inkSoft);
+    text-decoration: none;
+  }
+  .breadcrumb a:hover { text-decoration: underline; }
+
+  .author-header {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    gap: var(--space-10);
+    align-items: start;
+    margin-bottom: var(--space-16);
+  }
+  .author-portrait {
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    box-shadow: var(--shadow-card-hover, 0 8px 24px rgba(0, 0, 0, 0.12));
+  }
+  .author-portrait img {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    display: block;
+  }
+  .author-intro {
+    padding-top: var(--space-3);
+  }
+  .kicker {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: var(--rust);
+    display: block;
+    margin-bottom: var(--space-3);
+  }
+  .author-intro h1 {
+    font-family: var(--font-display);
+    font-size: clamp(2.25rem, 1.8rem + 1.6vw, 3.25rem);
+    font-style: italic;
+    font-weight: 400;
+    color: var(--ink);
+    line-height: 1.1;
+    margin-bottom: var(--space-5);
+  }
+  .author-tagline {
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    letter-spacing: 0.02em;
+    color: var(--rust);
+    margin: 0 0 var(--space-3);
+  }
+  .author-role {
+    font-family: var(--font-body);
+    font-size: 0.9375rem;
+    font-style: italic;
+    color: var(--inkSoft);
+    margin: 0 0 var(--space-5);
+  }
+  .author-bio {
+    font-family: var(--font-body);
+    font-size: 1.0625rem;
+    line-height: 1.75;
+    color: var(--ink);
+    max-width: 36rem;
+  }
+  .author-bio p {
+    margin: 0 0 var(--space-4);
+  }
+  .author-bio p:last-child {
+    margin-bottom: 0;
+  }
+  .author-regions {
+    max-width: 36rem;
+    margin-top: var(--space-8);
+  }
+  .regions-heading {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--inkFaint);
+    margin: 0 0 var(--space-3);
+  }
+  .author-regions ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-4);
+  }
+  .author-regions li {
+    font-family: var(--font-body);
+    font-size: 0.9375rem;
+    color: var(--ink);
+    position: relative;
+    padding-left: var(--space-4);
+  }
+  .author-regions li::before {
+    content: '·';
+    position: absolute;
+    left: 0;
+    color: var(--rust);
+  }
+  .author-social {
+    margin-top: var(--space-8);
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+  }
+  .author-social a {
+    color: var(--burgundy);
+    text-decoration: none;
+    border-bottom: 1px solid currentColor;
+  }
+  .author-social a:hover {
+    color: var(--rust);
+  }
+
+  .author-articles {
+    border-top: 1px solid var(--color-border-light, rgba(0, 0, 0, 0.08));
+    padding-top: var(--space-10);
+  }
+  .section-heading {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-style: italic;
+    font-weight: 400;
+    color: var(--ink);
+    margin-bottom: var(--space-6);
+  }
+  .article-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+  }
+  .article-item {
+    border-bottom: 1px solid var(--color-border-light, rgba(0, 0, 0, 0.08));
+    padding-bottom: var(--space-6);
+  }
+  .article-item:last-child {
+    border-bottom: none;
+  }
+  .article-link {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+  }
+  .article-cat {
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--rust);
+    display: block;
+    margin-bottom: var(--space-1);
+  }
+  .article-title {
+    font-family: var(--font-display);
+    font-size: 1.375rem;
+    font-weight: 500;
+    color: var(--ink);
+    margin: 0 0 var(--space-2);
+    line-height: 1.25;
+  }
+  .article-link:hover .article-title {
+    color: var(--burgundy);
+  }
+  .article-desc {
+    font-family: var(--font-body);
+    font-size: 0.9375rem;
+    color: var(--inkSoft);
+    line-height: 1.6;
+    margin: 0 0 var(--space-2);
+  }
+  .article-date {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    color: var(--inkFaint);
+  }
+  .empty {
+    font-family: var(--font-body);
+    font-size: 0.9375rem;
+    color: var(--inkSoft);
+    line-height: 1.7;
+  }
+
+  @media (max-width: 720px) {
+    .author-header {
+      grid-template-columns: 1fr;
+      gap: var(--space-6);
+    }
+    .author-portrait {
+      max-width: 220px;
+    }
+  }
+</style>

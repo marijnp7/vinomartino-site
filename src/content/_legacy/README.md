@@ -45,7 +45,7 @@
 Zie LAT-1078 voor de volledige audit-tabel. Korte samenvatting:
 
 - **posts** — 12 markdown-files, 14 artikelen live op Directus. 2 overlap
-  (`etna-wijnreis-drie-dagen-vulkaan`, `fun-vs-fine-wset-pet-nat`); de overige
+  (`etna-wijnreis-drie-dagen-vulkaan`, `fun-vs-fine-serieuze-wijnkennis-pet-nat`); de overige
   10 markdown-slugs zijn vervangen door nieuwere Directus-artikelen met andere
   slugs.
 - **streken** — 4 markdown, 4 op Directus. 3 overlap. `ribeira-sacra-galicie.md`

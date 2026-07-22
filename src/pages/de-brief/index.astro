@@ -1,72 +1,111 @@
 ---
 import SiteLayout from '../../layouts/SiteLayout.astro';
-import { loadNewsletterIssues } from '../../lib/newsletter';
+import Briefkaart from '../../components/Briefkaart.astro';
+import NewsletterRegionField from '../../components/NewsletterRegionField.astro';
 import { organizationSchema, breadcrumbSchema } from '../../lib/seo';
+import { INSTAGRAM_URL, SUBSTACK_URL } from '../../lib/social';
 
-const issues = await loadNewsletterIssues();
-const total = issues.length;
+// Capture-backend = MailerLite (LAT-1188): nieuwe aanmeldingen landen rechtstreeks
+// in de groep "Newsletter Subscribers" (1896876) en starten de welkomstserie.
+// Form-ID door Marijn bevestigd (LAT-1631). Override via PUBLIC_MAILERLITE_FORM_ACTION.
+const FORM_ACTION =
+  import.meta.env.PUBLIC_MAILERLITE_FORM_ACTION ||
+  'https://assets.mailerlite.com/jsonp/2415940/forms/189828746131277541/subscribe';
+
+// Kanaal-URLs komen uit src/lib/social.ts (een bron, geen drift). Substack is
+// live sinds 2026-07-16 en daarmee niet langer verborgen (was LAT-1631);
+// rolverdeling blijft MailerLite = funnel, Substack = discovery (LAT-2266).
 
 const schema = [
   organizationSchema(),
   breadcrumbSchema([
     { name: 'Home', url: '/' },
-    { name: 'De Brief', url: '/de-brief/' },
+    { name: 'De brief', url: '/de-brief/' },
   ]),
 ];
 ---
 
 <SiteLayout
-  title="De Brief, Maandelijkse wijnreis-brieven | VinoMartino"
-  description="Eén keer per maand: een lange brief uit een wijnstreek, drie wijnen die we zelf openden, en een routebeschrijving. Gratis, zonder spam."
+  title="De brief, de nieuwsbrief van VinoMartino"
+  description="Elke twee weken stopt Marijn een brief in je inbox: over een wijnmaker die we net bezochten, een regio die opnieuw onze aandacht trok, een fles die indruk maakte. Met aanmelding stuur ik de Langhe-reisplanner meteen."
   schema={schema}
   activeNav="de-brief"
+  alternates={{ nl: '/de-brief/', en: '/en/de-brief/' }}
 >
   <section class="hero">
     <div class="container container-narrow">
-      <span class="kicker">De Brief · archief</span>
-      <h1>{total} brieven, één keer per maand.</h1>
+      <span class="kicker">De brief · elke twee weken</span>
+      <h1>De brief</h1>
       <p class="lede">
-        Eén vrijdag per maand. Lange brieven uit een wijnstreek, drie wijnen die we zelf openden,
-        en een routebeschrijving.
+        Elke twee weken stopt Marijn een brief in je inbox. Geen persberichten,
+        geen uitnodigingen voor generieke wijnfestivals, een echte brief. Over een
+        wijnmaker die we net bezochten, een regio die opnieuw onze aandacht trok, een
+        fles die indruk maakte. Bij aanmelding stuur ik de Langhe-reisplanner meteen.
       </p>
-      <form class="signup" action="https://buttondown.email/api/emails/embed-subscribe/vinomartino" method="post" target="popupwindow">
-        <label for="bd-email" class="visually-hidden">E-mailadres</label>
-        <input id="bd-email" type="email" name="email" placeholder="je@adres.nl" required />
-        <button type="submit">Abonneer</button>
+
+      <form
+        class="signup"
+        action={FORM_ACTION}
+        method="post"
+        target="_blank"
+        data-newsletter-signup
+      >
+        <div class="signup__row">
+          <label for="ml-email" class="visually-hidden">E-mailadres</label>
+          <input
+            id="ml-email"
+            type="email"
+            name="fields[email]"
+            autocomplete="email"
+            placeholder="je@adres.nl"
+            required
+          />
+          <button type="submit" data-plausible-cta="newsletter_signup">Stuur me de brief</button>
+        </div>
+        <NewsletterRegionField id="ml-region" />
       </form>
+
+      <p class="follow">
+        Al nieuwsgierig? Volg Marijn alvast op
+        <a href={INSTAGRAM_URL} target="_blank" rel="noopener">Instagram</a>{SUBSTACK_URL ? (
+          <>, of lees de brieven online op <a href={SUBSTACK_URL} target="_blank" rel="noopener" data-plausible-cta="substack_link">Substack</a></>
+        ) : null}, daar verschijnen de eerste verhalen.
+      </p>
     </div>
   </section>
 
-  <section class="archive">
+  <section class="voorbeeld">
     <div class="container container-narrow">
-      {issues.map((iss, i) => (
-        iss.status === 'placeholder' ? (
-          <div class={`archive-row archive-row--placeholder ${i === 0 ? 'is-first' : ''}`}>
-            <span class="archive-num">№{iss.issueNumber}</span>
-            <div class="archive-meta">
-              <h2>{iss.title}</h2>
-              <p>{iss.preview}</p>
-            </div>
-            <span class="archive-month">{iss.monthLabel}</span>
-          </div>
-        ) : (
-          <a class={`archive-row ${i === 0 ? 'is-first' : ''}`} href={`/de-brief/${iss.slug}/`}>
-            <span class="archive-num">№{iss.issueNumber}</span>
-            <div class="archive-meta">
-              <h2>{iss.title}</h2>
-              <p>{iss.preview}</p>
-            </div>
-            <span class="archive-month">{iss.monthLabel}</span>
-          </a>
-        )
-      ))}
+      <Briefkaart dateline="De Brief, editie 1, juli 2026">
+        <p>Beste lezer,</p>
+        <p>
+          Het was de dag nadat de laatste trossen Nebbiolo waren geoogst, begin
+          november, en de Langhe was verlaten op een manier die alleen november kan.
+          Geel en stil. We reden op smalle asfaltwegen van La Morra naar Verduno, met
+          niemand voor ons en niemand achter ons.
+        </p>
+        <p>
+          Bij Fratelli Alessandria, een huis in Verduno dat niet in de toeristengidsen
+          staat, deed de wijnmaker open alsof we deel waren van zijn middag en niet van
+          iets bijzonders. We proefden de 2017 Monvigliero: breed, warm, met de typische
+          teer en rozen van Nebbiolo en iets wat ik alleen kan omschrijven als november
+          zelf in een glas.
+        </p>
+        <p>
+          In de volledige editie: het hele verhaal uit de Langhe, de Piemonte-pakketpagina
+          die eraan komt, en een Siciliaanse wijnhuis-tip.
+        </p>
+        <p>
+          Dit is een voorbeeld. Meld je aan, dan valt de eerstvolgende editie in je inbox.
+        </p>
+      </Briefkaart>
     </div>
   </section>
 </SiteLayout>
 
 <style>
   .container { max-width: 1280px; margin: 0 auto; padding-inline: var(--gutter); }
-  .container-narrow { max-width: 880px; }
+  .container-narrow { max-width: 760px; }
 
   .visually-hidden {
     position: absolute;
@@ -81,8 +120,7 @@ const schema = [
   }
 
   .hero {
-    padding: clamp(48px, 8vw, 80px) 0;
-    border-bottom: 1px solid var(--color-rule, #C9B98F);
+    padding: clamp(56px, 10vw, 112px) 0;
     text-align: center;
   }
   .kicker {
@@ -96,7 +134,7 @@ const schema = [
   }
   h1 {
     font-family: var(--font-display);
-    font-size: clamp(2.5rem, 5vw + 1rem, 5rem);
+    font-size: clamp(2.75rem, 5vw + 1rem, 5rem);
     font-weight: 500;
     color: var(--color-text);
     margin: 0;
@@ -104,15 +142,17 @@ const schema = [
   }
   .lede {
     font-family: var(--font-serif, var(--font-body));
-    font-size: 1.25rem;
-    line-height: 1.5;
+    font-size: 1.1875rem;
+    line-height: 1.6;
     color: var(--color-text-soft, var(--color-text));
-    margin-top: 1.25rem;
-    font-style: italic;
+    margin: 1.5rem auto 0;
+    max-width: 600px;
   }
   .signup {
-    margin: 1.5rem auto 0;
+    margin: 2rem auto 0;
     max-width: 480px;
+  }
+  .signup__row {
     display: flex;
     gap: 0.5rem;
   }
@@ -140,81 +180,43 @@ const schema = [
     cursor: pointer;
     text-transform: uppercase;
     letter-spacing: 0.04em;
+    white-space: nowrap;
   }
   .signup button:hover {
     background: var(--color-primary-hover, var(--color-primary));
   }
-
-  .archive {
-    padding: clamp(48px, 8vw, 64px) 0;
-  }
-  .archive-row {
-    display: grid;
-    grid-template-columns: 80px 1fr 100px;
-    gap: 2rem;
-    padding: 1.75rem 0;
-    border-top: 1px solid var(--color-rule-soft, #E0D2B0);
-    text-decoration: none;
-    color: inherit;
-    align-items: baseline;
-    transition: background 200ms ease;
-  }
-  .archive-row.is-first {
-    border-top: 1px solid var(--color-rule, #C9B98F);
-  }
-  .archive-row:hover {
-    background: var(--color-paper-deep, #F0E6D0);
-  }
-  .archive-row--placeholder {
-    opacity: 0.45;
-    cursor: default;
-  }
-  .archive-row--placeholder:hover {
-    background: transparent;
-  }
-  .archive-num {
-    font-family: var(--font-display);
-    font-size: 2.625rem;
-    font-style: italic;
-    color: var(--color-primary);
-    line-height: 1;
-  }
-  .archive-meta h2 {
-    font-family: var(--font-display);
-    font-size: 1.625rem;
-    font-weight: 500;
-    color: var(--color-text);
-    margin: 0 0 0.375rem;
-    line-height: 1.2;
-  }
-  .archive-meta p {
+  .follow {
     font-family: var(--font-serif, var(--font-body));
     font-size: 0.9375rem;
-    line-height: 1.5;
-    color: var(--color-text-soft, var(--color-text));
-    margin: 0;
-    font-style: italic;
-  }
-  .archive-month {
-    font-family: var(--font-mono);
-    font-size: 0.625rem;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
+    line-height: 1.6;
     color: var(--color-text-faint, var(--color-text-soft, var(--color-text)));
-    text-align: right;
-    opacity: 0.7;
+    margin: 1.25rem auto 0;
+    max-width: 480px;
+  }
+  .follow a {
+    color: var(--color-primary);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .voorbeeld {
+    padding: 0 0 clamp(56px, 10vw, 112px);
+  }
+  .voorbeeld-link {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 1.25rem;
+    line-height: 1.35;
+    margin-top: 1.1rem;
+  }
+  .voorbeeld-link a {
+    color: var(--burgundy);
+    text-decoration: underline;
+    text-underline-offset: 3px;
   }
 
   @media (max-width: 640px) {
-    .archive-row {
-      grid-template-columns: 60px 1fr;
-    }
-    .archive-month {
-      grid-column: 1 / -1;
-      text-align: left;
-      margin-top: 0.5rem;
-    }
-    .signup {
+    .signup__row {
       flex-direction: column;
     }
   }

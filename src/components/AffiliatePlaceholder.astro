@@ -6,6 +6,8 @@
 
 import AffiliateBlockDisclosure from './AffiliateBlockDisclosure.astro';
 import type { AffiliateLinkBron } from '../lib/affiliates';
+import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
 
 interface Props {
   type: 'accommodation' | 'activity' | 'flight' | 'insurance' | 'sidebar';
@@ -20,6 +22,8 @@ interface Props {
   linkBron?: AffiliateLinkBron;
   ctaLabel?: string;
   description?: string;
+  /** LAT-2575: NL byte-identiek op DEFAULT_LOCALE; /en/ geeft "en" mee. */
+  locale?: Locale;
 }
 
 const {
@@ -35,17 +39,24 @@ const {
   linkBron,
   ctaLabel,
   description,
+  locale = DEFAULT_LOCALE,
 } = Astro.props;
 
-const labels: Record<string, { title: string; description: string; icon: string; cta: string }> = {
-  accommodation: { title: 'Waar slapen', description: 'Boek dezelfde plek waar wij verbleven', icon: '🏨', cta: 'Bekijk beschikbaarheid' },
-  activity: { title: 'Activiteiten & tours', description: 'Boek de proeverij of tour die we zelf deden', icon: '🎯', cta: 'Boek deze ervaring' },
-  flight: { title: 'Vluchten vergelijken', description: 'Vind de goedkoopste vlucht', icon: '✈️', cta: 'Vergelijk vluchten' },
-  insurance: { title: 'Reisverzekering', description: 'Reis verzekerd op pad', icon: '🛡️', cta: 'Bekijk verzekeringen' },
-  sidebar: { title: 'Boek je reis', description: 'Plan de reis die wij maakten', icon: '🧳', cta: 'Plan je reis' },
-};
+const ui = await loadUiStrings(locale);
 
-const label = labels[type] ?? labels.sidebar;
+// Alleen de weergave-chrome (titel/omschrijving/cta) loopt via de dictionary; de
+// icon-emoji is taal-neutraal. Affiliate-URL/tracking en de blok-disclosure zijn
+// ongewijzigd (locale-wiring op de call-sites = T3/LAT-2576).
+const ICONS: Record<string, string> = {
+  accommodation: '🏨', activity: '🎯', flight: '✈️', insurance: '🛡️', sidebar: '🧳',
+};
+const labelType = ICONS[type] ? type : 'sidebar';
+const label = {
+  title: ui.t(`affiliate.block.${labelType}.title`),
+  description: ui.t(`affiliate.block.${labelType}.desc`),
+  icon: ICONS[labelType],
+  cta: ui.t(`affiliate.block.${labelType}.cta`),
+};
 
 // No href → no affiliate config → render nothing. M1-Optie B: geen "binnenkort"-placeholders.
 const hasAffiliate = Boolean(href && producent && bezoekMaand && bezoekJaar && linkBron);
@@ -77,6 +88,7 @@ const descText = description ?? label.description;
       <a
         class="affiliate-block__cta"
         href={href}
+        data-cj-href={href}
         target="_blank"
         rel="sponsored nofollow noopener"
         data-affiliate-track

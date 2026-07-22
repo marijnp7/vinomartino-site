@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" role="img" aria-label="Martin — silhouet, van achteren gefotografeerd">
+  <defs>
+    <radialGradient id="warmLight" cx="0.35" cy="0.25" r="0.95">
+      <stop offset="0%" stop-color="#f4e4c6"/>
+      <stop offset="55%" stop-color="#d4a86a"/>
+      <stop offset="100%" stop-color="#6b4423"/>
+    </radialGradient>
+    <linearGradient id="silhouette" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#3a2418"/>
+      <stop offset="100%" stop-color="#1f140d"/>
+    </linearGradient>
+    <filter id="grain" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="7"/>
+      <feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.18 0"/>
+      <feComposite in2="SourceGraphic" operator="in"/>
+    </filter>
+  </defs>
+  <rect width="600" height="600" fill="url(#warmLight)"/>
+  <g opacity="0.92">
+    <path d="M180 600 V380 C180 320 220 280 260 270 C280 265 295 250 295 230 C295 210 295 200 295 180 C295 160 310 145 330 145 C355 145 380 165 380 195 C380 215 380 230 380 245 C380 265 395 280 415 285 C465 295 510 340 510 400 V600 Z" fill="url(#silhouette)"/>
+    <ellipse cx="430" cy="430" rx="32" ry="40" fill="#2b1a10" opacity="0.85"/>
+    <ellipse cx="430" cy="395" rx="14" ry="10" fill="#722f3a" opacity="0.75"/>
+  </g>
+  <rect width="600" height="600" fill="#000000" opacity="0.10" filter="url(#grain)"/>
+</svg>

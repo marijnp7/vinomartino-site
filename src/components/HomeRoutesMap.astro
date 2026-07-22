@@ -1,0 +1,347 @@
+---
+// LAT-2060 — brede kaart met routelijnen voor de homepage-routes-sectie (VIS-BL-09).
+//
+// Tekent de (max 3) getoonde wijnroutes als gekleurde lijnen op één gedeelde,
+// uitgezoomde Leaflet-kaart (Carto Positron, gelijk aan RouteGeoMap/StreekKaart),
+// gevoed door routes.stopsGeo. Elke lijn loopt van start naar eind door de
+// dag-waypoints; klikken op een route (lijn of eindpunt) navigeert naar de
+// routepagina.
+//
+// Waarom Leaflet i.p.v. de statische Europa-SVG (europe-countries.json): de
+// getoonde routes zijn niet altijd Europees (bv. de Kaapse wijnroute in
+// Zuid-Afrika). Leaflet houdt de lat/lng-waypoints exact op hun plek zonder
+// projectie-hercalibratie. LAT-2345: de kadering fit strak op de dominante
+// cluster (Europa) i.p.v. wereld-zoom; continent-uitschieters blijven wél
+// geplot maar trekken het beeld niet meer plat (zie fitBounds-trim onder).
+//
+// Deploy-safe: alleen routes met ≥2 geocode-waypoints krijgen een lijn; heeft
+// geen enkele route bruikbare stopsGeo, dan rendert dit component niets en blijft
+// de sectie met de kaartjes intact.
+import type { WijnRoute, RouteStopGeo } from '../lib/routes';
+import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
+
+export interface Props {
+  routes: WijnRoute[];
+  title?: string;
+  locale?: Locale;
+}
+
+const { routes = [], title, locale = DEFAULT_LOCALE } = Astro.props;
+const isEn = locale === 'en';
+// LAT-2704 — interne hrefs locale-aware; NL blijft byte-identiek.
+const lh = (href: string) => localizeHref(href, locale);
+const resolvedTitle = title ?? (isEn ? 'Our wine routes on the map' : 'Onze wijnroutes op de kaart');
+const mapKicker = isEn ? 'On the map' : 'Op de kaart';
+const legendAria = isEn ? 'Routes on the map' : 'Routes op de kaart';
+
+// Merk-palet: elke route een eigen, herkenbare lijnkleur (bordeaux/olijf/goud).
+const PALETTE = ['#5A1A1F', '#5C6B3F', '#B08228'] as const;
+
+function lineFor(stops: RouteStopGeo[]): RouteStopGeo[] {
+  const geo = stops.filter((s) => s && Number.isFinite(s.lat) && Number.isFinite(s.lng));
+  // Dag-waypoints dragen de as; ontbreekt de kind-tag, val terug op alle stops.
+  const waypoints = geo.filter((s) => (s.kind ?? 'stop') === 'stop');
+  return waypoints.length >= 2 ? waypoints : geo;
+}
+
+const mapped = routes
+  .map((r, i) => {
+    const line = lineFor(r.stopsGeo);
+    if (line.length < 2) return null;
+    return {
+      slug: r.slug,
+      // LAT-2704 — href server-side gelokaliseerd; de client-side popup/klik gebruikt
+      // deze waarde i.p.v. zelf een NL-pad samen te stellen.
+      href: lh(`/wijnroutes/${r.slug}/`),
+      title: r.title,
+      color: PALETTE[i % PALETTE.length],
+      line: line.map((s) => [s.lat, s.lng] as [number, number]),
+      start: line[0].naam,
+      end: line[line.length - 1].naam,
+    };
+  })
+  .filter((r): r is NonNullable<typeof r> => r !== null);
+
+const hasMap = mapped.length > 0;
+const mapData = { routes: mapped };
+---
+
+{hasMap && (
+  <figure class="hrm" data-hrm aria-labelledby="hrm-cap">
+    <figcaption class="hrm__cap" id="hrm-cap">
+      <span class="hrm__label">{mapKicker}</span>
+      <span class="hrm__title">{resolvedTitle}</span>
+    </figcaption>
+    <div class="hrm__canvas" data-hrm-canvas role="application" aria-label={resolvedTitle}></div>
+    <ul class="hrm__legend" aria-label={legendAria}>
+      {mapped.map((r) => (
+        <li class="hrm__legend-item">
+          <a href={lh(`/wijnroutes/${r.slug}/`)} class="hrm__legend-link">
+            <span class="hrm__swatch" style={`--c: ${r.color};`} aria-hidden="true"></span>
+            <span class="hrm__legend-name">{r.title}</span>
+          </a>
+        </li>
+      ))}
+    </ul>
+    <script type="application/json" data-hrm-data set:html={JSON.stringify(mapData)} />
+  </figure>
+)}
+
+<script>
+  import 'leaflet/dist/leaflet.css';
+
+  type Route = {
+    slug: string;
+    /** LAT-2704 — server-side gelokaliseerde routepad (NL kaal, EN met /en-prefix). */
+    href?: string;
+    title: string;
+    color: string;
+    line: [number, number][];
+    start: string;
+    end: string;
+  };
+  type MapData = { routes: Route[] };
+
+  let leafletPromise: Promise<any> | null = null;
+  function loadLeaflet(): Promise<any> {
+    if (!leafletPromise) leafletPromise = import('leaflet').then((m: any) => m.default ?? m);
+    return leafletPromise;
+  }
+
+  function esc(s: string): string {
+    return s.replace(/[&<>"]/g, (c) => (
+      { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string
+    ));
+  }
+
+  async function initSection(section: HTMLElement): Promise<void> {
+    const canvas = section.querySelector<HTMLElement>('[data-hrm-canvas]');
+    const dataEl = section.querySelector<HTMLElement>('[data-hrm-data]');
+    if (!canvas || !dataEl || canvas.dataset.ready === '1') return;
+    canvas.dataset.ready = '1';
+
+    let data: MapData;
+    try {
+      data = JSON.parse(dataEl.textContent || '{}');
+    } catch {
+      return;
+    }
+    if (!data.routes || data.routes.length === 0) return;
+
+    const L = await loadLeaflet();
+
+    const map = L.map(canvas, {
+      scrollWheelZoom: false,
+      zoomControl: true,
+      attributionControl: true,
+    });
+
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      subdomains: 'abcd',
+      maxZoom: 19,
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    }).addTo(map);
+
+    const allPts: [number, number][] = [];
+
+    for (const r of data.routes) {
+      if (!r.line || r.line.length < 2) continue;
+      for (const p of r.line) allPts.push(p);
+
+      // LAT-2704 — server-gelokaliseerde href (valt terug op het NL-pad voor oude data).
+      const href: string = r.href || `/wijnroutes/${encodeURIComponent(r.slug)}/`;
+
+      // Klikbare route-as in de eigen merk-kleur.
+      const poly = L.polyline(r.line, {
+        color: r.color,
+        weight: 3.5,
+        opacity: 0.85,
+        lineCap: 'round',
+        lineJoin: 'round',
+      }).addTo(map);
+      poly.on('click', () => { window.location.href = href; });
+      poly.bindTooltip(esc(r.title), { sticky: true, direction: 'top' });
+
+      // Eén merk-gekleurde routepin per route bij het startpunt: zo is het aantal
+      // markers op de kaart gelijk aan het aantal routes in de lijst (LAT-2345) —
+      // aparte start+eind-dots (2×) maakten die telling dubbel. De popup draagt
+      // start->eind en de CTA.
+      const start = r.line[0];
+      const icon = L.divIcon({
+        className: '',
+        html: `<span class="hrm-pin hrm-pin--route" style="--c:${r.color}"></span>`,
+        iconSize: [16, 16],
+        iconAnchor: [8, 8],
+      });
+
+      L.marker(start, { icon, title: r.title, riseOnHover: true })
+        .addTo(map)
+        .bindPopup(
+          `<div class="hrm-popup"><span class="hrm-popup__role">Wijnroute &middot; ${esc(r.start)} &rarr; ${esc(r.end)}</span><h4 class="hrm-popup__name">${esc(r.title)}</h4><a class="hrm-popup__cta" href="${href}">Bekijk de route &rarr;</a></div>`,
+          { minWidth: 150, autoPanPadding: [24, 24] },
+        );
+    }
+
+    // Kader strak op de dominante geografische cluster. Eén route op een ander
+    // continent (de Zuid-Afrikaanse Kaapse wijnroute) zou Leaflet anders naar
+    // wereld-zoom dwingen, waardoor elke Europese route een onleesbaar stipje wordt
+    // (LAT-2345). We trimmen lat/lng-uitschieters alléén uit de *kadering*; elke
+    // routepin blijft geplot en bereikbaar door uit te zoomen/pannen en houdt zijn
+    // legenda-item.
+    if (allPts.length >= 2) {
+      const median = (nums: number[]): number => {
+        const s = [...nums].sort((a, b) => a - b);
+        const m = Math.floor(s.length / 2);
+        return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+      };
+      const medLat = median(allPts.map((p) => p[0]));
+      const medLng = median(allPts.map((p) => p[1]));
+      const LAT_SPAN = 16; // ~1800 km — omvat de Europese wijngordel ruim
+      const LNG_SPAN = 24;
+      const core = allPts.filter(
+        (p) => Math.abs(p[0] - medLat) <= LAT_SPAN && Math.abs(p[1] - medLng) <= LNG_SPAN,
+      );
+      const framePts = core.length >= 2 ? core : allPts;
+      map.fitBounds(framePts, { padding: [44, 44], maxZoom: 8 });
+      // Vangnet: nooit terugvallen op een uitgezoomde wereldview.
+      if (map.getZoom() < 4) map.setZoom(4);
+    } else if (allPts.length === 1) {
+      map.setView(allPts[0], 6);
+    }
+    setTimeout(() => map.invalidateSize(), 0);
+  }
+
+  function ready(): void {
+    const sections = Array.from(document.querySelectorAll<HTMLElement>('figure.hrm[data-hrm]'))
+      .filter((s) => s.querySelector('[data-hrm-canvas]'));
+    if (!sections.length) return;
+
+    if (!('IntersectionObserver' in window)) {
+      sections.forEach((s) => initSection(s));
+      return;
+    }
+    const io = new IntersectionObserver(
+      (entries, obs) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            obs.unobserve(entry.target);
+            initSection(entry.target as HTMLElement);
+          }
+        }
+      },
+      { rootMargin: '200px' },
+    );
+    sections.forEach((s) => io.observe(s));
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', ready);
+  } else {
+    ready();
+  }
+</script>
+
+<style>
+  .hrm { margin: 0 0 2.25rem; }
+  .hrm__cap {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.6rem;
+  }
+  .hrm__label {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: var(--burgundy, #5A1A1F);
+  }
+  .hrm__title {
+    font-family: var(--font-display, Georgia, serif);
+    font-size: 1.0625rem;
+    color: var(--ink, #1F1A16);
+  }
+  .hrm__canvas {
+    width: 100%;
+    height: 460px;
+    min-height: 340px;
+    border-radius: 2px;
+    border: 1px solid var(--rule, #C9B98F);
+    background: #F0E6D0;
+    z-index: 0;
+  }
+  .hrm__legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.25rem;
+    list-style: none;
+    margin: 0.7rem 0 0;
+    padding: 0;
+  }
+  .hrm__legend-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    text-decoration: none;
+    color: var(--inkSoft, #5A4F45);
+  }
+  .hrm__legend-link:hover .hrm__legend-name { color: var(--burgundy, #5A1A1F); }
+  .hrm__swatch {
+    display: inline-block;
+    width: 18px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--c, #5A1A1F);
+  }
+  .hrm__legend-name {
+    font-family: var(--font-display, Georgia, serif);
+    font-size: 0.95rem;
+  }
+</style>
+
+<style is:global>
+  /* Leaflet-injected DOM kan Astro's scope-attribuut niet dragen → globaal. */
+  .hrm-pin {
+    display: inline-block;
+    box-sizing: border-box;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--c, #5A1A1F);
+    border: 2px solid #FAF5E9;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  }
+  .hrm-pin--route { box-shadow: 0 0 0 2px #C9A24B, 0 1px 3px rgba(0, 0, 0, 0.35); }
+  .hrm-popup { font-family: var(--font-body, Georgia, serif); min-width: 140px; }
+  .hrm-popup__role {
+    display: block;
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-size: 0.625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-weight: 600;
+    color: #5A4F45;
+    margin-bottom: 0.2rem;
+  }
+  .hrm-popup__name {
+    font-family: var(--font-display, Georgia, serif);
+    font-size: 1.0625rem;
+    font-weight: 500;
+    color: #1F1A16;
+    margin: 0;
+    line-height: 1.2;
+  }
+  .hrm-popup__cta {
+    display: inline-block;
+    margin-top: 0.35rem;
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-size: 0.6875rem;
+    letter-spacing: 0.06em;
+    color: #5A1A1F;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(90, 26, 31, 0.35);
+  }
+</style>

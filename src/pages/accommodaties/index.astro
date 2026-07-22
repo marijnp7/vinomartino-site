@@ -1,0 +1,8 @@
+---
+// LAT-2693 — NL accommodaties-overzicht (prefixloos). Markup + logica in het
+// gedeelde AccommodatiesIndex-component; de /en/-tegenhanger rendert hetzelfde
+// met locale="en".
+import AccommodatiesIndex from '../../components/AccommodatiesIndex.astro';
+---
+
+<AccommodatiesIndex alternates={{ nl: '/accommodaties/', en: '/en/accommodaties/' }} />

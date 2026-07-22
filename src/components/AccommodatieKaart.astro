@@ -1,0 +1,69 @@
+---
+import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
+// LAT-1332 / LAT-2003 (VIS-BL-04) — VinoMartino accommodatie-kaart. Sinds de
+// standaardisatie van het boekbare component (VIS-BL-04) rendert deze kaart via
+// de gedeelde PoiCard, zodat elke boekbare accommodatie site-breed identiek is:
+// foto (4:3), naam, tier-badge, één cursieve waarom-regel, knop "Bekijk & boek"
+// en de vaste disclosure-microcopy als voetregel. De reisjunk-datavorm (plaats,
+// laag/hoog-prijs) wordt hier op het gestandaardiseerde kaart-contract gemapt.
+// Foto's komen rechten-bewust uit DAM; ontbreekt er één, dan rendert SmartImg
+// (in PoiCard) een nette placeholder.
+
+import type { AccommodatieKaart } from '../lib/accommodaties';
+import { accommodatieBookingHref } from '../lib/accommodaties';
+import { STAY_TIER_META, STAY_DISCLOSURE_MICROCOPY } from '../lib/stay-tier';
+import { formatNightlyPrice } from '../lib/currency';
+import PoiCard from './PoiCard.astro';
+
+interface Props {
+  /** LAT-2704 — locale doorgeven zodat interne links in PoiCard locale-aware zijn. */
+  locale?: Locale;
+  kaart: AccommodatieKaart;
+  /** Context-slug voor affiliate-tracking, bv. "piemonte". */
+  context?: string;
+  /** Bron-valuta van de prijzen (bv. 'ZAR' voor Zuid-Afrika). Leeg = EUR (LAT-1664). */
+  bronValuta?: string | null;
+  /** Display-valuta; default EUR. Hook voor een latere valuta-switcher (LAT-1664). */
+  displayValuta?: string;
+}
+
+const { kaart, context, bronValuta, displayValuta = 'EUR', locale = DEFAULT_LOCALE } = Astro.props;
+const href = accommodatieBookingHref(kaart);
+const altText = kaart.fotoAlt || `${kaart.naam}, ${kaart.plaats}`;
+// LAT-1406: tier-badge — alleen tonen als het verblijf gecureerd is.
+const tierLabel = kaart.tier ? STAY_TIER_META[kaart.tier]?.label ?? null : null;
+
+// LAT-1664/1775: converteer bron-valuta → display (EUR). De per-kaart bron-valuta
+// heeft voorrang op de pagina-brede waarde. formatNightlyPrice onderdrukt absurde
+// uitschieters. LAT-2003: het laag/hoog-seizoenblok wordt tot één prijs-label
+// verdicht zodat het op het gestandaardiseerde kaart-contract past (en-dash, geen
+// em-dash).
+const prijsBron = kaart.bronValuta ?? bronValuta;
+const laag = formatNightlyPrice(kaart.prijsLaag, prijsBron, displayValuta, `${kaart.naam} (laag)`);
+const hoog = formatNightlyPrice(kaart.prijsHoog, prijsBron, displayValuta, `${kaart.naam} (hoog)`);
+let prijs: string | null = null;
+if (laag && hoog) prijs = `${laag}–${hoog} / nacht`;
+else if (laag) prijs = `vanaf ${laag} / nacht`;
+else if (hoog) prijs = `tot ${hoog} / nacht`;
+---
+
+<PoiCard
+  locale={locale}
+  poi={{
+    naam: kaart.naam,
+    foto: kaart.foto ?? null,
+    fotoAlt: altText,
+    fotoTheme: 'winery',
+    badge: tierLabel,
+    whyRegel: kaart.whyRegel ?? kaart.beschrijving,
+    prijs,
+    boeklink: href,
+    cta: 'Bekijk & boek',
+    ctaKey: 'bekijk-boek',
+    partner: 'booking.com',
+    placement: 'accommodatie-kaart',
+    context: context ? `accommodatie-${context}` : 'accommodatie',
+    disclosure: STAY_DISCLOSURE_MICROCOPY,
+    cardId: `acc-${kaart.slug}`,
+  }}
+/>

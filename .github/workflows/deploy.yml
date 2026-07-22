@@ -12,13 +12,16 @@
 # Branches:
 #   • preview → /root/vinomartino-site/preview-dist (paperclip-vinomartino-preview-1)
 #   • main    → /root/vinomartino-site/dist          (paperclip-vinomartino-prod-1)
-#             → eerst Telegram-approval via Paperclip CoS bridge
+#
+# Deploy-posture (LAT-1368, board-besluit Optie 2):
+#   main → prod is AUTO-DEPLOY. Een merge naar `main` triggert direct build +
+#   atomic DIST-swap + nginx-reload + smoke-test, ZONDER approval-pauze aan de
+#   prod-zijde. Een gefaalde build aborteert de swap (prod blijft op de oude dist).
+#   De menselijke gate zit in de PR-review + merge (R2-governance), niet hier.
+#   Er is GEEN required-reviewers gate op de `production` environment.
 #
 # Vereiste secrets (slechts 3):
 #   VPS_HOST, VPS_USER, VPS_SSH_PRIVATE_KEY
-#
-# Optioneel:
-#   COS_APPROVAL_URL  (default: https://approval.vinomartino.com/approval)
 
 name: Deploy VinoMartino
 
@@ -73,9 +76,10 @@ jobs:
           echo "::notice::Deploying to $target → $dist_dir ($container)"
 
       # ── 2. Code ophalen ───────────────────────────────────────────────────
-      # NB: productie-approval gebeurt VOOR deze stap door de GHA
-      # environment-gate ("production" environment heeft required reviewers).
-      # Preview-pushes hebben geen reviewers en lopen direct door.
+      # NB: geen prod-side approval-pauze; main -> prod is auto-deploy
+      # (LAT-1368). De menselijke gate is PR-review/merge (R2); de `production`
+      # environment heeft GEEN required reviewers. Build + atomic swap lopen
+      # direct door; een gefaalde build aborteert de swap.
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -153,11 +157,16 @@ jobs:
             # LAT-1014: capture full build output zodat we kunnen detecteren
             # of Astro silently faalde op getStaticPaths. Astro exit'te 0 in
             # LAT-1011 ondanks Directus 403 — alleen het log onthult dat.
+            # LAT-1768: production content preflight runs BEFORE astro build.
+            # It hard-fails (blocks deploy) if Directus env is missing or a core
+            # live content type returns too few published rows. In preview the
+            # DRAFTS_ENV flag makes the preflight warn-only. --env-file-if-exists
+            # loads DIRECTUS_URL/TOKEN from the copied .env into the node process.
             set +e
             docker run --rm --network directus_directus_net \
               $DRAFTS_ENV \
               -v "$STAGE":/app -w /app \
-              node:24 bash -c "npm ci && npm run build" 2>&1 | tee build.log
+              node:24 bash -c "npm ci && node --env-file-if-exists=.env scripts/preflight-content.mjs && npm run build && node scripts/check-rendered-content.mjs && node --test scripts/check-affiliate-links.test.mjs && node scripts/check-affiliate-links.mjs" 2>&1 | tee build.log
             build_rc=${PIPESTATUS[0]}
             set -e
             if [ "$build_rc" -ne 0 ]; then
@@ -270,6 +279,132 @@ jobs:
           printf '%s\n' "$SWAP_SCRIPT" \
             | ssh "$VPS" "DIST='$DIST' STAGE='$STAGE' CONTAINER='$CONTAINER' bash -s"
 
+      # ── 7b. Drift check: live container vs compose spec ──────────────────
+      #
+      # LAT-914: tijdens LAT-909 incident bleek `paperclip-vinomartino-prod-1`
+      # te draaien vanuit een self-baked image (geen bind-mounts) terwijl
+      # docker-compose.vinomartino-prod.yml bind-mounts beschrijft. De rsync+
+      # nginx-reload flow werkt dan stilletjes mis: dist/ wordt geüpdatet maar
+      # de container serveert nog uit baked content. Smoke-test (LAT-910)
+      # ving het uiteindelijk via SHA-mismatch, maar pas nadat content al uren
+      # stale was.
+      #
+      # Deze step verifieert dat de live container matcht met de spec uit
+      # docker-compose.vinomartino-prod.yml (image, mounts, network, traefik
+      # labels, restart policy). Alleen voor productie — preview heeft geen
+      # SLA en geen externe traffic.
+      #
+      # LAT-1409: deze step is nu DETECTIE-ONLY en non-fataal. De vroegere
+      # auto-reconcile (`docker compose up -d --force-recreate`) is verwijderd:
+      # hij markeerde elke geslaagde content-deploy als failed (false
+      # failure-mails) en veroorzaakte een prod-outage (522) toen de
+      # force-recreate mislukte (LAT-1382). Drift wordt nu enkel als warning
+      # gelogd; container-recreate doe je handmatig via het runbook.
+      #
+      # Runbook voor handmatige recovery: docs/runbooks/vinomartino-prod-recreate.md
+      - name: Drift check prod container vs compose spec (detect-only, LAT-1409)
+        if: steps.env.outputs.target == 'production'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          CONTAINER: ${{ steps.env.outputs.container }}
+          DRIFT_SCRIPT: |
+            set -euo pipefail
+            cd /root/vinomartino-site
+
+            COMPOSE_FILE="docker-compose.vinomartino-prod.yml"
+            SERVICE="vinomartino-prod"
+            EXPECTED_IMAGE="nginx:alpine"
+            EXPECTED_NETWORK="paperclip_default"
+            EXPECTED_RESTART="unless-stopped"
+            EXPECTED_BINDS=$(cat <<EOF
+            /root/vinomartino-site/dist:/usr/share/nginx/html:ro
+            /root/vinomartino-site/nginx-prod.conf:/etc/nginx/conf.d/default.conf:ro
+            /root/vinomartino-site/htpasswd:/etc/nginx/.htpasswd:ro
+            EOF
+            )
+            EXPECTED_LABELS=$(cat <<'EOF'
+            traefik.enable=true
+            traefik.http.routers.vinomartino.entrypoints=websecure
+            traefik.http.routers.vinomartino.rule=Host(`vinomartino.com`) || Host(`www.vinomartino.com`)
+            traefik.http.routers.vinomartino.tls.certresolver=letsencrypt
+            traefik.http.services.vinomartino.loadbalancer.server.port=80
+            EOF
+            )
+
+            inspect_drift() {
+              local drift=()
+              if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then
+                echo "container_missing"
+                return 0
+              fi
+
+              local actual_image
+              actual_image=$(docker inspect "$CONTAINER" --format '{{.Config.Image}}')
+              [ "$actual_image" = "$EXPECTED_IMAGE" ] || drift+=("image=$actual_image (verwacht $EXPECTED_IMAGE)")
+
+              local actual_binds
+              actual_binds=$(docker inspect "$CONTAINER" --format '{{range .Mounts}}{{if eq .Type "bind"}}{{.Source}}:{{.Destination}}:{{if .RW}}rw{{else}}ro{{end}}{{"\n"}}{{end}}{{end}}' | sed '/^$/d' | sort)
+              local expected_sorted
+              expected_sorted=$(printf '%s\n' "$EXPECTED_BINDS" | sed '/^$/d' | sort)
+              if [ "$actual_binds" != "$expected_sorted" ]; then
+                drift+=("binds mismatch")
+                drift+=("  actual:")
+                while IFS= read -r line; do [ -n "$line" ] && drift+=("    $line"); done <<<"$actual_binds"
+                drift+=("  expected:")
+                while IFS= read -r line; do [ -n "$line" ] && drift+=("    $line"); done <<<"$expected_sorted"
+              fi
+
+              if ! docker inspect "$CONTAINER" --format '{{range $k, $v := .NetworkSettings.Networks}}{{$k}}{{"\n"}}{{end}}' | grep -qx "$EXPECTED_NETWORK"; then
+                drift+=("network ontbreekt: $EXPECTED_NETWORK")
+              fi
+
+              local actual_labels
+              actual_labels=$(docker inspect "$CONTAINER" --format '{{range $k,$v := .Config.Labels}}{{$k}}={{$v}}{{"\n"}}{{end}}')
+              while IFS= read -r label; do
+                [ -z "$label" ] && continue
+                if ! grep -Fxq "$label" <<<"$actual_labels"; then
+                  drift+=("label ontbreekt: $label")
+                fi
+              done <<<"$EXPECTED_LABELS"
+
+              local rp
+              rp=$(docker inspect "$CONTAINER" --format '{{.HostConfig.RestartPolicy.Name}}')
+              [ "$rp" = "$EXPECTED_RESTART" ] || drift+=("restart=$rp (verwacht $EXPECTED_RESTART)")
+
+              if [ ${#drift[@]} -eq 0 ]; then
+                echo "ok"
+              else
+                printf '%s\n' "${drift[@]}"
+              fi
+            }
+
+            result=$(inspect_drift)
+
+            # LAT-1409: deze stap is bewust DETECTIE-ONLY en strikt non-fataal.
+            # Op dit punt is de content-deploy (rsync dist + nginx reload, stap 7)
+            # al geslaagd; drift t.o.v. de compose-spec is enkel informatief.
+            # De auto `docker compose up -d --force-recreate` is VERWIJDERD omdat
+            # hij (a) overbodig is voor content-deploys — een draaiende nginx
+            # serveert de ge-rsyncte dist/ direct, de container hoeft niet
+            # herbouwd — en (b) een echte prod-outage (522) veroorzaakte toen de
+            # force-recreate mislukte (LAT-1382). Hij markeerde bovendien elke
+            # geslaagde deploy als failed (false failure-mails, LAT-914/LAT-1409).
+            # Echte container-recreate gebeurt nu handmatig via het runbook:
+            # docs/runbooks/vinomartino-prod-recreate.md
+            if [ "$result" = "ok" ]; then
+              echo "::notice::Container $CONTAINER in sync met $COMPOSE_FILE"
+            elif [ "$result" = "container_missing" ]; then
+              echo "::warning::Container $CONTAINER bestaat niet — handmatige recreate via runbook (LAT-1409, geen auto-reconcile)"
+            else
+              echo "::warning::Drift gedetecteerd voor $CONTAINER vs $COMPOSE_FILE (informatief, non-fataal — LAT-1409):"
+              echo "$result" | sed 's/^/  /'
+              echo "::warning::Geen auto-reconcile. Beoordeel handmatig; recreate indien nodig via docs/runbooks/vinomartino-prod-recreate.md (zie LAT-1382)"
+            fi
+            exit 0
+        run: |
+          printf '%s\n' "$DRIFT_SCRIPT" \
+            | ssh "$VPS" "CONTAINER='$CONTAINER' bash -s"
+
       # ── 8. Smoke test ────────────────────────────────────────────────────
       # Retry-loop omdat nginx een paar seconden nodig heeft om warm te zijn
       # na de reload. Eerste request kan transient 500/502 geven.
@@ -381,3 +516,22 @@ jobs:
 
       - name: Done
         run: echo "::notice::Deploy naar ${{ steps.env.outputs.target }} voltooid (${{ github.sha }})"
+
+      # ── 9. Staging-cleanup (altijd) ──────────────────────────────────────
+      # LAT-1326: de `rm -rf "$STAGE"` in stap 7 wordt alleen bereikt op het
+      # success-pad. Faalt de build of de SSH-sync (zie de historie van
+      # transient SSH-timeouts), dan blijft /srv/vino-builds/<run_id> staan —
+      # mét een volledige node_modules omdat `npm ci` in de bind-mount draait.
+      # Per gefaalde run lekt dat honderden MB en vult de VPS-schijf.
+      # Deze always()-stap ruimt de huidige run altijd op en pruimt verweesde
+      # stages ouder dan 1 dag (1440 min). `|| true` zodat een falende cleanup
+      # de run-status niet maskeert.
+      - name: Cleanup VPS staging
+        if: always()
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          STAGE: /srv/vino-builds/${{ github.run_id }}
+        run: |
+          ssh -o StrictHostKeyChecking=accept-new "$VPS" \
+            "rm -rf '$STAGE'; find /srv/vino-builds -mindepth 1 -maxdepth 1 -type d -mmin +1440 -exec rm -rf {} + 2>/dev/null; df -h / | tail -1" \
+            || echo "::warning::Staging-cleanup overgeslagen (SSH niet beschikbaar)"

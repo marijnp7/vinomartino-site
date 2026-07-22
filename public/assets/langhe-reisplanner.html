@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Langhe — de compacte reisplanner</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: Georgia, serif;
+      line-height: 1.8;
+      color: #1a1a1a;
+      background: white;
+      padding: 48px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    @page {
+      size: A4;
+      margin: 2.5cm;
+    }
+
+    @media print {
+      body {
+        padding: 0;
+      }
+    }
+
+    header {
+      border-bottom: 2px solid #5E1A1D;
+      padding-bottom: 24px;
+      margin-bottom: 32px;
+      text-align: center;
+    }
+
+    .logo {
+      font-size: 12px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: #6E7F5E;
+      margin-bottom: 12px;
+    }
+
+    h1 {
+      font-size: 32px;
+      font-weight: normal;
+      margin-bottom: 8px;
+      color: #1a1a1a;
+    }
+
+    .subtitle {
+      font-size: 14px;
+      color: #666;
+      font-style: italic;
+    }
+
+    .toc {
+      background: #F9F7F4;
+      padding: 24px;
+      border-radius: 4px;
+      margin: 32px 0;
+      page-break-inside: avoid;
+    }
+
+    .toc h2 {
+      font-size: 16px;
+      margin-bottom: 16px;
+      font-weight: normal;
+      border-bottom: 1px solid #ddd;
+      padding-bottom: 8px;
+    }
+
+    .toc ul {
+      list-style: none;
+      font-size: 14px;
+    }
+
+    .toc li {
+      padding: 6px 0;
+    }
+
+    .toc li a {
+      color: #5E1A1D;
+      text-decoration: none;
+    }
+
+    .toc li a:hover {
+      text-decoration: underline;
+    }
+
+    h2 {
+      font-size: 20px;
+      font-weight: normal;
+      margin-top: 48px;
+      margin-bottom: 16px;
+      color: #1a1a1a;
+      border-top: 1px solid #E8DCC4;
+      padding-top: 24px;
+    }
+
+    h2:first-of-type {
+      border-top: none;
+      padding-top: 0;
+      margin-top: 0;
+    }
+
+    p {
+      margin-bottom: 16px;
+      text-align: justify;
+    }
+
+    strong {
+      color: #5E1A1D;
+      font-weight: normal;
+    }
+
+    .address {
+      background: #F9F7F4;
+      padding: 12px;
+      border-left: 4px solid #6E7F5E;
+      margin: 16px 0;
+      font-size: 14px;
+      page-break-inside: avoid;
+    }
+
+    .address strong {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: bold;
+      color: #1a1a1a;
+    }
+
+    .address-detail {
+      margin: 4px 0;
+      color: #666;
+    }
+
+    .price {
+      color: #6E7F5E;
+      font-weight: bold;
+    }
+
+    .footer {
+      border-top: 2px solid #E8DCC4;
+      margin-top: 48px;
+      padding-top: 24px;
+      font-size: 12px;
+      color: #999;
+      text-align: center;
+    }
+
+    .section-break {
+      page-break-after: avoid;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">VinoMartino</div>
+    <h1>Langhe</h1>
+    <p class="subtitle">de compacte reisplanner</p>
+  </header>
+
+  <div class="toc">
+    <h2>Snel navigeren</h2>
+    <ul>
+      <li><a href="#wanneer">Wanneer gaan</a></li>
+      <li><a href="#route">Route overzicht</a></li>
+      <li><a href="#wijnhuizen">Wijnhuizen: bellen en boeken</a></li>
+      <li><a href="#slapen">Slapen</a></li>
+      <li><a href="#eten">Eten</a></li>
+      <li><a href="#praktisch">Praktisch</a></li>
+    </ul>
+  </div>
+
+  <p>Dit is geen verzameling tips die je ook op een willekeurige reissite vindt. Het is de route die ik zelf rijd wanneer ik terugga naar de Langhe, met de wijnhuizen die bereikbaar zijn voor mensen die niet al vijf jaar relaties onderhouden in Piemonte.</p>
+
+  <p>Vier dagen, twee appellaties, een handvol adressen. Genoeg om een fundament te leggen voor alle trips hierna.</p>
+
+  <h2 id="wanneer">Wanneer gaan</h2>
+
+  <p><strong>Oktober</strong> is hoog seizoen. De truffelmarkt in Alba, oogstactiviteit in de wijngaarden, alles is open. Alles is ook vol. Prijzen navenant.</p>
+
+  <p><strong>November</strong> is het betere seizoen. De truffels zijn nog aanwezig, de heuvels zijn oranje en goud, de drukte is een kwart van wat je in oktober vindt. Restaurants die het hele jaar voor locals draaien ontvangen je dan als gast, niet als toerist.</p>
+
+  <p><strong>Februari</strong> is het geheime seizoen. Geen truffels, maar open kelders en wijnmakers die tijd hebben. De Langhe ziet er anders uit dan op elke foto die je ooit hebt gezien: kaal, grijs, in rust. De wijnen zijn precies dezelfde.</p>
+
+  <h2 id="route">Route overzicht</h2>
+
+  <h3>Basis: Alba</h3>
+  <p>Alba is de logische hub. Een echte stad (31.000 inwoners), een wijnmarkt die het jaar rond actief is. Vanuit Alba rij je in twintig minuten naar La Morra, in dertig naar Barbaresco, in vijfenveertig naar Serralunga d'Alba.</p>
+
+  <h3>Dag 1: Barolo, twee bodems</h3>
+  <p>La Morra en Serralunga d'Alba liggen op twintig minuten van elkaar maar produceren structureel verschillende wijnen. La Morra staat op Tortoniaan-bodem: rijke kalk, soepelere, bloemigere Barolo's. Serralunga staat op Helvetiaan-kiezelkalk: harder, ascetischer in de jeugd, maar beter naarmate de jaren vorderen. Bezoek beide communes op dag één.</p>
+
+  <h3>Dag 2: Barbaresco</h3>
+  <p>Dezelfde druif (Nebbiolo), warmer microklimaat in de Tanaro-vallei, sneller toegankelijke wijnen. Begin bij Produttori del Barbaresco. Dat is geen bezuiniging, dat is de slimste aankoop in de hele regio.</p>
+
+  <h3>Dag 3: Neive</h3>
+  <p>De meest verwaarloosde gemeente van de Barbaresco-zone. Stiller, minder bezocht, betere prijs-kwaliteitsverhouding. Houd de middag vrij na de proeverij. Er is genoeg om naar te kijken.</p>
+
+  <h3>Dag 4: Vertrek via Alba</h3>
+  <p>Vincafé opent om negen uur. Een laatste glas voor de rit naar het vliegveld is geen exces, het is het juiste afscheid van de Langhe.</p>
+
+  <h2 id="wijnhuizen">Wijnhuizen: bellen en boeken</h2>
+  <p>Alle huizen hieronder ontvangen op afspraak. Plan minimaal twee weken vooruit, ook buiten het hoogseizoen. Bel altijd, mail als laatste redmiddel.</p>
+
+  <div class="address">
+    <strong>Mauro Molino</strong>
+    <div class="address-detail">Via Bricco Luciani 7, La Morra</div>
+    <div class="address-detail">Proeverij: 4 tot 6 wijnen, <span class="price">€20—25</span> per persoon</div>
+    <p style="margin: 12px 0 0 0; font-size: 13px;">Familiebedrijf, vierde generatie. Hun Vigna Gancia Barolo is de referentie voor La Morra-typiciteit: bloemig, ronder van tannine, eerder toegankelijk dan de Serralunga-huizen.</p>
+  </div>
+
+  <div class="address">
+    <strong>Schiavenza</strong>
+    <div class="address-detail">Località Baudana, Serralunga d'Alba</div>
+    <div class="address-detail">Agriturismo met eigen wijnbouw</div>
+    <p style="margin: 12px 0 0 0; font-size: 13px;">Klein, rustiek, familiebeheerd. De Barolo Prapò (<span class="price">€32</span> per fles) is de reden om hier te zijn: strak, tannineus, het soort wijn dat sommige bezoekers afschrikt maar na een paar jaar al een ander gesprek begint.</p>
+  </div>
+
+  <div class="address">
+    <strong>Produttori del Barbaresco</strong>
+    <div class="address-detail">Via Torino 54, Barbaresco</div>
+    <div class="address-detail">Dinsdag tot en met vrijdag open, ook in februari</div>
+    <p style="margin: 12px 0 0 0; font-size: 13px;">Negentien leden-producenten, elk met eigen percelen in de beste lagen van de appellatie. De basis-Barbaresco DOC (<span class="price">€25—30</span>) staat als kwaliteit naast private labels die het dubbele kosten.</p>
+  </div>
+
+  <div class="address">
+    <strong>Cantina del Glicine</strong>
+    <div class="address-detail">Via Jenin 1, Neive</div>
+    <p style="margin: 12px 0 0 0; font-size: 13px;">Adriana Marzi en haar broer Roberto runnen het huis al dertig jaar. Hun Barbaresco Currà is een van de meest onderbeschreven wijnen in de appellatie: strak, terroir-gedreven, met een tannine-structuur die meer aan Serralunga herinnert. <span class="price">€38</span> per fles.</p>
+  </div>
+
+  <h2 id="slapen">Slapen</h2>
+
+  <div class="address">
+    <strong>Palazzo Finati</strong> (Alba)
+    <div class="address-detail">Vicolo dell'Arco 4, Alba</div>
+    <div class="address-detail"><span class="price">€120—160</span> per nacht</div>
+    <p style="margin: 12px 0 0 0; font-size: 13px;">Drie kamers, stijlvol gerenoveerde B&B in het centrum. Ontbijt met lokale producten. De eigenaren weten welke wijnhuizen open zijn en geven eerlijk advies.</p>
+  </div>
+
+  <div class="address">
+    <strong>Agriturismo Cascina delle Rose</strong> (Barbaresco)
+    <div class="address-detail">Strada Cà Nova 6, Barbaresco</div>
+    <div class="address-detail"><span class="price">€140</span> per nacht, inclusief ontbijt</div>
+    <p style="margin: 12px 0 0 0; font-size: 13px;">Giovanna Rizzolio maakt zelf wijn op percelen in de Moccagatta-cru en ontvangt gasten in een gerenoveerd boerenhuis. Zes kamers. Proeverij optioneel voor €30 extra per persoon.</p>
+  </div>
+
+  <h2 id="eten">Eten</h2>
+
+  <p><strong>Osteria dell'Arco</strong> (Alba) — Piazza Michele Ferrero. Classieke Piemontese keuken. De tajarin met witte truffel kost €28 in het laagseizoen, meer in oktober. Dit is het referentiepunt voor de rest van de trip.</p>
+
+  <p><strong>Antinè</strong> (Barbaresco) — Via Torino 27. Klein, familiebeheerd. Menu di degustazione van vijf gangen voor €55. De wijnkaart is uitsluitend Piemontees en goed geprijsd voor wat het is.</p>
+
+  <p><strong>Vincafé</strong> (Alba) — Via Vittorio Emanuele II 12. Open vanaf 9 uur. Delicatessen en proeverijbar. Castelmagno-kaas en een glas Barolo bij het ontbijt klinkt als een exces totdat je het doet.</p>
+
+  <h2 id="praktisch">Praktisch</h2>
+
+  <p><strong>Transport:</strong> een huurauto is onmisbaar. Treinen bereiken Alba, maar de wijnhuizen zijn verspreid over steile heuvels zonder openbaar vervoer.</p>
+
+  <p><strong>Afspraken:</strong> plan minimaal twee weken vooruit, ook in het laagseizoen. Kleine producenten ontvangen uitsluitend op afspraak.</p>
+
+  <p><strong>Taal:</strong> Italiaans helpt aanzienlijk. De Langhe heeft geen toeristische infrastructuur met Engelse gidsen.</p>
+
+  <p><strong>Budget (twee personen, vier dagen):</strong></p>
+  <ul style="margin-left: 20px; margin-bottom: 16px;">
+    <li>Verblijf: €120—160 per nacht</li>
+    <li>Proeverijen: €15—30 per persoon</li>
+    <li>Restaurants: €40—70 per persoon inclusief wijn</li>
+    <li><strong>Totaal: €600—900 voor twee personen, exclusief vluchten en flesaankopen</strong></li>
+  </ul>
+
+  <p><strong>Flessen meenemen:</strong> neem een stevige wijnkoffer mee (Lazenne, 6 flessen, handbagage-formaat). Een goede fles Barbaresco breekt anders in het ruim.</p>
+
+  <div class="footer">
+    <p>Dit document is samengesteld op basis van eigen bezoeken aan de Langhe.</p>
+    <p>Adressen en prijzen kloppen per publicatiedatum.</p>
+    <p style="margin-top: 12px; border-top: 1px solid #ddd; padding-top: 12px;">© VinoMartino — vinomartino.nl</p>
+  </div>
+</body>
+</html>

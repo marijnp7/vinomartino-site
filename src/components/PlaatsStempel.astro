@@ -1,0 +1,66 @@
+---
+/**
+ * LAT-2112 (VIS-STRAT-03, kader LAT-2014) — Plaatsstempel-overlay.
+ *
+ * Tier 1-artikelen krijgen een monospace stempel bovenin de header-foto in de
+ * vorm "BESTEMMING . MMM JJJJ" (bijv. "SERRALUNGA D'ALBA . OKT 2025"). Wit,
+ * all-caps, licht gespatieerd op een subtiele donkere gradient zodat het ook op
+ * lichte foto's leesbaar blijft. Herbruikbaar: ook ingebakken in de De Route-kaart.
+ *
+ * Rendert niets als `text` leeg is (graceful degrade zolang het Directus-veld of
+ * de content ontbreekt). De ruwe waarde wordt ge-upcased in CSS, niet in JS, zodat
+ * de redactie de leesbare bron bewaart.
+ */
+interface Props {
+  text?: string | null;
+  variant?: 'hero' | 'map';
+}
+
+const { text, variant = 'hero' } = Astro.props;
+const value = (text ?? '').trim();
+---
+{value && (
+  <span class:list={['plaatsstempel', `plaatsstempel--${variant}`]} aria-label={`Plaatsstempel: ${value}`}>
+    {value}
+  </span>
+)}
+
+<style>
+  .plaatsstempel {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 2;
+    display: inline-block;
+    max-width: 100%;
+    padding: 0.55rem 0.9rem 0.5rem;
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #fff;
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0.55) 0%, rgba(0, 0, 0, 0) 100%);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+    pointer-events: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Op de ingebonden kaart zit de stempel op een donkere ondergrond; iets
+     compacter en zonder gradient zodat hij als etiket op de kaart leest. */
+  .plaatsstempel--map {
+    background: rgba(0, 0, 0, 0.35);
+    padding: 0.4rem 0.75rem;
+    font-size: 0.625rem;
+  }
+
+  @media (max-width: 640px) {
+    .plaatsstempel {
+      font-size: 0.625rem;
+      letter-spacing: 0.14em;
+      padding: 0.45rem 0.75rem;
+    }
+  }
+</style>

@@ -2,6 +2,7 @@
 import SmartImg from '../SmartImg.astro';
 import AffiliatePlaceholder from '../AffiliatePlaceholder.astro';
 import AffiliateDisclosure from '../AffiliateDisclosure.astro';
+import { getImageCredit } from '../../lib/image-credits';
 
 interface WijnhuisWine {
   name: string;
@@ -16,15 +17,32 @@ interface WijnhuisVisitInfo {
   value: string;
 }
 
+// VIS-BL-03: vaste rij van (max) 3 beelden onder de intro. Alleen aanwezige
+// beelden worden getoond; nooit een clipart-placeholder voor een lege plek.
+interface WijnhuisDrieluikBeeld {
+  src: string;
+  alt: string;
+  caption?: string;
+}
+
 interface Props {
   name: string;
   subtitle?: string;
   breadcrumb?: { label: string; href: string }[];
   region: string;
+  regionHref?: string;
+  // LAT-2010 [VIS-BL-11]: link naar de wijnroute waar dit huis bij hoort
+  // (afgeleid uit de streek of, indien bekend, de route-stops). Optioneel: zonder
+  // route valt de meta-regel stil weg.
+  routeHref?: string;
+  routeLabel?: string;
   since?: string;
   hectaren?: string;
   biologisch?: string;
   heroImage?: string;
+  // Rauw Directus file-UUID van de hero; voedt de verplichte beeldcredit (LAT-2478).
+  heroImageId?: string | null;
+  drieluik?: WijnhuisDrieluikBeeld[];
   storyTitle?: string;
   storyBody?: string[];
   wines?: WijnhuisWine[];
@@ -39,10 +57,15 @@ const {
   subtitle,
   breadcrumb = [],
   region,
+  regionHref,
+  routeHref,
+  routeLabel,
   since,
   hectaren,
   biologisch,
   heroImage,
+  heroImageId,
+  drieluik = [],
   storyTitle,
   storyBody = [],
   wines = [],
@@ -51,26 +74,37 @@ const {
   reserveringUrl,
   relatedWijnhuizen = [],
 } = Astro.props;
+
+const drieluikBeelden = drieluik.filter((b) => b && b.src);
+
+// LAT-2478: verplichte beeldcredit (bv. Wikimedia Commons CC BY-SA) bij de hero,
+// gesleuteld op het Directus file-UUID. Null → geen figcaption (bv. AI-eigen werk).
+const heroCredit = getImageCredit(heroImageId);
 ---
 
 <!-- ── HERO ──────────────────────────────────────────── -->
 <section class="wh-hero">
   <div class="container">
     <nav class="wh-breadcrumb" aria-label="Breadcrumb">
-      <a href="/wijnhuizen/">Wijnhuizen</a>
-      {breadcrumb.map((crumb) => (
-        <>
-          <span class="wh-breadcrumb__sep">›</span>
-          <a href={crumb.href}>{crumb.label}</a>
-        </>
-      ))}
+      {/* LAT-1199: render de verticale keten (Home → Land → Streek) wanneer
+          de pagina die meegeeft; val anders terug op de laterale index. */}
+      {breadcrumb.length > 0 ? (
+        breadcrumb.map((crumb, i) => (
+          <>
+            {i > 0 && <span class="wh-breadcrumb__sep">›</span>}
+            <a href={crumb.href}>{crumb.label}</a>
+          </>
+        ))
+      ) : (
+        <a href="/wijnhuizen/">Wijnhuizen</a>
+      )}
       <span class="wh-breadcrumb__sep">›</span>
       <span class="wh-breadcrumb__current">{name}</span>
     </nav>
 
     <div class="wh-hero__grid">
       <div class="wh-hero__left">
-        {subtitle && <div class="wh-eyebrow">Wijnhuis-portret · §</div>}
+        {subtitle && <div class="wh-eyebrow">Wijnhuis-portret</div>}
         <h1 class="wh-hero__title">{name}</h1>
         {subtitle && <p class="wh-hero__subtitle">{subtitle}</p>}
       </div>
@@ -78,8 +112,18 @@ const {
       <div class="wh-hero__meta">
         <div class="wh-meta-item">
           <span class="wh-meta-label">STREEK</span>
-          <span class="wh-meta-value">{region}</span>
+          {regionHref ? (
+            <a class="wh-meta-value wh-meta-value--link" href={regionHref}>{region}</a>
+          ) : (
+            <span class="wh-meta-value">{region}</span>
+          )}
         </div>
+        {routeHref && routeLabel && (
+          <div class="wh-meta-item">
+            <span class="wh-meta-label">ROUTE</span>
+            <a class="wh-meta-value wh-meta-value--link" href={routeHref}>{routeLabel}</a>
+          </div>
+        )}
         {since && (
           <div class="wh-meta-item">
             <span class="wh-meta-label">SINDS</span>
@@ -102,16 +146,48 @@ const {
     </div>
   </div>
 
-  <div class="wh-hero__img-wrap">
-    <SmartImg
-      src={heroImage}
-      alt={name}
-      theme="winery"
-      class="wh-hero__img"
-      loading="eager"
-    />
-  </div>
+  {heroImage && (
+    <figure class="wh-hero__img-wrap">
+      <SmartImg
+        src={heroImage}
+        alt={name}
+        theme="winery"
+        class="wh-hero__img"
+        loading="eager"
+      />
+      {heroCredit && (
+        <figcaption class="wh-hero__credit">
+          {heroCredit.author}, <a href={heroCredit.licenseUrl} rel="license noopener" target="_blank">{heroCredit.licenseLabel}</a>
+        </figcaption>
+      )}
+    </figure>
+  )}
 </section>
+
+<!-- ── DRIELUIK ──────────────────────────────────────── -->
+{drieluikBeelden.length > 0 && (
+  <section class="wh-drieluik" aria-label={`Beelden van ${name}`}>
+    <div class="container">
+      <div
+        class:list={['wh-drieluik__grid', `wh-drieluik__grid--${drieluikBeelden.length}`]}
+      >
+        {drieluikBeelden.map((beeld) => (
+          <figure class="wh-drieluik__item">
+            <img
+              src={beeld.src}
+              alt={beeld.alt}
+              class="wh-drieluik__img"
+              loading="lazy"
+            />
+            {beeld.caption && (
+              <figcaption class="wh-drieluik__caption">{beeld.caption}</figcaption>
+            )}
+          </figure>
+        ))}
+      </div>
+    </div>
+  </section>
+)}
 
 <!-- ── STORY ─────────────────────────────────────────── -->
 {(Astro.slots.has('story') || storyBody.length > 0) && (
@@ -335,9 +411,17 @@ const {
     color: var(--inkSoft);
   }
 
+  .wh-meta-value--link {
+    color: var(--burgundy);
+    text-decoration: none;
+    border-bottom: 1px solid var(--rule);
+  }
+  .wh-meta-value--link:hover { color: var(--ink); }
+
   .wh-hero__img-wrap {
+    position: relative;
     aspect-ratio: 21 / 9;
-    margin-top: 2.5rem;
+    margin: 2.5rem 0 0;
     overflow: hidden;
   }
 
@@ -345,6 +429,60 @@ const {
     width: 100%;
     height: 100%;
     object-fit: cover;
+  }
+
+  /* LAT-2478: verplichte beeldcredit (CC BY-SA) over de hero, rechtsonder. */
+  .wh-hero__credit {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    max-width: 100%;
+    padding: 0.25rem 0.625rem;
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    line-height: 1.4;
+    letter-spacing: 0.02em;
+    color: #fff;
+    background: rgba(0, 0, 0, 0.55);
+  }
+  .wh-hero__credit a {
+    color: inherit;
+    text-decoration: underline;
+  }
+
+  /* ── Drieluik (VIS-BL-03) ── */
+  .wh-drieluik {
+    padding: 2.5rem 0 0.5rem;
+    background: var(--paper);
+  }
+
+  .wh-drieluik__grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+  }
+  .wh-drieluik__grid--1 { grid-template-columns: 1fr; }
+  .wh-drieluik__grid--2 { grid-template-columns: repeat(2, 1fr); }
+
+  .wh-drieluik__item {
+    margin: 0;
+  }
+
+  .wh-drieluik__img {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    display: block;
+    background: var(--paperShade);
+  }
+
+  .wh-drieluik__caption {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--inkSoft);
+    margin-top: 0.5rem;
   }
 
   /* ── Story ── */
@@ -549,7 +687,7 @@ const {
 
   .btn--primary {
     background: var(--burgundy);
-    color: var(--paper);
+    color: var(--fixed-cream);
   }
 
   .btn--outline {
@@ -641,5 +779,7 @@ const {
   @media (max-width: 640px) {
     .wh-related__grid { grid-template-columns: 1fr; }
     .wh-visit__row { grid-template-columns: 1fr; gap: 0.25rem; }
+    .wh-drieluik__grid,
+    .wh-drieluik__grid--2 { grid-template-columns: 1fr; }
   }
 </style>

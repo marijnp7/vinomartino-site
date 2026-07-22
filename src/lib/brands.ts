@@ -34,7 +34,7 @@ export const brands: Brand[] = [
     textColor: '#2A2622',
     fontHeading: '"Cormorant Garamond", "EB Garamond", "Georgia", serif',
     fontBody: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-    socialInstagram: 'vinomartino',
+    socialInstagram: 'vinomartino.travel',
     socialPinterest: 'vinomartino',
     contentPillars: [
       'Wijnregio-gidsen',

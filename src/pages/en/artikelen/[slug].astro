@@ -1,0 +1,74 @@
+---
+// LAT-2638 — EN artikel-detailroute onder /en/. Identieke markup als de NL-route
+// via het gedeelde ArtikelDetail-component, met de per-locale loaders:
+// loadArticles('en') past de no-translation-guard toe (directus-i18n.ts), dus
+// artikelen zónder EN-vertaling vallen weg uit `articles` → er wordt géén
+// /en/artikelen/<slug>/ gegenereerd (404 i.p.v. NL-lek). Roundups/routes-relaties
+// gebruiken de EN-loaders.
+import ArtikelDetail, { type ArticleRoundup, type ArticleVoetblok } from '../../../components/ArtikelDetail.astro';
+import { type VoetblokRoute, type VoetblokHotel } from '../../../components/ArtikelVoetblok.astro';
+import { loadArticles } from '../../../lib/articles';
+import { loadRoutes } from '../../../lib/routes';
+import { loadAccommodatieRoundupsByStreek } from '../../../lib/accommodaties-loader';
+import { filterRoundupOpFotos, roundupKaartAantal } from '../../../lib/accommodaties';
+
+const EN = 'en' as const;
+
+export async function getStaticPaths() {
+  const [articles, accRoundupsByStreek, routes] = await Promise.all([
+    loadArticles('en'),
+    loadAccommodatieRoundupsByStreek('en'),
+    loadRoutes('en'),
+  ]);
+  const routeBySlug = new Map(routes.map((r) => [r.slug, r]));
+  return articles.map((a) => {
+    const accRoundups: ArticleRoundup[] = a.relatedStreken
+      .map((s) => ({ slug: s.slug, roundup: accRoundupsByStreek.get(s.slug) }))
+      .filter((x): x is ArticleRoundup =>
+        Boolean(x.roundup && x.roundup.clusters.some((c) => c.kaarten.length > 0)));
+
+    const streekRef = a.relatedStreken[0] ?? null;
+    const routeRef = a.relatedWijnroutes[0] ?? null;
+    const routeEntry = routeRef ? routeBySlug.get(routeRef.slug) : undefined;
+    const routeStops = routeEntry
+      ? (routeEntry.stops.length >= 2
+          ? routeEntry.stops
+          : (routeEntry.stopsGeo.map((s) => s.naam).filter(Boolean).length >= 2
+              ? routeEntry.stopsGeo.map((s) => s.naam).filter(Boolean)
+              : routeEntry.highlights))
+      : [];
+    const route: VoetblokRoute | null = routeRef
+      ? { slug: routeRef.slug, name: routeRef.name, stops: routeStops }
+      : null;
+    let hotel: VoetblokHotel | null = null;
+    if (streekRef) {
+      const raw = accRoundupsByStreek.get(streekRef.slug);
+      if (raw && roundupKaartAantal(filterRoundupOpFotos(raw)) > 0) {
+        hotel = { href: `/accommodaties/${streekRef.slug}/`, streekName: streekRef.name };
+      }
+    }
+    const voetblok: ArticleVoetblok = { streek: streekRef, route, hotel };
+
+    return {
+      params: { slug: a.slug },
+      props: {
+        article: a,
+        accRoundups,
+        voetblok,
+        // Deze route bestaat per definitie alleen voor EN-vertaalde artikelen.
+        alternates: { nl: `/artikelen/${a.slug}/`, en: `/en/artikelen/${a.slug}/` },
+      },
+    };
+  });
+}
+
+const { article, accRoundups, voetblok, alternates } = Astro.props;
+---
+
+<ArtikelDetail
+  article={article}
+  accRoundups={accRoundups}
+  voetblok={voetblok}
+  locale={EN}
+  alternates={alternates}
+/>

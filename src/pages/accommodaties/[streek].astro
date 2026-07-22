@@ -1,0 +1,37 @@
+---
+// LAT-1383 (Track B, EPIC LAT-1330) — reisjunk-stijl accommodatie-overzicht per
+// regio. Markup + afgeleide state zit in het gedeelde AccommodatieRoundupPage-
+// component; deze NL-route (prefixloos, DEFAULT_LOCALE) levert enkel de data via
+// getStaticPaths. De /en/-tegenhanger (src/pages/en/accommodaties/[streek].astro)
+// rendert hetzelfde component met locale="en".
+import AccommodatieRoundupPage from '../../components/AccommodatieRoundupPage.astro';
+import { loadAccommodatieRoundupPaths, type AccommodatieRoundupPathProps } from '../../lib/accommodatie-roundup-paths';
+import { DEFAULT_LOCALE } from '../../lib/i18n';
+
+export async function getStaticPaths() {
+  // LAT-2693: EN-padset (guard laat alléén EN-vertaalde streken door) bepaalt of
+  // er een en-hreflang-tegenhanger bestaat. NL blijft altijd primair.
+  const [nlPaths, enPaths] = await Promise.all([
+    loadAccommodatieRoundupPaths(),
+    loadAccommodatieRoundupPaths('en'),
+  ]);
+  const enSlugs = new Set(enPaths.map((p) => p.params.streek));
+  return nlPaths.map((p) => ({
+    params: p.params,
+    props: {
+      ...p.props,
+      // hreflang alléén op roundups mét een echte EN-tegenhanger; NL-only krijgt
+      // géén alternates → SiteLayout emit geen hreflang (byte-identiek aan prod).
+      alternates: enSlugs.has(p.params.streek)
+        ? { nl: `/accommodaties/${p.params.streek}/`, en: `/en/accommodaties/${p.params.streek}/` }
+        : undefined,
+    },
+  }));
+}
+
+const { roundup, streek, streekSlug, alternates } = Astro.props as AccommodatieRoundupPathProps & {
+  alternates: Record<string, string> | undefined;
+};
+---
+
+<AccommodatieRoundupPage roundup={roundup} streek={streek} streekSlug={streekSlug} locale={DEFAULT_LOCALE} alternates={alternates} />

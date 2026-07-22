@@ -1,0 +1,7 @@
+---
+// LAT-2693 — EN wijnroutes-overzicht onder /en/. Zelfde WijnroutesIndex-component;
+// locale="en" activeert de EN-loader (no-translation-guard) en ui_strings-overlay.
+import WijnroutesIndex from '../../../components/WijnroutesIndex.astro';
+---
+
+<WijnroutesIndex locale="en" alternates={{ nl: '/wijnroutes/', en: '/en/wijnroutes/' }} />

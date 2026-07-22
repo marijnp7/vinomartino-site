@@ -1,0 +1,398 @@
+---
+// LAT-1635 — geografische routekaart op de routedetailpagina.
+//
+// Toont de stops van een wijnroute als genummerde markers op een echte Leaflet-kaart
+// (Carto Positron tiles, gelijk aan CuratedStayMap/StreekKaart) met een lijn van start
+// naar eind in routevolgorde. Verwacht stops MÉT coördinaten (uit Directus
+// routes.stops_geo). Heeft een route < 2 geocoded stops, dan rendert dit niets en valt
+// de pagina terug op de schematische RouteMap (LAT-1608).
+import type { RouteStopGeo } from '../lib/routes';
+import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
+
+export interface Props {
+  /** LAT-2704 — locale van de renderende pagina; stuurt de interne hrefs. */
+  locale?: Locale;
+  stops: RouteStopGeo[];
+  title: string;
+  slug: string;
+  duration?: string | null;
+  transport?: string | null;
+}
+
+const { stops = [], title, slug, duration = null, transport = null, locale = DEFAULT_LOCALE } = Astro.props;
+
+// LAT-2704 — interne hrefs locale-aware; NL blijft byte-identiek.
+const lh = (href: string) => localizeHref(href, locale);
+
+const geo = stops.filter((s: RouteStopGeo) => s && Number.isFinite(s.lat) && Number.isFinite(s.lng));
+const hasGeo = geo.length >= 2;
+
+// LAT-2000 — route-waypoints (kind 'stop'/leeg) dragen de getekende lijn en de
+// genummerde dag-pins; wijnhuis-/slaap-stops zijn extra POI's op de kaart.
+const waypoints = geo.filter((s: RouteStopGeo) => (s.kind ?? 'stop') === 'stop');
+const line = (waypoints.length >= 2 ? waypoints : geo);
+const hasWijnhuis = geo.some((s: RouteStopGeo) => s.kind === 'wijnhuis');
+const hasSlaap = geo.some((s: RouteStopGeo) => s.kind === 'slaap');
+
+const mapId = `routemap-${slug}`.replace(/[^a-z0-9-]/gi, '');
+
+let dayNo = 0;
+const mapData = {
+  slug,
+  // LAT-2704 — basispad voor de wijnhuis-links in de popups, server-side gelokaliseerd.
+  wijnhuisBase: lh('/wijnhuizen/'),
+  stops: geo.map((s: RouteStopGeo) => {
+    const kind = s.kind ?? 'stop';
+    return {
+      n: kind === 'stop' ? ++dayNo : null,
+      kind,
+      naam: s.naam,
+      slug: s.slug ?? null,
+      lat: s.lat,
+      lng: s.lng,
+    };
+  }),
+  line: line.map((s: RouteStopGeo) => [s.lat, s.lng]),
+};
+---
+
+{hasGeo && (
+  <figure class="routegeo" data-routegeo id={mapId} aria-labelledby={`${mapId}-cap`}>
+    <figcaption class="routegeo__cap" id={`${mapId}-cap`}>
+      <span class="routegeo__label">Routekaart</span>
+      <span class="routegeo__from-to">{line[0].naam} <span class="routegeo__arrow">&rarr;</span> {line[line.length - 1].naam}</span>
+    </figcaption>
+    <div class="routegeo__canvas" data-routegeo-canvas role="application" aria-label={`Kaart van de route ${title}`}></div>
+    {(hasWijnhuis || hasSlaap) && (
+      <ul class="routegeo__legend" aria-label="Legenda">
+        <li class="routegeo__legend-item"><span class="routegeo__swatch routegeo__swatch--dag" aria-hidden="true">1</span>Dagetappe</li>
+        {hasWijnhuis && <li class="routegeo__legend-item"><span class="routegeo__swatch routegeo__swatch--wijnhuis" aria-hidden="true"></span>Wijnhuis</li>}
+        {hasSlaap && <li class="routegeo__legend-item"><span class="routegeo__swatch routegeo__swatch--slaap" aria-hidden="true"></span>Overnachten</li>}
+      </ul>
+    )}
+    <script type="application/json" data-routegeo-data set:html={JSON.stringify(mapData)} />
+    {(duration || transport) && (
+      <div class="routegeo__meta">
+        {duration && <span class="routegeo__tag">{duration}</span>}
+        {transport && <span class="routegeo__tag">{transport}</span>}
+        {geo.length > 1 && <span class="routegeo__tag">{geo.length} stops</span>}
+      </div>
+    )}
+  </figure>
+)}
+
+<script>
+  import 'leaflet/dist/leaflet.css';
+
+  type StopKind = 'stop' | 'wijnhuis' | 'slaap';
+  type Stop = { n: number | null; kind: StopKind; naam: string; slug: string | null; lat: number; lng: number };
+  type MapData = { slug: string; wijnhuisBase?: string; stops: Stop[]; line: [number, number][] };
+
+  let leafletPromise: Promise<any> | null = null;
+  function loadLeaflet(): Promise<any> {
+    if (!leafletPromise) leafletPromise = import('leaflet').then((m: any) => m.default ?? m);
+    return leafletPromise;
+  }
+
+  function esc(s: string): string {
+    return s.replace(/[&<>"]/g, (c) => (
+      { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string
+    ));
+  }
+
+  async function initSection(section: HTMLElement): Promise<void> {
+    const canvas = section.querySelector<HTMLElement>('[data-routegeo-canvas]');
+    const dataEl = section.querySelector<HTMLElement>('[data-routegeo-data]');
+    if (!canvas || !dataEl || canvas.dataset.ready === '1') return;
+    canvas.dataset.ready = '1';
+
+    let data: MapData;
+    try {
+      data = JSON.parse(dataEl.textContent || '{}');
+    } catch {
+      return;
+    }
+    if (!data.stops || data.stops.length < 2) return;
+
+    const L = await loadLeaflet();
+
+    const map = L.map(canvas, {
+      scrollWheelZoom: false,
+      zoomControl: true,
+      attributionControl: true,
+    });
+
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      subdomains: 'abcd',
+      maxZoom: 19,
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    }).addTo(map);
+
+    const boundsPts: [number, number][] = data.stops.map((s) => [s.lat, s.lng]);
+    const linePts: [number, number][] = (data.line && data.line.length >= 2) ? data.line : boundsPts;
+
+    // LAT-2000 — getekende route-as (bordeaux) door de dag-waypoints in volgorde.
+    L.polyline(linePts, {
+      color: '#5A1A1F',
+      weight: 3,
+      opacity: 0.8,
+      dashArray: '1 8',
+      lineCap: 'round',
+    }).addTo(map);
+
+    const lastDay = data.stops.reduce((m, s) => (s.n && s.n > m ? s.n : m), 0);
+    // LAT-2125 — genummerde pins bewaren zodat de itinerary-cards (PoiCard,
+    // data-skz-card=n) er tweerichtings mee synchroniseren.
+    const markersByN = new Map<number, any>();
+    for (const s of data.stops) {
+      // LAT-2000 — merkgekleurde pins: dag-etappe = genummerde bordeaux middendot
+      // (vorm uit het wordmark), wijnhuis = bordeaux, overnachten = olijfgroen.
+      let html: string;
+      let role: string;
+      if (s.kind === 'wijnhuis') {
+        html = `<span class="rgm-pin rgm-pin--wijnhuis" aria-hidden="true"></span>`;
+        role = 'Wijnhuis';
+      } else if (s.kind === 'slaap') {
+        html = `<span class="rgm-pin rgm-pin--slaap" aria-hidden="true"></span>`;
+        role = 'Overnachten';
+      } else {
+        const isEnd = s.n === 1 || s.n === lastDay;
+        html = `<span class="rgm-pin rgm-pin--dag${isEnd ? ' rgm-pin--end' : ''}">${s.n ?? ''}</span>`;
+        role = s.n === 1 ? 'Van' : s.n === lastDay ? 'Naar' : `Dag ${s.n}`;
+      }
+      const icon = L.divIcon({ className: '', html, iconSize: [28, 28], iconAnchor: [14, 14] });
+      const link = s.kind === 'wijnhuis' && s.slug
+        ? `<a class="rgm-popup__cta" href="${data.wijnhuisBase || '/wijnhuizen/'}${encodeURIComponent(s.slug)}/">Lees portret &rarr;</a>`
+        : '';
+      const marker = L.marker([s.lat, s.lng], { icon, title: s.naam, riseOnHover: true })
+        .addTo(map)
+        .bindPopup(
+          `<div class="rgm-popup"><span class="rgm-popup__role">${esc(role)}</span><h4 class="rgm-popup__name">${esc(s.naam)}</h4>${link}</div>`,
+          { minWidth: 140, autoPanPadding: [24, 24] },
+        );
+      if (s.n != null) {
+        markersByN.set(s.n, marker);
+        marker.on('click', () => highlightCard(s.n as number));
+      }
+    }
+
+    map.fitBounds(boundsPts, { padding: [40, 40], maxZoom: 12 });
+    setTimeout(() => map.invalidateSize(), 0);
+
+    // LAT-2125 — tweerichtings sync met de itinerary POI-cards: klik/enter op een
+    // genummerde card pant naar de pin + opent de popup (spiegel van StreekKaart).
+    document.querySelectorAll<HTMLElement>('[data-skz-card]').forEach((card) => {
+      const n = Number(card.dataset.skzCard);
+      const marker = markersByN.get(n);
+      if (!marker) return;
+      const focus = (e: Event) => {
+        if ((e.target as HTMLElement).closest('a')) return;
+        map.panTo(marker.getLatLng());
+        marker.openPopup();
+      };
+      card.addEventListener('click', focus);
+      card.addEventListener('keydown', (e: KeyboardEvent) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          map.panTo(marker.getLatLng());
+          marker.openPopup();
+        }
+      });
+    });
+  }
+
+  // Klik-pin → scroll naar de bijbehorende card + korte highlight.
+  function highlightCard(n: number): void {
+    const card = document.querySelector<HTMLElement>(`[data-skz-card="${n}"]`);
+    if (!card) return;
+    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    card.classList.add('poi-card--active');
+    window.setTimeout(() => card.classList.remove('poi-card--active'), 1800);
+  }
+
+  function ready(): void {
+    const sections = Array.from(document.querySelectorAll<HTMLElement>('figure.routegeo[data-routegeo]'))
+      .filter((s) => s.querySelector('[data-routegeo-canvas]'));
+    if (!sections.length) return;
+
+    if (!('IntersectionObserver' in window)) {
+      sections.forEach((s) => initSection(s));
+      return;
+    }
+    const io = new IntersectionObserver(
+      (entries, obs) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            obs.unobserve(entry.target);
+            initSection(entry.target as HTMLElement);
+          }
+        }
+      },
+      { rootMargin: '200px' },
+    );
+    sections.forEach((s) => io.observe(s));
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', ready);
+  } else {
+    ready();
+  }
+</script>
+
+<style>
+  .routegeo {
+    margin: 0 0 2rem;
+  }
+  .routegeo__cap {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.6rem;
+  }
+  .routegeo__label {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: var(--burgundy, #5A1A1F);
+  }
+  .routegeo__from-to {
+    font-family: var(--font-display, Georgia, serif);
+    font-size: 1.0625rem;
+    color: var(--ink, #1F1A16);
+  }
+  .routegeo__arrow { color: var(--inkFaint, #8A7D6E); }
+  .routegeo__canvas {
+    width: 100%;
+    height: 420px;
+    min-height: 340px;
+    border-radius: 2px;
+    border: 1px solid var(--rule, #C9B98F);
+    background: #F0E6D0;
+    z-index: 0;
+  }
+  .routegeo__legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.1rem;
+    list-style: none;
+    margin: 0.6rem 0 0;
+    padding: 0;
+  }
+  .routegeo__legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-family: var(--font-mono, monospace);
+    font-size: 0.6875rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--inkSoft, #5A4F45);
+  }
+  .routegeo__swatch {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 1.5px solid #FAF5E9;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.12);
+  }
+  /* Dag-etappe: genummerde bordeaux dot (mirror van de kaartpin) — onderscheidt
+     zich zo van de gelijk-gekleurde, ongenummerde wijnhuis-dot in de legenda. */
+  .routegeo__swatch--dag {
+    width: 16px;
+    height: 16px;
+    background: #5A1A1F;
+    color: #FAF5E9;
+    font-size: 0.5625rem;
+    font-weight: 600;
+    line-height: 1;
+  }
+  .routegeo__swatch--wijnhuis { background: #5A1A1F; }
+  .routegeo__swatch--slaap { background: #5C6B3F; }
+  .routegeo__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin-top: 0.75rem;
+  }
+  .routegeo__tag {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.6875rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--inkSoft, #5A4F45);
+    border: 1px solid var(--ruleSoft, #E0D2B0);
+    border-radius: 2px;
+    padding: 0.2rem 0.5rem;
+  }
+</style>
+
+<style is:global>
+  /* Leaflet-injected DOM kan Astro's scope-attribuut niet dragen → globaal. */
+  .rgm-pin {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    border-radius: 50%;
+    border: 2px solid #FAF5E9;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+    color: #FAF5E9;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1;
+  }
+  /* LAT-2000 — dag-etappe: genummerde bordeaux middendot (vorm uit het wordmark). */
+  .rgm-pin--dag {
+    width: 28px;
+    height: 28px;
+    background: #5A1A1F;
+  }
+  .rgm-pin--end { box-shadow: 0 0 0 2px #C9A24B, 0 1px 3px rgba(0, 0, 0, 0.35); }
+  /* Wijnhuis-stop: bordeaux POI-dot. Overnachten: olijfgroene POI-dot. */
+  .rgm-pin--wijnhuis,
+  .rgm-pin--slaap {
+    width: 18px;
+    height: 18px;
+  }
+  .rgm-pin--wijnhuis { background: #5A1A1F; }
+  .rgm-pin--slaap { background: #5C6B3F; }
+  .rgm-popup { font-family: var(--font-body, Georgia, serif); min-width: 130px; }
+  .rgm-popup__cta {
+    display: inline-block;
+    margin-top: 0.35rem;
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-size: 0.6875rem;
+    letter-spacing: 0.06em;
+    color: #5A1A1F;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(90, 26, 31, 0.35);
+  }
+  .rgm-popup__role {
+    display: block;
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-size: 0.625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-weight: 600;
+    color: #5A4F45;
+    margin-bottom: 0.2rem;
+  }
+  .rgm-popup__name {
+    font-family: var(--font-display, Georgia, serif);
+    font-size: 1.0625rem;
+    font-weight: 500;
+    color: #1F1A16;
+    margin: 0;
+    line-height: 1.2;
+  }
+</style>

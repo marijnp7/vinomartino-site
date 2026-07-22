@@ -1,0 +1,65 @@
+---
+// LAT-2638 — EN wijnroute-detailroute onder /en/. Identieke markup als de
+// NL-route via het gedeelde RouteDetail-component, met de per-locale loaders:
+// loadRoutes('en') past de no-translation-guard toe (directus-i18n.ts), dus
+// routes zónder EN-vertaling vallen weg uit `entries` → géén /en/wijnroutes/
+// <slug>/ (404 i.p.v. NL-lek). Streek/wijnhuis/acc-relaties gebruiken de
+// EN-loaders (niet-vertaalde vallen weg → leeg i.p.v. gemengd NL/EN). Interne
+// links blijven NL-absoluut tot de aparte link-localisatie-pas (scope #3).
+import RouteDetail from '../../../components/RouteDetail.astro';
+import { loadRoutes, type WijnRoute } from '../../../lib/routes';
+import { loadStreken } from '../../../lib/streken';
+import { loadWijnhuizen, type Wijnhuis } from '../../../lib/wijnhuizen';
+import { loadAccommodatieRoundupsByStreek } from '../../../lib/accommodaties-loader';
+import { filterRoundupOpFotos, roundupKaartAantal, type AccommodatieRoundup as AccommodatieRoundupData } from '../../../lib/accommodaties';
+
+const EN = 'en' as const;
+
+export async function getStaticPaths() {
+  const [entries, streken, wijnhuizen, accRoundupsByStreek] = await Promise.all([loadRoutes('en'), loadStreken('en'), loadWijnhuizen('en'), loadAccommodatieRoundupsByStreek('en')]);
+  const streekBySlug = new Map(streken.map(s => [s.slug, s]));
+  const wijnhuizenByStreek = new Map<string, Wijnhuis[]>();
+  for (const wh of wijnhuizen) {
+    if (!wh.streekSlug) continue;
+    const list = wijnhuizenByStreek.get(wh.streekSlug) ?? [];
+    list.push(wh);
+    wijnhuizenByStreek.set(wh.streekSlug, list);
+  }
+  const wijnhuisBySlug = new Map(wijnhuizen.map(wh => [wh.slug, wh]));
+  return entries.map(entry => {
+    const streek = entry.streekSlug ? streekBySlug.get(entry.streekSlug) : undefined;
+    const routeWijnhuisSlugs = entry.stopsGeo
+      .filter(s => s.kind === 'wijnhuis' && s.slug)
+      .map(s => s.slug as string);
+    const routeWijnhuizen = routeWijnhuisSlugs
+      .map(slug => wijnhuisBySlug.get(slug))
+      .filter((wh): wh is Wijnhuis => Boolean(wh));
+    const rawRoundup = entry.streekSlug ? accRoundupsByStreek.get(entry.streekSlug) : undefined;
+    const staysRoundup = rawRoundup && roundupKaartAantal(filterRoundupOpFotos(rawRoundup)) > 0
+      ? filterRoundupOpFotos(rawRoundup)
+      : null;
+    return {
+      params: { slug: entry.slug },
+      props: {
+        entry,
+        streekName: streek?.name ?? '',
+        landSlug: streek?.landSlug ?? '',
+        landName: streek?.country ?? '',
+        wijnhuizen: routeWijnhuizen.length > 0
+          ? routeWijnhuizen
+          : (entry.streekSlug ? (wijnhuizenByStreek.get(entry.streekSlug) ?? []) : []),
+        staysRoundup,
+        // Deze route bestaat per definitie alleen voor EN-vertaalde routes.
+        alternates: { nl: `/wijnroutes/${entry.slug}/`, en: `/en/wijnroutes/${entry.slug}/` },
+      },
+    };
+  });
+}
+
+const { entry, streekName, landSlug, landName, wijnhuizen, staysRoundup, alternates } = Astro.props as {
+  entry: WijnRoute; streekName: string; landSlug: string; landName: string; wijnhuizen: Wijnhuis[];
+  staysRoundup: AccommodatieRoundupData | null; alternates: Record<string, string>;
+};
+---
+
+<RouteDetail entry={entry} streekName={streekName} landSlug={landSlug} landName={landName} wijnhuizen={wijnhuizen} staysRoundup={staysRoundup} locale={EN} alternates={alternates} />

@@ -7,6 +7,14 @@
 // so it works for our content that has no lat/lng:
 //   https://www.stay22.com/allez/roam?aid=<aid>&address=<place>&campaign=<label>
 // Docs: https://community.stay22.com/allez-deep-links-everything-you-need-to-know
+//
+// LAT-2576 — taal: de roam-redirect stuurt door naar de OTA (Booking) en lokaliseert
+// dáár op bezoeker-geo/Accept-Language; een `lang`-param is browser-geverifieerd NIET
+// afdwingbaar via roam (2026-07-16). We zetten `lang=en` op EN-pagina's als best-effort
+// intentie (schadeloos) — echte EN-bezoekers krijgen sowieso een Engelse OTA-pagina.
+
+import type { Locale } from './i18n';
+import { STAY22_EN_LANG } from './affiliate-locale';
 
 export const STAY22_AID = 'vinomartino';
 
@@ -17,14 +25,17 @@ export interface AllezLinkOptions {
   location: string;
   /** Tracking label surfaced in the Stay22 Hub stats. */
   campaign?: string;
+  /** Language of the page the link sits on. Default NL (current behaviour). */
+  locale?: Locale;
 }
 
 /** Build an Allez accommodation-search deep-link for a destination string. */
-export function allezSearchUrl({ location, campaign }: AllezLinkOptions): string {
+export function allezSearchUrl({ location, campaign, locale = 'nl' }: AllezLinkOptions): string {
   const params = new URLSearchParams();
   params.set('aid', STAY22_AID);
   params.set('address', location);
   if (campaign) params.set('campaign', campaign);
+  if (locale === 'en') params.set('lang', STAY22_EN_LANG);
   return `${ALLEZ_BASE}?${params.toString()}`;
 }
 

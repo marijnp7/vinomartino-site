@@ -1,0 +1,7 @@
+---
+// LAT-2693 — NL auteurs-overzicht (prefixloos). Markup + logica in het gedeelde
+// AuteursIndex-component; de /en/-tegenhanger rendert hetzelfde met locale="en".
+import AuteursIndex from '../../components/AuteursIndex.astro';
+---
+
+<AuteursIndex alternates={{ nl: '/auteurs/', en: '/en/auteurs/' }} />

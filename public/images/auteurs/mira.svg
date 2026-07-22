@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" role="img" aria-label="Mira — silhouet voor een gewelfde doorgang, glas wijn in de hand">
+  <defs>
+    <radialGradient id="warmLight7" cx="0.5" cy="0.22" r="0.95">
+      <stop offset="0%" stop-color="#f2e4cc"/>
+      <stop offset="55%" stop-color="#c09860"/>
+      <stop offset="100%" stop-color="#4a2e14"/>
+    </radialGradient>
+    <linearGradient id="silhouette7" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2e1c0a"/>
+      <stop offset="100%" stop-color="#160d05"/>
+    </linearGradient>
+    <filter id="grain7" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="51"/>
+      <feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.18 0"/>
+      <feComposite in2="SourceGraphic" operator="in"/>
+    </filter>
+  </defs>
+  <rect width="600" height="600" fill="url(#warmLight7)"/>
+  <g opacity="0.92">
+    <!-- figuur: rechtop, licht opgeheven houding -->
+    <path d="M210 600 V408 C210 358 234 322 266 308 C278 303 284 292 284 280 C284 252 280 228 287 206 C295 178 316 160 338 160 C364 160 385 178 390 206 C395 228 392 254 392 282 C392 295 402 307 418 314 C452 330 474 368 474 412 V600 Z" fill="url(#silhouette7)"/>
+    <!-- hoofd -->
+    <ellipse cx="338" cy="240" rx="19" ry="13" fill="#160d05" opacity="0.7"/>
+    <!-- gewelfde boog architectuur-element achtergrond -->
+    <path d="M100 280 Q220 120 340 120 Q460 120 580 280" fill="none" stroke="#2e1c0a" stroke-width="18" opacity="0.28"/>
+    <!-- glas wijn in linkerhand, uitgestrekte arm -->
+    <path d="M148 400 C148 400 164 393 178 398 C183 400 185 406 183 413 L176 438 C174 445 168 449 162 446 L148 438 C142 434 139 428 139 420 Z" fill="#722a3a" opacity="0.78"/>
+    <ellipse cx="162" cy="415" rx="13" ry="6" fill="#3d1420" opacity="0.55"/>
+  </g>
+  <rect width="600" height="600" fill="#000000" opacity="0.10" filter="url(#grain7)"/>
+</svg>

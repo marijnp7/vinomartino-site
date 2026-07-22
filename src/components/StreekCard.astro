@@ -1,0 +1,130 @@
+---
+// LAT-2006 (VIS-BL-07) - gedeelde streek-kaart voor het /streken/-overzicht.
+// Toont de authenticiteits-badge (Zelf gereisd / Redactiegids) uit het twee-tier
+// model (LAT-1958) en een optionele "Begin hier"-hint op de sterkste streken.
+import SmartImg from './SmartImg.astro';
+import ZelfGereisdBadge from './ZelfGereisdBadge.astro';
+import type { Streek } from '../lib/streken';
+// LAT-2693: locale-aware — href + "Begin hier"-hint volgen de pagina-locale zodat
+// de /en/-overzichtsroute naar /en/streken/<slug>/ linkt (NL blijft byte-identiek).
+import { DEFAULT_LOCALE, localizePath, type Locale } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
+
+interface Props {
+  entry: Streek;
+  beginHier?: boolean;
+  locale?: Locale;
+}
+
+const { entry, beginHier = false, locale = DEFAULT_LOCALE } = Astro.props;
+const ui = await loadUiStrings(locale);
+---
+
+<a href={localizePath(`/streken/${entry.slug}/`, locale)} class="card card-link">
+  <div class:list={['card-img-wrap', !entry.heroImage && 'is-empty']}>
+    <SmartImg src={entry.heroImage || undefined} alt={entry.name} theme="vineyard" class="card-img" />
+    {beginHier && <span class="begin-hier">{ui.t('streken.card.beginHier')}</span>}
+  </div>
+  <div class="card-body">
+    <div class="card-meta">
+      {entry.country && <span class="card-country">{entry.country}</span>}
+      <ZelfGereisdBadge visited={entry.zelfGereisd} year={entry.bezoekjaar} locale={locale} />
+    </div>
+    <h2 class="card-title">{entry.name}</h2>
+    {entry.description && <p class="card-desc">{entry.description}</p>}
+    {entry.mainGrapes && entry.mainGrapes.length > 0 && (
+      <div class="card-tags">
+        {entry.mainGrapes.slice(0, 3).map(g => <span class="tag">{g}</span>)}
+      </div>
+    )}
+  </div>
+</a>
+
+<style>
+  .card-link {
+    text-decoration: none;
+    color: inherit;
+    display: block;
+  }
+  .card-img-wrap {
+    position: relative;
+    aspect-ratio: 16 / 11;
+    overflow: hidden;
+    background: var(--paperShade);
+  }
+  /* LAT-2455: geen beeld → compacte branded band i.p.v. loze reuzenvlak op mobiel. */
+  .card-img-wrap.is-empty {
+    aspect-ratio: auto;
+    height: clamp(96px, 26vw, 140px);
+  }
+  .card-img-wrap :global(img),
+  .card-img-wrap :global(.smart-img-placeholder) {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform var(--duration-image) var(--ease-out);
+  }
+  .card-link:hover .card-img-wrap :global(img) { transform: scale(1.03); }
+  .begin-hier {
+    position: absolute;
+    top: var(--space-3);
+    left: var(--space-3);
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    background: var(--rust, #9a3b26);
+    color: #fff;
+    padding: 0.25rem 0.55rem;
+    border-radius: 1px;
+  }
+  .card-body { padding: 1.25rem; }
+  .card-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    margin-bottom: var(--space-2);
+  }
+  .card-country {
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--rust);
+  }
+  .card-title {
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    font-weight: 500;
+    color: var(--ink);
+    margin-bottom: var(--space-2);
+    line-height: 1.25;
+  }
+  .card-desc {
+    font-family: var(--font-body);
+    font-size: 0.875rem;
+    color: var(--inkSoft);
+    line-height: 1.5;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    margin-bottom: var(--space-3);
+  }
+  .card-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+  }
+  .tag {
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    background: var(--paperDeep);
+    color: var(--inkSoft);
+    padding: 0.25rem 0.625rem;
+    border-radius: 1px;
+  }
+</style>

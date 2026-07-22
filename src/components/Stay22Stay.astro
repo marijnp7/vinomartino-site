@@ -1,15 +1,9 @@
 ---
-// LAT-1127 — Reusable Stay22 "Waar te slapen" affiliate block (interim).
+// LAT-1127 — Reusable Stay22 "Waar te slapen" affiliate block.
 // Renders an Allez accommodation-search deep-link for a destination string.
-// Used on pages WITHOUT a curated accommodation dataset (articles + landen +
-// wijnroutes, and streken not yet curated). The global letmeallez.js loader
-// (LAT-1126) handles LinkSwap; this block guarantees a crawl-verifiable Stay22
-// href on every page.
-//
-// The Stay22 embed/gm map was DROPPED here (Marijn 2026-06-07): it surfaced
-// Stay22's full inventory, not our curation. Curated streken render their own
-// map + cards via <CuratedStayMap>; this block disappears once a streek has
-// curated data.
+// Drop on articles + streek/landen/route pages so the whole site monetiseert,
+// not just Piemonte. The global letmeallez.js loader (LAT-1126) handles
+// LinkSwap; this block guarantees a crawl-verifiable Stay22 href on every page.
 //
 // Click tracking piggybacks on the in-house tracker (LAT-1019) via the same
 // [data-affiliate-track] data-attributes the AffiliateBlock uses.
@@ -17,7 +11,7 @@
 import { allezSearchUrl } from '../lib/stay22';
 
 interface Props {
-  /** Destination as a place string (region, country, venue). Used for the Allez link. */
+  /** Destination as a place string (region, country, venue). No location → renders nothing. */
   location?: string | null;
   /** Page identifier for click attribution (slug or page key). */
   context: string;
@@ -37,16 +31,15 @@ const {
   placement = 'inline-end',
   heading = 'Waar te slapen',
   description,
-  ctaLabel = 'Vind accommodaties',
+  ctaLabel = 'Bekijk accommodaties',
 } = Astro.props;
 
 const loc = location?.trim();
-const camp = campaign ?? context;
-const allezHref = loc ? allezSearchUrl({ location: loc, campaign: camp }) : null;
-const descText = description ?? (loc ? `Vind hotels en verblijven rond ${loc}.` : 'Vind hotels en verblijven in deze regio.');
+const href = loc ? allezSearchUrl({ location: loc, campaign: campaign ?? context }) : null;
+const descText = description ?? (loc ? `Vind hotels en verblijven rond ${loc}.` : '');
 ---
 
-{allezHref && (
+{href && (
   <aside
     class={`stay22-block stay22-${placement}`}
     data-stay22-block
@@ -61,7 +54,7 @@ const descText = description ?? (loc ? `Vind hotels en verblijven rond ${loc}.` 
       </div>
       <a
         class="stay22-block__cta"
-        href={allezHref}
+        href={href}
         target="_blank"
         rel="sponsored nofollow noopener"
         data-affiliate-track
@@ -72,7 +65,6 @@ const descText = description ?? (loc ? `Vind hotels en verblijven rond ${loc}.` 
         {ctaLabel}
       </a>
     </div>
-
     <p class="stay22-block__disclosure">
       Affiliate-link · we kunnen een commissie ontvangen, jij betaalt niets extra.
     </p>

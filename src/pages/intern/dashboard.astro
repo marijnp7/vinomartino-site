@@ -1,0 +1,383 @@
+---
+// LAT-1593 — Intern KPI-dashboard: affiliate-clicks per regio/partner/plaatsing
+// + CJ-reconciliatie. Snapshot per build (SSG), achter nginx basic-auth (/intern/).
+// noindex: nooit in de sitemap of zoekresultaten (zie astro.config sitemap-filter).
+import '../../styles/tokens.css';
+import { loadClicksDashboard } from '../../lib/clicks-dashboard';
+
+const d = await loadClicksDashboard();
+const generated = new Date(d.generatedAt).toLocaleString('nl-NL', { dateStyle: 'medium', timeStyle: 'short' });
+const hasData = d.status === 'ok';
+const topN = <T,>(arr: T[], n = 15): T[] => arr.slice(0, n);
+const plausibleBase = 'https://plausible.io/vinomartino.com';
+const launchMetrics = [
+  {
+    metric: 'Bezoekersgroei',
+    source: 'Visitors + Top Sources',
+    target: 'Dagelijkse groei na promotie',
+    action: 'Beste bron verdubbelen; zwakke bron pauzeren of andere hook testen.',
+    href: plausibleBase,
+  },
+  {
+    metric: 'Campagnes',
+    source: 'UTM Campaigns',
+    target: 'Elke promotie heeft verkeer met utm_campaign',
+    action: 'Ontbreekt UTM-data: link aanpassen voordat je opnieuw deelt.',
+    href: `${plausibleBase}?period=7d`,
+  },
+  {
+    metric: 'Nieuwsbrief',
+    source: 'Goal: newsletter_signup',
+    target: 'Minimaal enkele aanmeldingen per promotiedag',
+    action: 'Veel bezoekers maar weinig signups: CTA/positie op /de-brief aanscherpen.',
+    href: `${plausibleBase}?goal=newsletter_signup&period=7d`,
+  },
+  {
+    metric: 'Affiliate intent',
+    source: 'Goal: affiliate_click',
+    target: 'Clicks per regio/partner zichtbaar',
+    action: 'Veel regioverkeer maar geen clicks: affiliateblokken hoger of relevanter maken.',
+    href: `${plausibleBase}?goal=affiliate_click&period=7d`,
+  },
+  {
+    metric: 'Regio-interesse',
+    source: 'Goal: region_selected',
+    target: 'Promotie stuurt naar concrete regio-keuzes',
+    action: 'Topregio gebruiken voor volgende content en affiliate-prioriteit.',
+    href: `${plausibleBase}?goal=region_selected&period=7d`,
+  },
+];
+const eur = (n: number): string => new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR' }).format(n || 0);
+const pct = (n: number): string => new Intl.NumberFormat('nl-NL', { style: 'percent', minimumFractionDigits: 1, maximumFractionDigits: 2 }).format(n || 0);
+---
+
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex,nofollow" />
+    <title>KPI-dashboard · VinoMartino intern</title>
+  </head>
+  <body>
+    <main class="dash">
+      <header class="dash__head">
+        <span class="dash__kicker">VinoMartino · intern</span>
+        <h1 class="dash__title">Launch KPI-dashboard</h1>
+        <p class="dash__meta">
+          Snapshot van {generated}. Statische build, vernieuwt bij elke deploy.
+        </p>
+      </header>
+
+      <section class="launch" aria-labelledby="launch-title">
+        <div class="launch__head">
+          <div>
+            <h2 id="launch-title" class="launch__title">Dagelijkse launch-check</h2>
+            <p class="launch__meta">
+              Gebruik Plausible voor live groei en dit dashboard voor de eigen affiliate-click snapshot.
+            </p>
+          </div>
+          <a class="launch__link" href={plausibleBase} target="_blank" rel="noopener">Open Plausible</a>
+        </div>
+        <table class="tbl tbl--launch">
+          <thead>
+            <tr>
+              <th>Signaal</th>
+              <th>Waar</th>
+              <th>Doel</th>
+              <th>Actie</th>
+            </tr>
+          </thead>
+          <tbody>
+            {launchMetrics.map((m) => (
+              <tr>
+                <td><strong>{m.metric}</strong></td>
+                <td><a href={m.href} target="_blank" rel="noopener">{m.source}</a></td>
+                <td>{m.target}</td>
+                <td>{m.action}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+
+      {!hasData && (
+        <div class:list={['dash__notice', `dash__notice--${d.status}`]}>
+          <strong>
+            {d.status === 'empty' && 'Nog geen clicks geregistreerd.'}
+            {d.status === 'unconfigured' && 'Directus niet geconfigureerd in deze build.'}
+            {d.status === 'unavailable' && 'Click-data niet beschikbaar.'}
+          </strong>
+          {d.message && <p>{d.message}</p>}
+        </div>
+      )}
+
+      <section class="dash__kpis" aria-label="Affiliate kerncijfers">
+        <div class="kpi">
+          <span class="kpi__num">{d.totalClicks}</span>
+          <span class="kpi__label">Clicks totaal</span>
+        </div>
+        <div class="kpi">
+          <span class="kpi__num">{d.clicks30d}</span>
+          <span class="kpi__label">Laatste 30 dagen</span>
+        </div>
+        <div class="kpi">
+          <span class="kpi__num">{d.clicks7d}</span>
+          <span class="kpi__label">Laatste 7 dagen</span>
+        </div>
+      </section>
+
+      {hasData && (
+        <section class="dash__kpis dash__kpis--comm" aria-label="Commissie-kerncijfers">
+          <div class="kpi">
+            <span class="kpi__num">{eur(d.totalCommissionEur)}</span>
+            <span class="kpi__label">Commissie totaal</span>
+          </div>
+          <div class="kpi">
+            <span class="kpi__num">{d.totalConversions}</span>
+            <span class="kpi__label">CJ-conversies</span>
+          </div>
+          <div class="kpi">
+            <span class="kpi__num">{pct(d.conversionRate)}</span>
+            <span class="kpi__label">Conversieratio</span>
+          </div>
+          <div class="kpi">
+            <span class="kpi__num">{eur(d.revenuePerVisitor)}</span>
+            <span class="kpi__label">Omzet per bezoeker</span>
+          </div>
+        </section>
+      )}
+
+      {hasData && !d.commissionsAvailable && (
+        <div class="dash__notice dash__notice--unavailable">
+          <strong>CJ-commissies nog niet beschikbaar.</strong>
+          <p>De affiliate_commissions-collectie of de lees-permissie voor het build-token ontbreekt.
+            De commissie-cijfers vullen zich zodra de dagelijkse CJ-import (LAT-1789) heeft gedraaid.</p>
+        </div>
+      )}
+
+      {hasData && (
+        <div class="dash__grid">
+          <section class="panel">
+            <h2 class="panel__title">Per partner</h2>
+            <table class="tbl">
+              <thead><tr><th>Partner</th><th class="num">Clicks</th></tr></thead>
+              <tbody>
+                {topN(d.byPartner).map((b) => (
+                  <tr><td>{b.label}</td><td class="num">{b.count}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+
+          <section class="panel">
+            <h2 class="panel__title">Per plaatsing</h2>
+            <table class="tbl">
+              <thead><tr><th>Plaatsing</th><th class="num">Clicks</th></tr></thead>
+              <tbody>
+                {topN(d.byPlacement).map((b) => (
+                  <tr><td>{b.label}</td><td class="num">{b.count}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+
+          <section class="panel">
+            <h2 class="panel__title">Per regio</h2>
+            <table class="tbl">
+              <thead><tr><th>Regio / context</th><th class="num">Clicks</th></tr></thead>
+              <tbody>
+                {topN(d.byRegio).map((b) => (
+                  <tr><td>{b.label}</td><td class="num">{b.count}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+
+          <section class="panel">
+            <h2 class="panel__title">Commissie per partner</h2>
+            <table class="tbl">
+              <thead><tr><th>Partner</th><th class="num">Conversies</th><th class="num">Commissie</th></tr></thead>
+              <tbody>
+                {d.commissionByPartner.length > 0 ? topN(d.commissionByPartner).map((b) => (
+                  <tr><td>{b.label}</td><td class="num">{b.conversions}</td><td class="num">{eur(b.commissionEur)}</td></tr>
+                )) : (
+                  <tr><td colspan="3" class="muted">Nog geen commissies geïmporteerd.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </section>
+
+          <section class="panel">
+            <h2 class="panel__title">Commissie per regio</h2>
+            <table class="tbl">
+              <thead><tr><th>Regio</th><th class="num">Conversies</th><th class="num">Commissie</th></tr></thead>
+              <tbody>
+                {d.commissionByRegio.length > 0 ? topN(d.commissionByRegio).map((b) => (
+                  <tr><td>{b.label}</td><td class="num">{b.conversions}</td><td class="num">{eur(b.commissionEur)}</td></tr>
+                )) : (
+                  <tr><td colspan="3" class="muted">Nog geen commissies geïmporteerd.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </section>
+
+          <section class="panel">
+            <h2 class="panel__title">Commissie per plaatsing</h2>
+            <table class="tbl">
+              <thead><tr><th>Plaatsing</th><th class="num">Conversies</th><th class="num">Commissie</th></tr></thead>
+              <tbody>
+                {d.commissionByPlacement.length > 0 ? topN(d.commissionByPlacement).map((b) => (
+                  <tr><td>{b.label}</td><td class="num">{b.conversions}</td><td class="num">{eur(b.commissionEur)}</td></tr>
+                )) : (
+                  <tr><td colspan="3" class="muted">Nog geen commissies geïmporteerd.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </section>
+
+          <section class="panel panel--wide">
+            <h2 class="panel__title">CJ-reconciliatie</h2>
+            <p class="panel__note">
+              Geregistreerde tracker-clicks per CJ/Booking-partner naast de door CJ
+              gerapporteerde conversies en commissie (dagelijkse CJ Commission Detail
+              import, LAT-1789).
+            </p>
+            <table class="tbl">
+              <thead>
+                <tr><th>Partner</th><th class="num">Tracker-clicks</th><th class="num">CJ-conversies</th><th class="num">Commissie</th></tr>
+              </thead>
+              <tbody>
+                {d.cjReconciliation.length > 0 ? d.cjReconciliation.map((r) => (
+                  <tr><td>{r.partner}</td><td class="num">{r.trackedClicks}</td><td class="num">{r.cjConversions}</td><td class="num">{eur(r.commissionEur)}</td></tr>
+                )) : (
+                  <tr><td colspan="4" class="muted">Geen CJ/Booking-clicks of -commissies in dit venster.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </section>
+        </div>
+      )}
+    </main>
+
+    <style>
+      :root { color-scheme: light; }
+      body {
+        margin: 0;
+        background: var(--paperDeep, #F0E6D0);
+        color: var(--ink, #1F1A16);
+        font-family: var(--font-ui, system-ui, sans-serif);
+      }
+      .dash { max-width: 1100px; margin: 0 auto; padding: 2.5rem 1.5rem 4rem; }
+      .dash__kicker {
+        font-family: var(--font-mono, monospace);
+        font-size: 0.6875rem;
+        text-transform: uppercase;
+        letter-spacing: 0.2em;
+        color: var(--burgundy, #5A1A1F);
+      }
+      .dash__title {
+        font-family: var(--font-display, Georgia, serif);
+        font-size: clamp(1.75rem, 1.2rem + 2vw, 2.5rem);
+        font-weight: 500;
+        margin: 0.3rem 0 0.4rem;
+      }
+      .dash__meta { font-size: 0.875rem; color: var(--inkSoft, #5A4F45); margin: 0 0 1.75rem; }
+      .launch {
+        background: var(--paper, #FBF7EE);
+        border: 1px solid var(--ruleSoft, #E0D2B0);
+        border-radius: 4px;
+        padding: 1.25rem 1.35rem 1.4rem;
+        margin-bottom: 1.75rem;
+      }
+      .launch__head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 1rem;
+        border-bottom: 1px solid var(--rule, #C9B98F);
+        padding-bottom: 0.9rem;
+        margin-bottom: 0.8rem;
+      }
+      .launch__title {
+        font-family: var(--font-ui, sans-serif);
+        font-size: 0.8125rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        margin: 0 0 0.35rem;
+      }
+      .launch__meta { font-size: 0.875rem; color: var(--inkSoft, #5A4F45); margin: 0; line-height: 1.45; }
+      .launch__link {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 2.25rem;
+        padding: 0 0.9rem;
+        border: 1px solid var(--burgundy, #5A1A1F);
+        border-radius: 3px;
+        color: var(--burgundy, #5A1A1F);
+        text-decoration: none;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      .launch__link:hover { background: var(--burgundy, #5A1A1F); color: var(--paper, #FBF7EE); }
+      .dash__notice {
+        border: 1px solid var(--rule, #C9B98F);
+        border-left: 4px solid var(--rust, #A14F2A);
+        background: var(--paper, #FBF7EE);
+        padding: 0.9rem 1.1rem;
+        border-radius: 3px;
+        margin-bottom: 1.75rem;
+      }
+      .dash__notice p { margin: 0.4rem 0 0; font-size: 0.875rem; color: var(--inkSoft, #5A4F45); }
+      .dash__kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 2rem; }
+      .dash__kpis--comm { grid-template-columns: repeat(4, 1fr); }
+      .kpi {
+        background: var(--paper, #FBF7EE);
+        border: 1px solid var(--ruleSoft, #E0D2B0);
+        border-radius: 4px;
+        padding: 1.2rem 1.25rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+      }
+      .kpi__num { font-family: var(--font-display, Georgia, serif); font-size: 2.25rem; font-weight: 500; color: var(--burgundy, #5A1A1F); line-height: 1; }
+      .kpi__label { font-family: var(--font-mono, monospace); font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--inkSoft, #5A4F45); }
+      .dash__grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.25rem; }
+      .panel--wide { grid-column: 1 / -1; }
+      .panel {
+        background: var(--paper, #FBF7EE);
+        border: 1px solid var(--ruleSoft, #E0D2B0);
+        border-radius: 4px;
+        padding: 1.25rem 1.35rem 1.4rem;
+      }
+      .panel__title {
+        font-family: var(--font-ui, sans-serif);
+        font-size: 0.8125rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        margin: 0 0 0.9rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid var(--rule, #C9B98F);
+      }
+      .panel__note { font-size: 0.8125rem; color: var(--inkSoft, #5A4F45); margin: 0 0 0.9rem; line-height: 1.5; }
+      .tbl { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+      .tbl th, .tbl td { text-align: left; padding: 0.45rem 0.5rem; border-bottom: 1px solid var(--ruleSoft, #E0D2B0); }
+      .tbl th { font-family: var(--font-mono, monospace); font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--inkFaint, #8A7E70); }
+      .tbl a { color: var(--burgundy, #5A1A1F); font-weight: 600; text-decoration-thickness: 1px; text-underline-offset: 0.16em; }
+      .tbl .num { text-align: right; font-variant-numeric: tabular-nums; }
+      .tbl .muted { color: var(--inkFaint, #8A7E70); font-style: italic; }
+      .tbl--launch td { vertical-align: top; line-height: 1.45; }
+      @media (max-width: 760px) {
+        .dash__kpis, .dash__kpis--comm { grid-template-columns: 1fr; }
+        .dash__grid { grid-template-columns: 1fr; }
+        .launch__head { display: block; }
+        .launch__link { margin-top: 0.9rem; }
+        .tbl--launch { display: block; overflow-x: auto; white-space: nowrap; }
+      }
+    </style>
+  </body>
+</html>

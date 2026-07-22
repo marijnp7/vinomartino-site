@@ -1,0 +1,8 @@
+---
+// LAT-2575 (LAT-2570): EN-homepage onder /en/. Deelt HomeContent met de NL-root;
+// locale="en" activeert de ui_strings- en Directus-overlay. alternates voedt
+// hreflang terug naar de NL-root.
+import HomeContent from '../../components/HomeContent.astro';
+---
+
+<HomeContent locale="en" alternates={{ nl: '/', en: '/en/' }} />

@@ -1,0 +1,224 @@
+---
+import SiteLayout from '../../../layouts/SiteLayout.astro';
+import Briefkaart from '../../../components/Briefkaart.astro';
+import NewsletterRegionField from '../../../components/NewsletterRegionField.astro';
+import { organizationSchema, breadcrumbSchema } from '../../../lib/seo';
+import { INSTAGRAM_URL, SUBSTACK_URL } from '../../../lib/social';
+
+// Capture-backend = MailerLite (LAT-1188): nieuwe aanmeldingen landen rechtstreeks
+// in de groep "Newsletter Subscribers" (1896876) en starten de welkomstserie.
+// Form-ID door Marijn bevestigd (LAT-1631). Override via PUBLIC_MAILERLITE_FORM_ACTION.
+const FORM_ACTION =
+  import.meta.env.PUBLIC_MAILERLITE_FORM_ACTION ||
+  'https://assets.mailerlite.com/jsonp/2415940/forms/189828746131277541/subscribe';
+
+// Kanaal-URLs komen uit src/lib/social.ts (een bron, geen drift). Substack is
+// live sinds 2026-07-16 en daarmee niet langer verborgen (was LAT-1631);
+// rolverdeling blijft MailerLite = funnel, Substack = discovery (LAT-2266).
+
+const schema = [
+  organizationSchema(),
+  breadcrumbSchema([
+    { name: 'Home', url: '/en/' },
+    { name: 'The letter', url: '/en/de-brief/' },
+  ]),
+];
+---
+
+<SiteLayout
+  title="The letter, the VinoMartino newsletter"
+  description="Every two weeks Marijn puts a letter in your inbox: about a winemaker we just visited, a region that caught our attention again, a bottle that made an impression. Sign up and I'll send the Langhe travel planner straight away."
+  schema={schema}
+  activeNav="de-brief"
+  locale="en"
+  alternates={{ nl: '/de-brief/', en: '/en/de-brief/' }}
+>
+  <section class="hero">
+    <div class="container container-narrow">
+      <span class="kicker">The letter · every two weeks</span>
+      <h1>The letter</h1>
+      <p class="lede">
+        Every two weeks Marijn puts a letter in your inbox. No press releases,
+        no invitations to generic wine festivals — a real letter. About a
+        winemaker we just visited, a region that caught our attention again, a
+        bottle that made an impression. Sign up today and I'll send the Langhe travel planner straight away.
+      </p>
+
+      <form
+        class="signup"
+        action={FORM_ACTION}
+        method="post"
+        target="_blank"
+        data-newsletter-signup
+      >
+        <div class="signup__row">
+          <label for="ml-email" class="visually-hidden">Email address</label>
+          <input
+            id="ml-email"
+            type="email"
+            name="fields[email]"
+            autocomplete="email"
+            placeholder="your@email.com"
+            required
+          />
+          <button type="submit" data-plausible-cta="newsletter_signup">Send me the letter</button>
+        </div>
+        <NewsletterRegionField id="ml-region" locale="en" />
+      </form>
+
+      <p class="follow">
+        Already curious? Follow Marijn on
+        <a href={INSTAGRAM_URL} target="_blank" rel="noopener">Instagram</a>{SUBSTACK_URL ? (
+          <>, or read the letters online on <a href={SUBSTACK_URL} target="_blank" rel="noopener" data-plausible-cta="substack_link">Substack</a></>
+        ) : null}, where the first stories appear.
+      </p>
+    </div>
+  </section>
+
+  <section class="voorbeeld">
+    <div class="container container-narrow">
+      <Briefkaart dateline="De Brief, editie 1, juli 2026">
+        <p>Beste lezer,</p>
+        <p>
+          Het was de dag nadat de laatste trossen Nebbiolo waren geoogst, begin
+          november, en de Langhe was verlaten op een manier die alleen november kan.
+          Geel en stil. We reden op smalle asfaltwegen van La Morra naar Verduno, met
+          niemand voor ons en niemand achter ons.
+        </p>
+        <p>
+          Bij Fratelli Alessandria, een huis in Verduno dat niet in de toeristengidsen
+          staat, deed de wijnmaker open alsof we deel waren van zijn middag en niet van
+          iets bijzonders. We proefden de 2017 Monvigliero: breed, warm, met de typische
+          teer en rozen van Nebbiolo en iets wat ik alleen kan omschrijven als november
+          zelf in een glas.
+        </p>
+        <p>
+          In de volledige editie: het hele verhaal uit de Langhe, de Piemonte-pakketpagina
+          die eraan komt, en een Siciliaanse wijnhuis-tip.
+        </p>
+        <p>
+          Dit is een voorbeeld. Meld je aan, dan valt de eerstvolgende editie in je inbox.
+        </p>
+      </Briefkaart>
+    </div>
+  </section>
+</SiteLayout>
+
+<style>
+  .container { max-width: 1280px; margin: 0 auto; padding-inline: var(--gutter); }
+  .container-narrow { max-width: 760px; }
+
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .hero {
+    padding: clamp(56px, 10vw, 112px) 0;
+    text-align: center;
+  }
+  .kicker {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--color-rust, #A14F2A);
+    display: inline-block;
+    margin-bottom: 0.75rem;
+  }
+  h1 {
+    font-family: var(--font-display);
+    font-size: clamp(2.75rem, 5vw + 1rem, 5rem);
+    font-weight: 500;
+    color: var(--color-text);
+    margin: 0;
+    line-height: 0.95;
+  }
+  .lede {
+    font-family: var(--font-serif, var(--font-body));
+    font-size: 1.1875rem;
+    line-height: 1.6;
+    color: var(--color-text-soft, var(--color-text));
+    margin: 1.5rem auto 0;
+    max-width: 600px;
+  }
+  .signup {
+    margin: 2rem auto 0;
+    max-width: 480px;
+  }
+  .signup__row {
+    display: flex;
+    gap: 0.5rem;
+  }
+  .signup input {
+    flex: 1;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--color-rule, #C9B98F);
+    background: var(--color-bg);
+    font-family: var(--font-serif, var(--font-body));
+    font-size: 1rem;
+    outline: none;
+    color: var(--color-text);
+  }
+  .signup input:focus {
+    border-color: var(--color-primary);
+  }
+  .signup button {
+    background: var(--color-primary);
+    color: var(--color-bg);
+    padding: 0.75rem 1.25rem;
+    border: none;
+    font-family: var(--font-ui);
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+  }
+  .signup button:hover {
+    background: var(--color-primary-hover, var(--color-primary));
+  }
+  .follow {
+    font-family: var(--font-serif, var(--font-body));
+    font-size: 0.9375rem;
+    line-height: 1.6;
+    color: var(--color-text-faint, var(--color-text-soft, var(--color-text)));
+    margin: 1.25rem auto 0;
+    max-width: 480px;
+  }
+  .follow a {
+    color: var(--color-primary);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .voorbeeld {
+    padding: 0 0 clamp(56px, 10vw, 112px);
+  }
+  .voorbeeld-link {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 1.25rem;
+    line-height: 1.35;
+    margin-top: 1.1rem;
+  }
+  .voorbeeld-link a {
+    color: var(--burgundy);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  @media (max-width: 640px) {
+    .signup__row {
+      flex-direction: column;
+    }
+  }
+</style>

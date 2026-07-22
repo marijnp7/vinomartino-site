@@ -1,0 +1,187 @@
+---
+// LAT-2009 (VIS-BL-10) — Streek-feitenblok "In het kort 2.0". Vervangt de oude
+// WijnFactBox (LAT-1676) en de dubbele druivenlijst in de hero-sidebar: druiven
+// staan nu nog maar op één plek, hier. Monospace labels, scanbare feiten.
+//
+// Kernrijen (VIS-BL-10): druiven, beste seizoen, rijdagen, dichtstbijzijnd
+// vliegveld, aantal adressen. Plus de bestaande wijndetailrijen (appellatie,
+// jaargangen, oogst, bezoektijd, budget). Elke rij verschijnt alleen als de
+// waarde gevuld is — geen lege box, geen "coming soon".
+//
+// Content komt uit Directus (streken-loader); `aantalAdressen` is afgeleid uit de
+// gerenderde POI-telling. De tier-badge komt uit het twee-tier model (LAT-1958):
+// Tier 1 = zelf gereisd, Tier 2 = redactiegids. Labels via de UI-dictionary
+// (LAT-2575): NL draait op DEFAULT_LOCALE → byte-identiek aan de bestaande copy;
+// de /en/-tegenhanger geeft `locale="en"` mee zodat dezelfde keys EN overlayen.
+import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
+
+interface Props {
+  dominantGrapes?: string[];
+  bestSeason?: string;
+  driveDays?: string;
+  nearestAirport?: string;
+  aantalAdressen?: number;
+  appellations?: string[];
+  bestVintages?: string;
+  harvestPeriod?: string;
+  minVisitTime?: string;
+  tastingBudget?: string;
+  visited?: boolean;
+  bezoekjaar?: number | null;
+  locale?: Locale;
+}
+
+const {
+  dominantGrapes = [],
+  bestSeason = '',
+  driveDays = '',
+  nearestAirport = '',
+  aantalAdressen = 0,
+  appellations = [],
+  bestVintages = '',
+  harvestPeriod = '',
+  minVisitTime = '',
+  tastingBudget = '',
+  visited = false,
+  bezoekjaar = null,
+  locale = DEFAULT_LOCALE,
+} = Astro.props;
+
+const ui = await loadUiStrings(locale);
+
+const rows: Array<{ label: string; value: string }> = [];
+if (dominantGrapes.length) rows.push({ label: ui.t('streek.feit.druiven'), value: dominantGrapes.join(', ') });
+if (bestSeason.trim()) rows.push({ label: ui.t('streek.feit.besteSeizoen'), value: bestSeason.trim() });
+if (driveDays.trim()) rows.push({ label: ui.t('streek.feit.rijdagen'), value: driveDays.trim() });
+if (nearestAirport.trim()) rows.push({ label: ui.t('streek.feit.vliegveld'), value: nearestAirport.trim() });
+if (aantalAdressen > 0) rows.push({ label: ui.t('streek.feit.aantalAdressen'), value: String(aantalAdressen) });
+if (appellations.length) rows.push({ label: ui.t('streek.feit.appellatieniveau'), value: appellations.join(', ') });
+if (bestVintages.trim()) rows.push({ label: ui.t('streek.feit.besteJaargangen'), value: bestVintages.trim() });
+if (harvestPeriod.trim()) rows.push({ label: ui.t('streek.feit.oogstperiode'), value: harvestPeriod.trim() });
+if (minVisitTime.trim()) rows.push({ label: ui.t('streek.feit.minBezoektijd'), value: minVisitTime.trim() });
+if (tastingBudget.trim()) rows.push({ label: ui.t('streek.feit.budgetProeverij'), value: tastingBudget.trim() });
+
+const tierLabel = visited ? ui.t('ui.badge.zelfGereisd') : ui.t('ui.badge.redactiegids');
+const tierTitle = visited ? ui.t('ui.badge.zelfGereisd.title') : ui.t('ui.badge.redactiegids.title');
+---
+
+{rows.length > 0 && (
+  <aside class="vm-feitenblok" aria-label={ui.t('streek.feit.ariaLabel')}>
+    <div class="vm-feitenblok__head">
+      <h2 class="vm-feitenblok__heading">{ui.t('streek.feit.heading')}</h2>
+      <span
+        class:list={['vm-feitenblok__tier', visited ? 'vm-feitenblok__tier--visited' : 'vm-feitenblok__tier--redactie']}
+        title={tierTitle}
+      >
+        <span class="vm-feitenblok__tier-dot" aria-hidden="true"></span>
+        {tierLabel}{visited && bezoekjaar ? <span class="vm-feitenblok__tier-year"> &middot; {bezoekjaar}</span> : null}
+      </span>
+    </div>
+    <dl class="vm-feitenblok__grid">
+      {rows.map((row) => (
+        <div class="vm-feitenblok__row">
+          <dt class="vm-feitenblok__label">{row.label}</dt>
+          <dd class="vm-feitenblok__value">{row.value}</dd>
+        </div>
+      ))}
+    </dl>
+  </aside>
+)}
+
+<style>
+  .vm-feitenblok {
+    border: 1px solid var(--rule, #c9b98f);
+    border-radius: var(--radius-lg, 4px);
+    background: var(--paperDeep, #f0e6d0);
+    padding: 1.25rem 1.4rem;
+  }
+
+  .vm-feitenblok__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.9rem;
+  }
+
+  .vm-feitenblok__heading {
+    margin: 0;
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--burgundy, #5a1a1f);
+  }
+
+  .vm-feitenblok__tier {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.6rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    background: #f2ede2;
+    border: 1px solid #d8cdb4;
+    color: #6b5a34;
+  }
+
+  .vm-feitenblok__tier--redactie {
+    background: #eef1f4;
+    border-color: #cdd6df;
+    color: #47555f;
+  }
+
+  .vm-feitenblok__tier-dot {
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 50%;
+    background: #9a7d2e;
+  }
+
+  .vm-feitenblok__tier--redactie .vm-feitenblok__tier-dot {
+    background: #6b7b88;
+  }
+
+  .vm-feitenblok__tier-year {
+    opacity: 0.75;
+  }
+
+  .vm-feitenblok__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 0.85rem 1.6rem;
+    margin: 0;
+  }
+
+  .vm-feitenblok__row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    border-top: 1px solid var(--ruleSoft, #e0d2b0);
+    padding-top: 0.6rem;
+  }
+
+  .vm-feitenblok__label {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.6rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--inkFaint, #8a7e70);
+  }
+
+  .vm-feitenblok__value {
+    margin: 0;
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.9rem;
+    line-height: 1.35;
+    color: var(--ink, #1f1a16);
+  }
+</style>

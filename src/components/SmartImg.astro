@@ -8,92 +8,19 @@ interface Props {
   loading?: 'lazy' | 'eager';
 }
 
-const { src, alt, theme = 'vineyard', class: className, style, loading = 'lazy' } = Astro.props;
+const { src, alt, class: className, style, loading = 'lazy' } = Astro.props;
 ---
 
 {src ? (
   <img src={src} alt={alt} class={className} style={style} loading={loading} />
 ) : (
-  <div class:list={['smart-img-placeholder', `smart-img-placeholder--${theme}`, className]} style={style} role="img" aria-label={alt}>
-    {theme === 'vineyard' && (
-      <svg viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <rect width="400" height="300" fill="#E8DCC0"/>
-        <rect x="0" y="200" width="400" height="100" fill="#C9B98F" opacity="0.4"/>
-        <!-- rolling hills -->
-        <path d="M0 220 Q50 180 100 210 Q150 240 200 200 Q250 160 300 195 Q350 230 400 205 L400 300 L0 300 Z" fill="#5C6B3F" opacity="0.35"/>
-        <!-- vineyard rows -->
-        <g stroke="#5C6B3F" stroke-width="1" opacity="0.5">
-          <line x1="60" y1="215" x2="140" y2="240"/>
-          <line x1="70" y1="225" x2="150" y2="250"/>
-          <line x1="210" y1="205" x2="290" y2="220"/>
-          <line x1="215" y1="215" x2="295" y2="230"/>
-          <line x1="310" y1="200" x2="390" y2="210"/>
-          <line x1="315" y1="210" x2="395" y2="220"/>
-        </g>
-        <!-- sun/circle -->
-        <circle cx="200" cy="100" r="36" fill="#E5C99B" opacity="0.5"/>
-        <!-- label -->
-        <text x="200" y="170" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="9" fill="#5A4F45" letter-spacing="0.15em" text-transform="uppercase">VINEYARD</text>
-      </svg>
-    )}
-    {theme === 'cellar' && (
-      <svg viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <rect width="400" height="300" fill="#2A2010"/>
-        <!-- arch -->
-        <path d="M120 260 L120 140 Q200 60 280 140 L280 260 Z" fill="none" stroke="#C9B98F" stroke-width="1.5" opacity="0.5"/>
-        <!-- barrels -->
-        <ellipse cx="150" cy="230" rx="22" ry="15" fill="#5A4F45" stroke="#8A7E70" stroke-width="1"/>
-        <rect x="128" y="215" width="44" height="30" rx="3" fill="#5A4F45" stroke="#8A7E70" stroke-width="1"/>
-        <line x1="128" y1="230" x2="172" y2="230" stroke="#8A7E70" stroke-width="1"/>
-        <ellipse cx="250" cy="230" rx="22" ry="15" fill="#5A4F45" stroke="#8A7E70" stroke-width="1"/>
-        <rect x="228" y="215" width="44" height="30" rx="3" fill="#5A4F45" stroke="#8A7E70" stroke-width="1"/>
-        <line x1="228" y1="230" x2="272" y2="230" stroke="#8A7E70" stroke-width="1"/>
-        <text x="200" y="130" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="9" fill="#C9B98F" letter-spacing="0.15em">CELLAR</text>
-      </svg>
-    )}
-    {theme === 'bottle' && (
-      <svg viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <rect width="400" height="300" fill="#F0E6D0"/>
-        <!-- bottle silhouette -->
-        <path d="M185 50 L185 90 Q170 100 165 120 L165 250 Q165 260 175 260 L225 260 Q235 260 235 250 L235 120 Q230 100 215 90 L215 50 Z" fill="#5A1A1F" opacity="0.7"/>
-        <rect x="188" y="42" width="24" height="12" rx="2" fill="#5A1A1F" opacity="0.7"/>
-        <!-- label area -->
-        <rect x="170" y="155" width="60" height="70" rx="1" fill="#FAF5E9" opacity="0.8"/>
-        <line x1="175" y1="170" x2="225" y2="170" stroke="#C9B98F" stroke-width="0.75"/>
-        <line x1="180" y1="180" x2="220" y2="180" stroke="#C9B98F" stroke-width="0.5"/>
-        <line x1="180" y1="190" x2="220" y2="190" stroke="#C9B98F" stroke-width="0.5"/>
-        <text x="200" y="290" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="9" fill="#8A7E70" letter-spacing="0.15em">BOTTLE</text>
-      </svg>
-    )}
-    {theme === 'winery' && (
-      <svg viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <rect width="400" height="300" fill="#F0E6D0"/>
-        <!-- building outline -->
-        <rect x="100" y="130" width="200" height="120" fill="#E8DCC0" stroke="#C9B98F" stroke-width="1.5"/>
-        <polygon points="100,130 200,70 300,130" fill="#C9B98F" opacity="0.6"/>
-        <!-- windows -->
-        <rect x="130" y="160" width="30" height="40" fill="#5A1A1F" opacity="0.3"/>
-        <rect x="240" y="160" width="30" height="40" fill="#5A1A1F" opacity="0.3"/>
-        <!-- door -->
-        <rect x="180" y="195" width="40" height="55" rx="2" fill="#8A7E70" opacity="0.5"/>
-        <text x="200" y="50" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="9" fill="#8A7E70" letter-spacing="0.15em">WINERY</text>
-      </svg>
-    )}
-    {theme === 'region' && (
-      <svg viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <rect width="400" height="300" fill="#1F1A16"/>
-        <!-- abstract topographic lines -->
-        <path d="M50 200 Q120 160 200 170 Q280 180 350 140" fill="none" stroke="#C9B98F" stroke-width="1" opacity="0.4"/>
-        <path d="M50 220 Q120 185 200 195 Q280 205 350 165" fill="none" stroke="#C9B98F" stroke-width="1" opacity="0.3"/>
-        <path d="M50 240 Q120 210 200 220 Q280 230 350 190" fill="none" stroke="#C9B98F" stroke-width="1" opacity="0.2"/>
-        <path d="M50 175 Q120 130 200 140 Q280 150 350 110" fill="none" stroke="#C9B98F" stroke-width="1" opacity="0.35"/>
-        <path d="M50 150 Q120 100 200 115 Q280 130 350 85" fill="none" stroke="#C9B98F" stroke-width="1" opacity="0.25"/>
-        <!-- pin -->
-        <circle cx="200" cy="148" r="6" fill="#E5C99B" opacity="0.8"/>
-        <circle cx="200" cy="148" r="3" fill="#5A1A1F"/>
-        <text x="200" y="270" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="9" fill="#C9B98F" letter-spacing="0.15em">REGION</text>
-      </svg>
-    )}
+  <div class:list={['smart-img-placeholder', className]} style={style} role="img" aria-label={alt}>
+    <svg viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" preserveAspectRatio="xMidYMid slice">
+      <rect width="400" height="300" fill="#E7DABE"/>
+      <rect width="400" height="150" fill="#EFE6D2"/>
+      <path d="M0 205 Q100 178 200 194 Q300 210 400 186 L400 300 L0 300 Z" fill="#C4B084" opacity="0.6"/>
+      <path d="M0 240 Q120 220 220 236 Q320 252 400 230 L400 300 L0 300 Z" fill="#A88F60" opacity="0.55"/>
+    </svg>
   </div>
 )}
 

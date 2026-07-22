@@ -3,7 +3,7 @@ title: "Cava blind geproefd — de blindproeverij die mijn Champagne-vooroordeel
 date: 2026-06-14
 author: "Martin"
 summary: "Zes glazen, geen etiketten, drie Champagnes en drie Corpinnat-cavas door elkaar. Martin deed de blindproeverij waarvoor hij steeds excuses had bedacht — en het oordeel over Cava dat hij twintig jaar had meegedragen, kraakte."
-description: "Martin (WSET4) test in een gestructureerde blindproeverij of Corpinnat-cavas uit het Penedès het niveau van grower-Champagnes halen. De uitkomst is eerlijk beschreven, met een conclusie over het Penedès als reisbestemming."
+description: "Martin test in een gestructureerde blindproeverij of Corpinnat-cavas uit het Penedès het niveau van grower-Champagnes halen. De uitkomst is eerlijk beschreven, met een conclusie over het Penedès als reisbestemming."
 category: "wine-knowledge"
 tags: ["cava", "corpinnat", "champagne", "penedès", "xarel-lo", "blindproeverij", "sprankelende-wijn", "reisbestemming"]
 slug: "cava-corpinnat-blindproeverij-penedes"

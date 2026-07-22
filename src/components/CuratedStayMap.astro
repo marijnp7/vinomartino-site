@@ -14,16 +14,23 @@
 // Allez boeklink (AID vinomartino, campaign = streek-slug) for the commission.
 
 import type { Accommodation, WijnhuisPin } from '../lib/streken';
-import { allezSearchUrl } from '../lib/stay22';
+import { buildCjBookingLink, buildBookingSearchLink, unwrapCjRedirect } from '../lib/affiliates';
+import { currencyForLand, formatMoney } from '../lib/currency';
 
 interface Props {
   streek: string;
   slug: string;
+  /** Land-slug van de streek (bv. 'zuid-afrika'); bepaalt de bron-valuta (LAT-1664). */
+  landSlug?: string | null;
   accommodaties: Accommodation[];
   wijnhuizen?: WijnhuisPin[];
 }
 
-const { streek, slug, accommodaties, wijnhuizen = [] } = Astro.props;
+const { streek, slug, landSlug, accommodaties, wijnhuizen = [] } = Astro.props;
+// LAT-1664: bron-valuta volgt het land (Zuid-Afrika → ZAR), maar prijzen worden
+// site-breed naar EUR geconverteerd voor weergave (board-besluit). acc.valuta
+// wint per verblijf als bron over de land-default.
+const streekValuta = currencyForLand(landSlug);
 
 type TierKey = 'slim_geboekt' | 'prijs_kwaliteit' | 'pure_luxe';
 const TIER_ORDER: TierKey[] = ['slim_geboekt', 'prijs_kwaliteit', 'pure_luxe'];
@@ -37,15 +44,55 @@ const TIER_META: Record<TierKey, { label: string; color: string }> = {
 const ordered = TIER_ORDER.flatMap((t) => accommodaties.filter((a) => a.tier === t));
 const numbered = ordered.map((acc, i) => ({ acc, n: i + 1 }));
 
+function slugifyNaam(naam: string): string {
+  return naam.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'verblijf';
+}
+
+// LAT-1414 + LAT-1549: link-type-agnostic, maar altijd ad-blocker-bestendig.
+// Board-beslissing (Optie A, orchestrator 2026-06-18): per verblijf een DIRECTE
+// booking.com-link met unieke SID + CJ-label, nooit een kqzyfj-tussenhop.
+//  1. boeklink is een (legacy) CJ-redirect → pel de hop af → directe booking.com-deeplink.
+//  2. boeklink is een booking.com-URL → idempotent aid+label erop.
+//  3. andere host (bewuste data-config, bv. directe domeinlink) → ongewijzigd door.
+//  4. geen per-verblijf-URL → directe booking.com-zoekdeeplink op adres
+//     (vervangt de oude Stay22-allez-fallback zodat ook ongecureerde streken een
+//     directe, CJ-geattribueerde booking.com-link tonen).
 function bookingHref(acc: Accommodation): string {
-  if (acc.boeklink && /^https?:\/\//.test(acc.boeklink)) return acc.boeklink;
-  return allezSearchUrl({ location: `${acc.naam}, ${streek}`, campaign: slug });
+  const sid = `accommodation-${slugifyNaam(acc.naam)}`;
+  const raw = acc.boeklink;
+  if (raw && /^https?:\/\//.test(raw)) {
+    const direct = unwrapCjRedirect(raw);
+    try {
+      if (new URL(direct).hostname.toLowerCase().includes('booking.com')) {
+        return buildCjBookingLink(direct, sid);
+      }
+    } catch { /* val terug op passthrough */ }
+    return direct;
+  }
+  return buildBookingSearchLink(acc.adres || `${acc.naam}, ${streek}`, sid);
+}
+
+function affiliatePartner(href: string): string {
+  try {
+    const host = new URL(href).hostname.toLowerCase();
+    if (host.includes('booking.com')) return 'booking.com';
+    if (host.includes('stay22')) return 'stay22';
+    if (host.includes('kqzyfj') || host.includes('.cj') || host.includes('anrdoezrs') || host.includes('jdoqocy')) return 'cj';
+    return 'direct';
+  } catch {
+    return 'direct';
+  }
 }
 
 function priceLabel(acc: Accommodation): string | null {
-  if (acc.prijsLaag != null && acc.prijsHoog != null) return `€${acc.prijsLaag}–${acc.prijsHoog}`;
-  if (acc.prijsLaag != null) return `vanaf €${acc.prijsLaag}`;
-  if (acc.prijsHoog != null) return `tot €${acc.prijsHoog}`;
+  // LAT-1664: bron-valuta (acc.valuta of land-default) → display EUR.
+  const bron = acc.valuta || streekValuta;
+  const laag = formatMoney(acc.prijsLaag, bron);
+  const hoog = formatMoney(acc.prijsHoog, bron);
+  if (laag && hoog) return `${laag}–${hoog}`;
+  if (laag) return `vanaf ${laag}`;
+  if (hoog) return `tot ${hoog}`;
   return null;
 }
 
@@ -69,6 +116,7 @@ const mapData = {
     color: TIER_META[acc.tier].color,
     price: priceLabel(acc),
     boeklink: bookingHref(acc),
+    partner: affiliatePartner(bookingHref(acc)),
     lat: acc.lat,
     lng: acc.lng,
   })),
@@ -81,7 +129,7 @@ const mapData = {
     <span class="curated-stay__kicker">Waar te slapen</span>
     <h2 id={`${mapId}-title`} class="curated-stay__title">Onze adressen in {streek}</h2>
     <p class="curated-stay__intro">
-      Een handgekozen selectie — geen willekeurig hotelaanbod, maar {accommodaties.length} verblijven
+      Een handgekozen selectie: geen willekeurig hotelaanbod, maar {accommodaties.length} verblijven
       die we zelf zouden boeken, in drie prijsklassen. De kaart toont precies deze adressen
       {geoWijn.length > 0 && <> plus de wijnhuizen uit dit stuk</>}.
     </p>
@@ -124,6 +172,11 @@ const mapData = {
               data-stay-card={acc.lat != null && acc.lng != null ? n : undefined}
               tabindex={acc.lat != null && acc.lng != null ? 0 : undefined}
             >
+              {acc.foto && (
+                <div class="stay-card__media">
+                  <img class="stay-card__img" src={acc.foto} alt={acc.naam} loading="lazy" decoding="async" width="600" height="400" />
+                </div>
+              )}
               <div class="stay-card__head">
                 <span class="stay-card__num" style={`background:${TIER_META[t].color}`}>{n}</span>
                 <h4 class="stay-card__name">{acc.naam}</h4>
@@ -134,14 +187,16 @@ const mapData = {
                 <a
                   class="stay-card__cta"
                   href={bookingHref(acc)}
+                  data-cj-href={bookingHref(acc)}
                   target="_blank"
                   rel="sponsored noopener"
                   data-affiliate-track
-                  data-affiliate-partner="stay22"
+                  data-affiliate-partner={affiliatePartner(bookingHref(acc))}
                   data-affiliate-placement="stay-card"
                   data-affiliate-context={`streek-${slug}`}
+                  data-cta="bekijk-boek"
                 >
-                  Boek via Stay22 →
+                  Bekijk &amp; boek →
                 </a>
                 <span class="stay-card__note">Prijzen variëren per seizoen</span>
               </div>
@@ -153,7 +208,7 @@ const mapData = {
   </div>
 
   <p class="curated-stay__disclosure">
-    Affiliate-links · we kunnen een commissie ontvangen als je via deze links boekt — jij betaalt niets extra.
+    Affiliate-links · we kunnen een commissie ontvangen als je via deze links boekt; jij betaalt niets extra.
   </p>
 </section>
 
@@ -162,7 +217,7 @@ const mapData = {
 
   type AccPin = {
     n: number; naam: string; tier: string; tierLabel: string; color: string;
-    price: string | null; boeklink: string; lat: number; lng: number;
+    price: string | null; boeklink: string; partner: string; lat: number; lng: number;
   };
   type WijnPin = { naam: string; lat: number; lng: number };
   type MapData = { slug: string; accommodaties: AccPin[]; wijnhuizen: WijnPin[] };
@@ -245,9 +300,9 @@ const mapData = {
         `<span class="csm-popup__tier" style="color:${a.color}">${esc(a.tierLabel)}</span>` +
         `<h4 class="csm-popup__name">${esc(a.naam)}</h4>` +
         priceHtml +
-        `<a class="csm-popup__cta" href="${esc(a.boeklink)}" target="_blank" rel="sponsored noopener"` +
-        ` data-affiliate-track data-affiliate-partner="stay22" data-affiliate-placement="map-popup"` +
-        ` data-affiliate-context="streek-${esc(data.slug)}">Bekijk &amp; boek →</a>` +
+        `<a class="csm-popup__cta" href="${esc(a.boeklink)}" data-cj-href="${esc(a.boeklink)}" target="_blank" rel="sponsored noopener"` +
+        ` data-affiliate-track data-affiliate-partner="${esc(a.partner)}" data-affiliate-placement="map-popup"` +
+        ` data-affiliate-context="streek-${esc(data.slug)}" data-cta="bekijk-boek">Bekijk &amp; boek →</a>` +
         `</div>`;
 
       const marker = L.marker([a.lat, a.lng], {
@@ -436,7 +491,21 @@ const mapData = {
     display: flex;
     flex-direction: column;
     scroll-margin-top: 5rem;
+    overflow: hidden;
     transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  }
+  /* LAT-1536: per-verblijf foto bloedt naar de kaartranden (counter de padding). */
+  .stay-card__media {
+    margin: -1.25rem -1.25rem 1rem;
+    aspect-ratio: 3 / 2;
+    background: var(--paperDeep, #F0E6D0);
+    overflow: hidden;
+  }
+  .stay-card__img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
   }
   .stay-card[data-stay-card] { cursor: pointer; }
   .stay-card[data-stay-card]:hover,

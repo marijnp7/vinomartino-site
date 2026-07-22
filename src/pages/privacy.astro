@@ -1,62 +1,42 @@
 ---
 import SiteLayout from '../layouts/SiteLayout.astro';
-const datum = "24 april 2026";
+const datum = "5 juli 2026";
 ---
 
 <SiteLayout
-  title="Privacybeleid | VinoMartino"
+  title="Privacyverklaring | VinoMartino"
   description="Hoe VinoMartino omgaat met uw persoonsgegevens."
+  alternates={{ nl: '/privacy/', en: '/en/privacy/' }}
 >
   <section class="legal container">
     <article class="legal-body">
-      <h1>Privacybeleid</h1>
+      <h1>Privacyverklaring</h1>
       <p class="update-datum"><em>Laatste update: {datum}</em></p>
 
-      <p>VinoMartino respecteert uw privacy en gaat zorgvuldig om met uw persoonsgegevens. Dit privacybeleid legt uit welke gegevens we verzamelen, waarvoor we die gebruiken, en wat uw rechten zijn als bezoeker van vinomartino.com.</p>
+      <p><strong>Verantwoordelijke:</strong> VinoMartino (zie <a href="/colofon/">colofon</a> voor bedrijfsgegevens)<br />
+      <strong>E-mail:</strong> <a href="mailto:privacy@vinomartino.com">privacy@vinomartino.com</a></p>
 
-      <p>Voor privacyvragen: <a href="mailto:privacy@vinomartino.com">privacy@vinomartino.com</a>.</p>
-
-      <h2>1. Welke gegevens we verzamelen</h2>
-
-      <p><strong>Analytische gegevens</strong><br />
-      Bij elk bezoek verzamelen we geanonimiseerde bezoekersdata: bezochte pagina's, duur van het bezoek, apparaattype en globale geografische regio. Er worden geen individuele bezoekers gevolgd en er worden geen persoonlijke profielen opgebouwd.</p>
-
-      <p><strong>Cookies</strong><br />
-      We gebruiken cookies voor de technische werking van de site en, met uw toestemming, voor het bijhouden van statistieken en affiliate-attributie. Zie onze <a href="/cookies/">Cookieverklaring</a>.</p>
-
-      <p><strong>Contact via e-mail</strong><br />
-      Als u ons een bericht stuurt, bewaren we uw naam en e-mailadres om uw vraag te beantwoorden. Deze gegevens worden niet met derden gedeeld.</p>
-
-      <h2>2. Grondslag en doel</h2>
-
-      <table>
-        <thead><tr><th>Verwerking</th><th>Grondslag</th><th>Doel</th></tr></thead>
-        <tbody>
-          <tr><td>Analytische cookies</td><td>Toestemming</td><td>Inzicht in bezoekersgedrag</td></tr>
-          <tr><td>Functionele cookies</td><td>Gerechtvaardigd belang</td><td>Technisch functioneren</td></tr>
-          <tr><td>Affiliate-attributie (Awin)</td><td>Toestemming</td><td>Commissie-bijhouding</td></tr>
-          <tr><td>Contactgegevens</td><td>Gerechtvaardigd belang</td><td>Beantwoorden van uw vraag</td></tr>
-        </tbody>
-      </table>
-
-      <h2>3. Bewaartermijnen</h2>
+      <h2>Welke gegevens verwerken wij?</h2>
       <ul>
-        <li>Analytische data: maximaal 26 maanden</li>
-        <li>Contactgegevens: tot 6 maanden na het laatste contact</li>
-        <li>Cookies: zie de <a href="/cookies/">Cookieverklaring</a></li>
+        <li><strong>Statistieken</strong>: wij gebruiken Plausible Analytics, een cookieloze dienst die geen persoonsgegevens en geen IP-adressen opslaat.</li>
+        <li><strong>Anonieme klikregistratie</strong>: bij het klikken op een affiliate-link registreren wij linktype, partnerplatform, pagina en tijdstip. Geen naam, e-mailadres of IP-adres.</li>
+        <li><strong>Contact</strong>: als je ons e-mailt, gebruiken wij je naam en e-mailadres alleen om je vraag te beantwoorden.</li>
       </ul>
 
-      <h2>4. Met wie we gegevens delen</h2>
-      <ul>
-        <li><strong>Cloudflare</strong>, hosting en CDN. Gecertificeerd onder het EU-US Data Privacy Framework.</li>
-        <li><strong>Awin</strong>, affiliate-netwerk. Bij het klikken op een gemarkeerde partnerlink plaatst Awin een cookie voor transactie-attributie.</li>
-      </ul>
+      <h2>Cookies</h2>
+      <p>Zie de <a href="/cookies/">cookieverklaring</a>.</p>
 
-      <h2>5. Uw rechten</h2>
-      <p>Op grond van de AVG heeft u recht op inzage, rectificatie, verwijdering, beperking, bezwaar en overdraagbaarheid. Verzoeken stuurt u naar <a href="mailto:privacy@vinomartino.com">privacy@vinomartino.com</a>. We reageren binnen 30 dagen. U kunt ook een klacht indienen bij de <a href="https://autoriteitpersoonsgegevens.nl" target="_blank" rel="noopener">Autoriteit Persoonsgegevens</a>.</p>
+      <h2>Derde partijen</h2>
+      <p>Klik je door naar een boekings- of affiliatepartner (zoals CJ Affiliate, TradeTracker, GetYourGuide of Stay22), dan is die partij verantwoordelijk voor de verwerking van jouw gegevens en geldt hun eigen privacybeleid.</p>
 
-      <h2>6. Wijzigingen</h2>
-      <p>Dit beleid kan worden aangepast. De datum bovenaan dit document geeft de meest recente versie aan.</p>
+      <h2>Bewaartermijnen</h2>
+      <p>Anonieme klikregistraties bewaren wij maximaal 12 maanden. Contactgegevens verwijderen wij zodra je vraag is afgehandeld, uiterlijk na 6 maanden.</p>
+
+      <h2>Jouw rechten (AVG)</h2>
+      <p>Je hebt recht op inzage, rectificatie, verwijdering en bezwaar. Mail <a href="mailto:privacy@vinomartino.com">privacy@vinomartino.com</a>; wij reageren binnen 30 dagen. Klachten kun je indienen bij de <a href="https://www.autoriteitpersoonsgegevens.nl" target="_blank" rel="noopener">Autoriteit Persoonsgegevens</a>.</p>
+
+      <h2>Wijzigingen</h2>
+      <p>De actuele versie van deze verklaring staat altijd op deze pagina.</p>
     </article>
   </section>
 </SiteLayout>
@@ -135,4 +115,12 @@ const datum = "24 april 2026";
     color: var(--inkSoft);
   }
   tr:last-child td { border-bottom: none; }
+  code {
+    background: var(--paperDeep);
+    padding: 0.125rem 0.375rem;
+    border-radius: 2px;
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    color: var(--ink);
+  }
 </style>

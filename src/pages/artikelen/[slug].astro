@@ -1,284 +1,81 @@
 ---
-import SiteLayout from '../../layouts/SiteLayout.astro';
-import AffiliatePlaceholder from '../../components/AffiliatePlaceholder.astro';
-import RelatedEntities from '../../components/RelatedEntities.astro';
-import Stay22Stay from '../../components/Stay22Stay.astro';
-import { loadArticles, type Article } from '../../lib/articles';
-import { articleSchema, breadcrumbSchema } from '../../lib/seo';
-import { getAffiliateBlock, resolveAccommodationHref } from '../../lib/affiliates';
-import { deriveArticleLocation } from '../../lib/stay22';
+// LAT-2638 — NL artikel-detailroute (prefixloos). Dunne wrapper rond het gedeelde
+// ArtikelDetail-component; de EN-tegenhanger leeft onder /en/artikelen/. hreflang-
+// alternates worden alleen gezet wanneer er een EN-vertaling bestaat (launch-gate:
+// geen en-hreflang zonder tegenhanger).
+import ArtikelDetail, { type ArticleRoundup, type ArticleVoetblok } from '../../components/ArtikelDetail.astro';
+import { type VoetblokRoute, type VoetblokHotel } from '../../components/ArtikelVoetblok.astro';
+import { loadArticles } from '../../lib/articles';
+import { loadRoutes } from '../../lib/routes';
+import { loadAccommodatieRoundupsByStreek } from '../../lib/accommodaties-loader';
+import { filterRoundupOpFotos, roundupKaartAantal } from '../../lib/accommodaties';
+import { DEFAULT_LOCALE } from '../../lib/i18n';
 
 export async function getStaticPaths() {
-  const articles = await loadArticles();
-  return articles.map((a) => ({ params: { slug: a.slug }, props: { article: a } }));
+  const [articles, accRoundupsByStreek, routes, enArticles] = await Promise.all([
+    loadArticles(),
+    loadAccommodatieRoundupsByStreek(),
+    loadRoutes(),
+    loadArticles('en'),
+  ]);
+  const enSlugs = new Set(enArticles.map((a) => a.slug));
+  const routeBySlug = new Map(routes.map((r) => [r.slug, r]));
+  return articles.map((a) => {
+    // LAT-1364: koppel de reisjunk-roundup aan het artikel via related_streken,
+    // zodat reisartikelen met curated properties dezelfde CJ-kaart krijgen als
+    // de streek-pagina's i.p.v. de generieke Stay22-widget.
+    const accRoundups: ArticleRoundup[] = a.relatedStreken
+      .map((s) => ({ slug: s.slug, roundup: accRoundupsByStreek.get(s.slug) }))
+      .filter((x): x is ArticleRoundup =>
+        Boolean(x.roundup && x.roundup.clusters.some((c) => c.kaarten.length > 0)));
+
+    const streekRef = a.relatedStreken[0] ?? null;
+    const routeRef = a.relatedWijnroutes[0] ?? null;
+    const routeEntry = routeRef ? routeBySlug.get(routeRef.slug) : undefined;
+    // Stops voor de schematische mini-thumbnail: veel routes hebben een leeg
+    // tekstueel `stops`-veld en dragen hun plaatsnamen in `stops_geo` (naam). Val
+    // daarom door: stops → stops_geo.naam → highlights, zodat de thumbnail rendert
+    // zodra de route ergens ≥2 benoemde punten heeft.
+    const routeStops = routeEntry
+      ? (routeEntry.stops.length >= 2
+          ? routeEntry.stops
+          : (routeEntry.stopsGeo.map((s) => s.naam).filter(Boolean).length >= 2
+              ? routeEntry.stopsGeo.map((s) => s.naam).filter(Boolean)
+              : routeEntry.highlights))
+      : [];
+    const route: VoetblokRoute | null = routeRef
+      ? { slug: routeRef.slug, name: routeRef.name, stops: routeStops }
+      : null;
+    let hotel: VoetblokHotel | null = null;
+    if (streekRef) {
+      const raw = accRoundupsByStreek.get(streekRef.slug);
+      if (raw && roundupKaartAantal(filterRoundupOpFotos(raw)) > 0) {
+        hotel = { href: `/accommodaties/${streekRef.slug}/`, streekName: streekRef.name };
+      }
+    }
+    const voetblok: ArticleVoetblok = { streek: streekRef, route, hotel };
+
+    return {
+      params: { slug: a.slug },
+      props: {
+        article: a,
+        accRoundups,
+        voetblok,
+        alternates: enSlugs.has(a.slug)
+          ? { nl: `/artikelen/${a.slug}/`, en: `/en/artikelen/${a.slug}/` }
+          : undefined,
+      },
+    };
+  });
 }
 
-const { article } = Astro.props as { article: Article };
-const accommodationBlock = getAffiliateBlock(article.slug, 'accommodation');
-const activity = getAffiliateBlock(article.slug, 'activity');
-const sidebarBlock = getAffiliateBlock(article.slug, 'sidebar');
-
-// Resolve Directus booking_url + CJ wrapper for accommodation/sidebar blocks.
-const [accommodationHref, sidebarHref] = await Promise.all([
-  accommodationBlock?.accommodationId
-    ? resolveAccommodationHref(accommodationBlock.accommodationId)
-    : Promise.resolve(accommodationBlock?.href),
-  sidebarBlock?.accommodationId
-    ? resolveAccommodationHref(sidebarBlock.accommodationId)
-    : Promise.resolve(sidebarBlock?.href),
-]);
-
-const accommodation = accommodationBlock && accommodationHref
-  ? { ...accommodationBlock, href: accommodationHref }
-  : (accommodationBlock?.href ? accommodationBlock : undefined);
-const sidebar = sidebarBlock && sidebarHref
-  ? { ...sidebarBlock, href: sidebarHref }
-  : (sidebarBlock?.href ? sidebarBlock : undefined);
-const stay22Location = deriveArticleLocation(article);
-
-const pageUrl = new URL(`/artikelen/${article.slug}/`, Astro.site ?? 'https://vinomartino.com').href;
-
-const modifiedTime = article.updatedAt || article.pubDate;
-
-const schema = [
-  articleSchema({
-    title: article.title,
-    description: article.description,
-    author: article.author,
-    datePublished: article.pubDate,
-    dateModified: modifiedTime,
-    image: article.heroImage,
-    url: pageUrl,
-  }),
-  breadcrumbSchema([
-    { name: 'Home', url: '/' },
-    { name: 'Artikelen', url: '/artikelen/' },
-    { name: article.title, url: pageUrl },
-  ]),
-];
+const { article, accRoundups, voetblok, alternates } = Astro.props;
 ---
 
-<SiteLayout
-  title={article.metaTitle || article.title}
-  description={article.metaDescription || article.description}
-  ogImage={article.ogImage || article.heroImage || undefined}
-  ogType="article"
-  article={{
-    publishedTime: article.pubDate,
-    modifiedTime,
-    author: article.author,
-    section: article.category,
-    tags: article.tags,
-  }}
-  schema={schema}
-  activeNav="artikelen"
->
-  <article class="article-page">
-    {article.heroImage && (
-      <div class="article-hero">
-        <img src={article.heroImage} alt={article.title} class="article-hero-img" />
-      </div>
-    )}
-
-    <div class="container article-layout">
-      <div class="article-main">
-        <header class="article-header">
-          <nav class="breadcrumb" aria-label="Breadcrumb">
-            <a href="/">Home</a> / <a href="/artikelen/">Artikelen</a> / <span>{article.title}</span>
-          </nav>
-          {article.category && <span class="article-cat">{article.category}</span>}
-          <h1>{article.title}</h1>
-          <div class="article-meta">
-            <span class="article-author">{article.author}</span>
-            <span class="article-date">{new Date(article.pubDate).toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
-          </div>
-          {article.tags && article.tags.length > 0 && (
-            <div class="article-tags">
-              {article.tags.map(tag => <span class="tag">{tag}</span>)}
-            </div>
-          )}
-        </header>
-
-        <div class="article-prose" set:html={article.bodyHtml} />
-
-        {accommodation && (
-          <AffiliatePlaceholder
-            type="accommodation"
-            context={article.slug}
-            partner={accommodation.linkBron === 'Booking.com' ? 'booking.com' : accommodation.linkBron === 'GetYourGuide' ? 'getyourguide' : undefined}
-            placement="inline-mid"
-            href={accommodation.href}
-            producent={accommodation.producent}
-            bezoekMaand={accommodation.bezoekMaand}
-            bezoekJaar={accommodation.bezoekJaar}
-            linkBron={accommodation.linkBron}
-            ctaLabel={accommodation.ctaLabel}
-            description={accommodation.description}
-          />
-        )}
-        {activity && (
-          <AffiliatePlaceholder
-            type="activity"
-            context={article.slug}
-            partner={activity.linkBron === 'Booking.com' ? 'booking.com' : activity.linkBron === 'GetYourGuide' ? 'getyourguide' : undefined}
-            placement="inline-end"
-            href={activity.href}
-            producent={activity.producent}
-            bezoekMaand={activity.bezoekMaand}
-            bezoekJaar={activity.bezoekJaar}
-            linkBron={activity.linkBron}
-            ctaLabel={activity.ctaLabel}
-            description={activity.description}
-          />
-        )}
-
-        <Stay22Stay location={stay22Location} context={article.slug} placement="inline-end" />
-      </div>
-
-      <aside class="article-sidebar">
-        {sidebar && (
-          <AffiliatePlaceholder
-            type="sidebar"
-            context={article.slug}
-            partner={sidebar.linkBron === 'Booking.com' ? 'booking.com' : sidebar.linkBron === 'GetYourGuide' ? 'getyourguide' : undefined}
-            placement="sidebar"
-            href={sidebar.href}
-            producent={sidebar.producent}
-            bezoekMaand={sidebar.bezoekMaand}
-            bezoekJaar={sidebar.bezoekJaar}
-            linkBron={sidebar.linkBron}
-            ctaLabel={sidebar.ctaLabel}
-            description={sidebar.description}
-          />
-        )}
-      </aside>
-    </div>
-
-    <RelatedEntities
-      streken={article.relatedStreken}
-      wijnhuizen={article.relatedWijnhuizen}
-      wijnroutes={article.relatedWijnroutes}
-      landen={article.relatedLanden}
-    />
-  </article>
-</SiteLayout>
-
-<style>
-  .article-hero {
-    height: 45vh;
-    min-height: 300px;
-    overflow: hidden;
-  }
-  .article-hero-img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-  .article-layout {
-    display: grid;
-    grid-template-columns: 1fr 300px;
-    gap: var(--space-10);
-    padding-top: var(--space-10);
-    padding-bottom: var(--space-12);
-  }
-  .breadcrumb {
-    font-family: var(--font-mono);
-    font-size: 0.6875rem;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--inkFaint);
-    margin-bottom: var(--space-4);
-  }
-  .breadcrumb a {
-    color: var(--inkSoft);
-    text-decoration: none;
-  }
-  .breadcrumb a:hover { text-decoration: underline; }
-  .article-cat {
-    font-family: var(--font-mono);
-    font-size: 0.625rem;
-    text-transform: uppercase;
-    letter-spacing: 0.15em;
-    color: var(--rust);
-    display: block;
-    margin-bottom: var(--space-2);
-  }
-  .article-header h1 {
-    font-family: var(--font-display);
-    font-size: clamp(2rem, 1.6rem + 1.5vw, 3rem);
-    font-weight: 400;
-    font-style: italic;
-    color: var(--ink);
-    line-height: 1.15;
-    margin-bottom: var(--space-4);
-  }
-  .article-meta {
-    display: flex;
-    gap: 1rem;
-    font-family: var(--font-mono);
-    font-size: 0.75rem;
-    color: var(--inkSoft);
-    margin-bottom: var(--space-3);
-  }
-  .article-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.375rem;
-    margin-bottom: var(--space-8);
-  }
-  .tag {
-    font-family: var(--font-mono);
-    font-size: 0.5625rem;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    background: var(--paperDeep);
-    color: var(--inkSoft);
-    padding: 0.25rem 0.625rem;
-    border-radius: 1px;
-  }
-
-  .article-prose {
-    font-family: var(--font-body);
-    font-size: 1.0625rem;
-    line-height: 1.8;
-    color: var(--ink);
-    max-width: var(--article-body-max);
-  }
-  .article-prose :global(h2) {
-    font-family: var(--font-display);
-    font-size: 1.625rem;
-    font-weight: 500;
-    margin: var(--space-10) 0 var(--space-4);
-  }
-  .article-prose :global(h3) {
-    font-family: var(--font-ui);
-    font-size: 1.125rem;
-    font-weight: 600;
-    margin: var(--space-8) 0 var(--space-3);
-  }
-  .article-prose :global(p) {
-    margin-bottom: var(--space-5);
-  }
-  .article-prose :global(ul), .article-prose :global(ol) {
-    padding-left: 1.5rem;
-    margin-bottom: var(--space-5);
-  }
-  .article-prose :global(li) {
-    margin-bottom: 0.375rem;
-  }
-  .article-prose :global(blockquote) {
-    border-left: 3px solid var(--burgundy);
-    padding-left: 1.5rem;
-    margin: var(--space-6) 0;
-    font-style: italic;
-    color: var(--inkSoft);
-  }
-  .article-prose :global(img) {
-    border-radius: var(--radius-sm);
-    margin: var(--space-6) 0;
-  }
-
-  @media (max-width: 900px) {
-    .article-layout { grid-template-columns: 1fr; }
-  }
-</style>
+<ArtikelDetail
+  article={article}
+  accRoundups={accRoundups}
+  voetblok={voetblok}
+  locale={DEFAULT_LOCALE}
+  alternates={alternates}
+/>

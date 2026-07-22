@@ -1,0 +1,1105 @@
+---
+import SiteLayout from '../layouts/SiteLayout.astro';
+import ZelfGereisdBadge from '../components/ZelfGereisdBadge.astro';
+import Briefkaart from '../components/Briefkaart.astro';
+import HomeRoutesMap from '../components/HomeRoutesMap.astro';
+import DiscoverMapEurope from '../components/DiscoverMapEurope.astro';
+import NewsletterRegionField from '../components/NewsletterRegionField.astro';
+import { loadArticles } from '../lib/articles';
+import { loadRoutes } from '../lib/routes';
+import { loadStreken } from '../lib/streken';
+import { loadLanden } from '../lib/landen';
+import { organizationSchema } from '../lib/seo';
+import { getAuthorByByline } from '../lib/authors';
+import { loadUiStrings } from '../lib/ui-strings';
+import { type Locale, DEFAULT_LOCALE, localizeHref } from '../lib/i18n';
+
+interface Props {
+  locale?: Locale;
+  alternates?: Partial<Record<Locale, string>>;
+}
+
+const { locale = DEFAULT_LOCALE, alternates } = Astro.props;
+
+// LAT-2704 — interne hrefs locale-aware; NL blijft byte-identiek.
+const lh = (href: string) => localizeHref(href, locale);
+const ui = await loadUiStrings(locale);
+const dateLocale = locale === 'en' ? 'en-GB' : 'nl-NL';
+
+// LAT-2008 (VIS-BL-09) — De Brief inline op de homepage. Zelfde MailerLite-
+// capture als /de-brief/ (LAT-1631, form-ID door Marijn bevestigd), override via
+// PUBLIC_MAILERLITE_FORM_ACTION zodat homepage en briefpagina niet divergeren.
+const BRIEF_FORM_ACTION =
+  import.meta.env.PUBLIC_MAILERLITE_FORM_ACTION ||
+  'https://assets.mailerlite.com/jsonp/2415940/forms/189828746131277541/subscribe';
+
+// LAT-1848: render altijd de gecanoniseerde auteursnaam uit het auteur-record
+// (bv. "Marijn") i.p.v. het ruwe Directus author-veld (dat nog "Martin" kan zijn).
+const authorName = (byline: string | null | undefined): string =>
+  getAuthorByByline(byline)?.name ?? byline ?? 'VinoMartino';
+
+const articles = await loadArticles(locale);
+// LAT-1611: het "verhaal van de week" is instelbaar via het `featured`-veld in
+// Directus. Board zet de toggle aan op het gewenste artikel; bij meerdere wint
+// het nieuwste. Geen featured-artikel → val terug op het nieuwste artikel.
+const spotlight = articles.find((a) => a.featured) ?? articles[0];
+const moreArticles = articles.filter((a) => a.slug !== spotlight?.slug).slice(0, 3);
+const routes = await loadRoutes(locale);
+const allStreken = await loadStreken(locale);
+const landen = await loadLanden(locale);
+
+const schema = organizationSchema();
+
+const HERO_IMAGE = '/images/landschap-piemonte-barolo-001.jpg';
+
+// ── LAT-2451 — Atlas als primaire navigatie direct onder de hero ──────────
+// Groepeer gepubliceerde streken onder hun land (zelfde patroon als /ontdek/),
+// zodat de Europa-kaart per land de streek-telling én de kerndruif toont in de
+// hover-tooltip. Data-gedreven: nieuw land in Directus = extra kaartvlak, geen
+// hardcoded nav-item. Kleur is deterministisch per land (merk-agnostisch palet).
+const ATLAS_PALETTE = ['#5A1A1F', '#A14F2A', '#5C6B3F', '#B86030', '#6B3A4A', '#7A6A2C'];
+const strekenPerLand = new Map<string, number>();
+for (const s of allStreken) {
+  if (!s.landSlug) continue;
+  strekenPerLand.set(s.landSlug, (strekenPerLand.get(s.landSlug) ?? 0) + 1);
+}
+const atlasCountries = landen.map((land, i) => ({
+  slug: land.slug,
+  name: land.name,
+  color: ATLAS_PALETTE[i % ATLAS_PALETTE.length] as string,
+  regionCount: strekenPerLand.get(land.slug) ?? 0,
+  // Kerndruif-hover: de eerste twee hoofddruiven van het land (Directus main_grapes).
+  grapes: land.mainGrapes.slice(0, 2).join(' · '),
+}));
+
+// ── LAT-2451 — Curated hero-streken ("Zelf gereisd" voorrang) ─────────────
+// Marijn-besluit Optie B (2026-07-14): de tile toont bij voorkeur het dedicated
+// `streken.card_blurb`-veld (max 140, redactioneel gevuld voor de 6-8 uitgelichte
+// streken). Is dat leeg, dan valt de tile terug op zinsgrens-truncatie van
+// `description`. Het ruwe `description`-veld (elders intro/meta, ~220-760 tekens)
+// blijft ONGEWIJZIGD — we korten alleen de gerenderde tegel-copy op build-tijd,
+// geen CSS-ellipsis midden in een zin.
+const HERO_STREKEN_MAX = 8;
+
+// Kap op een woordgrens met ellipsis als de tekst > max is; laat kortere tekst heel.
+function clampToWord(text: string, max = 140): string {
+  const clean = text.replace(/\s+/g, ' ').trim();
+  if (clean.length <= max) return clean;
+  const lastSpace = clean.slice(0, max).lastIndexOf(' ');
+  return `${clean.slice(0, lastSpace > 0 ? lastSpace : max).trimEnd()}…`;
+}
+
+// Neem de eerste zin (eerste .!? gevolgd door spatie/eind, met een 40-teken-
+// ondergrens zodat afkortingen als "St." niet vroeg afkappen). Is die zin langer
+// dan max, dan kap op woordgrens met een ellipsis; ontbreekt een zin-einde, dan
+// val terug op de hele tekst (met dezelfde woordgrens-cap).
+function clampToSentence(text: string, max = 140): string {
+  const clean = text.replace(/\s+/g, ' ').trim();
+  if (!clean) return clean;
+  const re = /[.!?](?=\s|$)/g;
+  let end = -1;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(clean)) !== null) {
+    if (m.index >= 40) { end = m.index + 1; break; }
+  }
+  const firstSentence = end > 0 ? clean.slice(0, end).trim() : clean;
+  return clampToWord(firstSentence, max);
+}
+
+// Kaart-blurb: dedicated card_blurb (defensief op 140 gekapt) heeft voorrang;
+// anders zinsgrens-truncatie van description.
+function heroBlurb(cardBlurb: string, description: string): string {
+  const cb = cardBlurb.trim();
+  if (cb) return clampToWord(cb);
+  return clampToSentence(description);
+}
+
+// Foto- + tekst-guard (LAT-2267/LAT-2356): alleen streken mét hero-foto én blurb.
+// Zelf-gereisd eerst (nieuwste bezoek bovenaan), daarna de overige foto-streken
+// als opvulling; harde cap op acht (VIS: curated rij van 6-8).
+const heroStreken = allStreken
+  .filter((s) => Boolean(s.heroImage) && Boolean(s.name) && Boolean(s.description?.trim()))
+  .sort((a, b) => {
+    if (a.zelfGereisd !== b.zelfGereisd) return a.zelfGereisd ? -1 : 1;
+    if (a.zelfGereisd && b.zelfGereisd) {
+      const ja = a.bezoekjaar ?? 0;
+      const jb = b.bezoekjaar ?? 0;
+      if (ja !== jb) return jb - ja;
+    }
+    return a.name.localeCompare(b.name, 'nl');
+  })
+  .slice(0, HERO_STREKEN_MAX)
+  .map((s) => ({
+    name: s.name,
+    eyebrow: s.country,
+    blurb: heroBlurb(s.cardBlurb, s.description),
+    href: `/streken/${s.slug}/`,
+    image: s.heroImage as string,
+    visited: s.zelfGereisd,
+  }));
+
+// ── LAT-2451 — Uitgelichte routes: max zes, foto verplicht, met duur + streek-tag ──
+const strekenBySlug = new Map(allStreken.map((s) => [s.slug, s]));
+const FEATURED_ROUTES_MAX = 6;
+const featuredRoutes = routes
+  .filter((r) => Boolean(r.heroImage))
+  .slice(0, FEATURED_ROUTES_MAX)
+  .map((r) => {
+    const streek = r.streekSlug ? strekenBySlug.get(r.streekSlug) : undefined;
+    return {
+      slug: r.slug,
+      title: r.title,
+      description: r.description,
+      image: r.heroImage as string,
+      duration: r.duration,
+      regionTag: streek?.name || streek?.country || '',
+    };
+  });
+
+function formatDate(value?: string | null) {
+  if (!value) return '';
+  try {
+    return new Date(value).toLocaleDateString(dateLocale, { day: 'numeric', month: 'long', year: 'numeric' });
+  } catch {
+    return '';
+  }
+}
+---
+
+<SiteLayout
+  title={ui.t('home.meta.title')}
+  description={ui.t('home.meta.description')}
+  ogImage={HERO_IMAGE}
+  schema={schema}
+  locale={locale}
+  alternates={alternates}
+>
+  <section class="hero" aria-label={ui.t('home.hero.aria')}>
+    <div class="hero-media">
+      <img
+        src={HERO_IMAGE}
+        alt={ui.t('home.hero.imageAlt')}
+        width="1600"
+        height="1067"
+        fetchpriority="high"
+        decoding="async"
+      />
+    </div>
+    <div class="hero-veil" aria-hidden="true"></div>
+    <div class="hero-inner container">
+      <span class="hero-eyebrow">{ui.t('home.hero.eyebrow')}</span>
+      <h1 class="hero-title">
+        {ui.t('home.hero.titleLine1')}
+        <em>{ui.t('home.hero.titleEm')}</em>
+      </h1>
+      <p class="hero-lede">
+        {ui.t('home.hero.lede')}
+      </p>
+      <div class="hero-ctas">
+        <a href="#bestemmingen" class="btn btn-primary">{ui.t('home.hero.ctaBestemming')}</a>
+        <a href="#routes" class="btn btn-ghost">{ui.t('home.hero.ctaRoutes')}</a>
+      </div>
+    </div>
+    <a href="#bestemmingen" class="hero-scroll" aria-label={ui.t('home.hero.scrollAria')}>
+      <span class="hero-scroll-line" aria-hidden="true"></span>
+      <span class="hero-scroll-label">{ui.t('home.hero.scrollLabel')}</span>
+    </a>
+  </section>
+
+  {atlasCountries.length > 0 && (
+    <section id="atlas" class="atlas-section" aria-label={ui.t('home.atlas.aria')}>
+      <div class="container">
+        <header class="strip-header atlas-head">
+          <span class="kicker">{ui.t('home.atlas.kicker')}</span>
+          <h2 class="strip-title">{ui.t('home.atlas.title')}</h2>
+          <p class="strip-lede">
+            {ui.t('home.atlas.lede')}
+          </p>
+        </header>
+        <DiscoverMapEurope countries={atlasCountries} locale={locale} />
+        <ul class="atlas-fallback" aria-label={ui.t('home.atlas.fallbackAria')}>
+          {atlasCountries.map((c) => (
+            <li>
+              <a href={lh(`/landen/${c.slug}/`)} class="atlas-chip" style={`--c: ${c.color};`}>
+                <span class="atlas-chip-name">{c.name}</span>
+                <span class="atlas-chip-meta">{`${c.regionCount} ${c.regionCount === 1 ? ui.t('home.atlas.regioSingular') : ui.t('home.atlas.regioPlural')}`}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+        <p class="section-cta"><a href={lh('/ontdek/')} class="btn btn-outline">{ui.t('home.atlas.allesCta')}</a></p>
+      </div>
+    </section>
+  )}
+
+  <section id="bestemmingen" class="strip">
+    <div class="container">
+      <header class="strip-header">
+        <span class="kicker">{ui.t('home.dest.kicker')}</span>
+        <h2 class="strip-title">{ui.t('home.dest.title')}</h2>
+        <p class="strip-lede">
+          {ui.t('home.dest.lede')}
+        </p>
+      </header>
+      <div class="streken-grid">
+        {heroStreken.map((streek, idx) => (
+          <a href={lh(streek.href)} class="streek-tile">
+            <div class="streek-media">
+              <img
+                src={streek.image}
+                alt={`${streek.name}${ui.t('home.dest.tileAltSuffix')}`}
+                width="800"
+                height="1000"
+                loading={idx < 2 ? 'eager' : 'lazy'}
+                decoding="async"
+              />
+            </div>
+            {streek.visited && (
+              <div class="streek-tile-badge">
+                <ZelfGereisdBadge visited={true} locale={locale} />
+              </div>
+            )}
+            <div class="streek-body">
+              <span class="streek-eyebrow">{streek.eyebrow}</span>
+              <h3 class="streek-name">{streek.name}</h3>
+              <p class="streek-blurb">{streek.blurb}</p>
+              <span class="streek-link" aria-hidden="true">{ui.t('home.dest.tileLink')}</span>
+            </div>
+          </a>
+        ))}
+      </div>
+      <p class="section-cta"><a href={lh('/streken/')} class="btn btn-outline">{ui.t('home.dest.allesCta')}</a></p>
+    </div>
+  </section>
+
+  <section id="routes" class="cards-section">
+    <div class="container">
+      <header class="section-head">
+        <span class="kicker">{ui.t('home.routes.kicker')}</span>
+        <h2 class="section-h">{ui.t('home.routes.title')}</h2>
+        <p class="section-sub">
+          {ui.t('home.routes.sub')}
+        </p>
+      </header>
+      <HomeRoutesMap routes={routes} locale={locale} />
+      <div class="cards-grid">
+        {featuredRoutes.map((r, idx) => (
+          <a href={lh(`/wijnroutes/${r.slug}/`)} class="card-tile">
+            <div class="card-media">
+              <img src={r.image} alt={r.title} width="600" height="450" loading={idx < 3 ? 'eager' : 'lazy'} decoding="async" />
+            </div>
+            <div class="card-body">
+              {(r.duration || r.regionTag) && (
+                <span class="card-eyebrow card-meter">
+                  {r.duration && <span>{r.duration}</span>}
+                  {r.duration && r.regionTag && <span class="card-meter-dot" aria-hidden="true"> · </span>}
+                  {r.regionTag && <span>{r.regionTag}</span>}
+                </span>
+              )}
+              <h3 class="card-title">{r.title}</h3>
+              {r.description && <p class="card-desc">{r.description}</p>}
+            </div>
+          </a>
+        ))}
+      </div>
+      <p class="section-cta"><a href={lh('/wijnroutes/')} class="btn btn-outline">{ui.t('home.routes.allesCta')}</a></p>
+    </div>
+  </section>
+
+  {spotlight && (
+    <section class="spotlight">
+      <div class="container spotlight-inner">
+        <a href={lh(`/artikelen/${spotlight.slug}/`)} class="spotlight-media-link" aria-label={spotlight.title}>
+          {spotlight.heroImage ? (
+            <img
+              src={spotlight.heroImage}
+              alt={spotlight.title}
+              width="1200"
+              height="900"
+              loading="lazy"
+              decoding="async"
+              class="spotlight-img"
+            />
+          ) : (
+            <div class="spotlight-img spotlight-placeholder" aria-hidden="true"></div>
+          )}
+        </a>
+        <div class="spotlight-body">
+          <span class="kicker">{ui.t('home.spotlight.kicker')}</span>
+          {spotlight.category && <span class="spotlight-cat">{spotlight.category.replace(/-/g, ' ')}</span>}
+          <h2 class="spotlight-title">
+            <a href={lh(`/artikelen/${spotlight.slug}/`)}>{spotlight.title}</a>
+          </h2>
+          {spotlight.description && <p class="spotlight-desc">{spotlight.description}</p>}
+          <p class="spotlight-meta">
+            <span>{authorName(spotlight.author)}</span>
+            <span class="dot" aria-hidden="true">·</span>
+            <span>{formatDate(spotlight.pubDate)}</span>
+          </p>
+          <a href={lh(`/artikelen/${spotlight.slug}/`)} class="quiet-cta">{ui.t('home.spotlight.cta')}</a>
+        </div>
+      </div>
+    </section>
+  )}
+
+  {moreArticles.length > 0 && (
+    <section class="cards-section cards-section--alt">
+      <div class="container">
+        <header class="section-head">
+          <span class="kicker">{ui.t('home.latest.kicker')}</span>
+          <h2 class="section-h">{ui.t('home.latest.title')}</h2>
+          <p class="section-sub">
+            {ui.t('home.latest.sub')}
+          </p>
+        </header>
+        <div class="cards-grid">
+          {moreArticles.map(article => (
+            <a href={lh(`/artikelen/${article.slug}/`)} class="card-tile">
+              <div class:list={['card-media', !article.heroImage && 'is-empty']}>
+                {article.heroImage ? (
+                  <img src={article.heroImage} alt={article.title} width="600" height="450" loading="lazy" decoding="async" />
+                ) : (
+                  <div class="card-placeholder" aria-hidden="true"></div>
+                )}
+              </div>
+              <div class="card-body">
+                {article.category && <span class="card-eyebrow">{article.category.replace(/-/g, ' ')}</span>}
+                <h3 class="card-title">{article.title}</h3>
+                {article.description && <p class="card-desc">{article.description}</p>}
+                <span class="card-meta">{authorName(article.author)} · {formatDate(article.pubDate)}</span>
+              </div>
+            </a>
+          ))}
+        </div>
+        <p class="section-cta"><a href={lh('/artikelen/')} class="btn btn-outline">{ui.t('home.latest.allesCta')}</a></p>
+      </div>
+    </section>
+  )}
+
+  <section class="proof" aria-label={ui.t('home.proof.aria')}>
+    <div class="container proof-inner">
+      <div class="proof-portrait">
+        <img
+          src="/over-ons-hero.jpg"
+          alt={ui.t('home.proof.portraitAlt')}
+          width="800"
+          height="1000"
+          loading="lazy"
+          decoding="async"
+        />
+      </div>
+      <div class="proof-body">
+        <span class="kicker proof-kicker">{ui.t('home.proof.kicker')}</span>
+        {/* LAT-2008: cijfers gestaafd tegen de canon. "11" spiegelt de Tier 1-lijst
+            `visited` op /over-ons/ (elf zelf-gereisde streken); "2019" is dezelfde bronclaim als
+            "streken sinds 2019" daar. Het "60+ wijnhuizen"-cijfer is geschrapt tot
+            er telbewijs uit Directus is (Marijn, 2026-07-03). */}
+        <ul class="proof-stats">
+          <li><span class="proof-num">11</span><span class="proof-label">{ui.t('home.proof.stat1Label')}</span></li>
+          <li><span class="proof-num">2019</span><span class="proof-label">{ui.t('home.proof.stat2Label')}</span></li>
+        </ul>
+        <p class="proof-manifest">
+          {ui.t('home.proof.manifestPre')}<em>{ui.t('home.proof.manifestEm')}</em>.
+        </p>
+        <a href={lh('/over-ons/')} class="btn btn-outline">{ui.t('home.proof.cta')}</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="brief">
+    <div class="container">
+      <Briefkaart dateline={ui.t('home.brief.dateline')} align="center">
+        <h2 class="brief-kaart-h">{ui.t('home.brief.heading')}</h2>
+        <p>
+          {ui.t('home.brief.body')}
+        </p>
+        <form
+          class="brief-signup"
+          action={BRIEF_FORM_ACTION}
+          method="post"
+          target="_blank"
+          data-newsletter-signup
+        >
+          <div class="brief-signup__row">
+            <label for="brief-email" class="visually-hidden">{ui.t('home.brief.emailLabel')}</label>
+            <input
+              id="brief-email"
+              type="email"
+              name="fields[email]"
+              autocomplete="email"
+              placeholder={ui.t('home.brief.emailPlaceholder')}
+              required
+            />
+            <button type="submit" class="btn btn-primary" data-plausible-cta="newsletter_signup">{ui.t('home.brief.submit')}</button>
+          </div>
+          <NewsletterRegionField id="brief-region" locale={locale} />
+        </form>
+      </Briefkaart>
+    </div>
+  </section>
+</SiteLayout>
+
+<style>
+  /* ── Hero ─────────────────────────────────────────────── */
+  .hero {
+    position: relative;
+    min-height: clamp(560px, 88vh, 860px);
+    color: var(--fixed-cream);
+    overflow: hidden;
+    isolation: isolate;
+    display: flex;
+    align-items: flex-end;
+  }
+  .hero-media {
+    position: absolute;
+    inset: 0;
+    z-index: -2;
+    display: block;
+    overflow: hidden;
+  }
+  .hero-media img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 38%;
+    transform: scale(1.04);
+    animation: hero-zoom 28s ease-out forwards;
+  }
+  @keyframes hero-zoom {
+    from { transform: scale(1.02); }
+    to { transform: scale(1.10); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .hero-media img { animation: none; transform: scale(1.02); }
+  }
+  .hero-veil {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background:
+      linear-gradient(180deg, rgba(13, 10, 7, 0.65) 0%, rgba(13, 10, 7, 0.15) 28%, rgba(13, 10, 7, 0.15) 55%, rgba(13, 10, 7, 0.78) 100%),
+      linear-gradient(90deg, rgba(13, 10, 7, 0.45) 0%, rgba(13, 10, 7, 0) 55%);
+  }
+  .hero-inner {
+    position: relative;
+    width: 100%;
+    padding-top: var(--space-32);
+    padding-bottom: var(--space-20);
+    max-width: var(--max-width);
+  }
+  .hero-eyebrow {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--gold);
+    padding-bottom: var(--space-2);
+    border-bottom: 1px solid color-mix(in srgb, var(--gold) 60%, transparent);
+  }
+  .hero-title {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: clamp(3rem, 7vw + 0.5rem, 6.5rem);
+    line-height: 0.98;
+    letter-spacing: -0.02em;
+    color: var(--fixed-cream);
+    margin: var(--space-6) 0 var(--space-5);
+    max-width: 22ch;
+  }
+  .hero-title em {
+    font-style: italic;
+    color: var(--gold);
+    display: inline-block;
+  }
+  .hero-lede {
+    font-family: var(--font-body);
+    font-size: clamp(1.0625rem, 0.4vw + 1rem, 1.25rem);
+    line-height: 1.6;
+    color: color-mix(in srgb, var(--fixed-cream) 92%, transparent);
+    max-width: 38rem;
+    margin-bottom: var(--space-8);
+  }
+  .hero-ctas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-4);
+  }
+  .hero-scroll {
+    position: absolute;
+    right: var(--gutter);
+    bottom: var(--space-6);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-3);
+    color: color-mix(in srgb, var(--fixed-cream) 80%, transparent);
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    text-decoration: none;
+    z-index: 1;
+  }
+  .hero-scroll-line {
+    width: 1px;
+    height: 3rem;
+    background: currentColor;
+    opacity: 0.5;
+    animation: scroll-line 2.4s ease-in-out infinite;
+    transform-origin: top;
+  }
+  @keyframes scroll-line {
+    0%, 100% { transform: scaleY(0.4); }
+    50% { transform: scaleY(1); }
+  }
+  @media (min-width: 1024px) {
+    .hero-scroll { display: flex; }
+  }
+
+  /* ── Buttons ──────────────────────────────────────────── */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.95rem 1.85rem;
+    font-family: var(--font-ui);
+    font-size: 0.9375rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    text-decoration: none;
+    border: 1px solid transparent;
+    transition: background var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out);
+    cursor: pointer;
+  }
+  .btn-primary {
+    background: var(--burgundy);
+    color: var(--fixed-cream);
+  }
+  .btn-primary:hover { background: var(--burgundyDeep); color: var(--fixed-cream); }
+  .btn-ghost {
+    background: transparent;
+    color: var(--fixed-cream);
+    border-color: color-mix(in srgb, var(--fixed-cream) 60%, transparent);
+  }
+  .btn-ghost:hover {
+    background: color-mix(in srgb, var(--fixed-cream) 10%, transparent);
+    color: var(--fixed-cream);
+    border-color: var(--fixed-cream);
+  }
+  .btn-outline {
+    background: transparent;
+    color: var(--burgundy);
+    border-color: var(--burgundy);
+  }
+  .btn-outline:hover { background: var(--burgundy); color: var(--fixed-cream); }
+  .btn-gold {
+    background: var(--gold);
+    color: var(--fixed-ink);
+  }
+  .btn-gold:hover { background: var(--fixed-cream); color: var(--fixed-ink); }
+
+  /* ── Shared typographic helpers ───────────────────────── */
+  .kicker {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--rust);
+  }
+
+  /* ── Wijnatlas (LAT-2451): primaire navigatie direct onder de hero ─── */
+  .atlas-section {
+    padding: var(--space-20) 0 var(--space-16);
+    background: var(--paperDeep);
+    border-bottom: 1px solid var(--rule);
+  }
+  .atlas-head { margin-bottom: var(--space-8); }
+  /* Mobiele fallback: de kaart verbergt zich <760px, dus tonen we hier de
+     wijnlanden als klikbare chips (zelfde nav-doel als de kaartvlakken). */
+  .atlas-fallback {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+  }
+  .atlas-chip {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0.6rem 0.9rem;
+    border: 1px solid var(--ruleSoft);
+    border-left: 3px solid var(--c, var(--burgundy));
+    background: var(--paper);
+    text-decoration: none;
+    transition: background var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out);
+  }
+  .atlas-chip:hover { background: var(--paperShade); transform: translateX(2px); }
+  .atlas-chip-name {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 1.05rem;
+    color: var(--ink);
+    line-height: 1.1;
+  }
+  .atlas-chip-meta {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--inkFaint);
+  }
+  @media (min-width: 760px) {
+    .atlas-fallback { display: none; }
+  }
+
+  /* ── Editorial streken-grid ───────────────────────────── */
+  .strip {
+    padding: var(--space-24) 0 var(--space-20);
+    background: var(--paper);
+  }
+  .strip-header {
+    max-width: 44rem;
+    margin: 0 0 var(--space-12);
+  }
+  .strip-title {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 400;
+    font-size: clamp(2.25rem, 2vw + 1.5rem, 3.5rem);
+    line-height: 1.05;
+    color: var(--ink);
+    margin: var(--space-4) 0 var(--space-3);
+  }
+  .strip-lede {
+    font-family: var(--font-body);
+    font-size: 1.0625rem;
+    line-height: 1.6;
+    color: var(--inkSoft);
+  }
+  .streken-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--space-5);
+  }
+  .streek-tile {
+    position: relative;
+    display: block;
+    color: var(--fixed-cream);
+    text-decoration: none;
+    overflow: hidden;
+    aspect-ratio: 3 / 4;
+    isolation: isolate;
+  }
+  .streek-tile::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background: linear-gradient(180deg, rgba(13, 10, 7, 0.05) 0%, rgba(13, 10, 7, 0.15) 45%, rgba(13, 10, 7, 0.85) 100%);
+    transition: background var(--duration-base) var(--ease-out);
+  }
+  .streek-tile:hover::after {
+    background: linear-gradient(180deg, rgba(90, 26, 31, 0.05) 0%, rgba(90, 26, 31, 0.25) 45%, rgba(61, 17, 21, 0.9) 100%);
+  }
+  .streek-media {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+  }
+  .streek-media img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform var(--duration-image) var(--ease-out);
+  }
+  .streek-tile:hover .streek-media img {
+    transform: scale(1.05);
+  }
+  .streek-body {
+    position: absolute;
+    inset: auto 0 0 0;
+    z-index: 2;
+    padding: var(--space-6) var(--space-6) var(--space-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+  .streek-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--gold);
+  }
+  .streek-name {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 400;
+    font-size: clamp(1.75rem, 1vw + 1.5rem, 2.5rem);
+    line-height: 1;
+    color: var(--fixed-cream);
+  }
+  .streek-blurb {
+    font-family: var(--font-body);
+    font-size: 0.9375rem;
+    line-height: 1.5;
+    color: color-mix(in srgb, var(--fixed-cream) 88%, transparent);
+    margin-top: var(--space-2);
+    /* LAT-2451 — de blurb is op build-tijd al uniform ≤140 tekens (card_blurb of
+       zinsgrens-truncatie van description), dus geen CSS-ellipsis meer. */
+  }
+  .streek-link {
+    margin-top: var(--space-3);
+    font-family: var(--font-ui);
+    font-size: 0.8125rem;
+    letter-spacing: 0.05em;
+    color: var(--gold);
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity var(--duration-base) var(--ease-out), transform var(--duration-base) var(--ease-out);
+  }
+  .streek-tile:hover .streek-link {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* ── Spotlight ───────────────────────────────────────── */
+  .spotlight {
+    padding: var(--space-20) 0;
+    background: var(--paperDeep);
+  }
+  .spotlight-inner {
+    display: grid;
+    grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
+    gap: var(--space-12);
+    align-items: center;
+  }
+  .spotlight-media-link {
+    display: block;
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+    background: var(--paperShade);
+  }
+  .spotlight-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform var(--duration-image) var(--ease-out);
+  }
+  .spotlight-placeholder {
+    background: linear-gradient(135deg, var(--paperShade), var(--paperDeep));
+  }
+  .spotlight-media-link:hover .spotlight-img { transform: scale(1.03); }
+  .spotlight-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+  .spotlight-cat {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--burgundy);
+  }
+  .spotlight-title {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 400;
+    font-size: clamp(1.875rem, 1.5vw + 1.5rem, 3rem);
+    line-height: 1.08;
+    color: var(--ink);
+    margin: var(--space-2) 0 var(--space-3);
+  }
+  .spotlight-title a {
+    color: inherit;
+    text-decoration: none;
+    background-image: linear-gradient(var(--rust), var(--rust));
+    background-size: 0% 1px;
+    background-repeat: no-repeat;
+    background-position: 0 100%;
+    transition: background-size var(--duration-base) var(--ease-out);
+  }
+  .spotlight-title a:hover { background-size: 100% 1px; }
+  .spotlight-desc {
+    font-family: var(--font-body);
+    font-size: 1.0625rem;
+    line-height: 1.6;
+    color: var(--inkSoft);
+    margin-bottom: var(--space-4);
+  }
+  .spotlight-meta {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--inkFaint);
+    display: flex;
+    gap: var(--space-3);
+    align-items: center;
+  }
+  .spotlight-meta .dot { color: var(--rule); }
+  .quiet-cta {
+    margin-top: var(--space-5);
+    font-family: var(--font-ui);
+    font-size: 0.9375rem;
+    color: var(--burgundy);
+    text-decoration: none;
+    border-bottom: 1px solid color-mix(in srgb, var(--burgundy) 30%, transparent);
+    padding-bottom: 2px;
+    align-self: flex-start;
+    transition: border-color var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
+  }
+  .quiet-cta:hover {
+    color: var(--burgundyDeep);
+    border-color: var(--burgundy);
+  }
+
+  /* ── Cards sections ──────────────────────────────────── */
+  .cards-section {
+    padding: var(--space-20) 0;
+    background: var(--paper);
+  }
+  .cards-section--alt { background: var(--paperDeep); }
+  .section-head {
+    max-width: 42rem;
+    margin: 0 0 var(--space-12);
+  }
+  .section-h {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 400;
+    font-size: clamp(1.875rem, 1.5vw + 1.25rem, 2.875rem);
+    line-height: 1.08;
+    color: var(--ink);
+    margin: var(--space-3) 0 var(--space-3);
+  }
+  .section-sub {
+    font-family: var(--font-body);
+    font-size: 1rem;
+    line-height: 1.6;
+    color: var(--inkSoft);
+  }
+  .cards-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-6) var(--space-8);
+  }
+  .card-tile {
+    display: block;
+    color: inherit;
+    text-decoration: none;
+  }
+  .card-media {
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+    background: var(--paperShade);
+    margin-bottom: var(--space-4);
+  }
+  /* LAT-2455: geen beeld → compacte branded band i.p.v. loze reuzenvlak op mobiel. */
+  .card-media.is-empty {
+    aspect-ratio: auto;
+    height: clamp(96px, 26vw, 140px);
+  }
+  .card-media img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform var(--duration-image) var(--ease-out);
+  }
+  .card-placeholder {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, var(--paperShade), var(--paperDeep));
+  }
+  .card-tile:hover .card-media img { transform: scale(1.04); }
+  .card-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--rust);
+    display: block;
+    margin-bottom: var(--space-2);
+  }
+  .card-title {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 400;
+    font-size: 1.625rem;
+    line-height: 1.15;
+    color: var(--ink);
+    margin-bottom: var(--space-3);
+    transition: color var(--duration-fast) var(--ease-out);
+  }
+  .card-tile:hover .card-title { color: var(--burgundy); }
+  .card-desc {
+    font-family: var(--font-body);
+    font-size: 0.9375rem;
+    line-height: 1.55;
+    color: var(--inkSoft);
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .card-meta {
+    display: block;
+    margin-top: var(--space-3);
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--ruleSoft);
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--inkFaint);
+  }
+  .section-cta {
+    margin-top: var(--space-12);
+    text-align: center;
+  }
+
+  /* ── De Brief band: crème briefkaart op burgundy (LAT-2004) ─── */
+  .brief {
+    background: var(--burgundy);
+    padding: var(--space-16) 0;
+  }
+  .brief-kaart-h {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 500;
+    font-size: clamp(1.75rem, 1.5vw + 1.25rem, 2.5rem);
+    line-height: 1.1;
+    color: var(--burgundy);
+    margin: 0 0 var(--space-3);
+  }
+
+  /* LAT-2008 — inline Brief-veld op de homepage. */
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+  .brief-signup {
+    width: 100%;
+    max-width: 30rem;
+    margin: var(--space-5) auto 0;
+  }
+  .brief-signup__row {
+    display: flex;
+    gap: var(--space-2);
+    width: 100%;
+  }
+  .brief-signup input {
+    flex: 1;
+    padding: 0.85rem 1rem;
+    border: 1px solid var(--paperShade, #E8DCC0);
+    background: #fff;
+    color: var(--fixed-ink);
+    font-family: var(--font-body);
+    font-size: 1rem;
+    outline: none;
+  }
+  .brief-signup input::placeholder { color: color-mix(in srgb, var(--fixed-ink) 45%, transparent); }
+  .brief-signup input:focus { border-color: var(--burgundy); }
+  .brief-signup .btn { white-space: nowrap; }
+
+  /* LAT-2008 — "Zelf gereisd"-badge op de bestemmingskaart. */
+  .streek-tile-badge {
+    position: absolute;
+    top: var(--space-3);
+    left: var(--space-3);
+    z-index: 2;
+  }
+
+  /* LAT-2008 — dagen/kelders-teller op de routekaart. */
+  .card-meter { display: inline-flex; align-items: baseline; gap: 0.25rem; }
+
+  /* LAT-2008 — Bewijs & gezicht-strip (VIS-BL-09 sectie 5). */
+  .proof {
+    background: var(--cream, #f6f1e7);
+    padding: var(--space-16) 0;
+    border-top: 1px solid var(--rule);
+  }
+  .proof-inner {
+    display: grid;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    gap: var(--space-12);
+    align-items: center;
+  }
+  .proof-portrait {
+    overflow: hidden;
+    border-radius: 2px;
+    aspect-ratio: 4 / 5;
+  }
+  .proof-portrait img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .proof-kicker { color: var(--rust); }
+  .proof-stats {
+    list-style: none;
+    margin: var(--space-4) 0 var(--space-6);
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-8);
+  }
+  .proof-stats li { display: flex; flex-direction: column; gap: 0.15rem; }
+  .proof-num {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 1.5vw + 1.5rem, 3rem);
+    line-height: 1;
+    color: var(--burgundy);
+  }
+  .proof-label {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-text-soft, var(--rust));
+  }
+  .proof-manifest {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: clamp(1.25rem, 1vw + 1rem, 1.75rem);
+    line-height: 1.3;
+    margin: 0 0 var(--space-6);
+    max-width: 34rem;
+  }
+  .proof-manifest em { font-style: normal; color: var(--burgundy); }
+
+  /* ── Responsive ─────────────────────────────────────── */
+  @media (max-width: 1024px) {
+    .streken-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .cards-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .spotlight-inner {
+      grid-template-columns: 1fr;
+      gap: var(--space-8);
+    }
+    .proof-inner { grid-template-columns: 1fr; gap: var(--space-8); }
+    .proof-portrait { max-width: 24rem; }
+  }
+  @media (max-width: 640px) {
+    .hero { min-height: clamp(520px, 92vh, 720px); }
+    .hero-inner { padding-top: var(--space-24); padding-bottom: var(--space-16); }
+    .hero-title { font-size: clamp(2.5rem, 12vw, 4rem); }
+    .hero-ctas { flex-direction: column; align-items: flex-start; }
+    .hero-ctas .btn { width: 100%; max-width: 22rem; }
+    .streken-grid { grid-template-columns: 1fr; gap: var(--space-4); }
+    .streek-tile { aspect-ratio: 4 / 5; }
+    .cards-grid { grid-template-columns: 1fr; }
+    .brief-signup { width: 100%; max-width: none; }
+    .brief-signup__row { flex-direction: column; }
+    .brief-signup .btn { width: 100%; }
+    .proof-stats { gap: var(--space-6); }
+  }
+</style>

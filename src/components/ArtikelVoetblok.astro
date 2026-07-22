@@ -1,0 +1,137 @@
+---
+// LAT-2010 [VIS-BL-11] — vast artikel-voetblok voor interne doorstroom + conversie
+// vanuit SEO-verkeer. Twee lagen, elk graceful: (1) "Dit artikel hoort bij [streek]
+// en [route]" met een schematische route-thumbnail, (2) één hotel-CTA naar de
+// boekbare accommodatie-pagina van de streek. Ontbreekt streek/route/hotel, dan
+// valt die laag stil weg.
+//
+// Go-live fix: het nieuwsbrief-blok is hier verwijderd. De canonieke De Brief-
+// aanmelding staat in <NewsletterFooter/>, dat direct onder dit voetblok op de
+// artikelpagina rendert (en ook op streken-pagina's). Beide tonen leidde tot een
+// dubbel signup-formulier onder elk artikel.
+import RouteMap from './RouteMap.astro';
+import type { RelatedRef } from '../lib/articles';
+import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
+
+export interface VoetblokRoute {
+  slug: string;
+  name: string;
+  stops: string[];
+}
+
+export interface VoetblokHotel {
+  href: string;
+  streekName: string;
+}
+
+export interface Props {
+  /** LAT-2704 — locale van de renderende pagina; stuurt de interne hrefs. */
+  locale?: Locale;
+  streek?: RelatedRef | null;
+  route?: VoetblokRoute | null;
+  hotel?: VoetblokHotel | null;
+}
+
+const { streek = null, route = null, hotel = null, locale = DEFAULT_LOCALE } = Astro.props;
+
+// LAT-2704 — interne hrefs locale-aware; NL blijft byte-identiek.
+const lh = (href: string) => localizeHref(href, locale);
+
+const heeftHoortBij = Boolean(streek || route);
+const routeStops = route?.stops?.filter(Boolean) ?? [];
+const heeftInhoud = heeftHoortBij || Boolean(hotel);
+---
+
+{heeftInhoud && (
+  <section class="voetblok" aria-label="Verder lezen">
+    <div class="container voetblok__inner">
+      {heeftHoortBij && (
+        <div class="voetblok__hoortbij">
+          <p class="voetblok__lede">Dit artikel hoort bij {streek && <a href={lh(`/streken/${streek.slug}/`)} class="voetblok__ref">{streek.name}</a>}{streek && route ? ' en ' : ''}{route && <a href={lh(`/wijnroutes/${route.slug}/`)} class="voetblok__ref">{route.name}</a>}.</p>
+          {routeStops.length >= 2 && (
+            <a href={lh(`/wijnroutes/${route!.slug}/`)} class="voetblok__thumb" aria-label={`Bekijk de route ${route!.name}`}>
+              <RouteMap stops={routeStops} variant="mini" />
+            </a>
+          )}
+        </div>
+      )}
+
+      {hotel && (
+        <a href={hotel.href} class="voetblok__hotel" data-plausible-cta="voetblok_hotel">
+          <span class="voetblok__hotel-kicker">Overnachten</span>
+          <span class="voetblok__hotel-label">Waar je slaapt in {hotel.streekName}</span>
+          <span class="voetblok__hotel-arrow" aria-hidden="true">&rarr;</span>
+        </a>
+      )}
+    </div>
+  </section>
+)}
+
+<style>
+  .voetblok {
+    border-top: 1px solid var(--rule);
+    background: var(--paperDeep);
+  }
+  .voetblok__inner {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+    padding-top: var(--space-8);
+    padding-bottom: var(--space-8);
+    max-width: var(--article-body-max, 720px);
+  }
+  .voetblok__hoortbij {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+  .voetblok__lede {
+    font-family: var(--font-body);
+    font-size: 1rem;
+    line-height: 1.6;
+    color: var(--ink);
+    margin: 0;
+  }
+  .voetblok__ref {
+    color: var(--burgundy);
+    text-decoration: none;
+    border-bottom: 1px solid var(--burgundy);
+  }
+  .voetblok__ref:hover { color: var(--rust); border-color: var(--rust); }
+  .voetblok__thumb {
+    display: block;
+    text-decoration: none;
+    padding: 0.75rem 1rem;
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-sm);
+  }
+  .voetblok__thumb:hover { border-color: var(--burgundy); }
+
+  .voetblok__hotel {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    text-decoration: none;
+    padding: 0.9rem 1.1rem;
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--burgundy);
+    border-radius: var(--radius-sm);
+  }
+  .voetblok__hotel:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+  .voetblok__hotel-kicker {
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--rust);
+  }
+  .voetblok__hotel-label {
+    font-family: var(--font-ui);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .voetblok__hotel-arrow { margin-left: auto; color: var(--burgundy); }
+</style>

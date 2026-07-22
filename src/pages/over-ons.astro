@@ -1,6 +1,7 @@
 ---
 import SiteLayout from '../layouts/SiteLayout.astro';
 import { organizationSchema, breadcrumbSchema } from '../lib/seo';
+import { readDirectusEnv } from '../lib/directus-config';
 
 const schema = [
   organizationSchema(),
@@ -13,13 +14,13 @@ const schema = [
 const rules = [
   {
     n: '01',
-    h: 'Ik schrijf niet over plekken waar ik niet ben geweest',
-    d: 'Elk wijnhuis- of streekportret is gebaseerd op eigen bezoek, gedocumenteerd in mijn reisdagboeken. Dat klinkt voor de hand liggend. Is het kennelijk niet.',
+    h: 'Waar we zelf waren, zie je dat',
+    d: 'Gidsen gebaseerd op eigen bezoek dragen het label Zelf gereisd. In die stukken schrijf ik in eerste persoon over wat ik proefde en zag. Redactiegidsen zijn zorgvuldig samengesteld op basis van primaire bronnen en lokale kennis, maar bevatten geen ooggetuigeclaims. Het onderscheid staat bij elk artikel vermeld.',
   },
   {
     n: '02',
-    h: 'Affiliate alleen voor wat we zelf hebben getest',
-    d: 'Als een artikel een boekingslink bevat, hebben Sophie of ik die plek bezocht. We ontvangen commissie bij een boeking, de prijs blijft gelijk. Welke wijnhuizen en accommodaties in aanmerking komen voor een link, bepaal ik op basis van bezoekdocumentatie, niet op basis van wie er om vraagt.',
+    h: 'Affiliate alleen voor wat ik zelf heb getest',
+    d: 'Als een artikel een boekingslink bevat, heb ik die plek bezocht. We ontvangen commissie bij een boeking, de prijs blijft gelijk. Welke wijnhuizen en accommodaties in aanmerking komen voor een link, bepaal ik op basis van bezoekdocumentatie, niet op basis van wie er om vraagt.',
   },
   {
     n: '03',
@@ -29,38 +30,73 @@ const rules = [
 ];
 
 const visited = [
-  'Piemonte (2019, 2021, 2023)',
-  'Bourgogne (2019)',
-  'Mosel (2020)',
-  'Rioja (2020, 2024)',
-  'Douro (2021)',
-  'Etna (2021)',
-  'Champagne (2022)',
-  'Loire (2022)',
-  'Wachau (2023)',
-  'Priorat (2023)',
+  'Loire',
+  'Bourgogne',
+  'Champagne',
+  'Provence',
+  'Mosel',
+  'Piemonte',
+  'Toscane',
+  'Kaapregio',
+  'Veneto',
+  'Alto Adige',
+  'Slowakije',
 ];
+
+// LAT-1987: twee eigen foto's van Marijn uit de DAM, gekoppeld via Directus-bestanden.
+// 694f2a29… = DAM ref 1240 (Calmont, Ediger); dfaff3d0… = DAM ref 816 (uitkijkpunt over het dal).
+// At-buildtijd uit Directus /assets/{uuid} gehaald — geen beeldbytes in de repo (HARDE REGEL 2).
+async function fetchOverOnsFoto(uuid: string): Promise<string | null> {
+  const env = readDirectusEnv();
+  if (!env.configured) return null; // lokaal/dev zonder Directus: beeld overslaan
+  const { writeFileSync, mkdirSync, existsSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const outDir = join(process.cwd(), 'public', 'images', 'over-ons');
+  const outPath = join(outDir, `${uuid}.jpg`);
+  const rel = `/images/over-ons/${uuid}.jpg`;
+  if (existsSync(outPath)) return rel;
+  const res = await fetch(`${env.url}/assets/${uuid}`, {
+    headers: { Authorization: `Bearer ${env.token}` },
+    signal: AbortSignal.timeout(15000),
+  });
+  if (!res.ok) {
+    throw new Error(`[over-ons] Directus-asset ${uuid} niet op te halen: HTTP ${res.status}`);
+  }
+  mkdirSync(outDir, { recursive: true });
+  writeFileSync(outPath, Buffer.from(await res.arrayBuffer()));
+  return rel;
+}
+
+const fotoCalmont = await fetchOverOnsFoto('694f2a29-122b-479c-a2b0-1cd895a493de');
+const fotoUitkijk = await fetchOverOnsFoto('dfaff3d0-675b-48db-acc8-893263eaf06d');
 ---
 
 <SiteLayout
-  title="Over VinoMartino: Martin & Sophie"
-  description="Martin schrijft over wijnreizen vanuit eigen bezoek. Affiliate alleen voor plekken die we zelf hebben getest. Geen advertorials."
+  title="Over VinoMartino: Marijn & Sophie"
+  description="Marijn (internationaal Martino) schrijft over wijnreizen vanuit eigen bezoek. Affiliate alleen voor plekken die we zelf hebben getest. Geen advertorials."
   schema={schema}
   activeNav="over-ons"
+  alternates={{ nl: '/over-ons/', en: '/en/over-ons/' }}
 >
   <section class="hero">
     <div class="hero-grid container">
       <div class="hero-text">
         <span class="kicker kicker-vine">Over VinoMartino</span>
-        <h1>Hi! Ik ben <em>Martin</em></h1>
+        <h1>Hi, ik ben <em>Marijn</em></h1>
         <p class="lede">
-          Ik woon in Amsterdam, heb WSET Level 4 op zak en een wijnkoelkast die structureel te vol is voor een appartement van dit formaat.
-          Twee keer per jaar rij ik een smalle Fiat door Piemontese wijngaardpaden, of Siciliaanse, of Portugese, afhankelijk van het seizoen,
-          en de rest van het jaar schrijf ik op wat ik daar vond.
+          Bij wijnboeren van Piemonte tot de Kaap werd ik al snel "Martino" genoemd, en die naam bleef hangen. Hij werd zelfs de naam van deze site: VinoMartino. Dus internationaal ben ik Martino, thuis gewoon Marijn.
+        </p>
+        <p class="lede">
+          Ik heb een wijnkoelkast die altijd gevuld is en eigenlijk veel te weinig plek heeft.
+          Meerdere keren per jaar rij ik een smalle Fiat door Piemontese wijngaardpaden, of Siciliaanse, of Portugese, afhankelijk van het seizoen.
+          Ik probeer steeds nieuwe wijngebieden te ontdekken en schrijf op wat ik daar vond.
+        </p>
+        <p class="lede">
+          We zijn geen pure wijnkenners of professionals. We zijn wijnfanaten met een enorme passie die we graag delen, zodat ook jij dezelfde reizen en gebieden kunt ontdekken.
         </p>
       </div>
-      <div class="hero-image" aria-hidden="true">
-        <span class="placeholder-tag">foto · Martin in de wijngaard</span>
+      <div class="hero-image">
+        <img src="/over-ons-hero.jpg" alt="Marijn proeft een glas wijn met de wijngaarden van Stellenbosch op de achtergrond" width="800" height="1000" loading="eager" decoding="async" />
       </div>
     </div>
   </section>
@@ -73,9 +109,30 @@ const visited = [
         Op een gegeven moment was het notitieboekje zo vol dat het nuttig begon te worden voor anderen die dezelfde reizen plannen. Dat is dit.
       </p>
       <p>
-        Sophie reist mee op vrijwel alle reizen. Ze heeft haar eigen smaak, oranje wijnen en Grüner Veltliner, en een tolerantiedrempel
-        voor mijn terroir-monologen die ik wisselend succesvol overschrijd. Haar naam duikt op in de stukken wanneer het verhaal dat vraagt.
+        Sophie reist soms mee en leest dit alles pas als het online staat.
       </p>
+      <p>
+        Sommige stukken gaan wat dieper dan andere, dat hangt af van de reis en wat me opviel. Ik deel vooral ervaringen en probeer mensen genoeg informatie te geven om zelf mooie reizen te plannen. Heb je zelf iets te delen dat anderen daarbij helpt? Dan bied ik de mogelijkheid om een bijdrage op de site te plaatsen.
+      </p>
+      <p>
+        En al draait het hier om wijn: de meeste van deze streken zijn ook zonder een enkel wijnhuis al prachtig om te bezoeken. De wijn is de aanleiding, niet de enige reden.
+      </p>
+      <p>
+        Op den duur willen we het breder trekken: restaurants en andere plekken die een reis compleet maken, krijgen straks ook een plek op de site.
+      </p>
+      {fotoCalmont && (
+        <figure class="over-figure">
+          <img
+            src={fotoCalmont}
+            alt="Marijn bij het Calmont-bord boven de Moezel, met groene heuvels en het rivierdal op de achtergrond"
+            width="1500"
+            height="2000"
+            loading="lazy"
+            decoding="async"
+          />
+          <figcaption>Op de Calmont in Ediger, de steilste wijngaard van Duitsland.</figcaption>
+        </figure>
+      )}
     </div>
   </section>
 
@@ -107,6 +164,19 @@ const visited = [
         ))}
         <span class="visited-more">… en meer</span>
       </div>
+      {fotoUitkijk && (
+        <figure class="over-figure">
+          <img
+            src={fotoUitkijk}
+            alt="Marijn bij een uitkijkpunt kijkt uit over een weids dal"
+            width="2000"
+            height="1500"
+            loading="lazy"
+            decoding="async"
+          />
+          <figcaption>Even uitkijken over het dal, onderweg naar het volgende wijngebied.</figcaption>
+        </figure>
+      )}
     </div>
   </section>
 
@@ -184,6 +254,12 @@ const visited = [
     align-items: center;
     justify-content: center;
   }
+  .hero-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
   .placeholder-tag {
     font-family: var(--font-mono);
     font-size: 0.6875rem;
@@ -206,6 +282,31 @@ const visited = [
     margin: 0 0 1.5rem;
   }
   .intro p:last-child { margin-bottom: 0; }
+
+  .over-figure {
+    margin: 2.5rem 0 0;
+  }
+  .over-figure img {
+    width: 100%;
+    height: auto;
+    display: block;
+    border: 1px solid var(--color-rule, #C9B98F);
+  }
+  .over-figure figcaption {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+    color: var(--color-text-soft, var(--color-text));
+    margin-top: 0.6rem;
+    font-style: italic;
+  }
+  .intro .over-figure {
+    max-width: 460px;
+    margin-inline: auto;
+  }
+  .visited .over-figure {
+    margin-top: 2rem;
+  }
 
   .rules {
     padding: clamp(48px, 8vw, 80px) 0;
