@@ -35,6 +35,11 @@ export default defineConfig({
         !page.includes('/api/') &&
         // LAT-1676: interne noindex component-preview hoort niet in de sitemap.
         !page.includes('/preview/') &&
+        // LAT-2771: /infographics/* is een interne component-preview voor redactie
+        // en QA (InfographicsPreview.astro, LAT-2693) en staat al op
+        // `noindex, nofollow`. Die pagina's horen dus ook niet in de sitemap —
+        // NL noch EN. Besluit T9-gate: niet vertalen, wel uit de sitemap.
+        !page.includes('/infographics/') &&
         // LAT-859: /routes/* non-canonical; canonical is /wijnroutes/*
         !page.includes('/routes/') &&
         // LAT-859: douro/mosel have canonical Directus entries at douro-portugal/mosel-duitsland

@@ -21,7 +21,6 @@ import NewsletterFooter from './NewsletterFooter.astro';
 import { accommodatieBookingDeeplink } from '../lib/affiliates';
 import { type Streek, type Accommodation } from '../lib/streken';
 import { clustersFromCuratedStays, staySlug } from '../lib/curated-stays';
-import { STAY_TIER_META, STAY_DISCLOSURE_MICROCOPY } from '../lib/stay-tier';
 import { matchWijnhuisByName, type Wijnhuis } from '../lib/wijnhuizen';
 import type { AccommodatieRoundup as AccommodatieRoundupData } from '../lib/accommodaties';
 import { type WijnRoute } from '../lib/routes';
@@ -120,9 +119,11 @@ function accPrice(acc: Accommodation): string | null {
   const bron = acc.valuta || streekValuta;
   const laag = formatNightlyPrice(acc.prijsLaag, bron, 'EUR', `${acc.naam} (laag)`);
   const hoog = formatNightlyPrice(acc.prijsHoog, bron, 'EUR', `${acc.naam} (hoog)`);
-  if (laag && hoog) return `${laag}–${hoog} / nacht`;
-  if (laag) return `vanaf ${laag} / nacht`;
-  if (hoog) return `tot ${hoog} / nacht`;
+  // LAT-2771: prijs-affixen via de UI-dictionary, anders NL op /en/.
+  const perNight = ui.t('stay.price.perNight');
+  if (laag && hoog) return `${laag}–${hoog} ${perNight}`;
+  if (laag) return `${ui.t('stay.price.fromPrefix')} ${laag} ${perNight}`;
+  if (hoog) return `${ui.t('stay.price.upToPrefix')} ${hoog} ${perNight}`;
   return null;
 }
 // LAT-1634: het 3x3x3-grid linkte via Stay22 Allez (allezSearchUrl), wat bij
@@ -158,11 +159,11 @@ const overnachtenInput: StreekPoiInput[] = stayClusters.flatMap(cluster =>
       lat: acc.lat,
       lng: acc.lng,
       whyRegel: acc.whyThisOne,
-      disclosure: STAY_DISCLOSURE_MICROCOPY,
+      disclosure: ui.t('stay.disclosure.microcopy'),
       prijs: accPrice(acc),
       boeklink: accBoeklink(acc),
       tier: acc.tier,
-      badge: STAY_TIER_META[acc.tier]?.label ?? null,
+      badge: acc.tier ? ui.t(`stay.tier.${acc.tier}`) : null,
       clusterSlug: cluster.slug,
       clusterTitel: cluster.titel,
       partner: 'booking',
