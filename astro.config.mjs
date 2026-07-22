@@ -42,7 +42,11 @@ export default defineConfig({
         page !== 'https://vinomartino.com/streken/mosel/' &&
         // LAT-1853/LAT-2457: keyword-cannibalisatie 301's; canonical is de doel-slug.
         page !== 'https://vinomartino.com/artikelen/een-week-in-piemonte-barolo-barbaresco-en-alles-daartussenin/' &&
-        page !== 'https://vinomartino.com/artikelen/langhe-vier-dagen-route/',
+        page !== 'https://vinomartino.com/artikelen/langhe-vier-dagen-route/' &&
+        // LAT-2769: de 7 persona-auteurspagina's (NL + EN) 301'en naar /over-ons/
+        // via nginx-prod.conf en horen niet meer in de sitemap. /auteurs/,
+        // /en/auteurs/ en de twee marijn-pagina's blijven wel staan.
+        !/^https:\/\/vinomartino\.com\/(en\/)?auteurs\/(charly|hugo|lea|mira|robin|sophie|tomas)\/$/.test(page),
       serialize(item) {
         // Homepage
         if (item.url === 'https://vinomartino.com/') {
