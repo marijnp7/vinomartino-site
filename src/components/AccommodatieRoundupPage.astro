@@ -16,7 +16,7 @@ import { type Streek } from '../lib/streken';
 import { currencyForLand } from '../lib/currency';
 import { organizationSchema, breadcrumbSchema } from '../lib/seo';
 import { loadUiStrings } from '../lib/ui-strings';
-import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
+import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
 
 interface Props {
   roundup: Roundup;
@@ -27,6 +27,9 @@ interface Props {
 }
 
 const { roundup, streek, streekSlug, locale = DEFAULT_LOCALE, alternates } = Astro.props;
+
+// LAT-2704 — interne hrefs locale-aware; NL blijft byte-identiek.
+const lh = (href: string) => localizeHref(href, locale);
 const ui = await loadUiStrings(locale);
 const regio = roundup.regio || streek?.name || streekSlug;
 // LAT-1664: bron-valuta volgt het land van de streek (Zuid-Afrika → ZAR); de
@@ -66,7 +69,7 @@ const schema = [
   <section class="hero-sm">
     <div class="container">
       <nav class="crumbs" aria-label={ui.t('accommodaties.roundup.crumbsAria')}>
-        <a href="/accommodaties/">{ui.t('accommodaties.breadcrumb.index')}</a>
+        <a href={lh('/accommodaties/')}>{ui.t('accommodaties.breadcrumb.index')}</a>
         <span aria-hidden="true">/</span>
         <span>{regio}</span>
       </nav>
@@ -74,7 +77,7 @@ const schema = [
       <h1>{ui.t('accommodaties.roundup.h1Pre')}{regio}</h1>
       <p class="hero-desc">{ui.t('accommodaties.roundup.heroDesc')}</p>
       {streek && (
-        <p class="hero-link"><a href={`/streken/${streek.slug}/`}>{ui.t('accommodaties.roundup.readGuidePre')}{regio}{ui.t('accommodaties.roundup.readGuidePost')}</a></p>
+        <p class="hero-link"><a href={lh(`/streken/${streek.slug}/`)}>{ui.t('accommodaties.roundup.readGuidePre')}{regio}{ui.t('accommodaties.roundup.readGuidePost')}</a></p>
       )}
     </div>
   </section>
@@ -111,7 +114,7 @@ const schema = [
   <div class="container">
     <CtaComparison data={accomCta.comparison} sid={streekSlug} />
     <CtaClosing data={accomCta.closing} sid={streekSlug} />
-    <HubBacklink type="accommodatie" slug={streekSlug} />
+    <HubBacklink type="accommodatie" slug={streekSlug} locale={locale} />
   </div>
 </SiteLayout>
 

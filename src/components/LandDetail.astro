@@ -314,6 +314,7 @@ const schema = [
       </div>
     ) : atlas && atlas.zones.length > 0 ? (
       <InfographicAtlasInteractive
+        locale={locale}
         slot="atlas"
         variant="compact"
         kicker={atlas.kicker ?? `Wijnatlas · ${pageData.name}`}

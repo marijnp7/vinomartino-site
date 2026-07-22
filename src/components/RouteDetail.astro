@@ -19,7 +19,7 @@ import { splitRouteBody } from '../lib/route-days';
 import { type Wijnhuis } from '../lib/wijnhuizen';
 import { type AccommodatieRoundup as AccommodatieRoundupData } from '../lib/accommodaties';
 import { wijnrouteSchema, wijnrouteMetaTitle, wijnrouteMetaDescription, breadcrumbSchema } from '../lib/seo';
-import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
+import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
 import { loadUiStrings } from '../lib/ui-strings';
 
 interface Props {
@@ -36,6 +36,9 @@ interface Props {
 }
 
 const { entry, streekName, landSlug, landName, wijnhuizen, staysRoundup, locale = DEFAULT_LOCALE, alternates } = Astro.props;
+
+// LAT-2704 — interne hrefs locale-aware; NL blijft byte-identiek.
+const lh = (href: string) => localizeHref(href, locale);
 const ui = await loadUiStrings(locale);
 const localePrefix = locale === DEFAULT_LOCALE ? '' : `/${locale}`;
 const pageUrl = new URL(`${localePrefix}/wijnroutes/${entry.slug}/`, Astro.site ?? 'https://vinomartino.com').href;
@@ -103,7 +106,7 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
         <header class="page-header">
           <nav class="breadcrumb" aria-label="Breadcrumb">
             {crumbs.slice(0, -1).map(c => (
-              <><a href={c.url}>{c.name}</a> / </>
+              <><a href={lh(c.url)}>{c.name}</a> / </>
             ))}
             <span>{entry.title}</span>
           </nav>
@@ -126,6 +129,7 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
         <div class="page-routemap">
           {entry.stopsGeo.length >= 2 ? (
             <RouteGeoMap
+              locale={locale}
               stops={entry.stopsGeo}
               title={entry.title}
               slug={entry.slug}
@@ -179,6 +183,7 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
 
         {hasItinerary && entry.itinerary && (
           <RouteItineraryDays
+            locale={locale}
             itinerary={entry.itinerary}
             streekSlug={entry.streekSlug}
             boekbaar={Boolean(staysRoundup)}
@@ -191,7 +196,7 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
             <span class="section-label">{ui.t('route.wijnhuizenOpRoute')}</span>
             <div class="wijnhuis-grid">
               {wijnhuizen.map(wh => (
-                <a class="wijnhuis-card" href={`/wijnhuizen/${wh.slug}/`}>
+                <a class="wijnhuis-card" href={lh(`/wijnhuizen/${wh.slug}/`)}>
                   <span class="wijnhuis-card__name">{wh.name}</span>
                   {wh.description && <span class="wijnhuis-card__desc">{wh.description}</span>}
                   <span class="wijnhuis-card__cta">{ui.t('route.leesPortret')} &rarr;</span>
@@ -207,6 +212,7 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
       <aside class="page-sidebar">
         {staysRoundup && entry.streekSlug && (
           <StaysTeaser
+            locale={locale}
             roundup={staysRoundup}
             streekSlug={entry.streekSlug}
             regio={streekName}
@@ -235,7 +241,7 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
 
     <RelatedArticles items={entry.relatedArticles} locale={locale} />
 
-    <HubBacklink type="route" slug={entry.slug} />
+    <HubBacklink type="route" slug={entry.slug} locale={locale} />
 
     {!hasItinerary && routeBody.hasDays && bookHref && (
       <a class="route-book-sticky" href={bookHref}>{ui.t('route.boekDag1')}</a>

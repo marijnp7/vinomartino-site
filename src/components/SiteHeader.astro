@@ -3,7 +3,7 @@ import { loadNavigation } from '../lib/navigation';
 import { loadLandenNav } from '../lib/landen';
 import { loadStrekenNav } from '../lib/streken';
 import { loadUiStrings } from '../lib/ui-strings';
-import { type Locale, DEFAULT_LOCALE } from '../lib/i18n';
+import { type Locale, DEFAULT_LOCALE, localizeHref } from '../lib/i18n';
 import LanguageSwitcher from './LanguageSwitcher.astro';
 
 interface Props {
@@ -16,6 +16,10 @@ interface Props {
 
 const { activeNav, locale = DEFAULT_LOCALE, counterpartExists = false } = Astro.props;
 const ui = await loadUiStrings(locale);
+
+// LAT-2704 — elke interne href locale-aware. NL blijft byte-identiek (localizeHref
+// geeft het kale pad ongewijzigd terug voor DEFAULT_LOCALE).
+const lh = (href: string) => localizeHref(href, locale);
 
 // Taal-switcher alleen tonen wanneer er écht een alternatief is: op /en/ bestaat
 // NL altijd; op NL-pagina's pas zodra er een EN-tegenhanger is. Op NL-pagina's
@@ -82,7 +86,7 @@ const ontdekPromo = {
 
   <div class="header-main">
     <div class="header-inner">
-      <a href="/" class="header-logo" aria-label="VinoMartino">
+      <a href={lh('/')} class="header-logo" aria-label="VinoMartino">
         Vino<span class="logo-dot">·</span>Martino
       </a>
 
@@ -90,7 +94,7 @@ const ontdekPromo = {
         {hasOntdek && (
           <div class="nav-dropdown" data-nav-dropdown>
             <a
-              href="/ontdek/"
+              href={lh('/ontdek/')}
               class={`nav-link nav-dropdown-trigger ${activeNav === 'ontdek' ? 'nav-link--active' : ''}`}
               aria-haspopup="true"
               aria-expanded="false"
@@ -113,17 +117,17 @@ const ontdekPromo = {
                   <span class="ontdek-promo-kicker">{ontdekPromo.kicker}</span>
                   <h2 class="ontdek-promo-title">{ontdekPromo.title}</h2>
                   <p class="ontdek-promo-body">{ontdekPromo.body}</p>
-                  <a class="ontdek-promo-link" href="/landen/">{ui.t('header.ontdek.alleLanden')}<span aria-hidden="true"> &rarr;</span></a>
+                  <a class="ontdek-promo-link" href={lh('/landen/')}>{ui.t('header.ontdek.alleLanden')}<span aria-hidden="true"> &rarr;</span></a>
                 </aside>
                 <div class="ontdek-columns">
                   {ontdekLandGroups.map(({ land, streken }) => (
                     <div class="ontdek-group">
-                      <a class="ontdek-land" href={`/landen/${land.slug}/`}>{land.name}</a>
+                      <a class="ontdek-land" href={lh(`/landen/${land.slug}/`)}>{land.name}</a>
                       {streken.length > 0 && (
                         <ul class="ontdek-list">
                           {streken.map(streek => (
                             <li>
-                              <a class="ontdek-link" href={`/streken/${streek.slug}/`}>{streek.name}</a>
+                              <a class="ontdek-link" href={lh(`/streken/${streek.slug}/`)}>{streek.name}</a>
                             </li>
                           ))}
                         </ul>
@@ -137,7 +141,7 @@ const ontdekPromo = {
         )}
         {navItems.map(item => (
           <a
-            href={item.href}
+            href={lh(item.href)}
             class={`nav-link ${activeNav === item.key ? 'nav-link--active' : ''}`}
           >
             {navLabel(item)}
@@ -210,18 +214,18 @@ const ontdekPromo = {
             </div>
             {ontdekLandGroups.map(({ land, streken }) => (
               <div class="mobile-ontdek-group">
-                <a href={`/landen/${land.slug}/`} class="ontdek-land">{land.name}</a>
+                <a href={lh(`/landen/${land.slug}/`)} class="ontdek-land">{land.name}</a>
                 {streken.map(streek => (
-                  <a href={`/streken/${streek.slug}/`} class="mobile-ontdek-link">{streek.name}</a>
+                  <a href={lh(`/streken/${streek.slug}/`)} class="mobile-ontdek-link">{streek.name}</a>
                 ))}
               </div>
             ))}
-            <a href="/ontdek/" class="mobile-ontdek-link mobile-ontdek-all">{ui.t('header.mobile.ontdekAll')} &rarr;</a>
+            <a href={lh('/ontdek/')} class="mobile-ontdek-link mobile-ontdek-all">{ui.t('header.mobile.ontdekAll')} &rarr;</a>
           </div>
         </div>
       )}
       {navItems.map(item => (
-        <a href={item.href} class="mobile-nav-link">{navLabel(item)}</a>
+        <a href={lh(item.href)} class="mobile-nav-link">{navLabel(item)}</a>
       ))}
     </nav>
   </div>

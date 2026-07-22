@@ -11,7 +11,7 @@
 // nooit "coming soon" (Martin-stem, plan 4b).
 
 import PoiCard, { type PoiCardTheme } from './PoiCard.astro';
-import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
+import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
 import { loadUiStrings } from '../lib/ui-strings';
 
 export interface StreekPoiInput {
@@ -79,6 +79,8 @@ const {
 } = Astro.props;
 
 const ui = await loadUiStrings(locale);
+// LAT-2704 — interne hrefs locale-aware; NL blijft byte-identiek.
+const lh = (href: string) => localizeHref(href, locale);
 
 type CatKey = 'wijnhuizen' | 'eten' | 'overnachten' | 'activiteiten';
 
@@ -184,7 +186,7 @@ const mapData = {
     lng: it.lng,
     prijs: it.prijs ?? null,
     boeklink: it.boeklink ?? null,
-    detailUrl: it.detailUrl ?? null,
+    detailUrl: it.detailUrl ? lh(it.detailUrl) : null,
     cta: ctaLabel(it.category),
     partner: it.partner ?? '',
     foto: it.foto ?? null,
@@ -268,6 +270,7 @@ const usedCats = sections.map((s) => s.key);
               const plotted = it.lat != null && it.lng != null;
               return (
                 <PoiCard
+                  locale={locale}
                   poi={{
                     n: it.n,
                     color: it.color,
@@ -281,7 +284,7 @@ const usedCats = sections.map((s) => s.key);
                     beschrijving: it.beschrijving ?? null,
                     prijs: it.prijs ?? null,
                     boeklink: it.boeklink ?? null,
-                    detailUrl: it.detailUrl ?? null,
+                    detailUrl: it.detailUrl ? lh(it.detailUrl) : null,
                     cta: ctaLabel(it.category),
                     ctaKey: it.category === 'overnachten' ? 'bekijk-boek' : undefined,
                     partner: it.partner || '',

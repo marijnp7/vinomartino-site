@@ -7,8 +7,11 @@
 // routes.stops_geo). Heeft een route < 2 geocoded stops, dan rendert dit niets en valt
 // de pagina terug op de schematische RouteMap (LAT-1608).
 import type { RouteStopGeo } from '../lib/routes';
+import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
 
 export interface Props {
+  /** LAT-2704 — locale van de renderende pagina; stuurt de interne hrefs. */
+  locale?: Locale;
   stops: RouteStopGeo[];
   title: string;
   slug: string;
@@ -16,7 +19,10 @@ export interface Props {
   transport?: string | null;
 }
 
-const { stops = [], title, slug, duration = null, transport = null } = Astro.props;
+const { stops = [], title, slug, duration = null, transport = null, locale = DEFAULT_LOCALE } = Astro.props;
+
+// LAT-2704 — interne hrefs locale-aware; NL blijft byte-identiek.
+const lh = (href: string) => localizeHref(href, locale);
 
 const geo = stops.filter((s: RouteStopGeo) => s && Number.isFinite(s.lat) && Number.isFinite(s.lng));
 const hasGeo = geo.length >= 2;
@@ -33,6 +39,8 @@ const mapId = `routemap-${slug}`.replace(/[^a-z0-9-]/gi, '');
 let dayNo = 0;
 const mapData = {
   slug,
+  // LAT-2704 — basispad voor de wijnhuis-links in de popups, server-side gelokaliseerd.
+  wijnhuisBase: lh('/wijnhuizen/'),
   stops: geo.map((s: RouteStopGeo) => {
     const kind = s.kind ?? 'stop';
     return {
@@ -78,7 +86,7 @@ const mapData = {
 
   type StopKind = 'stop' | 'wijnhuis' | 'slaap';
   type Stop = { n: number | null; kind: StopKind; naam: string; slug: string | null; lat: number; lng: number };
-  type MapData = { slug: string; stops: Stop[]; line: [number, number][] };
+  type MapData = { slug: string; wijnhuisBase?: string; stops: Stop[]; line: [number, number][] };
 
   let leafletPromise: Promise<any> | null = null;
   function loadLeaflet(): Promise<any> {
@@ -155,7 +163,7 @@ const mapData = {
       }
       const icon = L.divIcon({ className: '', html, iconSize: [28, 28], iconAnchor: [14, 14] });
       const link = s.kind === 'wijnhuis' && s.slug
-        ? `<a class="rgm-popup__cta" href="/wijnhuizen/${encodeURIComponent(s.slug)}/">Lees portret &rarr;</a>`
+        ? `<a class="rgm-popup__cta" href="${data.wijnhuisBase || '/wijnhuizen/'}${encodeURIComponent(s.slug)}/">Lees portret &rarr;</a>`
         : '';
       const marker = L.marker([s.lat, s.lng], { icon, title: s.naam, riseOnHover: true })
         .addTo(map)
