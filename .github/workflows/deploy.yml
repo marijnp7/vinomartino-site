@@ -134,12 +134,30 @@ jobs:
           RUN_ID: ${{ github.run_id }}
           RUN_NUMBER: ${{ github.run_number }}
           TARGET: ${{ steps.env.outputs.target }}
+          ASSET_CACHE: /srv/vino-asset-cache
           BUILD_SCRIPT: |
             set -euo pipefail
             cd "$STAGE"
             if [ -f /root/vinomartino-site/.env ]; then
               cp /root/vinomartino-site/.env .env
             fi
+            # ── LAT-2779 asset-cache (seed) ──────────────────────────────────
+            # Elke build downloadde ~1600 assets van Directus én gradede ze met
+            # sharp (LAT-2007-preset). Die flood + CPU-last laat de build zichzelf
+            # DoS'en (load 2 -> 20 op 2 vCPU) en overschrijdt de 30-min timeout.
+            # De loaders slaan via `existsSync(outPath)` zowel de download áls de
+            # grading over als het bestand er al staat. Door een persistente
+            # host-cache vóór de build in de staging te spiegelen wordt elke build
+            # ná de eerste vrijwel download- en grading-vrij: load-piek weg, ruim
+            # binnen de timeout. --ignore-existing beschermt de in-repo gecommitte
+            # beelden (streken/articles/routes bevatten óók getrackte bestanden).
+            ASSET_CACHE="${ASSET_CACHE:-/srv/vino-asset-cache}"
+            CACHE_DIRS="streken accommodaties wijnhuizen routes articles landen reispakketten"
+            for d in $CACHE_DIRS; do
+              mkdir -p "$ASSET_CACHE/$d" "$STAGE/public/images/$d"
+              rsync -a --ignore-existing "$ASSET_CACHE/$d/" "$STAGE/public/images/$d/" || true
+            done
+            echo "[asset-cache] seeded staging from $ASSET_CACHE ($(find "$ASSET_CACHE" -type f | wc -l) cached files)"
             # LAT-1112: preview-builds include draft items so Marijn can
             # review status=draft entries on preview.vinomartino.com before
             # promote-to-production. Productie krijgt deze env-var NIET en
@@ -194,9 +212,20 @@ jobs:
             # index-pagina's ontbreken of het HTML-aantal onder drempel
             # ligt.
             bash scripts/verify-build.sh dist
+            # ── LAT-2779 asset-cache (persist) ───────────────────────────────
+            # Pas ná de build-success-gates: nieuw gedownloade+gegradede assets
+            # terugschrijven naar de host-cache voor volgende builds.
+            # --ignore-existing houdt bestaande cache-entries ongemoeid (zelfde
+            # Directus-UUID = identieke asset). Nooit fataal: een cache-miss kost
+            # alleen tijd op de volgende build, geen correctheid.
+            for d in $CACHE_DIRS; do
+              [ -d "$STAGE/public/images/$d" ] || continue
+              rsync -a --ignore-existing "$STAGE/public/images/$d/" "$ASSET_CACHE/$d/" || true
+            done
+            echo "[asset-cache] persisted to $ASSET_CACHE (now $(find "$ASSET_CACHE" -type f | wc -l) cached files)"
         run: |
           printf '%s\n' "$BUILD_SCRIPT" \
-            | ssh "$VPS" "STAGE='$STAGE' GIT_SHA='$GIT_SHA' RUN_ID='$RUN_ID' RUN_NUMBER='$RUN_NUMBER' TARGET='$TARGET' bash -s"
+            | ssh "$VPS" "STAGE='$STAGE' GIT_SHA='$GIT_SHA' RUN_ID='$RUN_ID' RUN_NUMBER='$RUN_NUMBER' TARGET='$TARGET' ASSET_CACHE='$ASSET_CACHE' bash -s"
 
       # ── 7. Sync inhoud + config naar DIST + container reload ─────────────
       #
