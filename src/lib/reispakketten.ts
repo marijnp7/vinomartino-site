@@ -24,6 +24,7 @@ import {
     statusFilterQuery,
     assertDirectusConfigured,
     assetUrl,
+    directusSignal,
 } from './directus-config';
 
 export interface PakketWijnhuis {
@@ -67,7 +68,7 @@ async function downloadAsset(
     try {
         const res = await fetch(assetUrl(directusUrl, assetId), {
             headers: { Authorization: `Bearer ${token}` },
-            signal: AbortSignal.timeout(15000),
+            signal: directusSignal(),
         });
         if (!res.ok) {
             console.warn(`[loadReispakketten] kon asset ${assetId} niet ophalen: ${res.status}`);
@@ -175,7 +176,7 @@ async function fetchPakketten(url: string, token: string): Promise<Record<string
     const tryFetch = (fields: string): Promise<Response> =>
         fetch(`${url}/items/reispakketten?limit=-1&fields=${fields}${filterSort}`, {
             headers,
-            signal: AbortSignal.timeout(15000),
+            signal: directusSignal(),
         });
 
     // Voorkeursquery met M2M-relaties; degradeer wanneer de junctions nog niet

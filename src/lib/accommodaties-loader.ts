@@ -31,6 +31,8 @@ import {
     assertDirectusConfigured,
     assetUrl,
     assertCollectionReadableOrDegrade,
+    directusSignal,
+    fetchDirectusCollection,
 } from './directus-config';
 import { DEFAULT_LOCALE, type Locale } from './i18n';
 import { localizeRecords } from './directus-i18n';
@@ -48,7 +50,7 @@ async function downloadAsset(assetId: string, directusUrl: string, token: string
     try {
         const res = await fetch(assetUrl(directusUrl, assetId), {
             headers: { Authorization: `Bearer ${token}` },
-            signal: AbortSignal.timeout(15000),
+            signal: directusSignal(),
         });
         if (!res.ok) {
             console.warn(`[loadAccommodaties] kon asset ${assetId} niet ophalen: ${res.status}`);
@@ -104,10 +106,11 @@ async function fetchAccommodations(url: string, token: string, locale: Locale): 
     const headers = { Authorization: `Bearer ${token}` };
     const sort = '&sort=name';
     const tryFetch = (fields: string, withStatus: boolean): Promise<Response> =>
-        fetch(`${url}/items/accommodations?limit=-1&fields=${fields}${withStatus ? statusFilterQuery(env) : ''}${sort}`, {
-            headers,
-            signal: AbortSignal.timeout(15000),
-        });
+        fetchDirectusCollection(
+            'loadAccommodaties',
+            `${url}/items/accommodations?limit=-1&fields=${fields}${withStatus ? statusFilterQuery(env) : ''}${sort}`,
+            { headers },
+        );
 
     // Voorkeursquery: curatie-velden + status-filter + streek-join. Tot DevOps de
     // migratie draait (extend-accommodations-schema.mjs) degradeert dit netjes

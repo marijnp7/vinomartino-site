@@ -14,6 +14,7 @@ import {
     readDirectusEnv,
     statusFilterQuery,
     type DirectusEnv,
+    directusSignal,
 } from './directus-config';
 import { mapConfigToProps, buildZones } from './atlas';
 import { normalizeEmDashes } from './markdown';
@@ -37,7 +38,7 @@ async function getJson(url: string, token: string): Promise<unknown[] | null> {
     const headers = { Authorization: `Bearer ${token}` };
     let res: Response;
     try {
-        res = await fetch(url, { headers, signal: AbortSignal.timeout(15000) });
+        res = await fetch(url, { headers, signal: directusSignal() });
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         console.warn(`[loadAtlas] Directus unreachable: ${msg}`);

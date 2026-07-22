@@ -1,4 +1,4 @@
-import { readDirectusEnv, statusFilterQuery } from './directus-config';
+import { readDirectusEnv, statusFilterQuery, directusSignal } from './directus-config';
 
 export interface NavItem {
     label: string;
@@ -46,7 +46,7 @@ export async function loadNavigation(): Promise<NavItem[]> {
     const url = `${env.url}/items/nav_items?limit=-1&fields=${fields}${statusFilterQuery(env)}&sort=order`;
     const res = await fetch(url, {
         headers: { Authorization: `Bearer ${env.token}` },
-        signal: AbortSignal.timeout(15000),
+        signal: directusSignal(),
     });
     if (!res.ok) {
         const body = await res.text().catch(() => '');

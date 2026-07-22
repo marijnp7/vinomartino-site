@@ -22,6 +22,7 @@
 
 import { DEFAULT_LOCALE, type Locale } from './i18n';
 import type { DirectusEnv } from './directus-config';
+import { directusSignal } from './directus-config';
 
 export interface TranslationOverlayOptions {
     env: DirectusEnv;
@@ -49,7 +50,7 @@ export async function fetchTranslationOverlay(
     const url = `${env.url}/items/${junction}?limit=-1&filter[languages_code][_eq]=${encodeURIComponent(locale)}&fields=${fieldList}`;
     const res = await fetch(url, {
         headers: { Authorization: `Bearer ${env.token}` },
-        signal: AbortSignal.timeout(15000),
+        signal: directusSignal(),
     });
     if (!res.ok) {
         const body = await res.text().catch(() => '');

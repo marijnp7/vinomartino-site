@@ -18,7 +18,7 @@
 // build-token, dan faalt de build NIET — het dashboard rendert een nette
 // "nog geen data / wacht op provisioning"-staat (vgl. LAT-1011).
 
-import { readDirectusEnv } from './directus-config';
+import { readDirectusEnv, directusSignal } from './directus-config';
 
 export interface ClickRow {
   placement: string;
@@ -163,7 +163,7 @@ async function loadCommissions(env: ReturnType<typeof readDirectusEnv>): Promise
   try {
     const res = await fetch(
       `${env.url}/items/affiliate_commissions?limit=-1&fields=click_id,partner,region,placement,commission_usd,commission_eur,sale_amount_usd,event_date&sort=-event_date`,
-      { headers: { Authorization: `Bearer ${env.token}` }, signal: AbortSignal.timeout(15000) },
+      { headers: { Authorization: `Bearer ${env.token}` }, signal: directusSignal() },
     );
     // Collectie of read-permissie ontbreekt → commissies (nog) niet beschikbaar; geen build-fout.
     if (res.status === 403 || res.status === 404) return null;
@@ -194,7 +194,7 @@ export async function loadClicksDashboard(): Promise<ClicksDashboard> {
   try {
     const res = await fetch(
       `${env.url}/items/affiliate_clicks?limit=-1&fields=placement,partner,context,path,clicked_at&sort=-clicked_at`,
-      { headers: { Authorization: `Bearer ${env.token}` }, signal: AbortSignal.timeout(15000) },
+      { headers: { Authorization: `Bearer ${env.token}` }, signal: directusSignal() },
     );
     if (res.status === 403 || res.status === 404) {
       return emptyDashboard(

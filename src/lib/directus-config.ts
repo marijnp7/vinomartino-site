@@ -32,6 +32,97 @@ export function readDirectusEnv(): DirectusEnv {
 }
 
 /**
+ * LAT-2779 — één plek voor de Directus-fetchtimeout.
+ *
+ * Tot nu toe stond een hardcoded 15s-`AbortSignal` ~40x verspreid over
+ * src/lib/. Onder VPS-CPU-verzadiging (LAT-2776, 15-min load ~13.8 op 2 vCPU)
+ * lopen die 15s-timeouts over en klapt de hele build om op
+ * `Failed to call getStaticPaths`. 45s is ruim boven de gemeten piek-latency en
+ * is met `DIRECTUS_FETCH_TIMEOUT_MS` per build bij te stellen zonder codewijziging.
+ *
+ * Ongeldige of niet-positieve waarden vallen stil terug op de default.
+ */
+export const DIRECTUS_FETCH_TIMEOUT_MS_DEFAULT = 45000;
+
+export function directusFetchTimeoutMs(): number {
+    const raw = (process.env['DIRECTUS_FETCH_TIMEOUT_MS'] || '').trim();
+    if (!raw) return DIRECTUS_FETCH_TIMEOUT_MS_DEFAULT;
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+        console.warn(
+            `[directus-config] DIRECTUS_FETCH_TIMEOUT_MS='${raw}' is geen positief getal — terug naar ${DIRECTUS_FETCH_TIMEOUT_MS_DEFAULT}ms.`,
+        );
+        return DIRECTUS_FETCH_TIMEOUT_MS_DEFAULT;
+    }
+    return Math.round(parsed);
+}
+
+/**
+ * Timeout-signal voor élke Directus-fetch. Vervangt de losse
+ * hardcoded 15s-signals. Roep dit per fetch aan: een signal is
+ * eenmalig en begint af te tellen op het moment van aanmaken, dus één gedeeld
+ * signal over meerdere sequentiële fetches deelt hetzelfde budget.
+ */
+export function directusSignal(): AbortSignal {
+    return AbortSignal.timeout(directusFetchTimeoutMs());
+}
+
+/**
+ * LAT-2779 — aantal extra pogingen ná de eerste voor de collection-loaders,
+ * en de wachttijd ertussen. Bij te stellen via env zonder codewijziging.
+ */
+export const DIRECTUS_RETRIES_DEFAULT = 2;
+export const DIRECTUS_RETRY_BACKOFF_MS_DEFAULT = 2000;
+
+function readPositiveIntEnv(name: string, fallback: number): number {
+    const raw = (process.env[name] || '').trim();
+    if (!raw) return fallback;
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed) || parsed < 0) return fallback;
+    return Math.round(parsed);
+}
+
+/**
+ * LAT-2779 — fetch voor de collection-queries van de loaders (streken, landen,
+ * routes, articles, wijnhuizen, accommodaties) mét retry-backoff.
+ *
+ * Retryt **alleen** op een geworpen fout: timeout (`TimeoutError` via
+ * AbortSignal) of netwerkfout. Een HTTP-antwoord wordt onaangeroerd
+ * teruggegeven — ook 4xx/5xx. Dat is bewust: de loaders gebruiken 400/403 als
+ * signaal voor "veld/permissie bestaat nog niet" en vallen dan naar een lagere
+ * field-tier terug. Retryen zou die tier-logica stukmaken en de build vertragen.
+ *
+ * Asset-downloads gaan hier bewust niet doorheen: die zijn idempotent en de
+ * volgende build pakt een gemiste asset op (streken.ts heeft z'n eigen
+ * fetchAssetWithRetry voor 429/5xx).
+ */
+export async function fetchDirectusCollection(
+    loaderName: string,
+    url: string,
+    init: RequestInit = {},
+): Promise<Response> {
+    const retries = readPositiveIntEnv('DIRECTUS_FETCH_RETRIES', DIRECTUS_RETRIES_DEFAULT);
+    const backoffMs = readPositiveIntEnv('DIRECTUS_RETRY_BACKOFF_MS', DIRECTUS_RETRY_BACKOFF_MS_DEFAULT);
+    let lastErr: unknown = new Error('fetch not attempted');
+    for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+            // Per poging een vers signal: het vorige is al verlopen.
+            return await fetch(url, { ...init, signal: directusSignal() });
+        } catch (err) {
+            lastErr = err;
+            const msg = err instanceof Error ? err.message : String(err);
+            if (attempt === retries) break;
+            console.warn(
+                `[${loaderName}] Directus-fetch mislukt (poging ${attempt + 1}/${retries + 1}): ${msg} — ` +
+                    `opnieuw over ${backoffMs}ms. Timeout staat op ${directusFetchTimeoutMs()}ms (LAT-2779).`,
+            );
+            await new Promise((resolve) => setTimeout(resolve, backoffMs));
+        }
+    }
+    throw lastErr;
+}
+
+/**
  * Directus on-the-fly image transform for build-time downloads (LAT-1770).
  * Originals are 3-7 MB; capping at 1600px width / quality 75 keeps heroes crisp
  * on retina while cutting per-asset weight ~95%. JPEG is kept so the `.jpg`

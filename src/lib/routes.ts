@@ -103,6 +103,8 @@ import {
     assertDirectusConfigured,
     assetUrl,
     assertCollectionReadableOrDegrade,
+    directusSignal,
+    fetchDirectusCollection,
 } from './directus-config';
 import { DEFAULT_LOCALE, type Locale } from './i18n';
 import { localizeRecords } from './directus-i18n';
@@ -125,7 +127,7 @@ async function downloadAsset(assetId: string, directusUrl: string, token: string
     try {
         const res = await fetch(assetUrl(directusUrl, assetId), {
             headers: { Authorization: `Bearer ${token}` },
-            signal: AbortSignal.timeout(15000),
+            signal: directusSignal(),
         });
         if (!res.ok) {
             const body = await res.text().catch(() => '');
@@ -264,10 +266,9 @@ async function fetchRoutesItems(url: string, token: string): Promise<Record<stri
     const withItinerary = `${withCta},itinerary`;
     const filterSort = `${statusFilterQuery(env)}&sort=title`;
     const headers = { Authorization: `Bearer ${token}` };
-    const signal = AbortSignal.timeout(15000);
     let res: Response;
     try {
-        res = await fetch(`${url}/items/routes?limit=-1&fields=${withItinerary}${filterSort}`, { headers, signal });
+        res = await fetchDirectusCollection('loadRoutes', `${url}/items/routes?limit=-1&fields=${withItinerary}${filterSort}`, { headers });
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         assetDebug.push({ kind: 'query', url, error: msg });
@@ -283,7 +284,7 @@ async function fetchRoutesItems(url: string, token: string): Promise<Record<stri
         console.warn(`[loadRoutes] Directus rejected fields=…,itinerary (HTTP ${res.status}) — retrying without LAT-2013 itinerary.`);
         assetDebug.push({ kind: 'query', url, status: res.status, body: itinBody.slice(0, 500), retryWithoutItinerary: true });
         try {
-            res = await fetch(`${url}/items/routes?limit=-1&fields=${withCta}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
+            res = await fetchDirectusCollection('loadRoutes', `${url}/items/routes?limit=-1&fields=${withCta}${filterSort}`, { headers });
         } catch (err) {
             const msg = err instanceof Error ? err.message : String(err);
             assetDebug.push({ kind: 'query-retry-itinerary', url, error: msg });
@@ -300,7 +301,7 @@ async function fetchRoutesItems(url: string, token: string): Promise<Record<stri
         console.warn(`[loadRoutes] Directus rejected fields=…,cta_blocks (HTTP ${res.status}) — retrying without LAT-1795 cta_blocks.`);
         assetDebug.push({ kind: 'query', url, status: res.status, body: ctaBody.slice(0, 500), retryWithoutCta: true });
         try {
-            res = await fetch(`${url}/items/routes?limit=-1&fields=${withGeo}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
+            res = await fetchDirectusCollection('loadRoutes', `${url}/items/routes?limit=-1&fields=${withGeo}${filterSort}`, { headers });
         } catch (err) {
             const msg = err instanceof Error ? err.message : String(err);
             assetDebug.push({ kind: 'query-retry-cta', url, error: msg });
@@ -317,7 +318,7 @@ async function fetchRoutesItems(url: string, token: string): Promise<Record<stri
         console.warn(`[loadRoutes] Directus rejected fields=…,stops_geo (HTTP ${res.status}) — retrying without LAT-1635 stops_geo.`);
         assetDebug.push({ kind: 'query', url, status: res.status, body: geoBody.slice(0, 500), retryWithoutGeo: true });
         try {
-            res = await fetch(`${url}/items/routes?limit=-1&fields=${withStreek}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
+            res = await fetchDirectusCollection('loadRoutes', `${url}/items/routes?limit=-1&fields=${withStreek}${filterSort}`, { headers });
         } catch (err) {
             const msg = err instanceof Error ? err.message : String(err);
             assetDebug.push({ kind: 'query-retry-geo', url, error: msg });
@@ -335,7 +336,7 @@ async function fetchRoutesItems(url: string, token: string): Promise<Record<stri
         assetDebug.push({ kind: 'query', url, status: res.status, body: body.slice(0, 500), retryWithoutRelations: true });
         let retryRel: Response;
         try {
-            retryRel = await fetch(`${url}/items/routes?limit=-1&fields=${withOg}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
+            retryRel = await fetchDirectusCollection('loadRoutes', `${url}/items/routes?limit=-1&fields=${withOg}${filterSort}`, { headers });
         } catch (err) {
             const msg = err instanceof Error ? err.message : String(err);
             assetDebug.push({ kind: 'query-retry-rel', url, error: msg });
@@ -354,7 +355,7 @@ async function fetchRoutesItems(url: string, token: string): Promise<Record<stri
         console.warn(`[loadRoutes] Directus also rejected fields=…,og_image (HTTP ${retryRel.status}) — retrying without og_image.`);
         let retry: Response;
         try {
-            retry = await fetch(`${url}/items/routes?limit=-1&fields=${baseFields}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
+            retry = await fetchDirectusCollection('loadRoutes', `${url}/items/routes?limit=-1&fields=${baseFields}${filterSort}`, { headers });
         } catch (err) {
             const msg = err instanceof Error ? err.message : String(err);
             assetDebug.push({ kind: 'query-retry', url, error: msg });
@@ -387,9 +388,10 @@ async function fetchRoutesItems(url: string, token: string): Promise<Record<stri
 async function loadRouteStreekJunction(url: string, token: string): Promise<Map<number, string>> {
     const map = new Map<number, string>();
     try {
-        const res = await fetch(
+        const res = await fetchDirectusCollection(
+            'loadRoutes',
             `${url}/items/routes_streken?limit=-1&fields=routes_id,streken_id.slug`,
-            { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(15000) },
+            { headers: { Authorization: `Bearer ${token}` } },
         );
         if (!res.ok) {
             console.warn(`[loadRoutes] routes_streken junction niet leesbaar (HTTP ${res.status}); route→streek fallback overgeslagen.`);
