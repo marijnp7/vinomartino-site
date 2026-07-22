@@ -128,11 +128,32 @@ export async function fetchDirectusCollection(
             // origineel (content-length, content-encoding) slaan niet meer op
             // de al gedecodeerde string.
             const contentType = res.headers.get('content-type');
-            return new Response(nullBody ? null : body, {
+            const buffered = new Response(nullBody ? null : body, {
                 status: res.status,
                 statusText: res.statusText,
                 headers: contentType ? { 'content-type': contentType } : {},
             });
+            // LAT-2779 — transiente server-pressure is retry-baar. Directus'
+            // pressure-limiter geeft onder buildload `503 Service "api"
+            // unavailable — Under pressure` (bewezen crash op loadNavigation,
+            // run 29966447532); 429/502/504 vallen in dezelfde categorie. Die
+            // status komt als HTTP-antwoord binnen (geen throw), dus zonder deze
+            // tak zou hij ongeretryd doorgaan naar de caller die er op crasht.
+            // 4xx (m.n. 400/403) is NIET retry-baar: dat stuurt de
+            // field-tier-fallback en moet onaangeroerd terug. Op de laatste
+            // poging valt deze tak weg (attempt === retries) en gaat de 503
+            // alsnog naar de caller — gedrag bij totale uitval blijft gelijk.
+            const retriableStatus =
+                res.status === 429 || res.status === 502 || res.status === 503 || res.status === 504;
+            if (retriableStatus && attempt < retries) {
+                console.warn(
+                    `[${loaderName}] Directus HTTP ${res.status} (poging ${attempt + 1}/${retries + 1}) — ` +
+                        `opnieuw over ${backoffMs}ms (transiente pressure, LAT-2779).`,
+                );
+                await new Promise((resolve) => setTimeout(resolve, backoffMs));
+                continue;
+            }
+            return buffered;
         } catch (err) {
             lastErr = err;
             const msg = err instanceof Error ? err.message : String(err);
