@@ -281,6 +281,7 @@ import {
     assertDirectusConfigured,
     assetUrl,
     directusSignal,
+    withAssetSlot,
     fetchDirectusCollection,
 } from './directus-config';
 import { DEFAULT_LOCALE, type Locale } from './i18n';
@@ -297,10 +298,12 @@ async function downloadArticleAsset(assetId: string, directusUrl: string, token:
     const outPath = join(outDir, `${assetId}.jpg`);
     if (existsSync(outPath)) return `/images/articles/${assetId}.jpg`;
     try {
-        const res = await fetch(assetUrl(directusUrl, assetId), {
-            headers: { Authorization: `Bearer ${token}` },
-            signal: directusSignal(),
-        });
+        const res = await withAssetSlot(() =>
+            fetch(assetUrl(directusUrl, assetId), {
+                headers: { Authorization: `Bearer ${token}` },
+                signal: directusSignal(),
+            }),
+        );
         if (!res.ok) {
             console.warn(`[loadArticles] could not fetch asset ${assetId}: ${res.status}`);
             return null;

@@ -25,6 +25,7 @@ import {
     assertDirectusConfigured,
     assetUrl,
     directusSignal,
+    withAssetSlot,
     fetchDirectusCollection,
 } from './directus-config';
 
@@ -67,10 +68,12 @@ async function downloadAsset(
     const outPath = join(outDir, fileName);
     if (existsSync(outPath)) return `/images/${subdir}/${fileName}`;
     try {
-        const res = await fetch(assetUrl(directusUrl, assetId), {
-            headers: { Authorization: `Bearer ${token}` },
-            signal: directusSignal(),
-        });
+        const res = await withAssetSlot(() =>
+            fetch(assetUrl(directusUrl, assetId), {
+                headers: { Authorization: `Bearer ${token}` },
+                signal: directusSignal(),
+            }),
+        );
         if (!res.ok) {
             console.warn(`[loadReispakketten] kon asset ${assetId} niet ophalen: ${res.status}`);
             return null;

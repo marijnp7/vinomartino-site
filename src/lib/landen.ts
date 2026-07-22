@@ -124,6 +124,7 @@ import {
     assetUrl,
     assertCollectionReadableOrDegrade,
     directusSignal,
+    withAssetSlot,
     fetchDirectusCollection,
 } from './directus-config';
 import { DEFAULT_LOCALE, type Locale } from './i18n';
@@ -155,10 +156,12 @@ async function downloadAsset(assetId: string, directusUrl: string, token: string
     const outPath = join(outDir, fileName);
     if (existsSync(outPath)) return `/images/landen/${fileName}`;
     try {
-        const res = await fetch(assetUrl(directusUrl, assetId), {
-            headers: { Authorization: `Bearer ${token}` },
-            signal: directusSignal(),
-        });
+        const res = await withAssetSlot(() =>
+            fetch(assetUrl(directusUrl, assetId), {
+                headers: { Authorization: `Bearer ${token}` },
+                signal: directusSignal(),
+            }),
+        );
         if (!res.ok) {
             const body = await res.text().catch(() => '');
             console.warn(`[loadLanden] could not fetch asset ${assetId}: ${res.status} body=${body.slice(0, 300)}`);

@@ -193,6 +193,7 @@ import {
     assetUrl,
     assertCollectionReadableOrDegrade,
     directusSignal,
+    withAssetSlot,
     fetchDirectusCollection,
 } from './directus-config';
 import { DEFAULT_LOCALE, type Locale } from './i18n';
@@ -232,10 +233,12 @@ async function fetchAssetWithRetry(url: string, token: string, attempts = 4): Pr
     let lastErr: unknown = new Error('fetch not attempted');
     for (let i = 0; i < attempts; i++) {
         try {
-            const res = await fetch(url, {
-                headers: { Authorization: `Bearer ${token}` },
-                signal: directusSignal(),
-            });
+            const res = await withAssetSlot(() =>
+                fetch(url, {
+                    headers: { Authorization: `Bearer ${token}` },
+                    signal: directusSignal(),
+                }),
+            );
             // 2xx of niet-transiente 4xx → direct teruggeven; caller logt de status.
             if (res.ok || (res.status >= 400 && res.status < 500 && res.status !== 429)) return res;
             lastErr = new Error(`HTTP ${res.status}`);

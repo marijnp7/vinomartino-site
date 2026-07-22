@@ -148,6 +148,71 @@ export async function fetchDirectusCollection(
 }
 
 /**
+ * LAT-2779 — globale concurrency-cap op asset-downloads.
+ *
+ * De collection-loaders (streken × accommodaties, landen, routes, …) vuren hun
+ * asset-downloads af via geneste `Promise.all`, wat neerkomt op ~1600 gelijktijdige
+ * `/assets/`-requests op Directus. Die flood laat de build zichzélf DoS'en: op een
+ * gedeelde 2-vCPU-host klimt de load tijdens de build van ~2 naar >10, waarna
+ * Directus' eigen pressure-limiter `503 Service "api" unavailable — Under pressure`
+ * teruggeeft óf de fetches over de timeout heen lopen → `Failed to call
+ * getStaticPaths` → build faalt. Bewezen: een rerun startte op load 2.27 (< 3) en
+ * viel alsnog om (LAT-2769). "Wachten op een rustig venster" werkt structureel niet
+ * omdat de build zélf het lawaai maakt.
+ *
+ * Een gedeelde semafoor begrenst het totaal aantal parallelle asset-fetches over
+ * álle loaders heen. Default 5, bij te stellen via `DIRECTUS_ASSET_CONCURRENCY`
+ * zonder codewijziging. Alleen de netwerk-fetch zit in de slot — niet de
+ * retry-backoff-sleeps of de image-grading — zodat een wachtende download geen
+ * slot bezet houdt terwijl hij niets aan Directus vraagt.
+ */
+export const DIRECTUS_ASSET_CONCURRENCY_DEFAULT = 5;
+
+function readPositiveNonZeroIntEnv(name: string, fallback: number): number {
+    const raw = (process.env[name] || '').trim();
+    if (!raw) return fallback;
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed) || parsed < 1) return fallback;
+    return Math.round(parsed);
+}
+
+let assetSlotsInUse = 0;
+const assetSlotWaiters: Array<() => void> = [];
+
+function acquireAssetSlot(limit: number): Promise<void> {
+    if (assetSlotsInUse < limit) {
+        assetSlotsInUse++;
+        return Promise.resolve();
+    }
+    return new Promise<void>((resolve) => {
+        assetSlotWaiters.push(() => {
+            assetSlotsInUse++;
+            resolve();
+        });
+    });
+}
+
+function releaseAssetSlot(): void {
+    assetSlotsInUse--;
+    const next = assetSlotWaiters.shift();
+    if (next) next();
+}
+
+/**
+ * Voer een asset-fetch uit binnen de globale concurrency-cap. Wrap alléén de
+ * netwerkcall (`fetch`), niet de omliggende retry/backoff of image-processing.
+ */
+export async function withAssetSlot<T>(fn: () => Promise<T>): Promise<T> {
+    const limit = readPositiveNonZeroIntEnv('DIRECTUS_ASSET_CONCURRENCY', DIRECTUS_ASSET_CONCURRENCY_DEFAULT);
+    await acquireAssetSlot(limit);
+    try {
+        return await fn();
+    } finally {
+        releaseAssetSlot();
+    }
+}
+
+/**
  * Directus on-the-fly image transform for build-time downloads (LAT-1770).
  * Originals are 3-7 MB; capping at 1600px width / quality 75 keeps heroes crisp
  * on retina while cutting per-asset weight ~95%. JPEG is kept so the `.jpg`
