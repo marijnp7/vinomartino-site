@@ -25,6 +25,7 @@ import {
     assertDirectusConfigured,
     assetUrl,
     directusSignal,
+    fetchDirectusCollection,
 } from './directus-config';
 
 export interface PakketWijnhuis {
@@ -174,10 +175,11 @@ async function fetchPakketten(url: string, token: string): Promise<Record<string
     const headers = { Authorization: `Bearer ${token}` };
     const filterSort = `${statusFilterQuery(env)}&sort=titel`;
     const tryFetch = (fields: string): Promise<Response> =>
-        fetch(`${url}/items/reispakketten?limit=-1&fields=${fields}${filterSort}`, {
-            headers,
-            signal: directusSignal(),
-        });
+        fetchDirectusCollection(
+            'loadReispakketten',
+            `${url}/items/reispakketten?limit=-1&fields=${fields}${filterSort}`,
+            { headers },
+        );
 
     // Voorkeursquery met M2M-relaties; degradeer wanneer de junctions nog niet
     // bestaan (DevOps-migratie) zodat de build niet breekt.

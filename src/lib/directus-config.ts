@@ -83,8 +83,11 @@ function readPositiveIntEnv(name: string, fallback: number): number {
 }
 
 /**
- * LAT-2779 — fetch voor de collection-queries van de loaders (streken, landen,
- * routes, articles, wijnhuizen, accommodaties) mét retry-backoff.
+ * LAT-2779 — fetch voor de collection-queries van de loaders mét retry-backoff:
+ * streken, landen, routes, articles, wijnhuizen en accommodaties (de zes uit de
+ * ticket-scope), plus de overige Directus-collectiequeries die dezelfde
+ * body-abort-crash konden oplopen: navigation, ui-strings, atlas, reispakketten,
+ * de translations-overlay en het clicks-dashboard.
  *
  * Retryt **alleen** op een geworpen fout: timeout (`TimeoutError` via
  * AbortSignal) of netwerkfout. Een HTTP-antwoord wordt onaangeroerd
@@ -95,6 +98,16 @@ function readPositiveIntEnv(name: string, fallback: number): number {
  * Asset-downloads gaan hier bewust niet doorheen: die zijn idempotent en de
  * volgende build pakt een gemiste asset op (streken.ts heeft z'n eigen
  * fetchAssetWithRetry voor 429/5xx).
+ *
+ * De body wordt hier al volledig ingelezen en als in-memory Response
+ * teruggegeven. Dat is essentieel: een AbortSignal breekt niet alleen het
+ * verbinden af maar óók het uitlezen van de body. De loaders doen
+ * `const json = await res.json()` buiten elke try/catch, dus een `limit=-1`
+ * respons die traag binnendruppelt gooide daar een kale
+ * "The operation was aborted due to timeout" — precies de crash die
+ * `Failed to call getStaticPaths` opleverde. Door de body binnen de retry-lus te
+ * bufferen is die fout retry-baar geworden en kan `res.json()` niet meer
+ * afbreken.
  */
 export async function fetchDirectusCollection(
     loaderName: string,
@@ -107,7 +120,19 @@ export async function fetchDirectusCollection(
     for (let attempt = 0; attempt <= retries; attempt++) {
         try {
             // Per poging een vers signal: het vorige is al verlopen.
-            return await fetch(url, { ...init, signal: directusSignal() });
+            const res = await fetch(url, { ...init, signal: directusSignal() });
+            const body = await res.text();
+            // 204/205/304 mogen per spec geen body dragen in een Response-constructor.
+            const nullBody = res.status === 204 || res.status === 205 || res.status === 304;
+            // Alleen content-type overnemen: de transport-headers van het
+            // origineel (content-length, content-encoding) slaan niet meer op
+            // de al gedecodeerde string.
+            const contentType = res.headers.get('content-type');
+            return new Response(nullBody ? null : body, {
+                status: res.status,
+                statusText: res.statusText,
+                headers: contentType ? { 'content-type': contentType } : {},
+            });
         } catch (err) {
             lastErr = err;
             const msg = err instanceof Error ? err.message : String(err);
