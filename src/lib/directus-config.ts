@@ -161,12 +161,13 @@ export async function fetchDirectusCollection(
  * omdat de build zélf het lawaai maakt.
  *
  * Een gedeelde semafoor begrenst het totaal aantal parallelle asset-fetches over
- * álle loaders heen. Default 5, bij te stellen via `DIRECTUS_ASSET_CONCURRENCY`
- * zonder codewijziging. Alleen de netwerk-fetch zit in de slot — niet de
+ * álle loaders heen. Default 8 (CTO-besluit LAT-2779: start op 8, zak naar 6/4 als
+ * dat nog floodt), bij te stellen via `DIRECTUS_ASSET_CONCURRENCY` zonder
+ * codewijziging. Alleen de netwerk-fetch zit in de slot — niet de
  * retry-backoff-sleeps of de image-grading — zodat een wachtende download geen
  * slot bezet houdt terwijl hij niets aan Directus vraagt.
  */
-export const DIRECTUS_ASSET_CONCURRENCY_DEFAULT = 5;
+export const DIRECTUS_ASSET_CONCURRENCY_DEFAULT = 8;
 
 function readPositiveNonZeroIntEnv(name: string, fallback: number): number {
     const raw = (process.env[name] || '').trim();
