@@ -12,7 +12,7 @@ import { loadLanden } from '../lib/landen';
 import { organizationSchema } from '../lib/seo';
 import { getAuthorByByline } from '../lib/authors';
 import { loadUiStrings } from '../lib/ui-strings';
-import { type Locale, DEFAULT_LOCALE } from '../lib/i18n';
+import { type Locale, DEFAULT_LOCALE, localizeHref } from '../lib/i18n';
 
 interface Props {
   locale?: Locale;
@@ -20,6 +20,9 @@ interface Props {
 }
 
 const { locale = DEFAULT_LOCALE, alternates } = Astro.props;
+
+// LAT-2704 — interne hrefs locale-aware; NL blijft byte-identiek.
+const lh = (href: string) => localizeHref(href, locale);
 const ui = await loadUiStrings(locale);
 const dateLocale = locale === 'en' ? 'en-GB' : 'nl-NL';
 
@@ -217,14 +220,14 @@ function formatDate(value?: string | null) {
         <ul class="atlas-fallback" aria-label={ui.t('home.atlas.fallbackAria')}>
           {atlasCountries.map((c) => (
             <li>
-              <a href={`/landen/${c.slug}/`} class="atlas-chip" style={`--c: ${c.color};`}>
+              <a href={lh(`/landen/${c.slug}/`)} class="atlas-chip" style={`--c: ${c.color};`}>
                 <span class="atlas-chip-name">{c.name}</span>
                 <span class="atlas-chip-meta">{`${c.regionCount} ${c.regionCount === 1 ? ui.t('home.atlas.regioSingular') : ui.t('home.atlas.regioPlural')}`}</span>
               </a>
             </li>
           ))}
         </ul>
-        <p class="section-cta"><a href="/ontdek/" class="btn btn-outline">{ui.t('home.atlas.allesCta')}</a></p>
+        <p class="section-cta"><a href={lh('/ontdek/')} class="btn btn-outline">{ui.t('home.atlas.allesCta')}</a></p>
       </div>
     </section>
   )}
@@ -240,7 +243,7 @@ function formatDate(value?: string | null) {
       </header>
       <div class="streken-grid">
         {heroStreken.map((streek, idx) => (
-          <a href={streek.href} class="streek-tile">
+          <a href={lh(streek.href)} class="streek-tile">
             <div class="streek-media">
               <img
                 src={streek.image}
@@ -265,7 +268,7 @@ function formatDate(value?: string | null) {
           </a>
         ))}
       </div>
-      <p class="section-cta"><a href="/streken/" class="btn btn-outline">{ui.t('home.dest.allesCta')}</a></p>
+      <p class="section-cta"><a href={lh('/streken/')} class="btn btn-outline">{ui.t('home.dest.allesCta')}</a></p>
     </div>
   </section>
 
@@ -281,7 +284,7 @@ function formatDate(value?: string | null) {
       <HomeRoutesMap routes={routes} locale={locale} />
       <div class="cards-grid">
         {featuredRoutes.map((r, idx) => (
-          <a href={`/wijnroutes/${r.slug}/`} class="card-tile">
+          <a href={lh(`/wijnroutes/${r.slug}/`)} class="card-tile">
             <div class="card-media">
               <img src={r.image} alt={r.title} width="600" height="450" loading={idx < 3 ? 'eager' : 'lazy'} decoding="async" />
             </div>
@@ -299,14 +302,14 @@ function formatDate(value?: string | null) {
           </a>
         ))}
       </div>
-      <p class="section-cta"><a href="/wijnroutes/" class="btn btn-outline">{ui.t('home.routes.allesCta')}</a></p>
+      <p class="section-cta"><a href={lh('/wijnroutes/')} class="btn btn-outline">{ui.t('home.routes.allesCta')}</a></p>
     </div>
   </section>
 
   {spotlight && (
     <section class="spotlight">
       <div class="container spotlight-inner">
-        <a href={`/artikelen/${spotlight.slug}/`} class="spotlight-media-link" aria-label={spotlight.title}>
+        <a href={lh(`/artikelen/${spotlight.slug}/`)} class="spotlight-media-link" aria-label={spotlight.title}>
           {spotlight.heroImage ? (
             <img
               src={spotlight.heroImage}
@@ -325,7 +328,7 @@ function formatDate(value?: string | null) {
           <span class="kicker">{ui.t('home.spotlight.kicker')}</span>
           {spotlight.category && <span class="spotlight-cat">{spotlight.category.replace(/-/g, ' ')}</span>}
           <h2 class="spotlight-title">
-            <a href={`/artikelen/${spotlight.slug}/`}>{spotlight.title}</a>
+            <a href={lh(`/artikelen/${spotlight.slug}/`)}>{spotlight.title}</a>
           </h2>
           {spotlight.description && <p class="spotlight-desc">{spotlight.description}</p>}
           <p class="spotlight-meta">
@@ -333,7 +336,7 @@ function formatDate(value?: string | null) {
             <span class="dot" aria-hidden="true">·</span>
             <span>{formatDate(spotlight.pubDate)}</span>
           </p>
-          <a href={`/artikelen/${spotlight.slug}/`} class="quiet-cta">{ui.t('home.spotlight.cta')}</a>
+          <a href={lh(`/artikelen/${spotlight.slug}/`)} class="quiet-cta">{ui.t('home.spotlight.cta')}</a>
         </div>
       </div>
     </section>
@@ -351,7 +354,7 @@ function formatDate(value?: string | null) {
         </header>
         <div class="cards-grid">
           {moreArticles.map(article => (
-            <a href={`/artikelen/${article.slug}/`} class="card-tile">
+            <a href={lh(`/artikelen/${article.slug}/`)} class="card-tile">
               <div class:list={['card-media', !article.heroImage && 'is-empty']}>
                 {article.heroImage ? (
                   <img src={article.heroImage} alt={article.title} width="600" height="450" loading="lazy" decoding="async" />
@@ -368,7 +371,7 @@ function formatDate(value?: string | null) {
             </a>
           ))}
         </div>
-        <p class="section-cta"><a href="/artikelen/" class="btn btn-outline">{ui.t('home.latest.allesCta')}</a></p>
+        <p class="section-cta"><a href={lh('/artikelen/')} class="btn btn-outline">{ui.t('home.latest.allesCta')}</a></p>
       </div>
     </section>
   )}
@@ -398,7 +401,7 @@ function formatDate(value?: string | null) {
         <p class="proof-manifest">
           {ui.t('home.proof.manifestPre')}<em>{ui.t('home.proof.manifestEm')}</em>.
         </p>
-        <a href="/over-ons/" class="btn btn-outline">{ui.t('home.proof.cta')}</a>
+        <a href={lh('/over-ons/')} class="btn btn-outline">{ui.t('home.proof.cta')}</a>
       </div>
     </div>
   </section>

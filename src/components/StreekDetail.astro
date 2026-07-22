@@ -27,7 +27,7 @@ import type { AccommodatieRoundup as AccommodatieRoundupData } from '../lib/acco
 import { type WijnRoute } from '../lib/routes';
 import { currencyForLand, formatNightlyPrice } from '../lib/currency';
 import { streekSchema, streekMetaTitle, streekMetaDescription, breadcrumbSchema } from '../lib/seo';
-import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
+import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
 import { loadUiStrings } from '../lib/ui-strings';
 
 interface Props {
@@ -44,6 +44,9 @@ interface Props {
 }
 
 const { entry, wijnhuizen, routes, accRoundup, locale = DEFAULT_LOCALE, alternates } = Astro.props;
+
+// LAT-2704 — interne hrefs locale-aware; NL blijft byte-identiek.
+const lh = (href: string) => localizeHref(href, locale);
 // LAT-2575: chrome-labels via de UI-dictionary i.p.v. hardcoded literals. Op
 // DEFAULT_LOCALE geeft t() byte-identiek de bestaande NL-copy terug; de
 // /en/-tegenhanger overlayt dezelfde keys.
@@ -258,11 +261,11 @@ const hasFactBox = Boolean(
     <section class="streek-hero">
       <div class="container">
         <nav class="breadcrumb" aria-label="Breadcrumb">
-          <a href="/">{ui.t('streek.breadcrumb.home')}</a> /
+          <a href={lh('/')}>{ui.t('streek.breadcrumb.home')}</a> /
           {hasParentLand ? (
-            <><a href="/landen/">{ui.t('streek.breadcrumb.landen')}</a> / <a href={`/landen/${entry.landSlug}/`}>{entry.country}</a> / </>
+            <><a href={lh('/landen/')}>{ui.t('streek.breadcrumb.landen')}</a> / <a href={lh(`/landen/${entry.landSlug}/`)}>{entry.country}</a> / </>
           ) : (
-            <><a href="/streken/">{ui.t('streek.breadcrumb.streken')}</a> / </>
+            <><a href={lh('/streken/')}>{ui.t('streek.breadcrumb.streken')}</a> / </>
           )}
           <span>{entry.name}</span>
         </nav>
@@ -395,7 +398,7 @@ const hasFactBox = Boolean(
           </div>
           <div class="route-grid">
             {routes.map(route => (
-              <a class="route-card" href={`/wijnroutes/${route.slug}/`}>
+              <a class="route-card" href={lh(`/wijnroutes/${route.slug}/`)}>
                 <span class="route-card__name">{route.title}</span>
                 {route.stops.length >= 2 && (
                   <RouteMap stops={route.stops} variant="mini" locale={locale} />
@@ -458,7 +461,7 @@ const hasFactBox = Boolean(
 
     <RelatedArticles items={entry.relatedArticles} locale={locale} />
 
-    <HubBacklink type="streek" slug={entry.slug} />
+    <HubBacklink type="streek" slug={entry.slug} locale={locale} />
 
     <AffiliateDisclosure />
   </article>

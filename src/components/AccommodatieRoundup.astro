@@ -74,7 +74,7 @@ const sectionId = `acc-roundup-${(context || roundup.regio).toLowerCase().replac
         )}
         <div class="acc-roundup__grid">
           {g.kaarten.map((kaart) => (
-            <AccommodatieKaart kaart={kaart} context={context || roundup.regio} bronValuta={bronValuta} displayValuta={displayValuta} />
+            <AccommodatieKaart kaart={kaart} context={context || roundup.regio} bronValuta={bronValuta} displayValuta={displayValuta} locale={locale} />
           ))}
         </div>
       </div>

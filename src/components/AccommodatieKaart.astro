@@ -1,4 +1,5 @@
 ---
+import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
 // LAT-1332 / LAT-2003 (VIS-BL-04) — VinoMartino accommodatie-kaart. Sinds de
 // standaardisatie van het boekbare component (VIS-BL-04) rendert deze kaart via
 // de gedeelde PoiCard, zodat elke boekbare accommodatie site-breed identiek is:
@@ -15,6 +16,8 @@ import { formatNightlyPrice } from '../lib/currency';
 import PoiCard from './PoiCard.astro';
 
 interface Props {
+  /** LAT-2704 — locale doorgeven zodat interne links in PoiCard locale-aware zijn. */
+  locale?: Locale;
   kaart: AccommodatieKaart;
   /** Context-slug voor affiliate-tracking, bv. "piemonte". */
   context?: string;
@@ -24,7 +27,7 @@ interface Props {
   displayValuta?: string;
 }
 
-const { kaart, context, bronValuta, displayValuta = 'EUR' } = Astro.props;
+const { kaart, context, bronValuta, displayValuta = 'EUR', locale = DEFAULT_LOCALE } = Astro.props;
 const href = accommodatieBookingHref(kaart);
 const altText = kaart.fotoAlt || `${kaart.naam}, ${kaart.plaats}`;
 // LAT-1406: tier-badge — alleen tonen als het verblijf gecureerd is.
@@ -45,6 +48,7 @@ else if (hoog) prijs = `tot ${hoog} / nacht`;
 ---
 
 <PoiCard
+  locale={locale}
   poi={{
     naam: kaart.naam,
     foto: kaart.foto ?? null,

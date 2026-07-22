@@ -1,4 +1,5 @@
 ---
+import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
 /**
  * <CountryRegionMap> — wijngebieden per land in échte geometrie (LAT-1662)
  *
@@ -46,6 +47,8 @@ export interface RegionMeta {
 }
 
 export interface Props {
+  /** LAT-2704 — locale van de renderende pagina; stuurt de interne hrefs. */
+  locale?: Locale;
   /** Land-slug — kiest src/data/atlas/regions/{landSlug}.json. */
   landSlug: string;
   landName: string;
@@ -68,7 +71,11 @@ const {
   title,
   intro,
   class: className,
+  locale = DEFAULT_LOCALE,
 } = Astro.props;
+// LAT-2704 — interne hrefs locale-aware; NL blijft byte-identiek.
+const lh = (href: string) => localizeHref(href, locale);
+
 
 const PALETTE = ['#5A1A1F', '#A14F2A', '#5C6B3F'];
 
@@ -179,7 +186,7 @@ const headIntro =
       <ul class="crm-legend">
         {legendItems.map((d) => {
           const Tag = d.linkable ? 'a' : 'span';
-          const linkProps = d.linkable ? { href: `/streken/${d.key}/` } : {};
+          const linkProps = d.linkable ? { href: lh(`/streken/${d.key}/`) } : {};
           return (
             <li class="crm-legend__item">
               <Tag
@@ -223,7 +230,7 @@ const headIntro =
             {wineRegions.map((d) => {
               const tip = d.badge ? `${d.name}, ${d.badge}` : d.name;
               const Tag = d.linkable ? 'a' : 'g';
-              const linkProps = d.linkable ? { href: `/streken/${d.key}/` } : {};
+              const linkProps = d.linkable ? { href: lh(`/streken/${d.key}/`) } : {};
               return (
                 <Tag
                   {...linkProps}
@@ -253,7 +260,7 @@ const headIntro =
               {markers.map((d) => {
                 const tip = d.badge ? `${d.name}, ${d.badge}` : d.name;
                 const Tag = d.linkable ? 'a' : 'g';
-                const linkProps = d.linkable ? { href: `/streken/${d.slug}/` } : {};
+                const linkProps = d.linkable ? { href: lh(`/streken/${d.slug}/`) } : {};
                 return (
                   <Tag
                     {...linkProps}

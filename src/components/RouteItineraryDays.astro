@@ -1,4 +1,5 @@
 ---
+import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
 // LAT-2013 [VIS-STRAT-02] — rendert de gestructureerde route-itinerary als visuele
 // dag-blokken: dag-strip (deeplink-chips), per dag een kaart met samenvatting,
 // rijtijd, genummerd POI-blok (PoiCard) en een boekbare overnachting per nacht.
@@ -13,6 +14,8 @@ import type { RouteStopKind } from '../lib/routes';
 import { STAY_DISCLOSURE_MICROCOPY } from '../lib/stay-tier';
 
 interface Props {
+  /** LAT-2704 — locale doorgeven zodat interne links in PoiCard locale-aware zijn. */
+  locale?: Locale;
   itinerary: RouteItinerary;
   /** Streek-slug voor het boekbare accommodatie-doel (/accommodaties/{streek}/). */
   streekSlug?: string;
@@ -22,7 +25,7 @@ interface Props {
   context?: string;
 }
 
-const { itinerary, streekSlug = '', boekbaar = false, context = '' } = Astro.props;
+const { itinerary, streekSlug = '', boekbaar = false, context = '', locale = DEFAULT_LOCALE } = Astro.props;
 
 const dagAnchor = (n: number) => `dag-${n}`;
 
@@ -130,7 +133,7 @@ function stopToPoi(stop: ItineraryStop, pin: CardPin): PoiCardData {
         {stops.length > 0 && (
           <div class="route-day__pois">
             {stops.map(({ stop, pin }) => (
-              <PoiCard poi={stopToPoi(stop, pin)} />
+              <PoiCard poi={stopToPoi(stop, pin)} locale={locale} />
             ))}
           </div>
         )}
@@ -138,6 +141,7 @@ function stopToPoi(stop: ItineraryStop, pin: CardPin): PoiCardData {
         {d.overnachting && (
           <div class="route-day__stay">
             <PoiCard
+              locale={locale}
               poi={{
                 naam: d.overnachting.naam,
                 foto: d.overnachting.foto,

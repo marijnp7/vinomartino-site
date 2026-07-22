@@ -4,14 +4,20 @@
 // niets renderen (geen lege kop). Sticky meeschuiven regelt de article-sidebar
 // in [slug].astro; dit blok blijft puur de inhoud.
 import type { RelatedRef } from '../lib/articles';
+import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
 
 interface Props {
+  /** LAT-2704 — locale van de renderende pagina; stuurt de interne hrefs. */
+  locale?: Locale;
   items: RelatedRef[];
   title?: string;
   maxItems?: number;
 }
 
-const { items, title = 'Gerelateerde stukken', maxItems = 3 } = Astro.props;
+const { items, title = 'Gerelateerde stukken', maxItems = 3, locale = DEFAULT_LOCALE } = Astro.props;
+
+// LAT-2704 — interne hrefs locale-aware; NL blijft byte-identiek.
+const lh = (href: string) => localizeHref(href, locale);
 const links = items.slice(0, maxItems);
 ---
 
@@ -21,7 +27,7 @@ const links = items.slice(0, maxItems);
     <ul class="gs-list">
       {links.map((ref) => (
         <li class="gs-item">
-          <a href={`/artikelen/${ref.slug}/`} class="gs-link">
+          <a href={lh(`/artikelen/${ref.slug}/`)} class="gs-link">
             <span class="gs-kicker">Artikel</span>
             <span class="gs-title">{ref.name}</span>
           </a>

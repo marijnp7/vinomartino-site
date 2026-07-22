@@ -4,8 +4,11 @@
 // wijnroutes → landen), cap op 6 cards. Section verschijnt niet als alle vier
 // leeg zijn (per spec acceptance: geen lege "Gerelateerd"-kop).
 import type { RelatedRef } from '../lib/articles';
+import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
 
 interface Props {
+  /** LAT-2704 — locale van de renderende pagina; stuurt de interne hrefs. */
+  locale?: Locale;
   streken?: RelatedRef[];
   wijnhuizen?: RelatedRef[];
   wijnroutes?: RelatedRef[];
@@ -21,7 +24,11 @@ const {
   landen = [],
   title = 'Lees verder',
   maxItems = 6,
+  locale = DEFAULT_LOCALE,
 } = Astro.props;
+
+// LAT-2704 — interne hrefs locale-aware; NL blijft byte-identiek.
+const lh = (href: string) => localizeHref(href, locale);
 
 type Card = { slug: string; name: string; type: 'streek' | 'wijnhuis' | 'wijnroute' | 'land' };
 
@@ -54,7 +61,7 @@ const cards: Card[] = [
       <h2 class="related-title">{title}</h2>
       <div class="related-grid">
         {cards.map((card) => (
-          <a href={href[card.type](card.slug)} class="related-card">
+          <a href={lh(href[card.type](card.slug))} class="related-card">
             <span class="related-meta">{label[card.type]}</span>
             <span class="related-name">{card.name}</span>
           </a>
