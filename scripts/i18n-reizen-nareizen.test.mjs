@@ -95,6 +95,27 @@ test('elke EN-seedkey bestaat als NL-default', () => {
   }
 });
 
+test('de EN-seed draagt de door de redactie vastgestelde copy (LAT-2835)', () => {
+  // De eerste seed ging live met mijn conceptvertaling; de Lead Editor heeft die
+  // op drie punten herschreven. Deze assertie is het net dat voorkomt dat het
+  // concept via een re-seed of een fresh bootstrap terugkruipt.
+  assert.equal(
+    EN_SEED['reizen.index.hero.desc'],
+    'Every wine journey ends on the way home. Sometimes in a packed intercity with a bottle too many in your backpack, sometimes in a quiet carriage with notes in a linen notebook. These are the stories that only really take shape afterwards — once the smell of the cellar has faded but the feeling has not.',
+  );
+  assert.equal(EN_SEED['reizen.index.hero.h1'], 'Travels & afterwards');
+  assert.equal(
+    EN_SEED['reizen.index.meta.title'],
+    "Travels & afterwards — Martino's wine journeys | VinoMartino",
+  );
+
+  // De afgekeurde conceptwendingen mogen nergens meer in de seed staan.
+  const seedText = JSON.stringify(EN_SEED);
+  for (const afgekeurd of ['wine trip ends', 'one bottle too many', 'get going afterwards']) {
+    assert.ok(!seedText.includes(afgekeurd), `afgekeurde conceptcopy terug in de seed: ${afgekeurd}`);
+  }
+});
+
 test('geen hardcoded NL-copy meer in ReisPakketDetail.astro', () => {
   for (const literal of [
     'Route dag-tot-dag',

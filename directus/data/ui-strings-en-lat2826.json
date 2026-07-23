@@ -1,12 +1,12 @@
 {
-  "_comment": "LAT-2826 — EN ui_strings-overlay voor /en/reizen-nareizen/ (listing + pakketdetail). Zonder deze values valt t() terug op de NL-default en staat er op /en/ Nederlands. NB: 'nareizen' is een gemunt Martino-woord; de EN-rendering 'Travels & afterwards' is een voorstel dat nog langs de Lead Editor moet — pas hier aan (of overschrijf in Directus) zodra de redactie een definitieve EN-titel heeft. Seeden met: DIRECTUS_URL=... DIRECTUS_TOKEN=... node directus/scripts/seed-ui-strings-en.mjs directus/data/ui-strings-en-lat2826.json",
+  "_comment": "LAT-2826 — EN ui_strings-overlay voor /en/reizen-nareizen/ (listing + pakketdetail). Zonder deze values valt t() terug op de NL-default en staat er op /en/ Nederlands. REDACTIONEEL VASTGESTELD in LAT-2835: de titel 'Travels & afterwards' is goedgekeurd, en de hero-intro is door de Lead Editor op drie punten herschreven (wine journey / a bottle too many / take shape). Die tekst is definitief — wijzig 'reizen.index.hero.desc' niet zonder redactie; scripts/i18n-reizen-nareizen.test.mjs zet 'm vast. Seeden met: DIRECTUS_URL=... DIRECTUS_TOKEN=... node directus/scripts/seed-ui-strings-en.mjs directus/data/ui-strings-en-lat2826.json --force (de --force is nodig omdat de eerste seed nog de niet-goedgekeurde conceptzin bevatte).",
 
   "reizen.breadcrumb.index": "Travels & afterwards",
   "reizen.index.meta.title": "Travels & afterwards — Martino's wine journeys | VinoMartino",
   "reizen.index.meta.description": "Reports from wine journeys across Europe and beyond. Marijn travels, tastes and writes — after the trip, when it tells better.",
   "reizen.index.hero.label": "Travels & afterwards",
   "reizen.index.hero.h1": "Travels & afterwards",
-  "reizen.index.hero.desc": "Every wine trip ends on the way home. Sometimes in a packed intercity with one bottle too many in your backpack, sometimes in a quiet carriage with notes in a linen notebook. These are the stories that only really get going afterwards — once the smell of the cellar has faded but the feeling has not.",
+  "reizen.index.hero.desc": "Every wine journey ends on the way home. Sometimes in a packed intercity with a bottle too many in your backpack, sometimes in a quiet carriage with notes in a linen notebook. These are the stories that only really take shape afterwards — once the smell of the cellar has faded but the feeling has not.",
   "reizen.index.groupFallback": "On the road",
   "reizen.index.readCta": "Read the story →",
   "reizen.index.empty.title": "The stories are on their way",
