@@ -221,6 +221,12 @@ const STREKEN_TRANSLATABLE = [
     'cta_blocks',
     'accom_cta_blocks',
     'gyg_tours',
+    // LAT-2582 (launch-gate) — de gecureerde verblijven-JSON draagt de enige
+    // redactionele leestekst op /en/accommodaties/<streek>/ en de "waar slapen"-
+    // sectie van /en/streken/<slug>/ (`whyThisOne`). Zonder overlay bleef die NL
+    // op 48 EN-pagina's. Zelfde diepe merge als cta_blocks/gyg_tours: EN levert
+    // alleen de vertaalbare keys, adres/lat/lng/booking-url komen uit NL.
+    'accommodaties',
 ];
 
 const assetDebug: Array<Record<string, unknown>> = [];
