@@ -10,6 +10,8 @@
 
 import { allezSearchUrl } from '../lib/stay22';
 import { wineRetailLink } from '../lib/wine-retail';
+import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
 
 interface Props {
   /** Wijnhuis-naam (producent), voor de wijnretail-zoekterm + label. */
@@ -20,23 +22,28 @@ interface Props {
   country?: string;
   /** Wijnhuis-slug voor de affiliate-context. */
   slug: string;
+  /** Locale voor de UI-dictionary (LAT-2771). */
+  locale?: Locale;
 }
 
-const { naam, region = '', country = '', slug } = Astro.props;
+const { naam, region = '', country = '', slug, locale = DEFAULT_LOCALE } = Astro.props;
+const ui = await loadUiStrings(locale);
 
 // Bestemming: streek (+ land) als anker; val terug op de wijnhuis-naam.
 const destination = [region, country].filter(Boolean).join(', ') || naam;
 const stayHref = allezSearchUrl({ location: destination, campaign: `wijnhuis-${slug}` });
-const stayLabel = region ? `Slaap in de buurt van ${region}` : 'Slaap in de buurt';
+const stayLabel = region
+  ? `${ui.t('wijnhuis.staynear.ctaNearPrefix')} ${region}`
+  : ui.t('wijnhuis.staynear.ctaNear');
 
 const retail = wineRetailLink(naam);
 ---
 
-<aside class="wh-staynear" data-wh-staynear hidden aria-label="Overnachtingen in de buurt">
+<aside class="wh-staynear" data-wh-staynear hidden aria-label={ui.t('wijnhuis.staynear.aria')}>
   <div class="wh-staynear__inner">
     <div class="wh-staynear__copy">
-      <span class="wh-staynear__label">Overnachten bij {naam}</span>
-      <span class="wh-staynear__disclosure">Affiliate-links &middot; geen extra kosten</span>
+      <span class="wh-staynear__label">{ui.t('wijnhuis.staynear.labelPrefix')} {naam}</span>
+      <span class="wh-staynear__disclosure">{ui.t('wijnhuis.staynear.disclosure')}</span>
     </div>
     <div class="wh-staynear__actions">
       {retail && (

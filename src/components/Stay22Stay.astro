@@ -9,6 +9,8 @@
 // [data-affiliate-track] data-attributes the AffiliateBlock uses.
 
 import { allezSearchUrl } from '../lib/stay22';
+import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
 
 interface Props {
   /** Destination as a place string (region, country, venue). No location → renders nothing. */
@@ -22,17 +24,21 @@ interface Props {
   heading?: string;
   description?: string;
   ctaLabel?: string;
+  /** LAT-2771: locale voor de disclosure uit de UI-dictionary. */
+  locale?: Locale;
 }
 
 const {
   location,
   context,
   campaign,
+  locale = DEFAULT_LOCALE,
   placement = 'inline-end',
   heading = 'Waar te slapen',
   description,
   ctaLabel = 'Bekijk accommodaties',
 } = Astro.props;
+const ui = await loadUiStrings(locale);
 
 const loc = location?.trim();
 const href = loc ? allezSearchUrl({ location: loc, campaign: campaign ?? context }) : null;
@@ -65,9 +71,7 @@ const descText = description ?? (loc ? `Vind hotels en verblijven rond ${loc}.` 
         {ctaLabel}
       </a>
     </div>
-    <p class="stay22-block__disclosure">
-      Affiliate-link · we kunnen een commissie ontvangen, jij betaalt niets extra.
-    </p>
+    <p class="stay22-block__disclosure">{ui.t('stay22.disclosure')}</p>
   </aside>
 )}
 
