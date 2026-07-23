@@ -1,5 +1,9 @@
 #!/usr/bin/env node
 /**
+ * ⚠ GEARCHIVEERD op 2026-07-23 (LAT-2830) — draai dit script niet.
+ * Alle 15 beeldreferenties hieronder wijzen naar bestanden die niet meer in
+ * public/images/ staan, inclusief de fallback hello-world.jpg. Zie _archive/README.md.
+ *
  * Set hero_image on all Directus articles (LAT-831).
  *
  * Run from the site root where public/images/ is present:
