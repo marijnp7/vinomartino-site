@@ -13,6 +13,7 @@
 // LAT-1019/1029): partner, placement en context voor het KPI-dashboard.
 
 import SmartImg from './SmartImg.astro';
+import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
 
 export type PoiCardTheme = 'winery' | 'vineyard' | 'cellar' | 'region' | 'bottle';
 
@@ -69,10 +70,15 @@ export interface PoiCardData {
 }
 
 interface Props {
+  /** LAT-2704 — locale van de renderende pagina; stuurt de interne hrefs. */
+  locale?: Locale;
   poi: PoiCardData;
 }
 
-const { poi } = Astro.props;
+const { poi, locale = DEFAULT_LOCALE } = Astro.props;
+
+// LAT-2704 — interne hrefs locale-aware; NL blijft byte-identiek.
+const lh = (href: string) => localizeHref(href, locale);
 const {
   n = null,
   color = 'var(--burgundy, #5A1A1F)',
@@ -120,7 +126,7 @@ const showMedia = Boolean(foto) || !hideMediaWhenEmpty;
   <div class="poi-card__body">
     <div class="poi-card__head">
       <h4 class="poi-card__name">
-        {detailUrl ? <a href={detailUrl}>{naam}</a> : naam}
+        {detailUrl ? <a href={lh(detailUrl)}>{naam}</a> : naam}
       </h4>
       {badge && (
         <span class="poi-card__badge" style={`color:${color};border-color:${color}`}>{badge}</span>
@@ -147,7 +153,7 @@ const showMedia = Boolean(foto) || !hideMediaWhenEmpty;
           {cta} &rarr;
         </a>
       ) : detailUrl ? (
-        <a class="poi-card__cta poi-card__cta--ghost" href={detailUrl}>Lees meer &rarr;</a>
+        <a class="poi-card__cta poi-card__cta--ghost" href={lh(detailUrl)}>Lees meer &rarr;</a>
       ) : null}
     </div>
 

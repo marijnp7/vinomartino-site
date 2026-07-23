@@ -4,8 +4,11 @@
 // handwerk. Hero komt uit Directus (self-hosted asset-URL); ontbreekt die, dan
 // valt SmartImg terug op de themed placeholder (geen "coming soon", geen breuk).
 import SmartImg from './SmartImg.astro';
+import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
 
 interface Props {
+  /** LAT-2704 — locale van de renderende pagina; stuurt de interne hrefs. */
+  locale?: Locale;
   /** Doel-URL van de card (bv. `/streken/langhe-piemonte/`). */
   href: string;
   /** Titel in de overlay. */
@@ -30,10 +33,14 @@ const {
   image,
   theme = 'region',
   loading = 'lazy',
+  locale = DEFAULT_LOCALE,
 } = Astro.props;
+
+// LAT-2704 — interne hrefs locale-aware; NL blijft byte-identiek.
+const lh = (href: string) => localizeHref(href, locale);
 ---
 
-<a class="vm-dest-card" href={href}>
+<a class="vm-dest-card" href={lh(href)}>
   <div class="vm-dest-card__media">
     <SmartImg src={image ?? undefined} alt={title} theme={theme} loading={loading} class="vm-dest-card__img" />
     <div class="vm-dest-card__overlay">

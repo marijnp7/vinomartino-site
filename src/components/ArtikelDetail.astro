@@ -33,7 +33,7 @@ import { getAuthorByByline } from '../lib/authors';
 import { getImageCredit } from '../lib/image-credits';
 import { type AccommodatieRoundup as AccommodatieRoundupData } from '../lib/accommodaties';
 import { loadUiStrings } from '../lib/ui-strings';
-import { type Locale, DEFAULT_LOCALE } from '../lib/i18n';
+import { type Locale, DEFAULT_LOCALE, localizeHref } from '../lib/i18n';
 
 export type ArticleRoundup = { slug: string; roundup: AccommodatieRoundupData };
 // LAT-2010 [VIS-BL-11]: het "hoort bij"-voetblok. Primaire streek/route komen uit
@@ -50,6 +50,9 @@ const { article, accRoundups, voetblok, locale = DEFAULT_LOCALE, alternates } = 
   locale?: Locale;
   alternates?: Record<string, string>;
 };
+
+// LAT-2704 — interne hrefs locale-aware; NL blijft byte-identiek.
+const lh = (href: string) => localizeHref(href, locale);
 
 const ui = await loadUiStrings(locale);
 const dateLocale = locale === 'en' ? 'en-GB' : 'nl-NL';
@@ -163,7 +166,7 @@ if (article.faqSchema) {
       <div class="article-main">
         <header class="article-header">
           <nav class="breadcrumb" aria-label="Breadcrumb">
-            <a href="/">{ui.t('streek.breadcrumb.home')}</a> / <a href="/artikelen/">{ui.t('artikel.breadcrumb.index')}</a> / <span>{article.title}</span>
+            <a href={lh('/')}>{ui.t('streek.breadcrumb.home')}</a> / <a href={lh('/artikelen/')}>{ui.t('artikel.breadcrumb.index')}</a> / <span>{article.title}</span>
           </nav>
           {article.category && <span class="article-cat">{article.category}</span>}
           <RubriekSignatuur rubriek={article.rubriek} tier={article.tier} />
@@ -171,7 +174,7 @@ if (article.faqSchema) {
           <h1>{article.title}</h1>
           <div class="article-meta">
             {authorProfile ? (
-              <a class="article-author author-link" href={`/auteurs/${authorProfile.slug}/`} rel="author">{authorProfile.name}</a>
+              <a class="article-author author-link" href={lh(`/auteurs/${authorProfile.slug}/`)} rel="author">{authorProfile.name}</a>
             ) : (
               <span class="article-author">{article.author}</span>
             )}
@@ -223,17 +226,17 @@ if (article.faqSchema) {
         {authorProfile && (
           <aside class="article-author-card" aria-label={`${ui.t('artikel.author.overDeAuteur')}: ${authorProfile.name}`}>
             {authorProfile.portrait && (
-              <a class="author-card-portrait" href={`/auteurs/${authorProfile.slug}/`}>
+              <a class="author-card-portrait" href={lh(`/auteurs/${authorProfile.slug}/`)}>
                 <img src={authorProfile.portrait} alt={authorProfile.portraitAlt} width="96" height="96" loading="lazy" />
               </a>
             )}
             <div class="author-card-body">
               <span class="author-card-kicker">{ui.t('artikel.author.overDeAuteur')}</span>
               <h2 class="author-card-name">
-                <a href={`/auteurs/${authorProfile.slug}/`} rel="author">{authorProfile.name}</a>
+                <a href={lh(`/auteurs/${authorProfile.slug}/`)} rel="author">{authorProfile.name}</a>
               </h2>
               <p class="author-card-bio">{authorProfile.bio}</p>
-              <a class="author-card-link" href={`/auteurs/${authorProfile.slug}/`}>{`${ui.t('artikel.author.meerArtikelenVan')} ${authorProfile.name} →`}</a>
+              <a class="author-card-link" href={lh(`/auteurs/${authorProfile.slug}/`)}>{`${ui.t('artikel.author.meerArtikelenVan')} ${authorProfile.name} →`}</a>
             </div>
           </aside>
         )}
@@ -313,24 +316,25 @@ if (article.faqSchema) {
             locale={locale}
           />
         )}
-        <ArtikelGerelateerdeStukken items={article.relatedArtikelen} />
+        <ArtikelGerelateerdeStukken items={article.relatedArtikelen} locale={locale} />
       </aside>
     </div>
 
     <CtaStructure data={article.cta} sid={article.slug} locale={locale} />
 
-    <ArtikelMeerOver items={article.meerOver} topic={article.tags?.[0] ?? undefined} />
+    <ArtikelMeerOver items={article.meerOver} topic={article.tags?.[0] ?? undefined} locale={locale} />
 
     <RelatedEntities
+      locale={locale}
       streken={article.relatedStreken}
       wijnhuizen={article.relatedWijnhuizen}
       wijnroutes={article.relatedWijnroutes}
       landen={article.relatedLanden}
     />
 
-    <HubBacklink type="artikel" slug={article.slug} />
+    <HubBacklink type="artikel" slug={article.slug} locale={locale} />
 
-    <ArtikelVoetblok streek={voetblok.streek} route={voetblok.route} hotel={voetblok.hotel} />
+    <ArtikelVoetblok streek={voetblok.streek} route={voetblok.route} hotel={voetblok.hotel} locale={locale} />
   </article>
 
   <NewsletterFooter locale={locale} />

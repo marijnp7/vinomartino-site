@@ -42,3 +42,33 @@ export function localizePath(pathname: string, locale: Locale): string {
   if (bare === '/') return `${EN_PREFIX}/`;
   return `${EN_PREFIX}${bare}`;
 }
+
+// LAT-2704 — route-families die (nog) GEEN /en/-tegenhanger hebben in src/pages/en/.
+// Links hiernaartoe blijven bewust op het kale NL-pad staan: liever een expliciete
+// taalwissel dan een harde 404. Zodra hier een EN-route bijkomt, haal je 'm hier weg
+// en wordt de link automatisch locale-aware (één plek, geen sweep).
+const EN_MISSING_PREFIXES: readonly string[] = ['/reizen-nareizen/', '/intern/', '/preview/'];
+
+/**
+ * LAT-2704 — locale-aware href voor INTERNE links.
+ *
+ * Verschil met `localizePath`: deze variant is defensief en bedoeld voor href-attributen
+ * in componenten die zowel de NL- als de /en/-boom renderen.
+ *
+ * - NL (`DEFAULT_LOCALE`) blijft byte-identiek: het kale pad komt onveranderd terug.
+ * - Externe URLs, mailto/tel, hash- en query-only links en asset-paden blijven ongemoeid.
+ * - Paden onder een route-familie zonder EN-tegenhanger (`EN_MISSING_PREFIXES`) blijven NL.
+ * - Al gelokaliseerde paden (`/en/...`) worden niet dubbel geprefixt.
+ */
+export function localizeHref(href: string, locale: Locale): string {
+  if (locale === DEFAULT_LOCALE) return href;
+  if (!href || !href.startsWith('/')) return href; // extern, hash, query, relatief
+  if (href.startsWith('//')) return href; // protocol-relatief extern
+  const [pathname] = href.split(/(?=[?#])/, 1);
+  if (/\.[a-z0-9]{2,5}$/i.test(pathname)) return href; // asset (.svg, .png, .json, .xml, ...)
+  if (EN_MISSING_PREFIXES.some((p) => pathname === p.replace(/\/$/, '') || pathname.startsWith(p))) {
+    return href;
+  }
+  const suffix = href.slice(pathname.length);
+  return `${localizePath(pathname, locale)}${suffix}`;
+}

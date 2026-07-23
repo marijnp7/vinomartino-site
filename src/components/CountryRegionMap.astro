@@ -1,4 +1,5 @@
 ---
+import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
 /**
  * <CountryRegionMap> — wijngebieden per land in échte geometrie (LAT-1662)
  *
@@ -21,7 +22,6 @@
  * land, dan rendert deze component niets en valt de pagina terug op de oude
  * atlas / het card-grid (geen regressie).
  */
-import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
 
 const regionGeo = import.meta.glob<{ default: RegionsFile }>(
   '../data/atlas/regions/*.json',
@@ -48,7 +48,10 @@ export interface RegionMeta {
 }
 
 export interface Props {
-  /** LAT-2814 — locale van de renderende pagina; stuurt de eigen chrome-copy. */
+  /**
+   * LAT-2814 — locale van de renderende pagina; stuurt de eigen chrome-copy.
+   * LAT-2704 — en de interne drill-down hrefs.
+   */
   locale?: Locale;
   /** Land-slug — kiest src/data/atlas/regions/{landSlug}.json. */
   landSlug: string;
@@ -74,6 +77,9 @@ const {
   class: className,
   locale = DEFAULT_LOCALE,
 } = Astro.props;
+// LAT-2704 — interne hrefs locale-aware; NL blijft byte-identiek.
+const lh = (href: string) => localizeHref(href, locale);
+
 
 // LAT-2814 — deze component draagt z'n eigen chrome-copy (kicker/kop/lede plus
 // de aria-labels en <title>'s van de SVG). Die stond hardcoded in het NL en
@@ -201,7 +207,7 @@ const headIntro = intro ?? c.lede;
       <ul class="crm-legend">
         {legendItems.map((d) => {
           const Tag = d.linkable ? 'a' : 'span';
-          const linkProps = d.linkable ? { href: `/streken/${d.key}/` } : {};
+          const linkProps = d.linkable ? { href: lh(`/streken/${d.key}/`) } : {};
           return (
             <li class="crm-legend__item">
               <Tag
@@ -245,7 +251,7 @@ const headIntro = intro ?? c.lede;
             {wineRegions.map((d) => {
               const tip = d.badge ? `${d.name}, ${d.badge}` : d.name;
               const Tag = d.linkable ? 'a' : 'g';
-              const linkProps = d.linkable ? { href: `/streken/${d.key}/` } : {};
+              const linkProps = d.linkable ? { href: lh(`/streken/${d.key}/`) } : {};
               return (
                 <Tag
                   {...linkProps}
@@ -275,7 +281,7 @@ const headIntro = intro ?? c.lede;
               {markers.map((d) => {
                 const tip = d.badge ? `${d.name}, ${d.badge}` : d.name;
                 const Tag = d.linkable ? 'a' : 'g';
-                const linkProps = d.linkable ? { href: `/streken/${d.slug}/` } : {};
+                const linkProps = d.linkable ? { href: lh(`/streken/${d.slug}/`) } : {};
                 return (
                   <Tag
                     {...linkProps}

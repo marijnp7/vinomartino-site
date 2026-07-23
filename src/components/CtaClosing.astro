@@ -3,7 +3,7 @@
 // Eén redactionele eindaanbeveling + één CTA. Data-driven uit Directus
 // (cta_blocks.closing). Graceful degradation: zonder data → niets.
 import { resolveCtaHref, ctaTrackPartner, type CtaClosingData } from '../lib/cta-blocks';
-import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
+import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
 import { loadUiStrings } from '../lib/ui-strings';
 
 interface Props {
@@ -13,6 +13,9 @@ interface Props {
 }
 
 const { data, sid, locale = DEFAULT_LOCALE } = Astro.props;
+
+// LAT-2704 — interne hrefs locale-aware; NL blijft byte-identiek.
+const lh = (href: string) => localizeHref(href, locale);
 const ui = await loadUiStrings(locale);
 const placement = 'cta-closing';
 const href = data ? resolveCtaHref(data.link, `${placement}-${sid}`, locale) : '';
@@ -24,7 +27,7 @@ const href = data ? resolveCtaHref(data.link, `${placement}-${sid}`, locale) : '
     <p class="vm-cta__recommendation">{data.recommendation}</p>
     <a
       class="vm-cta__btn"
-      href={href}
+      href={lh(href)}
       target="_blank"
       rel="sponsored nofollow noopener"
       data-affiliate-track
