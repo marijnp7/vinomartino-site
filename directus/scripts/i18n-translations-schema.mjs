@@ -21,9 +21,9 @@
  *   4. `articles` already has `articles_translations` + `translations` alias
  *      (template bootstrap). We only add the missing `languages_code -> languages`
  *      relation and a `hero_alt` field so it matches the others.
- *   5. Content-writer policy (6b7abca9…) gets CRUD on every new *_translations
- *      + ui_strings(+_translations); read on languages. Existing collection
- *      permissions are left untouched.
+ *   5. Content-writer policy (looked up by name, created when absent — LAT-2818)
+ *      gets CRUD on every new *_translations + ui_strings(+_translations); read
+ *      on languages. Existing collection permissions are left untouched.
  *
  * Destructive note: the empty, unused legacy JSON `translations` field on
  * streken/wijnhuizen/landen/routes is dropped so the native `translations`
@@ -44,7 +44,12 @@ const DIRECTUS_URL = process.env.DIRECTUS_URL || 'http://localhost:8055';
 const TOKEN = process.env.ADMIN_TOKEN || process.env.DIRECTUS_TOKEN;
 if (!TOKEN) { console.error('ADMIN_TOKEN (or DIRECTUS_TOKEN) is required.'); process.exit(1); }
 
-const CONTENT_WRITER_POLICY = '6b7abca9-c8a1-42de-9374-71491806308e';
+// LAT-2818: this used to be a hardcoded UUID, which only exists on the live
+// instance. On a fresh Directus every POST /permissions then died on an
+// INVALID_FOREIGN_KEY. Look the policy up by name and create it when absent.
+// CONTENT_WRITER_POLICY_ID pins an explicit id if you ever need to override.
+const CONTENT_WRITER_POLICY_NAME = process.env.CONTENT_WRITER_POLICY_NAME || 'content-writer';
+let CONTENT_WRITER_POLICY = process.env.CONTENT_WRITER_POLICY_ID || null;
 const headers = { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' };
 
 async function api(method, path, body) {
@@ -319,7 +324,42 @@ async function ensureUiStrings() {
 }
 
 // ---- permissions --------------------------------------------------------
+// Resolve the content-writer policy: explicit id -> lookup by name -> create.
+async function ensureContentWriterPolicy() {
+  if (CONTENT_WRITER_POLICY) {
+    const g = await api('GET', `/policies/${CONTENT_WRITER_POLICY}?fields=id`);
+    if (g.ok && g.json && g.json.data) { mark(`policy ${CONTENT_WRITER_POLICY_NAME}`, 'pinned'); return true; }
+    mark(`policy ${CONTENT_WRITER_POLICY_NAME}`, `FAIL pinned-id-missing`);
+    console.log('   ', `CONTENT_WRITER_POLICY_ID=${CONTENT_WRITER_POLICY} does not exist on ${DIRECTUS_URL}`);
+    return false;
+  }
+  const q = `/policies?limit=1&fields=id&filter[name][_eq]=${encodeURIComponent(CONTENT_WRITER_POLICY_NAME)}`;
+  const g = await api('GET', q);
+  const hit = g.ok && g.json && Array.isArray(g.json.data) ? g.json.data[0] : null;
+  if (hit) {
+    CONTENT_WRITER_POLICY = hit.id;
+    mark(`policy ${CONTENT_WRITER_POLICY_NAME}`, 'exists');
+    return true;
+  }
+  const r = await api('POST', '/policies', {
+    name: CONTENT_WRITER_POLICY_NAME,
+    icon: 'edit',
+    description: 'Content agent: CRUD articles, read+create directus_files. No admin or settings access.',
+    app_access: false,
+    admin_access: false,
+    enforce_tfa: false,
+  });
+  CONTENT_WRITER_POLICY = r.json?.data?.id || null;
+  mark(`policy ${CONTENT_WRITER_POLICY_NAME}`, r.ok && CONTENT_WRITER_POLICY ? 'created' : `FAIL ${r.status}`);
+  if (!r.ok) console.log('   ', r.text.slice(0, 300));
+  return Boolean(CONTENT_WRITER_POLICY);
+}
+
 async function ensurePermissions() {
+  if (!(await ensureContentWriterPolicy())) {
+    mark('permissions', 'SKIP(no-policy)');
+    return;
+  }
   const fullCrud = [
     ...Object.keys(TRANSLATABLE).map((p) => `${p}_translations`),
     'articles_translations',

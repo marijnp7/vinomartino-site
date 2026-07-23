@@ -242,7 +242,8 @@ async function run() {
     jsonField('tags', { note: 'Array of tag strings' }),
     imageField(),
     ...seoFields(),
-    jsonField('translations', { note: i18nNote }),
+    // No legacy json `translations` here: articles uses the native translations
+    // alias, wired up in section 18 below. (LAT-2818)
   ]) await createField('articles', f);
 
   // ── 6. Themes ─────────────────────────────────────────
@@ -485,7 +486,104 @@ async function run() {
     statusField(),
   ]) await createField('nav_items', f);
 
-  console.log('\n✅ Schema bootstrap complete — 18 collections + 5 junction tables created.\n');
+  // ── 18. Articles translations junction ──────────────────
+  // LAT-2818: the live instance grew this junction outside the script (it predates
+  // i18n-translations-schema.mjs), so a clean bootstrap left `articles` without it
+  // and the i18n script then failed on `articles_translations.hero_alt` (403) and
+  // `rel articles_translations.languages_code` (400). Create the base junction here;
+  // i18n-translations-schema.mjs adds hero_alt + the languages_code relation.
+  await createCollection('articles_translations', { icon: 'translate', note: 'EN/NL translations for articles', hidden: true });
+  for (const f of [
+    { field: 'articles_id', type: 'integer', meta: { hidden: true }, schema: { is_nullable: true } },
+    // No relation to `languages` yet — that collection is created by
+    // i18n-translations-schema.mjs, which also adds the relation.
+    { field: 'languages_code', type: 'string', meta: { hidden: true }, schema: { is_nullable: true } },
+    textField('title'),
+    textAreaField('description'),
+    richTextField('body'),
+    ...seoFields(),
+  ]) await createField('articles_translations', f);
+  await createField('articles', {
+    field: 'translations',
+    type: 'alias',
+    meta: {
+      interface: 'translations',
+      special: ['translations'],
+      width: 'full',
+      options: { languageField: 'code', defaultLanguage: 'nl' },
+    },
+    schema: null,
+  });
+  await createRelation({
+    collection: 'articles_translations',
+    field: 'articles_id',
+    related_collection: 'articles',
+    meta: { one_field: 'translations', junction_field: 'languages_code', sort_field: null, one_deselect_action: 'delete' },
+  });
+
+  // ── 19. Appellaties ─────────────────────────────────────
+  // LAT-1120 (infographic layer 3). LAT-2818: also created outside the script,
+  // so a clean bootstrap broke `rel appellaties_translations.appellaties_id` (400)
+  // and `appellaties.translations alias` (403) in i18n-translations-schema.mjs.
+  await createCollection('appellaties', {
+    icon: 'verified',
+    note: 'Appellaties & classificaties per zone (DOCG/DOC + classificatiegrenzen) — laag 3 van de landen-infographic (LAT-1120).',
+  });
+  for (const f of [
+    textField('name', { nullable: false, note: 'bv. "Barolo DOCG"' }),
+    slugField(),
+    statusField(),
+    {
+      field: 'classification',
+      type: 'string',
+      meta: {
+        interface: 'select-dropdown', width: 'half',
+        options: { choices: [
+          { text: 'DOCG', value: 'DOCG' },
+          { text: 'DOC', value: 'DOC' },
+          { text: 'IGT', value: 'IGT' },
+        ], allowOther: true },
+        note: 'Classificatieniveau. Uitbreidbaar voor FR (AOC/IGP) / EU (DOP).',
+      },
+      schema: { is_nullable: true },
+    },
+    textAreaField('zone_path', { note: 'SVG-path d voor classificatiegrens (land-viewBox). Leeg = val terug op streek-zone.' }),
+    {
+      field: 'zone_color',
+      type: 'string',
+      meta: {
+        interface: 'select-dropdown', width: 'half',
+        options: { choices: [
+          { text: 'Burgundy', value: 'burgundy' },
+          { text: 'Rust', value: 'rust' },
+          { text: 'Vine', value: 'vine' },
+        ] },
+        note: 'Accentkleur appellatie-laag',
+      },
+      schema: { is_nullable: true },
+    },
+    { field: 'sort_order', type: 'integer', meta: { interface: 'input', width: 'half', note: 'Volgorde — laagste eerst' }, schema: { is_nullable: true, default_value: 0 } },
+    textAreaField('description'),
+  ]) await createField('appellaties', f);
+  await createField('appellaties', { field: 'streek_id', type: 'integer', meta: { interface: 'select-dropdown-m2o', width: 'half' }, schema: { is_nullable: true } });
+  await createField('appellaties', { field: 'land_id', type: 'integer', meta: { interface: 'select-dropdown-m2o', width: 'half' }, schema: { is_nullable: true } });
+  // streken.appellaties — reverse o2m alias of appellaties.streek_id.
+  await createField('streken', {
+    field: 'appellaties',
+    type: 'alias',
+    meta: {
+      interface: 'list-o2m',
+      special: ['o2m'],
+      width: 'full',
+      note: 'Reverse relation: appellaties whose streek_id points to this streek.',
+      options: { template: '{{name}}' },
+    },
+    schema: null,
+  });
+  await createRelation({ collection: 'appellaties', field: 'streek_id', related_collection: 'streken', meta: { one_field: 'appellaties' } });
+  await createRelation({ collection: 'appellaties', field: 'land_id', related_collection: 'landen' });
+
+  console.log('\n✅ Schema bootstrap complete — 20 collections + 6 junction tables created.\n');
 }
 
 run().catch((err) => {
