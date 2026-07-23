@@ -66,6 +66,7 @@ function mapRelatedArticles(val: unknown): RelatedRef[] {
 
 import { markdownToHtml as renderMarkdown, normalizeEmDashes } from './markdown';
 import { hasRouteDirectives, renderEnrichedRouteBody } from './route-body';
+import { loadUiStrings } from './ui-strings';
 import { buildBookingSearchLink, resolveAccommodationHref } from './affiliates';
 
 function markdownToHtml(markdown: string): Promise<string> {
@@ -82,9 +83,14 @@ async function renderRouteBody(
     slug: string,
     directusUrl: string,
     token: string,
+    locale: Locale,
 ): Promise<string> {
     if (!hasRouteDirectives(markdown)) return markdownToHtml(markdown);
+    // LAT-2582: de affiliate-voetregel onder de boek-CTA stond hardcoded in het
+    // NL; route-body.ts blijft dependency-vrij, dus we geven hem vertaald mee.
+    const ui = await loadUiStrings(locale);
     const { html } = await renderEnrichedRouteBody(markdown, {
+        disclosure: ui.t('stay.disclosure.microcopy'),
         downloadFoto: (ref) => downloadAsset(ref, directusUrl, token, 'body-'),
         resolveBoekHref: async (attrs) => {
             const acc = attrs.acc ? Number(attrs.acc) : NaN;
@@ -429,7 +435,7 @@ async function loadFromDirectus(url: string, token: string, locale: Locale): Pro
     const items = await Promise.all(
         data.map(async (r) => {
             const bodyHtml = r.body
-                ? await renderRouteBody(stripEditorialHeader(String(r.body)), String(r.slug), url, token)
+                ? await renderRouteBody(stripEditorialHeader(String(r.body)), String(r.slug), url, token, locale)
                 : '';
             const heroImagePath = r.hero_image
                 ? await downloadAsset(String(r.hero_image), url, token)
