@@ -280,6 +280,9 @@ import {
     statusFilterQuery,
     assertDirectusConfigured,
     assetUrl,
+    directusSignal,
+    withAssetSlot,
+    fetchDirectusCollection,
 } from './directus-config';
 import { DEFAULT_LOCALE, type Locale } from './i18n';
 import { localizeRecords } from './directus-i18n';
@@ -295,10 +298,12 @@ async function downloadArticleAsset(assetId: string, directusUrl: string, token:
     const outPath = join(outDir, `${assetId}.jpg`);
     if (existsSync(outPath)) return `/images/articles/${assetId}.jpg`;
     try {
-        const res = await fetch(assetUrl(directusUrl, assetId), {
-            headers: { Authorization: `Bearer ${token}` },
-            signal: AbortSignal.timeout(15000),
-        });
+        const res = await withAssetSlot(() =>
+            fetch(assetUrl(directusUrl, assetId), {
+                headers: { Authorization: `Bearer ${token}` },
+                signal: directusSignal(),
+            }),
+        );
         if (!res.ok) {
             console.warn(`[loadArticles] could not fetch asset ${assetId}: ${res.status}`);
             return null;
@@ -524,7 +529,7 @@ async function fetchArticlesItems(url: string, token: string): Promise<Record<st
           const tier = tiers[i];
           let res: Response;
           try {
-                res = await fetch(`${url}/items/articles?limit=-1&fields=${tier.fields}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
+                res = await fetchDirectusCollection('loadArticles', `${url}/items/articles?limit=-1&fields=${tier.fields}${filterSort}`, { headers });
           } catch (err) {
                 const msg = err instanceof Error ? err.message : String(err);
                 throw new Error(`[loadArticles] Directus unreachable at ${url}: ${msg}`);

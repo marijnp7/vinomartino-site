@@ -16,7 +16,7 @@
  * leest via deze dictionary op key `nav.<navKey>` met de NL-`label` als default.
  */
 
-import { readDirectusEnv } from './directus-config';
+import { readDirectusEnv, fetchDirectusCollection } from './directus-config';
 import { DEFAULT_LOCALE, type Locale } from './i18n';
 import { UI_COPY } from './ui-copy';
 
@@ -529,9 +529,8 @@ export async function loadUiStrings(locale: Locale = DEFAULT_LOCALE): Promise<Ui
     const url = `${env.url}/items/ui_strings?limit=-1&fields=key,translations.languages_code,translations.value`;
     let res: Response;
     try {
-        res = await fetch(url, {
+        res = await fetchDirectusCollection('loadUiStrings', url, {
             headers: { Authorization: `Bearer ${env.token}` },
-            signal: AbortSignal.timeout(15000),
         });
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);

@@ -32,6 +32,209 @@ export function readDirectusEnv(): DirectusEnv {
 }
 
 /**
+ * LAT-2779 — één plek voor de Directus-fetchtimeout.
+ *
+ * Tot nu toe stond een hardcoded 15s-`AbortSignal` ~40x verspreid over
+ * src/lib/. Onder VPS-CPU-verzadiging (LAT-2776, 15-min load ~13.8 op 2 vCPU)
+ * lopen die 15s-timeouts over en klapt de hele build om op
+ * `Failed to call getStaticPaths`. 45s is ruim boven de gemeten piek-latency en
+ * is met `DIRECTUS_FETCH_TIMEOUT_MS` per build bij te stellen zonder codewijziging.
+ *
+ * Ongeldige of niet-positieve waarden vallen stil terug op de default.
+ */
+export const DIRECTUS_FETCH_TIMEOUT_MS_DEFAULT = 45000;
+
+export function directusFetchTimeoutMs(): number {
+    const raw = (process.env['DIRECTUS_FETCH_TIMEOUT_MS'] || '').trim();
+    if (!raw) return DIRECTUS_FETCH_TIMEOUT_MS_DEFAULT;
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+        console.warn(
+            `[directus-config] DIRECTUS_FETCH_TIMEOUT_MS='${raw}' is geen positief getal — terug naar ${DIRECTUS_FETCH_TIMEOUT_MS_DEFAULT}ms.`,
+        );
+        return DIRECTUS_FETCH_TIMEOUT_MS_DEFAULT;
+    }
+    return Math.round(parsed);
+}
+
+/**
+ * Timeout-signal voor élke Directus-fetch. Vervangt de losse
+ * hardcoded 15s-signals. Roep dit per fetch aan: een signal is
+ * eenmalig en begint af te tellen op het moment van aanmaken, dus één gedeeld
+ * signal over meerdere sequentiële fetches deelt hetzelfde budget.
+ */
+export function directusSignal(): AbortSignal {
+    return AbortSignal.timeout(directusFetchTimeoutMs());
+}
+
+/**
+ * LAT-2779 — aantal extra pogingen ná de eerste voor de collection-loaders,
+ * en de wachttijd ertussen. Bij te stellen via env zonder codewijziging.
+ */
+export const DIRECTUS_RETRIES_DEFAULT = 2;
+export const DIRECTUS_RETRY_BACKOFF_MS_DEFAULT = 2000;
+
+function readPositiveIntEnv(name: string, fallback: number): number {
+    const raw = (process.env[name] || '').trim();
+    if (!raw) return fallback;
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed) || parsed < 0) return fallback;
+    return Math.round(parsed);
+}
+
+/**
+ * LAT-2779 — fetch voor de collection-queries van de loaders mét retry-backoff:
+ * streken, landen, routes, articles, wijnhuizen en accommodaties (de zes uit de
+ * ticket-scope), plus de overige Directus-collectiequeries die dezelfde
+ * body-abort-crash konden oplopen: navigation, ui-strings, atlas, reispakketten,
+ * de translations-overlay en het clicks-dashboard.
+ *
+ * Retryt **alleen** op een geworpen fout: timeout (`TimeoutError` via
+ * AbortSignal) of netwerkfout. Een HTTP-antwoord wordt onaangeroerd
+ * teruggegeven — ook 4xx/5xx. Dat is bewust: de loaders gebruiken 400/403 als
+ * signaal voor "veld/permissie bestaat nog niet" en vallen dan naar een lagere
+ * field-tier terug. Retryen zou die tier-logica stukmaken en de build vertragen.
+ *
+ * Asset-downloads gaan hier bewust niet doorheen: die zijn idempotent en de
+ * volgende build pakt een gemiste asset op (streken.ts heeft z'n eigen
+ * fetchAssetWithRetry voor 429/5xx).
+ *
+ * De body wordt hier al volledig ingelezen en als in-memory Response
+ * teruggegeven. Dat is essentieel: een AbortSignal breekt niet alleen het
+ * verbinden af maar óók het uitlezen van de body. De loaders doen
+ * `const json = await res.json()` buiten elke try/catch, dus een `limit=-1`
+ * respons die traag binnendruppelt gooide daar een kale
+ * "The operation was aborted due to timeout" — precies de crash die
+ * `Failed to call getStaticPaths` opleverde. Door de body binnen de retry-lus te
+ * bufferen is die fout retry-baar geworden en kan `res.json()` niet meer
+ * afbreken.
+ */
+export async function fetchDirectusCollection(
+    loaderName: string,
+    url: string,
+    init: RequestInit = {},
+): Promise<Response> {
+    const retries = readPositiveIntEnv('DIRECTUS_FETCH_RETRIES', DIRECTUS_RETRIES_DEFAULT);
+    const backoffMs = readPositiveIntEnv('DIRECTUS_RETRY_BACKOFF_MS', DIRECTUS_RETRY_BACKOFF_MS_DEFAULT);
+    let lastErr: unknown = new Error('fetch not attempted');
+    for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+            // Per poging een vers signal: het vorige is al verlopen.
+            const res = await fetch(url, { ...init, signal: directusSignal() });
+            const body = await res.text();
+            // 204/205/304 mogen per spec geen body dragen in een Response-constructor.
+            const nullBody = res.status === 204 || res.status === 205 || res.status === 304;
+            // Alleen content-type overnemen: de transport-headers van het
+            // origineel (content-length, content-encoding) slaan niet meer op
+            // de al gedecodeerde string.
+            const contentType = res.headers.get('content-type');
+            const buffered = new Response(nullBody ? null : body, {
+                status: res.status,
+                statusText: res.statusText,
+                headers: contentType ? { 'content-type': contentType } : {},
+            });
+            // LAT-2779 — transiente server-pressure is retry-baar. Directus'
+            // pressure-limiter geeft onder buildload `503 Service "api"
+            // unavailable — Under pressure` (bewezen crash op loadNavigation,
+            // run 29966447532); 429/502/504 vallen in dezelfde categorie. Die
+            // status komt als HTTP-antwoord binnen (geen throw), dus zonder deze
+            // tak zou hij ongeretryd doorgaan naar de caller die er op crasht.
+            // 4xx (m.n. 400/403) is NIET retry-baar: dat stuurt de
+            // field-tier-fallback en moet onaangeroerd terug. Op de laatste
+            // poging valt deze tak weg (attempt === retries) en gaat de 503
+            // alsnog naar de caller — gedrag bij totale uitval blijft gelijk.
+            const retriableStatus =
+                res.status === 429 || res.status === 502 || res.status === 503 || res.status === 504;
+            if (retriableStatus && attempt < retries) {
+                console.warn(
+                    `[${loaderName}] Directus HTTP ${res.status} (poging ${attempt + 1}/${retries + 1}) — ` +
+                        `opnieuw over ${backoffMs}ms (transiente pressure, LAT-2779).`,
+                );
+                await new Promise((resolve) => setTimeout(resolve, backoffMs));
+                continue;
+            }
+            return buffered;
+        } catch (err) {
+            lastErr = err;
+            const msg = err instanceof Error ? err.message : String(err);
+            if (attempt === retries) break;
+            console.warn(
+                `[${loaderName}] Directus-fetch mislukt (poging ${attempt + 1}/${retries + 1}): ${msg} — ` +
+                    `opnieuw over ${backoffMs}ms. Timeout staat op ${directusFetchTimeoutMs()}ms (LAT-2779).`,
+            );
+            await new Promise((resolve) => setTimeout(resolve, backoffMs));
+        }
+    }
+    throw lastErr;
+}
+
+/**
+ * LAT-2779 — globale concurrency-cap op asset-downloads.
+ *
+ * De collection-loaders (streken × accommodaties, landen, routes, …) vuren hun
+ * asset-downloads af via geneste `Promise.all`, wat neerkomt op ~1600 gelijktijdige
+ * `/assets/`-requests op Directus. Die flood laat de build zichzélf DoS'en: op een
+ * gedeelde 2-vCPU-host klimt de load tijdens de build van ~2 naar >10, waarna
+ * Directus' eigen pressure-limiter `503 Service "api" unavailable — Under pressure`
+ * teruggeeft óf de fetches over de timeout heen lopen → `Failed to call
+ * getStaticPaths` → build faalt. Bewezen: een rerun startte op load 2.27 (< 3) en
+ * viel alsnog om (LAT-2769). "Wachten op een rustig venster" werkt structureel niet
+ * omdat de build zélf het lawaai maakt.
+ *
+ * Een gedeelde semafoor begrenst het totaal aantal parallelle asset-fetches over
+ * álle loaders heen. Default 8 (CTO-besluit LAT-2779: start op 8, zak naar 6/4 als
+ * dat nog floodt), bij te stellen via `DIRECTUS_ASSET_CONCURRENCY` zonder
+ * codewijziging. Alleen de netwerk-fetch zit in de slot — niet de
+ * retry-backoff-sleeps of de image-grading — zodat een wachtende download geen
+ * slot bezet houdt terwijl hij niets aan Directus vraagt.
+ */
+export const DIRECTUS_ASSET_CONCURRENCY_DEFAULT = 8;
+
+function readPositiveNonZeroIntEnv(name: string, fallback: number): number {
+    const raw = (process.env[name] || '').trim();
+    if (!raw) return fallback;
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed) || parsed < 1) return fallback;
+    return Math.round(parsed);
+}
+
+let assetSlotsInUse = 0;
+const assetSlotWaiters: Array<() => void> = [];
+
+function acquireAssetSlot(limit: number): Promise<void> {
+    if (assetSlotsInUse < limit) {
+        assetSlotsInUse++;
+        return Promise.resolve();
+    }
+    return new Promise<void>((resolve) => {
+        assetSlotWaiters.push(() => {
+            assetSlotsInUse++;
+            resolve();
+        });
+    });
+}
+
+function releaseAssetSlot(): void {
+    assetSlotsInUse--;
+    const next = assetSlotWaiters.shift();
+    if (next) next();
+}
+
+/**
+ * Voer een asset-fetch uit binnen de globale concurrency-cap. Wrap alléén de
+ * netwerkcall (`fetch`), niet de omliggende retry/backoff of image-processing.
+ */
+export async function withAssetSlot<T>(fn: () => Promise<T>): Promise<T> {
+    const limit = readPositiveNonZeroIntEnv('DIRECTUS_ASSET_CONCURRENCY', DIRECTUS_ASSET_CONCURRENCY_DEFAULT);
+    await acquireAssetSlot(limit);
+    try {
+        return await fn();
+    } finally {
+        releaseAssetSlot();
+    }
+}
+
+/**
  * Directus on-the-fly image transform for build-time downloads (LAT-1770).
  * Originals are 3-7 MB; capping at 1600px width / quality 75 keeps heroes crisp
  * on retina while cutting per-asset weight ~95%. JPEG is kept so the `.jpg`
