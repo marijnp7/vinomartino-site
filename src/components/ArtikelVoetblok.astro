@@ -12,6 +12,7 @@
 import RouteMap from './RouteMap.astro';
 import type { RelatedRef } from '../lib/articles';
 import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
 
 export interface VoetblokRoute {
   slug: string;
@@ -37,20 +38,24 @@ const { streek = null, route = null, hotel = null, locale = DEFAULT_LOCALE } = A
 // LAT-2704 — interne hrefs locale-aware; NL blijft byte-identiek.
 const lh = (href: string) => localizeHref(href, locale);
 
+// LAT-2820 — de copy was hier nog hardcoded NL, ook op /en/. Zichtbare tekst én
+// aria-labels lopen nu via de UI-dictionary; op NL levert dat dezelfde bytes op.
+const ui = await loadUiStrings(locale);
+
 const heeftHoortBij = Boolean(streek || route);
 const routeStops = route?.stops?.filter(Boolean) ?? [];
 const heeftInhoud = heeftHoortBij || Boolean(hotel);
 ---
 
 {heeftInhoud && (
-  <section class="voetblok" aria-label="Verder lezen">
+  <section class="voetblok" aria-label={ui.t('voetblok.aria')}>
     <div class="container voetblok__inner">
       {heeftHoortBij && (
         <div class="voetblok__hoortbij">
-          <p class="voetblok__lede">Dit artikel hoort bij {streek && <a href={lh(`/streken/${streek.slug}/`)} class="voetblok__ref">{streek.name}</a>}{streek && route ? ' en ' : ''}{route && <a href={lh(`/wijnroutes/${route.slug}/`)} class="voetblok__ref">{route.name}</a>}.</p>
+          <p class="voetblok__lede">{ui.t('voetblok.hoortBijPre')} {streek && <a href={lh(`/streken/${streek.slug}/`)} class="voetblok__ref">{streek.name}</a>}{streek && route ? ` ${ui.t('voetblok.hoortBijJoin')} ` : ''}{route && <a href={lh(`/wijnroutes/${route.slug}/`)} class="voetblok__ref">{route.name}</a>}.</p>
           {routeStops.length >= 2 && (
-            <a href={lh(`/wijnroutes/${route!.slug}/`)} class="voetblok__thumb" aria-label={`Bekijk de route ${route!.name}`}>
-              <RouteMap stops={routeStops} variant="mini" />
+            <a href={lh(`/wijnroutes/${route!.slug}/`)} class="voetblok__thumb" aria-label={`${ui.t('voetblok.routeThumbAria')} ${route!.name}`}>
+              <RouteMap stops={routeStops} variant="mini" locale={locale} />
             </a>
           )}
         </div>
@@ -58,8 +63,8 @@ const heeftInhoud = heeftHoortBij || Boolean(hotel);
 
       {hotel && (
         <a href={lh(hotel.href)} class="voetblok__hotel" data-plausible-cta="voetblok_hotel">
-          <span class="voetblok__hotel-kicker">Overnachten</span>
-          <span class="voetblok__hotel-label">Waar je slaapt in {hotel.streekName}</span>
+          <span class="voetblok__hotel-kicker">{ui.t('voetblok.hotel.kicker')}</span>
+          <span class="voetblok__hotel-label">{ui.t('voetblok.hotel.labelPre')} {hotel.streekName}</span>
           <span class="voetblok__hotel-arrow" aria-hidden="true">&rarr;</span>
         </a>
       )}

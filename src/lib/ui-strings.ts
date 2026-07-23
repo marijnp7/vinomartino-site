@@ -346,6 +346,18 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'routemap.endpointNaar': 'Naar',
     'routemap.stopsSuffix': 'stops',
 
+    // ArtikelVoetblok.astro (LAT-2820) — vast voetblok onder elk artikel. De
+    // lede is één zin met twee inline links ("Dit artikel hoort bij <streek> en
+    // <route>."); t() kent geen interpolatie, dus de zin valt uiteen in een
+    // prefix en een voegwoord. De spaties eromheen staan in de template, niet in
+    // de waarde — een vertaler kan er dan geen per ongeluk weglaten.
+    'voetblok.aria': 'Verder lezen',
+    'voetblok.hoortBijPre': 'Dit artikel hoort bij',
+    'voetblok.hoortBijJoin': 'en',
+    'voetblok.routeThumbAria': 'Bekijk de route',
+    'voetblok.hotel.kicker': 'Overnachten',
+    'voetblok.hotel.labelPre': 'Waar je slaapt in',
+
     // AffiliatePlaceholder.astro (LAT-1029) — per-type affiliate-blok chrome
     // (titel/omschrijving/cta). De icon-emoji staat in de component (taal-neutraal).
     'affiliate.block.accommodation.title': 'Waar slapen',
