@@ -182,8 +182,10 @@ function mapRelatedArticles(val: unknown): RelatedRef[] {
 import { markdownToHtml as renderMarkdown, normalizeEmDashes } from './markdown';
 import { heroImageAllowed } from './hero-credit-guard';
 
-function markdownToHtml(markdown: string): Promise<string> {
-    return renderMarkdown(markdown, { stripFirstH1: true });
+// LAT-2819: locale erdoorheen zodat interne links in de redactionele body
+// locale-aware worden (no-op op NL).
+function markdownToHtml(markdown: string, locale: Locale): Promise<string> {
+    return renderMarkdown(markdown, { stripFirstH1: true, locale });
 }
 
 import {
@@ -793,11 +795,11 @@ async function loadFromDirectus(url: string, token: string, locale: Locale): Pro
             const land = r.land_id as Record<string, unknown> | null;
             if (land && land.name) r.land_name = land.name;
             if (land && land.slug) r.land_slug = land.slug;
-            const bodyHtml = r.body ? await markdownToHtml(String(r.body)) : '';
+            const bodyHtml = r.body ? await markdownToHtml(String(r.body), locale) : '';
             // LAT-1898: intro is een los markdown-blok (eigen H2-kop, geen H1 om te
             // strippen) → render zonder stripFirstH1.
             const waarSlapenIntroHtml = r.waar_slapen_intro
-                ? await renderMarkdown(String(r.waar_slapen_intro))
+                ? await renderMarkdown(String(r.waar_slapen_intro), { locale })
                 : '';
             const heroImagePath = r.hero_image
                 ? await downloadAsset(String(r.hero_image), url, token)

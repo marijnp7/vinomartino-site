@@ -1,5 +1,11 @@
+import { DEFAULT_LOCALE, localizeHref, type Locale } from './i18n';
+
 interface MarkdownOptions {
   stripFirstH1?: boolean;
+  // LAT-2819: locale van de pagina waarop deze body terechtkomt. Alleen gezet
+  // door de loaders (die de locale al kennen); zonder deze optie blijft de
+  // render byte-identiek aan het NL-gedrag.
+  locale?: Locale;
 }
 
 export interface TocItem {
@@ -192,6 +198,10 @@ export async function mdastToHtmlWithToc(
     toHast(mdast as Parameters<typeof toHast>[0], { allowDangerousHtml: true }) as Parameters<typeof raw>[0],
   );
   sanitizeHast(rawHast as HastParent);
+  // LAT-2819: interne links in de redactionele body locale-aware maken. Dit
+  // draait ná de sanitize (de allowlist bepaalt welke href overleeft) en is een
+  // no-op op NL, zodat de NL-HTML byte-identiek blijft.
+  localizeHastLinks(rawHast as HastParent, options.locale ?? DEFAULT_LOCALE);
   return { html: toHtml(rawHast as Parameters<typeof toHtml>[0]), toc };
 }
 
@@ -326,6 +336,29 @@ function sanitizeHast(parent: HastParent): void {
     result.push(node);
   }
   parent.children = result;
+}
+
+// LAT-2819: de localizeHref-sweep (LAT-2704) maakte de door componenten
+// gerenderde hrefs locale-aware, maar niet de interne links die de redactie in
+// de Directus-body schrijft. Die staan in NL ("/artikelen/...") en stuurden een
+// EN-lezer terug naar de Nederlandse pagina. In plaats van de redactie EN-paden
+// te laten schrijven (dubbel onderhoud, foutgevoelig) herschrijven we ze op de
+// gerenderde boom: één plek, hetzelfde graceful-degrade-beleid als de
+// componenten (externe URLs, assets en route-families zonder EN-tegenhanger
+// blijven ongemoeid). `img`/`source` blijven bewust buiten schot: assets zijn
+// locale-loos en localizeHref laat ze sowieso met rust.
+export function localizeHastLinks(parent: HastParent, locale: Locale): void {
+  if (locale === DEFAULT_LOCALE) return;
+  if (!Array.isArray(parent.children)) return;
+  for (const node of parent.children) {
+    if (node.type === 'element' && node.tagName?.toLowerCase() === 'a') {
+      const href = node.properties?.href;
+      if (typeof href === 'string') {
+        node.properties = { ...node.properties, href: localizeHref(href, locale) };
+      }
+    }
+    localizeHastLinks(node as HastParent, locale);
+  }
 }
 
 export async function markdownToHtml(markdown: string, options: MarkdownOptions = {}): Promise<string> {

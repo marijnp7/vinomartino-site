@@ -6,7 +6,7 @@ import RouteMap from '../RouteMap.astro';
 import type { FaqItem } from '../../lib/seo';
 import type { LandReistijd, LandBudget } from '../../lib/landen';
 import { loadUiStrings } from '../../lib/ui-strings';
-import { type Locale, DEFAULT_LOCALE } from '../../lib/i18n';
+import { type Locale, DEFAULT_LOCALE, localizeHref } from '../../lib/i18n';
 
 interface LandStreek {
   name: string;
@@ -87,6 +87,9 @@ const {
 } = Astro.props;
 
 const ui = await loadUiStrings(locale);
+// LAT-2819 — de hub-kaartjes (streken/wijnhuizen/routes) bleven bij de
+// LAT-2704-sweep achter: op /en/landen/* wezen ze nog naar het kale NL-pad.
+const lh = (href: string) => localizeHref(href, locale);
 ---
 
 <!-- ── HERO ──────────────────────────────────────────── -->
@@ -162,11 +165,11 @@ const ui = await loadUiStrings(locale);
           <div class="land-section-label">{ui.t('land.section.wijnstreken')}</div>
           <h2 class="land-section-title">{`${ui.t('land.section.strekenVanPrefix')} ${name}`}</h2>
         </div>
-        <a href="/streken/" class="land-all-link">{ui.t('land.link.alleStreken')}</a>
+        <a href={lh('/streken/')} class="land-all-link">{ui.t('land.link.alleStreken')}</a>
       </div>
       <div class="land-streken__grid">
         {streken.map(streek => (
-          <a href={`/streken/${streek.slug}/`} class="land-streek-card">
+          <a href={lh(`/streken/${streek.slug}/`)} class="land-streek-card">
             <div class:list={['land-streek-card__img', !streek.image && 'is-empty']}>
               <SmartImg src={streek.image} alt={streek.name} theme="vineyard" class="land-streek-card__img-inner" />
               <span class="land-streek-card__badge">{streek.badge}</span>
@@ -191,12 +194,12 @@ const ui = await loadUiStrings(locale);
           <div class="land-section-label land-section-label--rust">{ui.t('land.section.topWijnhuizen')}</div>
           <h2 class="land-section-title">{ui.t('land.section.topWijnhuizenTitle')}</h2>
         </div>
-        <a href="/wijnhuizen/" class="land-all-link">{ui.t('land.link.alleWijnhuizen')}</a>
+        <a href={lh('/wijnhuizen/')} class="land-all-link">{ui.t('land.link.alleWijnhuizen')}</a>
       </div>
       <div class="land-wijnhuizen__grid">
         {topWijnhuizen.map((wh, i) => (
           <a
-            href={`/wijnhuizen/${wh.slug}/`}
+            href={lh(`/wijnhuizen/${wh.slug}/`)}
             class:list={[
               'land-wh-cell',
               i % 3 !== 0 && 'land-wh-cell--border-left',
@@ -249,11 +252,11 @@ const ui = await loadUiStrings(locale);
           <div class="land-section-label land-section-label--rust">{ui.t('land.section.routes')}</div>
           <h2 class="land-section-title">{`${ui.t('land.section.reisroutesDoorPrefix')} ${name}`}</h2>
         </div>
-        <a href="/wijnroutes/" class="land-all-link">{ui.t('land.link.alleRoutes')}</a>
+        <a href={lh('/wijnroutes/')} class="land-all-link">{ui.t('land.link.alleRoutes')}</a>
       </div>
       <div class="land-routes__grid">
         {routes.map(route => (
-          <a href={`/wijnroutes/${route.slug}/`} class="land-route-card">
+          <a href={lh(`/wijnroutes/${route.slug}/`)} class="land-route-card">
             <div class="land-route-card__img">
               <div class="land-route-card__badges">
                 {route.days && <span class="land-badge land-badge--days">{route.days}d</span>}

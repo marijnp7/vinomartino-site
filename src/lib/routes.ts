@@ -69,8 +69,10 @@ import { hasRouteDirectives, renderEnrichedRouteBody } from './route-body';
 import { loadUiStrings } from './ui-strings';
 import { buildBookingSearchLink, resolveAccommodationHref } from './affiliates';
 
-function markdownToHtml(markdown: string): Promise<string> {
-    return renderMarkdown(markdown, { stripFirstH1: true });
+// LAT-2819: locale erdoorheen zodat interne links in de redactionele body
+// locale-aware worden (no-op op NL).
+function markdownToHtml(markdown: string, locale: Locale): Promise<string> {
+    return renderMarkdown(markdown, { stripFirstH1: true, locale });
 }
 
 // LAT-2270: verrijkte body-render zodra de markdown `:::foto`/`:::boek`/`:::infographic`
@@ -85,12 +87,13 @@ async function renderRouteBody(
     token: string,
     locale: Locale,
 ): Promise<string> {
-    if (!hasRouteDirectives(markdown)) return markdownToHtml(markdown);
+    if (!hasRouteDirectives(markdown)) return markdownToHtml(markdown, locale);
     // LAT-2582: de affiliate-voetregel onder de boek-CTA stond hardcoded in het
     // NL; route-body.ts blijft dependency-vrij, dus we geven hem vertaald mee.
     const ui = await loadUiStrings(locale);
     const { html } = await renderEnrichedRouteBody(markdown, {
         disclosure: ui.t('stay.disclosure.microcopy'),
+        locale,
         downloadFoto: (ref) => downloadAsset(ref, directusUrl, token, 'body-'),
         resolveBoekHref: async (attrs) => {
             const acc = attrs.acc ? Number(attrs.acc) : NaN;

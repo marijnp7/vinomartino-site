@@ -56,8 +56,10 @@ function mapRelatedArticles(val: unknown): RelatedRef[] {
 
 import { markdownToHtml as renderMarkdown, normalizeEmDashes } from './markdown';
 
-function markdownToHtml(markdown: string): Promise<string> {
-    return renderMarkdown(markdown, { stripFirstH1: true });
+// LAT-2819: locale erdoorheen zodat interne links in de redactionele body
+// locale-aware worden (no-op op NL).
+function markdownToHtml(markdown: string, locale: Locale): Promise<string> {
+    return renderMarkdown(markdown, { stripFirstH1: true, locale });
 }
 
 import {
@@ -303,7 +305,7 @@ async function loadFromDirectus(url: string, token: string, locale: Locale): Pro
             const streek = r.streek_id as Record<string, unknown> | null;
             if (streek && streek.name) r.streek_name = streek.name;
             if (streek && streek.slug) r.streek_slug = streek.slug;
-            const bodyHtml = r.body ? await markdownToHtml(String(r.body)) : '';
+            const bodyHtml = r.body ? await markdownToHtml(String(r.body), locale) : '';
             const heroImagePath = r.hero_image
                 ? await downloadAsset(String(r.hero_image), url, token)
                 : null;
