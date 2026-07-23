@@ -26,7 +26,6 @@
 // Onbekende directives worden genegeerd (niets gerenderd) — deploy-safe, geen regressie.
 
 import { mdastToHtmlWithToc, normalizeEmDashes, type TocItem } from './markdown';
-import { STAY_DISCLOSURE_MICROCOPY } from './stay-tier';
 
 // Minimale mdast-vorm die we nodig hebben; de directive-extensie hangt `name` en
 // `attributes` aan container/leaf/text-directive-nodes.
@@ -45,6 +44,12 @@ export interface RouteBodyContext {
   downloadFoto: (ref: string) => Promise<string | null>;
   /** Lost de boek-attributen op naar een booking.com-deeplink (of null). */
   resolveBoekHref: (attrs: Record<string, string>) => Promise<string | null>;
+  /**
+   * LAT-2582 — affiliate-voetregel onder de boek-CTA, al in de juiste taal.
+   * Wordt doorgegeven i.p.v. hier uit de UI-dictionary gelezen, zodat dit
+   * bestand puur/dependency-vrij blijft (zie kop). Leeg = geen voetregel.
+   */
+  disclosure: string;
 }
 
 const DIRECTIVE_TYPES = new Set(['containerDirective', 'leafDirective', 'textDirective']);
@@ -141,11 +146,11 @@ function fotoHtml(attrs: Record<string, string>, foto: FotoResolved, eager: bool
   return fig;
 }
 
-function boekHtml(href: string, label: string): string {
+function boekHtml(href: string, label: string, disclosure: string): string {
   return [
     `<div class="route-boek">`,
     `<a class="route-boek__cta" href="${escapeHtml(href)}" target="_blank" rel="sponsored noopener">${escapeHtml(label)}</a>`,
-    `<p class="route-boek__disclosure">${escapeHtml(STAY_DISCLOSURE_MICROCOPY)}</p>`,
+    disclosure ? `<p class="route-boek__disclosure">${escapeHtml(disclosure)}</p>` : '',
     `</div>`,
   ].join('');
 }
@@ -157,7 +162,9 @@ function transform(
   nodes: MdastNode[],
   fotoMap: Map<string, FotoResolved | null>,
   boekMap: Map<string, string | null>,
-  state: { fotoSeen: number },
+  // `disclosure` reist mee in de state-bag zodat de recursie hem niet als extra
+  // argument hoeft door te geven; hij is invariant over de hele boom.
+  state: { fotoSeen: number; disclosure: string },
 ): MdastNode[] {
   const out: MdastNode[] = [];
   for (const node of nodes) {
@@ -182,7 +189,7 @@ function transform(
     }
     if (node.name === 'boek') {
       const href = boekMap.get(JSON.stringify(attrs)) ?? null;
-      if (href) out.push({ type: 'html', value: boekHtml(href, attrs.label || 'Bekijk & boek') });
+      if (href) out.push({ type: 'html', value: boekHtml(href, attrs.label || 'Bekijk & boek', state.disclosure) });
       continue; // geen href → CTA valt weg
     }
     // infographic: behoud kinderen, render als <aside class="route-infographic">.
@@ -227,6 +234,6 @@ export async function renderEnrichedRouteBody(
   ]);
 
   // 2. Synchrone directive→HTML-transform, daarna de gedeelde sanitize/toc-pas.
-  mdast.children = transform(mdast.children, fotoMap, boekMap, { fotoSeen: 0 });
+  mdast.children = transform(mdast.children, fotoMap, boekMap, { fotoSeen: 0, disclosure: ctx.disclosure });
   return mdastToHtmlWithToc(mdast as unknown as Parameters<typeof mdastToHtmlWithToc>[0], { stripFirstH1: true });
 }
