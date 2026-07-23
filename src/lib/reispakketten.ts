@@ -15,10 +15,18 @@
  * DevOps de collectie/relaties nog niet heeft aangemaakt, zodat een ontbrekend
  * veld de site-build niet breekt. Foto's worden at-buildtijd uit Directus
  * gedownload (zelfde pijplijn als de andere loaders) i.p.v. gehotlinkt.
+ *
+ * LAT-2826: locale-parameter erbij, zodat `/en/reizen-nareizen/*` hetzelfde
+ * overlay+no-translation-guard-patroon volgt als de andere content-families
+ * (zie directus-i18n.ts). De junction `reispakketten_translations` bestaat nog
+ * niet in Directus; tot die er is levert de overlay nul rijen en genereert de
+ * guard dus nul EN-pagina's — géén NL-lek onder /en/ (LAT-2814).
  */
 
 import type { AccommodatieKaart } from './accommodaties';
 import { markdownToHtml as renderMarkdown, normalizeEmDashes } from './markdown';
+import { DEFAULT_LOCALE, type Locale } from './i18n';
+import { localizeJoinedRefs, localizeRecords } from './directus-i18n';
 import {
     readDirectusEnv,
     statusFilterQuery,
@@ -167,7 +175,22 @@ async function mapAccommodaties(
 }
 
 const CORE_FIELDS =
-    'id,slug,titel,tagline,status,pub_date,introductie,dag_tot_dag,reismoment,cta_heading,cta_tekst,meta_title,meta_description,hero_image,streek_id.name,streek_id.slug';
+    'id,slug,titel,tagline,status,pub_date,introductie,dag_tot_dag,reismoment,cta_heading,cta_tekst,meta_title,meta_description,hero_image,streek_id.id,streek_id.name,streek_id.slug';
+
+// LAT-2826 — vertaalbare tekstvelden op `reispakketten`. Spiegelt
+// ROUTES_TRANSLATABLE/ARTICLES_TRANSLATABLE; slug, streek-relatie, beeld-UUID en
+// pub_date blijven bewust NL-canoniek (data, geen vertaling).
+const REISPAKKETTEN_TRANSLATABLE = [
+    'titel',
+    'tagline',
+    'introductie',
+    'dag_tot_dag',
+    'reismoment',
+    'cta_heading',
+    'cta_tekst',
+    'meta_title',
+    'meta_description',
+];
 const WIJNHUIS_FIELDS =
     'wijnhuizen.wijnhuizen_id.slug,wijnhuizen.wijnhuizen_id.name,wijnhuizen.wijnhuizen_id.description';
 const ACC_FIELDS =
@@ -235,11 +258,68 @@ async function mapPakket(
     };
 }
 
-export async function loadReispakketten(): Promise<ReisPakket[]> {
+/**
+ * LAT-2826 — overlay + no-translation-guard, maar build-proof.
+ *
+ * `reispakketten_translations` bestaat nog niet in Directus (staat niet in
+ * directus/scripts/i18n-translations-schema.mjs). `localizeRecords` gooit bij een
+ * ontbrekende junction (403/404), en dat zou de hele site-build breken zodra er
+ * één /en/-reispakketroute bestaat. Daarom vangen we dat af en vallen we terug op
+ * "geen vertalingen" — de guard dropt dan alle records en er komen nul
+ * /en/reizen-nareizen/*-pagina's. Zodra DevOps de junction aanmaakt vult dit
+ * zichzelf, zonder codewijziging.
+ */
+async function localizePakketten(
+    data: Record<string, unknown>[],
+    locale: Locale,
+): Promise<Record<string, unknown>[]> {
+    if (locale === DEFAULT_LOCALE) return data;
+    const env = readDirectusEnv();
+    try {
+        return await localizeRecords(data, {
+            env,
+            junction: 'reispakketten_translations',
+            parentIdField: 'reispakketten_id',
+            fields: REISPAKKETTEN_TRANSLATABLE,
+            locale,
+        });
+    } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn(
+            `[loadReispakketten] geen reispakketten_translations voor '${locale}' (${msg}) — nul /${locale}/-pakketpagina's (no-translation-guard).`,
+        );
+        return [];
+    }
+}
+
+export async function loadReispakketten(locale: Locale = DEFAULT_LOCALE): Promise<ReisPakket[]> {
     const env = readDirectusEnv();
     assertDirectusConfigured('loadReispakketten', env);
-    const data = await fetchPakketten(env.url, env.token);
+    const raw = await fetchPakketten(env.url, env.token);
+    const data = await localizePakketten(raw, locale);
+
+    // LAT-2697-patroon: de gejoinde streeknaam is een vreemd record; die vertaalt
+    // niet mee met de guard hierboven. Zacht overlayen (NL-naam blijft staan als
+    // er geen EN-vertaling is) — alleen de weergavenaam verandert, slug niet.
+    if (locale !== DEFAULT_LOCALE) {
+        const streken = data
+            .map((r) => (r.streek_id && typeof r.streek_id === 'object' ? (r.streek_id as Record<string, unknown>) : null))
+            .filter((s): s is Record<string, unknown> => s !== null);
+        try {
+            await localizeJoinedRefs(streken, {
+                env,
+                junction: 'streken_translations',
+                parentIdField: 'streken_id',
+                fields: ['name'],
+                locale,
+            });
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            console.warn(`[loadReispakketten] streeknaam-overlay (${locale}) faalde: ${msg} — NL-naam blijft staan.`);
+        }
+    }
+
     const items = await Promise.all(data.map((r) => mapPakket(r, env.url, env.token)));
-    console.log(`[loadReispakketten] fetched ${items.length} reispakketten from Directus`);
+    console.log(`[loadReispakketten] fetched ${items.length} reispakketten from Directus (locale=${locale})`);
     return items;
 }

@@ -49,6 +49,15 @@ export function localizePath(pathname: string, locale: Locale): string {
 // en wordt de link automatisch locale-aware (één plek, geen sweep).
 const EN_MISSING_PREFIXES: readonly string[] = ['/reizen-nareizen/', '/intern/', '/preview/'];
 
+// LAT-2826 — uitzonderingen ÓP `EN_MISSING_PREFIXES`, op exacte padmatch. De
+// listingpagina /reizen-nareizen/ heeft wél een /en/-tegenhanger (die altijd
+// gebouwd wordt), terwijl de detailpagina's eronder pas een EN-versie krijgen
+// zodra `reispakketten_translations` gevuld is. Zonder deze allowlist zou een
+// EN-body-link naar het overzicht op het NL-pad blijven hangen; mét de allowlist
+// blijven links naar losse (nog onvertaalde) pakketten wél NL — beter een
+// expliciete taalwissel dan een 404.
+const EN_PRESENT_EXACT_PATHS: readonly string[] = ['/reizen-nareizen/'];
+
 /**
  * LAT-2704 — locale-aware href voor INTERNE links.
  *
@@ -66,7 +75,13 @@ export function localizeHref(href: string, locale: Locale): string {
   if (href.startsWith('//')) return href; // protocol-relatief extern
   const [pathname] = href.split(/(?=[?#])/, 1);
   if (/\.[a-z0-9]{2,5}$/i.test(pathname)) return href; // asset (.svg, .png, .json, .xml, ...)
-  if (EN_MISSING_PREFIXES.some((p) => pathname === p.replace(/\/$/, '') || pathname.startsWith(p))) {
+  const isPresentExact = EN_PRESENT_EXACT_PATHS.some(
+    (p) => pathname === p || pathname === p.replace(/\/$/, ''),
+  );
+  if (
+    !isPresentExact &&
+    EN_MISSING_PREFIXES.some((p) => pathname === p.replace(/\/$/, '') || pathname.startsWith(p))
+  ) {
     return href;
   }
   const suffix = href.slice(pathname.length);

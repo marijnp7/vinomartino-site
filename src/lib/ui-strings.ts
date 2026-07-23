@@ -539,6 +539,36 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'auteurs.detail.articlesHeadingPre': 'Artikelen van ',
     'auteurs.detail.emptyPre': 'Er zijn nog geen gepubliceerde artikelen van ',
     'auteurs.detail.emptyPost': '. Houd deze pagina in de gaten; nieuw werk verschijnt hier zodra het live staat.',
+
+    // LAT-2826 — "Reizen & nareizen"-listing. NL-copy is definitief vastgesteld
+    // door de Lead Editor in de ticketomschrijving (Martino-voice goedgekeurd);
+    // wijzig deze vier hero/meta-keys niet zonder redactie.
+    'reizen.breadcrumb.index': 'Reizen & nareizen',
+    'reizen.index.meta.title': 'Reizen & nareizen — wijnreizen van Martino | VinoMartino',
+    'reizen.index.meta.description':
+        'Verslagen van wijnreizen door Europa en daarbuiten. Marijn reist, proeft en schrijft — na de reis, als het beter te vertellen is.',
+    'reizen.index.hero.label': 'Reizen & nareizen',
+    'reizen.index.hero.h1': 'Reizen & nareizen',
+    'reizen.index.hero.desc':
+        'Elke wijnreis eindigt op de terugreis. Soms in een propvolle intercity met een fles te veel in je rugzak, soms in een stiltecoupé met aantekeningen in een linnen boekje. Hier staan de verhalen die daarna pas goed op gang komen — als de geur van de kelder al verdwenen is maar het gevoel niet.',
+    'reizen.index.groupFallback': 'Onderweg',
+    'reizen.index.readCta': 'Lees de nareis →',
+    'reizen.index.empty.title': 'De nareizen zijn onderweg',
+    'reizen.index.empty.descPre': 'Er staat nog geen verslag online. Begin intussen bij de ',
+    'reizen.index.empty.descLink': 'wijnroutes',
+    'reizen.index.empty.descPost': ' — daar staat waar de reizen beginnen.',
+
+    // LAT-2826 — chrome van de pakket-/nareisdetailpagina. Stond als losse
+    // NL-literals in src/pages/reizen-nareizen/[slug].astro; nu dictionary-driven
+    // zodat de /en/-tegenhanger dezelfde keys kan overlayen.
+    'reizen.detail.crumbsAria': 'Breadcrumb',
+    'reizen.detail.kicker': 'Reizen nareizen',
+    'reizen.detail.metaTitleSuffix': ' · Reizen nareizen',
+    'reizen.detail.section.dagTotDag': 'Route dag-tot-dag',
+    'reizen.detail.section.wijnhuizen': 'Wijnhuizen om te boeken',
+    'reizen.detail.section.accommodaties': 'Waar te slapen',
+    'reizen.detail.section.reismoment': 'Reismoment',
+    'reizen.detail.leesPortret': 'Lees portret →',
 };
 
 /** Resolver over de UI-dictionary: EN-value indien aanwezig, anders NL-default. */

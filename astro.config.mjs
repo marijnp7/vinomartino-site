@@ -54,8 +54,10 @@ export default defineConfig({
           return { ...item, priority: 1.0, changefreq: 'daily' };
         }
         // New content-type index pages get high priority
+        // LAT-2826: /reizen-nareizen/ heeft sinds deze ticket een echte
+        // listingpagina (voorheen 403 op een directory zonder index, LAT-2707).
         if (
-          item.url.match(/\/(wijnhuizen|wijnroutes|streken|landen)\/$/)
+          item.url.match(/\/(wijnhuizen|wijnroutes|streken|landen|reizen-nareizen)\/$/)
         ) {
           return { ...item, priority: 0.9, changefreq: 'weekly' };
         }
@@ -65,7 +67,7 @@ export default defineConfig({
         }
         // Other new content-type detail pages
         if (
-          item.url.match(/\/(wijnhuizen|wijnroutes|streken)\/[^/]+\/$/)
+          item.url.match(/\/(wijnhuizen|wijnroutes|streken|reizen-nareizen)\/[^/]+\/$/)
         ) {
           return { ...item, priority: 0.8, changefreq: 'monthly' };
         }
