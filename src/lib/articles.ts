@@ -287,7 +287,7 @@ import {
     fetchDirectusCollection,
 } from './directus-config';
 import { DEFAULT_LOCALE, type Locale } from './i18n';
-import { localizeRecords } from './directus-i18n';
+import { localizeRecords, localizeNestedRefs } from './directus-i18n';
 
 // LAT-2575 — vertaalbare artikel-velden (native Directus translations, LAT-2574).
 const ARTICLES_TRANSLATABLE = ['title', 'description', 'body', 'meta_title', 'meta_description', 'hero_alt'];
@@ -561,6 +561,54 @@ async function loadFromDirectus(url: string, token: string, locale: Locale): Pro
         fields: ARTICLES_TRANSLATABLE,
         locale,
     });
+    // LAT-2829 — de cross-linkblokken onder een artikel (streken/routes/landen +
+    // artikel→artikel) laden hun label via een geneste M2M-hop op de doelcollectie.
+    // localizeRecords raakt alleen de artikel-eigen velden, dus zonder deze
+    // overlay staat elk "Lees ook"/"Meer over"-blok op /en/ in het NL.
+    // `related_wijnhuizen` ontbreekt hier bewust: `wijnhuizen_translations` heeft
+    // geen `name` — wijnhuisnamen zijn eigennamen en blijven ongewijzigd.
+    await Promise.all([
+        localizeNestedRefs(data, 'related_streken', 'streken_id', {
+            env: readDirectusEnv(),
+            collection: 'streken',
+            junction: 'streken_translations',
+            parentIdField: 'streken_id',
+            fields: ['name'],
+            locale,
+        }),
+        localizeNestedRefs(data, 'related_routes', 'routes_id', {
+            env: readDirectusEnv(),
+            collection: 'routes',
+            junction: 'routes_translations',
+            parentIdField: 'routes_id',
+            fields: ['title'],
+            locale,
+        }),
+        localizeNestedRefs(data, 'related_landen', 'landen_id', {
+            env: readDirectusEnv(),
+            collection: 'landen',
+            junction: 'landen_translations',
+            parentIdField: 'landen_id',
+            fields: ['name'],
+            locale,
+        }),
+        localizeNestedRefs(data, 'related_articles', 'related_articles_id', {
+            env: readDirectusEnv(),
+            collection: 'articles',
+            junction: 'articles_translations',
+            parentIdField: 'articles_id',
+            fields: ['title'],
+            locale,
+        }),
+        localizeNestedRefs(data, 'meer_over', 'related_articles_id', {
+            env: readDirectusEnv(),
+            collection: 'articles',
+            junction: 'articles_translations',
+            parentIdField: 'articles_id',
+            fields: ['title'],
+            locale,
+        }),
+    ]);
     const items = await Promise.all(
           data.map(async (a) => {
                   const rawBody = String(a.body || '');

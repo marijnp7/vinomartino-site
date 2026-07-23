@@ -73,7 +73,7 @@ import {
     fetchDirectusCollection,
 } from './directus-config';
 import { DEFAULT_LOCALE, type Locale } from './i18n';
-import { localizeRecords, localizeJoinedRefs } from './directus-i18n';
+import { localizeRecords, localizeJoinedRefs, localizeNestedRefs } from './directus-i18n';
 
 // LAT-2575 — vertaalbare wijnhuis-velden (native Directus translations, LAT-2574).
 const WIJNHUIZEN_TRANSLATABLE = ['description', 'body', 'meta_title', 'meta_description', 'hero_alt'];
@@ -300,6 +300,15 @@ async function loadFromDirectus(url: string, token: string, locale: Locale): Pro
             locale,
         },
     );
+    // LAT-2829 — idem voor de artikeltitels in het cross-linkblok (geneste M2M).
+    await localizeNestedRefs(data, 'related_articles', 'articles_id', {
+        env: readDirectusEnv(),
+        collection: 'articles',
+        junction: 'articles_translations',
+        parentIdField: 'articles_id',
+        fields: ['title'],
+        locale,
+    });
     const items = await Promise.all(
         data.map(async (r) => {
             const streek = r.streek_id as Record<string, unknown> | null;
