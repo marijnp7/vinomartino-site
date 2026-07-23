@@ -267,7 +267,7 @@ const lh = (href: string) => localizeHref(href, locale);
               <h3 class="land-route-card__title">{route.title}</h3>
               {route.stops && route.stops.length >= 2 && (
                 <div class="land-route-card__strip">
-                  <RouteMap stops={route.stops} variant="mini" />
+                  <RouteMap stops={route.stops} variant="mini" locale={locale} />
                 </div>
               )}
               {route.style && <span class="land-route-card__style">{route.style}</span>}
