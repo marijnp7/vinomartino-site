@@ -44,7 +44,12 @@ const TYPES = [
     { seg: 'artikelen', label: 'artikel' },
     { seg: 'streken', label: 'streek' },
     { seg: 'landen', label: 'land' },
-    { seg: 'routes', label: 'route' },
+    // De loader heet `routes.ts`, maar het URL-segment is `wijnroutes` (`/routes/`
+    // is een 301 naar `/wijnroutes/` en `/en/routes/` bestaat niet). Met het
+    // verkeerde segment leverde dit type nul labels én nul detailpagina's op —
+    // stil, want nul lekken op nul cross-links leest als groen. Vandaar ook de
+    // niet-leeg-guard hieronder.
+    { seg: 'wijnroutes', label: 'wijnroute' },
 ];
 
 async function get(url) {
@@ -121,6 +126,16 @@ async function main() {
         en.set(t.seg, labelMap(enHtml ? anchors(enHtml, '/en', t.seg) : []));
         console.log(
             `[crosslink-audit] ${t.seg}: ${nl.get(t.seg).size} NL-labels, ${en.get(t.seg).size} EN-labels`,
+        );
+    }
+
+    // Een type zonder labels is geen "geen lekken", het is een niet-uitgevoerde
+    // meting: verkeerd segment, gewijzigde markup of een listing die 404't.
+    // Hard falen, anders rapporteert de audit groen over wat hij niet zag.
+    const empty = TYPES.filter((t) => en.get(t.seg).size === 0).map((t) => t.seg);
+    if (empty.length) {
+        throw new Error(
+            `geen /en/-labels gevonden voor: ${empty.join(', ')} — segment of markup gewijzigd, meting is niet uitgevoerd`,
         );
     }
 
