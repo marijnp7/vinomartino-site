@@ -155,7 +155,18 @@ const showcaseData: Record<string, {
 };
 
 // Build props from entry or showcase data
-const showcase = showcaseData[slug];
+// LAT-2814 — de showcase-tabel is een REDACTIONELE NL-fallback, geen data: hij
+// wordt door ontwikkelaars onderhouden en is per definitie onvertaald. De
+// no-translation-guard in getStaticPaths houdt showcase-ONLY landen (zonder
+// Directus-entry) al buiten /en/, maar dekt niet het geval hierboven: een land
+// dát een EN-entry heeft, maar met lege `druiven`/`practical`/`stats`, viel
+// alsnog terug op de NL-showcase. Zo stonden op /en/landen/italie/ zes
+// Nederlandse praktisch-regels ("Huurauto onmisbaar buiten steden") en vier
+// Nederlandse druivenbeschrijvingen ("Koningin van Piemonte"). Voor een
+// niet-standaardlocale onderdrukken we de fallback dus volledig: liever een
+// sectie minder dan Nederlandse tekst voor een Engelse lezer. Zodra de redactie
+// de EN-velden in Directus vult (LAT-2817) komen de secties vanzelf terug.
+const showcase = locale === DEFAULT_LOCALE ? showcaseData[slug] : undefined;
 // LAT-1090: merge Directus entry over showcase for rich fields (streken/wijnhuizen/druiven/
 // routes/practical/climate) zodat een Directus-record met alleen name+capital niet alle
 // content kapotmaakt. Directus wint voor wat het levert; showcase vult de rest.
