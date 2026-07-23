@@ -150,6 +150,28 @@ export const AUTHORS: readonly Author[] = [
   },
 ];
 
+/**
+ * LAT-2769: de zeven persona-auteurs zijn uit de index gehaald. Hun pagina's
+ * (`/auteurs/<slug>/` en `/en/auteurs/<slug>/`) 301'en naar /over-ons/ via
+ * nginx-prod.conf en staan niet meer in de sitemap. Templates mogen er dus
+ * niet meer naartoe linken. `/auteurs/` en `/en/auteurs/` worden in A4
+ * herbouwd; tot dan blijft de index-lijst ongewijzigd.
+ */
+export const RETIRED_AUTHOR_SLUGS: readonly string[] = [
+  'charly',
+  'hugo',
+  'lea',
+  'mira',
+  'robin',
+  'sophie',
+  'tomas',
+];
+
+/** True als de auteur geen eigen (indexeerbare) pagina meer heeft. */
+export function isRetiredAuthor(author: Author | null | undefined): boolean {
+  return !!author && RETIRED_AUTHOR_SLUGS.includes(author.slug);
+}
+
 export function getAuthorBySlug(slug: string): Author | null {
   return AUTHORS.find((a) => a.slug === slug) ?? null;
 }

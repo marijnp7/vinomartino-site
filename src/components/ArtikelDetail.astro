@@ -29,7 +29,7 @@ import { splitBodyForRhoneMap } from '../lib/rhone-maps';
 import { type Article } from '../lib/articles';
 import { articleSchema, breadcrumbSchema } from '../lib/seo';
 import { getAffiliateBlock, resolveAccommodationHref } from '../lib/affiliates';
-import { getAuthorByByline } from '../lib/authors';
+import { getAuthorByByline, isRetiredAuthor } from '../lib/authors';
 import { getImageCredit } from '../lib/image-credits';
 import { type AccommodatieRoundup as AccommodatieRoundupData } from '../lib/accommodaties';
 import { loadUiStrings } from '../lib/ui-strings';
@@ -83,6 +83,11 @@ const authorProfile = getAuthorByByline(article.author);
 // nog "Martin" kan zijn). Zo resolveren byline, author-card en JSON-LD via een
 // bron van waarheid; het ruwe veld blijft alleen fallback als er geen record matcht.
 const authorDisplayName = authorProfile?.name ?? article.author;
+// LAT-2769: persona-auteurs hebben geen eigen pagina meer (301 -> /over-ons/).
+// De byline blijft de naam tonen, maar zonder link, en de auteur-card vervalt.
+// Na LAT-2744 (A2) matcht geen enkel gepubliceerd artikel nog een persona;
+// dit is de template-garantie dat het ook niet terug kan komen.
+const authorHasPage = !!authorProfile && !isRetiredAuthor(authorProfile);
 
 const modifiedTime = article.updatedAt || article.pubDate;
 
@@ -170,10 +175,10 @@ if (article.faqSchema) {
           <ZelfGereisdBadge visited={article.zelfGereisd} year={article.bezoekjaar} locale={locale} />
           <h1>{article.title}</h1>
           <div class="article-meta">
-            {authorProfile ? (
-              <a class="article-author author-link" href={`/auteurs/${authorProfile.slug}/`} rel="author">{authorProfile.name}</a>
+            {authorHasPage ? (
+              <a class="article-author author-link" href={`/auteurs/${authorProfile!.slug}/`} rel="author">{authorDisplayName}</a>
             ) : (
-              <span class="article-author">{article.author}</span>
+              <span class="article-author">{authorDisplayName}</span>
             )}
             <span class="article-date">{new Date(article.pubDate).toLocaleDateString(dateLocale, { day: 'numeric', month: 'long', year: 'numeric' })}</span>
             <span class="article-reading">· {`${article.readingMinutes} ${ui.t('artikel.meta.minLezen')}`}</span>
@@ -220,7 +225,7 @@ if (article.faqSchema) {
           <LangheCaptureBlock variant="a" />
         )}
 
-        {authorProfile && (
+        {authorProfile && authorHasPage && (
           <aside class="article-author-card" aria-label={`${ui.t('artikel.author.overDeAuteur')}: ${authorProfile.name}`}>
             {authorProfile.portrait && (
               <a class="author-card-portrait" href={`/auteurs/${authorProfile.slug}/`}>
