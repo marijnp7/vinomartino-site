@@ -54,7 +54,7 @@ jobs:
         env:
           VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
         run: |
-          ssh "$VPS" "mkdir -p /opt/paperclip-cos/bridge/src"
+          ssh "$VPS" "mkdir -p /opt/paperclip-cos/bridge/src /opt/paperclip-cos/exec-proxy"
 
           rsync -avz --delete \
             services/cos-bridge/bridge/ \
@@ -63,6 +63,12 @@ jobs:
           rsync -avz \
             services/cos-bridge/Dockerfile.bridge \
             "$VPS:/opt/paperclip-cos/Dockerfile.bridge"
+
+          # LAT-2783: allowlist-config voor cos-exec-proxy. Zonder deze sync
+          # start de proxy met een lege/oude config en valt de hardening stil weg.
+          rsync -avz --delete \
+            services/cos-bridge/exec-proxy/ \
+            "$VPS:/opt/paperclip-cos/exec-proxy/"
 
           rsync -avz \
             services/cos-bridge/docker-compose.cos.yml \
@@ -162,6 +168,63 @@ jobs:
             sleep 5
           done
           echo "::warning::Health check did not return 200 after 5 attempts"
+
+      # LAT-2783 / LAT-1005: harde gate op de hardening.
+      # De LAT-1005-hardening is ooit handmatig op de VPS gezet, heeft de repo
+      # nooit gehaald, en is stilletjes door een deploy overschreven — zonder
+      # signaal, want de container bleef gezond. Deze stap laat de deploy falen
+      # zodra de rauwe socket of root terugkomt, zodat dat faalpad dicht is.
+      - name: Verify hardening (LAT-2783)
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          VERIFY_SCRIPT: |
+            set -euo pipefail
+            fail=0
+
+            echo "=== 1. geen rauwe docker.sock-mount op cos-bridge ==="
+            if docker inspect paperclip-cos-bridge-1 \
+                 --format '{{range .Mounts}}{{.Source}}{{"\n"}}{{end}}' \
+                 | grep -q '^/var/run/docker.sock$'; then
+              echo "::error::REGRESSIE — cos-bridge heeft weer een rauwe docker.sock-mount"
+              fail=1
+            else
+              echo "OK — geen socket-mount"
+            fi
+
+            echo "=== 2. cos-bridge draait niet als root ==="
+            u=$(docker inspect paperclip-cos-bridge-1 --format '{{.Config.User}}')
+            if [ "$u" = "root" ] || [ "$u" = "0" ] || [ "$u" = "0:0" ]; then
+              echo "::error::REGRESSIE — cos-bridge draait als root ($u)"
+              fail=1
+            else
+              echo "OK — user='$u'"
+            fi
+
+            echo "=== 3. container-create via de proxy wordt geweigerd (403) ==="
+            if docker exec paperclip-cos-bridge-1 sh -c \
+                 "wget -q -S -O /dev/null --post-data='{}' \
+                    --header='Content-Type: application/json' \
+                    http://cos-exec-proxy:2375/v1.43/containers/create 2>&1 \
+                  | grep -q ' 403 '"; then
+              echo "OK — create geblokkeerd (403)"
+            else
+              echo "::error::LEK — /containers/create is NIET geblokkeerd op cos-exec-proxy"
+              fail=1
+            fi
+
+            echo "=== 4. CoS-flow intact: exec naar paperclip-cos-1 werkt nog ==="
+            if docker exec paperclip-cos-bridge-1 \
+                 docker exec -u node paperclip-cos-1 cat /cos/system-prompt.md \
+                 | head -c 100 | grep -q .; then
+              echo "OK — exec naar cos-1 werkt"
+            else
+              echo "::error::KAPOT — exec naar paperclip-cos-1 werkt niet meer"
+              fail=1
+            fi
+
+            exit $fail
+        run: |
+          printf '%s\n' "$VERIFY_SCRIPT" | ssh "$VPS" "bash -s"
 
       - name: Done
         run: echo "::notice::CoS bridge deployed successfully"
