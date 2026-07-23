@@ -16,6 +16,7 @@ export interface NavItem {
 // Een nav-wijziging gaat voortaan via deze lijst.
 const NAV_ITEMS: NavItem[] = [
     { label: 'Ontdek', href: '/ontdek/', key: 'ontdek', order: 5 },
+    { label: 'Reizen', href: '/reizen-nareizen/', key: 'reizen', order: 25 },
     { label: 'Wijnhuizen', href: '/wijnhuizen/', key: 'wijnhuizen', order: 30 },
     { label: 'Overnachten', href: '/accommodaties/', key: 'accommodaties', order: 35 },
     { label: 'Artikelen', href: '/artikelen/', key: 'artikelen', order: 50 },

@@ -24,6 +24,7 @@ const headers = {
 const items = [
   { key: 'landen', label: 'Landen', href: '/landen/', order: 10 },
   { key: 'streken', label: 'Streken', href: '/streken/', order: 20 },
+  { key: 'reizen', label: 'Reizen', href: '/reizen-nareizen/', order: 25 },
   { key: 'wijnhuizen', label: 'Wijnhuizen', href: '/wijnhuizen/', order: 30 },
   { key: 'wijnroutes', label: 'Wijnroutes', href: '/wijnroutes/', order: 40 },
   { key: 'artikelen', label: 'Artikelen', href: '/artikelen/', order: 50 },
