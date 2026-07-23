@@ -26,7 +26,7 @@
 import type { AccommodatieKaart } from './accommodaties';
 import { markdownToHtml as renderMarkdown, normalizeEmDashes } from './markdown';
 import { DEFAULT_LOCALE, type Locale } from './i18n';
-import { localizeJoinedRefs, localizeRecords } from './directus-i18n';
+import { localizeJoinedRefs, localizeNestedRefs, localizeRecords } from './directus-i18n';
 import {
     readDirectusEnv,
     statusFilterQuery,
@@ -318,6 +318,30 @@ export async function loadReispakketten(locale: Locale = DEFAULT_LOCALE): Promis
             console.warn(`[loadReispakketten] streeknaam-overlay (${locale}) faalde: ${msg} — NL-naam blijft staan.`);
         }
     }
+
+    // LAT-2829 — de wijnhuis- en accommodatiekaarten in het pakket dragen een
+    // `description`: redactionele leestekst, geen label. Die komt via een geneste
+    // M2M-hop op de parent-collectie (alléén NL) en werd dus niet vertaald.
+    // `name` blijft bewust ongemoeid: wijnhuis-/accommodatienamen zijn eigennamen
+    // en staan niet in hun translations-junction.
+    await Promise.all([
+        localizeNestedRefs(data, 'wijnhuizen', 'wijnhuizen_id', {
+            env,
+            collection: 'wijnhuizen',
+            junction: 'wijnhuizen_translations',
+            parentIdField: 'wijnhuizen_id',
+            fields: ['description'],
+            locale,
+        }),
+        localizeNestedRefs(data, 'accommodaties', 'accommodations_id', {
+            env,
+            collection: 'accommodations',
+            junction: 'accommodations_translations',
+            parentIdField: 'accommodations_id',
+            fields: ['description'],
+            locale,
+        }),
+    ]);
 
     const items = await Promise.all(data.map((r) => mapPakket(r, env.url, env.token)));
     console.log(`[loadReispakketten] fetched ${items.length} reispakketten from Directus (locale=${locale})`);

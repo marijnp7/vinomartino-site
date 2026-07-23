@@ -36,7 +36,7 @@ import {
     fetchDirectusCollection,
 } from './directus-config';
 import { DEFAULT_LOCALE, type Locale } from './i18n';
-import { localizeRecords } from './directus-i18n';
+import { localizeRecords, localizeRefsBySlug } from './directus-i18n';
 
 // LAT-2575 — vertaalbare accommodatie-velden (native Directus translations, LAT-2574).
 const ACCOMMODATIONS_TRANSLATABLE = ['description', 'why_this_one', 'why_regel', 'prijs_disclaimer', 'meta_title', 'meta_description', 'hero_alt'];
@@ -150,6 +150,20 @@ async function fetchAccommodations(url: string, token: string, locale: Locale): 
         fields: ACCOMMODATIONS_TRANSLATABLE,
         locale,
     });
+    // LAT-2829 — de gejoinde streeknaam komt van een vreemd record en vertaalt
+    // niet mee met de guard hierboven; zonder overlay draagt elke EN-roundup de
+    // NL-streeknaam als kop. Zacht: geen EN-naam → NL blijft staan.
+    await localizeRefsBySlug(
+        rows.map((r) => (r.streek_id && typeof r.streek_id === 'object' ? (r.streek_id as Record<string, unknown>) : null)),
+        {
+            env,
+            collection: 'streken',
+            junction: 'streken_translations',
+            parentIdField: 'streken_id',
+            fields: ['name'],
+            locale,
+        },
+    );
     return rows.map((row) => {
         const streek = (row.streek_id && typeof row.streek_id === 'object' ? row.streek_id : {}) as Record<string, unknown>;
         return { row, streekSlug: String(streek.slug || ''), streekName: String(streek.name || '') };

@@ -133,7 +133,7 @@ import {
     fetchDirectusCollection,
 } from './directus-config';
 import { DEFAULT_LOCALE, type Locale } from './i18n';
-import { localizeRecords, localizeRecordsSoft } from './directus-i18n';
+import { localizeRecords, localizeRecordsSoft, localizeNestedRefs } from './directus-i18n';
 
 // LAT-2575 — vertaalbare landen-velden (native Directus translations, LAT-2574).
 // LAT-2602 — main_grapes/cta_blocks zijn JSON-blobs; EN levert alléén de
@@ -428,6 +428,17 @@ async function loadFromDirectus(url: string, token: string, locale: Locale): Pro
         junction: 'landen_translations',
         parentIdField: 'landen_id',
         fields: LANDEN_TRANSLATABLE,
+        locale,
+    });
+    // LAT-2829 — de cross-linkblokken laden hun artikeltitel via een geneste
+    // M2M-hop op `articles`; localizeRecords raakt alleen de land-eigen velden,
+    // dus zonder deze overlay staat het "Lees ook"-blok op /en/ in het NL.
+    await localizeNestedRefs(data, 'related_articles', 'articles_id', {
+        env: readDirectusEnv(),
+        collection: 'articles',
+        junction: 'articles_translations',
+        parentIdField: 'articles_id',
+        fields: ['title'],
         locale,
     });
     const items = await Promise.all(

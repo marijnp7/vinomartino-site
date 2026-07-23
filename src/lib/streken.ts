@@ -199,7 +199,7 @@ import {
     fetchDirectusCollection,
 } from './directus-config';
 import { DEFAULT_LOCALE, type Locale } from './i18n';
-import { localizeRecords, localizeRecordsSoft, localizeJoinedRefs } from './directus-i18n';
+import { localizeRecords, localizeRecordsSoft, localizeJoinedRefs, localizeNestedRefs } from './directus-i18n';
 
 // LAT-2575 — vertaalbare streek-velden (native Directus translations, LAT-2574).
 // Identiek aan de parent-veldnamen zodat de overlay ze 1-op-1 kan overschrijven.
@@ -790,6 +790,15 @@ async function loadFromDirectus(url: string, token: string, locale: Locale): Pro
             locale,
         },
     );
+    // LAT-2829 — idem voor de artikeltitels in het cross-linkblok (geneste M2M).
+    await localizeNestedRefs(data, 'related_articles', 'articles_id', {
+        env: readDirectusEnv(),
+        collection: 'articles',
+        junction: 'articles_translations',
+        parentIdField: 'articles_id',
+        fields: ['title'],
+        locale,
+    });
     const items = await Promise.all(
         data.map(async (r) => {
             const land = r.land_id as Record<string, unknown> | null;

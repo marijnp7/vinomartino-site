@@ -117,7 +117,7 @@ import {
     fetchDirectusCollection,
 } from './directus-config';
 import { DEFAULT_LOCALE, type Locale } from './i18n';
-import { localizeRecords } from './directus-i18n';
+import { localizeRecords, localizeNestedRefs } from './directus-i18n';
 
 // LAT-2575 — vertaalbare route-velden (native Directus translations, LAT-2574).
 // LAT-2602 — itinerary is een geneste JSON-blob (days[].title/summary,
@@ -433,6 +433,16 @@ async function loadFromDirectus(url: string, token: string, locale: Locale): Pro
         junction: 'routes_translations',
         parentIdField: 'routes_id',
         fields: ROUTES_TRANSLATABLE,
+        locale,
+    });
+    // LAT-2829 — artikeltitels in het cross-linkblok komen uit een geneste
+    // M2M-hop en worden niet door localizeRecords geraakt.
+    await localizeNestedRefs(data, 'related_articles', 'articles_id', {
+        env: readDirectusEnv(),
+        collection: 'articles',
+        junction: 'articles_translations',
+        parentIdField: 'articles_id',
+        fields: ['title'],
         locale,
     });
     const items = await Promise.all(
