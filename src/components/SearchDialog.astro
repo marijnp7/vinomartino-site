@@ -2,7 +2,7 @@
 // LAT-1202: site-wide search. Accessible command-palette (⌘K / Ctrl-K) overlay
 // that fetches the static /search-index.json once on first open and scores
 // results client-side. Trigger lives in SiteHeader; this renders the overlay.
-import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
+import { DEFAULT_LOCALE, localizePath, type Locale } from '../lib/i18n';
 
 interface Props {
   locale?: Locale;
@@ -15,10 +15,28 @@ const c = {
   term: isEn ? 'Search term' : 'Zoekterm',
   close: isEn ? 'Close' : 'Sluiten',
   results: isEn ? 'Search results' : 'Zoekresultaten',
+  navigate: isEn ? 'navigate' : 'navigeren',
+  open: isEn ? 'open' : 'openen',
+  dismiss: isEn ? 'close' : 'sluiten',
+};
+
+// LAT-2781 — client-side config: locale-aware index-URL + UI-strings. De module-
+// script kan Astro.props niet lezen, dus geven we dit als JSON mee op de root.
+const searchConfig = {
+  // NL blijft byte-identiek: localizePath laat het kale pad staan.
+  indexUrl: localizePath('/search-index.json', locale),
+  typeLabels: isEn
+    ? { Streek: 'Regions', Wijnroute: 'Routes', Wijnhuis: 'Wineries', Artikel: 'Articles', Land: 'Countries' }
+    : { Streek: 'Streken', Wijnroute: 'Routes', Wijnhuis: 'Wijnhuizen', Artikel: 'Artikelen', Land: 'Landen' },
+  promptLead: isEn ? 'Start typing, e.g.' : 'Begin met typen, bijv.',
+  promptConj: isEn ? 'or' : 'of',
+  loading: isEn ? 'Loading search index…' : 'Zoekindex laden…',
+  noResultsLead: isEn ? 'No results for' : 'Geen resultaten voor',
+  noResultsHint: isEn ? 'Try a region, winery or country.' : 'Probeer een streek, wijnhuis of land.',
 };
 ---
 
-<div class="vm-search" data-search hidden>
+<div class="vm-search" data-search data-search-config={JSON.stringify(searchConfig)} hidden>
   <div class="vm-search__backdrop" data-search-backdrop></div>
   <div
     class="vm-search__panel"
@@ -54,9 +72,9 @@ const c = {
     <div class="vm-search__results" id="vm-search-results" role="listbox" data-search-results aria-label={c.results}></div>
 
     <div class="vm-search__footer" aria-hidden="true">
-      <span><kbd>↑</kbd><kbd>↓</kbd> navigeren</span>
-      <span><kbd>↵</kbd> openen</span>
-      <span><kbd>esc</kbd> sluiten</span>
+      <span><kbd>↑</kbd><kbd>↓</kbd> {c.navigate}</span>
+      <span><kbd>↵</kbd> {c.open}</span>
+      <span><kbd>esc</kbd> {c.dismiss}</span>
     </div>
   </div>
 </div>
@@ -285,17 +303,41 @@ const c = {
     _body: string;
   }
 
+  interface SearchConfig {
+    indexUrl: string;
+    typeLabels: Record<string, string>;
+    promptLead: string;
+    promptConj: string;
+    loading: string;
+    noResultsLead: string;
+    noResultsHint: string;
+  }
+
   const TYPE_ORDER = ['Streek', 'Wijnroute', 'Wijnhuis', 'Artikel', 'Land'];
-  const TYPE_LABELS: Record<string, string> = {
-    Streek: 'Streken',
-    Wijnroute: 'Routes',
-    Wijnhuis: 'Wijnhuizen',
-    Artikel: 'Artikelen',
-    Land: 'Landen',
-  };
   const MAX_RESULTS = 24;
 
   const root = document.querySelector<HTMLElement>('[data-search]');
+
+  // LAT-2781 — locale-aware config uit de server-gerenderde root. Fallback op NL
+  // zodat een ontbrekende/kapotte payload de zoekfunctie niet breekt.
+  const CFG: SearchConfig = (() => {
+    const fallback: SearchConfig = {
+      indexUrl: '/search-index.json',
+      typeLabels: { Streek: 'Streken', Wijnroute: 'Routes', Wijnhuis: 'Wijnhuizen', Artikel: 'Artikelen', Land: 'Landen' },
+      promptLead: 'Begin met typen, bijv.',
+      promptConj: 'of',
+      loading: 'Zoekindex laden…',
+      noResultsLead: 'Geen resultaten voor',
+      noResultsHint: 'Probeer een streek, wijnhuis of land.',
+    };
+    try {
+      const raw = root?.getAttribute('data-search-config');
+      return raw ? { ...fallback, ...JSON.parse(raw) } : fallback;
+    } catch (e) {
+      return fallback;
+    }
+  })();
+  const TYPE_LABELS: Record<string, string> = CFG.typeLabels;
   const input = document.querySelector<HTMLInputElement>('[data-search-input]');
   const resultsEl = document.querySelector<HTMLElement>('[data-search-results]');
   const backdrop = document.querySelector<HTMLElement>('[data-search-backdrop]');
@@ -317,7 +359,7 @@ const c = {
       if (records || loading) return;
       loading = true;
       try {
-        const res = await fetch('/search-index.json');
+        const res = await fetch(CFG.indexUrl);
         const data = await res.json();
         records = (data.records as SearchRecord[]).map((r) => ({
           ...r,
@@ -409,11 +451,11 @@ const c = {
       if (!q) {
         active = -1;
         resultsEl.innerHTML =
-          '<div class="vm-search__empty">Begin met typen, bijv. <span class="vm-search__ex">Barolo</span>, <span class="vm-search__ex">Mosel</span> of <span class="vm-search__ex">Priorat</span>.</div>';
+          `<div class="vm-search__empty">${escapeHtml(CFG.promptLead)} <span class="vm-search__ex">Barolo</span>, <span class="vm-search__ex">Mosel</span> ${escapeHtml(CFG.promptConj)} <span class="vm-search__ex">Priorat</span>.</div>`;
         return;
       }
       if (!records) {
-        resultsEl.innerHTML = '<div class="vm-search__empty">Zoekindex laden…</div>';
+        resultsEl.innerHTML = `<div class="vm-search__empty">${escapeHtml(CFG.loading)}</div>`;
         return;
       }
 
@@ -422,7 +464,7 @@ const c = {
       active = hits.length ? 0 : -1;
 
       if (!hits.length) {
-        resultsEl.innerHTML = `<div class="vm-search__empty">Geen resultaten voor '<strong>${escapeHtml(q)}</strong>'.<br/>Probeer een streek, wijnhuis of land.</div>`;
+        resultsEl.innerHTML = `<div class="vm-search__empty">${escapeHtml(CFG.noResultsLead)} '<strong>${escapeHtml(q)}</strong>'.<br/>${escapeHtml(CFG.noResultsHint)}</div>`;
         return;
       }
 
