@@ -212,7 +212,7 @@ if (article.faqSchema) {
         {rhoneMap ? (
           <Fragment>
             <div class="article-prose" set:html={rhoneMap.before} />
-            <RhoneMap slug={article.slug} {...rhoneMap.config} />
+            <RhoneMap slug={article.slug} {...rhoneMap.config} locale={locale} />
             <div class="article-prose" set:html={rhoneMap.after} />
           </Fragment>
         ) : (
