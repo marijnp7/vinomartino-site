@@ -70,8 +70,8 @@ const {
 // When a slug is recognized, the message is forwarded to that agent via the Paperclip API
 // instead of being handled by CoS.  'cos' is the sentinel for "use CoS/default routing".
 const AGENT_SLUG_MAP = {
-  cto:             "ec4249ed-1f61-4600-93f3-325164b8b875",
-  devops:          "58a02f82-cba9-425d-9533-1696ff0efe79",
+  cto:             "fbf962df-5b5d-4b9b-b925-6765a19b2c2e",
+  devops:          "6cfa8b35-4d7d-4f07-b82e-e65bb81d5895",
   "content-writer": CONTENT_WRITER_AGENT_ID || "",
   content:         CONTENT_WRITER_AGENT_ID || "",
   cos:             "", // sentinel — no forward, handled by CoS
@@ -81,8 +81,8 @@ const AGENT_SLUG_MAP = {
 // null means CoS handles the message directly.
 const TOPIC_AGENT_MAP = {
   content:  { agentId: "1dfebc3d-6db2-484b-a30d-4786a1777609", slug: "content" },
-  infra:    { agentId: "58a02f82-cba9-425d-9533-1696ff0efe79", slug: "devops" },
-  planning: { agentId: "ec4249ed-1f61-4600-93f3-325164b8b875", slug: "cto" },
+  infra:    { agentId: "6cfa8b35-4d7d-4f07-b82e-e65bb81d5895", slug: "devops" },
+  planning: { agentId: "fbf962df-5b5d-4b9b-b925-6765a19b2c2e", slug: "cto" },
   algemeen: null,
   inbox:    null,
   alerts:   null,
