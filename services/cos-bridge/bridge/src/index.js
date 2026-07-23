@@ -547,6 +547,13 @@ async function handleWriteCommand(message, targetAgentId, targetSlug, topicSlug,
 // ---- bot ----
 const bot = new Telegraf(BOT_TOKEN);
 
+// Telegram-API fouten (bv. 400 "message is not modified" bij dubbel-getikte
+// approve-knop) mogen het proces nooit killen. Zonder deze handler herwerpt
+// Telegraf → unhandledRejection → process exit (oorzaak crash 2026-06-28/06-30).
+bot.catch((err, ctx) => {
+  log.error({ err: err.message, updateType: ctx?.updateType }, "telegraf handler error (caught)");
+});
+
 // ACL: alleen OWNER_USER_ID mag praten met de bot.
 bot.use(async (ctx, next) => {
   const from = ctx.from?.id;
@@ -709,7 +716,12 @@ bot.on("callback_query", async (ctx) => {
   await ctx.answerCbQuery(
     action === "approve" ? "akkoord" : action === "reject" ? "afgewezen" : "graag aanpassing"
   );
-  await ctx.editMessageReplyMarkup(undefined);
+  try {
+    await ctx.editMessageReplyMarkup(undefined);
+  } catch (err) {
+    // 400 "message is not modified" bij dubbel-tap → markup al leeg; negeer.
+    log.warn({ err: err.message, actionId }, "editMessageReplyMarkup skipped");
+  }
   await ctx.reply(
     `Besluit vastgelegd: *${action}* op voorstel #${actionId}.`,
     { parse_mode: "Markdown" }
@@ -1065,3 +1077,8 @@ setInterval(async () => {
 
 process.once("SIGINT", () => bot.stop("SIGINT"));
 process.once("SIGTERM", () => bot.stop("SIGTERM"));
+
+// Vangnet: een onafgevangen rejection mag het bridge-proces nooit killen.
+process.on("unhandledRejection", (reason) => {
+  log.error({ reason: String(reason) }, "unhandledRejection (kept alive)");
+});
