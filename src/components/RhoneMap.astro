@@ -8,12 +8,21 @@
 // IntersectionObserver-patroon als RouteGeoMap/CuratedStayMap, scrollWheelZoom
 // uit zodat de kaart niet meescrollt op mobiel.
 import type { RhoneMapConfig } from '../lib/rhone-maps';
+import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
 
 export interface Props extends RhoneMapConfig {
   slug: string;
+  /** LAT-2848 — locale van de renderende pagina; stuurt het canvas-aria-label. */
+  locale?: Locale;
 }
 
-const { slug, variant, title, caption, pois, kindMeta, routeLine = null } = Astro.props;
+const { slug, variant, title, caption, pois, kindMeta, routeLine = null, locale = DEFAULT_LOCALE } = Astro.props;
+
+// LAT-2848 — aria-label via de UI-dictionary. 'Kaart:' is de prefix, de titel
+// volgt als variabele in de template. NL is een no-op → NL-HTML byte-identiek.
+const ui = await loadUiStrings(locale);
+const canvasAria = `${ui.t('rhonemap.aria.mapPre')} ${title}`;
 
 const mapId = `rhonemap-${slug}`.replace(/[^a-z0-9-]/gi, '');
 const colorByKind: Record<string, string> = Object.fromEntries(kindMeta.map((m) => [m.kind, m.color]));
@@ -30,7 +39,7 @@ const mapData = {
     <span class="rhonemap__label">Kaart</span>
     <span class="rhonemap__title">{caption}</span>
   </figcaption>
-  <div class="rhonemap__canvas" data-rhonemap-canvas role="application" aria-label={`Kaart: ${title}`}></div>
+  <div class="rhonemap__canvas" data-rhonemap-canvas role="application" aria-label={canvasAria}></div>
   <script type="application/json" data-rhonemap-data set:html={JSON.stringify(mapData)} />
   <ul class="rhonemap__legend" aria-label="Legenda">
     {kindMeta.map((m) => (

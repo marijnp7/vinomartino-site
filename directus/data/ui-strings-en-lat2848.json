@@ -1,0 +1,6 @@
+{
+  "_comment": "LAT-2848 — EN ui_strings-overlay voor twee artikel-chrome strings die nog NL op /en/ stonden: de rechterzijbalk-kop (ArtikelGerelateerdeStukken.astro) en het RhoneMap canvas-aria-label (RhoneMap.astro). Beide zijn met deze ticket naar de dictionary verhuisd; zonder deze EN-values valt t() terug op de NL-default en blijft er Nederlands staan op /en/. 'rhonemap.aria.mapPre' is de prefix vóór de kaarttitel-variabele ('Map: <titel>'). Seeden met: DIRECTUS_URL=... DIRECTUS_TOKEN=... node directus/scripts/seed-ui-strings-en.mjs directus/data/ui-strings-en-lat2848.json",
+
+  "gerelateerdeStukken.title": "Related articles",
+  "rhonemap.aria.mapPre": "Map:"
+}
