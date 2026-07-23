@@ -10,8 +10,9 @@
 
 import type { AccommodatieKaart } from '../lib/accommodaties';
 import { accommodatieBookingHref } from '../lib/accommodaties';
-import { STAY_TIER_META, STAY_DISCLOSURE_MICROCOPY } from '../lib/stay-tier';
 import { formatNightlyPrice } from '../lib/currency';
+import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
 import PoiCard from './PoiCard.astro';
 
 interface Props {
@@ -22,13 +23,18 @@ interface Props {
   bronValuta?: string | null;
   /** Display-valuta; default EUR. Hook voor een latere valuta-switcher (LAT-1664). */
   displayValuta?: string;
+  /** LAT-2771: locale voor badge/CTA/prijs/disclosure uit de UI-dictionary. */
+  locale?: Locale;
 }
 
-const { kaart, context, bronValuta, displayValuta = 'EUR' } = Astro.props;
+const { kaart, context, bronValuta, displayValuta = 'EUR', locale = DEFAULT_LOCALE } = Astro.props;
+const ui = await loadUiStrings(locale);
 const href = accommodatieBookingHref(kaart);
 const altText = kaart.fotoAlt || `${kaart.naam}, ${kaart.plaats}`;
 // LAT-1406: tier-badge — alleen tonen als het verblijf gecureerd is.
-const tierLabel = kaart.tier ? STAY_TIER_META[kaart.tier]?.label ?? null : null;
+// LAT-2771: label via de dictionary (`stay.tier.<tier>`) i.p.v. STAY_TIER_META,
+// zodat /en/ het Engelse label krijgt. De NL-defaults zijn identiek.
+const tierLabel = kaart.tier ? ui.t(`stay.tier.${kaart.tier}`) : null;
 
 // LAT-1664/1775: converteer bron-valuta → display (EUR). De per-kaart bron-valuta
 // heeft voorrang op de pagina-brede waarde. formatNightlyPrice onderdrukt absurde
@@ -38,10 +44,11 @@ const tierLabel = kaart.tier ? STAY_TIER_META[kaart.tier]?.label ?? null : null;
 const prijsBron = kaart.bronValuta ?? bronValuta;
 const laag = formatNightlyPrice(kaart.prijsLaag, prijsBron, displayValuta, `${kaart.naam} (laag)`);
 const hoog = formatNightlyPrice(kaart.prijsHoog, prijsBron, displayValuta, `${kaart.naam} (hoog)`);
+const perNight = ui.t('stay.price.perNight');
 let prijs: string | null = null;
-if (laag && hoog) prijs = `${laag}–${hoog} / nacht`;
-else if (laag) prijs = `vanaf ${laag} / nacht`;
-else if (hoog) prijs = `tot ${hoog} / nacht`;
+if (laag && hoog) prijs = `${laag}–${hoog} ${perNight}`;
+else if (laag) prijs = `${ui.t('stay.price.fromPrefix')} ${laag} ${perNight}`;
+else if (hoog) prijs = `${ui.t('stay.price.upToPrefix')} ${hoog} ${perNight}`;
 ---
 
 <PoiCard
@@ -54,12 +61,12 @@ else if (hoog) prijs = `tot ${hoog} / nacht`;
     whyRegel: kaart.whyRegel ?? kaart.beschrijving,
     prijs,
     boeklink: href,
-    cta: 'Bekijk & boek',
+    cta: ui.t('streekkaart.cta.overnachten'),
     ctaKey: 'bekijk-boek',
     partner: 'booking.com',
     placement: 'accommodatie-kaart',
     context: context ? `accommodatie-${context}` : 'accommodatie',
-    disclosure: STAY_DISCLOSURE_MICROCOPY,
+    disclosure: ui.t('stay.disclosure.microcopy'),
     cardId: `acc-${kaart.slug}`,
   }}
 />

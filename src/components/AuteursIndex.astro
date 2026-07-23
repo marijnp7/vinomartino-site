@@ -1,7 +1,12 @@
 ---
 // LAT-2693 — gedeeld auteurs-overzicht. NL-route + /en/-tegenhanger renderen dit
-// component; `locale` stuurt de UI-dictionary en de padopbouw. Auteur-bio's blijven
-// NL (vertaling volgt via een apart translation-ticket). NL byte-identiek via NL-defaults.
+// component; `locale` stuurt de UI-dictionary en de padopbouw. NL byte-identiek
+// via NL-defaults.
+//
+// LAT-2771: de bio-teaser volgt `bioEn ?? bio` op /en/, gelijk aan AuteurDetail.
+// De EN-bio's kwamen met LAT-2715, maar dit overzicht las toen nog altijd de
+// NL-`bio` — daardoor bleef /en/auteurs/ op een NL-ratio van 0.60 staan terwijl
+// de detailpagina's al EN waren.
 import SiteLayout from '../layouts/SiteLayout.astro';
 import { AUTHORS, bioParagraphs } from '../lib/authors';
 import { breadcrumbSchema } from '../lib/seo';
@@ -58,7 +63,7 @@ const schema = [
               <h2>{author.name}</h2>
               {author.tagline && <p class="auteur-tagline">{author.tagline}</p>}
               {author.role && <p class="auteur-role">{author.role}</p>}
-              <p>{bioParagraphs(author.bio)[0]}</p>
+              <p>{bioParagraphs(locale === 'en' ? author.bioEn ?? author.bio : author.bio)[0]}</p>
               <span class="read-more">{ui.t('auteurs.index.readMorePre')}{author.name}{ui.t('auteurs.index.readMorePost')}</span>
             </div>
           </a>

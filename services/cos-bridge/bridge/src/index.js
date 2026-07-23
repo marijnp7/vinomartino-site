@@ -70,8 +70,8 @@ const {
 // When a slug is recognized, the message is forwarded to that agent via the Paperclip API
 // instead of being handled by CoS.  'cos' is the sentinel for "use CoS/default routing".
 const AGENT_SLUG_MAP = {
-  cto:             "ec4249ed-1f61-4600-93f3-325164b8b875",
-  devops:          "58a02f82-cba9-425d-9533-1696ff0efe79",
+  cto:             "fbf962df-5b5d-4b9b-b925-6765a19b2c2e",
+  devops:          "6cfa8b35-4d7d-4f07-b82e-e65bb81d5895",
   "content-writer": CONTENT_WRITER_AGENT_ID || "",
   content:         CONTENT_WRITER_AGENT_ID || "",
   cos:             "", // sentinel — no forward, handled by CoS
@@ -81,8 +81,8 @@ const AGENT_SLUG_MAP = {
 // null means CoS handles the message directly.
 const TOPIC_AGENT_MAP = {
   content:  { agentId: "1dfebc3d-6db2-484b-a30d-4786a1777609", slug: "content" },
-  infra:    { agentId: "58a02f82-cba9-425d-9533-1696ff0efe79", slug: "devops" },
-  planning: { agentId: "ec4249ed-1f61-4600-93f3-325164b8b875", slug: "cto" },
+  infra:    { agentId: "6cfa8b35-4d7d-4f07-b82e-e65bb81d5895", slug: "devops" },
+  planning: { agentId: "fbf962df-5b5d-4b9b-b925-6765a19b2c2e", slug: "cto" },
   algemeen: null,
   inbox:    null,
   alerts:   null,
@@ -547,6 +547,13 @@ async function handleWriteCommand(message, targetAgentId, targetSlug, topicSlug,
 // ---- bot ----
 const bot = new Telegraf(BOT_TOKEN);
 
+// Telegram-API fouten (bv. 400 "message is not modified" bij dubbel-getikte
+// approve-knop) mogen het proces nooit killen. Zonder deze handler herwerpt
+// Telegraf → unhandledRejection → process exit (oorzaak crash 2026-06-28/06-30).
+bot.catch((err, ctx) => {
+  log.error({ err: err.message, updateType: ctx?.updateType }, "telegraf handler error (caught)");
+});
+
 // ACL: alleen OWNER_USER_ID mag praten met de bot.
 bot.use(async (ctx, next) => {
   const from = ctx.from?.id;
@@ -709,7 +716,12 @@ bot.on("callback_query", async (ctx) => {
   await ctx.answerCbQuery(
     action === "approve" ? "akkoord" : action === "reject" ? "afgewezen" : "graag aanpassing"
   );
-  await ctx.editMessageReplyMarkup(undefined);
+  try {
+    await ctx.editMessageReplyMarkup(undefined);
+  } catch (err) {
+    // 400 "message is not modified" bij dubbel-tap → markup al leeg; negeer.
+    log.warn({ err: err.message, actionId }, "editMessageReplyMarkup skipped");
+  }
   await ctx.reply(
     `Besluit vastgelegd: *${action}* op voorstel #${actionId}.`,
     { parse_mode: "Markdown" }
@@ -751,6 +763,42 @@ function verifyHmac(body, header) {
   const b = Buffer.from(expected);
   if (a.length !== b.length) return false;
   return crypto.timingSafeEqual(a, b);
+}
+
+// Telegram kapt berichten op 4096 tekens. Eén plek voor het bouwen van de
+// approval-tekst, zodat de lengtecontrole vóór de INSERT exact hetzelfde meet
+// als wat er daarna daadwerkelijk verstuurd wordt (LAT-2791).
+const TELEGRAM_MAX_CHARS = 4096;
+// Breedte waarmee we het nog-onbekende actie-id meerekenen in de voorcontrole.
+const ACTION_ID_PROBE_WIDTH = 12;
+
+// 'undelivered' is géén beslissing van een mens: rapporteer het apart zodat
+// aanroepers het niet als timeout of afwijzing lezen.
+function approvalStatusFor(decision) {
+  if (decision === "undelivered") return "undelivered";
+  return decision ? "decided" : "pending";
+}
+
+function buildApprovalText({
+  urgency,
+  title,
+  plain_summary,
+  proposalBody,
+  agent,
+  actionId,
+  timeout_seconds,
+}) {
+  // HTML mode — Markdown v1 chokes on unescaped *, _, ` in agent-supplied
+  // title/body fields.
+  const prefix = urgency === "critical" ? "🚨 <b>CRITICAL</b>\n\n" : "";
+  const quiet = isQuietHours() ? "🌙 (stille uren) " : "";
+  const plainLine = plain_summary ? `\n💬 <i>${escapeHtml(plain_summary)}</i>\n` : "";
+  return (
+    `${prefix}${quiet}<b>${escapeHtml(title)}</b>\n${plainLine}\n` +
+    `${escapeHtml(proposalBody)}\n\n` +
+    `— aangevraagd door <code>${escapeHtml(agent)}</code>\n` +
+    `— id #${actionId} · timeout ${timeout_seconds}s`
+  );
 }
 
 async function handleApprovalPost(req, body) {
@@ -799,7 +847,7 @@ async function handleApprovalPost(req, body) {
       body: JSON.stringify({
         request_id,
         action_id: existing.id,
-        status: existing.decision ? "decided" : "pending",
+        status: approvalStatusFor(existing.decision),
         decision: existing.decision,
         duplicate: true,
       }),
@@ -821,6 +869,39 @@ async function handleApprovalPost(req, body) {
 
   // Budget-cap geldt niet voor approval-pushes (geen LLM-call nodig).
   // Stille uren: push gaat gewoon door, Telegram-DND regelt Marijn zelf.
+
+  // Lengtecontrole vóór registratie (LAT-2791). Het actie-id is hier nog niet
+  // bekend, dus reken met een ruim bemeten id-breedte: de check mag nooit
+  // milder uitvallen dan de tekst die we straks echt versturen.
+  const probeText = buildApprovalText({
+    urgency,
+    title,
+    plain_summary,
+    proposalBody,
+    agent,
+    actionId: "0".repeat(ACTION_ID_PROBE_WIDTH),
+    timeout_seconds,
+  });
+  if (probeText.length > TELEGRAM_MAX_CHARS) {
+    const overBy = probeText.length - TELEGRAM_MAX_CHARS;
+    log.warn(
+      { agent, request_id, rendered: probeText.length, overBy },
+      "approval rejected: message too long for telegram"
+    );
+    return {
+      status: 400,
+      body: JSON.stringify({
+        error: "message too long for telegram",
+        limit: TELEGRAM_MAX_CHARS,
+        rendered_length: probeText.length,
+        over_by: overBy,
+        hint:
+          `Kort de aanvraag met minstens ${overBy} tekens in. Titel, plain_summary ` +
+          `en body tellen samen mee (na HTML-escaping, plus de vaste voettekst). ` +
+          `Er is GEEN actie geregistreerd — opnieuw indienen is veilig.`,
+      }),
+    };
+  }
 
   const [row] = await q(
     `INSERT INTO cos.actions
@@ -844,16 +925,15 @@ async function handleApprovalPost(req, body) {
   );
   const actionId = row.id;
 
-  // Stuur Telegram-bericht met inline approve/deny (HTML mode — Markdown v1
-  // chokes on unescaped *, _, ` in agent-supplied title/body fields).
-  const prefix = urgency === "critical" ? "🚨 <b>CRITICAL</b>\n\n" : "";
-  const quiet = isQuietHours() ? "🌙 (stille uren) " : "";
-  const plainLine = plain_summary ? `\n💬 <i>${escapeHtml(plain_summary)}</i>\n` : "";
-  const text =
-    `${prefix}${quiet}<b>${escapeHtml(title)}</b>\n${plainLine}\n` +
-    `${escapeHtml(proposalBody)}\n\n` +
-    `— aangevraagd door <code>${escapeHtml(agent)}</code>\n` +
-    `— id #${actionId} · timeout ${timeout_seconds}s`;
+  const text = buildApprovalText({
+    urgency,
+    title,
+    plain_summary,
+    proposalBody,
+    agent,
+    actionId,
+    timeout_seconds,
+  });
 
   try {
     await bot.telegram.sendMessage(OWNER_ID, text, {
@@ -867,7 +947,33 @@ async function handleApprovalPost(req, body) {
     });
   } catch (err) {
     log.error({ err: err.message, actionId }, "telegram send failed");
-    return { status: 502, body: JSON.stringify({ error: "telegram push failed", action_id: actionId }) };
+    // LAT-2791: de actie staat wel in de tabel maar is nooit afgeleverd. Laat
+    // hem niet als pending achter — de timeout-watcher zou hem dan als
+    // 'timeout' wegschrijven (niet te onderscheiden van "mens heeft niet
+    // beslist") én de wachtende run cancelen plus de issue op blocked zetten.
+    try {
+      await q(
+        `UPDATE cos.actions
+            SET decision='undelivered', decided_at=NOW(), decision_note=$2
+          WHERE id=$1 AND decision IS NULL`,
+        [actionId, `telegram push failed: ${err.message}`]
+      );
+      log.warn({ actionId }, "action marked undelivered (not pending)");
+    } catch (markErr) {
+      log.error(
+        { err: markErr.message, actionId },
+        "could not mark action undelivered — it may still expire as a false timeout"
+      );
+    }
+    return {
+      status: 502,
+      body: JSON.stringify({
+        error: "telegram push failed",
+        action_id: actionId,
+        status: "undelivered",
+        detail: err.message,
+      }),
+    };
   }
 
   return {
@@ -889,7 +995,7 @@ async function handleApprovalGet(actionId) {
       action_id: row.id,
       request_id: row.request_id,
       agent: row.requester_agent,
-      status: row.decision ? "decided" : "pending",
+      status: approvalStatusFor(row.decision),
       decision: row.decision,
       responded_at: row.decided_at,
       timeout_at: row.timeout_at,
@@ -1065,3 +1171,8 @@ setInterval(async () => {
 
 process.once("SIGINT", () => bot.stop("SIGINT"));
 process.once("SIGTERM", () => bot.stop("SIGTERM"));
+
+// Vangnet: een onafgevangen rejection mag het bridge-proces nooit killen.
+process.on("unhandledRejection", (reason) => {
+  log.error({ reason: String(reason) }, "unhandledRejection (kept alive)");
+});

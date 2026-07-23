@@ -16,7 +16,7 @@
  * leest via deze dictionary op key `nav.<navKey>` met de NL-`label` als default.
  */
 
-import { readDirectusEnv } from './directus-config';
+import { readDirectusEnv, fetchDirectusCollection } from './directus-config';
 import { DEFAULT_LOCALE, type Locale } from './i18n';
 import { UI_COPY } from './ui-copy';
 
@@ -266,6 +266,32 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'acc.navLabel': 'Voor welke bestemming zoek je een accommodatie?',
     'acc.groepNote': 'Allemaal binnen ~40 min rijden van elkaar',
     'acc.disclosure': "Affiliate-links · we kunnen een commissie ontvangen als je via deze links boekt; jij betaalt niets extra. We tonen alleen accommodaties en foto's die onder ons affiliate-/licentieprogramma zijn toegestaan.",
+
+    // Affiliate-disclosures die tot LAT-2771 als kale literals in componenten
+    // stonden en daardoor ook op /en/ in het Nederlands renderden. De NL-defaults
+    // hieronder zijn tekstueel identiek aan de oude literals, zodat de NL-copy
+    // niet verandert; alleen de EN-overlay is nieuw. Enige verschil in de
+    // gerenderde NL-HTML: `wijnhuis.staynear.disclosure` stond als `&middot;`
+    // in de template en komt nu als het letterlijke teken `·` mee.
+    'stay.disclosure.microcopy': 'Affiliate-link · als je hier boekt, kunnen wij een commissie ontvangen; jij betaalt niets extra.',
+    'stay.map.disclosure': 'Affiliate-links · we kunnen een commissie ontvangen als je via deze links boekt; jij betaalt niets extra.',
+    'stay.map.priceNote': 'Prijzen variëren per seizoen',
+    'stay22.disclosure': 'Affiliate-link · we kunnen een commissie ontvangen, jij betaalt niets extra.',
+    'wijnhuis.staynear.aria': 'Overnachtingen in de buurt',
+    'wijnhuis.staynear.labelPrefix': 'Overnachten bij',
+    'wijnhuis.staynear.disclosure': 'Affiliate-links · geen extra kosten',
+    'wijnhuis.staynear.ctaNearPrefix': 'Slaap in de buurt van',
+    'wijnhuis.staynear.ctaNear': 'Slaap in de buurt',
+
+    // Tier-badges en prijs-labels op de accommodatie-kaart (LAT-2771). Stonden
+    // als STAY_TIER_META-labels en inline template-literals in de componenten en
+    // renderden daardoor NL op /en/accommodaties/<streek>/.
+    'stay.tier.slim_geboekt': 'Slim geboekt',
+    'stay.tier.prijs_kwaliteit': 'Prijs-kwaliteit',
+    'stay.tier.pure_luxe': 'Pure luxe',
+    'stay.price.perNight': '/ nacht',
+    'stay.price.fromPrefix': 'vanaf',
+    'stay.price.upToPrefix': 'tot',
 
     // NewsletterFooter.astro (LAT-2436) — MailerLite artikel/streek-footer. Merk-
     // naam "VinoMartino" en de MailerLite-veldwaarden blijven ongewijzigd.
@@ -529,9 +555,8 @@ export async function loadUiStrings(locale: Locale = DEFAULT_LOCALE): Promise<Ui
     const url = `${env.url}/items/ui_strings?limit=-1&fields=key,translations.languages_code,translations.value`;
     let res: Response;
     try {
-        res = await fetch(url, {
+        res = await fetchDirectusCollection('loadUiStrings', url, {
             headers: { Authorization: `Bearer ${env.token}` },
-            signal: AbortSignal.timeout(15000),
         });
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);

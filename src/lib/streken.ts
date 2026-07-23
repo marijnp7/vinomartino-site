@@ -192,6 +192,9 @@ import {
     assertDirectusConfigured,
     assetUrl,
     assertCollectionReadableOrDegrade,
+    directusSignal,
+    withAssetSlot,
+    fetchDirectusCollection,
 } from './directus-config';
 import { DEFAULT_LOCALE, type Locale } from './i18n';
 import { localizeRecords, localizeRecordsSoft, localizeJoinedRefs } from './directus-i18n';
@@ -236,10 +239,12 @@ async function fetchAssetWithRetry(url: string, token: string, attempts = 4): Pr
     let lastErr: unknown = new Error('fetch not attempted');
     for (let i = 0; i < attempts; i++) {
         try {
-            const res = await fetch(url, {
-                headers: { Authorization: `Bearer ${token}` },
-                signal: AbortSignal.timeout(15000),
-            });
+            const res = await withAssetSlot(() =>
+                fetch(url, {
+                    headers: { Authorization: `Bearer ${token}` },
+                    signal: directusSignal(),
+                }),
+            );
             // 2xx of niet-transiente 4xx → direct teruggeven; caller logt de status.
             if (res.ok || (res.status >= 400 && res.status < 500 && res.status !== 429)) return res;
             lastErr = new Error(`HTTP ${res.status}`);
@@ -610,12 +615,11 @@ async function fetchStrekenItems(url: string, token: string): Promise<Record<str
     const withBl10 = `${withFacts},${bl10Fields}`;
     const filterSort = `${statusFilterQuery(env)}&sort=name`;
     const headers = { Authorization: `Bearer ${token}` };
-    const signal = AbortSignal.timeout(15000);
 
     // LAT-2009: bovenste tier mét feitenblok-velden; val bij 400/403 stil terug op
     // withFacts (bestaande fact-velden blijven), dan verder omlaag via withPoi.
     try {
-        const bl10Res = await fetch(`${url}/items/streken?limit=-1&fields=${withBl10}${filterSort}`, { headers, signal });
+        const bl10Res = await fetchDirectusCollection('loadStreken', `${url}/items/streken?limit=-1&fields=${withBl10}${filterSort}`, { headers });
         if (bl10Res.ok) {
             const json = await bl10Res.json();
             assetDebug.push({ kind: 'query', url, status: 200, count: (json.data || []).length, tier: 'withBl10' });
@@ -633,7 +637,7 @@ async function fetchStrekenItems(url: string, token: string): Promise<Record<str
 
     // Top-tier poging mét fact-box-velden; val bij 400/403 stil terug op withPoi.
     try {
-        const factsRes = await fetch(`${url}/items/streken?limit=-1&fields=${withFacts}${filterSort}`, { headers, signal });
+        const factsRes = await fetchDirectusCollection('loadStreken', `${url}/items/streken?limit=-1&fields=${withFacts}${filterSort}`, { headers });
         if (factsRes.ok) {
             const json = await factsRes.json();
             assetDebug.push({ kind: 'query', url, status: 200, count: (json.data || []).length, tier: 'withFacts' });
@@ -656,7 +660,7 @@ async function fetchStrekenItems(url: string, token: string): Promise<Record<str
 
     let res: Response;
     try {
-        res = await fetch(`${url}/items/streken?limit=-1&fields=${withPoi}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
+        res = await fetchDirectusCollection('loadStreken', `${url}/items/streken?limit=-1&fields=${withPoi}${filterSort}`, { headers });
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         assetDebug.push({ kind: 'query', url, error: msg });
@@ -675,7 +679,7 @@ async function fetchStrekenItems(url: string, token: string): Promise<Record<str
         // niet (of mist de build-rol read-permissie) dan degradeert dit stil naar
         // withRelations, zodat badge/tours/credit/related_articles NIET sneuvelen.
         try {
-            const cbRes = await fetch(`${url}/items/streken?limit=-1&fields=${withCardBlurb}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
+            const cbRes = await fetchDirectusCollection('loadStreken', `${url}/items/streken?limit=-1&fields=${withCardBlurb}${filterSort}`, { headers });
             if (cbRes.ok) {
                 const json = await cbRes.json();
                 assetDebug.push({ kind: 'query', url, status: 200, count: (json.data || []).length, tier: 'withCardBlurb' });
@@ -694,7 +698,7 @@ async function fetchStrekenItems(url: string, token: string): Promise<Record<str
             // Val door naar de withRelations-retry hieronder.
         }
         try {
-            res = await fetch(`${url}/items/streken?limit=-1&fields=${withRelations}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
+            res = await fetchDirectusCollection('loadStreken', `${url}/items/streken?limit=-1&fields=${withRelations}${filterSort}`, { headers });
         } catch (err) {
             const msg = err instanceof Error ? err.message : String(err);
             assetDebug.push({ kind: 'query-retry-poi', url, error: msg });
@@ -712,7 +716,7 @@ async function fetchStrekenItems(url: string, token: string): Promise<Record<str
         assetDebug.push({ kind: 'query', url, status: res.status, body: body.slice(0, 500), retryWithoutRelations: true });
         let retryRel: Response;
         try {
-            retryRel = await fetch(`${url}/items/streken?limit=-1&fields=${withOg}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
+            retryRel = await fetchDirectusCollection('loadStreken', `${url}/items/streken?limit=-1&fields=${withOg}${filterSort}`, { headers });
         } catch (err) {
             const msg = err instanceof Error ? err.message : String(err);
             assetDebug.push({ kind: 'query-retry-rel', url, error: msg });
@@ -733,7 +737,7 @@ async function fetchStrekenItems(url: string, token: string): Promise<Record<str
         assetDebug.push({ kind: 'query-retry-og', url, status: retryRel.status });
         let retry: Response;
         try {
-            retry = await fetch(`${url}/items/streken?limit=-1&fields=${baseFields}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
+            retry = await fetchDirectusCollection('loadStreken', `${url}/items/streken?limit=-1&fields=${baseFields}${filterSort}`, { headers });
         } catch (err) {
             const msg = err instanceof Error ? err.message : String(err);
             assetDebug.push({ kind: 'query-retry', url, error: msg });
@@ -858,18 +862,20 @@ export async function loadStrekenNav(locale: Locale = DEFAULT_LOCALE): Promise<N
     const filterSort = `${statusFilterQuery(env)}&sort=name`;
     const headers = { Authorization: `Bearer ${env.token}` };
     // `id` nodig voor de EN-naam-overlay (overlay keyt op parent-PK).
-    let res = await fetch(`${env.url}/items/streken?limit=-1&fields=id,slug,name,land_id.slug${filterSort}`, {
-        headers,
-        signal: AbortSignal.timeout(15000),
-    });
+    let res = await fetchDirectusCollection(
+        'loadStrekenNav',
+        `${env.url}/items/streken?limit=-1&fields=id,slug,name,land_id.slug${filterSort}`,
+        { headers },
+    );
     // land_id-veld/permissie ontbreekt (pre-migratie) → degradeer naar slug/name
     // zonder land-koppeling; de header valt dan terug op landen-only.
     if (res.status === 400 || res.status === 403) {
         console.warn(`[loadStrekenNav] Directus rejected land_id.slug (HTTP ${res.status}) — retry zonder land-koppeling.`);
-        res = await fetch(`${env.url}/items/streken?limit=-1&fields=id,slug,name${filterSort}`, {
-            headers,
-            signal: AbortSignal.timeout(15000),
-        });
+        res = await fetchDirectusCollection(
+            'loadStrekenNav',
+            `${env.url}/items/streken?limit=-1&fields=id,slug,name${filterSort}`,
+            { headers },
+        );
     }
     if (!res.ok) {
         const body = await res.text().catch(() => '');

@@ -16,6 +16,8 @@
 import type { Accommodation, WijnhuisPin } from '../lib/streken';
 import { buildCjBookingLink, buildBookingSearchLink, unwrapCjRedirect } from '../lib/affiliates';
 import { currencyForLand, formatMoney } from '../lib/currency';
+import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
 
 interface Props {
   streek: string;
@@ -24,9 +26,12 @@ interface Props {
   landSlug?: string | null;
   accommodaties: Accommodation[];
   wijnhuizen?: WijnhuisPin[];
+  /** LAT-2771: locale voor de disclosure/microcopy uit de UI-dictionary. */
+  locale?: Locale;
 }
 
-const { streek, slug, landSlug, accommodaties, wijnhuizen = [] } = Astro.props;
+const { streek, slug, landSlug, accommodaties, wijnhuizen = [], locale = DEFAULT_LOCALE } = Astro.props;
+const ui = await loadUiStrings(locale);
 // LAT-1664: bron-valuta volgt het land (Zuid-Afrika → ZAR), maar prijzen worden
 // site-breed naar EUR geconverteerd voor weergave (board-besluit). acc.valuta
 // wint per verblijf als bron over de land-default.
@@ -198,7 +203,7 @@ const mapData = {
                 >
                   Bekijk &amp; boek →
                 </a>
-                <span class="stay-card__note">Prijzen variëren per seizoen</span>
+                <span class="stay-card__note">{ui.t('stay.map.priceNote')}</span>
               </div>
             </article>
           ))}
@@ -207,9 +212,7 @@ const mapData = {
     ))}
   </div>
 
-  <p class="curated-stay__disclosure">
-    Affiliate-links · we kunnen een commissie ontvangen als je via deze links boekt; jij betaalt niets extra.
-  </p>
+  <p class="curated-stay__disclosure">{ui.t('stay.map.disclosure')}</p>
 </section>
 
 <script>

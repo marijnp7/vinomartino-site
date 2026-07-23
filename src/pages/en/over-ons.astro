@@ -1,7 +1,7 @@
 ---
 import SiteLayout from '../../layouts/SiteLayout.astro';
 import { organizationSchema, breadcrumbSchema } from '../../lib/seo';
-import { readDirectusEnv } from '../../lib/directus-config';
+import { readDirectusEnv, directusSignal } from '../../lib/directus-config';
 
 const schema = [
   organizationSchema(),
@@ -57,7 +57,7 @@ async function fetchOverOnsFoto(uuid: string): Promise<string | null> {
   if (existsSync(outPath)) return rel;
   const res = await fetch(`${env.url}/assets/${uuid}`, {
     headers: { Authorization: `Bearer ${env.token}` },
-    signal: AbortSignal.timeout(15000),
+    signal: directusSignal(),
   });
   if (!res.ok) {
     throw new Error(`[over-ons] Directus-asset ${uuid} niet op te halen: HTTP ${res.status}`);

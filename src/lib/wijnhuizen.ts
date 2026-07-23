@@ -66,6 +66,9 @@ import {
     assertDirectusConfigured,
     assetUrl,
     assertCollectionReadableOrDegrade,
+    directusSignal,
+    withAssetSlot,
+    fetchDirectusCollection,
 } from './directus-config';
 import { DEFAULT_LOCALE, type Locale } from './i18n';
 import { localizeRecords, localizeJoinedRefs } from './directus-i18n';
@@ -83,10 +86,12 @@ async function downloadAsset(assetId: string, directusUrl: string, token: string
     const outPath = join(outDir, fileName);
     if (existsSync(outPath)) return `/images/wijnhuizen/${fileName}`;
     try {
-        const res = await fetch(assetUrl(directusUrl, assetId), {
-            headers: { Authorization: `Bearer ${token}` },
-            signal: AbortSignal.timeout(15000),
-        });
+        const res = await withAssetSlot(() =>
+            fetch(assetUrl(directusUrl, assetId), {
+                headers: { Authorization: `Bearer ${token}` },
+                signal: directusSignal(),
+            }),
+        );
         if (!res.ok) {
             const body = await res.text().catch(() => '');
             console.warn(`[loadWijnhuizen] could not fetch asset ${assetId}: ${res.status} body=${body.slice(0, 300)}`);
@@ -181,10 +186,9 @@ async function fetchWijnhuizenItems(url: string, token: string): Promise<Record<
     const withDrieluik = `${withCta},beeld_plek,beeld_mens,beeld_fles`;
     const filterSort = `${statusFilterQuery(env)}&sort=name`;
     const headers = { Authorization: `Bearer ${token}` };
-    const signal = AbortSignal.timeout(15000);
     let res: Response;
     try {
-        res = await fetch(`${url}/items/wijnhuizen?limit=-1&fields=${withDrieluik}${filterSort}`, { headers, signal });
+        res = await fetchDirectusCollection('loadWijnhuizen', `${url}/items/wijnhuizen?limit=-1&fields=${withDrieluik}${filterSort}`, { headers });
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         assetDebug.push({ kind: 'query', url, error: msg });
@@ -201,7 +205,7 @@ async function fetchWijnhuizenItems(url: string, token: string): Promise<Record<
         assetDebug.push({ kind: 'query', url, status: res.status, body: body.slice(0, 500), retryWithoutRelations: true });
         let retryRel: Response;
         try {
-            retryRel = await fetch(`${url}/items/wijnhuizen?limit=-1&fields=${withOg}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
+            retryRel = await fetchDirectusCollection('loadWijnhuizen', `${url}/items/wijnhuizen?limit=-1&fields=${withOg}${filterSort}`, { headers });
         } catch (err) {
             const msg = err instanceof Error ? err.message : String(err);
             assetDebug.push({ kind: 'query-retry-rel', url, error: msg });
@@ -220,7 +224,7 @@ async function fetchWijnhuizenItems(url: string, token: string): Promise<Record<
         console.warn(`[loadWijnhuizen] Directus also rejected fields=…,og_image (HTTP ${retryRel.status}) — retrying without og_image.`);
         let retry: Response;
         try {
-            retry = await fetch(`${url}/items/wijnhuizen?limit=-1&fields=${baseFields}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
+            retry = await fetchDirectusCollection('loadWijnhuizen', `${url}/items/wijnhuizen?limit=-1&fields=${baseFields}${filterSort}`, { headers });
         } catch (err) {
             const msg = err instanceof Error ? err.message : String(err);
             assetDebug.push({ kind: 'query-retry', url, error: msg });

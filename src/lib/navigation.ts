@@ -1,4 +1,4 @@
-import { readDirectusEnv, statusFilterQuery } from './directus-config';
+import { readDirectusEnv, statusFilterQuery, fetchDirectusCollection } from './directus-config';
 
 export interface NavItem {
     label: string;
@@ -44,9 +44,8 @@ export async function loadNavigation(): Promise<NavItem[]> {
 
     const fields = 'label,href,key,order,status';
     const url = `${env.url}/items/nav_items?limit=-1&fields=${fields}${statusFilterQuery(env)}&sort=order`;
-    const res = await fetch(url, {
+    const res = await fetchDirectusCollection('loadNavigation', url, {
         headers: { Authorization: `Bearer ${env.token}` },
-        signal: AbortSignal.timeout(15000),
     });
     if (!res.ok) {
         const body = await res.text().catch(() => '');

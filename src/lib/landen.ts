@@ -123,6 +123,9 @@ import {
     assertDirectusConfigured,
     assetUrl,
     assertCollectionReadableOrDegrade,
+    directusSignal,
+    withAssetSlot,
+    fetchDirectusCollection,
 } from './directus-config';
 import { DEFAULT_LOCALE, type Locale } from './i18n';
 import { localizeRecords, localizeRecordsSoft } from './directus-i18n';
@@ -153,10 +156,12 @@ async function downloadAsset(assetId: string, directusUrl: string, token: string
     const outPath = join(outDir, fileName);
     if (existsSync(outPath)) return `/images/landen/${fileName}`;
     try {
-        const res = await fetch(assetUrl(directusUrl, assetId), {
-            headers: { Authorization: `Bearer ${token}` },
-            signal: AbortSignal.timeout(15000),
-        });
+        const res = await withAssetSlot(() =>
+            fetch(assetUrl(directusUrl, assetId), {
+                headers: { Authorization: `Bearer ${token}` },
+                signal: directusSignal(),
+            }),
+        );
         if (!res.ok) {
             const body = await res.text().catch(() => '');
             console.warn(`[loadLanden] could not fetch asset ${assetId}: ${res.status} body=${body.slice(0, 300)}`);
@@ -339,10 +344,9 @@ async function fetchLandenItems(url: string, token: string): Promise<Record<stri
     const withHub = `${withFaq},hub_h1,reistijd_tabel,budget_tabel`;
     const filterSort = `${statusFilterQuery(env)}&sort=name`;
     const headers = { Authorization: `Bearer ${token}` };
-    const signal = AbortSignal.timeout(15000);
     let res: Response;
     try {
-        res = await fetch(`${url}/items/landen?limit=-1&fields=${withHub}${filterSort}`, { headers, signal });
+        res = await fetchDirectusCollection('loadLanden', `${url}/items/landen?limit=-1&fields=${withHub}${filterSort}`, { headers });
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         throw new Error(`[loadLanden] Directus unreachable at ${url}: ${msg}`);
@@ -356,7 +360,7 @@ async function fetchLandenItems(url: string, token: string): Promise<Record<stri
     // sleep druiven/practical/cta_blocks. If withCta itself is rejected, fall
     // through to the existing tier-fallback (withTasting → relations → SeoMeta → baseFields).
     if (res.status === 400 || res.status === 403) {
-        const faqRetry = await fetch(`${url}/items/landen?limit=-1&fields=${withCta}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
+        const faqRetry = await fetchDirectusCollection('loadLanden', `${url}/items/landen?limit=-1&fields=${withCta}${filterSort}`, { headers });
         if (faqRetry.ok) {
             const json = await faqRetry.json();
             return (json.data || []) as Record<string, unknown>[];
@@ -369,7 +373,7 @@ async function fetchLandenItems(url: string, token: string): Promise<Record<stri
     if (res.status === 400 || res.status === 403) {
         const body = await res.text().catch(() => '');
         console.warn(`[loadLanden] Directus rejected fields=…,druiven,practical,cta_blocks (HTTP ${res.status}) — retrying without LAT-1760/LAT-1784 fields. Run directus/scripts/add-landen-tasting-fields en/of maak landen.cta_blocks aan.`);
-        const retryTasting = await fetch(`${url}/items/landen?limit=-1&fields=${withTasting}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
+        const retryTasting = await fetchDirectusCollection('loadLanden', `${url}/items/landen?limit=-1&fields=${withTasting}${filterSort}`, { headers });
         if (retryTasting.ok) {
             const json = await retryTasting.json();
             return (json.data || []) as Record<string, unknown>[];
@@ -379,7 +383,7 @@ async function fetchLandenItems(url: string, token: string): Promise<Record<stri
             throw new Error(`[loadLanden] Directus retry without LAT-1760 fields failed: ${retryTasting.status} ${retryTasting.statusText}: ${rbody.slice(0, 300)} | original ${res.status} body: ${body.slice(0, 200)}`);
         }
         console.warn(`[loadLanden] Directus also rejected fields=…,related_articles (HTTP ${retryTasting.status}) — retrying without LAT-1098 relations.`);
-        const retryRel = await fetch(`${url}/items/landen?limit=-1&fields=${withSeoMeta}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
+        const retryRel = await fetchDirectusCollection('loadLanden', `${url}/items/landen?limit=-1&fields=${withSeoMeta}${filterSort}`, { headers });
         if (retryRel.ok) {
             const json = await retryRel.json();
             return (json.data || []) as Record<string, unknown>[];
@@ -389,7 +393,7 @@ async function fetchLandenItems(url: string, token: string): Promise<Record<stri
             throw new Error(`[loadLanden] Directus retry without relations failed: ${retryRel.status} ${retryRel.statusText}: ${rbody.slice(0, 300)} | original ${res.status} body: ${body.slice(0, 200)}`);
         }
         console.warn(`[loadLanden] Directus also rejected fields=…,og_image,wijnstreken.* (HTTP ${retryRel.status}) — retrying without LAT-1008 fields. Run directus/scripts/add-seo-meta-fields.mjs en/of geef de build-rol read-permissie op landen.og_image en landen.wijnstreken.`);
-        const retry = await fetch(`${url}/items/landen?limit=-1&fields=${baseFields}${filterSort}`, { headers, signal: AbortSignal.timeout(15000) });
+        const retry = await fetchDirectusCollection('loadLanden', `${url}/items/landen?limit=-1&fields=${baseFields}${filterSort}`, { headers });
         if (retry.ok) {
             const json = await retry.json();
             return (json.data || []) as Record<string, unknown>[];
@@ -458,9 +462,8 @@ export async function loadLandenNav(locale: Locale = DEFAULT_LOCALE): Promise<Na
     // `id` nodig voor de EN-naam-overlay (overlay keyt op parent-PK).
     const fields = 'id,slug,name,continent,status';
     const url = `${env.url}/items/landen?limit=-1&fields=${fields}${statusFilterQuery(env)}&sort=name`;
-    const res = await fetch(url, {
+    const res = await fetchDirectusCollection('loadLandenNav', url, {
         headers: { Authorization: `Bearer ${env.token}` },
-        signal: AbortSignal.timeout(15000),
     });
     if (!res.ok) {
         const body = await res.text().catch(() => '');
