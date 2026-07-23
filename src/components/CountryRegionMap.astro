@@ -21,6 +21,8 @@
  * land, dan rendert deze component niets en valt de pagina terug op de oude
  * atlas / het card-grid (geen regressie).
  */
+import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
+
 const regionGeo = import.meta.glob<{ default: RegionsFile }>(
   '../data/atlas/regions/*.json',
   { eager: true },
@@ -46,6 +48,8 @@ export interface RegionMeta {
 }
 
 export interface Props {
+  /** LAT-2814 — locale van de renderende pagina; stuurt de eigen chrome-copy. */
+  locale?: Locale;
   /** Land-slug — kiest src/data/atlas/regions/{landSlug}.json. */
   landSlug: string;
   landName: string;
@@ -64,11 +68,31 @@ const {
   landSlug,
   landName,
   meta = {},
-  kicker = landName ? `Wijnatlas · ${landName}` : 'Wijnatlas',
+  kicker,
   title,
   intro,
   class: className,
+  locale = DEFAULT_LOCALE,
 } = Astro.props;
+
+// LAT-2814 — deze component draagt z'n eigen chrome-copy (kicker/kop/lede plus
+// de aria-labels en <title>'s van de SVG). Die stond hardcoded in het NL en
+// stond daarmee op álle acht /en/landen/-pagina's: de lede alleen al is goed
+// voor 5 NL-functiewoorden op een verder Engelse pagina. Zelfde isEn/c-idioom
+// als SearchDialog (#196) — bewust géén ui_strings-key, want dit is chrome dat
+// niet mag wachten op een Directus-vertaalrij. NL blijft byte-identiek.
+const isEn = locale === 'en';
+const c = {
+  kickerBase: isEn ? 'Wine atlas' : 'Wijnatlas',
+  titlePrefix: isEn ? 'The wine regions of' : 'De wijnstreken van',
+  lede: isEn
+    ? 'Every region in its real geography. Hover over an area for its signature grape and click through to the region guide.'
+    : 'Elke streek in échte geografie. Beweeg over een gebied voor de kerndruif en klik door naar de streekgids.',
+  areasOf: (n: string) => (isEn ? `Wine regions of ${n}` : `Wijngebieden van ${n}`),
+  clickableMap: (n: string) =>
+    isEn ? `Clickable map of the wine regions of ${n}` : `Klikbare kaart met de wijngebieden van ${n}`,
+};
+const headKicker = kicker ?? (landName ? `${c.kickerBase} · ${landName}` : c.kickerBase);
 
 const PALETTE = ['#5A1A1F', '#A14F2A', '#5C6B3F'];
 
@@ -164,16 +188,14 @@ const legendItems = [
   ...markers.map((d) => ({ key: d.slug, name: d.name, color: d.color, badge: d.badge, linkable: d.linkable, n: d.n })),
 ];
 
-const headTitle = title ?? `De wijnstreken van ${landName}`;
-const headIntro =
-  intro ??
-  `Elke streek in échte geografie. Beweeg over een gebied voor de kerndruif en klik door naar de streekgids.`;
+const headTitle = title ?? `${c.titlePrefix} ${landName}`;
+const headIntro = intro ?? c.lede;
 ---
 
 {file && legendItems.length > 0 && (
   <div class:list={['crm', className]}>
     <div class="crm-intro">
-      {kicker && <p class="crm-kicker">{kicker}</p>}
+      {headKicker && <p class="crm-kicker">{headKicker}</p>}
       <h2 class="crm-title">{headTitle}</h2>
       <p class="crm-lede">{headIntro}</p>
       <ul class="crm-legend">
@@ -197,16 +219,16 @@ const headIntro =
         })}
       </ul>
     </div>
-    <nav class="crm-mapwrap" aria-label={`Wijngebieden van ${landName}`}>
+    <nav class="crm-mapwrap" aria-label={c.areasOf(landName)}>
       <div class="crm-wrap" style={`--map-aspect: ${aspect};`}>
         <svg
           viewBox={viewBox}
           class="crm-map"
           role="img"
-          aria-label={`Klikbare kaart met de wijngebieden van ${landName}`}
+          aria-label={c.clickableMap(landName)}
           xmlns="http://www.w3.org/2000/svg"
         >
-          <title>Wijngebieden van {landName}</title>
+          <title>{c.areasOf(landName)}</title>
 
           {/* ── Context-onderlaag: regions zonder gepubliceerde streek ── */}
           <g class="crm-context" aria-hidden="true">
