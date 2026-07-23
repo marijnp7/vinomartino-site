@@ -1004,7 +1004,181 @@ async function handleApprovalGet(actionId) {
   };
 }
 
-// ---- HTTP server: /health + /approval ----
+// ---- POST /notify — meldingen zonder beslissing (LAT-2802) ----
+//
+// Een drempel-alarm vraagt niets: er is geen beslisser, geen callback en geen
+// timeout. Toch liep elk alarm van paperclip-monitor tot nu toe via /approval,
+// met knoppen die niets deden — 163 timeouts, 8 rejects en 5 approves sinds
+// 12-06, alle drie no-ops. /notify is dat pad zonder de beslis-machinerie:
+// geen rij in cos.actions, geen inline keyboard, geen timeout-watcher.
+
+const NOTIFY_SEVERITIES = ["info", "warn", "critical"];
+
+const NOTIFY_PREFIX = {
+  info: "ℹ️ ",
+  warn: "⚠️ ",
+  // Gelijk aan de bestaande approval-prefix, zodat 'critical' er in Telegram
+  // hetzelfde uitziet ongeacht via welk endpoint het binnenkwam.
+  critical: "🚨 <b>CRITICAL</b>\n\n",
+};
+
+// Een titel of afzender die de hele 4096 opslokt laat geen ruimte voor de body.
+// Beide zijn agent-input, dus beide krijgen een eigen plafond.
+const NOTIFY_TITLE_MAX = 256;
+const NOTIFY_AGENT_MAX = 64;
+const NOTIFY_TRUNCATION_MARKER = "\n\n… (afgekapt)";
+
+// Kap een RÉÉDS geëscapete string af zonder een HTML-entity doormidden te
+// knippen. escapeHtml() maakt van '&' vijf tekens ('&amp;'), dus afkappen op
+// een vaste index kan midden in '&am|p;' landen — Telegram antwoordt daarop met
+// 400 "can't parse entities" en dan is de melding alsnog weg (LAT-2802 A4).
+function truncateEscaped(escaped, budget) {
+  if (budget <= 0) return "";
+  if (escaped.length <= budget) return escaped;
+  let cut = escaped.slice(0, budget);
+  const lastAmp = cut.lastIndexOf("&");
+  // Een '&' zonder afsluitende ';' erna is een half afgekapte entity.
+  if (lastAmp !== -1 && cut.indexOf(";", lastAmp) === -1) cut = cut.slice(0, lastAmp);
+  return cut;
+}
+
+// Anders dan /approval wijst /notify een te lang bericht niet af maar kapt het
+// af. Bij een approval was afwijzen juist goed — daar wacht iemand op een
+// beslissing en die kan de tekst inkorten. Bij een melding wacht niemand: een
+// afgekapte melding is altijd beter dan een verdwenen melding.
+//
+// Het budget wordt berekend op de DEFINITIEVE, geëscapete string inclusief
+// prefix, ⏸-marker en voettekst. Afkappen vóór het escapen zou je alsnog over
+// de 4096 heen duwen zodra de body '&' of '<' bevat.
+function buildNotifyText({ severity, title, body, agent, paused }) {
+  const prefix = NOTIFY_PREFIX[severity] || NOTIFY_PREFIX.info;
+  const quiet = isQuietHours() ? "🌙 (stille uren) " : "";
+  // COS staat gepauzeerd maar de melding gaat toch door (§2.3): laat zien dat
+  // de pauze aan staat, zodat 'stil' niet als 'niets aan de hand' leest.
+  const pause = paused ? "⏸ " : "";
+  const head =
+    `${prefix}${pause}${quiet}` +
+    `<b>${truncateEscaped(escapeHtml(title), NOTIFY_TITLE_MAX)}</b>\n\n`;
+  const foot = `\n\n— melding van <code>${truncateEscaped(escapeHtml(agent), NOTIFY_AGENT_MAX)}</code>`;
+
+  const escapedBody = escapeHtml(body);
+  const budget = TELEGRAM_MAX_CHARS - head.length - foot.length;
+  const truncated = escapedBody.length > budget;
+  const shownBody = truncated
+    ? truncateEscaped(escapedBody, budget - NOTIFY_TRUNCATION_MARKER.length) +
+      NOTIFY_TRUNCATION_MARKER
+    : escapedBody;
+
+  return { text: head + shownBody + foot, truncated };
+}
+
+async function handleNotifyPost(req, body) {
+  // Zelfde volgorde als /approval: geen secret → 503, slechte signature → 401.
+  if (!APPROVAL_HMAC_SECRET) {
+    return { status: 503, body: JSON.stringify({ error: "notify endpoint disabled (no HMAC secret set)" }) };
+  }
+  if (!verifyHmac(body, req.headers["x-signature"])) {
+    return { status: 401, body: JSON.stringify({ error: "bad or missing signature" }) };
+  }
+  let payload;
+  try {
+    payload = JSON.parse(body);
+  } catch {
+    return { status: 400, body: JSON.stringify({ error: "invalid json" }) };
+  }
+
+  const {
+    agent,
+    title,
+    body: notifyBody,
+    severity = "info",
+    // Alleen voor terugzoeken in cos.notifications. Bewust GEEN dedup-sleutel:
+    // een herhaalde melding na de backoff is legitiem, geen duplicaat.
+    request_id = null,
+  } = payload;
+
+  if (!agent || !title || !notifyBody) {
+    return {
+      status: 400,
+      body: JSON.stringify({ error: "missing required fields: agent, title, body" }),
+    };
+  }
+  if (!NOTIFY_SEVERITIES.includes(severity)) {
+    return {
+      status: 400,
+      body: JSON.stringify({ error: `severity must be one of: ${NOTIFY_SEVERITIES.join(", ")}` }),
+    };
+  }
+
+  // Pauze-stand (LAT-2802 A3). 'warn' en 'critical' gaan door — de pauze bestaat
+  // om Marijn niet met beslissingen lastig te vallen, en een melding vraagt
+  // niets. 'info' is de herstel-categorie en dat is precies waarvoor de pauze
+  // wél bedoeld is: onderdrukken. De rij wordt hoe dan ook weggeschreven; de
+  // oorspronkelijke klacht was spoorloosheid en die los je op in de tabel, niet
+  // door alles door te duwen.
+  const state = await getPauseState();
+  const suppressed = Boolean(state.paused) && severity === "info";
+
+  const { text, truncated } = buildNotifyText({
+    severity,
+    title,
+    body: notifyBody,
+    agent,
+    paused: Boolean(state.paused),
+  });
+
+  let delivered = false;
+  let deliveryError = null;
+  if (!suppressed) {
+    try {
+      // Geen inline keyboard, met opzet: er valt niets te beslissen.
+      await bot.telegram.sendMessage(OWNER_ID, text, { parse_mode: "HTML" });
+      delivered = true;
+    } catch (err) {
+      deliveryError = err.message;
+      log.error({ err: err.message, agent, title }, "notify telegram send failed");
+    }
+  }
+
+  const [row] = await q(
+    `INSERT INTO cos.notifications
+       (request_id, agent, title, body, severity, delivered, delivery_error, truncated, suppressed)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+     RETURNING id`,
+    [request_id, agent, title, notifyBody, severity, delivered, deliveryError, truncated, suppressed]
+  );
+
+  if (suppressed) {
+    log.info({ notificationId: row.id, agent, title }, "notify suppressed (cos paused, severity=info)");
+  }
+
+  // 502 bij een Telegram-fout, maar zonder de 'undelivered'-semantiek van
+  // /approval: er is geen wachtende beslisser en geen timeout-watcher die de
+  // rij verkeerd kan lezen. De rij bewaart delivery_error voor het terugzoeken.
+  if (deliveryError) {
+    return {
+      status: 502,
+      body: JSON.stringify({
+        error: "telegram push failed",
+        notification_id: row.id,
+        delivered: false,
+        detail: deliveryError,
+      }),
+    };
+  }
+
+  return {
+    status: 202,
+    body: JSON.stringify({
+      notification_id: row.id,
+      delivered,
+      suppressed,
+      truncated,
+    }),
+  };
+}
+
+// ---- HTTP server: /health + /approval + /notify ----
 http
   .createServer((req, res) => {
     // /health — liveness
@@ -1030,6 +1204,30 @@ http
           res.end(result.body);
         } catch (err) {
           log.error({ err: err.message }, "POST /approval failed");
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "internal error" }));
+        }
+      });
+      return;
+    }
+
+    // POST /notify — melding zonder beslissing (LAT-2802)
+    if (req.url === "/notify" && req.method === "POST") {
+      let body = "";
+      req.on("data", (chunk) => {
+        body += chunk;
+        if (body.length > 64 * 1024) {
+          res.writeHead(413).end(JSON.stringify({ error: "payload too large" }));
+          req.destroy();
+        }
+      });
+      req.on("end", async () => {
+        try {
+          const result = await handleNotifyPost(req, body);
+          res.writeHead(result.status, { "Content-Type": "application/json" });
+          res.end(result.body);
+        } catch (err) {
+          log.error({ err: err.message }, "POST /notify failed");
           res.writeHead(500, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ error: "internal error" }));
         }
