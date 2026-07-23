@@ -52,7 +52,7 @@ const heeftInhoud = heeftHoortBij || Boolean(hotel);
     <div class="container voetblok__inner">
       {heeftHoortBij && (
         <div class="voetblok__hoortbij">
-          <p class="voetblok__lede">{ui.t('voetblok.hoortBijPre')} {streek && <a href={lh(`/streken/${streek.slug}/`)} class="voetblok__ref">{streek.name}</a>}{streek && route ? ` ${ui.t('voetblok.hoortBijJoin')} ` : ''}{route && <a href={lh(`/wijnroutes/${route.slug}/`)} class="voetblok__ref">{route.name}</a>}.</p>
+          <p class="voetblok__lede">{ui.t('voetblok.hoortBijPre')}{' '}{streek && <a href={lh(`/streken/${streek.slug}/`)} class="voetblok__ref">{streek.name}</a>}{streek && route ? ` ${ui.t('voetblok.hoortBijJoin')} ` : ''}{route && <a href={lh(`/wijnroutes/${route.slug}/`)} class="voetblok__ref">{route.name}</a>}.</p>
           {routeStops.length >= 2 && (
             <a href={lh(`/wijnroutes/${route!.slug}/`)} class="voetblok__thumb" aria-label={`${ui.t('voetblok.routeThumbAria')} ${route!.name}`}>
               <RouteMap stops={routeStops} variant="mini" locale={locale} />
@@ -64,7 +64,7 @@ const heeftInhoud = heeftHoortBij || Boolean(hotel);
       {hotel && (
         <a href={lh(hotel.href)} class="voetblok__hotel" data-plausible-cta="voetblok_hotel">
           <span class="voetblok__hotel-kicker">{ui.t('voetblok.hotel.kicker')}</span>
-          <span class="voetblok__hotel-label">{ui.t('voetblok.hotel.labelPre')} {hotel.streekName}</span>
+          <span class="voetblok__hotel-label">{ui.t('voetblok.hotel.labelPre')}{' '}{hotel.streekName}</span>
           <span class="voetblok__hotel-arrow" aria-hidden="true">&rarr;</span>
         </a>
       )}
