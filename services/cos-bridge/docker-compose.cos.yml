@@ -1,4 +1,45 @@
+# paperclip-cos stack — canonieke service-definities (LAT-2811).
+#
+# BRON, GEEN ARTEFACT. Deze file wordt door .github/workflows/deploy-cos.yml
+# gersynct naar /opt/paperclip-cos/docker-compose.cos.yml en overschrijft daar
+# alles wat handmatig is aangepast. Wijzig dus hier, nooit op de VPS.
+#
+# Elke container met het label `com.docker.compose.project=paperclip-cos` MOET
+# in deze file staan of in een overlay uit COMPOSE_FILE (zie compose.env).
+# Staat een draaiende container niet in de merged config, dan meldt compose hem
+# als orphan en stelt `--remove-orphans` voor — wat hem verwijdert. `cloudflared`
+# (de Cloudflare-tunnel) en `cos` (de CoS-agent) stonden tot deze wijziging in
+# precies die toestand.
+#
+# Gereconstrueerd uit `docker inspect` van de draaiende containers, niet uit
+# aannames. Afwijkingen t.o.v. de draaiende containers staan bij de service
+# gedocumenteerd.
+#
+# Build-context is /opt/paperclip-cos op de VPS (daar staan Dockerfile.cos,
+# Dockerfile.bridge en .env.cos). Deze file is niet bedoeld om lokaal vanuit
+# services/cos-bridge/ te draaien.
+#
+# Deploy: zie docs/runbooks/cos-stack-deploy.md.
+
 services:
+
+  cos:
+    container_name: paperclip-cos-1
+    image: paperclip-cos:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.cos
+    restart: unless-stopped
+    volumes:
+      - cos-home:/cos                # persistente OAuth-login + werkbestanden
+      - cos-workspace:/cos/workspace # scratch space voor de agent
+    environment:
+      - TZ=Europe/Amsterdam
+      - CLAUDE_CONFIG_DIR=/cos/.claude
+    networks:
+      - paperclip
+    # Geen poort: alleen bereikbaar via docker exec.
+
   cos-bridge:
     container_name: paperclip-cos-bridge-1
     image: paperclip-cos-bridge:latest
@@ -18,6 +59,106 @@ services:
       timeout: 5s
       retries: 3
 
+  # LAT-1005. Heeft vandaag geen consument: cos-bridge praat weer tegen de rauwe
+  # socket (zie volumes hierboven), dus in het netwerk cos-internal hangt alleen
+  # deze container zelf. Ongewijzigd overgenomen zoals hij draait — hem uitzetten
+  # of cos-bridge er weer achter zetten is een aparte beslissing (LAT-2783).
+  cos-proxy:
+    container_name: paperclip-cos-proxy-1
+    image: tecnativa/docker-socket-proxy:0.3
+    restart: unless-stopped
+    environment:
+      - VERSION=1
+      - IMAGES=0
+      - INFO=1
+      - SYSTEM=0
+      - ALLOW_RESTARTS=0
+      - SECRETS=0
+      - SESSION=0
+      - CONFIGS=0
+      - PING=1
+      - NODES=0
+      - AUTH=0
+      - NETWORKS=0
+      - TASKS=0
+      - DISTRIBUTION=0
+      - BUILD=0
+      - POST=1
+      - SWARM=0
+      - EVENTS=0
+      - LOG_LEVEL=warning
+      - VOLUMES=0
+      - EXEC=1
+      - CONTAINERS=1
+      - SERVICES=0
+      - PLUGINS=0
+      - GRPC=0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - cos-internal
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:2375/_ping || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # LAT-56 / LAT-2811.
+  #
+  # Twee bewuste afwijkingen t.o.v. de draaiende container:
+  #
+  # 1. image is gepind op de digest van de draaiende container in plaats van
+  #    `:latest`. `:latest` zou bij een recreate de tag pakken die op dat moment
+  #    lokaal staat — een ongeplande versie-bump van de component die alle
+  #    ingress draagt. Een cloudflared-upgrade is een eigen beslissing met een
+  #    eigen test. Digest hoort bij de build van 2026-03-09.
+  # 2. `depends_on: cos-bridge` uit de originele definitie is weggelaten. De
+  #    tunnel hoeft niet op de bridge te wachten (ingress komt remote van de CF
+  #    edge, cloudflared retryt zelf), en met depends_on zou een gerichte
+  #    `docker compose up -d cloudflared` tijdens een incident ook cos-bridge
+  #    meenemen. Dat is blast radius die je juist dan niet wilt.
+  #
+  # De drie netwerken hieronder komen overeen met de draaiende container en zijn
+  # alle drie dragend — zie docs/runbooks/cos-stack-deploy.md voor de matrix van
+  # hostname -> origin -> netwerk. Eén laten vallen breekt de ingress voor
+  # cms.vinomartino.com of preview.vinomartino.com.
+  cloudflared:
+    container_name: paperclip-cloudflared-1
+    image: cloudflare/cloudflared@sha256:6b599ca3e974349ead3286d178da61d291961182ec3fe9c505e1dd02c8ac31b0
+    restart: unless-stopped
+    user: root
+    command:
+      - tunnel
+      - --no-autoupdate
+      - --config
+      - /etc/cloudflared/config.yml
+      - run
+    volumes:
+      - /root/.agent-secrets/cloudflared-tunnel.json:/etc/cloudflared/cred.json:ro
+      - /opt/paperclip-cos/cloudflared-config.yml:/etc/cloudflared/config.yml:ro
+    networks:
+      - paperclip
+      - directus_directus_net
+      - vinomartino_site_default
+    # Geen ports: cloudflared belt zelf uit naar de CF edge.
+
+volumes:
+  cos-home:
+  cos-workspace:
+
 networks:
+  # Twee keys, één netwerk. `paperclip_default` is waarmee cos-bridge is
+  # aangemaakt, `paperclip` is waarmee cos en cloudflared zijn aangemaakt. Beide
+  # behouden houdt hun config-hash stabiel, zodat een deploy ze niet hercreëert.
   paperclip_default:
     external: true
+  paperclip:
+    external: true
+    name: paperclip_default
+  cos-internal:
+  directus_directus_net:
+    external: true
+    name: directus_directus_net
+  vinomartino_site_default:
+    external: true
+    name: vinomartino-site_default
