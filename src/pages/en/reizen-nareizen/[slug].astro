@@ -11,7 +11,10 @@ import { loadStreken } from '../../../lib/streken';
 const EN = 'en' as const;
 
 export async function getStaticPaths() {
-  const [pakketten, streken] = await Promise.all([loadReispakketten(EN), loadStreken(EN)]);
+  // Astro draait getStaticPaths in een geïsoleerde scope: alleen imports zijn
+  // hier zichtbaar, frontmatter-consts als EN niet. Vandaar de literal 'en',
+  // net als in de andere /en/-routes.
+  const [pakketten, streken] = await Promise.all([loadReispakketten('en'), loadStreken('en')]);
   const streekBySlug = new Map(streken.map((s) => [s.slug, s]));
   return pakketten.map((entry) => {
     const streek = entry.streekSlug ? streekBySlug.get(entry.streekSlug) : undefined;
