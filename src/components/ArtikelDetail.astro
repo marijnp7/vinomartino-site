@@ -86,6 +86,12 @@ const authorProfile = getAuthorByByline(article.author);
 // nog "Martin" kan zijn). Zo resolveren byline, author-card en JSON-LD via een
 // bron van waarheid; het ruwe veld blijft alleen fallback als er geen record matcht.
 const authorDisplayName = authorProfile?.name ?? article.author;
+// LAT-2582: de auteurskaart onder het artikel toonde altijd de NL-bio, waardoor
+// 72 van de 73 /en/artikelen/-pagina's een Nederlandse alinea droegen. Zelfde
+// `bioEn ?? bio`-patroon als AuteurDetail/AuteursIndex (LAT-2715/LAT-2771).
+const authorCardBio = authorProfile
+  ? (locale === 'en' ? authorProfile.bioEn ?? authorProfile.bio : authorProfile.bio)
+  : '';
 
 const modifiedTime = article.updatedAt || article.pubDate;
 
@@ -235,7 +241,7 @@ if (article.faqSchema) {
               <h2 class="author-card-name">
                 <a href={lh(`/auteurs/${authorProfile.slug}/`)} rel="author">{authorProfile.name}</a>
               </h2>
-              <p class="author-card-bio">{authorProfile.bio}</p>
+              <p class="author-card-bio">{authorCardBio}</p>
               <a class="author-card-link" href={lh(`/auteurs/${authorProfile.slug}/`)}>{`${ui.t('artikel.author.meerArtikelenVan')} ${authorProfile.name} →`}</a>
             </div>
           </aside>
