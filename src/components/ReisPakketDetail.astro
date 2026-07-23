@@ -117,7 +117,7 @@ const metaTitle = entry.metaTitle || `${entry.titel}${ui.t('reizen.detail.metaTi
           <span class="section-label">{ui.t('reizen.detail.section.accommodaties')}</span>
           <div class="acc-grid">
             {entry.accommodaties.map((acc) => (
-              <AccommodatieKaart kaart={acc} context={`pakket-${entry.slug}`} />
+              <AccommodatieKaart kaart={acc} context={`pakket-${entry.slug}`} locale={locale} />
             ))}
           </div>
         </section>
