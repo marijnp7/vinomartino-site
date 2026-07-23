@@ -52,6 +52,13 @@ const TYPES = [
     { seg: 'wijnroutes', label: 'wijnroute' },
 ];
 
+// Segmenten die alleen als BRONPAGINA meetellen: hun detailpagina's dragen wél
+// cross-linkblokken (`wijnhuizen.ts:180`, `accommodaties-loader.ts:97` staan in
+// de ticket-tabel), maar hun eigen namen zijn eigennamen en horen niet in de
+// labelmaps. Zonder deze lijst werden 109 wijnhuis-detailpagina's — samen
+// honderden cross-links — nooit bezocht, terwijl de DoD ze expliciet noemt.
+const SCAN_ONLY = ['wijnhuizen', 'accommodaties'];
+
 async function get(url) {
     const res = await fetch(url, { redirect: 'follow' });
     if (!res.ok) return null;
@@ -143,7 +150,21 @@ async function main() {
     // Rond-robin over de types: een `slice(0, LIMIT)` op een gesorteerde lijst
     // zou alleen artikelen pakken en juist de landen-/streekpagina's uit de
     // ticket-voorbeelden overslaan.
-    const perType = TYPES.map((t) => [...en.get(t.seg).keys()].map((slug) => `/en/${t.seg}/${slug}/`));
+    const scanOnlyPages = [];
+    for (const seg of SCAN_ONLY) {
+        const html = await get(`${BASE}/en/${seg}/`);
+        const slugs = [...new Set(anchors(html || '', '/en', seg).map((a) => a.slug))];
+        if (slugs.length === 0) {
+            throw new Error(`geen /en/-detailpagina's gevonden voor ${seg} — listing of markup gewijzigd`);
+        }
+        console.log(`[crosslink-audit] ${seg}: ${slugs.length} bronpagina's (geen labelbron)`);
+        scanOnlyPages.push(slugs.map((slug) => `/en/${seg}/${slug}/`));
+    }
+
+    const perType = [
+        ...TYPES.map((t) => [...en.get(t.seg).keys()].map((slug) => `/en/${t.seg}/${slug}/`)),
+        ...scanOnlyPages,
+    ];
     const pages = [];
     for (let i = 0; perType.some((l) => i < l.length); i++) {
         for (const list of perType) if (i < list.length) pages.push(list[i]);
@@ -154,6 +175,11 @@ async function main() {
     const leaks = [];
     let scanned = 0;
     let crossLinks = 0;
+    // Cross-links waarvoor geen NL/EN-labelpaar bestaat kan deze audit niet
+    // beoordelen (meestal: het artikel heeft geen /en/-pagina). Die tellen niet
+    // als "schoon" — ze worden apart gerapporteerd, anders leest een overgeslagen
+    // link als een geslaagde meting.
+    const unjudged = new Map();
     for (const path of targets) {
         const html = await get(`${BASE}${path}`);
         if (!html) continue;
@@ -164,7 +190,11 @@ async function main() {
                 if (path === `/en/${t.seg}/${slug}/`) continue;
                 const nlLabel = nl.get(t.seg).get(slug);
                 const enLabel = en.get(t.seg).get(slug);
-                if (!nlLabel || !enLabel) continue;
+                if (!nlLabel || !enLabel) {
+                    const key = `/en/${t.seg}/${slug}/`;
+                    unjudged.set(key, (unjudged.get(key) || 0) + 1);
+                    continue;
+                }
                 crossLinks++;
                 if (label === nlLabel && enLabel !== nlLabel) {
                     leaks.push({ path, target: `/en/${t.seg}/${slug}/`, label, expected: enLabel });
@@ -174,6 +204,16 @@ async function main() {
     }
 
     console.log(`[crosslink-audit] ${scanned} pagina's, ${crossLinks} beoordeelbare cross-links`);
+    if (unjudged.size) {
+        const total = [...unjudged.values()].reduce((a, b) => a + b, 0);
+        console.log(
+            `[crosslink-audit] ${total} cross-link(s) niet beoordeeld — ${unjudged.size} doel(en) zonder NL/EN-labelpaar:`,
+        );
+        for (const [target, n] of [...unjudged].sort((a, b) => b[1] - a[1])) {
+            console.log(`    ${target} (${n}×)`);
+        }
+        console.log('');
+    }
     if (leaks.length === 0) {
         console.log('[crosslink-audit] OK — geen NL-label in een /en/-cross-linkblok.');
         return;
