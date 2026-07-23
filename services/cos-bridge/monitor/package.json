@@ -1,0 +1,7 @@
+{
+  "name": "paperclip-monitor",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "monitor.js",
+  "engines": { "node": ">=20" }
+}
