@@ -57,7 +57,7 @@ const heeftInhoud = heeftHoortBij || Boolean(hotel);
       )}
 
       {hotel && (
-        <a href={hotel.href} class="voetblok__hotel" data-plausible-cta="voetblok_hotel">
+        <a href={lh(hotel.href)} class="voetblok__hotel" data-plausible-cta="voetblok_hotel">
           <span class="voetblok__hotel-kicker">Overnachten</span>
           <span class="voetblok__hotel-label">Waar je slaapt in {hotel.streekName}</span>
           <span class="voetblok__hotel-arrow" aria-hidden="true">&rarr;</span>

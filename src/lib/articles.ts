@@ -198,8 +198,10 @@ function stripMetaDescriptionFromBody(markdown: string): { body: string; extract
 import { markdownToHtmlWithToc, countWords, normalizeEmDashes } from './markdown';
 import { buildCjBookingLink } from './affiliates';
 
-function renderArticleBody(markdown: string, slug: string): Promise<{ html: string; toc: TocItem[] }> {
-    return markdownToHtmlWithToc(substituteAffiliateTokens(markdown, slug), { stripFirstH1: true });
+// LAT-2819: de locale gaat mee zodat interne links in de redactionele body
+// meeschalen naar /en/ (no-op op NL).
+function renderArticleBody(markdown: string, slug: string, locale: Locale): Promise<{ html: string; toc: TocItem[] }> {
+    return markdownToHtmlWithToc(substituteAffiliateTokens(markdown, slug), { stripFirstH1: true, locale });
 }
 
 // LAT-2509: harde regel DAM → CMS → Site. Body-beelden mogen NIET naar het
@@ -576,7 +578,7 @@ async function loadFromDirectus(url: string, token: string, locale: Locale): Pro
                   const wordCount = cleanBody ? countWords(cleanBody) : 0;
                   const readingMinutes = Math.max(1, Math.ceil(wordCount / 200));
                   const { html: bodyHtml, toc } = cleanBody
-                        ? await renderArticleBody(cleanBody, String(a.slug))
+                        ? await renderArticleBody(cleanBody, String(a.slug), locale)
                         : { html: '', toc: [] };
                   const [heroImagePath, ogImagePath] = await Promise.all([
                         a.hero_image ? downloadArticleAsset(String(a.hero_image), url, token) : Promise.resolve(null),

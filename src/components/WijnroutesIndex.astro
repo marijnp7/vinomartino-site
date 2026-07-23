@@ -48,7 +48,7 @@ const schema = [
   <section class="section container">
     {/* LAT-2267 — de kaart toont ALLE routes; het aantal markers == werkelijk
         aantal routes, zodat kaart en lijst eronder één op één overeenkomen. */}
-    {entries.length > 0 && <HomeRoutesMap routes={entries} title={ui.t('wijnroutes.index.map.title')} />}
+    {entries.length > 0 && <HomeRoutesMap routes={entries} title={ui.t('wijnroutes.index.map.title')} locale={locale} />}
     {entries.length > 0 ? (
       <div class="grid">
         {entries.map(entry => (

@@ -26,6 +26,7 @@
 // Onbekende directives worden genegeerd (niets gerenderd) — deploy-safe, geen regressie.
 
 import { mdastToHtmlWithToc, normalizeEmDashes, type TocItem } from './markdown';
+import type { Locale } from './i18n';
 
 // Minimale mdast-vorm die we nodig hebben; de directive-extensie hangt `name` en
 // `attributes` aan container/leaf/text-directive-nodes.
@@ -50,6 +51,12 @@ export interface RouteBodyContext {
    * bestand puur/dependency-vrij blijft (zie kop). Leeg = geen voetregel.
    */
   disclosure: string;
+  /**
+   * LAT-2819 — locale van de pagina. Wordt doorgegeven aan de gedeelde
+   * sanitize/toc-pas zodat interne links in de redactionele body locale-aware
+   * worden. Weglaten = NL-gedrag (byte-identiek).
+   */
+  locale?: Locale;
 }
 
 const DIRECTIVE_TYPES = new Set(['containerDirective', 'leafDirective', 'textDirective']);
@@ -235,5 +242,8 @@ export async function renderEnrichedRouteBody(
 
   // 2. Synchrone directive→HTML-transform, daarna de gedeelde sanitize/toc-pas.
   mdast.children = transform(mdast.children, fotoMap, boekMap, { fotoSeen: 0, disclosure: ctx.disclosure });
-  return mdastToHtmlWithToc(mdast as unknown as Parameters<typeof mdastToHtmlWithToc>[0], { stripFirstH1: true });
+  return mdastToHtmlWithToc(mdast as unknown as Parameters<typeof mdastToHtmlWithToc>[0], {
+    stripFirstH1: true,
+    locale: ctx.locale,
+  });
 }

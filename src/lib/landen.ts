@@ -1,4 +1,4 @@
-import { normalizeEmDashes } from './markdown';
+import { localizeHastLinks, normalizeEmDashes } from './markdown';
 import type { RelatedRef } from './articles';
 import { getCtaStructure, type CtaStructure } from './cta-blocks';
 import type { FaqItem } from './seo';
@@ -108,12 +108,17 @@ export function stripGridPlaceholders(markdown: string): string {
         .trim();
 }
 
-async function markdownToHtml(markdown: string): Promise<string> {
+// Landen renderen bewust buiten de gedeelde markdown-pipeline om (geen
+// H1-strip/toc), maar delen wél de link-localisatie: LAT-2819 draait dezelfde
+// hast-pas op de gerenderde boom, zodat interne links in de redactionele body
+// ook hier meeschalen naar /en/ (no-op op NL).
+async function markdownToHtml(markdown: string, locale: Locale): Promise<string> {
     const { fromMarkdown } = await import('mdast-util-from-markdown');
     const { toHast } = await import('mdast-util-to-hast');
     const { toHtml } = await import('hast-util-to-html');
     const mdast = fromMarkdown(markdown);
     const hast = toHast(mdast);
+    localizeHastLinks(hast as Parameters<typeof localizeHastLinks>[0], locale);
     return toHtml(hast as Parameters<typeof toHtml>[0]);
 }
 
@@ -427,7 +432,7 @@ async function loadFromDirectus(url: string, token: string, locale: Locale): Pro
     });
     const items = await Promise.all(
         data.map(async (r) => {
-            const bodyHtml = r.body ? await markdownToHtml(stripGridPlaceholders(String(r.body))) : '';
+            const bodyHtml = r.body ? await markdownToHtml(stripGridPlaceholders(String(r.body)), locale) : '';
             const heroImagePath = r.hero_image
                 ? await downloadAsset(String(r.hero_image), url, token)
                 : null;
