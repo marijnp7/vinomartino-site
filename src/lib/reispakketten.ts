@@ -24,6 +24,9 @@ import {
     statusFilterQuery,
     assertDirectusConfigured,
     assetUrl,
+    directusSignal,
+    withAssetSlot,
+    fetchDirectusCollection,
 } from './directus-config';
 
 export interface PakketWijnhuis {
@@ -65,10 +68,12 @@ async function downloadAsset(
     const outPath = join(outDir, fileName);
     if (existsSync(outPath)) return `/images/${subdir}/${fileName}`;
     try {
-        const res = await fetch(assetUrl(directusUrl, assetId), {
-            headers: { Authorization: `Bearer ${token}` },
-            signal: AbortSignal.timeout(15000),
-        });
+        const res = await withAssetSlot(() =>
+            fetch(assetUrl(directusUrl, assetId), {
+                headers: { Authorization: `Bearer ${token}` },
+                signal: directusSignal(),
+            }),
+        );
         if (!res.ok) {
             console.warn(`[loadReispakketten] kon asset ${assetId} niet ophalen: ${res.status}`);
             return null;
@@ -173,10 +178,11 @@ async function fetchPakketten(url: string, token: string): Promise<Record<string
     const headers = { Authorization: `Bearer ${token}` };
     const filterSort = `${statusFilterQuery(env)}&sort=titel`;
     const tryFetch = (fields: string): Promise<Response> =>
-        fetch(`${url}/items/reispakketten?limit=-1&fields=${fields}${filterSort}`, {
-            headers,
-            signal: AbortSignal.timeout(15000),
-        });
+        fetchDirectusCollection(
+            'loadReispakketten',
+            `${url}/items/reispakketten?limit=-1&fields=${fields}${filterSort}`,
+            { headers },
+        );
 
     // Voorkeursquery met M2M-relaties; degradeer wanneer de junctions nog niet
     // bestaan (DevOps-migratie) zodat de build niet breekt.
