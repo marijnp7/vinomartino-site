@@ -133,6 +133,16 @@ const TRANSLATABLE = {
   appellaties: [
     S('description', { long: true }), S('classification'),
   ],
+  // LAT-2826: `reizen-nareizen` heeft sinds deze ticket een NL-listingpagina en
+  // een /en/-tegenhanger. De EN-routes draaien op dezelfde no-translation-guard
+  // als de rest, dus zonder deze junction bouwt de site nul /en/-pakketpagina's.
+  // Draai dit script opnieuw om 'm aan te maken (idempotent).
+  reispakketten: [
+    S('titel'), S('tagline', { long: true }),
+    S('introductie', { long: true }), S('dag_tot_dag', { long: true }),
+    S('reismoment', { long: true }), S('cta_heading'), S('cta_tekst', { long: true }),
+    S('meta_title'), S('meta_description', { long: true }),
+  ],
 };
 
 // Legacy empty json `translations` fields to drop (verified unused by loaders).

@@ -1,16 +1,23 @@
 ---
-// LAT-2023 — "Reizen nareizen"-pakketpagina. Redactionele, boekbare reisgids per
-// wijnstreek: introductie + dag-tot-dag route + te boeken wijnhuizen +
-// accommodaties (AccommodatieKaart, LAT-1332) + reismoment + CTA. Leest volledig
-// uit de Directus `reispakketten`-collectie (LAT-2023).
-import SiteLayout from '../../layouts/SiteLayout.astro';
-import AccommodatieKaart from '../../components/AccommodatieKaart.astro';
+// LAT-2023 / LAT-2826 — NL "Reizen nareizen"-pakketroute (prefixloos,
+// DEFAULT_LOCALE). Markup en chrome leven in het gedeelde ReisPakketDetail-
+// component; deze route levert enkel de paden + props. De /en/-tegenhanger
+// (src/pages/en/reizen-nareizen/[slug].astro) rendert hetzelfde component met
+// locale="en" en de per-locale loader (no-translation-guard → geen EN-pagina
+// zonder vertaling).
+import ReisPakketDetail from '../../components/ReisPakketDetail.astro';
 import { loadReispakketten, type ReisPakket } from '../../lib/reispakketten';
 import { loadStreken } from '../../lib/streken';
-import { wijnrouteSchema, breadcrumbSchema } from '../../lib/seo';
 
 export async function getStaticPaths() {
-  const [pakketten, streken] = await Promise.all([loadReispakketten(), loadStreken()]);
+  // LAT-2826: de EN-slugset (guard laat alléén vertaalde pakketten door) bepaalt
+  // of er een en-hreflang-tegenhanger bestaat. NL blijft altijd primair.
+  const [pakketten, streken, enPakketten] = await Promise.all([
+    loadReispakketten(),
+    loadStreken(),
+    loadReispakketten('en'),
+  ]);
+  const enSlugs = new Set(enPakketten.map((p) => p.slug));
   const streekBySlug = new Map(streken.map((s) => [s.slug, s]));
   return pakketten.map((entry) => {
     const streek = entry.streekSlug ? streekBySlug.get(entry.streekSlug) : undefined;
@@ -21,274 +28,29 @@ export async function getStaticPaths() {
         landSlug: streek?.landSlug ?? '',
         landName: streek?.country ?? '',
         streekName: entry.streekName || streek?.name || '',
+        // Geen EN-vertaling → geen alternates → SiteLayout emit geen hreflang
+        // (byte-identiek aan prod; geen zinloze self-referende nl/x-default).
+        alternates: enSlugs.has(entry.slug)
+          ? { nl: `/reizen-nareizen/${entry.slug}/`, en: `/en/reizen-nareizen/${entry.slug}/` }
+          : undefined,
       },
     };
   });
 }
 
-const { entry, landSlug, landName, streekName } = Astro.props as {
-  entry: ReisPakket; landSlug: string; landName: string; streekName: string;
+const { entry, landSlug, landName, streekName, alternates } = Astro.props as {
+  entry: ReisPakket;
+  landSlug: string;
+  landName: string;
+  streekName: string;
+  alternates: Record<string, string> | undefined;
 };
-const pageUrl = new URL(`/reizen-nareizen/${entry.slug}/`, Astro.site ?? 'https://vinomartino.com').href;
-
-const crumbs = [{ name: 'Home', url: '/' }];
-if (landSlug && landName) {
-  crumbs.push({ name: 'Landen', url: '/landen/' });
-  crumbs.push({ name: landName, url: `/landen/${landSlug}/` });
-}
-if (entry.streekSlug && streekName) {
-  crumbs.push({ name: streekName, url: `/streken/${entry.streekSlug}/` });
-}
-crumbs.push({ name: entry.titel, url: pageUrl });
-
-const schema = [
-  wijnrouteSchema({
-    name: entry.titel,
-    description: entry.metaDescription || entry.tagline,
-    image: entry.heroImage,
-    duration: '',
-    stops: entry.wijnhuizen.map((w) => w.name),
-    pageUrl,
-  }),
-  breadcrumbSchema(crumbs),
-];
-
-const metaTitle = entry.metaTitle || `${entry.titel} · Reizen nareizen`;
 ---
 
-<SiteLayout
-  title={metaTitle}
-  description={entry.metaDescription || entry.tagline}
-  ogImage={entry.heroImage || undefined}
-  schema={schema}
-  activeNav="wijnroutes"
->
-  <article class="pakket-page">
-    {entry.heroImage && (
-      <div class="page-hero">
-        <img src={entry.heroImage} alt={entry.titel} class="page-hero-img" />
-      </div>
-    )}
-
-    <div class="container">
-      <header class="page-header">
-        <nav class="breadcrumb" aria-label="Breadcrumb">
-          {crumbs.slice(0, -1).map((c) => (
-            <><a href={c.url}>{c.name}</a> / </>
-          ))}
-          <span>{entry.titel}</span>
-        </nav>
-        <span class="page-kicker">Reizen nareizen</span>
-        <h1>{entry.titel}</h1>
-        {entry.tagline && <p class="page-tagline">{entry.tagline}</p>}
-      </header>
-
-      {entry.introHtml && <div class="page-prose" set:html={entry.introHtml} />}
-
-      {entry.dagTotDagHtml && (
-        <section class="pakket-section">
-          <span class="section-label">Route dag-tot-dag</span>
-          <div class="page-prose" set:html={entry.dagTotDagHtml} />
-        </section>
-      )}
-
-      {entry.wijnhuizen.length > 0 && (
-        <section class="pakket-section">
-          <span class="section-label">Wijnhuizen om te boeken</span>
-          <div class="wijnhuis-grid">
-            {entry.wijnhuizen.map((wh) => (
-              <a class="wijnhuis-card" href={`/wijnhuizen/${wh.slug}/`}>
-                <span class="wijnhuis-card__name">{wh.name}</span>
-                {wh.description && <span class="wijnhuis-card__desc">{wh.description}</span>}
-                <span class="wijnhuis-card__cta">Lees portret &rarr;</span>
-              </a>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {entry.accommodaties.length > 0 && (
-        <section class="pakket-section">
-          <span class="section-label">Waar te slapen</span>
-          <div class="acc-grid">
-            {entry.accommodaties.map((acc) => (
-              <AccommodatieKaart kaart={acc} context={`pakket-${entry.slug}`} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {entry.reismoment && (
-        <section class="pakket-section pakket-reismoment">
-          <span class="section-label">Reismoment</span>
-          <p>{entry.reismoment}</p>
-        </section>
-      )}
-
-      {(entry.ctaHeading || entry.ctaTekst) && (
-        <aside class="pakket-cta">
-          {entry.ctaHeading && <h2>{entry.ctaHeading}</h2>}
-          {entry.ctaTekst && <p>{entry.ctaTekst}</p>}
-        </aside>
-      )}
-    </div>
-  </article>
-</SiteLayout>
-
-<style>
-  .page-hero {
-    height: 45vh;
-    min-height: 300px;
-    overflow: hidden;
-  }
-  .page-hero-img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-  .container { padding-bottom: var(--space-12); }
-  .page-header {
-    padding-top: var(--space-10);
-    max-width: var(--article-body-max);
-  }
-  .breadcrumb {
-    font-family: var(--font-mono);
-    font-size: 0.6875rem;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--inkFaint);
-    margin-bottom: var(--space-4);
-  }
-  .breadcrumb a { color: var(--inkSoft); text-decoration: none; }
-  .breadcrumb a:hover { text-decoration: underline; }
-  .page-kicker {
-    display: block;
-    font-family: var(--font-mono);
-    font-size: 0.6875rem;
-    text-transform: uppercase;
-    letter-spacing: 0.14em;
-    color: var(--burgundy);
-    margin-bottom: var(--space-3);
-  }
-  .page-header h1 {
-    font-family: var(--font-display);
-    font-size: clamp(2rem, 1.6rem + 1.5vw, 3rem);
-    font-weight: 400;
-    font-style: italic;
-    color: var(--ink);
-    line-height: 1.15;
-    margin-bottom: var(--space-4);
-  }
-  .page-tagline {
-    font-family: var(--font-body);
-    font-size: 1.25rem;
-    line-height: 1.5;
-    color: var(--inkSoft);
-    margin-bottom: var(--space-8);
-  }
-  .page-prose {
-    font-family: var(--font-body);
-    font-size: 1.0625rem;
-    line-height: 1.8;
-    color: var(--ink);
-    max-width: var(--article-body-max);
-  }
-  .page-prose :global(h2) {
-    font-family: var(--font-display);
-    font-size: 1.625rem;
-    font-weight: 500;
-    margin: var(--space-10) 0 var(--space-4);
-  }
-  .page-prose :global(h3) {
-    font-family: var(--font-ui);
-    font-size: 1.125rem;
-    font-weight: 600;
-    margin: var(--space-8) 0 var(--space-3);
-  }
-  .page-prose :global(p) { margin-bottom: var(--space-5); }
-  .page-prose :global(ul), .page-prose :global(ol) {
-    padding-left: 1.5rem;
-    margin-bottom: var(--space-5);
-  }
-  .page-prose :global(li) { margin-bottom: 0.375rem; }
-  .pakket-section {
-    margin-top: var(--space-10);
-    padding-top: var(--space-8);
-    border-top: 1px solid var(--rule);
-  }
-  .section-label { display: block; margin-bottom: var(--space-5); }
-  .wijnhuis-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 1rem;
-  }
-  .wijnhuis-card {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    text-decoration: none;
-    background: var(--paper);
-    border: 1px solid var(--rule);
-    padding: 1.25rem;
-    transition: box-shadow 0.15s;
-  }
-  .wijnhuis-card:hover { box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); }
-  .wijnhuis-card__name {
-    font-family: var(--font-display);
-    font-size: 1.375rem;
-    font-weight: 500;
-    color: var(--ink);
-  }
-  .wijnhuis-card__desc {
-    font-family: var(--font-body);
-    font-size: 0.9375rem;
-    line-height: 1.5;
-    color: var(--inkSoft);
-  }
-  .wijnhuis-card__cta {
-    font-family: var(--font-mono);
-    font-size: 0.6875rem;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--burgundy);
-    margin-top: auto;
-  }
-  .acc-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 1.5rem;
-  }
-  .pakket-reismoment p {
-    font-family: var(--font-body);
-    font-size: 1.0625rem;
-    line-height: 1.8;
-    color: var(--ink);
-    max-width: var(--article-body-max);
-  }
-  .pakket-cta {
-    margin-top: var(--space-12);
-    padding: var(--space-8);
-    background: var(--paperDeep);
-    border-radius: var(--radius-sm);
-    text-align: center;
-  }
-  .pakket-cta h2 {
-    font-family: var(--font-display);
-    font-size: 1.75rem;
-    font-weight: 500;
-    font-style: italic;
-    color: var(--ink);
-    margin-bottom: var(--space-4);
-  }
-  .pakket-cta p {
-    font-family: var(--font-body);
-    font-size: 1.0625rem;
-    line-height: 1.7;
-    color: var(--inkSoft);
-    max-width: 46rem;
-    margin: 0 auto;
-  }
-  @media (max-width: 640px) {
-    .wijnhuis-grid { grid-template-columns: 1fr; }
-  }
-</style>
+<ReisPakketDetail
+  entry={entry}
+  landSlug={landSlug}
+  landName={landName}
+  streekName={streekName}
+  alternates={alternates}
+/>

@@ -1,0 +1,25 @@
+{
+  "_comment": "LAT-2826 — EN ui_strings-overlay voor /en/reizen-nareizen/ (listing + pakketdetail). Zonder deze values valt t() terug op de NL-default en staat er op /en/ Nederlands. NB: 'nareizen' is een gemunt Martino-woord; de EN-rendering 'Travels & afterwards' is een voorstel dat nog langs de Lead Editor moet — pas hier aan (of overschrijf in Directus) zodra de redactie een definitieve EN-titel heeft. Seeden met: DIRECTUS_URL=... DIRECTUS_TOKEN=... node directus/scripts/seed-ui-strings-en.mjs directus/data/ui-strings-en-lat2826.json",
+
+  "reizen.breadcrumb.index": "Travels & afterwards",
+  "reizen.index.meta.title": "Travels & afterwards — Martino's wine journeys | VinoMartino",
+  "reizen.index.meta.description": "Reports from wine journeys across Europe and beyond. Marijn travels, tastes and writes — after the trip, when it tells better.",
+  "reizen.index.hero.label": "Travels & afterwards",
+  "reizen.index.hero.h1": "Travels & afterwards",
+  "reizen.index.hero.desc": "Every wine trip ends on the way home. Sometimes in a packed intercity with one bottle too many in your backpack, sometimes in a quiet carriage with notes in a linen notebook. These are the stories that only really get going afterwards — once the smell of the cellar has faded but the feeling has not.",
+  "reizen.index.groupFallback": "On the road",
+  "reizen.index.readCta": "Read the story →",
+  "reizen.index.empty.title": "The stories are on their way",
+  "reizen.index.empty.descPre": "Nothing has been published here yet. In the meantime, start with the ",
+  "reizen.index.empty.descLink": "wine routes",
+  "reizen.index.empty.descPost": " — that is where the journeys begin.",
+
+  "reizen.detail.crumbsAria": "Breadcrumb",
+  "reizen.detail.kicker": "Travels & afterwards",
+  "reizen.detail.metaTitleSuffix": " · Travels & afterwards",
+  "reizen.detail.section.dagTotDag": "Day-by-day route",
+  "reizen.detail.section.wijnhuizen": "Wineries worth booking",
+  "reizen.detail.section.accommodaties": "Where to stay",
+  "reizen.detail.section.reismoment": "When to go",
+  "reizen.detail.leesPortret": "Read the portrait →"
+}

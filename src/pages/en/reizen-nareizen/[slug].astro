@@ -1,0 +1,50 @@
+---
+// LAT-2826 — EN "Reizen nareizen"-pakketroute. Rendert hetzelfde gedeelde
+// component als de NL-route met locale="en". `loadReispakketten('en')` past de
+// no-translation-guard toe: alléén pakketten mét een `reispakketten_translations`
+// -rij krijgen hier een pagina. Zolang die junction niet in Directus bestaat
+// levert dit nul paden op — dat is bewust (404 i.p.v. NL-lek onder /en/).
+import ReisPakketDetail from '../../../components/ReisPakketDetail.astro';
+import { loadReispakketten, type ReisPakket } from '../../../lib/reispakketten';
+import { loadStreken } from '../../../lib/streken';
+
+const EN = 'en' as const;
+
+export async function getStaticPaths() {
+  const [pakketten, streken] = await Promise.all([loadReispakketten(EN), loadStreken(EN)]);
+  const streekBySlug = new Map(streken.map((s) => [s.slug, s]));
+  return pakketten.map((entry) => {
+    const streek = entry.streekSlug ? streekBySlug.get(entry.streekSlug) : undefined;
+    return {
+      params: { slug: entry.slug },
+      props: {
+        entry,
+        landSlug: streek?.landSlug ?? '',
+        landName: streek?.country ?? '',
+        streekName: entry.streekName || streek?.name || '',
+        alternates: {
+          nl: `/reizen-nareizen/${entry.slug}/`,
+          en: `/en/reizen-nareizen/${entry.slug}/`,
+        },
+      },
+    };
+  });
+}
+
+const { entry, landSlug, landName, streekName, alternates } = Astro.props as {
+  entry: ReisPakket;
+  landSlug: string;
+  landName: string;
+  streekName: string;
+  alternates: Record<string, string>;
+};
+---
+
+<ReisPakketDetail
+  entry={entry}
+  landSlug={landSlug}
+  landName={landName}
+  streekName={streekName}
+  locale={EN}
+  alternates={alternates}
+/>

@@ -1,0 +1,9 @@
+---
+// LAT-2826 — EN "Travels & afterwards"-overzicht. Rendert hetzelfde gedeelde
+// component als de NL-route met locale="en": de UI-dictionary levert de
+// EN-chrome, de no-translation-guard in loadReispakketten() bepaalt welke
+// pakketten hier verschijnen (nul zolang reispakketten_translations ontbreekt).
+import ReizenNareizenIndex from '../../../components/ReizenNareizenIndex.astro';
+---
+
+<ReizenNareizenIndex locale="en" alternates={{ nl: '/reizen-nareizen/', en: '/en/reizen-nareizen/' }} />

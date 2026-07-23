@@ -1,0 +1,8 @@
+---
+// LAT-2826 — NL "Reizen & nareizen"-overzicht (prefixloos). Markup, groepering
+// en logica leven in het gedeelde ReizenNareizenIndex-component; de
+// /en/-tegenhanger rendert hetzelfde met locale="en".
+import ReizenNareizenIndex from '../../components/ReizenNareizenIndex.astro';
+---
+
+<ReizenNareizenIndex alternates={{ nl: '/reizen-nareizen/', en: '/en/reizen-nareizen/' }} />
