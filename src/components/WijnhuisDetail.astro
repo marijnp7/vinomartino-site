@@ -12,7 +12,7 @@ import RelatedArticles from './RelatedArticles.astro';
 import CtaStructure from './CtaStructure.astro';
 import { type Wijnhuis } from '../lib/wijnhuizen';
 import { wijnhuisSchema, wijnhuisMetaTitle, wijnhuisMetaDescription, breadcrumbSchema } from '../lib/seo';
-import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
+import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
 import { loadUiStrings } from '../lib/ui-strings';
 
 interface Props {
@@ -37,15 +37,19 @@ const pageUrl = new URL(`${localePrefix}/wijnhuizen/${entry.slug}/`, Astro.site 
 const hasParentLand = Boolean(landSlug && landName);
 const hasParentStreek = Boolean(entry.streekSlug && entry.region);
 
-const crumbs = [{ name: ui.t('streek.breadcrumb.home'), url: '/' }];
+// LAT-2582: de kruimel-URL's liepen nog niet door localizeHref, waardoor de
+// EN-pagina's naar /landen/, /wijnhuizen/ en /streken/<slug>/ in het NL linkten
+// (en die NL-paden ook in de breadcrumb-schema.org-JSON belandden).
+const lh = (href: string) => localizeHref(href, locale);
+const crumbs = [{ name: ui.t('streek.breadcrumb.home'), url: lh('/') }];
 if (hasParentLand) {
-  crumbs.push({ name: ui.t('streek.breadcrumb.landen'), url: '/landen/' });
-  crumbs.push({ name: landName, url: `/landen/${landSlug}/` });
+  crumbs.push({ name: ui.t('streek.breadcrumb.landen'), url: lh('/landen/') });
+  crumbs.push({ name: landName, url: lh(`/landen/${landSlug}/`) });
 } else {
-  crumbs.push({ name: ui.t('wijnhuis.breadcrumb.index'), url: '/wijnhuizen/' });
+  crumbs.push({ name: ui.t('wijnhuis.breadcrumb.index'), url: lh('/wijnhuizen/') });
 }
 if (hasParentStreek) {
-  crumbs.push({ name: entry.region, url: `/streken/${entry.streekSlug}/` });
+  crumbs.push({ name: entry.region, url: lh(`/streken/${entry.streekSlug}/`) });
 }
 crumbs.push({ name: entry.name, url: pageUrl });
 
@@ -80,12 +84,13 @@ const schema = [
   alternates={alternates}
 >
   <WijnhuisPageContent
+    locale={locale}
     name={entry.name}
     subtitle={entry.description}
     breadcrumb={visibleBreadcrumb}
     region={[entry.region, entry.country].filter(Boolean).join(' · ')}
-    regionHref={entry.streekSlug ? `/streken/${entry.streekSlug}/` : undefined}
-    routeHref={routeHref || undefined}
+    regionHref={entry.streekSlug ? lh(`/streken/${entry.streekSlug}/`) : undefined}
+    routeHref={routeHref ? lh(routeHref) : undefined}
     routeLabel={routeLabel || undefined}
     since={entry.established ? String(entry.established) : undefined}
     hectaren={entry.hectares || undefined}

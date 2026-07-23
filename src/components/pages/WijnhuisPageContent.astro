@@ -3,6 +3,8 @@ import SmartImg from '../SmartImg.astro';
 import AffiliatePlaceholder from '../AffiliatePlaceholder.astro';
 import AffiliateDisclosure from '../AffiliateDisclosure.astro';
 import { getImageCredit } from '../../lib/image-credits';
+import { DEFAULT_LOCALE, type Locale, localizeHref } from '../../lib/i18n';
+import { loadUiStrings } from '../../lib/ui-strings';
 
 interface WijnhuisWine {
   name: string;
@@ -26,6 +28,8 @@ interface WijnhuisDrieluikBeeld {
 }
 
 interface Props {
+  /** LAT-2582 — stuurt de AffiliateDisclosure-taal en de fallback-kruimel. */
+  locale?: Locale;
   name: string;
   subtitle?: string;
   breadcrumb?: { label: string; href: string }[];
@@ -55,6 +59,7 @@ interface Props {
 const {
   name,
   subtitle,
+  locale = DEFAULT_LOCALE,
   breadcrumb = [],
   region,
   regionHref,
@@ -74,6 +79,7 @@ const {
   reserveringUrl,
   relatedWijnhuizen = [],
 } = Astro.props;
+const ui = await loadUiStrings(locale);
 
 const drieluikBeelden = drieluik.filter((b) => b && b.src);
 
@@ -96,7 +102,7 @@ const heroCredit = getImageCredit(heroImageId);
           </>
         ))
       ) : (
-        <a href="/wijnhuizen/">Wijnhuizen</a>
+        <a href={localizeHref('/wijnhuizen/', locale)}>{ui.t('wijnhuis.breadcrumb.index')}</a>
       )}
       <span class="wh-breadcrumb__sep">›</span>
       <span class="wh-breadcrumb__current">{name}</span>
@@ -305,7 +311,7 @@ const heroCredit = getImageCredit(heroImageId);
   </section>
 )}
 
-<AffiliateDisclosure />
+<AffiliateDisclosure locale={locale} />
 
 <style>
   /* ── Shared ── */
