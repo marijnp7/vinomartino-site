@@ -14,6 +14,7 @@
     "test:i18n-voetblok-copy": "node --test scripts/i18n-voetblok-copy.test.mjs",
     "test:i18n-reizen-nareizen": "node --test scripts/i18n-reizen-nareizen.test.mjs",
     "test:i18n-crosslink-refs": "node --test scripts/i18n-crosslink-refs.test.mjs",
+    "audit:i18n-crosslinks": "node scripts/i18n-crosslink-audit.mjs",
     "directus:bootstrap": "node directus/scripts/bootstrap-schema.mjs",
     "directus:seed": "node directus/scripts/seed-countries.mjs",
     "directus:migrate": "node directus/scripts/migrate-blog-posts.mjs",
