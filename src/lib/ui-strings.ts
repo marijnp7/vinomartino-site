@@ -569,6 +569,54 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'reizen.detail.section.accommodaties': 'Waar te slapen',
     'reizen.detail.section.reismoment': 'Reismoment',
     'reizen.detail.leesPortret': 'Lees portret →',
+
+    // LAT-2839 — NL-literals uit componenten getild naar de dictionary zodat de
+    // /en/-tegenhangers de EN-overlay (ui_strings) kunnen tonen i.p.v. NL. NL is
+    // byte-identiek: elke key hieronder is de bestaande hardcoded NL-tekst.
+    // De EN-waarden staan in directus/data/ui-strings-en-lat2839.json (seed).
+
+    // LangheCaptureBlock (lead magnet op /(en/)artikelen/langhe-piemonte-4-dagen-route/)
+    'langhe.capture.a.koptekst': 'De volledige reisplanner als PDF',
+    'langhe.capture.a.body': 'Dit artikel geeft de kern. Als je de route daadwerkelijk rijdt, is er meer: telefoonnummers voor de wijnhuizen, openingstijden per seizoen, en een overzicht van wat elke dag kost. Dat staat in de compacte Langhe-PDF die ik stuur naar iedereen die zich aanmeldt voor De Brief.',
+    'langhe.capture.a.ctaText': 'Stuur me de Langhe-PDF',
+    'langhe.capture.a.subCopy': 'Elke twee weken ontvang je ook De Brief: over wijn, reizen en de mensen erachter. Uitschrijven kan altijd.',
+    'langhe.capture.c.koptekst': 'Begin met Piemonte',
+    'langhe.capture.c.body': 'Als je wilt weten waar te beginnen in de Langhe: ik schreef een compacte reisplanner. Route, wijnhuizen, hotels, budget. Aanmelden voor De Brief, en hij is meteen van jou.',
+    'langhe.capture.c.ctaText': 'Stuur me de Langhe-PDF',
+    'langhe.capture.c.subCopy': 'Elke twee weken volgt De Brief: over wijn en reizen vanuit eigen ervaring.',
+    'langhe.capture.emailLabel': 'E-mailadres',
+    'langhe.capture.emailPlaceholder': 'je@adres.nl',
+
+    // RouteItineraryDays (dag-blokken op /(en/)wijnroutes/<slug>/)
+    'route.itinerary.unit.hour': 'u',
+    'route.itinerary.kind.wijnhuis': 'Wijnhuis',
+    'route.itinerary.kind.eten': 'Eten',
+    'route.itinerary.kind.bezienswaardigheid': 'Bezienswaardigheid',
+    'route.itinerary.kind.overnachting': 'Overnachting',
+    'route.itinerary.stop.duurPrefix': 'Reken op',
+    'route.itinerary.stop.cta': 'Lees portret',
+    'route.itinerary.daysNav.aria': 'Dagen op deze route',
+    'route.itinerary.dayLabel': 'Dag',
+    'route.itinerary.totalPre': 'Totale rijtijd op de route: circa',
+    'route.itinerary.dayRijtijdPre': 'Rijtijd:',
+    'route.itinerary.bookStay': 'Boek je overnachting',
+
+    // RhoneMap (kaart-chrome + config-labels op de twee Rhône-artikelen). De
+    // caption/title/kind-defaults dienen als EN-vangnet; NL rendert de config.
+    'rhone.map.label': 'Kaart',
+    'rhone.map.canvasAriaPre': 'Kaart:',
+    'rhone.map.legendAria': 'Legenda',
+    'rhone.map.routeLegend': 'Route noord → zuid',
+    'rhone.caption.van-macon-naar-aix-rhone-route': 'De route in één oogopslag',
+    'rhone.caption.10-wijnhuizen-rhone-benchmark': 'De tien Rhône-appellaties op de kaart',
+    'rhone.title.van-macon-naar-aix-rhone-route': 'Van Mâcon naar Aix — de route',
+    'rhone.title.10-wijnhuizen-rhone-benchmark': 'Tien appellaties, noord naar zuid',
+    'rhone.kind.wijnhuis': 'Wijnhuis',
+    'rhone.kind.hotel': 'Hotel',
+    'rhone.kind.bezienswaardigheid': 'Bezienswaardigheid',
+    'rhone.kind.noord': 'Noordelijke Rhône',
+    'rhone.kind.zuid': 'Zuidelijke Rhône',
+    'rhone.kind.tavel': 'Tavel (rosé)',
 };
 
 /** Resolver over de UI-dictionary: EN-value indien aanwezig, anders NL-default. */

@@ -8,12 +8,23 @@
 // IntersectionObserver-patroon als RouteGeoMap/CuratedStayMap, scrollWheelZoom
 // uit zodat de kaart niet meescrollt op mobiel.
 import type { RhoneMapConfig } from '../lib/rhone-maps';
+import { type Locale, DEFAULT_LOCALE } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
 
 export interface Props extends RhoneMapConfig {
   slug: string;
+  locale?: Locale;
 }
 
-const { slug, variant, title, caption, pois, kindMeta, routeLine = null } = Astro.props;
+const { slug, variant, title, caption, pois, kindMeta, routeLine = null, locale = DEFAULT_LOCALE } = Astro.props;
+const ui = await loadUiStrings(locale);
+
+// LAT-2839 — kaart-chrome + config-labels locale-bewust. NL rendert byte-identiek
+// via de rhone-maps.ts-config; EN haalt de vertaling uit ui_strings, met de
+// NL-config-waarde als vangnet zodat een ontbrekende seed nooit de kale key toont.
+const tc = (key: string, nl: string): string => (locale === DEFAULT_LOCALE ? nl : ui.t(key));
+const localizedCaption = tc(`rhone.caption.${slug}`, caption);
+const localizedTitle = tc(`rhone.title.${slug}`, title);
 
 const mapId = `rhonemap-${slug}`.replace(/[^a-z0-9-]/gi, '');
 const colorByKind: Record<string, string> = Object.fromEntries(kindMeta.map((m) => [m.kind, m.color]));
@@ -27,22 +38,22 @@ const mapData = {
 
 <figure class="rhonemap" data-rhonemap id={mapId} aria-labelledby={`${mapId}-cap`}>
   <figcaption class="rhonemap__cap" id={`${mapId}-cap`}>
-    <span class="rhonemap__label">Kaart</span>
-    <span class="rhonemap__title">{caption}</span>
+    <span class="rhonemap__label">{ui.t('rhone.map.label')}</span>
+    <span class="rhonemap__title">{localizedCaption}</span>
   </figcaption>
-  <div class="rhonemap__canvas" data-rhonemap-canvas role="application" aria-label={`Kaart: ${title}`}></div>
+  <div class="rhonemap__canvas" data-rhonemap-canvas role="application" aria-label={`${ui.t('rhone.map.canvasAriaPre')} ${localizedTitle}`}></div>
   <script type="application/json" data-rhonemap-data set:html={JSON.stringify(mapData)} />
-  <ul class="rhonemap__legend" aria-label="Legenda">
+  <ul class="rhonemap__legend" aria-label={ui.t('rhone.map.legendAria')}>
     {kindMeta.map((m) => (
       <li class="rhonemap__legend-item">
         <span class="rhonemap__swatch" style={`background:${m.color}`} aria-hidden="true"></span>
-        {m.label}
+        {tc(`rhone.kind.${m.kind}`, m.label)}
       </li>
     ))}
     {routeLine && (
       <li class="rhonemap__legend-item">
         <span class="rhonemap__swatch rhonemap__swatch--line" aria-hidden="true"></span>
-        Route noord → zuid
+        {ui.t('rhone.map.routeLegend')}
       </li>
     )}
   </ul>

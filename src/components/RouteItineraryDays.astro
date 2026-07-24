@@ -30,22 +30,26 @@ const ui = await loadUiStrings(locale);
 
 const dagAnchor = (n: number) => `dag-${n}`;
 
+// LAT-2839 — uur-eenheid locale-bewust ('u' NL / 'h' EN); 'min' is in beide talen
+// gelijk. NL blijft byte-identiek ("1 u 55 min").
 function fmtRijtijd(min: number): string {
   if (min < 60) return `${min} min`;
   const u = Math.floor(min / 60);
   const m = min % 60;
-  return m === 0 ? `${u} u` : `${u} u ${m} min`;
+  const uu = ui.t('route.itinerary.unit.hour');
+  return m === 0 ? `${u} ${uu}` : `${u} ${uu} ${m} min`;
 }
 
 const totaalRijtijd = itinerary.days.reduce((sum, d) => sum + (d.rijtijdMin ?? 0), 0);
 
 const bookHref = boekbaar && streekSlug ? `/accommodaties/${streekSlug}/` : null;
 
+// LAT-2839 — POI-kind-labels uit de UI-dictionary; NL valt terug op de defaults.
 const KIND_LABEL: Record<ItineraryStop['kind'], string> = {
-  wijnhuis: 'Wijnhuis',
-  eten: 'Eten',
-  bezienswaardigheid: 'Bezienswaardigheid',
-  overnachting: 'Overnachting',
+  wijnhuis: ui.t('route.itinerary.kind.wijnhuis'),
+  eten: ui.t('route.itinerary.kind.eten'),
+  bezienswaardigheid: ui.t('route.itinerary.kind.bezienswaardigheid'),
+  overnachting: ui.t('route.itinerary.kind.overnachting'),
 };
 
 // LAT-2125 [VIS-STRAT-02] — nummer de POI-cards zó dat het nummer de kaart-pin
@@ -94,9 +98,9 @@ function stopToPoi(stop: ItineraryStop, pin: CardPin): PoiCardData {
     fotoTheme: stop.kind === 'wijnhuis' ? 'winery' : 'region',
     badge: KIND_LABEL[stop.kind],
     whyRegel: stop.why,
-    beschrijving: stop.duur ? `Reken op ${stop.duur}.` : null,
+    beschrijving: stop.duur ? `${ui.t('route.itinerary.stop.duurPrefix')} ${stop.duur}.` : null,
     detailUrl,
-    cta: 'Lees portret',
+    cta: ui.t('route.itinerary.stop.cta'),
     n: pin.n,
     plotted: pin.plotted,
     cardId: pin.n != null ? `route-poi-${pin.n}` : undefined,
@@ -105,27 +109,27 @@ function stopToPoi(stop: ItineraryStop, pin: CardPin): PoiCardData {
 ---
 
 <div class="route-itinerary">
-  <nav class="route-daystrip" aria-label="Dagen op deze route">
+  <nav class="route-daystrip" aria-label={ui.t('route.itinerary.daysNav.aria')}>
     {itinerary.days.map((d) => (
       <a class="route-daychip" href={`#${dagAnchor(d.n)}`}>
-        <span class="route-daychip__label">Dag {d.n}</span>
+        <span class="route-daychip__label">{ui.t('route.itinerary.dayLabel')}{' '}{d.n}</span>
         {d.title && <span class="route-daychip__title">{d.title}</span>}
       </a>
     ))}
   </nav>
 
   {totaalRijtijd > 0 && (
-    <p class="route-itinerary__total">Totale rijtijd op de route: circa {fmtRijtijd(totaalRijtijd)}.</p>
+    <p class="route-itinerary__total">{ui.t('route.itinerary.totalPre')}{' '}{fmtRijtijd(totaalRijtijd)}.</p>
   )}
 
   <div class="route-days">
     {dayBlocks.map(({ day: d, stops, overnachtingPin }) => (
       <section class="route-day" id={dagAnchor(d.n)}>
         <header class="route-day__head">
-          <span class="route-day__label">Dag {d.n}</span>
+          <span class="route-day__label">{ui.t('route.itinerary.dayLabel')}{' '}{d.n}</span>
           <h2 class="route-day__etappe">{d.title}</h2>
           {(d.rijtijdMin != null && d.rijtijdMin > 0) && (
-            <span class="route-day__rijtijd">Rijtijd: {fmtRijtijd(d.rijtijdMin)}</span>
+            <span class="route-day__rijtijd">{ui.t('route.itinerary.dayRijtijdPre')}{' '}{fmtRijtijd(d.rijtijdMin)}</span>
           )}
         </header>
 
@@ -147,7 +151,7 @@ function stopToPoi(stop: ItineraryStop, pin: CardPin): PoiCardData {
                 naam: d.overnachting.naam,
                 foto: d.overnachting.foto,
                 fotoTheme: 'region',
-                badge: 'Overnachting',
+                badge: KIND_LABEL.overnachting,
                 boeklink: d.overnachting.boekbaar ? bookHref : null,
                 cta: ui.t('streekkaart.cta.overnachten'),
                 partner: 'stay22',
@@ -166,7 +170,7 @@ function stopToPoi(stop: ItineraryStop, pin: CardPin): PoiCardData {
   </div>
 
   {bookHref && (
-    <a class="route-book-sticky" href={bookHref}>Boek je overnachting</a>
+    <a class="route-book-sticky" href={bookHref}>{ui.t('route.itinerary.bookStay')}</a>
   )}
 </div>
 
