@@ -303,6 +303,20 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'newsletter.footer.submit': 'Stuur me De brief',
     'newsletter.footer.fineprint': 'Je ontvangt een e-mail om je aanmelding te bevestigen. Afmelden kan altijd, met één klik.',
 
+    // LangheCaptureBlock.astro (LAT-2022 / LAT-2867) — Langhe-PDF leadmagneet.
+    // Twee varianten: a = mid-article, c = homepage-style. Locale-aware zodat de
+    // /en/-route EN toont; NL defaults zijn byte-identiek aan de oude hardcode.
+    'langheCapture.label': 'E-mailadres',
+    'langheCapture.placeholder': 'je@adres.nl',
+    'langheCapture.a.koptekst': 'De volledige reisplanner als PDF',
+    'langheCapture.a.body': 'Dit artikel geeft de kern. Als je de route daadwerkelijk rijdt, is er meer: telefoonnummers voor de wijnhuizen, openingstijden per seizoen, en een overzicht van wat elke dag kost. Dat staat in de compacte Langhe-PDF die ik stuur naar iedereen die zich aanmeldt voor De Brief.',
+    'langheCapture.a.cta': 'Stuur me de Langhe-PDF',
+    'langheCapture.a.subcopy': 'Elke twee weken ontvang je ook De Brief: over wijn, reizen en de mensen erachter. Uitschrijven kan altijd.',
+    'langheCapture.c.koptekst': 'Begin met Piemonte',
+    'langheCapture.c.body': 'Als je wilt weten waar te beginnen in de Langhe: ik schreef een compacte reisplanner. Route, wijnhuizen, hotels, budget. Aanmelden voor De Brief, en hij is meteen van jou.',
+    'langheCapture.c.cta': 'Stuur me de Langhe-PDF',
+    'langheCapture.c.subcopy': 'Elke twee weken volgt De Brief: over wijn en reizen vanuit eigen ervaring.',
+
     // NewsletterRegionField.astro (LAT-2452) — gedeeld regio-keuzeveld. Alleen
     // display-tekst; de MailerLite `value`-opties blijven literal.
     'newsletter.region.label': 'Welke wijnregio interesseert jou het meest?',

@@ -2,33 +2,30 @@
 // LAT-2022: Langhe-PDF lead magnet capture block.
 // Variant: Configurable (A = mid-article, C = homepage-style)
 // MailerLite form posts to PUBLIC_MAILERLITE_FORM_ACTION (same as /de-brief/ page).
+// LAT-2867: locale-aware — copy komt uit loadUiStrings(locale) zodat de /en/-route
+// EN toont i.p.v. hardcoded NL; NL blijft byte-identiek via UI_STRING_DEFAULTS.
+import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
 
 export interface Props {
   variant?: 'a' | 'c';
+  locale?: Locale;
 }
 
-const { variant = 'a' } = Astro.props;
+const { variant = 'a', locale = DEFAULT_LOCALE } = Astro.props;
+
+const ui = await loadUiStrings(locale);
 
 const FORM_ACTION =
   import.meta.env.PUBLIC_MAILERLITE_FORM_ACTION ||
   'https://assets.mailerlite.com/jsonp/2415940/forms/189828746131277541/subscribe';
 
-const variants = {
-  a: {
-    koptekst: 'De volledige reisplanner als PDF',
-    body: 'Dit artikel geeft de kern. Als je de route daadwerkelijk rijdt, is er meer: telefoonnummers voor de wijnhuizen, openingstijden per seizoen, en een overzicht van wat elke dag kost. Dat staat in de compacte Langhe-PDF die ik stuur naar iedereen die zich aanmeldt voor De Brief.',
-    ctaText: 'Stuur me de Langhe-PDF',
-    subCopy: 'Elke twee weken ontvang je ook De Brief: over wijn, reizen en de mensen erachter. Uitschrijven kan altijd.',
-  },
-  c: {
-    koptekst: 'Begin met Piemonte',
-    body: 'Als je wilt weten waar te beginnen in de Langhe: ik schreef een compacte reisplanner. Route, wijnhuizen, hotels, budget. Aanmelden voor De Brief, en hij is meteen van jou.',
-    ctaText: 'Stuur me de Langhe-PDF',
-    subCopy: 'Elke twee weken volgt De Brief: over wijn en reizen vanuit eigen ervaring.',
-  },
+const copy = {
+  koptekst: ui.t(`langheCapture.${variant}.koptekst`),
+  body: ui.t(`langheCapture.${variant}.body`),
+  ctaText: ui.t(`langheCapture.${variant}.cta`),
+  subCopy: ui.t(`langheCapture.${variant}.subcopy`),
 };
-
-const copy = variants[variant];
 ---
 
 <section class="langhe-capture-block langhe-capture-block--{variant}">
@@ -43,13 +40,13 @@ const copy = variants[variant];
       target="_blank"
       data-newsletter-signup
     >
-      <label for="ml-email-{variant}" class="visually-hidden">E-mailadres</label>
+      <label for="ml-email-{variant}" class="visually-hidden">{ui.t('langheCapture.label')}</label>
       <input
         id="ml-email-{variant}"
         type="email"
         name="fields[email]"
         autocomplete="email"
-        placeholder="je@adres.nl"
+        placeholder={ui.t('langheCapture.placeholder')}
         required
       />
       {/* Langhe-leadmagneet hoort bij Piemonte: routeer naar de Piemonte-automation. */}
