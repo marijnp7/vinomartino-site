@@ -569,6 +569,20 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'reizen.detail.section.accommodaties': 'Waar te slapen',
     'reizen.detail.section.reismoment': 'Reismoment',
     'reizen.detail.leesPortret': 'Lees portret →',
+
+    // LAT-2868 — LangheCaptureBlock (Langhe-PDF lead magnet). Stond als hardcoded
+    // NL-`variants` in src/components/LangheCaptureBlock.astro; nu dictionary-driven
+    // zodat de /en/-artikelpagina de EN-overlay krijgt (seed: ui-strings-en-lat2832).
+    'langhe.capture.a.koptekst': 'De volledige reisplanner als PDF',
+    'langhe.capture.a.body': 'Dit artikel geeft de kern. Als je de route daadwerkelijk rijdt, is er meer: telefoonnummers voor de wijnhuizen, openingstijden per seizoen, en een overzicht van wat elke dag kost. Dat staat in de compacte Langhe-PDF die ik stuur naar iedereen die zich aanmeldt voor De Brief.',
+    'langhe.capture.a.ctaText': 'Stuur me de Langhe-PDF',
+    'langhe.capture.a.subCopy': 'Elke twee weken ontvang je ook De Brief: over wijn, reizen en de mensen erachter. Uitschrijven kan altijd.',
+    'langhe.capture.c.koptekst': 'Begin met Piemonte',
+    'langhe.capture.c.body': 'Als je wilt weten waar te beginnen in de Langhe: ik schreef een compacte reisplanner. Route, wijnhuizen, hotels, budget. Aanmelden voor De Brief, en hij is meteen van jou.',
+    'langhe.capture.c.ctaText': 'Stuur me de Langhe-PDF',
+    'langhe.capture.c.subCopy': 'Elke twee weken volgt De Brief: over wijn en reizen vanuit eigen ervaring.',
+    'langhe.capture.email.label': 'E-mailadres',
+    'langhe.capture.email.placeholder': 'je@adres.nl',
 };
 
 /** Resolver over de UI-dictionary: EN-value indien aanwezig, anders NL-default. */
