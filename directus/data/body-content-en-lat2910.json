@@ -1,0 +1,340 @@
+{
+  "_comment": "LAT-2910/LAT-2912 — EN body-content voor de 6 pagina's uit deel 1b. Bron: /LAT/issues/LAT-2910#document-translations. SCHEMA (bevestigd uit code, niet uit een record-read): de aside/vergelijkings-/mijn-keuze-blokken komen ALLEMAAL uit het Directus JSON-veld `cta_blocks` (src/lib/cta-blocks.ts CtaStructure = {primary,comparison,closing}), gerenderd door CtaPrimary/CtaComparison/CtaClosing.astro. EN leest via de translations-overlay (src/lib/directus-i18n.ts) met een DEEP-MERGE, dus de EN-blob bevat ALLEEN vertaalbare keys — je overschrijft NOOIT het NL-bronrecord.",
+  "_blocker": "NIET DIRECT TOEPASBAAR. `cta_blocks` ontbreekt in ROUTES_TRANSLATABLE (src/lib/routes.ts:126) en ARTICLES_TRANSLATABLE (src/lib/articles.ts:293), en de kolom bestaat niet op routes_translations / articles_translations (directus/scripts/i18n-translations-schema.mjs). Zelfde voor `tags`. Daarom rendert /en/ hier de NL-basis. Volgorde: (1) junction-kolommen aanmaken, (2) veld toevoegen aan beide TRANSLATABLE-arrays, (3) pas dan deze EN-blobs wegschrijven. Stap 2 zonder stap 1 laat de EN-build hard falen (localizeRecords heeft een hard guard).",
+  "_mapping_confidence": "De rij→veld-toewijzing volgt de vaste volgorde van CtaStructure en is identiek consistent over alle 4 widget-pagina's (13 rijen, zelfde volgorde). Toch afgeleid, niet geverifieerd tegen het echte record: valideer met een GET op cta_blocks voordat je PATCHt.",
+  "routes": {
+    "kaap-wijnroute": {
+      "cta_blocks": {
+        "primary": {
+          "why": {
+            "nl": "De Molen is de logische thuisbasis voor de eerste vier dagen. Centrale ligging tussen Stellenbosch, Franschhoek en Paarl — geen dag begint met meer dan 30 minuten rijden.",
+            "en": "De Molen is the natural home base for the first four days. Centrally located between Stellenbosch, Franschhoek and Paarl — no day starts with more than a 30-minute drive."
+          }
+        },
+        "comparison": {
+          "heading": {
+            "nl": "Wat boek je op de Kaap?",
+            "en": "What should you book in the Cape?"
+          },
+          "intro": {
+            "nl": "Vijf dagen, drie soorten reserveringen. Elk heeft zijn eigen timing.",
+            "en": "Five days, three kinds of bookings. Each has its own timing."
+          },
+          "options": [
+            {
+              "title": {
+                "nl": "Verblijf: De Molen Guesthouse (4 nachten)",
+                "en": "Stay: De Molen Guesthouse (4 nights)"
+              },
+              "why": {
+                "nl": "€80–130/nacht, vrij parkeren, dagelijks vertrekpunt voor alle Kaap-bestemmingen. Beperkte kamers: reserveer vroeg.",
+                "en": "€80–130/night, free parking, a daily departure point for every Cape destination. Rooms are limited — book early."
+              }
+            },
+            {
+              "title": {
+                "nl": "Proeverijen: Hamilton Russell + Creation",
+                "en": "Tastings: Hamilton Russell + Creation"
+              },
+              "why": {
+                "nl": "€85–120/persoon voor beide. Hamilton Russell: ochtend dag 4 (anderhalf uur). Creation food-pairing: middag dag 4 (twee uur, drie gangen). Beide op afspraak.",
+                "en": "€85–120/person for both. Hamilton Russell: morning of day 4 (ninety minutes). Creation food pairing: afternoon of day 4 (two hours, three courses). Both by appointment."
+              }
+            },
+            {
+              "title": {
+                "nl": "Extra nacht in Hermanus",
+                "en": "An extra night in Hermanus"
+              },
+              "why": {
+                "nl": "Hermanus ligt 15 minuten van Hemel-en-Aarde. Kust-guesthouse na dag 4 (€120–200/nacht). Walvissen aug–okt, beste vis bij Bientang's Cave.",
+                "en": "Hermanus is 15 minutes from Hemel-en-Aarde. A coastal guesthouse after day 4 (€120–200/night). Whales Aug–Oct, best seafood at Bientang's Cave."
+              }
+            }
+          ],
+          "why": {
+            "nl": "Hamilton Russell is snel volgeboekt — reserveer bij aankomst, niet de week ervoor. Creation food-pairing is het beste na twee eerdere proeverijdagen, niet als eerste.",
+            "en": "Hamilton Russell books up fast — reserve on arrival, not the week before. The Creation food pairing works best after two earlier tasting days, not as your first."
+          }
+        },
+        "closing": {
+          "heading": {
+            "nl": "Mijn keuze voor de Kaap",
+            "en": "My pick for the Cape"
+          },
+          "recommendation": {
+            "nl": "Rijd de avond vóór dag 4 al naar Hermanus. Hamilton Russell organiseert de proeverij in de vroege ochtend — dan is de wijnmaker aanwezig en de temperatuur in de wijngaard nog draaglijk. Daarna Creation voor de middag. Één dag, twee van de beste adressen in het Kaapse wijnland.",
+            "en": "Drive to Hermanus the evening before day 4. Hamilton Russell holds its tasting early in the morning — the winemaker is there and the vineyard heat is still bearable. Then Creation for the afternoon. One day, two of the best addresses in the Cape winelands."
+          },
+          "link": {
+            "label": {
+              "nl": "Boek De Molen",
+              "en": "Book De Molen"
+            }
+          },
+          "why": {
+            "nl": "Vanuit De Molen rijden kost negentig minuten op de ochtend zelf. Door de avond ervoor te rijden begin je dag 4 ter plekke.",
+            "en": "Driving from De Molen on the morning itself takes ninety minutes. By driving the evening before, you start day 4 already there."
+          }
+        }
+      }
+    }
+  },
+  "articles": {
+    "piemonte-wijnreis-praktisch": {
+      "cta_blocks": {
+        "primary": {
+          "why": {
+            "nl": "Alba is per trein bereikbaar, de wijnhuizen niet. Serralunga, Treiso en La Morra liggen op heuvels en in dalen waar geen bus komt. De auto is hier de basis, niet het comfort.",
+            "en": "Alba is reachable by train — the wineries aren't. Serralunga, Treiso and La Morra sit on hills and in valleys no bus reaches. Here the car is a necessity, not a comfort."
+          }
+        },
+        "comparison": {
+          "heading": {
+            "nl": "Welke auto past bij de Langhe?",
+            "en": "Which car suits the Langhe?"
+          },
+          "intro": {
+            "nl": "De wegen tussen de Barolo-communes zijn smal en de haarspeldbochten zijn echt. Formaat telt hier zwaarder dan pk's.",
+            "en": "The roads between the Barolo communes are narrow and the hairpin bends are real. Size matters more here than horsepower."
+          },
+          "options": [
+            {
+              "title": {
+                "nl": "Kleine auto (Fiat Panda / Renault Clio)",
+                "en": "Small car (Fiat Panda / Renault Clio)"
+              },
+              "why": {
+                "nl": "Categorie A of B. Past op elke wijnhuis-parkeerplaats en op elke haarspeldbocht. De juiste keuze voor vrijwel elke route in de Langhe.",
+                "en": "Category A or B. Fits every winery car park and every hairpin bend. The right choice for almost any route in the Langhe."
+              }
+            },
+            {
+              "title": {
+                "nl": "Compacte auto met meer bagageruimte",
+                "en": "Compact car with more boot space"
+              },
+              "why": {
+                "nl": "Zinvol als je met vier personen reist of flessen mee terug neemt. Nog steeds smal genoeg voor de dorpskernen.",
+                "en": "Worth it if you're travelling with four people or bringing bottles home. Still narrow enough for the village centres."
+              }
+            },
+            {
+              "title": {
+                "nl": "Ophalen op Torino Caselle (TRN)",
+                "en": "Pick up at Torino Caselle (TRN)"
+              },
+              "why": {
+                "nl": "Het dichtstbijzijnde vliegveld: een uur tot anderhalf naar La Morra, afhankelijk van het verkeer rond Torino. Alle grote aanbieders zitten op de luchthaven.",
+                "en": "The closest airport: one to ninety minutes to La Morra, depending on traffic around Turin. All the major rental companies are at the airport."
+              }
+            }
+          ],
+          "why": {
+            "nl": "Een Fiat Panda past overal, ook op de oprit-formaat parkeerplaats van een klein wijnhuis. Een SUV doet niet mee op de smalste wegen rond Serralunga en Treiso.",
+            "en": "A Fiat Panda fits everywhere, even a small winery's driveway-sized parking spot. An SUV won't manage the narrowest roads around Serralunga and Treiso."
+          }
+        },
+        "closing": {
+          "heading": {
+            "nl": "Wat ik zelf zou huren",
+            "en": "What I'd rent myself"
+          },
+          "recommendation": {
+            "nl": "Kleine auto via Sunny Cars, ophalen op Torino Caselle, april of oktober. Vanaf de luchthaven naar La Morra als centrale base, en van daaruit elke dag een andere commune in. De all-in verzekering zonder eigen risico haalt het bekendste gedoe bij Italiaanse autohuur weg.",
+            "en": "A small car through Sunny Cars, picked up at Torino Caselle, in April or October. From the airport to La Morra as a central base, and a different commune each day from there. The all-in insurance with no excess removes the most common headache with Italian car rental."
+          },
+          "link": {
+            "label": {
+              "nl": "Zoek beschikbare auto's",
+              "en": "Search available cars"
+            }
+          },
+          "why": {
+            "nl": "April geeft groene heuvels en beschikbare wijnmakers, oktober de oogst en de mist tussen de dorpen. Beide zijn beter dan augustus.",
+            "en": "April brings green hills and winemakers with time to talk; October brings the harvest and mist between the villages. Both beat August."
+          }
+        }
+      }
+    },
+    "wijnreizen-piemonte-complete-gids": {
+      "cta_blocks": {
+        "primary": {
+          "why": {
+            "nl": "Producenten in Barolo, Barbaresco en Serralunga werken vrijwel allen op afspraak. De plek waar je slaapt bepaalt hoeveel je per dag kunt bezoeken zonder te haasten.",
+            "en": "Producers in Barolo, Barbaresco and Serralunga almost all work by appointment. Where you sleep determines how much you can visit each day without rushing."
+          }
+        },
+        "comparison": {
+          "heading": {
+            "nl": "Hoeveel wil je uitgeven per nacht?",
+            "en": "How much do you want to spend per night?"
+          },
+          "intro": {
+            "nl": "Piemonte heeft geen slechte base, maar de keuze bepaalt hoe vroeg je bij het eerste wijnhuis bent.",
+            "en": "Piedmont has no bad base — but the choice determines how early you reach your first winery."
+          },
+          "options": [
+            {
+              "title": {
+                "nl": "Agriturismo in de wijngaarden",
+                "en": "Agriturismo among the vineyards"
+              },
+              "why": {
+                "nl": "Vanaf €80/nacht, direct naast Nebbiolo-ranken, ontbijt inbegrepen. Ideaal als dag 1 begint rond La Morra of Barolo-dorp.",
+                "en": "From €80/night, right next to Nebbiolo vines, breakfast included. Ideal if day 1 starts around La Morra or Barolo village."
+              }
+            },
+            {
+              "title": {
+                "nl": "Boutique hotel La Morra of Castiglione",
+                "en": "Boutique hotel in La Morra or Castiglione"
+              },
+              "why": {
+                "nl": "€150–280/nacht, parking aanwezig, centrale ligging. Beste keuze als je elke ochtend een andere zone wil aandoen.",
+                "en": "€150–280/night, parking on site, centrally located. The best choice if you want to head into a different zone each morning."
+              }
+            },
+            {
+              "title": {
+                "nl": "Casa di Langa, Cerretto Langhe",
+                "en": "Casa di Langa, Cerretto Langhe"
+              },
+              "why": {
+                "nl": "Vanaf €380/nacht. 42 hectare, biodynamische keuktuin, Wine Academy met verticale Barolo-proeverijen. Eenmalig, en het maakt de rest van de reis begrijpelijker.",
+                "en": "From €380/night. 42 hectares, a biodynamic kitchen garden, a Wine Academy with vertical Barolo tastings. A once-only splurge — and it makes the rest of the trip make more sense."
+              }
+            }
+          ],
+          "why": {
+            "nl": "Drie serieuze bezoeken per dag is het maximum. La Morra ligt geografisch centraal tussen alle Barolo-communes.",
+            "en": "Three serious visits a day is the maximum. La Morra sits geographically central among all the Barolo communes."
+          }
+        },
+        "closing": {
+          "heading": {
+            "nl": "Mijn keuze voor Piemonte",
+            "en": "My pick for Piedmont"
+          },
+          "recommendation": {
+            "nl": "Produttori del Barbaresco op dag 1: de toegankelijkste instap in de appellatie. Base: agriturismo La Morra. 's Avonds te voet naar een trattoria, 's ochtends vijf minuten rijden naar Barolo of Barbaresco.",
+            "en": "Produttori del Barbaresco on day 1: the most accessible way into the appellation. Base: an agriturismo in La Morra. In the evening, walk to a trattoria; in the morning, a five-minute drive to Barolo or Barbaresco."
+          },
+          "link": {
+            "label": {
+              "nl": "Zoek verblijf in La Morra",
+              "en": "Find a place to stay in La Morra"
+            }
+          },
+          "why": {
+            "nl": "La Morra is het geografische midden van de Langhe. Geen commune ligt er verder dan 20 minuten vandaan.",
+            "en": "La Morra is the geographic centre of the Langhe. No commune is more than 20 minutes away."
+          }
+        }
+      }
+    },
+    "auto-huren-sardinie": {
+      "cta_blocks": {
+        "primary": {
+          "why": {
+            "nl": "Zonder auto kom je niet bij de Cannonau-wijngaarden in Mamoiada, de Vermentino-producenten in Gallura of de Carignano-huizen in het Sulcis. De enige vraag is welke auto.",
+            "en": "Without a car you won't reach the Cannonau vineyards in Mamoiada, the Vermentino producers in Gallura, or the Carignano houses in the Sulcis. The only question is which car."
+          }
+        },
+        "comparison": {
+          "heading": {
+            "nl": "Welke auto past bij je route?",
+            "en": "Which car suits your route?"
+          },
+          "intro": {
+            "nl": "Sardinië is een klein eiland met smalle provinciale wegen. Auto-keuze heeft meer impact dan in de meeste Europese landen.",
+            "en": "Sardinia is a small island with narrow provincial roads. Your choice of car matters more here than in most European countries."
+          },
+          "options": [
+            {
+              "title": {
+                "nl": "Kleine auto (Fiat Panda / Renault Clio)",
+                "en": "Small car (Fiat Panda / Renault Clio)"
+              },
+              "why": {
+                "nl": "Categorie A of B. Ideaal voor de Barbagia en Gallura. €25–55/dag afhankelijk van seizoen.",
+                "en": "Category A or B. Ideal for the Barbagia and Gallura. €25–55/day depending on season."
+              }
+            },
+            {
+              "title": {
+                "nl": "Compacte SUV",
+                "en": "Compact SUV"
+              },
+              "why": {
+                "nl": "Meer comfort op langere ritten langs de oostkust. 40–60% duurder, maar zinvol als je de westkust rijdt of kinderen meegaan.",
+                "en": "More comfort on longer drives along the east coast. 40–60% pricier, but worth it if you're driving the west coast or bringing kids."
+              }
+            },
+            {
+              "title": {
+                "nl": "One-way: ophalen Olbia (OLB), inleveren Cagliari (CAG)",
+                "en": "One-way: pick up in Olbia (OLB), drop off in Cagliari (CAG)"
+              },
+              "why": {
+                "nl": "Je doorkruist het eiland lineair: Gallura → Barbagia → Sulcis, zonder terug te rijden naar het startpunt. Meerkosten maar geen verloren dag.",
+                "en": "You cross the island in a line: Gallura → Barbagia → Sulcis, with no drive back to your starting point. Extra cost, but no wasted day."
+              }
+            }
+          ],
+          "why": {
+            "nl": "De SP-wegen in de Barbagia zijn smal. Een kleine auto rijdt makkelijker, is goedkoper, en is de betere keuze voor 95% van de routes.",
+            "en": "The SP roads in the Barbagia are narrow. A small car is easier to drive, cheaper, and the better choice for 95% of routes."
+          }
+        },
+        "closing": {
+          "heading": {
+            "nl": "Wat ik zelf zou huren",
+            "en": "What I'd rent myself"
+          },
+          "recommendation": {
+            "nl": "Kleine auto via Sunny Cars, ophalen in Olbia (OLB), april of september. SS131 naar Nuoro, dan afslaan naar Mamoiada voor Cannonau. Sunny Cars' all-in verzekering elimineert het eigen risico: het meest terugkerende gedoe bij autohuur in Italië.",
+            "en": "A small car through Sunny Cars, picked up in Olbia (OLB), in April or September. The SS131 to Nuoro, then turn off to Mamoiada for Cannonau. Sunny Cars' all-in insurance eliminates the excess — the most recurring hassle with car rental in Italy."
+          },
+          "link": {
+            "label": {
+              "nl": "Zoek beschikbare auto's",
+              "en": "Search available cars"
+            }
+          },
+          "why": {
+            "nl": "April en september zijn de beste maanden: oogst in september, lage bezetting en lagere prijzen in april.",
+            "en": "April and September are the best months: harvest in September, low occupancy and lower prices in April."
+          }
+        },
+        "_unmapped": [
+          {
+            "nl": "Onderdeel van de Italië-wijngids",
+            "en": "Part of the Italy wine guide",
+            "_note": "staat niet in CtaStructure; veld onbekend zonder record-read"
+          }
+        ]
+      }
+    },
+    "langhe-piemonte-4-dagen-route": {
+      "_note": "GEEN cta_blocks-werk. Het newsletter-blok is sinds LAT-2868 (commit 7c8160e) locale-aware via de ui_strings-key `langhe.capture.a.body`; de EN-waarde staat al in directus/data/ui-strings-en-lat2832.json. Deze pagina is klaar zodra die seed gedraaid is."
+    },
+    "op-stroom-naar-het-zuiden-ambitiestuk": {
+      "_note": "Geen cta_blocks maar `articles.tags` (JSON string-array, src/lib/articles.ts:467). Niet in de overlay en geen kolom op articles_translations — vereist dezelfde schema-stap als cta_blocks.",
+      "tags": [
+        {
+          "nl": "op stroom naar het zuiden",
+          "en": "onto the grid, heading south"
+        },
+        {
+          "nl": "elektrische auto",
+          "en": "electric car"
+        },
+        {
+          "nl": "ambitiestuk",
+          "en": "ambition piece"
+        }
+      ]
+    }
+  }
+}

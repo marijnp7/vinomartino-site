@@ -19,6 +19,15 @@
  *   DIRECTUS_URL=http://vinomartino-directus-1:8055 DIRECTUS_TOKEN=<token> \
  *     node directus/scripts/seed-ui-strings-en.mjs directus/data/ui-strings-en-lat2771.json
  *
+ * Draai je tegen de publieke host (https://cms.vinomartino.com) dan staat daar
+ * Cloudflare Access voor: zonder service-token-headers antwoordt elk request —
+ * ook een plain GET — met een 302 naar de CF-loginpagina, en dan faalt dit
+ * script op `302 <html>…` in plaats van op een Directus-fout (LAT-2912). Zet in
+ * dat geval ook CF_ACCESS_CLIENT_ID + CF_ACCESS_CLIENT_SECRET (zelfde patroon
+ * als audit-cross-references.mjs). Binnen het Docker-netwerk
+ * (http://vinomartino-directus-1:8055) is CF Access niet in het pad en zijn ze
+ * niet nodig.
+ *
  * Vlaggen:
  *   --dry-run   toon wat er zou gebeuren, schrijf niets
  *   --force     overschrijf ook bestaande, niet-lege EN-waarden
@@ -49,9 +58,24 @@ const headers = {
   Authorization: `Bearer ${DIRECTUS_TOKEN}`,
   'Content-Type': 'application/json',
 };
+if (process.env.CF_ACCESS_CLIENT_ID && process.env.CF_ACCESS_CLIENT_SECRET) {
+  headers['CF-Access-Client-Id'] = process.env.CF_ACCESS_CLIENT_ID;
+  headers['CF-Access-Client-Secret'] = process.env.CF_ACCESS_CLIENT_SECRET;
+}
 
 async function api(path, init = {}) {
-  const res = await fetch(`${DIRECTUS_URL}${path}`, { ...init, headers });
+  // `redirect: 'manual'` zodat een CF-Access-302 hier zichtbaar blijft als 302 in
+  // plaats van stilletjes de HTML-loginpagina te volgen en te stranden op een
+  // onbegrijpelijke JSON-parsefout.
+  const res = await fetch(`${DIRECTUS_URL}${path}`, { ...init, headers, redirect: 'manual' });
+  if (res.status >= 300 && res.status < 400) {
+    const loc = res.headers.get('location') || '';
+    throw new Error(
+      `${init.method || 'GET'} ${path}: ${res.status} redirect naar ${loc.slice(0, 120)} — ` +
+        'ziet eruit als Cloudflare Access. Zet CF_ACCESS_CLIENT_ID + CF_ACCESS_CLIENT_SECRET, ' +
+        'of draai tegen de interne Directus-URL.',
+    );
+  }
   if (!res.ok) throw new Error(`${init.method || 'GET'} ${path}: ${res.status} ${await res.text()}`);
   return res.json();
 }
