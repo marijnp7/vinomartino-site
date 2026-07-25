@@ -14,6 +14,7 @@
 
 import SmartImg from './SmartImg.astro';
 import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
 
 export type PoiCardTheme = 'winery' | 'vineyard' | 'cellar' | 'region' | 'bottle';
 
@@ -79,6 +80,7 @@ const { poi, locale = DEFAULT_LOCALE } = Astro.props;
 
 // LAT-2704 — interne hrefs locale-aware; NL blijft byte-identiek.
 const lh = (href: string) => localizeHref(href, locale);
+const ui = await loadUiStrings(locale);
 const {
   n = null,
   color = 'var(--burgundy, #5A1A1F)',
@@ -153,7 +155,7 @@ const showMedia = Boolean(foto) || !hideMediaWhenEmpty;
           {cta} &rarr;
         </a>
       ) : detailUrl ? (
-        <a class="poi-card__cta poi-card__cta--ghost" href={lh(detailUrl)}>Lees meer &rarr;</a>
+        <a class="poi-card__cta poi-card__cta--ghost" href={lh(detailUrl)}>{ui.t('streekkaart.popupLeesMeer')} &rarr;</a>
       ) : null}
     </div>
 
