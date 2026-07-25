@@ -21,6 +21,10 @@
  *   4. `articles` already has `articles_translations` + `translations` alias
  *      (template bootstrap). We only add the missing `languages_code -> languages`
  *      relation and a `hero_alt` field so it matches the others.
+ *      LAT-2921: also adds `cta_blocks` JSON to `routes_translations` and
+ *      `articles_translations`, and `tags` JSON to `articles_translations` —
+ *      same shape as `landen.cta_blocks`, needed before LAT-2912 deel 1b can
+ *      PATCH EN copy for the aside/comparison/closing widgets on 5 pages.
  *   5. Content-writer policy (6b7abca9…) gets CRUD on every new *_translations
  *      + ui_strings(+_translations); read on languages. Existing collection
  *      permissions are left untouched.
@@ -76,12 +80,12 @@ const S = (field, opts = {}) => ({
 // parent (grape profiles, practical tips, FAQ, tables). Mirror the parent field
 // 1:1 as `json` so the editor can enter a translated counterpart. Empty = fall
 // back to NL, so these are never required.
-const J = (field, note) => ({
+const J = (field, note, parent = 'landen') => ({
   field, type: 'json',
   meta: {
     interface: 'input-code', options: { language: 'json' }, special: ['cast-json'],
     width: 'full',
-    note: `[i18n] Vertaalde tegenhanger van landen.${field}. ${note} `
+    note: `[i18n] Vertaalde tegenhanger van ${parent}.${field}. ${note} `
         + 'Alleen leestekst vertalen; ids/urls/slugs/coords/prijzen/hero_image = NL laten. Leeg = val terug op NL.',
   },
   schema: { is_nullable: true },
@@ -123,6 +127,9 @@ const TRANSLATABLE = {
     S('duration'), S('transport'), S('style'),
     S('meta_title'), S('meta_description', { long: true }),
     S('hero_alt', { note: 'Alt text for hero image.' }),
+    // LAT-2921: aside/comparison/closing widget blocks — same JSON shape as
+    // landen.cta_blocks, needed so /en/wijnroutes/* can override the copy.
+    J('cta_blocks', '{primary, comparison, closing} — vertaal alleen de copy, laat aid/urls staan.', 'routes'),
   ],
   accommodations: [
     S('description', { long: true }), S('why_this_one', { long: true }),
@@ -298,6 +305,10 @@ async function ensureTranslations(parent) {
 async function ensureArticles() {
   const junction = 'articles_translations';
   await ensureField(junction, S('hero_alt', { note: 'Alt text for hero image.' }));
+  // LAT-2921: same aside/comparison/closing widget JSON as landen/routes, plus
+  // the tag-chip labels, on the 4 cta_blocks-widget articles + 1 tag-chip article.
+  await ensureField(junction, J('cta_blocks', '{primary, comparison, closing} — vertaal alleen de copy, laat aid/urls staan.', 'articles'));
+  await ensureField(junction, J('tags', 'Array van tag-strings. Vertaal alleen de zichtbare tag-tekst, niet de slug.', 'articles'));
   await ensureRelation(junction, 'languages_code', 'languages', { junction_field: 'articles_id' });
   await ensureParentAlias('articles');
 }

@@ -290,7 +290,9 @@ import { DEFAULT_LOCALE, type Locale } from './i18n';
 import { localizeRecords, localizeNestedRefs } from './directus-i18n';
 
 // LAT-2575 — vertaalbare artikel-velden (native Directus translations, LAT-2574).
-const ARTICLES_TRANSLATABLE = ['title', 'description', 'body', 'meta_title', 'meta_description', 'hero_alt'];
+// LAT-2921 — cta_blocks: zelfde {primary, comparison, closing}-JSON als landen/routes.
+// tags: JSON string-array, alleen de zichtbare tag-tekst wordt vertaald.
+const ARTICLES_TRANSLATABLE = ['title', 'description', 'body', 'meta_title', 'meta_description', 'hero_alt', 'cta_blocks', 'tags'];
 
 async function downloadArticleAsset(assetId: string, directusUrl: string, token: string): Promise<string | null> {
     if (!assertAssetAllowed(assetId)) return null; // LAT-2361: blokkeer fout-gekoppelde/gedeelde beelden ook in artikel-hero's
