@@ -3,6 +3,11 @@
 
   "streken.card.beginHier": "Start here",
 
+  "streek.breadcrumb.home": "Home",
+  "streek.breadcrumb.streken": "Wine regions",
+  "wijnhuis.breadcrumb.index": "Wineries",
+  "route.breadcrumb.index": "Wine routes",
+
   "streken.index.meta.title": "Wine regions, from Piemonte to the Mosel | VinoMartino",
   "streken.index.meta.description": "Explore Europe's great wine regions — terroir, grape varieties, climate and the best producers. In-depth guides for wine lovers.",
   "streken.index.hero.label": "Wine regions",
@@ -17,6 +22,7 @@
   "streken.index.overig": "Other",
   "streken.index.empty.title": "The guides are on their way",
   "streken.index.empty.descPre": "Piemonte, Etna, Burgundy, Mosel and Priorat are at the top of the list. I would rather write them well than fast — start with the ",
+  "streken.index.empty.descLink": "travel articles",
   "streken.index.empty.descPost": ".",
 
   "wijnhuizen.index.meta.title": "Wineries, Producers & winemakers | VinoMartino",
