@@ -30,7 +30,7 @@ const copy = {
 };
 ---
 
-<section class="langhe-capture-block langhe-capture-block--{variant}">
+<section class:list={['langhe-capture-block', `langhe-capture-block--${variant}`]}>
   <div class="capture-inner">
     <h2 class="capture-koptekst">{copy.koptekst}</h2>
     <p class="capture-body">{copy.body}</p>
@@ -42,9 +42,9 @@ const copy = {
       target="_blank"
       data-newsletter-signup
     >
-      <label for="ml-email-{variant}" class="visually-hidden">{ui.t('langhe.capture.email.label')}</label>
+      <label for={`ml-email-${variant}`} class="visually-hidden">{ui.t('langhe.capture.email.label')}</label>
       <input
-        id="ml-email-{variant}"
+        id={`ml-email-${variant}`}
         type="email"
         name="fields[email]"
         autocomplete="email"
