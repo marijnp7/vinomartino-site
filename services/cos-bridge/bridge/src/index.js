@@ -53,6 +53,12 @@ const {
   // Maximaal aantal aanvragen per samenvattings-bericht (Telegram: 4096 tekens,
   // max 100 knoppen). Bij meer wordt de samenvatting opgesplitst.
   QUIET_FLUSH_CHUNK = "8",
+  // LAT-2909 — herhaal-rem op de critical-doorbraak. Binnen de stille uren mag
+  // 'critical' door het venster heen, maar alleen voor een storing die nog niet
+  // gemeld is. Is dezelfde melding (zelfde bundle_key) in de afgelopen
+  // QUIET_REPEAT_WINDOW_HOURS al afgeleverd, dan is de herhaling geen nieuws en
+  // wordt hij als 'normal' geparkeerd. Zet op "0" om de rem uit te schakelen.
+  QUIET_REPEAT_WINDOW_HOURS = "12",
   // Herindien-rem: identieke aanvraag (zelfde agent + zelfde tekst) die binnen
   // RESUBMIT_WINDOW_HOURS al RESUBMIT_LIMIT keer op timeout liep, wordt
   // geweigerd in plaats van opnieuw gepusht.
@@ -115,6 +121,7 @@ const QSTART = Number(QUIET_HOURS_START);
 const QEND = Number(QUIET_HOURS_END);
 const QUIET_DEFER_ON = QUIET_DEFER !== "0";
 const FLUSH_CHUNK = Math.max(1, Number(QUIET_FLUSH_CHUNK) || 8);
+const QUIET_REPEAT_H = Math.max(0, Number(QUIET_REPEAT_WINDOW_HOURS) || 0);
 const RESUBMIT_WINDOW_H = Math.max(0, Number(RESUBMIT_WINDOW_HOURS) || 0);
 const RESUBMIT_MAX = Math.max(0, Number(RESUBMIT_LIMIT) || 0);
 
@@ -161,10 +168,21 @@ function quietWindowEnd(now = new Date()) {
 // Twee aanvragen zijn 'dezelfde vraag' als dezelfde agent letterlijk dezelfde
 // tekst instuurt. Gebruikt voor de herindien-rem en voor het bundelen in de
 // ochtendsamenvatting.
-function bundleKey(requesterAgent, proposal) {
+//
+// LAT-2909 — dat werkt voor een agent die één vraag stelt, maar niet voor een
+// monitor die dezelfde storing elk uur opnieuw meldt. `Disk usage: 92%` kreeg
+// elk uur een andere sleutel omdat de byte-tellers uit de `df`-output in de body
+// meelopen (#680 c38b40d2, #681 be0b09d0, #683 3b5d0917 — één storing, drie
+// sleutels), en de titel schuift mee met het percentage (91% ⇄ 92%). Een
+// afzender die weet dat hij een terugkerende toestand meldt, stuurt daarom een
+// eigen `alert_key` mee — de klasse van de storing, niet de meting ervan
+// ("disk:/host", "oauth-token"). Die sleutel is stabiel over herhalingen en is
+// wat de herhaal-rem en de ochtendsamenvatting nodig hebben.
+function bundleKey(requesterAgent, proposal, alertKey = null) {
+  const material = alertKey ? `alert:${alertKey}` : proposal;
   return crypto
     .createHash("sha256")
-    .update(`${requesterAgent}\0${proposal}`)
+    .update(`${requesterAgent}\0${material}`)
     .digest("hex")
     .slice(0, 16);
 }
@@ -953,6 +971,7 @@ async function handleApprovalPost(req, body) {
     callback_url = null,
     run_id = null,
     issue_id = null,
+    alert_key = null,
   } = payload;
   if (!request_id || !agent || !title || !proposalBody) {
     return {
@@ -963,6 +982,21 @@ async function handleApprovalPost(req, body) {
   if (!["normal", "critical"].includes(urgency)) {
     return { status: 400, body: JSON.stringify({ error: "urgency must be 'normal' or 'critical'" }) };
   }
+  // LAT-2909 — optioneel. Alleen een afzender die een terugkerende toestand
+  // meldt hoort hem te sturen; een eenmalige vraag laat hem weg en houdt het
+  // oude gedrag (sleutel over de volledige tekst).
+  if (alert_key !== null && (typeof alert_key !== "string" || !alert_key.trim() || alert_key.length > 120)) {
+    return {
+      status: 400,
+      body: JSON.stringify({
+        error: "alert_key must be a non-empty string of at most 120 chars",
+        hint:
+          `Gebruik de klasse van de storing, niet de meting: "disk:/host", niet ` +
+          `"disk 92%". De sleutel moet gelijk blijven als de melding zich herhaalt.`,
+      }),
+    };
+  }
+  const alertKey = alert_key ? alert_key.trim() : null;
 
   // Dedup op request_id
   const [existing] = await q(
@@ -1091,8 +1125,44 @@ async function handleApprovalPost(req, body) {
   // De klok begint pas te lopen op het moment dat de push écht verstuurd is.
   // 'critical' breekt door het venster heen — niemand wil zijn VPS in brand
   // zien staan omdat het toevallig nacht is.
-  const deferring = QUIET_DEFER_ON && urgency !== "critical" && isQuietHours();
+  //
+  // LAT-2909 — die doorbraak is inmiddels het normale pad: in de nacht van
+  // 24→25 juli ging 16 van de 16 'critical' direct door (gem. 0,1 s), 15 daarvan
+  // liepen af zonder antwoord. Het waren twee storingen, elk uur opnieuw gemeld.
+  // De doorbraak blijft dus, maar alleen voor NIEUWS: is dezelfde melding
+  // recent al afgeleverd, dan voegt de herhaling niets toe en gaat hij als
+  // 'normal' mee in de ochtendsamenvatting. De rem kijkt naar afgeleverde
+  // (`pushed_at IS NOT NULL`) meldingen — een eerdere herhaling die zelf al
+  // geparkeerd is telt niet mee, anders zou de rem zichzelf voeden.
+  const inQuietWindow = QUIET_DEFER_ON && isQuietHours();
+  const bundle = bundleKey(agent, `${title}\n\n${proposalBody}`, alertKey);
+  let repeatOf = null;
+  if (inQuietWindow && urgency === "critical" && QUIET_REPEAT_H > 0) {
+    const [prior] = await q(
+      `SELECT id, to_char(pushed_at AT TIME ZONE 'Europe/Amsterdam','DD-MM HH24:MI') AS pushed_hhmm
+         FROM cos.actions
+        WHERE bundle_key = $1
+          AND pushed_at IS NOT NULL
+          AND pushed_at > NOW() - ($2 || ' hours')::interval
+        ORDER BY pushed_at DESC
+        LIMIT 1`,
+      [bundle, String(QUIET_REPEAT_H)]
+    );
+    if (prior) repeatOf = prior;
+  }
+
+  const deferring = inQuietWindow && (urgency !== "critical" || repeatOf !== null);
   const deferUntil = deferring ? quietWindowEnd() : null;
+  // Een afgeremde 'critical' wordt ook echt als 'normal' vastgelegd: de
+  // ochtendsamenvatting, de vries-sweep en elke latere meting kijken naar de
+  // kolom, niet naar wat de afzender bedoelde.
+  const storedUrgency = repeatOf ? "normal" : urgency;
+  if (repeatOf) {
+    log.info(
+      { agent, request_id, alertKey, bundle, repeatOf: repeatOf.id, windowHours: QUIET_REPEAT_H },
+      "critical downgraded to normal — repeat of an alert already delivered"
+    );
+  }
 
   const [row] = await q(
     `INSERT INTO cos.actions
@@ -1112,21 +1182,23 @@ async function handleApprovalPost(req, body) {
       "external",
       request_id,
       agent,
-      urgency,
+      storedUrgency,
       callback_url,
       String(timeout_seconds),
       run_id || null,
       issue_id || null,
       deferUntil ? deferUntil.toISOString() : null,
-      bundleKey(agent, `${title}\n\n${proposalBody}`),
+      bundle,
     ]
   );
   const actionId = row.id;
 
   if (deferring) {
     log.info(
-      { actionId, agent, request_id, deferUntil: deferUntil.toISOString() },
-      "approval deferred — quiet hours, no push"
+      { actionId, agent, request_id, deferUntil: deferUntil.toISOString(), repeatOf: repeatOf?.id ?? null },
+      repeatOf
+        ? "approval deferred — repeat of an already-delivered alert, no push"
+        : "approval deferred — quiet hours, no push"
     );
     return {
       status: 202,
@@ -1136,12 +1208,21 @@ async function handleApprovalPost(req, body) {
         status: "deferred",
         deferred_until: deferUntil.toISOString(),
         quiet_hours: `${QSTART}:00–${QEND}:00`,
-        hint:
-          `Geregistreerd, maar niet verstuurd: het is stille uren. De aanvraag ` +
-          `gaat als onderdeel van één ochtendsamenvatting de deur uit om ` +
-          `${String(QEND).padStart(2, "0")}:00. De timeout-klok staat stil tot ` +
-          `dat moment — dit wordt GEEN timeout. Sluit je run af en dien niet ` +
-          `opnieuw in; je hoort het via het issue zodra er een besluit is.`,
+        ...(repeatOf
+          ? { downgraded_from: "critical", repeat_of: repeatOf.id, bundle_key: bundle }
+          : {}),
+        hint: repeatOf
+          ? `Geregistreerd, maar niet verstuurd: deze melding is vannacht al ` +
+            `afgeleverd als #${repeatOf.id} (${repeatOf.pushed_hhmm}) en de storing ` +
+            `is dus bekend. Een herhaling binnen het stiltevenster wekt niemand ` +
+            `een tweede keer; hij gaat mee in de ochtendsamenvatting om ` +
+            `${String(QEND).padStart(2, "0")}:00. Verandert de situatie wezenlijk, ` +
+            `stuur dan een melding met een andere alert_key.`
+          : `Geregistreerd, maar niet verstuurd: het is stille uren. De aanvraag ` +
+            `gaat als onderdeel van één ochtendsamenvatting de deur uit om ` +
+            `${String(QEND).padStart(2, "0")}:00. De timeout-klok staat stil tot ` +
+            `dat moment — dit wordt GEEN timeout. Sluit je run af en dien niet ` +
+            `opnieuw in; je hoort het via het issue zodra er een besluit is.`,
       }),
     };
   }
