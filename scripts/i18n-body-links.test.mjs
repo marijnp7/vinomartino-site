@@ -94,3 +94,26 @@ test('verrijkte route-body: interne links volgen dezelfde localisatie', async ()
   assert.match(nl.html, /href="\/streken\/langhe-piemonte\/"/);
   assert.doesNotMatch(nl.html, /\/en\//);
 });
+
+// LAT-2918 — absolute URLs naar vinomartino.com in redactionele content
+// krijgen het /en/-voorvoegsel voor de path-part (interne links).
+test('EN: absolute URLs naar vinomartino.com worden gelokaliseerd', async () => {
+  const body = [
+    'Lees ook [Spaanse wijnen](https://vinomartino.com/landen/spanje/).',
+    'En [Spaanse wijnen](https://www.vinomartino.com/landen/spanje/).',
+    'Terug naar [de homepage](https://vinomartino.com).',
+    'Met query: [search](https://vinomartino.com/artikelen/?tag=rood).',
+    'Met hash: [section](https://vinomartino.com/landen/spanje/#streken).',
+  ].join('\n\n');
+  const html = await markdownToHtml(body, { locale: 'en' });
+  assert.match(html, /href="\/en\/landen\/spanje\/"/);
+  assert.match(html, /href="\/en\/artikelen\/\?tag=rood"/);
+  assert.match(html, /href="\/en\/landen\/spanje\/#streken"/);
+  assert.match(html, /href="\/en\/"/);
+});
+
+test('NL: absolute URLs naar vinomartino.com blijven ongewijzigd', async () => {
+  const body = 'Zie [hier](https://vinomartino.com/landen/spanje/).';
+  const html = await markdownToHtml(body, { locale: 'nl' });
+  assert.match(html, /href="https:\/\/vinomartino\.com\/landen\/spanje\/"/);
+});
