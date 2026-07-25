@@ -71,7 +71,16 @@ const EN_PRESENT_EXACT_PATHS: readonly string[] = ['/reizen-nareizen/'];
  */
 export function localizeHref(href: string, locale: Locale): string {
   if (locale === DEFAULT_LOCALE) return href;
-  if (!href || !href.startsWith('/')) return href; // extern, hash, query, relatief
+  if (!href) return href;
+
+  // LAT-2918: herschrijf absolute URLs naar vinomartino.com naar relatieve paden,
+  // zodat ze als interne links kunnen worden gelokaliseerd.
+  const absoluteToVino = /^https?:\/\/(?:www\.)?vinomartino\.com(\/[^?#]*)?((?:[?#].*)?)$/i.exec(href);
+  if (absoluteToVino) {
+    href = (absoluteToVino[1] || '/') + absoluteToVino[2];
+  }
+
+  if (!href.startsWith('/')) return href; // extern, hash, query, relatief
   if (href.startsWith('//')) return href; // protocol-relatief extern
   const [pathname] = href.split(/(?=[?#])/, 1);
   if (/\.[a-z0-9]{2,5}$/i.test(pathname)) return href; // asset (.svg, .png, .json, .xml, ...)
