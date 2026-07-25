@@ -8,7 +8,8 @@ export type HubMemberType = 'streek' | 'artikel' | 'accommodatie' | 'route';
 
 export interface HubBacklinkTarget {
   href: string;
-  label: string;
+  /** LAT-2921 — ui_strings-key i.p.v. hardcoded NL, zodat /en/ een EN-label krijgt. */
+  labelKey: string;
 }
 
 interface HubDef {
@@ -18,7 +19,7 @@ interface HubDef {
 
 const HUBS: HubDef[] = [
   {
-    target: { href: '/landen/italie/', label: 'Onderdeel van de Italië-wijngids' },
+    target: { href: '/landen/italie/', labelKey: 'hub.italie.backlinkLabel' },
     members: {
       streek: ['langhe-piemonte'],
       artikel: ['wijnreizen-piemonte-complete-gids', 'auto-huren-sardinie'],
