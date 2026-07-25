@@ -123,7 +123,10 @@ import { localizeRecords, localizeNestedRefs } from './directus-i18n';
 // LAT-2602 — itinerary is een geneste JSON-blob (days[].title/summary,
 // stops[].naam/why/duur); EN levert alléén de leestekst en wordt diep gemerged
 // over de NL-basis (directus-i18n mergeTranslatedValue), zodat stop-geo/slug behouden blijft.
-const ROUTES_TRANSLATABLE = ['title', 'description', 'body', 'duration', 'transport', 'style', 'meta_title', 'meta_description', 'hero_alt', 'itinerary'];
+// LAT-2921 — cta_blocks (CtaStructure = {primary, comparison, closing}) draagt de
+// aside-/vergelijkings-/afsluitcopy; ontbrak hier terwijl de kolom al bestaat op
+// landen/streken. Zonder dit veld valt /en/ terug op de NL-copy in die blokken.
+const ROUTES_TRANSLATABLE = ['title', 'description', 'body', 'duration', 'transport', 'style', 'meta_title', 'meta_description', 'hero_alt', 'itinerary', 'cta_blocks'];
 
 const assetDebug: Array<Record<string, unknown>> = [];
 

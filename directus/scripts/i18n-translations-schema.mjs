@@ -76,12 +76,12 @@ const S = (field, opts = {}) => ({
 // parent (grape profiles, practical tips, FAQ, tables). Mirror the parent field
 // 1:1 as `json` so the editor can enter a translated counterpart. Empty = fall
 // back to NL, so these are never required.
-const J = (field, note) => ({
+const J = (field, note, parent = 'landen') => ({
   field, type: 'json',
   meta: {
     interface: 'input-code', options: { language: 'json' }, special: ['cast-json'],
     width: 'full',
-    note: `[i18n] Vertaalde tegenhanger van landen.${field}. ${note} `
+    note: `[i18n] Vertaalde tegenhanger van ${parent}.${field}. ${note} `
         + 'Alleen leestekst vertalen; ids/urls/slugs/coords/prijzen/hero_image = NL laten. Leeg = val terug op NL.',
   },
   schema: { is_nullable: true },
@@ -123,6 +123,9 @@ const TRANSLATABLE = {
     S('duration'), S('transport'), S('style'),
     S('meta_title'), S('meta_description', { long: true }),
     S('hero_alt', { note: 'Alt text for hero image.' }),
+    // LAT-2921: aside-/vergelijkings-/afsluitblok komt uit dit JSON-veld
+    // (CtaStructure = {primary, comparison, closing}), zie src/lib/cta-blocks.ts.
+    J('cta_blocks', '{primary, comparison, closing} — vertaal alleen de copy, laat aid/urls staan.', 'routes'),
   ],
   accommodations: [
     S('description', { long: true }), S('why_this_one', { long: true }),
@@ -298,6 +301,12 @@ async function ensureTranslations(parent) {
 async function ensureArticles() {
   const junction = 'articles_translations';
   await ensureField(junction, S('hero_alt', { note: 'Alt text for hero image.' }));
+  // LAT-2921: aside-/vergelijkings-/afsluitblok komt uit dit JSON-veld
+  // (CtaStructure = {primary, comparison, closing}), zie src/lib/cta-blocks.ts.
+  await ensureField(junction, J('cta_blocks', '{primary, comparison, closing} — vertaal alleen de copy, laat aid/urls staan.', 'articles'));
+  // LAT-2921: articles.tags is een JSON string-array (src/lib/articles.ts:467);
+  // vertaal de zichtbare tag-chips zonder de NL-brontags te overschrijven.
+  await ensureField(junction, J('tags', 'Array van tag-strings — vertaal elke tag 1-op-1, zelfde volgorde als NL.', 'articles'));
   await ensureRelation(junction, 'languages_code', 'languages', { junction_field: 'articles_id' });
   await ensureParentAlias('articles');
 }

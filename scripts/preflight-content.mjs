@@ -53,10 +53,16 @@ function fail(msg) {
 
 async function countPublished(collection) {
     const endpoint = `${url}/items/${collection}?limit=0&meta=filter_count&${statusFilter}`;
-    const res = await fetch(endpoint, {
-        headers: { Authorization: `Bearer ${token}` },
-        signal: AbortSignal.timeout(15000),
-    });
+    let res;
+    try {
+        res = await fetch(endpoint, {
+            headers: { Authorization: `Bearer ${token}` },
+            signal: AbortSignal.timeout(15000),
+        });
+    } catch (networkErr) {
+        const cause = networkErr instanceof Error ? networkErr.message : String(networkErr);
+        throw new Error(`collectie '${collection}' onbereikbaar (${url}): ${cause}`);
+    }
     if (!res.ok) {
         const body = await res.text().catch(() => '');
         throw new Error(

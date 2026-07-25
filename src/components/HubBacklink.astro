@@ -4,6 +4,7 @@
 // veilig om onvoorwaardelijk in elke template te mounten.
 import { hubBacklinkFor, type HubMemberType } from '../lib/hub-backlinks';
 import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
 
 interface Props {
   /** LAT-2704 — locale van de renderende pagina; stuurt de interne hrefs. */
@@ -17,12 +18,14 @@ const { type, slug, locale = DEFAULT_LOCALE } = Astro.props;
 // LAT-2704 — interne hrefs locale-aware; NL blijft byte-identiek.
 const lh = (href: string) => localizeHref(href, locale);
 const target = hubBacklinkFor(type, slug);
+// LAT-2921 — label via ui_strings i.p.v. altijd de NL-tekst.
+const ui = await loadUiStrings(locale);
 ---
 
 {target && (
   <aside class="vm-hub-backlink">
     <div class="container">
-      <a href={lh(target.href)}>{target.label}<span aria-hidden="true"> &rarr;</span></a>
+      <a href={lh(target.href)}>{ui.t(target.labelKey)}<span aria-hidden="true"> &rarr;</span></a>
     </div>
   </aside>
 )}
