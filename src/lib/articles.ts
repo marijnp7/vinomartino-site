@@ -290,7 +290,10 @@ import { DEFAULT_LOCALE, type Locale } from './i18n';
 import { localizeRecords, localizeNestedRefs } from './directus-i18n';
 
 // LAT-2575 — vertaalbare artikel-velden (native Directus translations, LAT-2574).
-const ARTICLES_TRANSLATABLE = ['title', 'description', 'body', 'meta_title', 'meta_description', 'hero_alt'];
+// LAT-2921 — cta_blocks (CtaStructure, zie src/lib/cta-blocks.ts) draagt de aside-/
+// vergelijkings-/afsluitcopy; tags is de zichtbare tag-chip-lijst (JSON string-array).
+// Beide ontbraken hier terwijl de kolommen al bestaan op landen/streken.
+const ARTICLES_TRANSLATABLE = ['title', 'description', 'body', 'meta_title', 'meta_description', 'hero_alt', 'cta_blocks', 'tags'];
 
 async function downloadArticleAsset(assetId: string, directusUrl: string, token: string): Promise<string | null> {
     if (!assertAssetAllowed(assetId)) return null; // LAT-2361: blokkeer fout-gekoppelde/gedeelde beelden ook in artikel-hero's

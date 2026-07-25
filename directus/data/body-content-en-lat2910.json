@@ -1,7 +1,8 @@
 {
   "_comment": "LAT-2910/LAT-2912 — EN body-content voor de 6 pagina's uit deel 1b. Bron: /LAT/issues/LAT-2910#document-translations. SCHEMA (bevestigd uit code, niet uit een record-read): de aside/vergelijkings-/mijn-keuze-blokken komen ALLEMAAL uit het Directus JSON-veld `cta_blocks` (src/lib/cta-blocks.ts CtaStructure = {primary,comparison,closing}), gerenderd door CtaPrimary/CtaComparison/CtaClosing.astro. EN leest via de translations-overlay (src/lib/directus-i18n.ts) met een DEEP-MERGE, dus de EN-blob bevat ALLEEN vertaalbare keys — je overschrijft NOOIT het NL-bronrecord.",
-  "_blocker": "NIET DIRECT TOEPASBAAR. `cta_blocks` ontbreekt in ROUTES_TRANSLATABLE (src/lib/routes.ts:126) en ARTICLES_TRANSLATABLE (src/lib/articles.ts:293), en de kolom bestaat niet op routes_translations / articles_translations (directus/scripts/i18n-translations-schema.mjs). Zelfde voor `tags`. Daarom rendert /en/ hier de NL-basis. Volgorde: (1) junction-kolommen aanmaken, (2) veld toevoegen aan beide TRANSLATABLE-arrays, (3) pas dan deze EN-blobs wegschrijven. Stap 2 zonder stap 1 laat de EN-build hard falen (localizeRecords heeft een hard guard).",
-  "_mapping_confidence": "De rij→veld-toewijzing volgt de vaste volgorde van CtaStructure en is identiek consistent over alle 4 widget-pagina's (13 rijen, zelfde volgorde). Toch afgeleid, niet geverifieerd tegen het echte record: valideer met een GET op cta_blocks voordat je PATCHt.",
+  "_blocker": "OPGELOST (LAT-2921). `cta_blocks` (routes+articles) en `tags` (articles) zijn toegevoegd aan zowel de Directus-kolommen (routes_translations/articles_translations, via directus/scripts/i18n-translations-schema.mjs, gedraaid tegen live Directus) als ROUTES_TRANSLATABLE (src/lib/routes.ts) / ARTICLES_TRANSLATABLE (src/lib/articles.ts). De PATCH hieronder kan nu.",
+  "_mapping_confidence": "Geverifieerd tegen live Directus-records (GET, 2026-07-25) voor alle 4 widget-pagina's: routes/kaap-wijnroute, articles/piemonte-wijnreis-praktisch, articles/wijnreizen-piemonte-complete-gids, articles/auto-huren-sardinie. Alle nl-waarden hieronder matchen de live records EXACT, met één uitzondering: `articles.wijnreizen-piemonte-complete-gids.cta_blocks.primary.why` — de live NL luidt nu 'De beste producenten in Barolo, Barbaresco en Serralunga werken vrijwel allen op afspraak…' (met 'De beste' ervoor); de `en`-waarde hieronder vertaalt de oudere zin zonder 'De beste'. Check bij het PATCHen of de EN-vertaling nog moet worden aangevuld met 'the best' — inhoudelijk klein, maar niet 1-op-1.",
+  "_array_index_warning": "KRITIEK voor `tags` (en elk ander JSON-array-veld): mergeTranslatedValue (src/lib/directus-i18n.ts) merget arrays POSITIONEEL over de NL-basis (overlay[i] vervangt base[i]), NIET op tekst-match. Een EN-array die korter is dan de NL-basis vervangt alleen de EERSTE N elementen — bij `tags` zou een 3-elements EN-array dus de verkeerde tags (provence/champagne/roadtrip, index 0-2) overschrijven i.p.v. de bedoelde (index 3-5). Zie `articles.op-stroom-naar-het-zuiden-ambitiestuk.tags` hieronder: de EN-array is daarom net zo lang als de live NL-basis (7 elementen), met de 4 niet-vertaalde tags letterlijk teruggezet zodat de merge op die posities een no-op is.",
   "routes": {
     "kaap-wijnroute": {
       "cta_blocks": {
@@ -306,35 +307,17 @@
             "nl": "April en september zijn de beste maanden: oogst in september, lage bezetting en lagere prijzen in april.",
             "en": "April and September are the best months: harvest in September, low occupancy and lower prices in April."
           }
-        },
-        "_unmapped": [
-          {
-            "nl": "Onderdeel van de Italië-wijngids",
-            "en": "Part of the Italy wine guide",
-            "_note": "staat niet in CtaStructure; veld onbekend zonder record-read"
-          }
-        ]
-      }
+        }
+      },
+      "_note": "De 14e regel ('Onderdeel van de Italië-wijngids' → 'Part of the Italy wine guide') is GEEN Directus-veld en dus geen PATCH-target. Root cause (LAT-2921): hardcoded NL-label op HubDef.target in src/lib/hub-backlinks.ts, gerenderd door src/components/HubBacklink.astro zonder locale-onderscheid. Gefixed: het label loopt nu via ui_strings-key `hub.italie.backlinkLabel` (NL-default al gezet in src/lib/ui-strings.ts). Zet de EN-waarde 'Part of the Italy wine guide' weg als ui_strings_translations-rij voor die key (zelfde route als de 21 ui_strings-keys uit LAT-2910 1a), niet als onderdeel van articles.cta_blocks."
     },
     "langhe-piemonte-4-dagen-route": {
       "_note": "GEEN cta_blocks-werk. Het newsletter-blok is sinds LAT-2868 (commit 7c8160e) locale-aware via de ui_strings-key `langhe.capture.a.body`; de EN-waarde staat al in directus/data/ui-strings-en-lat2832.json. Deze pagina is klaar zodra die seed gedraaid is."
     },
     "op-stroom-naar-het-zuiden-ambitiestuk": {
-      "_note": "Geen cta_blocks maar `articles.tags` (JSON string-array, src/lib/articles.ts:467). Niet in de overlay en geen kolom op articles_translations — vereist dezelfde schema-stap als cta_blocks.",
-      "tags": [
-        {
-          "nl": "op stroom naar het zuiden",
-          "en": "onto the grid, heading south"
-        },
-        {
-          "nl": "elektrische auto",
-          "en": "electric car"
-        },
-        {
-          "nl": "ambitiestuk",
-          "en": "ambition piece"
-        }
-      ]
+      "_note": "Geen cta_blocks maar `articles.tags` (JSON string-array, src/lib/articles.ts:467). Opgelost (LAT-2921): kolom + ARTICLES_TRANSLATABLE-entry zijn er nu. LET OP: `tags_en` hieronder is de VOLLEDIGE array (7 elementen, index-gelijk aan de live NL-basis), niet alleen de 3 vertaalde tags — zie `_array_index_warning` bovenaan. Live NL-basis (GET, 2026-07-25): [\"provence\",\"champagne\",\"roadtrip\",\"elektrische auto\",\"op stroom naar het zuiden\",\"ambitiestuk\",\"grower champagne\"].",
+      "tags_nl_base": ["provence", "champagne", "roadtrip", "elektrische auto", "op stroom naar het zuiden", "ambitiestuk", "grower champagne"],
+      "tags_en": ["provence", "champagne", "roadtrip", "electric car", "onto the grid, heading south", "ambition piece", "grower champagne"]
     }
   }
 }

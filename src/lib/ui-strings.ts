@@ -583,6 +583,12 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'langhe.capture.c.subCopy': 'Elke twee weken volgt De Brief: over wijn en reizen vanuit eigen ervaring.',
     'langhe.capture.email.label': 'E-mailadres',
     'langhe.capture.email.placeholder': 'je@adres.nl',
+
+    // LAT-2921 — HubBacklink (pillar-hub terugverwijzing, src/lib/hub-backlinks.ts).
+    // Stond als hardcoded NL-`label` op het HubDef-target; nu dictionary-driven
+    // zodat de /en/-tegenhangers van de hub-leden (o.a. auto-huren-sardinie) een
+    // EN-label krijgen i.p.v. altijd "Onderdeel van de Italië-wijngids".
+    'hub.italie.backlinkLabel': 'Onderdeel van de Italië-wijngids',
 };
 
 /** Resolver over de UI-dictionary: EN-value indien aanwezig, anders NL-default. */
