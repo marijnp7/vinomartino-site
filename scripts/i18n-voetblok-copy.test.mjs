@@ -57,7 +57,11 @@ test('elke voetblok-key heeft een NL-default (geen key-lek naar de pagina)', () 
 });
 
 test('geen hardcoded NL-copy meer in ArtikelVoetblok.astro', () => {
-  // Spiegelt NL_LITERALS in lat2582-gate-check.py.
+  // Zusje van NL_LITERALS in lat2582-gate-check.py, geen kopie: die lijst dekt
+  // de literals die op prod op een /en/-pagina zijn aangetroffen, deze dekt de
+  // voetblok-copy in dít bestand. Twee niveaus: hier vangen we de NL-string
+  // voordat hij gebouwd wordt, daar vangen we hem als hij toch live staat.
+  // Houd ze dus NIET synchroon -- ze horen verschillend te zijn.
   for (const literal of ['Dit artikel hoort bij', 'Waar je slaapt in', 'Overnachten', 'Verder lezen', 'Bekijk de route']) {
     assert.ok(!VOETBLOK.includes(`>${literal}`), `NL-literal terug in de template: ${literal}`);
   }

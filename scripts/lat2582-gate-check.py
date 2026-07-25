@@ -1,66 +1,102 @@
 #!/usr/bin/env python3
-"""i18n gate: detect leftover Dutch body content on the English (/en/) pages.
+"""i18n launch-gate voor de Engelse (/en/) kant van vinomartino.com.
 
-Background
-----------
-LAT-2582 introduced a word-level gate: count Dutch stopword occurrences in a
-page and fail above a threshold. That gate produced a lot of false positives,
-because the corpus is full of Romance proper nouns and appellation names
-("Vin de Constance", "Lopez de Heredia", "Cote de Nuits", "Barrio de la
-Estacion"). LAT-2865 already had to drop "voor" from the stopword list for
-this reason, and LAT-2838 was heading towards a hand-maintained exclusion list
-of ~10 pages.
+De gate meet vijf onafhankelijke dimensies. Elke dimensie heeft een eigen bit in
+de exit-code, zodat CI kan zien *welke* dimensie faalt zonder de output te
+parsen:
 
-An exclusion list is the wrong fix: it makes exactly those pages blind to real
-future Dutch regressions. This gate uses a **sentence-level** criterion instead:
+    bit  waarde  dimensie
+      0       1  nl-sentences  Nederlandse zinnen in de EN-body       (LAT-2908)
+      1       2  technical     HTTP 200 + lang="en" + hreflang-trio
+      2       4  nl-links      interne links van /en/ naar de NL-kant (LAT-2704)
+      3       8  coverage      NL-pagina's zonder EN-tegenhanger
+      4      16  nl-literals   ratio-blinde NL-literals               (LAT-2820)
+             64  operationeel  er kon niets gemeten worden
 
-    a page fails if any single sentence contains >= NL_SENT_MIN (default 3)
-    *distinct* Dutch marker words.
+Een run die op zowel nl-sentences als nl-links faalt geeft dus exit 5.
 
-Scattered Romance prepositions never cluster that way inside one sentence, but
-an actually-untranslated Dutch sentence always does. Measured on production
-build #913 this gives 0 false positives across the whole /en/ tree, with no
-exclusion list at all.
+Geschiedenis
+------------
+LAT-2582 begon met een woord-drempel: tel Nederlandse stopwoorden en faal boven
+een ratio. Dat gaf veel vals-positieven, omdat het corpus vol Romaanse
+eigennamen staat ("Vin de Constance", "Lopez de Heredia", "Voor-Paardeberg").
+LAT-2865 moest daarom "voor" uit de stopwoordenlijst halen en LAT-2838 koerste
+op een handmatige uitsluitlijst van ~10 pagina's aan.
 
-Usage
------
-    python3 scripts/lat2582-gate-check.py                     # live prod
-    python3 scripts/lat2582-gate-check.py --base-url http://localhost:4321
-    python3 scripts/lat2582-gate-check.py --dist dist          # local build
-    python3 scripts/lat2582-gate-check.py --url /en/streken/   # single page
+Een uitsluitlijst is de verkeerde fix: hij maakt precies die pagina's blind voor
+echte toekomstige regressies. LAT-2908 verving de ratio daarom door een
+**zin-criterium** (zie `scan()`). LAT-2911 heeft de vier overige dimensies
+teruggebracht die in het originele script zaten maar bij de herbouw wegvielen.
+
+Waarom ratio-blinde literals een aparte dimensie zijn
+-----------------------------------------------------
+Een korte, herhaalde string (een affiliate-voetregel, een knoplabel) verdrinkt
+in een verder Engelse pagina: geen enkele zin haalt de marker-drempel. De 28
+Nederlandse disclosures op 11 /en/wijnroutes/-pagina's zaten destijds onder elke
+ratio en waren onzichtbaar tot een gerichte scan. Daarom staan ze los in
+NL_LITERALS.
+
+Een literal-check die *niets* matcht is niet te onderscheiden van een geslaagde
+gate. `--selftest` dekt dat af: het draait elke literal tegen de NL-tegenhanger,
+waar hij per definitie hoort te staan. Vuurt een patroon daar niet, dan is het
+patroon dood en niet de content schoon.
+
+Gebruik
+-------
+    python3 scripts/lat2582-gate-check.py                       # live prod
+    python3 scripts/lat2582-gate-check.py --base http://localhost:4321
+    python3 scripts/lat2582-gate-check.py --dist dist           # lokale build
+    python3 scripts/lat2582-gate-check.py --url /en/streken/    # losse pagina
+    python3 scripts/lat2582-gate-check.py --json /tmp/gate.json # ruwe data
+    python3 scripts/lat2582-gate-check.py --only nl-links,coverage
+    python3 scripts/lat2582-gate-check.py --selftest            # patroon-check
 
 Env:
-    NL_SENT_MIN   distinct Dutch markers per sentence to flag it (default 3)
-
-Exit codes:
-    0  no Dutch sentences found
-    1  at least one Dutch sentence found
-    2  operational failure (nothing could be fetched)
+    NL_SENT_MIN   distinct Nederlandse markers per zin om te vlaggen (default 3)
 """
 from __future__ import annotations
 
 import argparse
+import concurrent.futures as futures
 import glob
-import html
+import html as htmllib
+import json
 import os
 import re
 import sys
-import urllib.request
 import urllib.error
+import urllib.request
 
 DEFAULT_BASE = "https://vinomartino.com"
 SENT_MIN_DEFAULT = int(os.environ.get("NL_SENT_MIN", "3"))
+UA = "lat2582-gate-check"
 
-# Dutch-exclusive markers only.
-#
-# Homographs with English / French / Spanish / Italian / German are
-# deliberately EXCLUDED -- they are what made the word-level gate noisy:
+EXIT_SENTENCES = 1
+EXIT_TECHNICAL = 2
+EXIT_LINKS = 4
+EXIT_COVERAGE = 8
+EXIT_LITERALS = 16
+EXIT_OPERATIONAL = 64
+
+DIMENSIONS = ("nl-sentences", "technical", "nl-links", "coverage", "nl-literals")
+
+# Bewust NL-only route-families. Wordt bij voorkeur uit src/lib/i18n.ts gelezen
+# (`EN_MISSING_PREFIXES`), zodat de gate niet uit de pas loopt met de site zelf;
+# deze tuple is alleen de fallback als dat bestand er niet is (los gedraaid).
+NL_ONLY_PREFIXES_FALLBACK = ("/reizen-nareizen/", "/intern/", "/preview/")
+
+# --------------------------------------------------------------------------- #
+# dimensie 1 -- Nederlandse zinnen (LAT-2908)
+# --------------------------------------------------------------------------- #
+# Uitsluitend Nederlands-exclusieve markers. Homografen met het Engels, Frans,
+# Spaans, Italiaans en Duits zijn bewust WEGGELATEN -- die maakten de oude
+# woord-gate ruizig:
 #   in, de, is, over, want, en, van, klein, met, te, we, u, men, die, als,
 #   dan, of, kan, hier, was, wie, la, alle, nu, voor
-# ("voor" was removed in LAT-2865 for exactly this reason.)
+# ("voor" ging eruit in LAT-2865 vanwege "Voor-Paardeberg" in de Paarl WO-area.)
 #
-# Keep this list conservative. A word only belongs here if seeing it in an
-# English sentence would be surprising.
+# Houd deze lijst conservatief. Een woord hoort hier alleen thuis als het
+# opzien zou baren in een Engelse zin.
 NL_MARKERS = {
     "het", "een", "dat", "zijn", "maar", "ook", "niet", "naar", "heb", "heeft",
     "hebben", "wordt", "worden", "werd", "deze", "dit", "waar", "zelf", "veel",
@@ -75,8 +111,72 @@ NL_MARKERS = {
     "leren", "kennen", "gereden", "bezocht", "gesproken", "begint",
 }
 
-# Closing a block-level element ends a sentence, so copy from two adjacent
-# elements never merges into one artificial "sentence".
+# --------------------------------------------------------------------------- #
+# dimensie 5 -- ratio-blinde NL-literals (LAT-2820)
+# --------------------------------------------------------------------------- #
+# Elke literal die ooit op een EN-pagina is aangetroffen hoort hier, zodat hij
+# niet stil terugkeert bij een merge. Gematcht op de RUWE HTML, niet op de
+# zichtbare tekst: `kbd-navigeren` ankert bewust op de tag-grenzen
+# (`</kbd> navigeren</span>`) zodat het woord alleen als los element-label telt
+# en niet ergens midden in een Nederlandse volzin -- die vangt dimensie 1 al.
+#
+# `bron` wijst naar de NL-default in de repo, zodat een dood patroon te
+# herleiden is. `nl_familie` is de NL-route-familie waar de literal hoort te
+# staan; --selftest trekt daar pagina's uit de sitemap bij en eist minstens één
+# treffer. Een familie is met opzet stabieler dan een vaste voorbeeld-URL: die
+# laatste maakt de selftest rood zodra iemand precies díé pagina hernoemt.
+#
+# Let op: dit zijn DETAIL-pagina's, niet de index. De disclosures en
+# kaart-bijschriften staan onder een streek-/wijnhuis-/routepagina; op
+# /wijnroutes/ zelf staan ze niet.
+NL_LITERALS = {
+    "affiliate-disclosure": {
+        "pattern": "als je hier boekt, kunnen wij een commissie",
+        "bron": "src/lib/ui-strings.ts 'stay.disclosure.microcopy'",
+        "nl_familie": "/wijnroutes/",
+    },
+    "affiliate-kort": {
+        # &middot; komt op prod niet voor, alleen de kale ·; beide toegestaan
+        # zodat een entity-wissel in de template de check niet stil doodt.
+        "pattern": "Affiliate-links (?:&middot;|·) geen extra kosten",
+        "regex": True,
+        "bron": "src/lib/ui-strings.ts 'wijnhuis.staynear.disclosure'",
+        "nl_familie": "/wijnhuizen/",
+    },
+    "cta-bekijk-boek": {
+        "pattern": "Bekijk (?:&amp;|&) boek",
+        "regex": True,
+        "bron": "src/lib/ui-strings.ts 'streekkaart.cta.overnachten'",
+        "nl_familie": "/streken/",
+    },
+    "kbd-navigeren": {
+        # Ankert op de tag-grenzen (`</kbd> navigeren</span>`), zodat alleen het
+        # losse toetsenbord-label telt en niet het woord midden in een NL-zin --
+        # die vangt dimensie 1 al.
+        "pattern": "> navigeren<",
+        "bron": "src/components/SearchDialog.astro c.navigate",
+        "nl_familie": "/",
+    },
+    "atlas-bijschrift": {
+        "pattern": "Elke streek in échte geografie",
+        "bron": "src/components/CountryRegionMap.astro",
+        "nl_familie": "/landen/",
+    },
+    "cluster-40min": {
+        "pattern": "Allemaal binnen ~40 min|binnen ~40 min rijden",
+        "regex": True,
+        "bron": "src/lib/ui-strings.ts 'acc.groepNote' / 'streekkaart.clusterNote'",
+        "nl_familie": "/streken/",
+    },
+    "lege-staat-artikelen": {
+        "pattern": "Geen artikelen voor deze filters",
+        "bron": "src/lib/ui-strings.ts 'artikelen.index.filterEmpty.title'",
+        "nl_familie": "/artikelen/",
+    },
+}
+
+# Sluiten van een block-element beëindigt een zin, zodat copy uit twee
+# naastgelegen elementen nooit tot één kunstmatige "zin" samensmelt.
 BLOCK_END = re.compile(
     r"</(p|h1|h2|h3|h4|h5|h6|li|td|th|blockquote|figcaption|div|span|a)>", re.I
 )
@@ -84,16 +184,21 @@ DROP = re.compile(r"<(script|style|noscript)[^>]*>.*?</\1>", re.S | re.I)
 WORD = re.compile(r"[A-Za-zÀ-ÿ']+")
 SENT_SPLIT = re.compile(r"(?<=[.!?:;])\s+")
 BLOCK_SEP = "\x00"
+ASSET_RE = re.compile(r"\.(png|jpe?g|svg|webp|avif|xml|json|ico|css|js|txt|pdf)$", re.I)
+
+
+def main_segment(raw: str) -> str:
+    """De <main>-sectie, of de hele body als er geen <main> is."""
+    m = re.search(r"<main\b[^>]*>(.*?)</main>", raw, re.S | re.I)
+    return m.group(1) if m else raw
 
 
 def visible_text(raw: str) -> str:
-    """Text inside <main>, with block boundaries preserved as separators."""
-    m = re.search(r"<main\b[^>]*>(.*?)</main>", raw, re.S | re.I)
-    seg = m.group(1) if m else raw
-    seg = DROP.sub(" ", seg)
+    """Tekst binnen <main>, met block-grenzen bewaard als separator."""
+    seg = DROP.sub(" ", main_segment(raw))
     seg = BLOCK_END.sub(lambda mm: mm.group(0) + BLOCK_SEP, seg)
     seg = re.sub(r"<[^>]+>", " ", seg)
-    return html.unescape(seg)
+    return htmllib.unescape(seg)
 
 
 def sentences(text: str):
@@ -108,7 +213,12 @@ def sentences(text: str):
 
 
 def scan(raw: str, sent_min: int):
-    """Return (word_hits, [(distinct_markers, sentence), ...])."""
+    """-> (word_hits, [(distinct_markers, sentence), ...]).
+
+    Een pagina faalt als één zin >= sent_min *verschillende* NL-markers bevat.
+    Verspreide Romaanse voorzetsels clusteren nooit zo binnen één zin; een echt
+    onvertaalde Nederlandse zin altijd wel.
+    """
     word_hits = 0
     flagged = []
     for s in sentences(visible_text(raw)):
@@ -120,79 +230,438 @@ def scan(raw: str, sent_min: int):
     return word_hits, flagged
 
 
-def fetch(url: str) -> str:
-    req = urllib.request.Request(url, headers={"User-Agent": "lat2582-gate-check"})
-    with urllib.request.urlopen(req, timeout=30) as r:
-        return r.read().decode("utf-8", "replace")
+def find_literals(raw: str):
+    """-> {key: aantal}. Alleen literals die daadwerkelijk voorkomen."""
+    out = {}
+    for key, spec in NL_LITERALS.items():
+        if spec.get("regex"):
+            n = len(re.findall(spec["pattern"], raw))
+        else:
+            n = raw.count(spec["pattern"])
+        if n:
+            out[key] = n
+    return out
 
 
-def en_urls_from_sitemap(base: str):
-    """Discover every /en/ page, so the gate never goes stale on a page list."""
-    idx = fetch(f"{base}/sitemap-index.xml")
-    maps = re.findall(r"<loc>([^<]+)</loc>", idx) or [f"{base}/sitemap-0.xml"]
-    urls = []
-    for m in maps:
-        for loc in re.findall(r"<loc>([^<]+)</loc>", fetch(m)):
-            if re.search(r"/en/", loc):
-                urls.append(loc)
-    return sorted(set(urls))
+def check_technical(raw: str, url: str, code: int, base: str):
+    """-> lijst met problemen. Leeg == in orde.
+
+    Correct voor /en/<pad> betekent: HTTP 200, <html lang="en">, en een compleet
+    hreflang-trio waarbij en->zichzelf, nl->het NL-pad en x-default->het NL-pad
+    wijst. Alleen "er staat érgens een hreflang" is te zwak: een verkeerd
+    gerichte alternate is precies de fout die je wil vangen.
+    """
+    problems = []
+    if code != 200:
+        return [f"HTTP {code}"]
+
+    lang = re.search(r"<html[^>]*\blang=\"([^\"]+)\"", raw, re.I)
+    lang = (lang.group(1) if lang else "").lower()
+    if lang != "en":
+        problems.append(f'lang="{lang or "-"}"')
+
+    alts = {
+        h.lower(): href
+        for h, href in re.findall(
+            r"<link[^>]*\brel=\"alternate\"[^>]*\bhreflang=\"([^\"]+)\"[^>]*\bhref=\"([^\"]+)\"",
+            raw,
+            re.I,
+        )
+    }
+    path = url[len(base):] if url.startswith(base) else url
+    nl_path = re.sub(r"^/en(?=/|$)", "", path) or "/"
+    want = {"en": base + path, "nl": base + nl_path, "x-default": base + nl_path}
+    for key, expected in want.items():
+        got = alts.get(key)
+        if got is None:
+            problems.append(f"hreflang={key} ontbreekt")
+        elif got.rstrip("/") != expected.rstrip("/"):
+            problems.append(f"hreflang={key} -> {got} (verwacht {expected})")
+    return problems
 
 
+def internal_nl_links(raw: str, base: str, nl_only_prefixes):
+    """Interne links vanaf een /en/-pagina naar de NL-kant (LAT-2704).
+
+    Chrome gaat er eerst uit, anders is de meting onbruikbaar ruizig:
+
+    * alleen <main> telt -- de taalwisselaar, de site-header en de footer staan
+      op iedere EN-pagina en wijzen met opzet naar NL;
+    * <a> met een hreflang-attribuut is per definitie een taal-alternate (de
+      wisselaar zelf draagt hreflang="nl") en dus geen lek;
+    * /cdn-cgi/ is Cloudflare email-protection, geen content;
+    * assets hebben geen taalvariant;
+    * bewust NL-only families horen NL te blijven.
+
+    Zonder die filters meldt de check elke pagina en zegt hij dus niets.
+    """
+    body = DROP.sub(" ", main_segment(raw))
+    out = []
+    for tag, href in re.findall(r"(<a\b[^>]*\bhref=\"([^\"]+)\"[^>]*>)", body, re.I):
+        if re.search(r"\bhreflang=", tag, re.I):
+            continue
+        if href.startswith(base):
+            href = href[len(base):] or "/"
+        if not href.startswith("/") or href.startswith("//"):
+            continue
+        path = href.split("#", 1)[0].split("?", 1)[0]
+        if not path or path.startswith("/en/") or path == "/en":
+            continue
+        if path.startswith("/cdn-cgi/") or ASSET_RE.search(path):
+            continue
+        if any(path.startswith(p) for p in nl_only_prefixes):
+            continue
+        out.append(path)
+    return out
+
+
+# --------------------------------------------------------------------------- #
+# ophalen
+# --------------------------------------------------------------------------- #
+def fetch(url: str):
+    """-> (status, body). Gooit niets naar buiten; 404/500 zijn meetdata."""
+    req = urllib.request.Request(url, headers={"User-Agent": UA})
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            return r.getcode(), r.read().decode("utf-8", "replace")
+    except urllib.error.HTTPError as e:
+        return e.code, ""
+    except Exception:
+        return 0, ""
+
+
+def sitemap_urls(base: str):
+    """Alle <loc>-URLs uit de sitemap(-index), als paden zonder host."""
+    seen, out = set(), []
+    todo = [base + "/sitemap-index.xml", base + "/sitemap.xml"]
+    while todo:
+        url = todo.pop(0)
+        if url in seen:
+            continue
+        seen.add(url)
+        code, body = fetch(url)
+        if code != 200 or not body.strip():
+            continue
+        locs = re.findall(r"<loc>([^<]+)</loc>", body)
+        if "<sitemapindex" in body:
+            todo.extend(locs)
+            continue
+        for loc in locs:
+            path = loc[len(base):] if loc.startswith(base) else loc
+            if path.startswith("/") and path not in out:
+                out.append(path)
+    return out
+
+
+def coverage_gaps(all_paths, nl_only_prefixes):
+    """-> (en_paths, counted, missing, nl_only, orphan).
+
+    `missing` is het echte dekkingsgat: een NL-pagina zonder EN-tegenhanger.
+    `nl_only` valt uit de noemer, maar alleen zolang er echt geen EN-versie is;
+    zodra die er komt doet de pagina gewoon weer mee.
+    `orphan` (EN zonder NL-origineel) is geen gat, maar wel een scheve paring --
+    zonder die regel kan "295 vs 295" een mismatch maskeren.
+    """
+    en_paths = {p[3:] if p != "/en" else "/"
+                for p in all_paths if p.startswith("/en/") or p == "/en"}
+    nl_paths = {p for p in all_paths if not (p.startswith("/en/") or p == "/en")}
+    nl_only = sorted(p for p in nl_paths
+                     if any(p.startswith(x) for x in nl_only_prefixes)
+                     and p not in en_paths)
+    counted = sorted(nl_paths - set(nl_only))
+    missing = [p for p in counted if p not in en_paths]
+    orphan = sorted(en_paths - nl_paths)
+    return en_paths, counted, missing, nl_only, orphan
+
+
+def load_nl_only_prefixes(repo_root: str):
+    """EN_MISSING_PREFIXES uit src/lib/i18n.ts, zodat de gate niet uit de pas
+    loopt met de site. Valt terug op de constante als het bestand er niet is."""
+    ts = os.path.join(repo_root, "src", "lib", "i18n.ts")
+    try:
+        with open(ts, encoding="utf-8") as fh:
+            src = fh.read()
+    except OSError:
+        return NL_ONLY_PREFIXES_FALLBACK, "fallback (src/lib/i18n.ts niet gevonden)"
+    m = re.search(r"EN_MISSING_PREFIXES[^=]*=\s*\[([^\]]*)\]", src)
+    if not m:
+        return NL_ONLY_PREFIXES_FALLBACK, "fallback (EN_MISSING_PREFIXES niet gevonden)"
+    prefixes = tuple(re.findall(r"'([^']+)'|\"([^\"]+)\"", m.group(1)))
+    prefixes = tuple(a or b for a, b in prefixes)
+    exact = re.search(r"EN_PRESENT_EXACT_PATHS[^=]*=\s*\[([^\]]*)\]", src)
+    exact_paths = ()
+    if exact:
+        pairs = re.findall(r"'([^']+)'|\"([^\"]+)\"", exact.group(1))
+        exact_paths = tuple(a or b for a, b in pairs)
+    return prefixes, f"src/lib/i18n.ts ({', '.join(prefixes)}; uitzonderingen: {', '.join(exact_paths) or 'geen'})"
+
+
+# --------------------------------------------------------------------------- #
+# selftest
+# --------------------------------------------------------------------------- #
+SELFTEST_SAMPLE = 6
+
+
+def run_selftest(base: str, workers: int) -> int:
+    """Bewijs dat elke NL_LITERAL nog vuurt op de NL-kant.
+
+    Een patroon dat nergens matcht maakt de gate stil groen: "0 treffers" van
+    een kapot patroon en "0 treffers" van schone content zien er identiek uit.
+    Deze test draait daarom de omgekeerde meting -- op de NL-kant MOET de
+    literal er staan -- en bemonstert daarvoor echte pagina's uit de sitemap.
+    """
+    print("Selftest: vuren de NL_LITERALS-patronen nog op de NL-kant?\n")
+    all_paths = sitemap_urls(base)
+    if not all_paths:
+        print("FAIL: sitemap leverde geen URLs op", file=sys.stderr)
+        return EXIT_OPERATIONAL
+    nl_paths = [p for p in all_paths if not (p.startswith("/en/") or p == "/en")]
+
+    wanted = []
+    for key, spec in NL_LITERALS.items():
+        fam = spec["nl_familie"]
+        if fam == "/":
+            sample = ["/"]
+        else:
+            # De index zelf hoort erbij: lege-staat-copy (`Geen artikelen voor
+            # deze filters`) staat juist op /artikelen/ en op geen enkele
+            # detailpagina eronder.
+            detail = [p for p in nl_paths if p.startswith(fam) and p != fam]
+            sample = ([fam] if fam in nl_paths else []) + detail[:SELFTEST_SAMPLE]
+        wanted.append((key, spec, sample))
+
+    todo = sorted({p for _, _, sample in wanted for p in sample})
+    with futures.ThreadPoolExecutor(workers) as ex:
+        pages = dict(zip(todo, ex.map(lambda p: fetch(base + p), todo)))
+
+    dead = []
+    for key, spec, sample in wanted:
+        firing = [(p, find_literals(pages[p][1]).get(key, 0)) for p in sample
+                  if pages[p][0] == 200]
+        firing = [(p, n) for p, n in firing if n]
+        status = "ok  " if firing else "DOOD"
+        where = f"{len(firing)}/{len(sample)} {spec['nl_familie']}-pagina's"
+        example = f"  bv. {firing[0][0]}" if firing else ""
+        print(f"  {status} {key:22} {where}{example}")
+        if not firing:
+            dead.append((key, spec, sample))
+
+    print()
+    if dead:
+        print(f"{len(dead)} patroon/patronen vuurden nergens. Dat is GEEN schone")
+        print("content -- het betekent dat de gate op die literal blind is:")
+        for key, spec, sample in dead:
+            print(f"  - {key}: geen match op {len(sample)} pagina's onder "
+                  f"{spec['nl_familie']} (bron: {spec['bron']})")
+        print("\nSELFTEST: NIET GESLAAGD")
+        return 1
+    print("SELFTEST: GESLAAGD -- elke literal is aantoonbaar meetbaar")
+    return 0
+
+
+# --------------------------------------------------------------------------- #
+# rapport
+# --------------------------------------------------------------------------- #
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--base-url", default=DEFAULT_BASE)
-    ap.add_argument("--dist", help="scan a local build directory instead of HTTP")
-    ap.add_argument("--url", action="append", help="scan only these paths/URLs")
+    ap.add_argument("--base", "--base-url", dest="base", default=DEFAULT_BASE)
+    ap.add_argument("--dist", help="scan een lokale build-directory i.p.v. HTTP")
+    ap.add_argument("--url", action="append", help="scan alleen deze paden/URLs")
+    ap.add_argument("--json", help="schrijf de ruwe per-pagina data hierheen")
+    ap.add_argument("--workers", type=int, default=12)
     ap.add_argument("--sent-min", type=int, default=SENT_MIN_DEFAULT)
+    ap.add_argument("--only", help=f"alleen deze dimensies: {','.join(DIMENSIONS)}")
+    ap.add_argument("--selftest", action="store_true",
+                    help="controleer of de NL_LITERALS-patronen nog vuren")
     ap.add_argument("--quiet", action="store_true")
     args = ap.parse_args()
 
-    base = args.base_url.rstrip("/")
-    targets = []  # (label, raw_html)
+    base = args.base.rstrip("/")
+    repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-    try:
-        if args.dist:
-            files = sorted(glob.glob(os.path.join(args.dist, "en", "**", "*.html"),
-                                     recursive=True))
-            if not files:
-                print(f"FAIL: no HTML under {args.dist}/en", file=sys.stderr)
-                return 2
-            for f in files:
-                targets.append((os.path.relpath(f, args.dist),
-                                open(f, encoding="utf-8", errors="replace").read()))
+    if args.selftest:
+        return run_selftest(base, args.workers)
+
+    active = set(DIMENSIONS)
+    if args.only:
+        active = {d.strip() for d in args.only.split(",") if d.strip()}
+        unknown = active - set(DIMENSIONS)
+        if unknown:
+            print(f"FAIL: onbekende dimensie(s): {', '.join(sorted(unknown))}",
+                  file=sys.stderr)
+            return EXIT_OPERATIONAL
+
+    nl_only_prefixes, prefix_src = load_nl_only_prefixes(repo_root)
+
+    print(f"Omgeving : {base}")
+    if not args.dist:
+        _, build = fetch(f"{base}/build-info.json")
+        print(f"Build    : {build.strip() or '(onbekend)'}")
+    print(f"NL-only  : {prefix_src}")
+    print(f"Dimensies: {', '.join(d for d in DIMENSIONS if d in active)}\n")
+
+    exit_code = 0
+    pages = []  # (url_or_label, path, code, raw)
+
+    # ---- verzamelen ------------------------------------------------------- #
+    if args.dist:
+        files = sorted(glob.glob(os.path.join(args.dist, "en", "**", "*.html"),
+                                 recursive=True))
+        if not files:
+            print(f"FAIL: geen HTML onder {args.dist}/en", file=sys.stderr)
+            return EXIT_OPERATIONAL
+        for f in files:
+            rel = os.path.relpath(f, args.dist)
+            pages.append((rel, "/" + rel, 200,
+                          open(f, encoding="utf-8", errors="replace").read()))
+        if "technical" in active:
+            print("(technical overgeslagen: --dist heeft geen HTTP-status)\n")
+            active.discard("technical")
+        if "coverage" in active:
+            print("(coverage overgeslagen: --dist heeft geen sitemap)\n")
+            active.discard("coverage")
+    else:
+        if args.url:
+            en_urls = [u if u.startswith("http") else base + u for u in args.url]
+            all_paths = [u[len(base):] for u in en_urls if u.startswith(base)]
+            if "coverage" in active:
+                print("(coverage overgeslagen: --url meet geen volledige sitemap)\n")
+                active.discard("coverage")
         else:
-            urls = ([u if u.startswith("http") else base + u for u in args.url]
-                    if args.url else en_urls_from_sitemap(base))
-            if not urls:
-                print("FAIL: sitemap yielded no /en/ URLs", file=sys.stderr)
-                return 2
-            for u in urls:
-                try:
-                    targets.append((u, fetch(u)))
-                except urllib.error.HTTPError as e:
-                    print(f"WARN {u}: HTTP {e.code}", file=sys.stderr)
-    except Exception as e:  # network/sitemap failure is operational, not a gate failure
-        print(f"FAIL: could not collect pages: {e}", file=sys.stderr)
-        return 2
+            all_paths = sitemap_urls(base)
+            if not all_paths:
+                print("FAIL: sitemap leverde geen URLs op", file=sys.stderr)
+                return EXIT_OPERATIONAL
+            en_urls = [base + p for p in all_paths
+                       if p.startswith("/en/") or p == "/en"]
+            if not en_urls:
+                print("FAIL: sitemap leverde geen /en/-URLs op", file=sys.stderr)
+                return EXIT_OPERATIONAL
 
-    if not targets:
-        print("FAIL: nothing to scan", file=sys.stderr)
-        return 2
+        with futures.ThreadPoolExecutor(args.workers) as ex:
+            fetched = list(ex.map(fetch, en_urls))
+        for url, (code, raw) in zip(en_urls, fetched):
+            pages.append((url, url[len(base):], code, raw))
 
-    bad = 0
-    for label, raw in targets:
-        word_hits, flagged = scan(raw, args.sent_min)
-        if flagged:
-            bad += 1
-            print(f"NL   {label}  (word-hits={word_hits}, nl-sentences={len(flagged)})")
-            for n, s in flagged:
-                print(f"       [{n}] {s[:200]}")
-        elif not args.quiet:
-            print(f"ok   {label}  (word-hits={word_hits})")
+    ok_pages = [p for p in pages if p[2] == 200 and p[3]]
+    if not ok_pages:
+        print("FAIL: geen enkele pagina kon gemeten worden", file=sys.stderr)
+        return EXIT_OPERATIONAL
 
-    print(f"\nscanned {len(targets)} /en/ pages, "
-          f"{bad} with Dutch content (NL_SENT_MIN={args.sent_min})")
-    return 1 if bad else 0
+    # ---- dekking ---------------------------------------------------------- #
+    if "coverage" in active:
+        en_paths, counted, missing, nl_only, orphan = coverage_gaps(
+            all_paths, nl_only_prefixes)
+        pct = 100.0 * (len(counted) - len(missing)) / max(1, len(counted))
+        print(f"Dekking  : {len(en_paths)} EN vs {len(counted)} NL "
+              f"sitemap-URLs ({pct:.1f}%)")
+        if nl_only:
+            print(f"  ({len(nl_only)} bewust NL-only, buiten de noemer: "
+                  f"{', '.join(nl_only)})")
+        for p in missing:
+            print(f"  NL zonder EN-tegenhanger: {p}")
+        # Een EN-pagina zonder NL-origineel is geen dekkingsgat, maar wel een
+        # signaal dat de paar-vergelijking scheef staat -- zonder deze regel
+        # zou 295 vs 295 een mismatch kunnen maskeren.
+        for p in orphan:
+            print(f"  EN zonder NL-origineel: /en{p}")
+        if missing:
+            exit_code |= EXIT_COVERAGE
+        print()
+
+    # ---- per-pagina metingen ---------------------------------------------- #
+    rows = []
+    for label, path, code, raw in pages:
+        row = {"path": path, "code": code}
+        if "technical" in active:
+            row["technical"] = check_technical(raw, base + path, code, base)
+        if code == 200 and raw:
+            if "nl-sentences" in active:
+                hits, flagged = scan(raw, args.sent_min)
+                row["word_hits"] = hits
+                row["nl_sentences"] = [{"markers": n, "text": s} for n, s in flagged]
+            if "nl-links" in active:
+                row["nl_links"] = internal_nl_links(raw, base, nl_only_prefixes)
+            if "nl-literals" in active:
+                row["literals"] = find_literals(raw)
+        rows.append(row)
+
+    if args.json:
+        with open(args.json, "w", encoding="utf-8") as fh:
+            json.dump(rows, fh, indent=1, ensure_ascii=False)
+        print(f"(ruwe data geschreven naar {args.json})\n")
+
+    # ---- technisch --------------------------------------------------------- #
+    if "technical" in active:
+        broken = [r for r in rows if r.get("technical")]
+        print(f"Technisch: {len(rows) - len(broken)}/{len(rows)} OK "
+              f"(HTTP 200 + lang=en + hreflang-trio)")
+        for r in broken[:20]:
+            print(f"  {r['path']}: {'; '.join(r['technical'])}")
+        if len(broken) > 20:
+            print(f"  ... en nog {len(broken) - 20} pagina's")
+        if broken:
+            exit_code |= EXIT_TECHNICAL
+        print()
+
+    # ---- Nederlandse zinnen ------------------------------------------------ #
+    if "nl-sentences" in active:
+        dutch = [r for r in rows if r.get("nl_sentences")]
+        for r in dutch:
+            print(f"NL   {r['path']}  (word-hits={r['word_hits']}, "
+                  f"nl-sentences={len(r['nl_sentences'])})")
+            for s in r["nl_sentences"]:
+                print(f"       [{s['markers']}] {s['text'][:200]}")
+        print(f"NL-zinnen: {len(dutch)}/{len(rows)} pagina's met Nederlandse "
+              f"body-tekst (NL_SENT_MIN={args.sent_min})")
+        if dutch:
+            exit_code |= EXIT_SENTENCES
+        print()
+
+    # ---- interne NL-links -------------------------------------------------- #
+    if "nl-links" in active:
+        linky = [r for r in rows if r.get("nl_links")]
+        total = sum(len(r["nl_links"]) for r in linky)
+        print(f"NL-links : {len(linky)}/{len(rows)} pagina's met in totaal "
+              f"{total} interne links naar de NL-kant (LAT-2704)")
+        for r in linky[:20]:
+            uniq = sorted(set(r["nl_links"]))
+            print(f"  {r['path']} -> {', '.join(uniq[:5])}"
+                  f"{' ...' if len(uniq) > 5 else ''}")
+        if len(linky) > 20:
+            print(f"  ... en nog {len(linky) - 20} pagina's")
+        if linky:
+            exit_code |= EXIT_LINKS
+        print()
+
+    # ---- NL-literals ------------------------------------------------------- #
+    if "nl-literals" in active:
+        per_key_pages, per_key_total = {}, {}
+        for r in rows:
+            for k, n in (r.get("literals") or {}).items():
+                per_key_pages[k] = per_key_pages.get(k, 0) + 1
+                per_key_total[k] = per_key_total.get(k, 0) + n
+        found = sum(per_key_total.values())
+        print(f"Literals : {found} treffers van ratio-blinde NL-literals")
+        for k in NL_LITERALS:
+            if per_key_pages.get(k):
+                print(f"  {k}: {per_key_total[k]}x op {per_key_pages[k]} pagina's")
+        if not per_key_pages:
+            print("  geen -- alle bekende NL-literals zijn weg")
+            print("  (draai --selftest om te bevestigen dat de patronen nog leven)")
+        else:
+            exit_code |= EXIT_LITERALS
+        print()
+
+    # ---- slot -------------------------------------------------------------- #
+    failed = [name for name, bit in (
+        ("nl-sentences", EXIT_SENTENCES), ("technical", EXIT_TECHNICAL),
+        ("nl-links", EXIT_LINKS), ("coverage", EXIT_COVERAGE),
+        ("nl-literals", EXIT_LITERALS)) if exit_code & bit]
+    print(f"gescand {len(rows)} /en/-pagina's")
+    print(f"GATE: {'NIET GESLAAGD (' + ', '.join(failed) + ')' if failed else 'GESLAAGD'}"
+          f"  [exit {exit_code}]")
+    return exit_code
 
 
 if __name__ == "__main__":
