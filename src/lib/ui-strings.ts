@@ -532,14 +532,15 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'accommodaties.roundup.meta.descPost': ", met echte foto's, locatie en prijsindicatie. Geen willekeurig hotelaanbod, maar adressen die we zelf zouden boeken.",
 
     // LAT-2693 — auteurs-overzicht + auteur-detail (bios blijven NL; vertaling later)
-    'auteurs.breadcrumb.index': 'Auteurs',
-    'auteurs.index.meta.title': 'Auteurs — VinoMartino',
-    'auteurs.index.meta.description': 'Wie schrijft VinoMartino? Maak kennis met de schrijvers achter onze wijnreizen en proefnotities.',
-    'auteurs.index.kicker': 'Auteurs',
-    'auteurs.index.h1': 'Wie schrijft VinoMartino',
-    'auteurs.index.lead': 'Eén notitieboekje per reis, een eigen stem per schrijver. Hieronder vindt u wie er achter de stukken zit.',
-    'auteurs.index.readMorePre': 'Lees artikelen van ',
-    'auteurs.index.readMorePost': ' →',
+    // LAT-3068 (A4): index herbouwd tot één Marijn-profiel; grid + per-auteur
+    // kaarten zijn vervallen. `auteurs.breadcrumb.index` blijft ook de
+    // middelste kruimel op de auteur-detailpagina's (AuteurDetail.astro).
+    'auteurs.breadcrumb.index': 'Auteur',
+    'auteurs.index.meta.title': 'Marijn — de auteur van VinoMartino',
+    'auteurs.index.meta.description': 'Marijn is de stem achter VinoMartino: wijnreiziger, schrijver en de auteur van (vrijwel) elk artikel op deze site.',
+    'auteurs.index.kicker': 'Auteur',
+    'auteurs.index.lead': 'Eén notitieboekje per reis, één stem achter VinoMartino.',
+    'auteurs.index.sophieCameo': 'Sophie reist regelmatig mee en duikt af en toe op in een verhaal — met haar eigen blik op wat er in het glas zit, maar niet als aparte auteur.',
     'auteurs.detail.kicker': 'Auteur',
     'auteurs.detail.metaTitleSuffix': ' — Auteur | VinoMartino',
     'auteurs.detail.regionsHeading': 'Bereisde streken',
