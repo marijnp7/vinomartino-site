@@ -601,6 +601,51 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'hub.italie.backlinkLabel': 'Onderdeel van de Italië-wijngids',
 };
 
+/**
+ * LAT-2831 — statische EN-seed voor de gate-blokkerende UI-strings.
+ * Directus `ui_strings_translations` wint (live override); deze map is de
+ * code-level fallback zodat de /en/-pagina's de gate passeren ook als Directus
+ * nog geen EN-values heeft.  Volgorde in t(): Directus → UI_STRING_EN → UI_STRING_DEFAULTS.
+ */
+export const UI_STRING_EN: Record<string, string> = {
+    // StreekCard.astro — "Begin hier"-badge.
+    'streken.card.beginHier': 'Start here',
+
+    // StrekenIndex.astro (/en/streken/).
+    'streken.index.meta.title': 'Wine Regions, From Piedmont to the Mosel | VinoMartino',
+    'streken.index.meta.description': 'Discover the great wine regions of Europe — terroir, grape varieties, climate and the best producers. In-depth guides for wine lovers.',
+    'streken.index.hero.label': 'Wine regions',
+    'streken.index.hero.h1': 'Terroir, grapes &amp; tradition',
+    'streken.index.hero.desc': 'Piedmont, Etna, Burgundy, Mosel — each region has its own logic of soil, climate and grape. I explain them here as I came to know them: by driving there.',
+    'streken.index.tier1.label': 'Visited in person',
+    'streken.index.tier1.title': 'Regions I\'ve driven myself',
+    'streken.index.tier1.desc': 'These guides were written after my own visits. Not sure where to start? Begin with the four marked "Start here".',
+    'streken.index.tier2.label': 'Editorial guides',
+    'streken.index.tier2.title': 'Guides by country',
+    'streken.index.tier2.desc': 'Carefully compiled from primary sources and local knowledge, grouped by country.',
+    'streken.index.overig': 'Other',
+    'streken.index.empty.title': 'The guides are on their way',
+    'streken.index.empty.descPre': 'Piedmont, Etna, Burgundy, Mosel and Priorat are at the top of the list. I\'d rather write them well than fast — in the meantime, start with the ',
+    'streken.index.empty.descLink': 'articles',
+    'streken.index.empty.descPost': '.',
+
+    // LangheCaptureBlock.astro — PDF lead magnet (variant a = mid-article).
+    'langhe.capture.a.koptekst': 'The complete travel planner as a PDF',
+    'langhe.capture.a.body': 'This article gives you the essentials. If you actually drive the route, there is more: phone numbers for the wineries, seasonal opening hours, and a daily cost breakdown. All of that is in the compact Langhe PDF I send to everyone who signs up for The Brief.',
+    'langhe.capture.a.ctaText': 'Send me the Langhe PDF',
+    'langhe.capture.a.subCopy': 'Every two weeks you\'ll also receive The Brief: about wine, travel, and the people behind it. Unsubscribe anytime.',
+
+    // LangheCaptureBlock.astro — PDF lead magnet (variant c = homepage-style).
+    'langhe.capture.c.koptekst': 'Start with Piedmont',
+    'langhe.capture.c.body': 'If you want to know where to begin in the Langhe: I wrote a compact travel planner. Route, wineries, hotels, budget. Sign up for The Brief and it\'s yours immediately.',
+    'langhe.capture.c.ctaText': 'Send me the Langhe PDF',
+    'langhe.capture.c.subCopy': 'Every two weeks The Brief follows: about wine and travel from personal experience.',
+
+    // LangheCaptureBlock.astro — gedeeld e-mail veld.
+    'langhe.capture.email.label': 'Email address',
+    'langhe.capture.email.placeholder': 'your@email.com',
+};
+
 /** Resolver over de UI-dictionary: EN-value indien aanwezig, anders NL-default. */
 export interface UiStrings {
     locale: Locale;
@@ -610,6 +655,9 @@ export interface UiStrings {
 }
 
 function fromDefaults(locale: Locale): UiStrings {
+    if (locale === 'en') {
+        return { locale, t: (key) => UI_STRING_EN[key] ?? UI_STRING_DEFAULTS[key] ?? key };
+    }
     return { locale, t: (key) => UI_STRING_DEFAULTS[key] ?? key };
 }
 
@@ -656,6 +704,6 @@ export async function loadUiStrings(locale: Locale = DEFAULT_LOCALE): Promise<Ui
 
     return {
         locale,
-        t: (key) => overlay.get(key) ?? UI_STRING_DEFAULTS[key] ?? key,
+        t: (key) => overlay.get(key) ?? UI_STRING_EN[key] ?? UI_STRING_DEFAULTS[key] ?? key,
     };
 }
