@@ -5,6 +5,7 @@
 // in [slug].astro; dit blok blijft puur de inhoud.
 import type { RelatedRef } from '../lib/articles';
 import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
 
 interface Props {
   /** LAT-2704 — locale van de renderende pagina; stuurt de interne hrefs. */
@@ -14,16 +15,20 @@ interface Props {
   maxItems?: number;
 }
 
-const { items, title = 'Gerelateerde stukken', maxItems = 3, locale = DEFAULT_LOCALE } = Astro.props;
+const { items, title, maxItems = 3, locale = DEFAULT_LOCALE } = Astro.props;
 
 // LAT-2704 — interne hrefs locale-aware; NL blijft byte-identiek.
 const lh = (href: string) => localizeHref(href, locale);
+// LAT-2848 — kop via de UI-dictionary; expliciete `title`-prop blijft override.
+// NL is een no-op (default = 'Gerelateerde stukken'), dus NL-HTML blijft byte-identiek.
+const ui = await loadUiStrings(locale);
+const heading = title ?? ui.t('gerelateerdeStukken.title');
 const links = items.slice(0, maxItems);
 ---
 
 {links.length > 0 && (
-  <nav class="gerelateerde-stukken" aria-label={title}>
-    <p class="gs-heading">{title}</p>
+  <nav class="gerelateerde-stukken" aria-label={heading}>
+    <p class="gs-heading">{heading}</p>
     <ul class="gs-list">
       {links.map((ref) => (
         <li class="gs-item">

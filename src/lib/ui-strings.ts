@@ -358,6 +358,15 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'voetblok.hotel.kicker': 'Overnachten',
     'voetblok.hotel.labelPre': 'Waar je slaapt in',
 
+    // ArtikelGerelateerdeStukken.astro (LAT-1619) — kop van de rechterzijbalk;
+    // rendert zowel als zichtbare <p class="gs-heading"> als in het nav-aria-label.
+    // RhoneMap.astro (LAT-1719) — aria-label van de kaart-canvas: 'Kaart:' is de
+    // prefix, de kaarttitel volgt als variabele in de template (t() kent geen
+    // interpolatie, net als voetblok.routeThumbAria). Beide zijn te kort om de
+    // NL-woordratio over NL_THRESHOLD te tillen en stonden dus nog NL op /en/ (LAT-2848).
+    'gerelateerdeStukken.title': 'Gerelateerde stukken',
+    'rhonemap.aria.mapPre': 'Kaart:',
+
     // AffiliatePlaceholder.astro (LAT-1029) — per-type affiliate-blok chrome
     // (titel/omschrijving/cta). De icon-emoji staat in de component (taal-neutraal).
     'affiliate.block.accommodation.title': 'Waar slapen',
