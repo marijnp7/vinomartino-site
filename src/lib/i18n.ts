@@ -47,7 +47,15 @@ export function localizePath(pathname: string, locale: Locale): string {
 // Links hiernaartoe blijven bewust op het kale NL-pad staan: liever een expliciete
 // taalwissel dan een harde 404. Zodra hier een EN-route bijkomt, haal je 'm hier weg
 // en wordt de link automatisch locale-aware (één plek, geen sweep).
-const EN_MISSING_PREFIXES: readonly string[] = ['/reizen-nareizen/', '/intern/', '/preview/'];
+// LAT-3209 — /seizoenskalender/ staat hier ook in: de NL-lead-magnet-landingspagina
+// krijgt bewust geen EN-tegenhanger zolang de PDF geblokkeerd is (LAT-2684/LAT-2318),
+// en zonder deze regel zou de i18n-coverage-gate hem als vertaalgat rapporteren.
+const EN_MISSING_PREFIXES: readonly string[] = [
+    '/reizen-nareizen/',
+    '/intern/',
+    '/preview/',
+    '/seizoenskalender/',
+];
 
 // LAT-2826 — uitzonderingen ÓP `EN_MISSING_PREFIXES`, op exacte padmatch. De
 // listingpagina /reizen-nareizen/ heeft wél een /en/-tegenhanger (die altijd
