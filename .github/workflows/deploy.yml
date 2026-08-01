@@ -20,6 +20,11 @@
 #   De menselijke gate zit in de PR-review + merge (R2-governance), niet hier.
 #   Er is GEEN required-reviewers gate op de `production` environment.
 #
+#   LAT-2844: die gate toetst alleen het juiste als de merge óók echt over
+#   de site gaat. Een push die uitsluitend niet-site-bestanden raakt
+#   (services/, docs/, directus/, losse .md) releaset daarom niet meer mee
+#   — zie de `paths-ignore` bij `on.push` hieronder.
+#
 # Vereiste secrets (slechts 3):
 #   VPS_HOST, VPS_USER, VPS_SSH_PRIVATE_KEY
 
@@ -28,6 +33,43 @@ name: Deploy VinoMartino
 on:
   push:
     branches: [preview, main]
+    # ── Wanneer deployt een push? (LAT-2844) ───────────────────────────
+    #
+    # Een push naar `main` is een PRODUCTIE-RELEASE. De build haalt content
+    # op uit Directus op het moment van draaien, dus wat er live gaat is
+    # NIET af te leiden uit de diff van de commit. Daarom deployt een push
+    # die uitsluitend niet-site-bestanden raakt niet meer mee.
+    #
+    # Bewust een DENYLIST (`paths-ignore`), geen allowlist (`paths`):
+    # een nieuw toegevoegd site-pad deployt dan vanzelf mee. Bij een
+    # allowlist zou een vergeten pad een STILLE niet-deploy opleveren —
+    # dat is de duurdere fout. Fail-open dus.
+    #
+    # NIET in deze lijst, en dat is opzet:
+    #   • nginx-*.conf, htpasswd, docker-compose.vinomartino-*.yml
+    #     → stap 7 synct deze naar /root/vinomartino-site/ op de VPS.
+    #       Wegfilteren betekent dat een nginx-wijziging de VPS nooit
+    #       bereikt.
+    #   • scripts/**  → scripts/verify-build.sh is de dist-completeness
+    #       gate uit stap 6 (LAT-1014).
+    #   • .github/**  → een wijziging aan deze workflow hoort zichzelf
+    #       één keer echt uit te voeren.
+    #
+    # Moet je de site herpubliceren tegen de HUIDIGE Directus-inhoud
+    # zonder code-wijziging? Dat is een expliciete actie, geen neveneffect
+    # van een merge:
+    #   gh workflow run deploy.yml --repo marijnp7/vinomartino-site \
+    #     --ref main -f target=production
+    paths-ignore:
+      - "services/**" # cos-bridge — draait op de VPS, niet in de site
+      - "docs/**" # runbooks en documentatie
+      - "directus/**" # schema/bootstrap-scripts, geen build-input
+      - "*.md" # losse .md's in de repo-root (niet src/**/*.md)
+      - "docker-compose.directus.yml"
+      - "docker-compose.site.yml"
+      - "docker-compose.site-preview.yml"
+      - ".gitignore"
+      - ".dockerignore"
   workflow_dispatch:
     inputs:
       target:
