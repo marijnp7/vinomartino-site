@@ -70,6 +70,8 @@ Vaste ratio's zodat elke agent hetzelfde uitsnijdt en de layout niet springt:
 | Inline body-figuur | 3:2 liggend | Standaard voor artikel-figuren |
 | Kaart / infographic (Tier 2) | vrij, min. 4:3 | Leesbaarheid boven ratio |
 
+**Tier 2-illustratiehero's:** Centraal getekende, gestileerde illustraties (gravure-stijl, geen fotorealisme) krijgen `object-fit: contain` met `--paper`-achtergrond zodat de volledige compositie altijd zichtbaar blijft, ongeacht viewport-ratio. Signaleer dit beeldtype via `hero_is_illustration` in Directus, niet via `zelf_gereisd` (dat beschrijft verhaal-authenticiteit, niet beeldtype). Een redactiegids-stuk mag best een echte foto als hero hebben.
+
 Renditie-regels:
 
 - Lever wat de layout vraagt via DAM-rendities; crop niet in de browser met CSS als het beeld ook echt versneden kan worden.

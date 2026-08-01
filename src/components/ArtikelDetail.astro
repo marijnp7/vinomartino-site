@@ -157,7 +157,7 @@ if (article.faqSchema) {
 >
   <article class="article-page">
     {article.heroImage && (
-      <figure class="article-hero">
+      <figure class={`article-hero ${article.heroIsIllustration ? 'article-hero--illustration' : 'article-hero--photo'}`}>
         <img src={article.heroImage} alt={article.title} class="article-hero-img" />
         <PlaatsStempel text={article.plaatsstempel} variant="hero" />
         {heroCredit && (
@@ -354,10 +354,21 @@ if (article.faqSchema) {
     overflow: hidden;
     margin: 0;
   }
+  .article-hero--photo {
+    background: transparent;
+  }
+  .article-hero--illustration {
+    background: var(--paper);
+  }
   .article-hero-img {
     width: 100%;
     height: 100%;
+  }
+  .article-hero--photo .article-hero-img {
     object-fit: cover;
+  }
+  .article-hero--illustration .article-hero-img {
+    object-fit: contain;
   }
   .article-hero-credit {
     position: absolute;

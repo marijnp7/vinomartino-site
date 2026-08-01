@@ -22,6 +22,9 @@ export interface Article {
     // LAT-1687: ruwe Directus file-UUID van de hero, zodat de beeldcredit-registry
     // (lib/image-credits) de attributie aan het beeld kan koppelen.
     heroImageId: string | null;
+    // LAT-3253, Route 2: illustratie-hero (Tier 2, gestileerd) vs. fotorealistisch (Tier 1)?
+    // Determines object-fit: contain (illustration) vs cover (photo).
+    heroIsIllustration: boolean;
     ogImage: string | null;
     status: string;
     featured: boolean;
@@ -421,6 +424,7 @@ function mapArticle(
           tags: (a.tags as string[]) || [],
           heroImage: heroImagePath,
           heroImageId: a.hero_image ? String(a.hero_image) : null,
+          heroIsIllustration: a.hero_is_illustration === true || a.hero_is_illustration === 1 || a.hero_is_illustration === '1',
           ogImage: ogImagePath,
           status: String(a.status || 'draft'),
           featured: a.featured === true || a.featured === 1 || a.featured === '1',
@@ -503,7 +507,9 @@ async function fetchArticlesItems(url: string, token: string): Promise<Record<st
     // LAT-2112: rubriekenstelsel + visuele stempel als rijkste tier. Degradeert
     // zacht terug naar withVisited als veld/permissie ontbreekt (stempel/kaarten
     // renderen dan niets — de rest van het artikel blijft ongewijzigd).
-    const withRubrieken = `${withVisited},rubriek,tier,plaatsstempel,proefnotities,eerst_dit_boeken`;
+    // LAT-3253, Route 2: hero_is_illustration bepaalt object-fit contain (illustratie)
+    // vs cover (foto); degradeert zacht als veld ontbreekt (gebruik default cover).
+    const withRubrieken = `${withVisited},rubriek,tier,plaatsstempel,proefnotities,eerst_dit_boeken,hero_is_illustration`;
     // LAT-1053: scheduled publish — verberg artikelen waarvan pub_date in de toekomst
     // ligt, ook als status=published. Directus's $NOW resolvet server-side; pub_date
     // null wordt eveneens getoond (legacy/onbekend) zodat bestaande artikelen niet
@@ -518,7 +524,7 @@ async function fetchArticlesItems(url: string, token: string): Promise<Record<st
     // velden vallen, zodat bv. LAT-1619 artikel-links degraderen zonder de
     // LAT-1098 entiteit-links mee te slepen.
     const tiers: { fields: string; drop: string; hint: string }[] = [
-        { fields: withRubrieken, drop: 'rubriek/tier/plaatsstempel/proefnotities/eerst_dit_boeken', hint: 'Run LAT-2112 Directus-schema (directus/scripts/add-rubrieken-stempel-fields.mjs) en/of geef de build-rol read-permissie op de rubriekvelden.' },
+        { fields: withRubrieken, drop: 'rubriek/tier/plaatsstempel/proefnotities/eerst_dit_boeken/hero_is_illustration', hint: 'Run LAT-2112/LAT-3253 Directus-schema (directus/scripts/add-rubrieken-stempel-fields.mjs / add-hero-illustration-field.mjs) en/of geef de build-rol read-permissie op de rubriekvelden.' },
         { fields: withVisited, drop: 'zelf_gereisd/bezoekjaar', hint: 'Maak articles.zelf_gereisd/bezoekjaar aan (LAT-1958) en/of geef de build-rol read-permissie erop.' },
         { fields: withCta, drop: 'cta_blocks', hint: 'Maak articles.cta_blocks aan (LAT-1784) en/of geef de build-rol read-permissie op articles.cta_blocks.' },
         { fields: withFaqSchema, drop: 'faq_schema_json', hint: 'Run LAT-1680 Directus-schema (directus/scripts/add-faq-schema-field.mjs) en/of geef de build-rol read-permissie op articles.faq_schema_json.' },
