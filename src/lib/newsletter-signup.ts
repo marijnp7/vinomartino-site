@@ -10,6 +10,18 @@ const ERROR_MESSAGE =
 
 const REGION_FIELD = 'fields[region_preference]';
 
+// LAT-3209 — per-form overrides. Landingspagina's halen hun copy uit Directus
+// (collectie `landing_pages`) en geven de teksten als data-attribuut mee; de
+// bovenstaande constanten blijven de default voor de bestaande formulieren,
+// die hun eigen lead magnet noemen.
+function successMessage(form: HTMLFormElement): string {
+  return form.dataset.newsletterSuccess?.trim() || SUCCESS_MESSAGE;
+}
+
+function errorMessage(form: HTMLFormElement): string {
+  return form.dataset.newsletterError?.trim() || ERROR_MESSAGE;
+}
+
 function regionValue(form: HTMLFormElement): string {
   const field = form.querySelector<HTMLInputElement | HTMLSelectElement>(
     `[name="${REGION_FIELD}"]`,
@@ -30,7 +42,7 @@ function showSuccess(form: HTMLFormElement): void {
   const msg = document.createElement('p');
   msg.className = 'newsletter-signup__success';
   msg.setAttribute('role', 'status');
-  msg.textContent = SUCCESS_MESSAGE;
+  msg.textContent = successMessage(form);
   form.insertAdjacentElement('afterend', msg);
 }
 
@@ -39,7 +51,7 @@ function showError(form: HTMLFormElement): void {
   const msg = document.createElement('p');
   msg.className = 'newsletter-signup__error';
   msg.setAttribute('role', 'alert');
-  msg.textContent = ERROR_MESSAGE;
+  msg.textContent = errorMessage(form);
   form.insertAdjacentElement('afterend', msg);
 }
 
@@ -59,8 +71,18 @@ async function handleSubmit(form: HTMLFormElement): Promise<void> {
   const data = new FormData(form);
   // MailerLite verwerpt een lege region_preference; laat het veld weg als de
   // lezer geen regio koos (het veld is optioneel).
+  //
+  // LAT-3209 — uitzondering: op een form met een `required` regio-select mag die
+  // bypass NIET gelden. Zou hij dat wel doen, dan zou een leeg veld alsnog een
+  // geldige inschrijving zonder regio opleveren en de regio-routing-automations
+  // nooit triggeren. De browser blokkeert leeg submitten al via `required`; dit
+  // is de tweede sluiting, voor het geval het attribuut ooit wegvalt.
+  const regionSelect = form.querySelector<HTMLInputElement | HTMLSelectElement>(
+    `[name="${REGION_FIELD}"]`,
+  );
+  const regionRequired = Boolean(regionSelect?.required);
   const region = (data.get(REGION_FIELD) as string | null)?.trim();
-  if (!region) data.delete(REGION_FIELD);
+  if (!region && !regionRequired) data.delete(REGION_FIELD);
 
   try {
     const res = await fetch(action, { method: 'POST', body: data });

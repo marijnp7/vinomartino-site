@@ -307,6 +307,9 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     // display-tekst; de MailerLite `value`-opties blijven literal.
     'newsletter.region.label': 'Welke wijnregio interesseert jou het meest?',
     'newsletter.region.optional': '(optioneel)',
+    // LAT-3209: op een lead-magnet-landingspagina is de regiokeuze verplicht,
+    // want die bepaalt welke versie de lezer krijgt. Zelfde veld, andere status.
+    'newsletter.region.required': '(verplicht)',
     'newsletter.region.placeholder': 'Maak een keuze…',
     'newsletter.region.optionOther': 'Een andere regio',
 

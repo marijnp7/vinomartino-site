@@ -40,6 +40,11 @@ export default defineConfig({
         // `noindex, nofollow`. Die pagina's horen dus ook niet in de sitemap —
         // NL noch EN. Besluit T9-gate: niet vertalen, wel uit de sitemap.
         !page.includes('/infographics/') &&
+        // LAT-3209: /seizoenskalender/ is een lead-magnet-landingspagina waarvan
+        // de PDF nog geblokkeerd is (LAT-2684/LAT-2318). De route wordt standaard
+        // niet eens gegenereerd (SEIZOENSKALENDER_ENABLED), maar mocht een
+        // preview-build hem wel emitten dan hoort hij niet in de sitemap.
+        !page.includes('/seizoenskalender/') &&
         // LAT-859: /routes/* non-canonical; canonical is /wijnroutes/*
         !page.includes('/routes/') &&
         // LAT-859: douro/mosel have canonical Directus entries at douro-portugal/mosel-duitsland
