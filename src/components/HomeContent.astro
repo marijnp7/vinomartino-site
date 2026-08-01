@@ -12,6 +12,7 @@ import { loadLanden } from '../lib/landen';
 import { organizationSchema } from '../lib/seo';
 import { getAuthorByByline } from '../lib/authors';
 import { loadUiStrings } from '../lib/ui-strings';
+import { rubriekLabel } from '../lib/rubriek-labels';
 import { type Locale, DEFAULT_LOCALE, localizeHref } from '../lib/i18n';
 
 interface Props {
@@ -326,7 +327,7 @@ function formatDate(value?: string | null) {
         </a>
         <div class="spotlight-body">
           <span class="kicker">{ui.t('home.spotlight.kicker')}</span>
-          {spotlight.category && <span class="spotlight-cat">{spotlight.category.replace(/-/g, ' ')}</span>}
+          {spotlight.category && <span class="spotlight-cat">{rubriekLabel(ui, spotlight.category)}</span>}
           <h2 class="spotlight-title">
             <a href={lh(`/artikelen/${spotlight.slug}/`)}>{spotlight.title}</a>
           </h2>
