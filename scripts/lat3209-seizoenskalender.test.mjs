@@ -144,10 +144,39 @@ test('de route zit achter de feature-flag en rendert niets zonder Directus-rij',
     'flag-check moet vóór alles in getStaticPaths staan',
   );
   const flagIndex = src.indexOf('SEIZOENSKALENDER_ENABLED');
-  const loadIndex = src.indexOf('loadLandingPage(SLUG)');
+  const loadIndex = src.indexOf('loadLandingPage(');
   assert.ok(flagIndex > -1 && loadIndex > flagIndex, 'flag wordt vóór de Directus-fetch gecheckt');
   assert.match(src, /noindex/, 'pagina moet noindex meegeven aan SiteLayout');
   assert.doesNotMatch(src, /alternates=/, 'geen hreflang: er is bewust geen EN-tegenhanger');
+});
+
+// Astro tilt getStaticPaths naar een eigen modulescope. Een const uit de
+// frontmatter is daarbinnen niet zichtbaar, en dat merk je pas bij het
+// RENDEREN: de build compileert prima en klapt daarna om op een ReferenceError.
+// Precies dat gebeurde tijdens het bouwen van deze pagina, dus het staat hier
+// vast: elke identifier die getStaticPaths gebruikt, moet erbinnen gedeclareerd
+// zijn of geïmporteerd op modulniveau.
+test('getStaticPaths leunt niet op frontmatter-scope (Astro hoist-val)', () => {
+  const src = read('src/pages/seizoenskalender/[...slug].astro');
+  const body = src.slice(src.indexOf('export async function getStaticPaths()'));
+  const fn = body.slice(0, body.indexOf('\n}\n') + 2);
+
+  // Commentaar telt niet mee: alleen echte code kan een ReferenceError geven.
+  const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+
+  // Alles in de frontmatter dat BUITEN getStaticPaths gedeclareerd wordt.
+  const outside = strip(src.slice(0, src.indexOf('export async function getStaticPaths()')));
+  const outsideConsts = [...outside.matchAll(/^\s*(?:const|let|var)\s+([A-Za-z_$][\w$]*)/gm)].map(
+    (m) => m[1],
+  );
+
+  const inside = strip(fn);
+  const leaked = outsideConsts.filter((name) => new RegExp(`\\b${name}\\b`).test(inside));
+  assert.deepEqual(
+    leaked,
+    [],
+    `getStaticPaths verwijst naar frontmatter-scope (geeft ReferenceError bij render): ${leaked}`,
+  );
 });
 
 test('/seizoenskalender/ staat niet in de sitemap', () => {
