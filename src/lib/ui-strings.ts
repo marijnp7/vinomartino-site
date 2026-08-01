@@ -659,6 +659,15 @@ export const UI_STRING_EN: Record<string, string> = {
     // LangheCaptureBlock.astro — gedeeld e-mail veld.
     'langhe.capture.email.label': 'Email address',
     'langhe.capture.email.placeholder': 'your@email.com',
+
+    // Rubriek-labels voor /en/artikelen/ — LAT-3319.
+    'artikelen.rubriek.regio-gidsen': 'Region guides',
+    'artikelen.rubriek.routes-logistiek': 'Routes & logistics',
+    'artikelen.rubriek.huis-portretten': 'Producer profiles',
+    'artikelen.rubriek.wijnkennis-losjes-uitgelegd': 'Wine, plainly explained',
+    'artikelen.rubriek.verborgen-regio-s': 'Hidden regions',
+    'artikelen.rubriek.proefnotities': 'Tasting notes',
+    'artikelen.rubriek.wijn-tafel': 'Wine & food',
 };
 
 /** Resolver over de UI-dictionary: EN-value indien aanwezig, anders NL-default. */
