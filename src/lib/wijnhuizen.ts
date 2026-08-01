@@ -68,7 +68,6 @@ import {
     assertDirectusConfigured,
     assetUrl,
     assertCollectionReadableOrDegrade,
-    directusSignal,
     withAssetSlot,
     fetchDirectusCollection,
 } from './directus-config';
@@ -91,7 +90,7 @@ async function downloadAsset(assetId: string, directusUrl: string, token: string
         const res = await withAssetSlot(() =>
             fetch(assetUrl(directusUrl, assetId), {
                 headers: { Authorization: `Bearer ${token}` },
-                signal: directusSignal(),
+                signal: AbortSignal.timeout(3000), // LAT-3331: zie accommodaties-loader.ts
             }),
         );
         if (!res.ok) {
