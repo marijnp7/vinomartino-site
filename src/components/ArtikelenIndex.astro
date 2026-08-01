@@ -9,6 +9,7 @@ import SmartImg from '../components/SmartImg.astro';
 import { loadArticles } from '../lib/articles';
 import { getAuthorByByline } from '../lib/authors';
 import { loadUiStrings } from '../lib/ui-strings';
+import { rubriekLabel, rubriekSlug } from '../lib/rubriek-labels';
 import { DEFAULT_LOCALE, localizePath, type Locale } from '../lib/i18n';
 
 interface Props {
@@ -31,22 +32,21 @@ const articles = await loadArticles(locale);
 // LAT-1753: facet-filtering op het artikelenoverzicht. We bouwen de facetten
 // dynamisch uit de geladen artikelen, zodat een facet-groep automatisch
 // verdwijnt zodra er <2 onderscheidende waarden zijn (graceful bij dunne data).
-function slugify(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-}
-
+// LAT-3306: de slug (= filter-URL) blijft uit de rauwe NL-`category` komen —
+// `rubriekSlug` is letterlijk de lokale `slugify` die hier stond. Alleen het
+// zichtbare `label` gaat door de UI-dictionary, zodat ?rubriek=… taal-onafhankelijk is.
 type Facet = { value: string; label: string; count: number };
 
 function buildSingleFacet(values: (string | undefined | null)[]): Facet[] {
   const map = new Map<string, Facet>();
   for (const raw of values) {
-    const label = (raw || '').trim();
-    if (!label) continue;
-    const value = slugify(label);
+    const source = (raw || '').trim();
+    if (!source) continue;
+    const value = rubriekSlug(source);
     if (!value) continue;
     const existing = map.get(value);
     if (existing) existing.count++;
-    else map.set(value, { value, label, count: 1 });
+    else map.set(value, { value, label: rubriekLabel(ui, source), count: 1 });
   }
   return [...map.values()].sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, collation));
 }
@@ -82,7 +82,7 @@ const hasFilters = filterGroups.length > 0;
 // filter puur op DOM-attributen werkt (geen netwerk, deelbaar via URL).
 function cardData(a: typeof articles[number]) {
   return {
-    rubriek: a.category ? slugify(a.category) : '',
+    rubriek: a.category ? rubriekSlug(a.category) : '',
     land: a.relatedLanden.map((l) => l.slug).join(' '),
     streek: a.relatedStreken.map((s) => s.slug).join(' '),
   };
@@ -157,7 +157,7 @@ function cardData(a: typeof articles[number]) {
                   <SmartImg src={article.heroImage || undefined} alt={article.title} theme="vineyard" class="article-img" />
                 </div>
                 <div class="article-body">
-                  {article.category && <span class="article-cat">{article.category}</span>}
+                  {article.category && <span class="article-cat">{rubriekLabel(ui, article.category)}</span>}
                   <h2 class="article-title">{article.title}</h2>
                   <p class="article-desc">{article.description}</p>
                   <span class="article-meta">

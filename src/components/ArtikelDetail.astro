@@ -33,6 +33,7 @@ import { getAuthorByByline } from '../lib/authors';
 import { getImageCredit } from '../lib/image-credits';
 import { type AccommodatieRoundup as AccommodatieRoundupData } from '../lib/accommodaties';
 import { loadUiStrings } from '../lib/ui-strings';
+import { rubriekLabel } from '../lib/rubriek-labels';
 import { type Locale, DEFAULT_LOCALE, localizeHref } from '../lib/i18n';
 
 export type ArticleRoundup = { slug: string; roundup: AccommodatieRoundupData };
@@ -147,7 +148,7 @@ if (article.faqSchema) {
     publishedTime: article.pubDate,
     modifiedTime,
     author: authorDisplayName,
-    section: article.category,
+    section: rubriekLabel(ui, article.category),
     tags: article.tags,
   }}
   schema={schema}
@@ -174,7 +175,7 @@ if (article.faqSchema) {
           <nav class="breadcrumb" aria-label="Breadcrumb">
             <a href={lh('/')}>{ui.t('streek.breadcrumb.home')}</a> / <a href={lh('/artikelen/')}>{ui.t('artikel.breadcrumb.index')}</a> / <span>{article.title}</span>
           </nav>
-          {article.category && <span class="article-cat">{article.category}</span>}
+          {article.category && <span class="article-cat">{rubriekLabel(ui, article.category)}</span>}
           <RubriekSignatuur rubriek={article.rubriek} tier={article.tier} />
           <ZelfGereisdBadge visited={article.zelfGereisd} year={article.bezoekjaar} locale={locale} />
           <h1>{article.title}</h1>

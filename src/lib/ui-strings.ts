@@ -602,6 +602,18 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     // zodat de /en/-tegenhangers van de hub-leden (o.a. auto-huren-sardinie) een
     // EN-label krijgen i.p.v. altijd "Onderdeel van de Italië-wijngids".
     'hub.italie.backlinkLabel': 'Onderdeel van de Italië-wijngids',
+
+    // LAT-3306 (B4) — artikel-rubrieklabels. De NL-waarde is exact de rauwe
+    // `articles.category`-string uit Directus, zodat NL byte-identiek blijft en
+    // de slug (= filter-URL) ongewijzigd uit die rauwe string blijft komen. Zie
+    // src/lib/rubriek-labels.ts; EN-values staan in ui_strings_translations.
+    'artikelen.rubriek.regio-gidsen': 'Regio-gidsen',
+    'artikelen.rubriek.routes-logistiek': 'Routes & logistiek',
+    'artikelen.rubriek.huis-portretten': 'Huis-portretten',
+    'artikelen.rubriek.wijnkennis-losjes-uitgelegd': 'Wijnkennis losjes uitgelegd',
+    'artikelen.rubriek.verborgen-regio-s': "Verborgen regio's",
+    'artikelen.rubriek.proefnotities': 'Proefnotities',
+    'artikelen.rubriek.wijn-tafel': 'Wijn & tafel',
 };
 
 /**
