@@ -31,7 +31,6 @@ import {
     assertDirectusConfigured,
     assetUrl,
     assertCollectionReadableOrDegrade,
-    directusSignal,
     withAssetSlot,
     fetchDirectusCollection,
 } from './directus-config';
@@ -52,7 +51,13 @@ async function downloadAsset(assetId: string, directusUrl: string, token: string
         const res = await withAssetSlot(() =>
             fetch(assetUrl(directusUrl, assetId), {
                 headers: { Authorization: `Bearer ${token}` },
-                signal: directusSignal(),
+                // LAT-3331: gebruik 3 s i.p.v. de globale 45 s — asset-downloads
+                // die mislukken (Directus DB-pool vol) blokkeren de semafoorslot
+                // 10 s (undici connectTimeout). Met 288 assets en concurrency 4
+                // levert dat ~12 minuten wachttijd op, waarna SSH broken-pipe
+                // de hele build killt. 3 s aborteert vóór undici's 10 s,
+                // waardoor de bouwfase inkrimpt tot ~4 min en SSH overleeft.
+                signal: AbortSignal.timeout(3000),
             }),
         );
         if (!res.ok) {

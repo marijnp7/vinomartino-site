@@ -194,7 +194,6 @@ import {
     assertDirectusConfigured,
     assetUrl,
     assertCollectionReadableOrDegrade,
-    directusSignal,
     withAssetSlot,
     fetchDirectusCollection,
 } from './directus-config';
@@ -244,7 +243,7 @@ async function fetchAssetWithRetry(url: string, token: string, attempts = 4): Pr
             const res = await withAssetSlot(() =>
                 fetch(url, {
                     headers: { Authorization: `Bearer ${token}` },
-                    signal: directusSignal(),
+                    signal: AbortSignal.timeout(3000), // LAT-3331: zie accommodaties-loader.ts
                 }),
             );
             // 2xx of niet-transiente 4xx → direct teruggeven; caller logt de status.

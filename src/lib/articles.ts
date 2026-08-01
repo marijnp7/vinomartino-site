@@ -282,7 +282,6 @@ import {
     statusFilterQuery,
     assertDirectusConfigured,
     assetUrl,
-    directusSignal,
     withAssetSlot,
     fetchDirectusCollection,
 } from './directus-config';
@@ -306,7 +305,7 @@ async function downloadArticleAsset(assetId: string, directusUrl: string, token:
         const res = await withAssetSlot(() =>
             fetch(assetUrl(directusUrl, assetId), {
                 headers: { Authorization: `Bearer ${token}` },
-                signal: directusSignal(),
+                signal: AbortSignal.timeout(3000), // LAT-3331: zie accommodaties-loader.ts
             }),
         );
         if (!res.ok) {
