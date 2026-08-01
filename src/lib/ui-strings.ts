@@ -686,15 +686,66 @@ function fromDefaults(locale: Locale): UiStrings {
 }
 
 /**
+ * LAT-3319 — build-cache per locale.
+ *
+ * `loadUiStrings()` wordt per *pagina* aangeroepen (ArtikelDetail, AuteurDetail,
+ * ArtikelenIndex, HomeContent, ...). Zonder cache betekent dat één Directus-fetch
+ * per EN-pagina: bij ~300 EN-pagina's ~300 keer dezelfde dictionary ophalen.
+ * Onder die buildload slaat Directus' pressure-limiter aan en antwoordt `503`,
+ * waarna `fetchDirectusCollection` per poging 2000 ms slaapt (LAT-2779). In run
+ * 30709928435 gebeurde dat 47×; de build tikte daardoor tegen de
+ * `timeout-minutes: 30` van deploy.yml aan en werd twee keer op rij afgebroken.
+ *
+ * De dictionary is build-constant, dus één fetch per locale volstaat. We cachen
+ * de *promise* zodat gelijktijdige renders dezelfde fetch delen.
+ *
+ * Belangrijk: alleen een Directus-gedekt resultaat wordt vastgehouden. Een
+ * degradatie (Directus onbereikbaar/503) valt terug op `fromDefaults()`, en
+ * `UI_STRING_EN` dekt maar 34 van de 433 keys — dat resultaat site-breed
+ * vastpinnen zou 399 keys in het NL zetten op /en/. Zo'n uitkomst wordt dus
+ * *niet* gecachet: een volgende pagina probeert het gewoon opnieuw, precies
+ * zoals vóór deze wijziging.
+ */
+const uiStringsCache = new Map<Locale, Promise<UiStrings>>();
+
+export function loadUiStrings(locale: Locale = DEFAULT_LOCALE): Promise<UiStrings> {
+    const cached = uiStringsCache.get(locale);
+    if (cached) return cached;
+
+    const pending = fetchUiStrings(locale).then(
+        ({ ui, cacheable }) => {
+            // Terugval op de hardcoded defaults = geen geldige cache-inhoud.
+            if (!cacheable) uiStringsCache.delete(locale);
+            return ui;
+        },
+        (err) => {
+            uiStringsCache.delete(locale);
+            throw err;
+        },
+    );
+    uiStringsCache.set(locale, pending);
+    return pending;
+}
+
+/** Resultaat + of het de moeite waard is om vast te houden. */
+interface UiStringsLoad {
+    ui: UiStrings;
+    /** `false` zodra we op de hardcoded defaults zijn teruggevallen ná een mislukte fetch. */
+    cacheable: boolean;
+}
+
+/**
  * Laadt de UI-dictionary voor `locale`. NL = geen fetch (byte-identiek aan de
  * hardcoded defaults). EN = haalt de `ui_strings`-rijen met hun `translations`
  * op, bouwt een key→EN-value-Map en overlayt die op de NL-defaults.
  */
-export async function loadUiStrings(locale: Locale = DEFAULT_LOCALE): Promise<UiStrings> {
-    if (locale === DEFAULT_LOCALE) return fromDefaults(locale);
+async function fetchUiStrings(locale: Locale = DEFAULT_LOCALE): Promise<UiStringsLoad> {
+    // NL en "niet geconfigureerd" zijn deterministisch: geen fetch, dus niets om
+    // opnieuw te proberen — cachen is hier gratis en juist.
+    if (locale === DEFAULT_LOCALE) return { ui: fromDefaults(locale), cacheable: true };
 
     const env = readDirectusEnv();
-    if (!env.configured) return fromDefaults(locale);
+    if (!env.configured) return { ui: fromDefaults(locale), cacheable: true };
 
     const url = `${env.url}/items/ui_strings?limit=-1&fields=key,translations.languages_code,translations.value`;
     let res: Response;
@@ -705,11 +756,11 @@ export async function loadUiStrings(locale: Locale = DEFAULT_LOCALE): Promise<Ui
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         console.warn(`[loadUiStrings] Directus onbereikbaar (${locale}): ${msg} — terugval op NL-defaults.`);
-        return fromDefaults(locale);
+        return { ui: fromDefaults(locale), cacheable: false };
     }
     if (!res.ok) {
         console.warn(`[loadUiStrings] Directus ${res.status} op ui_strings (${locale}) — terugval op NL-defaults.`);
-        return fromDefaults(locale);
+        return { ui: fromDefaults(locale), cacheable: false };
     }
 
     const json = await res.json().catch(() => null) as { data?: Record<string, unknown>[] } | null;
@@ -727,7 +778,10 @@ export async function loadUiStrings(locale: Locale = DEFAULT_LOCALE): Promise<Ui
     }
 
     return {
-        locale,
-        t: (key) => overlay.get(key) ?? UI_STRING_EN[key] ?? UI_STRING_DEFAULTS[key] ?? key,
+        ui: {
+            locale,
+            t: (key) => overlay.get(key) ?? UI_STRING_EN[key] ?? UI_STRING_DEFAULTS[key] ?? key,
+        },
+        cacheable: true,
     };
 }
