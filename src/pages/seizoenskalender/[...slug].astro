@@ -23,9 +23,12 @@ import SiteLayout from '../../layouts/SiteLayout.astro';
 import SeizoenskalenderForm from '../../components/SeizoenskalenderForm.astro';
 import { loadLandingPage, hasRenderableContent, type LandingPage } from '../../lib/landing-pages';
 
-const SLUG = 'seizoenskalender';
-
 export async function getStaticPaths() {
+  // Astro tilt `getStaticPaths` uit de frontmatter naar een eigen modulescope:
+  // consts die hierboven staan zijn hierbinnen NIET zichtbaar (ReferenceError bij
+  // het renderen, niet bij het compileren). De slug staat daarom lokaal.
+  const slug = 'seizoenskalender';
+
   // Build-time flag: `process.env` en niet `import.meta.env`, gelijk aan de
   // Directus-loaders (src/lib/directus-config.ts). getStaticPaths draait in node
   // tijdens de build, dus dit is de betrouwbare bron.
@@ -34,11 +37,11 @@ export async function getStaticPaths() {
     return [];
   }
 
-  const page = await loadLandingPage(SLUG);
+  const page = await loadLandingPage(slug);
   // Geen rij, of een rij zonder kop en zonder lede: niets renderen. Er is
   // bewust geen fallback-copy in deze template (PROJECT_BRIEF §3.0).
   if (!page || !hasRenderableContent(page)) {
-    console.log(`[seizoenskalender] geen bruikbare landing_pages-rij '${SLUG}' — route niet gegenereerd.`);
+    console.log(`[seizoenskalender] geen bruikbare landing_pages-rij '${slug}' — route niet gegenereerd.`);
     return [];
   }
 
