@@ -182,13 +182,19 @@ export async function fetchDirectusCollection(
  * omdat de build zélf het lawaai maakt.
  *
  * Een gedeelde semafoor begrenst het totaal aantal parallelle asset-fetches over
- * álle loaders heen. Default 8 (CTO-besluit LAT-2779: start op 8, zak naar 6/4 als
- * dat nog floodt), bij te stellen via `DIRECTUS_ASSET_CONCURRENCY` zonder
- * codewijziging. Alleen de netwerk-fetch zit in de slot — niet de
- * retry-backoff-sleeps of de image-grading — zodat een wachtende download geen
- * slot bezet houdt terwijl hij niets aan Directus vraagt.
+ * álle loaders heen. Default was 8 (CTO-besluit LAT-2779: start op 8, zak naar
+ * 6/4 als dat nog floodt) — LAT-3330 is precies dat "nog floodt"-scenario:
+ * Directus' eigen DB-pool (knex, ongewijzigde default, geen DB_POOL__MAX
+ * override) raakte tijdens de assetfase uitgeput (`KnexTimeoutError` uit
+ * `AssetsService.getAsset`, gemeten live op de prod-Directus), waarna nieuwe
+ * TCP-connecties binnen de 10s connect-timeout niet meer werden geaccepteerd.
+ * Verlaagd naar 4 zoals in LAT-2779 al voorzien. Bij te stellen via
+ * `DIRECTUS_ASSET_CONCURRENCY` zonder codewijziging. Alleen de netwerk-fetch
+ * zit in de slot — niet de retry-backoff-sleeps of de image-grading — zodat
+ * een wachtende download geen slot bezet houdt terwijl hij niets aan Directus
+ * vraagt.
  */
-export const DIRECTUS_ASSET_CONCURRENCY_DEFAULT = 8;
+export const DIRECTUS_ASSET_CONCURRENCY_DEFAULT = 4;
 
 function readPositiveNonZeroIntEnv(name: string, fallback: number): number {
     const raw = (process.env[name] || '').trim();

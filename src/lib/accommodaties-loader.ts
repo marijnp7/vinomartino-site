@@ -41,6 +41,32 @@ import { localizeRecords, localizeRefsBySlug } from './directus-i18n';
 // LAT-2575 — vertaalbare accommodatie-velden (native Directus translations, LAT-2574).
 const ACCOMMODATIONS_TRANSLATABLE = ['description', 'why_this_one', 'why_regel', 'prijs_disclaimer', 'meta_title', 'meta_description', 'hero_alt'];
 
+// LAT-3330 — zelfde patroon als streken.ts::fetchAssetWithRetry (LAT-2518):
+// Directus dropt onder de parallelle asset-download-last sporadisch
+// TCP-connecties. loadAccommodaties deed tot nu toe maar één poging en gaf
+// bij een transiente drop stilzwijgend een lege foto terug. Retry met
+// backoff maakt dit consistent met streken.ts i.p.v. de enige loader zonder
+// deze hardening te zijn.
+async function fetchAssetWithRetry(url: string, token: string, attempts = 4): Promise<Response> {
+    let lastErr: unknown = new Error('fetch not attempted');
+    for (let i = 0; i < attempts; i++) {
+        try {
+            const res = await withAssetSlot(() =>
+                fetch(url, {
+                    headers: { Authorization: `Bearer ${token}` },
+                    signal: directusSignal(),
+                }),
+            );
+            if (res.ok || (res.status >= 400 && res.status < 500 && res.status !== 429)) return res;
+            lastErr = new Error(`HTTP ${res.status}`);
+        } catch (err) {
+            lastErr = err;
+        }
+        if (i < attempts - 1) await new Promise((r) => setTimeout(r, 400 * 2 ** i));
+    }
+    throw lastErr instanceof Error ? lastErr : new Error(String(lastErr));
+}
+
 async function downloadAsset(assetId: string, directusUrl: string, token: string): Promise<string | null> {
     const { writeFileSync, mkdirSync, existsSync } = await import('node:fs');
     const { join } = await import('node:path');
@@ -49,12 +75,7 @@ async function downloadAsset(assetId: string, directusUrl: string, token: string
     const outPath = join(outDir, fileName);
     if (existsSync(outPath)) return `/images/accommodaties/${fileName}`;
     try {
-        const res = await withAssetSlot(() =>
-            fetch(assetUrl(directusUrl, assetId), {
-                headers: { Authorization: `Bearer ${token}` },
-                signal: directusSignal(),
-            }),
-        );
+        const res = await fetchAssetWithRetry(assetUrl(directusUrl, assetId), token);
         if (!res.ok) {
             console.warn(`[loadAccommodaties] kon asset ${assetId} niet ophalen: ${res.status}`);
             return null;
