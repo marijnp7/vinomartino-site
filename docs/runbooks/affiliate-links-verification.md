@@ -90,3 +90,5 @@ Geïmplementeerd in [LAT-2532](/LAT/issues/LAT-2532):
 
 Blijft daarnaast gelden: bij elke nieuwe of gewijzigde affiliate-tour de
 eindbestemming ook **direct in een browser** openen — wacht niet op de nachtrun.
+
+<!-- LAT-2844 verify: paths-ignore acceptance check (docs-only, should not trigger Deploy VinoMartino) -->
