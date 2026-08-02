@@ -182,7 +182,7 @@ async function fetchAccommodations(url: string, token: string, locale: Locale): 
  * één blok, plaatsen door elkaar gemengd. Ontbreekt lat/lng nog, dan valt het
  * cluster terug op groeperen per plaats.
  */
-export async function loadAccommodatieRoundupsByStreek(locale: Locale = DEFAULT_LOCALE): Promise<Map<string, AccommodatieRoundup>> {
+async function fetchAccommodatieRoundupsByStreek(locale: Locale): Promise<Map<string, AccommodatieRoundup>> {
     const env = readDirectusEnv();
     assertDirectusConfigured('loadAccommodaties', env);
     const raws = await fetchAccommodations(env.url, env.token, locale);
@@ -224,4 +224,29 @@ export async function loadAccommodatieRoundupsByStreek(locale: Locale = DEFAULT_
     }
     console.log(`[loadAccommodaties] ${kaarten.length} accommodaties → ${out.size} streek-roundups`);
     return out;
+}
+
+/**
+ * LAT-3359 — build-cache per locale, zelfde patroon als loadUiStrings()
+ * (LAT-3319, ui-strings.ts) en loadStreken() (streken.ts). Zonder cache
+ * deed dit ~10 call sites elk een volledige Directus-fetch + asset-download-
+ * sweep over alle accommodaties — met 288 accommodaties liep dat de
+ * 30-min job-cap van deploy.yml tegen zonder ooit voorbij route 2 te komen.
+ *
+ * We cachen de *promise*, niet de waarde; bij reject gooien we de entry weg
+ * zodat een volgende caller het opnieuw probeert. Alle callers delen nu
+ * dezelfde Map/object-instanties — niet in-place muteren.
+ */
+const accommodatieRoundupsCache = new Map<Locale, Promise<Map<string, AccommodatieRoundup>>>();
+
+export function loadAccommodatieRoundupsByStreek(locale: Locale = DEFAULT_LOCALE): Promise<Map<string, AccommodatieRoundup>> {
+    const cached = accommodatieRoundupsCache.get(locale);
+    if (cached) return cached;
+
+    const pending = fetchAccommodatieRoundupsByStreek(locale).catch((err) => {
+        accommodatieRoundupsCache.delete(locale);
+        throw err;
+    });
+    accommodatieRoundupsCache.set(locale, pending);
+    return pending;
 }

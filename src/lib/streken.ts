@@ -846,12 +846,45 @@ async function loadFromDirectus(url: string, token: string, locale: Locale): Pro
     return items;
 }
 
-export async function loadStreken(locale: Locale = DEFAULT_LOCALE): Promise<Streek[]> {
+async function fetchStreken(locale: Locale): Promise<Streek[]> {
     const env = readDirectusEnv();
     assertDirectusConfigured('loadStreken', env);
     const items = await loadFromDirectus(env.url, env.token, locale);
     await writeAssetDebug('directus');
     return items;
+}
+
+/**
+ * LAT-3359 — build-cache per locale, zelfde patroon als loadUiStrings()
+ * (LAT-3319, ui-strings.ts). `loadStreken()` wordt vanaf ~20 plekken
+ * aangeroepen, waaronder componenten die op elke pagina renderen
+ * (HomeContent, StrekenIndex, OntdekContent, AccommodatiesIndex). Zonder
+ * cache betekent dat een volledige Directus-fetch + alle per-streek/
+ * per-accommodatie asset-downloads, herhaald per pagina — met 288
+ * accommodaties liep de build daardoor tegen de 30-min job-cap aan zonder
+ * ooit voorbij route 2 te komen.
+ *
+ * We cachen de *promise*, niet de waarde, zodat gelijktijdige renders
+ * dezelfde inflight fetch delen. Bij een reject gooien we de entry weg zodat
+ * een volgende caller het gewoon opnieuw probeert (geen foute waarde blijft
+ * hangen).
+ *
+ * Let op: alle callers krijgen nu dezelfde array/object-instanties terug —
+ * niet in-place muteren (sorteren, velden toevoegen). Callers die op volgorde
+ * of een gewijzigde kopie moeten werken, kopiëren zelf (`[...streken]`).
+ */
+const strekenCache = new Map<Locale, Promise<Streek[]>>();
+
+export function loadStreken(locale: Locale = DEFAULT_LOCALE): Promise<Streek[]> {
+    const cached = strekenCache.get(locale);
+    if (cached) return cached;
+
+    const pending = fetchStreken(locale).catch((err) => {
+        strekenCache.delete(locale);
+        throw err;
+    });
+    strekenCache.set(locale, pending);
+    return pending;
 }
 
 export interface NavStreek {
