@@ -1,6 +1,13 @@
 #!/usr/bin/env node
 /**
- * LAT-3311 — seed EN `description`/`why_regel` op `accommodations_translations`.
+ * LAT-3311 — seed EN body-velden op `accommodations_translations`.
+ *
+ * LAT-3325: welke velden geseed worden komt volledig uit het databestand
+ * (elke niet-`_`-key onder een entry is een veldnaam). Voor dit ticket zijn dat
+ * `why_this_one` (de volledige 4-alinea-body die de kaart rendert, inclusief de
+ * curatie-disclosure als laatste alinea) en `why_regel`. NIET `description` —
+ * dat veld is NULL op dit record; de eerste versie van het databestand mapte
+ * daar naartoe en zou daardoor 0 rijen geschreven hebben.
  *
  * Zelfde patroon als seed-body-content-en-lat2910.mjs, maar voor de
  * `accommodations`-collectie (niet routes/articles): elke `{nl, en}`-leaf in
@@ -9,12 +16,11 @@
  * (languages_code=en). Bestaande, niet-lege EN-waarden worden nooit
  * overschreven tenzij --force.
  *
- * Matching: de databron kent de Directus `slug`/`id` van dit record niet (geen
- * DIRECTUS_TOKEN/CF_ACCESS in de omgeving waarin dit is voorbereid — zelfde
- * blocker als LAT-2912). Elke entry draagt daarom een `_match`-blok en dit
- * script matcht op `filter[name][_eq]`. Levert de query niet precies 1 record
- * op, dan slaat het script die entry over als fout i.p.v. blind op het
- * verkeerde record te schrijven.
+ * Matching: elke entry draagt een `_match`-blok en dit script matcht op
+ * `filter[name][_eq]`. Levert de query niet precies 1 record op, dan slaat het
+ * script die entry over als fout i.p.v. blind op het verkeerde record te
+ * schrijven. (`_match.slug`/`_match.directus_id` staan er puur ter herkenning
+ * in en worden niet gebruikt in de query.)
  *
  * Validatie: de live NL-basis (`description`/`why_regel`) moet exact overeen-
  * komen met het `nl`-veld in de databron — anders is dit niet meer het record
