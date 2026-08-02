@@ -846,12 +846,29 @@ async function loadFromDirectus(url: string, token: string, locale: Locale): Pro
     return items;
 }
 
-export async function loadStreken(locale: Locale = DEFAULT_LOCALE): Promise<Streek[]> {
+const strekenCache = new Map<Locale, Promise<Streek[]>>();
+
+async function fetchStreken(locale: Locale): Promise<Streek[]> {
     const env = readDirectusEnv();
     assertDirectusConfigured('loadStreken', env);
     const items = await loadFromDirectus(env.url, env.token, locale);
     await writeAssetDebug('directus');
     return items;
+}
+
+export function loadStreken(locale: Locale = DEFAULT_LOCALE): Promise<Streek[]> {
+    const cached = strekenCache.get(locale);
+    if (cached) return cached;
+
+    const pending = fetchStreken(locale).then(
+        (items) => items,
+        (err) => {
+            strekenCache.delete(locale);
+            throw err;
+        },
+    );
+    strekenCache.set(locale, pending);
+    return pending;
 }
 
 export interface NavStreek {
