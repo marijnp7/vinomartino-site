@@ -68,6 +68,55 @@ jobs:
             services/cos-bridge/docker-compose.cos.yml \
             "$VPS:/opt/paperclip-cos/docker-compose.cos.yml"
 
+          # LAT-2811: COMPOSE_PROJECT_NAME + COMPOSE_FILE, zodat een kale
+          # `docker compose` in /opt/paperclip-cos alle 8 services van het
+          # project laadt in plaats van alleen deze file. Bron in de repo,
+          # artefact op de VPS — net als docker-compose.cos.yml hierboven.
+          rsync -avz \
+            services/cos-bridge/compose.env \
+            "$VPS:/opt/paperclip-cos/.env"
+
+      - name: Verify merged compose config (LAT-2811)
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          VERIFY_SCRIPT: |
+            set -uo pipefail
+            cd /opt/paperclip-cos
+
+            # Harde check: de file die deze workflow zojuist heeft neergezet
+            # moet geldig zijn. Zo niet, dan is deployen zinloos.
+            if ! docker compose -f docker-compose.cos.yml config -q; then
+              echo "::error::docker-compose.cos.yml is invalid — deploy afgebroken"
+              exit 1
+            fi
+
+            # Zachte check: de merged config (COMPOSE_FILE uit .env) moet alle
+            # draaiende containers van dit project dekken. Faalt bewust NIET
+            # hard — een kapotte overlay mag de deploy van cos-bridge (het
+            # approval-kanaal) niet blokkeren. Wel luid zichtbaar, want zolang
+            # dit rood is staat de --remove-orphans-val van LAT-2811 weer open.
+            if ! docker compose config -q 2>/tmp/lat2811-config.err; then
+              echo "::warning::merged compose config is invalid — orphan-vangnet staat open"
+              cat /tmp/lat2811-config.err
+              exit 0
+            fi
+
+            defined=$(docker compose config --services | sort)
+            running=$(docker ps -a \
+              --filter "label=com.docker.compose.project=paperclip-cos" \
+              --format '{{.Label "com.docker.compose.service"}}' | sort -u)
+
+            orphans=$(comm -13 <(printf '%s\n' "$defined") <(printf '%s\n' "$running"))
+            if [ -n "$orphans" ]; then
+              echo "::warning::draaiende containers zonder service-definitie (orphans):"
+              printf '%s\n' "$orphans"
+              echo "Voeg ze toe aan docker-compose.cos.yml of aan COMPOSE_FILE in compose.env."
+            else
+              echo "OK: alle draaiende containers van paperclip-cos zijn gedefinieerd."
+            fi
+        run: |
+          printf '%s\n' "$VERIFY_SCRIPT" | ssh "$VPS" "bash -s"
+
       - name: Add missing env vars
         env:
           VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
@@ -135,6 +184,15 @@ jobs:
               || docker network create paperclip_default 2>&1
 
             echo "=== Force-recreating cos-bridge (picks up env changes) ==="
+            # LAT-2811: bewust een expliciete -f-subset, in tegenstelling tot de
+            # runbook-regel (docs/runbooks/cos-stack-deploy.md), die een kale
+            # `docker compose` voorschrijft. Reden: deze stap moet ook slagen als
+            # een overlay stuk is — cos-bridge is het approval-kanaal en mag niet
+            # afhangen van publish-dispatcher of de nl-redirect. Het is hier
+            # veilig omdat de aanroep op één service is gescoped en er geen
+            # --remove-orphans in staat; een -f-subset is alleen gevaarlijk in
+            # combinatie met die vlag. De orphan-dekking wordt in de stap
+            # "Verify merged compose config" apart bewaakt.
             docker compose -f docker-compose.cos.yml up -d --build --force-recreate cos-bridge 2>&1
 
             echo "Waiting 10s for container startup..."
