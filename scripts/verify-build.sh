@@ -62,3 +62,30 @@ if [ "$index_bytes" -lt "$INDEX_MIN_BYTES" ]; then
 fi
 
 echo "::notice::verify-build OK — $html_count HTML-pagina's, index.html ${index_bytes} bytes"
+
+# LAT-2911 — i18n-gate op de dist die zo dadelijk naar prod gaat.
+#
+# Hard-fail op stray Nederlandse zinnen, gelekte interne NL-links, ontbrekende
+# EN-tegenhangers of ratio-blinde NL-literals op /en/-pagina's. --dist scant
+# de net-gebouwde map i.p.v. live HTTP, en slaat daarom de technical- en
+# coverage-dimensies over (die hebben een echte HTTP-respons resp. sitemap
+# nodig — coverage draait al impliciet mee via de live-site smoke-test verderop
+# in de pipeline).
+#
+# Alleen voor production: preview bouwt met DIRECTUS_INCLUDE_DRAFTS=1, en
+# net-aangeleverde, nog niet vertaalde conceptcontent zou nl-sentences terecht
+# maar ongewenst laten falen — zelfde afweging als de preflight warn-only-split
+# (LAT-1768).
+#
+# We draaien dit via een wegwerp python:3.12-slim-container i.p.v. python3 op
+# de VPS-host te vereisen: geen host-package-aannames, geen mutatie van de
+# VPS buiten de deploy-scope.
+if [ "${TARGET:-}" = "production" ]; then
+  if ! docker run --rm -v "$PWD":/app -w /app python:3.12-slim \
+      python3 scripts/lat2582-gate-check.py --dist "$DIST"; then
+    echo "::error::verify-build: i18n-gate faalde (scripts/lat2582-gate-check.py --dist $DIST) — zie output hierboven voor welke dimensie"
+    exit 1
+  fi
+else
+  echo "::notice::verify-build: i18n-gate overgeslagen (TARGET=${TARGET:-onbekend}, niet production)"
+fi
