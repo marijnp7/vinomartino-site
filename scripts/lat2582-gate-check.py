@@ -28,6 +28,11 @@ echte toekomstige regressies. LAT-2908 verving de ratio daarom door een
 **zin-criterium** (zie `scan()`). LAT-2911 heeft de vier overige dimensies
 teruggebracht die in het originele script zaten maar bij de herbouw wegvielen.
 
+LAT-3326 heeft de scope scherpgesteld: de gate bewaakt de PUBLIEKE /en/-kant.
+Routes die `noindex` dragen (design-review-/QA-mockups) vallen buiten de drie
+content-dimensies -- gemeten uit de pagina zelf, niet uit een lijst hier, zodat
+de uitzondering vanzelf vervalt zodra de route publiek wordt. Zie `is_noindex`.
+
 Waarom ratio-blinde literals een aparte dimensie zijn
 -----------------------------------------------------
 Een korte, herhaalde string (een affiliate-voetregel, een knoplabel) verdrinkt
@@ -49,6 +54,7 @@ Gebruik
     python3 scripts/lat2582-gate-check.py --url /en/streken/    # losse pagina
     python3 scripts/lat2582-gate-check.py --json /tmp/gate.json # ruwe data
     python3 scripts/lat2582-gate-check.py --only nl-links,coverage
+    python3 scripts/lat2582-gate-check.py --include-noindex     # ook mockups
     python3 scripts/lat2582-gate-check.py --selftest            # patroon-check
 
 Env:
@@ -185,6 +191,60 @@ WORD = re.compile(r"[A-Za-zÀ-ÿ']+")
 SENT_SPLIT = re.compile(r"(?<=[.!?:;])\s+")
 BLOCK_SEP = "\x00"
 ASSET_RE = re.compile(r"\.(png|jpe?g|svg|webp|avif|xml|json|ico|css|js|txt|pdf)$", re.I)
+
+
+# --------------------------------------------------------------------------- #
+# noindex -- scope-grens van de gate (LAT-3326)
+# --------------------------------------------------------------------------- #
+# De gate bewaakt 100%-EN-dekking van de PUBLIEKE /en/-kant. Een handvol routes
+# is design-review-/QA-mockup en draagt daarom `noindex` (LAT-1108/1110/1122):
+# hun inhoud is bewust hard-coded NL en wordt niet vertaald -- dat staat als
+# code-commentaar in de bronbestanden zelf. Die pagina's hielden de gate rood
+# zonder dat er iets te repareren viel.
+#
+# Waarom dit GEEN uitsluitlijst is
+# --------------------------------
+# De module-docstring hierboven verwerpt uitsluitlijsten, en terecht: LAT-2838's
+# lijst van ~10 paden maakte precies die pagina's blind voor echte regressies en
+# moest met de hand kloppend gehouden worden. De uitzondering hieronder is van
+# een andere soort -- hij staat niet in dit bestand maar wordt PER PAGINA UIT DE
+# PAGINA ZELF GEMETEN. Haalt iemand `noindex={true}` weg, dan is de pagina
+# publiek en meet de gate hem vanaf die build weer volledig, zonder dat hier
+# iets bijgewerkt hoeft te worden. De uitzondering kan dus niet verjaren.
+#
+# Alleen de CONTENT-dimensies vervallen. `technical` (HTTP 200 + lang="en" +
+# hreflang-trio) en `coverage` blijven gelden: een noindex-mockup mag stuk zijn
+# qua vertaling, maar niet qua routing -- dat is hoe je merkt dat de EN-variant
+# helemaal verdwenen is.
+NOINDEX_RE = re.compile(
+    r"<meta\b(?=[^>]*\bname=[\"']robots[\"'])(?=[^>]*\bcontent=[\"'][^\"']*\bnoindex\b)[^>]*>",
+    re.I,
+)
+CONTENT_DIMENSIONS = ("nl-sentences", "nl-links", "nl-literals")
+
+# Alleen voor `--selftest`. Dit is NADRUKKELIJK geen scope-lijst -- de gate
+# leest scope uit de pagina, niet hieruit. Het zijn de routes waarvan we weten
+# dat ze noindex horen te zijn, zodat de selftest een positief anker heeft:
+# staan ze niet in de sitemap (dat doen ze niet, noindex-routes worden er niet
+# in opgenomen), dan zou de live meting anders nooit één noindex-pagina zien en
+# zou een kapotte `NOINDEX_RE` onopgemerkt blijven. Een fixture die 404 geeft is
+# geen fout -- de route is dan weg. Een fixture die 200 geeft zonder noindex
+# wél: dan is de route publiek geworden en hoort de gate hem te meten.
+NOINDEX_SELFTEST_ROUTES = (
+    "/en/infographics/",
+    "/en/infographics/stijl-1-nebbiolo/",
+    "/en/infographics/atlas-italie-interactief/",
+)
+
+
+def is_noindex(raw: str) -> bool:
+    """True als de pagina een robots-meta met `noindex` draagt.
+
+    Gemeten op de gerenderde HTML, niet op een pad-lijst -- zie de toelichting
+    hierboven. `<meta name="robots" content="noindex, nofollow">` en de
+    omgekeerde attribuutvolgorde tellen allebei; `content="index, follow"` niet.
+    """
+    return bool(NOINDEX_RE.search(raw))
 
 
 def main_segment(raw: str) -> str:
@@ -447,15 +507,111 @@ def run_selftest(base: str, workers: int) -> int:
             dead.append((key, spec, sample))
 
     print()
+    failed = 0
     if dead:
         print(f"{len(dead)} patroon/patronen vuurden nergens. Dat is GEEN schone")
         print("content -- het betekent dat de gate op die literal blind is:")
         for key, spec, sample in dead:
             print(f"  - {key}: geen match op {len(sample)} pagina's onder "
                   f"{spec['nl_familie']} (bron: {spec['bron']})")
-        print("\nSELFTEST: NIET GESLAAGD")
+        failed = 1
+    else:
+        print("  -> elke literal is aantoonbaar meetbaar")
+
+    failed |= selftest_noindex(base, all_paths, workers)
+
+    print()
+    print(f"SELFTEST: {'NIET GESLAAGD' if failed else 'GESLAAGD'}")
+    return 1 if failed else 0
+
+
+def selftest_noindex(base: str, all_paths, workers: int) -> int:
+    """Bewijs dat de noindex-detectie leeft, in beide richtingen (LAT-3326).
+
+    De uitzondering slaat content-dimensies over. Een kapotte `NOINDEX_RE` is
+    daarmee gevaarlijker dan een dode literal: matcht hij te breed, dan wordt de
+    hele gate stil groen zonder iets te meten. De inverse meting hier is de
+    ruwe HTML zelf -- staat het woord `noindex` in een robots-meta van een
+    pagina terwijl `is_noindex()` False zegt, dan is de regex stuk en niet de
+    pagina publiek.
+    """
+    print("\nSelftest: leeft de noindex-detectie nog? (LAT-3326)\n")
+    en_paths = [p for p in all_paths if p.startswith("/en/") or p == "/en"]
+    if not en_paths:
+        print("  DOOD  geen /en/-paden in de sitemap -- niets te bewijzen")
         return 1
-    print("SELFTEST: GESLAAGD -- elke literal is aantoonbaar meetbaar")
+    # De sitemap bevat geen noindex-routes, dus zonder deze ankers ziet de
+    # live meting alleen publieke pagina's en bewijst hij de ene helft niet.
+    en_paths = en_paths + [p for p in NOINDEX_SELFTEST_ROUTES if p not in en_paths]
+
+    with futures.ThreadPoolExecutor(workers) as ex:
+        fetched = list(ex.map(lambda p: fetch(base + p), en_paths))
+
+    # Ruwe, regex-onafhankelijke waarheid: draagt de pagina een robots-meta met
+    # het woord noindex erin?
+    raw_re = re.compile(r"<meta[^>]*robots[^>]*noindex|<meta[^>]*noindex[^>]*robots", re.I)
+    marked, detected, measured = [], [], 0
+    for path, (code, raw) in zip(en_paths, fetched):
+        if code != 200 or not raw:
+            continue
+        measured += 1
+        if raw_re.search(raw):
+            marked.append(path)
+        if is_noindex(raw):
+            detected.append(path)
+
+    if not measured:
+        print("  DOOD  geen enkele /en/-pagina kon opgehaald worden")
+        return 1
+
+    missed = sorted(set(marked) - set(detected))
+    extra = sorted(set(detected) - set(marked))
+    print(f"  {measured} /en/-pagina's gemeten")
+    print(f"  robots-meta met 'noindex' in de HTML : {len(marked)}")
+    print(f"  door is_noindex() herkend            : {len(detected)}")
+
+    if missed:
+        print("  DOOD  is_noindex() zag deze noindex-pagina's NIET -- de regex "
+              "is stuk:")
+        for p in missed[:10]:
+            print(f"          {p}")
+        return 1
+    if extra:
+        print("  DOOD  is_noindex() vlagde pagina's ZONDER robots-noindex -- de "
+              "regex matcht te breed en maakt de gate stil groen:")
+        for p in extra[:10]:
+            print(f"          {p}")
+        return 1
+    if detected and len(detected) == measured:
+        print("  DOOD  ALLE /en/-pagina's gelden als noindex -- dan meet de "
+              "gate de content-dimensies nergens meer")
+        return 1
+    # Ankers: een fixture die leeft maar niet als noindex geldt, is een echte
+    # bevinding -- of de regex is stuk, of de route is publiek geworden en zou
+    # gewoon gemeten moeten worden.
+    live_anchors = [p for p, (code, raw) in zip(en_paths, fetched)
+                    if p in NOINDEX_SELFTEST_ROUTES and code == 200 and raw]
+    leaked = [p for p in live_anchors if p not in detected]
+    if leaked:
+        print("  DOOD  deze routes leven maar dragen geen robots-noindex meer:")
+        for p in leaked:
+            print(f"          {p}  -> publiek geworden, of NOINDEX_RE is stuk")
+        return 1
+    if not live_anchors:
+        print(f"  ok    geen van de {len(NOINDEX_SELFTEST_ROUTES)} anker-routes "
+              f"bestaat nog (404) -- werk NOINDEX_SELFTEST_ROUTES bij")
+
+    if not detected:
+        # Geen fout: als de mockup-routes weg zijn is de uitzondering inert.
+        # Wel expliciet zeggen, anders leest 'groen' als 'bewezen'.
+        print("  ok    0 noindex-routes op /en/ -- de uitzondering is inert; "
+              "de unit-tests dekken de regex zelf af")
+        return 0
+    print(f"  ok    {len(detected)} noindex-route(s) herkend, "
+          f"{measured - len(detected)} publieke pagina's blijven volledig "
+          f"gemeten")
+    for p in sorted(detected)[:10]:
+        print(f"          {p}")
     return 0
 
 
@@ -471,6 +627,9 @@ def main() -> int:
     ap.add_argument("--workers", type=int, default=12)
     ap.add_argument("--sent-min", type=int, default=SENT_MIN_DEFAULT)
     ap.add_argument("--only", help=f"alleen deze dimensies: {','.join(DIMENSIONS)}")
+    ap.add_argument("--include-noindex", action="store_true",
+                    help="meet ook noindex-routes op de content-dimensies "
+                         "(default: overgeslagen, zie LAT-3326)")
     ap.add_argument("--selftest", action="store_true",
                     help="controleer of de NL_LITERALS-patronen nog vuren")
     ap.add_argument("--quiet", action="store_true")
@@ -575,14 +734,21 @@ def main() -> int:
         row = {"path": path, "code": code}
         if "technical" in active:
             row["technical"] = check_technical(raw, base + path, code, base)
+        # Content-dimensies vervallen op noindex-routes (LAT-3326), tenzij
+        # --include-noindex meedraait. `technical`/`coverage` blijven staan.
+        row["noindex"] = bool(raw) and is_noindex(raw)
+        if row["noindex"] and not args.include_noindex:
+            active_page = active - set(CONTENT_DIMENSIONS)
+        else:
+            active_page = active
         if code == 200 and raw:
-            if "nl-sentences" in active:
+            if "nl-sentences" in active_page:
                 hits, flagged = scan(raw, args.sent_min)
                 row["word_hits"] = hits
                 row["nl_sentences"] = [{"markers": n, "text": s} for n, s in flagged]
-            if "nl-links" in active:
+            if "nl-links" in active_page:
                 row["nl_links"] = internal_nl_links(raw, base, nl_only_prefixes)
-            if "nl-literals" in active:
+            if "nl-literals" in active_page:
                 row["literals"] = find_literals(raw)
         rows.append(row)
 
@@ -590,6 +756,26 @@ def main() -> int:
         with open(args.json, "w", encoding="utf-8") as fh:
             json.dump(rows, fh, indent=1, ensure_ascii=False)
         print(f"(ruwe data geschreven naar {args.json})\n")
+
+    # ---- noindex-uitzondering, altijd zichtbaar ---------------------------- #
+    # Een stille uitzondering is een gat: "0 NL-zinnen" van schone content en
+    # "0 NL-zinnen" omdat de pagina overgeslagen werd zien er anders identiek
+    # uit. Daarom staat dit blok er ook als het aantal 0 is.
+    skipped = [r["path"] for r in rows if r.get("noindex")]
+    dims = ", ".join(d for d in CONTENT_DIMENSIONS if d in active)
+    if args.include_noindex:
+        print(f"Noindex  : {len(skipped)} pagina's, maar --include-noindex "
+              f"staat aan -- ze worden volledig gemeten")
+    elif skipped:
+        print(f"Noindex  : {len(skipped)} pagina's buiten de content-dimensies "
+              f"({dims}) -- LAT-3326")
+        for p in sorted(skipped):
+            print(f"  overgeslagen: {p}")
+        print("  (draai --include-noindex om te zien wat daar verborgen zit)")
+    else:
+        print("Noindex  : 0 pagina's overgeslagen -- alle /en/-routes zijn "
+              "publiek en volledig gemeten")
+    print()
 
     # ---- technisch --------------------------------------------------------- #
     if "technical" in active:

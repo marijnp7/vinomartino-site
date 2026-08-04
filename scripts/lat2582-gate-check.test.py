@@ -230,5 +230,82 @@ class TestPrefixLoading(unittest.TestCase):
         self.assertEqual(prefixes, gate.NL_ONLY_PREFIXES_FALLBACK)
 
 
+class TestNoindexScope(unittest.TestCase):
+    """LAT-3326 -- de noindex-uitzondering.
+
+    Deze uitzondering is het enige mechanisme in de gate dat metingen KAN
+    onderdrukken. Een te brede match maakt de hele gate stil groen, dus beide
+    richtingen horen hier vastgelegd: hij moet vuren waar hij hoort te vuren en
+    zwijgen waar niet.
+    """
+
+    ROBOTS = '<meta name="robots" content="noindex, nofollow">'
+
+    def test_noindex_meta_is_detected(self):
+        self.assertTrue(gate.is_noindex(page(head=self.ROBOTS)))
+
+    def test_reversed_attribute_order_is_detected(self):
+        raw = page(head='<meta content="noindex,nofollow" name="robots">')
+        self.assertTrue(gate.is_noindex(raw), "attribuutvolgorde mag niet uitmaken")
+
+    def test_single_quotes_are_detected(self):
+        raw = page(head="<meta name='robots' content='noindex'>")
+        self.assertTrue(gate.is_noindex(raw))
+
+    def test_public_page_is_not_noindex(self):
+        self.assertFalse(gate.is_noindex(page(head="")))
+
+    def test_index_follow_is_not_noindex(self):
+        raw = page(head='<meta name="robots" content="index, follow">')
+        self.assertFalse(gate.is_noindex(raw), "index,follow is juist publiek")
+
+    def test_other_meta_named_noindex_does_not_count(self):
+        # Alleen de robots-meta telt. Zonder deze eis zou elk voorkomen van het
+        # woord in de head een pagina blind maken.
+        raw = page(head='<meta name="description" content="noindex explained">')
+        self.assertFalse(gate.is_noindex(raw))
+
+    def test_word_noindex_in_the_body_does_not_count(self):
+        raw = page(body="<p>We never use noindex on public pages.</p>")
+        self.assertFalse(gate.is_noindex(raw))
+
+    def test_googlebot_directive_alone_does_not_count(self):
+        # Bewuste grens: de gate kijkt naar de generieke robots-meta. Een
+        # bot-specifieke variant is geen "deze route is niet publiek"-signaal.
+        raw = page(head='<meta name="googlebot" content="noindex">')
+        self.assertFalse(gate.is_noindex(raw))
+
+    def test_exempted_page_would_otherwise_have_failed(self):
+        # De kern van de uitzondering: dit fragment is aantoonbaar rood op de
+        # content-dimensies. Zonder deze assertie zou een test die alleen
+        # `is_noindex` controleert ook groen blijven als de uitzondering per
+        # ongeluk niets onderdrukt -- of alles.
+        body = ('<p>Deze mockup laat zien hoe de kaart zich gedraagt zonder dat '
+                'de redactie een eigen pagina hoeft te maken.</p>'
+                '<a href="/infographics/">NL-versie</a>')
+        raw = page(head=self.ROBOTS, body=body)
+        _, flagged = gate.scan(raw, 3)
+        self.assertTrue(flagged, "fixture moet zelf rood zijn, anders bewijst "
+                                 "de uitzondering niets")
+        self.assertEqual(gate.internal_nl_links(raw, BASE, NL_ONLY),
+                         ["/infographics/"])
+        self.assertTrue(gate.is_noindex(raw))
+
+    def test_content_dimensions_are_the_only_ones_dropped(self):
+        # technical en coverage blijven gelden op noindex-routes: een mockup
+        # mag onvertaald zijn, maar niet uit de routing vallen.
+        self.assertEqual(set(gate.CONTENT_DIMENSIONS),
+                         {"nl-sentences", "nl-links", "nl-literals"})
+        self.assertNotIn("technical", gate.CONTENT_DIMENSIONS)
+        self.assertNotIn("coverage", gate.CONTENT_DIMENSIONS)
+
+    def test_technical_still_applies_to_a_noindex_page(self):
+        raw = ('<html lang="nl"><head>' + self.ROBOTS +
+               '</head><body><main></main></body></html>')
+        problems = gate.check_technical(raw, BASE + "/en/infographics/", 200, BASE)
+        self.assertTrue(problems, "een kapotte noindex-route hoort nog te falen "
+                                  "op technical")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
