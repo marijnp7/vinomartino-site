@@ -302,20 +302,22 @@ async function downloadArticleAsset(assetId: string, directusUrl: string, token:
     const outPath = join(outDir, `${assetId}.jpg`);
     if (existsSync(outPath)) return `/images/articles/${assetId}.jpg`;
     try {
-        const res = await withAssetSlot(() =>
-            fetch(assetUrl(directusUrl, assetId), {
+        // LAT-3423/LAT-3587: slot moet fetch + body-read + wegschrijven omvatten —
+        // anders geeft de semafoor het slot al vrij bij de headers (zie accommodaties-loader.ts).
+        return await withAssetSlot(async () => {
+            const res = await fetch(assetUrl(directusUrl, assetId), {
                 headers: { Authorization: `Bearer ${token}` },
                 signal: AbortSignal.timeout(3000), // LAT-3331: zie accommodaties-loader.ts
-            }),
-        );
-        if (!res.ok) {
-            console.warn(`[loadArticles] could not fetch asset ${assetId}: ${res.status}`);
-            return null;
-        }
-        const buf = Buffer.from(await res.arrayBuffer());
-        mkdirSync(outDir, { recursive: true });
-        writeFileSync(outPath, buf);
-        return `/images/articles/${assetId}.jpg`;
+            });
+            if (!res.ok) {
+                console.warn(`[loadArticles] could not fetch asset ${assetId}: ${res.status}`);
+                return null;
+            }
+            const buf = Buffer.from(await res.arrayBuffer());
+            mkdirSync(outDir, { recursive: true });
+            writeFileSync(outPath, buf);
+            return `/images/articles/${assetId}.jpg`;
+        });
     } catch (err) {
         console.warn(`[loadArticles] asset download failed for ${assetId}: ${err instanceof Error ? err.message : String(err)}`);
         return null;

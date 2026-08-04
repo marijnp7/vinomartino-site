@@ -87,30 +87,33 @@ async function downloadAsset(assetId: string, directusUrl: string, token: string
     const outPath = join(outDir, fileName);
     if (existsSync(outPath)) return `/images/wijnhuizen/${fileName}`;
     try {
-        const res = await withAssetSlot(() =>
-            fetch(assetUrl(directusUrl, assetId), {
+        // LAT-3423/LAT-3587: slot moet fetch + body-read + graden + wegschrijven omvatten —
+        // anders geeft de semafoor het slot al vrij bij de headers en verzadigt het
+        // CPU-zware graden de event-loop ongelimiteerd (zie accommodaties-loader.ts).
+        return await withAssetSlot(async () => {
+            const res = await fetch(assetUrl(directusUrl, assetId), {
                 headers: { Authorization: `Bearer ${token}` },
                 signal: AbortSignal.timeout(3000), // LAT-3331: zie accommodaties-loader.ts
-            }),
-        );
-        if (!res.ok) {
-            const body = await res.text().catch(() => '');
-            console.warn(`[loadWijnhuizen] could not fetch asset ${assetId}: ${res.status} body=${body.slice(0, 300)}`);
-            assetDebug.push({ assetId, prefix, status: res.status, body: body.slice(0, 500) });
-            return null;
-        }
-        const buf = Buffer.from(await res.arrayBuffer());
-        let outBuf = buf;
-        try {
-            const { gradeBuffer } = await import('./grade-image.mjs');
-            outBuf = await gradeBuffer(buf); // Meegereisd Warm preset (LAT-2007)
-        } catch (e) {
-            console.warn(`[loadWijnhuizen] grading-preset overgeslagen voor ${assetId}: ${e instanceof Error ? e.message : String(e)}`);
-        }
-        mkdirSync(outDir, { recursive: true });
-        writeFileSync(outPath, outBuf);
-        assetDebug.push({ assetId, prefix, status: 200, bytes: outBuf.byteLength });
-        return `/images/wijnhuizen/${fileName}`;
+            });
+            if (!res.ok) {
+                const body = await res.text().catch(() => '');
+                console.warn(`[loadWijnhuizen] could not fetch asset ${assetId}: ${res.status} body=${body.slice(0, 300)}`);
+                assetDebug.push({ assetId, prefix, status: res.status, body: body.slice(0, 500) });
+                return null;
+            }
+            const buf = Buffer.from(await res.arrayBuffer());
+            let outBuf = buf;
+            try {
+                const { gradeBuffer } = await import('./grade-image.mjs');
+                outBuf = await gradeBuffer(buf); // Meegereisd Warm preset (LAT-2007)
+            } catch (e) {
+                console.warn(`[loadWijnhuizen] grading-preset overgeslagen voor ${assetId}: ${e instanceof Error ? e.message : String(e)}`);
+            }
+            mkdirSync(outDir, { recursive: true });
+            writeFileSync(outPath, outBuf);
+            assetDebug.push({ assetId, prefix, status: 200, bytes: outBuf.byteLength });
+            return `/images/wijnhuizen/${fileName}`;
+        });
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         console.warn(`[loadWijnhuizen] asset download failed for ${assetId}: ${msg}`);
