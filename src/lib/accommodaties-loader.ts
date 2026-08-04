@@ -40,6 +40,42 @@ import { localizeRecords, localizeRefsBySlug } from './directus-i18n';
 // LAT-2575 — vertaalbare accommodatie-velden (native Directus translations, LAT-2574).
 const ACCOMMODATIONS_TRANSLATABLE = ['description', 'why_this_one', 'why_regel', 'prijs_disclaimer', 'meta_title', 'meta_description', 'hero_alt'];
 
+// LAT-3423 — asset-timeout op basis van gemeten transcode-tijd i.p.v. gokwerk.
+//
+// LAT-3331 zette dit op 3 s onder de aanname dat Directus' DB-pool volliep en
+// geen connecties meer accepteerde. Die aanname is weerlegd (meting in
+// LAT-3423): Directus antwoordt óók onder 3× buildlast op élk asset-request met
+// HTTP 200 — hij wordt alleen trager, want /assets transcodeert CPU-gebonden.
+// Gemeten op de live container, verse transcodes van 24 assets:
+//
+//   concurrency 4  → p50 1409 ms, p95 1692 ms, max 2716 ms,  0 % boven 3 s
+//   concurrency 12 → p50 4998 ms, p95 7480 ms, max 10686 ms, 92 % boven 3 s
+//
+// De 3 s lag dus ónder de normale staart: zodra de ongememoïseerde loaders
+// meerdere sweeps tegelijk draaiden (de echte oorzaak, hierboven gefixt) sloeg
+// hij 92 % van de downloads af. Die assets verdwenen stil uit de build.
+//
+// 15 s geeft ~5,5× marge op de gemeten max bij concurrency 4 en begrenst nog
+// steeds een écht vastgelopen request. Twee retries met backoff vangen een
+// incidentele trage transcode af.
+const ASSET_TIMEOUT_MS = 15_000;
+const ASSET_ATTEMPTS = 3;
+const ASSET_RETRY_BACKOFF_MS = [500, 1500];
+
+const assetFailures = new Set<string>();
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function describeFetchError(err: unknown): string {
+    if (!(err instanceof Error)) return String(err);
+    const cause = (err as { cause?: unknown }).cause;
+    if (cause instanceof Error) {
+        const code = (cause as { code?: string }).code;
+        return `${err.message} (${code ?? cause.name}: ${cause.message})`;
+    }
+    return err.message;
+}
+
 async function downloadAsset(assetId: string, directusUrl: string, token: string): Promise<string | null> {
     const { writeFileSync, mkdirSync, existsSync } = await import('node:fs');
     const { join } = await import('node:path');
@@ -47,39 +83,56 @@ async function downloadAsset(assetId: string, directusUrl: string, token: string
     const fileName = `${assetId}.jpg`;
     const outPath = join(outDir, fileName);
     if (existsSync(outPath)) return `/images/accommodaties/${fileName}`;
-    try {
-        const res = await withAssetSlot(() =>
-            fetch(assetUrl(directusUrl, assetId), {
-                headers: { Authorization: `Bearer ${token}` },
-                // LAT-3331: gebruik 3 s i.p.v. de globale 45 s — asset-downloads
-                // die mislukken (Directus DB-pool vol) blokkeren de semafoorslot
-                // 10 s (undici connectTimeout). Met 288 assets en concurrency 4
-                // levert dat ~12 minuten wachttijd op, waarna SSH broken-pipe
-                // de hele build killt. 3 s aborteert vóór undici's 10 s,
-                // waardoor de bouwfase inkrimpt tot ~4 min en SSH overleeft.
-                signal: AbortSignal.timeout(3000),
-            }),
-        );
-        if (!res.ok) {
-            console.warn(`[loadAccommodaties] kon asset ${assetId} niet ophalen: ${res.status}`);
-            return null;
-        }
-        const buf = Buffer.from(await res.arrayBuffer());
-        let outBuf = buf;
+
+    for (let attempt = 1; attempt <= ASSET_ATTEMPTS; attempt++) {
+        const last = attempt === ASSET_ATTEMPTS;
         try {
-            const { gradeBuffer } = await import('./grade-image.mjs');
-            outBuf = await gradeBuffer(buf); // Meegereisd Warm preset (LAT-2007)
-        } catch (e) {
-            console.warn(`[loadAccommodaties] grading-preset overgeslagen voor ${assetId}: ${e instanceof Error ? e.message : String(e)}`);
+            const res = await withAssetSlot(() =>
+                fetch(assetUrl(directusUrl, assetId), {
+                    headers: { Authorization: `Bearer ${token}` },
+                    signal: AbortSignal.timeout(ASSET_TIMEOUT_MS),
+                }),
+            );
+            if (!res.ok) {
+                // 4xx is deterministisch (asset bestaat niet / geen rechten) —
+                // retryen levert alleen buildtijd-verlies op. 5xx is transient.
+                if (res.status < 500 || last) {
+                    console.warn(`[loadAccommodaties] kon asset ${assetId} niet ophalen: ${res.status}`);
+                    assetFailures.add(assetId);
+                    return null;
+                }
+                console.warn(`[loadAccommodaties] asset ${assetId} HTTP ${res.status} (poging ${attempt}/${ASSET_ATTEMPTS}) — opnieuw`);
+                await sleep(ASSET_RETRY_BACKOFF_MS[attempt - 1]);
+                continue;
+            }
+            const buf = Buffer.from(await res.arrayBuffer());
+            let outBuf = buf;
+            try {
+                const { gradeBuffer } = await import('./grade-image.mjs');
+                outBuf = await gradeBuffer(buf); // Meegereisd Warm preset (LAT-2007)
+            } catch (e) {
+                console.warn(`[loadAccommodaties] grading-preset overgeslagen voor ${assetId}: ${e instanceof Error ? e.message : String(e)}`);
+            }
+            mkdirSync(outDir, { recursive: true });
+            writeFileSync(outPath, outBuf);
+            return `/images/accommodaties/${fileName}`;
+        } catch (err) {
+            // LAT-3423: undici verpakt élke netwerkfout als de nietszeggende
+            // TypeError "fetch failed" en hangt de echte oorzaak onder .cause.
+            // Zonder die cause is niet te zien of een mislukte download een
+            // timeout, een ECONNRESET of een DNS-fout was — precies het gat
+            // waardoor LAT-3331 op de verkeerde oorzaak uitkwam.
+            const msg = describeFetchError(err);
+            if (last) {
+                console.warn(`[loadAccommodaties] asset-download faalde voor ${assetId}: ${msg}`);
+                assetFailures.add(assetId);
+                return null;
+            }
+            console.warn(`[loadAccommodaties] asset-download faalde voor ${assetId} (poging ${attempt}/${ASSET_ATTEMPTS}): ${msg} — opnieuw`);
+            await sleep(ASSET_RETRY_BACKOFF_MS[attempt - 1]);
         }
-        mkdirSync(outDir, { recursive: true });
-        writeFileSync(outPath, outBuf);
-        return `/images/accommodaties/${fileName}`;
-    } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        console.warn(`[loadAccommodaties] asset-download faalde voor ${assetId}: ${msg}`);
-        return null;
     }
+    return null;
 }
 
 function toIntOrNull(val: unknown): number | null {
@@ -222,7 +275,13 @@ async function fetchAccommodatieRoundupsByStreek(locale: Locale): Promise<Map<st
     for (const [streekSlug, { regio, kaarten: streekKaarten }] of byStreek) {
         out.set(streekSlug, { regio, clusters: clusterKaarten(streekKaarten, regio) });
     }
-    console.log(`[loadAccommodaties] ${kaarten.length} accommodaties → ${out.size} streek-roundups`);
+    // LAT-3423: maak weggevallen assets zichtbaar. Vóór deze regel verdwenen
+    // afgebroken downloads stil in het log-ruis tussen honderden regels; het
+    // aantal is nu één telbaar getal dat een build-gate kan afvangen.
+    console.log(
+        `[loadAccommodaties] ${kaarten.length} accommodaties → ${out.size} streek-roundups` +
+            (assetFailures.size > 0 ? ` — ${assetFailures.size} assets niet opgehaald` : ''),
+    );
     return out;
 }
 
