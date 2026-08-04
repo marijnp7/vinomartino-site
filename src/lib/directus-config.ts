@@ -109,6 +109,24 @@ function readPositiveIntEnv(name: string, fallback: number): number {
  * bufferen is die fout retry-baar geworden en kan `res.json()` niet meer
  * afbreken.
  */
+/**
+ * LAT-3423 — undici verpakt élke netwerkfout als de nietszeggende
+ * `TypeError: fetch failed` en hangt de echte oorzaak onder `.cause`. Zonder
+ * die cause is een connect-timeout niet te onderscheiden van een ECONNRESET of
+ * een DNS-fout. Precies dat gat leidde in LAT-3331/LAT-3332 twee dagen lang
+ * naar de verkeerde conclusie ("Directus' DB-pool loopt vol"), terwijl de
+ * werkelijke oorzaak `UND_ERR_CONNECT_TIMEOUT` was — client-side uithongering.
+ */
+export function describeFetchError(err: unknown): string {
+    if (!(err instanceof Error)) return String(err);
+    const cause = (err as { cause?: unknown }).cause;
+    if (cause instanceof Error) {
+        const code = (cause as { code?: string }).code;
+        return `${err.message} (${code ?? cause.name}: ${cause.message})`;
+    }
+    return err.message;
+}
+
 export async function fetchDirectusCollection(
     loaderName: string,
     url: string,
@@ -156,7 +174,7 @@ export async function fetchDirectusCollection(
             return buffered;
         } catch (err) {
             lastErr = err;
-            const msg = err instanceof Error ? err.message : String(err);
+            const msg = describeFetchError(err);
             if (attempt === retries) break;
             console.warn(
                 `[${loaderName}] Directus-fetch mislukt (poging ${attempt + 1}/${retries + 1}): ${msg} — ` +

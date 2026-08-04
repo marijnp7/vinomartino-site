@@ -33,6 +33,7 @@ import {
     assertCollectionReadableOrDegrade,
     withAssetSlot,
     fetchDirectusCollection,
+    describeFetchError,
 } from './directus-config';
 import { DEFAULT_LOCALE, type Locale } from './i18n';
 import { localizeRecords, localizeRefsBySlug } from './directus-i18n';
@@ -65,16 +66,6 @@ const ASSET_RETRY_BACKOFF_MS = [500, 1500];
 const assetFailures = new Set<string>();
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-function describeFetchError(err: unknown): string {
-    if (!(err instanceof Error)) return String(err);
-    const cause = (err as { cause?: unknown }).cause;
-    if (cause instanceof Error) {
-        const code = (cause as { code?: string }).code;
-        return `${err.message} (${code ?? cause.name}: ${cause.message})`;
-    }
-    return err.message;
-}
 
 async function downloadAsset(assetId: string, directusUrl: string, token: string): Promise<string | null> {
     const { writeFileSync, mkdirSync, existsSync } = await import('node:fs');
