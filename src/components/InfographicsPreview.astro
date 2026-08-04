@@ -15,6 +15,12 @@ interface Props {
 
 const { locale = DEFAULT_LOCALE, alternates } = Astro.props;
 
+// LAT-3326 — de redactie-handleiding staat in de repo naast de componenten,
+// niet onder public/. Verwijs naar de bron op GitHub i.p.v. een /assets/-pad
+// dat nooit gebuild wordt.
+const README_URL =
+  'https://github.com/marijnp7/vinomartino-site/blob/main/src/components/INFOGRAPHICS_README.md';
+
 /**
  * Preview route — LAT-1108.
  * Drie referentie-infographics conform LAT-1107 § 8:
@@ -239,7 +245,15 @@ const pageDescription = 'Preview-route voor InfographicCard en InfographicAtlas.
     </section>
 
     <footer class="vm-preview-footer">
-      <p>Volledige redactie-handleiding: <a href="/assets/INFOGRAPHICS_README.md"><code>INFOGRAPHICS_README.md</code></a> in de repo.</p>
+      {/*
+        LAT-3326 — was `/assets/INFOGRAPHICS_README.md`. Dat pad bestond niet
+        (het bestand staat in `src/components/`, niet in `public/assets/`), dus
+        de link was op beide talen een 404, én hij liet de i18n-gate op
+        `nl-links` roodkleuren: een intern pad vanaf `/en/` naar een NL-asset
+        (LAT-2704-patroon). De GitHub-bron is de echte vindplaats en is als
+        externe link taalneutraal — één fix voor allebei.
+      */}
+      <p>Volledige redactie-handleiding: <a href={README_URL} rel="noopener"><code>INFOGRAPHICS_README.md</code></a> in de repo.</p>
       <p>Design-spec: <a href="https://app.paperclip.ing/LAT/issues/LAT-1107">LAT-1107</a> · Implementatie: <a href="https://app.paperclip.ing/LAT/issues/LAT-1108">LAT-1108</a>.</p>
     </footer>
   </div>
