@@ -87,34 +87,47 @@ async function downloadAsset(assetId: string, directusUrl: string, token: string
     for (let attempt = 1; attempt <= ASSET_ATTEMPTS; attempt++) {
         const last = attempt === ASSET_ATTEMPTS;
         try {
-            const res = await withAssetSlot(() =>
-                fetch(assetUrl(directusUrl, assetId), {
+            // LAT-3423: het slot moet de héle download omvatten — ophalen,
+            // body uitlezen én graden. Stond alleen `fetch()` erin, dan gaf de
+            // semafoor het slot al vrij zodra de headers binnen waren, en
+            // liepen body-read en het CPU-zware `gradeBuffer` (sharp)
+            // ongelimiteerd door elkaar. Met 288 assets verzadigt dat de
+            // event-loop van het buildproces zelf, waardoor nieuwe TCP-
+            // handshakes niet binnen undici's connectTimeout van 10 s rond
+            // komen: `UND_ERR_CONNECT_TIMEOUT (directus:8055, 10000ms)`.
+            // Die fout leest als "Directus weigert connecties", maar is
+            // client-side uithongering — Directus antwoordt intussen gewoon
+            // met 200 (gemeten, zie de tabel hierboven).
+            const outcome = await withAssetSlot(async () => {
+                const res = await fetch(assetUrl(directusUrl, assetId), {
                     headers: { Authorization: `Bearer ${token}` },
                     signal: AbortSignal.timeout(ASSET_TIMEOUT_MS),
-                }),
-            );
-            if (!res.ok) {
+                });
+                if (!res.ok) return { status: res.status } as const;
+                const buf = Buffer.from(await res.arrayBuffer());
+                let outBuf = buf;
+                try {
+                    const { gradeBuffer } = await import('./grade-image.mjs');
+                    outBuf = await gradeBuffer(buf); // Meegereisd Warm preset (LAT-2007)
+                } catch (e) {
+                    console.warn(`[loadAccommodaties] grading-preset overgeslagen voor ${assetId}: ${e instanceof Error ? e.message : String(e)}`);
+                }
+                mkdirSync(outDir, { recursive: true });
+                writeFileSync(outPath, outBuf);
+                return { status: res.status, saved: true } as const;
+            });
+            if (!outcome.saved) {
                 // 4xx is deterministisch (asset bestaat niet / geen rechten) —
                 // retryen levert alleen buildtijd-verlies op. 5xx is transient.
-                if (res.status < 500 || last) {
-                    console.warn(`[loadAccommodaties] kon asset ${assetId} niet ophalen: ${res.status}`);
+                if (outcome.status < 500 || last) {
+                    console.warn(`[loadAccommodaties] kon asset ${assetId} niet ophalen: ${outcome.status}`);
                     assetFailures.add(assetId);
                     return null;
                 }
-                console.warn(`[loadAccommodaties] asset ${assetId} HTTP ${res.status} (poging ${attempt}/${ASSET_ATTEMPTS}) — opnieuw`);
+                console.warn(`[loadAccommodaties] asset ${assetId} HTTP ${outcome.status} (poging ${attempt}/${ASSET_ATTEMPTS}) — opnieuw`);
                 await sleep(ASSET_RETRY_BACKOFF_MS[attempt - 1]);
                 continue;
             }
-            const buf = Buffer.from(await res.arrayBuffer());
-            let outBuf = buf;
-            try {
-                const { gradeBuffer } = await import('./grade-image.mjs');
-                outBuf = await gradeBuffer(buf); // Meegereisd Warm preset (LAT-2007)
-            } catch (e) {
-                console.warn(`[loadAccommodaties] grading-preset overgeslagen voor ${assetId}: ${e instanceof Error ? e.message : String(e)}`);
-            }
-            mkdirSync(outDir, { recursive: true });
-            writeFileSync(outPath, outBuf);
             return `/images/accommodaties/${fileName}`;
         } catch (err) {
             // LAT-3423: undici verpakt élke netwerkfout als de nietszeggende
