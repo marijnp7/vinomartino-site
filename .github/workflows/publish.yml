@@ -303,12 +303,6 @@ jobs:
             DECISION="pending"
             for i in $(seq 1 120); do
               sleep 5
-              # LAT-3763: houd het SSH-kanaal hoorbaar. Een volledig stille
-              # sessie werd na ~4,5 min ge-evict (run 30980347827). Gemeten:
-              # 7 min stil zonder keepalive = sessie hangt; met keepalive rc=0.
-              if [ $((i % 12)) -eq 0 ]; then
-                echo "... nog steeds pending ($((i * 5)) s van max 600 s)"
-              fi
               # LAT-3769: houd het SSH-kanaal hoorbaar. Een volledig stille
               # sessie werd na ~4,5 min ge-evict (run 30980347827).
               if [ $((i % 12)) -eq 0 ]; then
