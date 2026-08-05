@@ -1291,11 +1291,19 @@ async function handleApprovalPost(req, body) {
 async function handleApprovalGet(actionId) {
   const [row] = await q(
     `SELECT id, request_id, requester_agent, decision, decided_at, timeout_at, created_at,
-            deferred_until, pushed_at
+            deferred_until, pushed_at, paperclip_issue_id, proposal
        FROM cos.actions WHERE id=$1`,
     [actionId]
   );
   if (!row) return { status: 404, body: JSON.stringify({ error: "not found" }) };
+  // LAT-3631: expose paperclip_issue_id + title so callers can verify server-side
+  // that a *specific* already-approved action authorizes a *specific* follow-up
+  // execution (e.g. directus-publish.sh --approved-action-id), instead of just
+  // trusting a bare "approve" decision on any action id. proposal is stored as
+  // `${title}\n\n${body}` (see handleApprovalPost) and title itself never
+  // contains "\n\n", so the first split recovers the exact original title.
+  const sepIdx = row.proposal.indexOf("\n\n");
+  const title = sepIdx === -1 ? row.proposal : row.proposal.slice(0, sepIdx);
   return {
     status: 200,
     body: JSON.stringify({
@@ -1309,6 +1317,8 @@ async function handleApprovalGet(actionId) {
       responded_at: row.decided_at,
       timeout_at: row.timeout_at,
       created_at: row.created_at,
+      paperclip_issue_id: row.paperclip_issue_id,
+      title,
     }),
   };
 }
