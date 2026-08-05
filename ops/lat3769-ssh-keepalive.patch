@@ -1,0 +1,86 @@
+diff --git a/.github/workflows/deploy-cos.yml b/.github/workflows/deploy-cos.yml
+index b1467cc..7d872a5 100644
+--- a/.github/workflows/deploy-cos.yml
++++ b/.github/workflows/deploy-cos.yml
+@@ -47,6 +47,11 @@ jobs:
+           Host $VPS_HOST
+             StrictHostKeyChecking accept-new
+             UserKnownHostsFile ~/.ssh/known_hosts
++            ServerAliveInterval 30
++            ServerAliveCountMax 6
++            TCPKeepAlive yes
++            ConnectTimeout 20
++            ConnectionAttempts 5
+           EOF
+           ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+ 
+diff --git a/.github/workflows/deploy.yml b/.github/workflows/deploy.yml
+index 6277151..b742589 100644
+--- a/.github/workflows/deploy.yml
++++ b/.github/workflows/deploy.yml
+@@ -141,6 +141,11 @@ jobs:
+           Host $VPS_HOST
+             StrictHostKeyChecking accept-new
+             UserKnownHostsFile ~/.ssh/known_hosts
++            ServerAliveInterval 30
++            ServerAliveCountMax 6
++            TCPKeepAlive yes
++            ConnectTimeout 20
++            ConnectionAttempts 5
+           EOF
+           # Best-effort host-key prefetch; non-fataal als netwerk flakey is
+           ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+diff --git a/.github/workflows/promote.yml b/.github/workflows/promote.yml
+index 73c05f1..f4f6f0a 100644
+--- a/.github/workflows/promote.yml
++++ b/.github/workflows/promote.yml
+@@ -40,6 +40,11 @@ jobs:
+           Host $VPS_HOST
+             StrictHostKeyChecking accept-new
+             UserKnownHostsFile ~/.ssh/known_hosts
++            ServerAliveInterval 30
++            ServerAliveCountMax 6
++            TCPKeepAlive yes
++            ConnectTimeout 20
++            ConnectionAttempts 5
+           EOF
+           ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+ 
+diff --git a/.github/workflows/publish.yml b/.github/workflows/publish.yml
+index 1ea2dd3..165b725 100644
+--- a/.github/workflows/publish.yml
++++ b/.github/workflows/publish.yml
+@@ -58,6 +58,11 @@ jobs:
+           Host $VPS_HOST
+             StrictHostKeyChecking accept-new
+             UserKnownHostsFile ~/.ssh/known_hosts
++            ServerAliveInterval 30
++            ServerAliveCountMax 6
++            TCPKeepAlive yes
++            ConnectTimeout 20
++            ConnectionAttempts 5
+           EOF
+           ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+ 
+@@ -202,6 +207,11 @@ jobs:
+           Host $VPS_HOST
+             StrictHostKeyChecking accept-new
+             UserKnownHostsFile ~/.ssh/known_hosts
++            ServerAliveInterval 30
++            ServerAliveCountMax 6
++            TCPKeepAlive yes
++            ConnectTimeout 20
++            ConnectionAttempts 5
+           EOF
+           ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+ 
+@@ -273,6 +283,9 @@ jobs:
+             DECISION="pending"
+             for i in $(seq 1 120); do
+               sleep 5
++              if [ $((i % 12)) -eq 0 ]; then
++                echo "… nog steeds pending ($((i * 5)) s van max 600 s)"
++              fi
+               STATUS=$(curl -sS "$COS_URL/approval/$APPROVAL_ID" || echo '{}')
+               DECISION=$(echo "$STATUS" | python3 -c "
+             import sys,json
