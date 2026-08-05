@@ -1,0 +1,84 @@
+# LAT-3915 — veldtest van de promote-prod prelude uit publish.yml.
+#
+# Wat hier NIET in zit: de CoS-approval, de rsync en de nginx-reload. Dit is
+# geen promote. De twee dingen die nog nooit in het veld gedraaid hebben zijn
+#   1. de sparse checkout van ops/ in een job die eerst géén checkout had, en
+#   2. of de SSH-sessie de volle 600 s van de approval-poll overleeft.
+# Beide worden hieronder exact zoals in publish.yml uitgevoerd, tegen dezelfde
+# host en sleutel, maar zonder één schrijfactie op de VPS.
+#
+# Draait op push naar deze branch: het agent-token heeft geen actions:write,
+# dus workflow_dispatch is geen optie (403). deploy.yml luistert alleen op
+# preview/main, dus deze branch triggert geen deploy.
+name: LAT-3915 promote-prod prelude probe
+
+on:
+  push:
+    branches: [ci/lat-3915-promote-prelude]
+
+concurrency:
+  group: lat3915-prelude-probe
+  cancel-in-progress: false
+
+jobs:
+  prelude:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      # Identiek aan publish.yml:promote-prod
+      - name: Checkout ops/
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: ops
+
+      - name: Assert sparse checkout leverde het snippet
+        run: |
+          echo "--- worktree ---"; ls -A "$GITHUB_WORKSPACE"
+          test -f "$GITHUB_WORKSPACE/ops/ssh-config-snippet" \
+            || { echo "::error::ops/ssh-config-snippet ontbreekt — sparse checkout dekt promote-prod niet"; exit 1; }
+          echo "--- snippet ---"; grep -v '^#' "$GITHUB_WORKSPACE/ops/ssh-config-snippet" | grep -v '^$'
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      # Identiek aan publish.yml:promote-prod
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          cat >> ~/.ssh/config <<EOF
+          Host $VPS_HOST
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+          EOF
+          cat "$GITHUB_WORKSPACE/ops/ssh-config-snippet" >> ~/.ssh/config
+          ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+          echo "--- effectieve config (waarden geredigeerd) ---"
+          sed -e 's/^Host .*/Host <redacted>/' ~/.ssh/config
+
+      - name: 600 s poll-lus over SSH (read-only, geen VPS-mutatie)
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          POLL_SCRIPT: |
+            set -euo pipefail
+            # exacte lus-vorm uit publish.yml r.294-300, zonder de curl naar de bridge
+            for i in $(seq 1 120); do
+              sleep 5
+              if [ $((i % 12)) -eq 0 ]; then
+                echo "… nog steeds pending ($((i * 5)) s van max 600 s)"
+              fi
+            done
+            echo "PROBE-OK: volledige 600 s poll-lus overleefd"
+        run: |
+          START=$(date +%s)
+          set +e
+          printf '%s\n' "$POLL_SCRIPT" | ssh "$VPS" "bash -s"
+          RC=$?
+          set -e
+          echo "rc=$RC na $(( $(date +%s) - START )) s"
+          [ "$RC" -eq 0 ] || { echo "::error::SSH-sessie overleefde de poll-periode niet (rc=$RC)"; exit 1; }
