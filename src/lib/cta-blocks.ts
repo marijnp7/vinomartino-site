@@ -21,11 +21,30 @@ import { buildAffiliateLink, type AffiliateType, type AffiliatePartner } from '.
 import { buildBookingSearchLink, buildCjBookingLink } from './affiliates';
 import type { Locale } from './i18n';
 import { SUNNYCARS_DEFAULT_DEST, applySunnyCarsLocale } from './affiliate-locale';
+import { loadWineRetailPartner, type WineRetailPartner } from './wine-retail';
 
-// Wijn-retail (Grapedistrict) landt nog op de feature-branch van LAT-1780. Tot
-// die merge houden we de resolver onafhankelijk met een lokale, identiek
-// gedragende helper. Na merge kan dit door affiliates.buildWineRetailLink.
-function buildWineRetailHref(query: string, context: string): string {
+// LAT-3726 — de wijnretail-partner komt uit de Directus-singleton, net als op de
+// wijnhuis-onderbalk (LAT-3493). Dit bestand had een eigen hardcoded
+// Grapedistrict-pad; twee paden voor één partner betekent twee affiliate-URL's
+// en twee tracker-labels zodra de singleton gevuld wordt.
+//
+// De URL wordt bewust VERBATIM uit `search_template` opgebouwd, precies zoals
+// wineRetailLink() dat doet — dat is het hele punt: één URL-vorm per partner.
+// We plakken er dus géén eigen utm-parameters meer overheen; die zouden de
+// utm-velden kunnen overschrijven die de partner zelf in de template zet (zelfde
+// corruptie-risico dat de sunny-cars-notitie hieronder beschrijft). Wil
+// Marketing per-campagne utm's, dan horen die ín de Directus-template. De
+// per-plaatsing-attributie zit al op de `data-affiliate-placement`/`-context`
+// attributen van de click-tracker, net als bij de andere partners.
+//
+// Zonder config valt dit terug op het oude hardcoded gedrag, zodat er niets
+// verandert zolang de singleton leeg staat.
+function buildWineRetailHref(
+  query: string,
+  context: string,
+  partner?: WineRetailPartner | null,
+): string {
+  if (partner) return partner.searchTemplate.replace('{q}', encodeURIComponent(query.trim()));
   const base = 'https://www.grapedistrict.nl';
   const affiliateId = (process.env['GRAPEDISTRICT_AFFILIATE_ID'] || '').trim();
   if (!affiliateId) return `${base}/search?q=${encodeURIComponent(query)}`;
@@ -142,12 +161,36 @@ export interface CtaStructure {
 }
 
 /**
+ * Laad de wijnretail-partnerconfig, maar alleen als er in dit blok daadwerkelijk
+ * een `wine-retail`-CTA zit (LAT-3726).
+ *
+ * `resolveCtaHref`/`ctaTrackPartner` zijn synchroon en worden vanuit meerdere
+ * `.astro`-componenten aangeroepen; die async maken zou de hele keten omgooien.
+ * In plaats daarvan laadt de aanroeper de config één keer in zijn frontmatter —
+ * die is al async — en geeft hem als optioneel argument mee. De loader zelf
+ * cachet de promise voor de hele build, dus dit blijft één fetch.
+ */
+export async function loadCtaWineRetail(
+  links: Array<CtaLink | null | undefined>,
+): Promise<WineRetailPartner | null> {
+  if (!links.some((link) => link?.partner === 'wine-retail')) return null;
+  return loadWineRetailPartner();
+}
+
+/**
  * Resolveer een CtaLink → definitieve href. Centrale routing zodat elke CTA
  * dezelfde tracking-/aid-discipline volgt. `sid` voedt de CJ-/campagnelabel-
  * attributie per plaatsing (bv. `cta-primary-langhe-piemonte`). `locale` (default
  * NL, huidig gedrag) schakelt de affiliate-taalparameters in voor EN-pagina's.
+ * `wineRetail` (uit `loadCtaWineRetail`) stuurt het `wine-retail`-pad; weglaten
+ * of null → huidig gedrag.
  */
-export function resolveCtaHref(link: CtaLink, sid: string, locale: Locale = 'nl'): string {
+export function resolveCtaHref(
+  link: CtaLink,
+  sid: string,
+  locale: Locale = 'nl',
+  wineRetail?: WineRetailPartner | null,
+): string {
   switch (link.partner) {
     case 'getyourguide':
     case 'booking-awin': {
@@ -163,7 +206,7 @@ export function resolveCtaHref(link: CtaLink, sid: string, locale: Locale = 'nl'
       }).href;
     }
     case 'wine-retail':
-      return buildWineRetailHref(link.query ?? '', sid);
+      return buildWineRetailHref(link.query ?? '', sid, wineRetail);
     case 'sunny-cars':
       return buildSunnyCarsHref(link, sid, locale);
     case 'booking-direct':
@@ -176,8 +219,13 @@ export function resolveCtaHref(link: CtaLink, sid: string, locale: Locale = 'nl'
   }
 }
 
-/** Tracking-partnerlabel voor de click-tracker data-attributen. */
-export function ctaTrackPartner(link: CtaLink): string {
+/**
+ * Tracking-partnerlabel voor de click-tracker data-attributen. `wineRetail` (uit
+ * `loadCtaWineRetail`) houdt het wijnretail-label gelijk aan
+ * `wine_retail_partner.tracker_partner`, zodat dit pad en de wijnhuis-onderbalk
+ * niet uit elkaar lopen (LAT-3726).
+ */
+export function ctaTrackPartner(link: CtaLink, wineRetail?: WineRetailPartner | null): string {
   switch (link.partner) {
     case 'getyourguide':
       return 'getyourguide';
@@ -185,7 +233,7 @@ export function ctaTrackPartner(link: CtaLink): string {
     case 'booking-direct':
       return 'booking';
     case 'wine-retail':
-      return 'grapedistrict';
+      return wineRetail?.trackerPartner || 'grapedistrict';
     case 'sunny-cars':
       return 'sunnycars';
     default:
