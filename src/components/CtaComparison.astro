@@ -3,7 +3,7 @@
 // 2–3 opties (bv. tiers slim_geboekt / prijs_kwaliteit / pure_luxe), elk met een
 // eigen "waarom dit logisch is". Data-driven uit Directus (cta_blocks.comparison).
 // Meer dan 3 opties wordt afgekapt — geen banner-wand.
-import { resolveCtaHref, ctaTrackPartner, type CtaComparisonData } from '../lib/cta-blocks';
+import { resolveCtaHref, ctaTrackPartner, loadCtaWineRetail, type CtaComparisonData } from '../lib/cta-blocks';
 import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
 import { loadUiStrings } from '../lib/ui-strings';
 
@@ -20,6 +20,8 @@ const lh = (href: string) => localizeHref(href, locale);
 const ui = await loadUiStrings(locale);
 const placement = 'cta-comparison';
 const options = (data?.options ?? []).slice(0, 3);
+// LAT-3726 — wijnretail-config uit Directus; alleen geladen bij een wine-retail-CTA.
+const wineRetail = await loadCtaWineRetail(options.map((opt) => opt.link));
 ---
 
 {data && options.length > 0 && (
@@ -28,7 +30,7 @@ const options = (data?.options ?? []).slice(0, 3);
     {data.intro && <p class="vm-cta-compare__intro">{data.intro}</p>}
     <div class="vm-cta-compare__grid" data-count={options.length}>
       {options.map((opt, i) => {
-        const href = resolveCtaHref(opt.link, `${placement}-${opt.tier ?? i}-${sid}`, locale);
+        const href = resolveCtaHref(opt.link, `${placement}-${opt.tier ?? i}-${sid}`, locale, wineRetail);
         return (
           <article class="vm-cta-compare__card">
             <p class="vm-cta-compare__title">{opt.title}</p>
@@ -39,7 +41,7 @@ const options = (data?.options ?? []).slice(0, 3);
               target="_blank"
               rel="sponsored nofollow noopener"
               data-affiliate-track
-              data-affiliate-partner={ctaTrackPartner(opt.link)}
+              data-affiliate-partner={ctaTrackPartner(opt.link, wineRetail)}
               data-affiliate-placement={placement}
               data-affiliate-context={`${opt.tier ?? i}-${sid}`}
             >
