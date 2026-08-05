@@ -61,4 +61,17 @@ if [ "$index_bytes" -lt "$INDEX_MIN_BYTES" ]; then
   exit 1
 fi
 
-echo "::notice::verify-build OK — $html_count HTML-pagina's, index.html ${index_bytes} bytes"
+# LAT-3294: build-info.json moet de echte git-sha bevatten. Een "unknown"
+# sha betekent dat GIT_SHA niet is doorgegeven aan de build — dat holt de
+# LAT-910-fingerprint uit, want de smoke-test kan dan nooit meer een
+# silently-mislukte rsync betrappen.
+# `|| true`: het script draait onder `set -euo pipefail`, en grep exit 1
+# als de sleutel ontbreekt. Zonder dit sterft verify-build daar stil met
+# exit 1 en zonder ::error::-regel — dan is de CI-fout niet te lezen.
+build_sha=$(grep -oE '"sha"[[:space:]]*:[[:space:]]*"[^"]*"' "$DIST/build-info.json" | head -1 | sed -E 's/.*"([^"]*)"$/\1/' || true)
+if [ -z "$build_sha" ] || [ "$build_sha" = "unknown" ]; then
+  echo "::error::verify-build: build-info.json sha is '${build_sha:-<leeg>}' — GIT_SHA is niet doorgegeven aan de build (LAT-3294)"
+  exit 1
+fi
+
+echo "::notice::verify-build OK — $html_count HTML-pagina's, index.html ${index_bytes} bytes, sha=$build_sha"
