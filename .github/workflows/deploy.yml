@@ -30,6 +30,13 @@
 
 name: Deploy VinoMartino
 
+# LAT-3298: dispatch-inputs zijn achteraf niet via de API opvraagbaar. Zonder
+# dit kun je aan de runlijst niet zien of een run productie raakte.
+run-name: >-
+  Deploy → ${{ (github.event_name == 'workflow_dispatch' && inputs.target != 'auto' && inputs.target)
+  || (github.ref == 'refs/heads/main' && 'production' || 'preview') }}
+  (${{ github.ref_name }}, ${{ github.event_name }})
+
 on:
   push:
     branches: [preview, main]
@@ -72,12 +79,22 @@ on:
       - ".dockerignore"
   workflow_dispatch:
     inputs:
+      # LAT-3298/LAT-3294: NIET meer `default: preview`. Die default maakte de
+      # `elif`-tak in stap 1 onbereikbaar, waardoor `gh workflow run --ref main`
+      # zónder expliciete `-f target` naar PREVIEW deployde en tóch groen afliep
+      # (run 30700769553). `auto` spiegelt nu het push-gedrag: de branch bepaalt
+      # het doel, precies zoals bij een push naar main.
       target:
-        description: "Doel (preview of production)"
-        required: true
-        default: preview
+        description: "Doel — 'auto' volgt de branch (main → production)"
+        required: false
+        default: auto
         type: choice
-        options: [preview, production]
+        options: [auto, preview, production]
+      force_preview_from_main:
+        description: "Sta preview-deploy vanaf main toe (normaal geweigerd)"
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: vinomartino-write
@@ -96,12 +113,25 @@ jobs:
       - name: Determine target environment
         id: env
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            target="${{ github.event.inputs.target }}"
-          elif [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            target="production"
-          else
-            target="preview"
+          # LAT-3298: branch-default. 'auto' (of geen input) volgt de ref,
+          # zodat dispatch- en push-gedrag identiek zijn.
+          target="${{ github.event.inputs.target }}"
+          if [ "${{ github.event_name }}" != "workflow_dispatch" ] \
+             || [ -z "$target" ] || [ "$target" = "auto" ]; then
+            if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+              target="production"
+            else
+              target="preview"
+            fi
+          fi
+
+          # LAT-3294: main+preview mag niet meer STIL groen aflopen. Wie het
+          # echt wil, zet force_preview_from_main=true en ziet dat terug in
+          # de run-name.
+          if [ "${{ github.ref }}" = "refs/heads/main" ] && [ "$target" = "preview" ] \
+             && [ "${{ github.event.inputs.force_preview_from_main }}" != "true" ]; then
+            echo "::error::Dispatch op main met target=preview raakt productie NIET en zou groen aflopen (LAT-3294). Gebruik target=auto/production, of zet force_preview_from_main=true."
+            exit 1
           fi
 
           if [ "$target" = "production" ]; then
@@ -142,6 +172,12 @@ jobs:
             StrictHostKeyChecking accept-new
             UserKnownHostsFile ~/.ssh/known_hosts
           EOF
+          # LAT-3769/LAT-3910: keepalive- en timeout-opties staan in
+          # ops/ssh-config-snippet, buiten .github/workflows/, zodat toekomstige
+          # SSH-tuning geen Workflows-permissie op het agent-token kost.
+          # Hard falen als het bestand ontbreekt: stil zonder keepalive draaien
+          # is precies de bug die dit oplost.
+          cat "$GITHUB_WORKSPACE/ops/ssh-config-snippet" >> ~/.ssh/config
           # Best-effort host-key prefetch; non-fataal als netwerk flakey is
           ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
 

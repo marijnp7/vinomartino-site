@@ -1,0 +1,27 @@
+# SSH-opties voor élke GitHub Actions -> VPS sessie (LAT-3769).
+#
+# Dit bestand wordt in iedere "Configure SSH"-stap aan ~/.ssh/config geappend,
+# direct ná het `Host <VPS_HOST>`-blok dat die stap zelf schrijft. ssh_config
+# kent geen blok-einde: elke directive hoort bij het laatst geopende Host-blok.
+# Zet hier dus GEEN eigen `Host`-regel in — dan gelden deze opties opeens voor
+# de verkeerde host (of, bij `Host *`, voor alles).
+#
+# Waarom deze opties:
+#   ServerAliveInterval/CountMax  een volledig stille SSH-sessie werd na ~4,5 min
+#                                 weggegooid door de Azure NAT idle-timeout van de
+#                                 runner (run 30980347827). 30 s x 6 = 3 min stilte
+#                                 voordat ssh zelf opgeeft, met verkeer elke 30 s.
+#   TCPKeepAlive                  tweede lijn op TCP-niveau.
+#   ConnectTimeout/ConnectionAttempts  de connect-fouten die op diezelfde
+#                                 idle-evictions volgden opvangen i.p.v. de job
+#                                 direct rood laten gaan.
+#
+# Dit pad ligt bewust BUITEN .github/workflows/. Het agent-token heeft daar
+# `Contents: write` en krijgt 201; op .github/workflows/ was jarenlang 403 en is
+# de Workflows-permissie nodig. SSH-tuning hoort geen board-approval te kosten,
+# dus die knoppen staan hier (LAT-3910).
+  ServerAliveInterval 30
+  ServerAliveCountMax 6
+  TCPKeepAlive yes
+  ConnectTimeout 20
+  ConnectionAttempts 5
