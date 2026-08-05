@@ -58,6 +58,11 @@ jobs:
           Host $VPS_HOST
             StrictHostKeyChecking accept-new
             UserKnownHostsFile ~/.ssh/known_hosts
+            ServerAliveInterval 30
+            ServerAliveCountMax 6
+            TCPKeepAlive yes
+            ConnectTimeout 20
+            ConnectionAttempts 5
           EOF
           # LAT-3769/LAT-3910: keepalive- en timeout-opties staan in
           # ops/ssh-config-snippet, buiten .github/workflows/, zodat toekomstige
@@ -216,6 +221,11 @@ jobs:
           Host $VPS_HOST
             StrictHostKeyChecking accept-new
             UserKnownHostsFile ~/.ssh/known_hosts
+            ServerAliveInterval 30
+            ServerAliveCountMax 6
+            TCPKeepAlive yes
+            ConnectTimeout 20
+            ConnectionAttempts 5
           EOF
           # LAT-3769/LAT-3910: keepalive- en timeout-opties staan in
           # ops/ssh-config-snippet, buiten .github/workflows/, zodat toekomstige
