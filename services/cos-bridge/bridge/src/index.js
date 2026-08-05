@@ -53,6 +53,12 @@ const {
   // Maximaal aantal aanvragen per samenvattings-bericht (Telegram: 4096 tekens,
   // max 100 knoppen). Bij meer wordt de samenvatting opgesplitst.
   QUIET_FLUSH_CHUNK = "8",
+  // LAT-2909 — herhaal-rem op de critical-doorbraak. Binnen de stille uren mag
+  // 'critical' door het venster heen, maar alleen voor een storing die nog niet
+  // gemeld is. Is dezelfde melding (zelfde bundle_key) in de afgelopen
+  // QUIET_REPEAT_WINDOW_HOURS al afgeleverd, dan is de herhaling geen nieuws en
+  // wordt hij als 'normal' geparkeerd. Zet op "0" om de rem uit te schakelen.
+  QUIET_REPEAT_WINDOW_HOURS = "12",
   // Herindien-rem: identieke aanvraag (zelfde agent + zelfde tekst) die binnen
   // RESUBMIT_WINDOW_HOURS al RESUBMIT_LIMIT keer op timeout liep, wordt
   // geweigerd in plaats van opnieuw gepusht.
@@ -115,6 +121,7 @@ const QSTART = Number(QUIET_HOURS_START);
 const QEND = Number(QUIET_HOURS_END);
 const QUIET_DEFER_ON = QUIET_DEFER !== "0";
 const FLUSH_CHUNK = Math.max(1, Number(QUIET_FLUSH_CHUNK) || 8);
+const QUIET_REPEAT_H = Math.max(0, Number(QUIET_REPEAT_WINDOW_HOURS) || 0);
 const RESUBMIT_WINDOW_H = Math.max(0, Number(RESUBMIT_WINDOW_HOURS) || 0);
 const RESUBMIT_MAX = Math.max(0, Number(RESUBMIT_LIMIT) || 0);
 
@@ -161,10 +168,21 @@ function quietWindowEnd(now = new Date()) {
 // Twee aanvragen zijn 'dezelfde vraag' als dezelfde agent letterlijk dezelfde
 // tekst instuurt. Gebruikt voor de herindien-rem en voor het bundelen in de
 // ochtendsamenvatting.
-function bundleKey(requesterAgent, proposal) {
+//
+// LAT-2909 — dat werkt voor een agent die één vraag stelt, maar niet voor een
+// monitor die dezelfde storing elk uur opnieuw meldt. `Disk usage: 92%` kreeg
+// elk uur een andere sleutel omdat de byte-tellers uit de `df`-output in de body
+// meelopen (#680 c38b40d2, #681 be0b09d0, #683 3b5d0917 — één storing, drie
+// sleutels), en de titel schuift mee met het percentage (91% ⇄ 92%). Een
+// afzender die weet dat hij een terugkerende toestand meldt, stuurt daarom een
+// eigen `alert_key` mee — de klasse van de storing, niet de meting ervan
+// ("disk:/host", "oauth-token"). Die sleutel is stabiel over herhalingen en is
+// wat de herhaal-rem en de ochtendsamenvatting nodig hebben.
+function bundleKey(requesterAgent, proposal, alertKey = null) {
+  const material = alertKey ? `alert:${alertKey}` : proposal;
   return crypto
     .createHash("sha256")
-    .update(`${requesterAgent}\0${proposal}`)
+    .update(`${requesterAgent}\0${material}`)
     .digest("hex")
     .slice(0, 16);
 }
@@ -953,6 +971,7 @@ async function handleApprovalPost(req, body) {
     callback_url = null,
     run_id = null,
     issue_id = null,
+    alert_key = null,
   } = payload;
   if (!request_id || !agent || !title || !proposalBody) {
     return {
@@ -963,6 +982,21 @@ async function handleApprovalPost(req, body) {
   if (!["normal", "critical"].includes(urgency)) {
     return { status: 400, body: JSON.stringify({ error: "urgency must be 'normal' or 'critical'" }) };
   }
+  // LAT-2909 — optioneel. Alleen een afzender die een terugkerende toestand
+  // meldt hoort hem te sturen; een eenmalige vraag laat hem weg en houdt het
+  // oude gedrag (sleutel over de volledige tekst).
+  if (alert_key !== null && (typeof alert_key !== "string" || !alert_key.trim() || alert_key.length > 120)) {
+    return {
+      status: 400,
+      body: JSON.stringify({
+        error: "alert_key must be a non-empty string of at most 120 chars",
+        hint:
+          `Gebruik de klasse van de storing, niet de meting: "disk:/host", niet ` +
+          `"disk 92%". De sleutel moet gelijk blijven als de melding zich herhaalt.`,
+      }),
+    };
+  }
+  const alertKey = alert_key ? alert_key.trim() : null;
 
   // Dedup op request_id
   const [existing] = await q(
@@ -1091,8 +1125,44 @@ async function handleApprovalPost(req, body) {
   // De klok begint pas te lopen op het moment dat de push écht verstuurd is.
   // 'critical' breekt door het venster heen — niemand wil zijn VPS in brand
   // zien staan omdat het toevallig nacht is.
-  const deferring = QUIET_DEFER_ON && urgency !== "critical" && isQuietHours();
+  //
+  // LAT-2909 — die doorbraak is inmiddels het normale pad: in de nacht van
+  // 24→25 juli ging 16 van de 16 'critical' direct door (gem. 0,1 s), 15 daarvan
+  // liepen af zonder antwoord. Het waren twee storingen, elk uur opnieuw gemeld.
+  // De doorbraak blijft dus, maar alleen voor NIEUWS: is dezelfde melding
+  // recent al afgeleverd, dan voegt de herhaling niets toe en gaat hij als
+  // 'normal' mee in de ochtendsamenvatting. De rem kijkt naar afgeleverde
+  // (`pushed_at IS NOT NULL`) meldingen — een eerdere herhaling die zelf al
+  // geparkeerd is telt niet mee, anders zou de rem zichzelf voeden.
+  const inQuietWindow = QUIET_DEFER_ON && isQuietHours();
+  const bundle = bundleKey(agent, `${title}\n\n${proposalBody}`, alertKey);
+  let repeatOf = null;
+  if (inQuietWindow && urgency === "critical" && QUIET_REPEAT_H > 0) {
+    const [prior] = await q(
+      `SELECT id, to_char(pushed_at AT TIME ZONE 'Europe/Amsterdam','DD-MM HH24:MI') AS pushed_hhmm
+         FROM cos.actions
+        WHERE bundle_key = $1
+          AND pushed_at IS NOT NULL
+          AND pushed_at > NOW() - ($2 || ' hours')::interval
+        ORDER BY pushed_at DESC
+        LIMIT 1`,
+      [bundle, String(QUIET_REPEAT_H)]
+    );
+    if (prior) repeatOf = prior;
+  }
+
+  const deferring = inQuietWindow && (urgency !== "critical" || repeatOf !== null);
   const deferUntil = deferring ? quietWindowEnd() : null;
+  // Een afgeremde 'critical' wordt ook echt als 'normal' vastgelegd: de
+  // ochtendsamenvatting, de vries-sweep en elke latere meting kijken naar de
+  // kolom, niet naar wat de afzender bedoelde.
+  const storedUrgency = repeatOf ? "normal" : urgency;
+  if (repeatOf) {
+    log.info(
+      { agent, request_id, alertKey, bundle, repeatOf: repeatOf.id, windowHours: QUIET_REPEAT_H },
+      "critical downgraded to normal — repeat of an alert already delivered"
+    );
+  }
 
   const [row] = await q(
     `INSERT INTO cos.actions
@@ -1112,21 +1182,23 @@ async function handleApprovalPost(req, body) {
       "external",
       request_id,
       agent,
-      urgency,
+      storedUrgency,
       callback_url,
       String(timeout_seconds),
       run_id || null,
       issue_id || null,
       deferUntil ? deferUntil.toISOString() : null,
-      bundleKey(agent, `${title}\n\n${proposalBody}`),
+      bundle,
     ]
   );
   const actionId = row.id;
 
   if (deferring) {
     log.info(
-      { actionId, agent, request_id, deferUntil: deferUntil.toISOString() },
-      "approval deferred — quiet hours, no push"
+      { actionId, agent, request_id, deferUntil: deferUntil.toISOString(), repeatOf: repeatOf?.id ?? null },
+      repeatOf
+        ? "approval deferred — repeat of an already-delivered alert, no push"
+        : "approval deferred — quiet hours, no push"
     );
     return {
       status: 202,
@@ -1136,12 +1208,21 @@ async function handleApprovalPost(req, body) {
         status: "deferred",
         deferred_until: deferUntil.toISOString(),
         quiet_hours: `${QSTART}:00–${QEND}:00`,
-        hint:
-          `Geregistreerd, maar niet verstuurd: het is stille uren. De aanvraag ` +
-          `gaat als onderdeel van één ochtendsamenvatting de deur uit om ` +
-          `${String(QEND).padStart(2, "0")}:00. De timeout-klok staat stil tot ` +
-          `dat moment — dit wordt GEEN timeout. Sluit je run af en dien niet ` +
-          `opnieuw in; je hoort het via het issue zodra er een besluit is.`,
+        ...(repeatOf
+          ? { downgraded_from: "critical", repeat_of: repeatOf.id, bundle_key: bundle }
+          : {}),
+        hint: repeatOf
+          ? `Geregistreerd, maar niet verstuurd: deze melding is vannacht al ` +
+            `afgeleverd als #${repeatOf.id} (${repeatOf.pushed_hhmm}) en de storing ` +
+            `is dus bekend. Een herhaling binnen het stiltevenster wekt niemand ` +
+            `een tweede keer; hij gaat mee in de ochtendsamenvatting om ` +
+            `${String(QEND).padStart(2, "0")}:00. Verandert de situatie wezenlijk, ` +
+            `stuur dan een melding met een andere alert_key.`
+          : `Geregistreerd, maar niet verstuurd: het is stille uren. De aanvraag ` +
+            `gaat als onderdeel van één ochtendsamenvatting de deur uit om ` +
+            `${String(QEND).padStart(2, "0")}:00. De timeout-klok staat stil tot ` +
+            `dat moment — dit wordt GEEN timeout. Sluit je run af en dien niet ` +
+            `opnieuw in; je hoort het via het issue zodra er een besluit is.`,
       }),
     };
   }
@@ -1210,11 +1291,19 @@ async function handleApprovalPost(req, body) {
 async function handleApprovalGet(actionId) {
   const [row] = await q(
     `SELECT id, request_id, requester_agent, decision, decided_at, timeout_at, created_at,
-            deferred_until, pushed_at
+            deferred_until, pushed_at, paperclip_issue_id, proposal
        FROM cos.actions WHERE id=$1`,
     [actionId]
   );
   if (!row) return { status: 404, body: JSON.stringify({ error: "not found" }) };
+  // LAT-3631: expose paperclip_issue_id + title so callers can verify server-side
+  // that a *specific* already-approved action authorizes a *specific* follow-up
+  // execution (e.g. directus-publish.sh --approved-action-id), instead of just
+  // trusting a bare "approve" decision on any action id. proposal is stored as
+  // `${title}\n\n${body}` (see handleApprovalPost) and title itself never
+  // contains "\n\n", so the first split recovers the exact original title.
+  const sepIdx = row.proposal.indexOf("\n\n");
+  const title = sepIdx === -1 ? row.proposal : row.proposal.slice(0, sepIdx);
   return {
     status: 200,
     body: JSON.stringify({
@@ -1228,6 +1317,8 @@ async function handleApprovalGet(actionId) {
       responded_at: row.decided_at,
       timeout_at: row.timeout_at,
       created_at: row.created_at,
+      paperclip_issue_id: row.paperclip_issue_id,
+      title,
     }),
   };
 }
@@ -1515,6 +1606,27 @@ async function flushDeferredApprovals() {
   log.info({ ids: flushed }, "deferred approvals pushed — timeout clock started");
 }
 
+// Control-plane approvals ('approved'/'rejected') map onto the same decision
+// values the Telegram approve/reject flow already writes to cos.actions.
+const CONTROL_PLANE_DECISION = { approved: "approve", rejected: "reject" };
+
+// LAT-2994 — read-back before writing a timeout. cos.actions.request_id can
+// double as public.approvals.id (some callers register a board approval and
+// the bridge request under the same id). The board can resolve that approval
+// while the bridge's own decision stays NULL — 16 of 85 historical rows were
+// approved on the control plane 45min+ before the bridge wrote 'timeout',
+// because nothing here ever read that decision back. A GET that 404s or
+// returns a still-pending status is the common case and falls through to the
+// normal timeout path unchanged.
+async function readControlPlaneDecision(requestId) {
+  const res = await paperclipFetch(`/api/approvals/${requestId}`, { timeoutMs: 5_000 });
+  if (!res || !res.ok) return null;
+  const data = await res.json().catch(() => null);
+  const decision = data && CONTROL_PLANE_DECISION[data.status];
+  if (!decision) return null;
+  return { decision, decidedAt: data.decided_at || null };
+}
+
 // ---- timeout-watcher: markeer expired pending requests als 'timeout' + fire callbacks ----
 setInterval(async () => {
   try {
@@ -1524,24 +1636,63 @@ setInterval(async () => {
     log.error({ err: err.message }, "quiet-window sweep failed");
   }
   try {
-    const rows = await q(
-      `UPDATE cos.actions
-          SET decision='timeout', decided_at=NOW()
+    // Select first (no mutation yet) so each row can be read back against the
+    // control plane before we decide what to write.
+    const candidates = await q(
+      `SELECT id, callback_url, request_id, requester_agent,
+              paperclip_run_id, paperclip_issue_id, timeout_seconds
+         FROM cos.actions
         WHERE decision IS NULL
           AND timeout_at IS NOT NULL
-          AND timeout_at < NOW()
-        RETURNING id, callback_url, request_id, requester_agent,
-                  paperclip_run_id, paperclip_issue_id, timeout_seconds`
+          AND timeout_at < NOW()`
     );
-    for (const row of rows) {
+    for (const row of candidates) {
+      let resolved = null;
+      if (row.request_id) {
+        resolved = await readControlPlaneDecision(row.request_id).catch((err) => {
+          log.warn({ err: err.message, id: row.id }, "control-plane read-back failed");
+          return null;
+        });
+      }
+
+      if (resolved) {
+        const [updated] = await q(
+          `UPDATE cos.actions SET decision=$1, decided_at=COALESCE($2, NOW())
+            WHERE id=$3 AND decision IS NULL
+            RETURNING id`,
+          [resolved.decision, resolved.decidedAt, row.id]
+        );
+        if (!updated) continue; // someone else (Telegram tap) decided it in the meantime
+        log.info(
+          { id: row.id, agent: row.requester_agent, decision: resolved.decision },
+          "read back control-plane decision — did not write a false timeout"
+        );
+        if (row.callback_url && row.request_id) {
+          fireCallback(row.callback_url, row.request_id, resolved.decision).catch((err) =>
+            log.error({ err: err.message, id: row.id }, "decision callback fire failed")
+          );
+        }
+        // Not a timeout: leave the run and issue alone. terminateApprovalTimeout
+        // is only for genuine non-answers.
+        continue;
+      }
+
+      const [timedOut] = await q(
+        `UPDATE cos.actions SET decision='timeout', decided_at=NOW()
+          WHERE id=$1 AND decision IS NULL
+          RETURNING id, callback_url, request_id, requester_agent,
+                    paperclip_run_id, paperclip_issue_id, timeout_seconds`,
+        [row.id]
+      );
+      if (!timedOut) continue;
       log.info({ id: row.id, agent: row.requester_agent }, "approval timed out");
-      if (row.callback_url && row.request_id) {
-        fireCallback(row.callback_url, row.request_id, "timeout").catch((err) =>
+      if (timedOut.callback_url && timedOut.request_id) {
+        fireCallback(timedOut.callback_url, timedOut.request_id, "timeout").catch((err) =>
           log.error({ err: err.message, id: row.id }, "timeout callback fire failed")
         );
       }
       // Proactively cancel the run and update the issue.
-      terminateApprovalTimeout(row).catch((err) =>
+      terminateApprovalTimeout(timedOut).catch((err) =>
         log.error({ err: err.message, id: row.id }, "terminateApprovalTimeout failed")
       );
     }
