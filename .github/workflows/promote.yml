@@ -25,6 +25,14 @@ jobs:
     timeout-minutes: 15
 
     steps:
+      # LAT-3910: deze job had géén checkout — de SSH-opties komen nu uit
+      # ops/ssh-config-snippet en dat bestand moet dus op de runner staan.
+      # Sparse: alleen ops/, geen volledige worktree voor 5 config-regels.
+      - name: Checkout ops/
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: ops
+
       - name: Setup SSH agent
         uses: webfactory/ssh-agent@v0.9.0
         with:
@@ -41,6 +49,12 @@ jobs:
             StrictHostKeyChecking accept-new
             UserKnownHostsFile ~/.ssh/known_hosts
           EOF
+          # LAT-3769/LAT-3910: keepalive- en timeout-opties staan in
+          # ops/ssh-config-snippet, buiten .github/workflows/, zodat toekomstige
+          # SSH-tuning geen Workflows-permissie op het agent-token kost.
+          # Hard falen als het bestand ontbreekt: stil zonder keepalive draaien
+          # is precies de bug die dit oplost.
+          cat "$GITHUB_WORKSPACE/ops/ssh-config-snippet" >> ~/.ssh/config
           ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
 
       - name: Request CoS approval and promote
