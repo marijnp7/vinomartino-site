@@ -1,0 +1,53 @@
+# Monitoring stack: Uptime Kuma + paperclip-monitor
+# Deploy:
+#   cd /opt/paperclip-cos
+#   docker compose -f docker-compose.cos.yml -f docker-compose.monitoring.yml up -d --build
+#
+# Uptime Kuma: https://status.vinomartino.com (public, no auth)
+# Monitor:     threshold alerts → cos-bridge (disk >85%, restarts >3/h)
+
+services:
+
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    container_name: uptime-kuma-1
+    restart: unless-stopped
+    mem_limit: 256m
+    volumes:
+      - uptime-kuma:/app/data
+    networks:
+      - paperclip
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.uptime-kuma.rule=Host(`status.vinomartino.com`)"
+      - "traefik.http.routers.uptime-kuma.entrypoints=websecure"
+      - "traefik.http.routers.uptime-kuma.tls.certresolver=letsencrypt"
+      - "traefik.http.services.uptime-kuma.loadbalancer.server.port=3001"
+
+  paperclip-monitor:
+    build:
+      context: ./monitor
+      dockerfile: Dockerfile.monitor
+    image: paperclip-monitor:latest
+    container_name: paperclip-monitor-1
+    restart: unless-stopped
+    mem_limit: 128m
+    env_file:
+      - .env.cos
+    environment:
+      # LAT-2790: the raw socket mount was unusable (container runs as USER
+      # node, socket is root:docker 0660) so every restart check died on
+      # EACCES. Talk to the devops socket-proxy over the network instead.
+      - DOCKER_PROXY_URL=http://paperclip-devops-proxy-1:2375
+    volumes:
+      - /:/host:ro,rslave
+    networks:
+      - paperclip
+
+volumes:
+  uptime-kuma:
+
+networks:
+  paperclip:
+    external: true
+    name: paperclip_default
