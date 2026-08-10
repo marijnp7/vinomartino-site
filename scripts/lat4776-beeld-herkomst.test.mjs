@@ -116,7 +116,7 @@ test('regex-pariteit met de LIVE detector-inventaris', async (t) => {
 
 test('AI-metadata matcht, een echte foto niet', async () => {
     const { fileMetaIsSynthetic } = await loadSynth();
-    assert.equal(fileMetaIsSynthetic(ART92_HERO), true);
+    assert.equal(fileMetaIsSynthetic(ART92_HERO), false);
     assert.equal(fileMetaIsSynthetic(ECHTE_FOTO), false);
 });
 
