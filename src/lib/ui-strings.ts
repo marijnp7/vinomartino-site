@@ -630,7 +630,7 @@ export const UI_STRING_EN: Record<string, string> = {
     // LAT-4776 — beeld-niveau §7-disclosure (BeeldHerkomst.astro). De
     // machineleesbare marker zit in het data-attribuut, niet in deze copy, dus
     // de detector blijft ook op /en/-pagina's werken als deze zin verandert.
-    'ui.beeldherkomst.ai': 'AI-generated illustration — editorial interpretation, not photographic evidence.',
+    'ui.beeldherkomst.ai': 'AI-generated illustration: editorial interpretation, not photographic evidence.',
     'ui.beeldherkomst.ai.title': 'This image was created with AI as an editorial illustration. It is not photographic evidence of this place.',
 
     // StreekCard.astro — "Begin hier"-badge.

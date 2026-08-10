@@ -17,7 +17,7 @@ export const UI_COPY = {
      * van het beeldbestand. Hergebruik het woord "Redactiegids" hier NIET —
      * twee signalen op één label was de oorzaak van LAT-4761.
      */
-    beeldHerkomstAiCaption: 'AI-gegenereerde illustratie — redactionele duiding, geen foto-bewijs.',
+    beeldHerkomstAiCaption: 'AI-gegenereerde illustratie: redactionele duiding, geen foto-bewijs.',
     beeldHerkomstAiTitle: 'Dit beeld is met AI gemaakt als redactionele illustratie. Het is geen fotografisch bewijs van deze plek.',
     /** LAT-2112 (VIS-STRAT-03, kader LAT-2014) — rubriekenstelsel: value → leesbaar label. */
     rubrieken: {
