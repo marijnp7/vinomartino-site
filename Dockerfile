@@ -1,5 +1,9 @@
 FROM node:24-alpine AS builder
 WORKDIR /app
+# LAT-4810: `npm run build` draait via de prebuild-hook alle test:*-scripts,
+# en test:i18n-gate is een python3-script. node:24-alpine heeft geen python3.
+# Alleen in de builder-stage — de runtime-image hieronder is nginx:alpine.
+RUN apk add --no-cache python3
 COPY package.json package-lock.json ./
 RUN npm ci --production=false
 COPY . .

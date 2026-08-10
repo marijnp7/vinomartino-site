@@ -23,6 +23,8 @@
     "gate:i18n-nl": "python3 scripts/lat2582-gate-check.py",
     "gate:i18n-nl:selftest": "python3 scripts/lat2582-gate-check.py --selftest",
     "test:i18n-gate": "python3 scripts/lat2582-gate-check.test.py",
+    "test": "node scripts/run-all-tests.mjs",
+    "prebuild": "npm test",
     "directus:bootstrap": "node directus/scripts/bootstrap-schema.mjs",
     "directus:seed": "node directus/scripts/seed-countries.mjs",
     "directus:migrate": "node directus/scripts/migrate-blog-posts.mjs",
