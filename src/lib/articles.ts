@@ -343,6 +343,15 @@ function mapRelatedRefs(val: unknown, slugKey: string, nameKey: string): Related
         const slug = inner.slug ? String(inner.slug) : '';
         const name = inner[nameKey] ? String(inner[nameKey]) : slug;
         if (!slug) continue;
+        // LAT-4733: een junction-rij naar een gedepubliceerde entiteit blijft
+        // bestaan, maar de doelpagina wordt niet gebouwd — de card linkte dan
+        // naar een 404. Zelfde regel als HARDE REGEL 3 voor streek-pins: liever
+        // geen card dan een card die nergens heen gaat. Gemeten op
+        // /artikelen/wijnreizen-piemonte-complete-gids/, waar 3 gedepubliceerde
+        // wijnhuizen als related-card met een dode href stonden.
+        // `status` ontbreekt zodra de loader naar een lagere veld-tier degradeert;
+        // dan filteren we niet (fail-open) i.p.v. alle cross-links te laten vallen.
+        if (inner.status && String(inner.status) !== 'published') continue;
         out.push({ slug, name: normalizeEmDashes(name) });
     }
     return out;
@@ -483,10 +492,14 @@ async function fetchArticlesItems(url: string, token: string): Promise<Record<st
     // Faalt graceful met 400/403 retry naar withUpdatedAt zolang LAT-1097
     // schema nog niet live is — site bouwt dan zonder cross-links.
     const withRelations = `${withUpdatedAt}` +
-        ',related_streken.streken_id.slug,related_streken.streken_id.name' +
-        ',related_wijnhuizen.wijnhuizen_id.slug,related_wijnhuizen.wijnhuizen_id.name' +
-        ',related_routes.routes_id.slug,related_routes.routes_id.title' +
-        ',related_landen.landen_id.slug,related_landen.landen_id.name';
+        // LAT-4733: `.status` rijdt mee zodat mapRelatedRefs cards naar
+        // gedepubliceerde entiteiten kan weglaten. Bewezen 200 op alle vier de
+        // junctions vóór het aanpassen, juist omdat een 400 hier de hele
+        // relations-tier zou laten degraderen en cross-links collateraal zou slopen.
+        ',related_streken.streken_id.slug,related_streken.streken_id.name,related_streken.streken_id.status' +
+        ',related_wijnhuizen.wijnhuizen_id.slug,related_wijnhuizen.wijnhuizen_id.name,related_wijnhuizen.wijnhuizen_id.status' +
+        ',related_routes.routes_id.slug,related_routes.routes_id.title,related_routes.routes_id.status' +
+        ',related_landen.landen_id.slug,related_landen.landen_id.name,related_landen.landen_id.status';
     // LAT-1619: artikel→artikel cross-links (zelf-referentiële M2M). Junctions
     // `articles_related` + `articles_meer_over`, beide met FK `related_articles_id`
     // naar de doel-article. Eigen degradatie-tier bovenop LAT-1098 zodat de

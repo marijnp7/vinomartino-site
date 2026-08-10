@@ -134,6 +134,10 @@ function mapWijnhuizen(val: unknown): PakketWijnhuis[] {
     for (const row of val) {
         const inner = unwrapJunction(row, 'wijnhuizen_id');
         if (!inner || !inner.slug) continue;
+        // LAT-4733: gedepubliceerd wijnhuis -> geen detailpagina in de build, dus
+        // de "Lees portret →"-card linkte naar een 404. Fail-open als `status`
+        // ontbreekt (lagere veld-tier), zodat degradatie geen lege lijst geeft.
+        if (inner.status && String(inner.status) !== 'published') continue;
         out.push({
             slug: String(inner.slug),
             name: normalizeEmDashes(String(inner.name || inner.slug)),
@@ -193,8 +197,12 @@ const REISPAKKETTEN_TRANSLATABLE = [
     'meta_title',
     'meta_description',
 ];
+// LAT-4733: `.status` rijdt mee zodat mapWijnhuizen een kaart naar een
+// gedepubliceerd wijnhuis kan weglaten i.p.v. naar een 404 te linken.
+// Bewezen 200 vóór de wijziging — een 400 hier zou de hele M2M-tier laten
+// degraderen (retry zonder wijnhuizen/accommodaties, zie regel 216).
 const WIJNHUIS_FIELDS =
-    'wijnhuizen.wijnhuizen_id.slug,wijnhuizen.wijnhuizen_id.name,wijnhuizen.wijnhuizen_id.description';
+    'wijnhuizen.wijnhuizen_id.slug,wijnhuizen.wijnhuizen_id.name,wijnhuizen.wijnhuizen_id.description,wijnhuizen.wijnhuizen_id.status';
 const ACC_FIELDS =
     'accommodaties.accommodations_id.slug,accommodaties.accommodations_id.name,accommodaties.accommodations_id.location,accommodaties.accommodations_id.description,accommodaties.accommodations_id.price_low,accommodaties.accommodations_id.price_high,accommodaties.accommodations_id.booking_url,accommodaties.accommodations_id.hero_image,accommodaties.accommodations_id.lat,accommodaties.accommodations_id.lng';
 
