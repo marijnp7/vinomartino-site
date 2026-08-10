@@ -159,7 +159,11 @@ no gradients that mimic photography, flat vintage print feel,
 subject: {onderwerp}. Aspect {ratio}.
 ```
 
-Toepassingsregel: elke AI-Tier 2-illustratie krijgt de outline-badge "Redactiegids" zodat de lezer ziet dat het redactionele duiding is, geen foto-bewijs.
+Toepassingsregel: elke AI-Tier 2-illustratie krijgt **bij het beeld** een disclosure-bijschrift ("AI-gegenereerde illustratie — redactionele duiding, geen foto-bewijs"), niet in de artikelheader.
+
+De markering hangt aan het **bestand** (`directus_files`), niet aan het artikel: dezelfde afbeelding op een andere pagina krijgt hetzelfde bijschrift, en een vervangen hero raakt het vanzelf kwijt. De site leidt de populatie elke build af uit de DAM-metadata met exact dezelfde regex als de detector-inventaris (`src/lib/synthetic-images.ts` ↔ `/paperclip/ops/lat4745-synth-inventory.mjs`) — nooit een handmatige id-lijst. Rendering: `src/components/BeeldHerkomst.astro`, dat naast de zichtbare tekst een locale-onafhankelijk `data-beeldherkomst="ai-gegenereerd"` meegeeft zodat de disclosure ook op `/en/` meetbaar is.
+
+> **Deze regel noemde tot 2026-08-10 de badge "Redactiegids" (LAT-4776).** Dat was een naamsbotsing, geen implementatie: die badge bestaat wél, maar rendert uit `articles.zelf_gereisd` (reisprovenance — "samengesteld zonder eigen bezoek", LAT-1958/LAT-1996) en heeft geen enkele binding met het beeld. Hij stond op 73 van de 77 gepubliceerde artikelen, óók bij echte foto's. Hergebruik dat label hier dus niet, en breid de disclosure-detector nóóit uit met het woord `redactiegids` — dat zou die 73 pagina's als "gedisclosed" markeren en de detector blind maken voor precies de defectklasse waarvoor hij is gebouwd (LAT-4713 → LAT-4725 → LAT-4729 → LAT-4761).
 
 **Waarom deze grens:** de merkwaarde zit in "meegereisd"-authenticiteit (§ 1). AI-fotorealisme op bewijsplekken ondermijnt precies dat vertrouwen; gestileerde Tier 2-illustratie doet dat niet omdat ze zichtbaar getekend is.
 

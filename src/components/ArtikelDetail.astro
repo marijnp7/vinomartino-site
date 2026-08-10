@@ -19,6 +19,7 @@ import CtaStructure from './CtaStructure.astro';
 import RhoneMap from './RhoneMap.astro';
 import ZelfGereisdBadge from './ZelfGereisdBadge.astro';
 import PlaatsStempel from './PlaatsStempel.astro';
+import BeeldHerkomst from './BeeldHerkomst.astro';  // LAT-4776: §7-disclosure bij AI-beeld
 import RubriekSignatuur from './RubriekSignatuur.astro';
 import ProefnotitieKaart from './ProefnotitieKaart.astro';
 import EerstDitBoeken from './EerstDitBoeken.astro';
@@ -161,6 +162,7 @@ if (article.faqSchema) {
       <figure class={`article-hero ${article.heroIsIllustration ? 'article-hero--illustration' : 'article-hero--photo'}`}>
         <img src={article.heroImage} alt={article.title} class="article-hero-img" />
         <PlaatsStempel text={article.plaatsstempel} variant="hero" />
+        <BeeldHerkomst fileId={article.heroImageId} src={article.heroImage} locale={locale} />
         {heroCredit && (
           <figcaption class="article-hero-credit">
             {heroCredit.author}, <a href={heroCredit.licenseUrl} rel="license noopener" target="_blank">{heroCredit.licenseLabel}</a>

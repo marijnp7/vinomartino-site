@@ -30,6 +30,10 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'ui.badge.zelfGereisd.title': UI_COPY.zelfGereisdBadgeTitle,
     'ui.badge.redactiegids': UI_COPY.redactiegidsBadge,
     'ui.badge.redactiegids.title': UI_COPY.redactiegidsBadgeTitle,
+    // LAT-4776 — beeld-niveau §7-disclosure (BeeldHerkomst.astro). Niet te
+    // verwarren met de reisprovenance-badge hierboven.
+    'ui.beeldherkomst.ai': UI_COPY.beeldHerkomstAiCaption,
+    'ui.beeldherkomst.ai.title': UI_COPY.beeldHerkomstAiTitle,
     'ui.rubriek.de_route': UI_COPY.rubrieken.de_route,
     'ui.rubriek.het_portret': UI_COPY.rubrieken.het_portret,
     'ui.rubriek.uit_de_kelder': UI_COPY.rubrieken.uit_de_kelder,
@@ -623,6 +627,12 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
  * nog geen EN-values heeft.  Volgorde in t(): Directus → UI_STRING_EN → UI_STRING_DEFAULTS.
  */
 export const UI_STRING_EN: Record<string, string> = {
+    // LAT-4776 — beeld-niveau §7-disclosure (BeeldHerkomst.astro). De
+    // machineleesbare marker zit in het data-attribuut, niet in deze copy, dus
+    // de detector blijft ook op /en/-pagina's werken als deze zin verandert.
+    'ui.beeldherkomst.ai': 'AI-generated illustration — editorial interpretation, not photographic evidence.',
+    'ui.beeldherkomst.ai.title': 'This image was created with AI as an editorial illustration. It is not photographic evidence of this place.',
+
     // StreekCard.astro — "Begin hier"-badge.
     'streken.card.beginHier': 'Start here',
 
