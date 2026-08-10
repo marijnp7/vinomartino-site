@@ -15,6 +15,7 @@ export interface ImageCredit {
 }
 
 const CC_BY_SA_40 = 'https://creativecommons.org/licenses/by-sa/4.0/';
+const CC_BY_ND_20 = 'https://creativecommons.org/licenses/by-nd/2.0/';
 
 const CREDITS: Record<string, ImageCredit> = {
     // auto-huren-sardinie hero (DAM-1704, Wikimedia Commons)
@@ -44,6 +45,17 @@ const CREDITS: Record<string, ImageCredit> = {
         author: '© Pmau / Wikimedia Commons', // Champagne Marie-Courtin — Vignoble à Spoy
         licenseLabel: 'CC BY-SA 4.0',
         licenseUrl: CC_BY_SA_40,
+    },
+    // LAT-4804 ribera-del-duero-tempranillo-hoogte hero — officiële beeldbank van
+    // het DO-consortium (Gumiel de Mercado, Burgos). CC BY-ND 2.0: attributie is
+    // verplicht én bewerken is niet toegestaan, dus dit beeld mag alleen
+    // mechanisch geschaald worden (ASSET_TRANSFORM `fit=inside`) en in de
+    // hero-container door CSS `object-fit: cover` bijgesneden — nooit
+    // kleurgecorrigeerd of gefilterd.
+    'ca01bf9e-e3d9-402d-8c23-46d9160a33c6': {
+        author: 'Foto: CRDO Ribera del Duero',
+        licenseLabel: 'CC BY-ND 2.0',
+        licenseUrl: CC_BY_ND_20,
     },
 };
 
