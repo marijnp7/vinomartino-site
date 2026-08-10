@@ -7,6 +7,12 @@
  * Zet dit component binnen de <figure> van de hero, naast een eventuele
  * licentie-credit.
  *
+ * Bewust een <p> en GEEN <figcaption>: elke hero-<figure> waar dit component in
+ * hangt draagt al een figcaption voor de licentie-credit, en een <figure> mag er
+ * maar één bevatten. Twee figcaptions is ongeldige HTML en de tweede wordt door
+ * parsers niet betrouwbaar afgehandeld — precies het element dat hier juist
+ * gevonden moet worden.
+ *
  * Waarom niet de bestaande "Redactiegids"-badge: die is een zuivere functie van
  * `articles.zelf_gereisd` (reisprovenance) en zegt niets over het beeld — zie
  * de kopcommentaar van src/lib/synthetic-images.ts. Dit component hergebruikt
@@ -41,11 +47,11 @@ const synthetic = isSyntheticImage(syntheticIds, fileId, src);
 const ui = synthetic ? await loadUiStrings(locale) : null;
 ---
 {synthetic && ui && (
-  <figcaption
+  <p
     class={`beeld-herkomst beeld-herkomst--${variant}`}
     data-beeldherkomst={SYNTHETIC_MARKER_ATTR}
     title={ui.t('ui.beeldherkomst.ai.title')}
-  >{ui.t('ui.beeldherkomst.ai')}</figcaption>
+  >{ui.t('ui.beeldherkomst.ai')}</p>
 )}
 
 <style>

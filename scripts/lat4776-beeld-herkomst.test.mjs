@@ -149,6 +149,18 @@ test('de machineleesbare marker komt door de detector-regex', async () => {
     );
 });
 
+test('het component rendert géén tweede <figcaption> in de hero-figure', () => {
+    const src = readFileSync('src/components/BeeldHerkomst.astro', 'utf8');
+    const markup = src.slice(src.indexOf('---', src.indexOf('---') + 3));
+    assert.doesNotMatch(
+        markup,
+        /<figcaption/,
+        'elke hero-<figure> waar dit component in hangt heeft al een figcaption voor de licentie-credit; ' +
+            'een <figure> mag er maar één bevatten en de tweede wordt niet betrouwbaar geparsed',
+    );
+    assert.match(markup, /data-beeldherkomst=/, 'de machineleesbare marker moet in de markup staan');
+});
+
 test('assetIdFromSrc haalt de UUID uit gebuildde paden, ook met prefix', async () => {
     const { assetIdFromSrc } = await loadSynth();
     const id = '86cc34e0-dbc8-4c79-96e6-aff7567467df';
