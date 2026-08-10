@@ -41,12 +41,23 @@ const { loadLandingPage, hasRenderableContent } = await import('../src/lib/landi
 // 1 + 2 — loader: geen rij, geen pagina, geen fallback-copy
 // --------------------------------------------------------------------------
 
-function withDirectus(responder, fn) {
+// LAT-4810: `drafts` pint DIRECTUS_INCLUDE_DRAFTS expliciet in plaats van hem
+// uit de omgeving te erven. Zonder die pin erft de test de env van de build:
+// deploy.yml zet DIRECTUS_INCLUDE_DRAFTS=1 voor PREVIEW-builds (LAT-1112), en
+// dan levert statusFilterQuery() `_in=published,draft` op. De test hieronder
+// die "alleen published in een productie-build" heet, faalde daardoor in elke
+// preview-build en slaagde lokaal en in productie — een verschil dat niemand
+// zag omdat er tot LAT-4810 geen enkele CI-stap deze test draaide.
+// Dezelfde pin staat al in scripts/lat4776-beeld-herkomst.test.mjs.
+function withDirectus(responder, fn, { drafts = false } = {}) {
   const realFetch = globalThis.fetch;
   const realUrl = process.env['DIRECTUS_URL'];
   const realToken = process.env['DIRECTUS_TOKEN'];
+  const realDrafts = process.env['DIRECTUS_INCLUDE_DRAFTS'];
   process.env['DIRECTUS_URL'] = 'http://directus.test';
   process.env['DIRECTUS_TOKEN'] = 'test-token';
+  if (drafts) process.env['DIRECTUS_INCLUDE_DRAFTS'] = '1';
+  else delete process.env['DIRECTUS_INCLUDE_DRAFTS'];
   globalThis.fetch = responder;
   return (async () => {
     try {
@@ -57,6 +68,8 @@ function withDirectus(responder, fn) {
       else process.env['DIRECTUS_URL'] = realUrl;
       if (realToken === undefined) delete process.env['DIRECTUS_TOKEN'];
       else process.env['DIRECTUS_TOKEN'] = realToken;
+      if (realDrafts === undefined) delete process.env['DIRECTUS_INCLUDE_DRAFTS'];
+      else process.env['DIRECTUS_INCLUDE_DRAFTS'] = realDrafts;
     }
   })();
 }
@@ -91,6 +104,24 @@ test('alleen published wordt opgehaald in een productie-build', async () => {
   );
   assert.match(requested, /filter\[status\]\[_eq\]=published/);
   assert.match(requested, /filter\[slug\]\[_eq\]=seizoenskalender/);
+});
+
+// LAT-4810: de keerzijde van de test hierboven. Een preview-build zet
+// DIRECTUS_INCLUDE_DRAFTS=1 (deploy.yml, LAT-1112) en moet dan óók drafts
+// ophalen. Dat gedrag werd nergens vastgelegd, waardoor de productie-test hem
+// per ongeluk "dekte" via de omgeving in plaats van via een assertie.
+test('een preview-build haalt published én draft op', async () => {
+  let requested = '';
+  await withDirectus(
+    async (url) => {
+      requested = String(url);
+      return json({ data: [] });
+    },
+    () => loadLandingPage('seizoenskalender'),
+    { drafts: true },
+  );
+  assert.match(requested, /filter\[status\]\[_in\]=published,draft/);
+  assert.doesNotMatch(requested, /filter\[status\]\[_eq\]=published/);
 });
 
 test('lege velden blijven leeg: de template krijgt geen verzonnen tekst', async () => {
