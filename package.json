@@ -16,6 +16,7 @@
     "test:i18n-crosslink-refs": "node --test scripts/i18n-crosslink-refs.test.mjs",
     "test:seizoenskalender": "node --test scripts/lat3209-seizoenskalender.test.mjs",
     "test:cta-wine-retail": "node --test scripts/lat3726-cta-wine-retail.test.mjs",
+    "test:beeld-herkomst": "node --test scripts/lat4776-beeld-herkomst.test.mjs",
     "audit:i18n-crosslinks": "node scripts/i18n-crosslink-audit.mjs",
     "gate:i18n-nl": "python3 scripts/lat2582-gate-check.py",
     "gate:i18n-nl:selftest": "python3 scripts/lat2582-gate-check.py --selftest",

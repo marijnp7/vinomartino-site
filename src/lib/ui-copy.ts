@@ -10,6 +10,15 @@ export const UI_COPY = {
     /** Tier 2 van het model (LAT-1996): niet zelf bezocht, wel redactioneel samengesteld. */
     redactiegidsBadge: 'Redactiegids',
     redactiegidsBadgeTitle: 'Samengesteld door onze redactie op basis van primaire bronnen en lokale kennis, zonder eigen bezoek.',
+    /**
+     * LAT-4776 — §7-disclosure bij AI-/synthetisch BEELD. Let op: dit is een
+     * ander signaal dan `redactiegidsBadge` hierboven. Die gaat over
+     * reisprovenance (is de redactie er zelf geweest), deze over de herkomst
+     * van het beeldbestand. Hergebruik het woord "Redactiegids" hier NIET —
+     * twee signalen op één label was de oorzaak van LAT-4761.
+     */
+    beeldHerkomstAiCaption: 'AI-gegenereerde illustratie: redactionele duiding, geen foto-bewijs.',
+    beeldHerkomstAiTitle: 'Dit beeld is met AI gemaakt als redactionele illustratie. Het is geen fotografisch bewijs van deze plek.',
     /** LAT-2112 (VIS-STRAT-03, kader LAT-2014) — rubriekenstelsel: value → leesbaar label. */
     rubrieken: {
         de_route: 'De Route',

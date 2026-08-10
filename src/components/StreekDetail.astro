@@ -17,6 +17,7 @@ import StreekFeitenblok from './StreekFeitenblok.astro';
 import RouteMap from './RouteMap.astro';
 import TourCards from './TourCards.astro';
 import ZelfGereisdBadge from './ZelfGereisdBadge.astro';
+import BeeldHerkomst from './BeeldHerkomst.astro';  // LAT-4776: §7-disclosure bij AI-beeld
 import NewsletterFooter from './NewsletterFooter.astro';
 import { accommodatieBookingDeeplink } from '../lib/affiliates';
 import { type Streek, type Accommodation } from '../lib/streken';
@@ -314,6 +315,7 @@ const hasFactBox = Boolean(
       {entry.heroImage && (
         <figure class="streek-hero-img-wrap">
           <img src={entry.heroImage} alt={entry.name} class="streek-hero-img" loading="eager" />
+          <BeeldHerkomst src={entry.heroImage} locale={locale} variant="inline" />
           {entry.heroCredit && (
             <figcaption class="streek-hero-credit">
               {entry.heroCredit.author}

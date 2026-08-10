@@ -1,5 +1,6 @@
 ---
 import SmartImg from '../SmartImg.astro';
+import BeeldHerkomst from '../BeeldHerkomst.astro';  // LAT-4776: §7-disclosure bij AI-beeld
 import AffiliatePlaceholder from '../AffiliatePlaceholder.astro';
 import AffiliateDisclosure from '../AffiliateDisclosure.astro';
 import { getImageCredit } from '../../lib/image-credits';
@@ -161,6 +162,7 @@ const heroCredit = getImageCredit(heroImageId);
         class="wh-hero__img"
         loading="eager"
       />
+      <BeeldHerkomst fileId={heroImageId} src={heroImage} locale={locale} variant="inline" />
       {heroCredit && (
         <figcaption class="wh-hero__credit">
           {heroCredit.author}, <a href={heroCredit.licenseUrl} rel="license noopener" target="_blank">{heroCredit.licenseLabel}</a>
