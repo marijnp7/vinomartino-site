@@ -139,7 +139,7 @@ Nooit gebruiken op vinomartino.com:
 
 - kaarten en routekaarten,
 - infographics (proces, tijdlijn, appellatie-schema's),
-- niet-fotorealistische illustraties in gravure-/lijnstijl: outline-badge "Redactiegids", gravure-stijl sectiekoppen, marge-ornamenten.
+- niet-fotorealistische illustraties in gravure-/lijnstijl: gravure-stijl sectiekoppen, marge-ornamenten, en het disclosure-bijschrift uit de toepassingsregel verderop in deze sectie.
 
 **Verboden (Tier 1, altijd echt):**
 
