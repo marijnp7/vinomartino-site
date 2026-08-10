@@ -103,3 +103,5 @@ export default defineConfig({
 });
 
 // LAT-4661: rebuild trigger 2026-08-10T08:57Z
+
+// LAT-4724: rebuild trigger 2026-08-10T15:17Z (verwijderde Vietti-render uit route-body 6/10)
