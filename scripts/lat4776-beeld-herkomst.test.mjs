@@ -140,6 +140,38 @@ test('de disclosure-copy hergebruikt het woord "Redactiegids" niet', async () =>
     assert.match(UI_STRING_DEFAULTS['ui.beeldherkomst.ai'], new RegExp(DETECTOR_RE_SOURCE, 'i'));
 });
 
+test('DESIGN_GUIDELINES §7 schrijft de badge-naam nergens meer voor (LAT-4795)', () => {
+    // Het doc is de bron waaruit dit defect vier keer opnieuw ontstond: §7 zei
+    // "badge Redactiegids", iemand implementeerde of verruimde daarop, en de
+    // detector ging blind. PR #269 herschreef de toepassingsregel maar liet de
+    // "Toegestaan"-opsomming staan — vandaar deze guard i.p.v. nóg een fix.
+    const doc = readFileSync('DESIGN_GUIDELINES.md', 'utf8').split('\n');
+    const start = doc.findIndex((l) => /^##\s*7\./.test(l));
+    assert.notEqual(start, -1, '§7-kop niet gevonden — is DESIGN_GUIDELINES.md hernummerd?');
+    const rest = doc.slice(start + 1).findIndex((l) => /^##\s/.test(l));
+    const sectie = doc.slice(start, rest === -1 ? doc.length : start + 1 + rest);
+
+    const hits = sectie
+        .map((regel, i) => ({ regel, nr: start + 1 + i }))
+        .filter(({ regel }) => /redactiegids/i.test(regel));
+
+    // Falsifieerbaar in beide richtingen: de historische noot MOET er staan
+    // (anders slaagt deze test ook als iemand heel §7 weggooit), en er mag
+    // verder niets zijn dat het label voorschrijft.
+    assert.ok(
+        hits.some(({ regel }) => regel.startsWith('>')),
+        'de historische noot die uitlegt dat "Redactiegids" de verkeerde naam was is verdwenen',
+    );
+    const voorschrijvend = hits.filter(({ regel }) => !regel.startsWith('>'));
+    assert.deepEqual(
+        voorschrijvend.map(({ nr, regel }) => `${nr}: ${regel.trim()}`),
+        [],
+        'buiten de historische noot (blockquote) mag §7 het woord "Redactiegids" niet noemen — ' +
+            'dat label is reisprovenance uit articles.zelf_gereisd en staat op 73 van de 77 ' +
+            'artikelen, óók bij echte foto\'s (LAT-4713 → 4725 → 4729 → 4761 → 4776 → 4795)',
+    );
+});
+
 test('de machineleesbare marker komt door de detector-regex', async () => {
     const { SYNTHETIC_MARKER_ATTR } = await loadSynth();
     assert.match(
