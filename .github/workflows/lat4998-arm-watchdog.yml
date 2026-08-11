@@ -20,6 +20,15 @@
 name: LAT-3204 Watchdog Control
 
 on:
+  # LAT-5004 — the watchdog's own silence needs an observer, and that observer
+  # must sit OUTSIDE the blast radius it watches. A checker on the VPS would die
+  # with the same host outage it is meant to report (the failure mode that cost
+  # 33.6h unreported once already). GitHub's scheduler is off-host by
+  # construction and adds no moving part to the VPS, so the regress
+  # ("who watches the watcher's watcher?") terminates at a third party whose
+  # liveness we do not maintain.
+  schedule:
+    - cron: '*/15 * * * *'
   workflow_dispatch:
     inputs:
       mode:
@@ -142,7 +151,13 @@ jobs:
       # cron is missing/wrong or the log has not ticked recently, so the GHA run
       # conclusion itself is the verdict and cannot be read as green by mistake.
       - name: verify -- assert cron armed + log still ticking (read-only)
-        if: ${{ inputs.mode == 'verify' }}
+        id: verify
+        # On a `schedule` event the workflow_dispatch `inputs` context is NOT
+        # populated and the input default is NOT applied, so `inputs.mode` is ''.
+        # Without the event_name arm every step would skip and the run would go
+        # GREEN having checked nothing — the exact false-green this alarm exists
+        # to prevent. The `guard` step below is the backstop for that.
+        if: ${{ github.event_name == 'schedule' || inputs.mode == 'verify' }}
         env:
           VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
           REMOTE_SCRIPT: |
@@ -183,5 +198,40 @@ jobs:
             fi
             echo "VERIFY_RC=$rc"
             exit $rc
+        # Transport failure and assert failure are NOT the same event and must not
+        # share an exit code. Measured 2026-08-11 (LAT-5004): the GHA->VPS SSH leg
+        # timed out on 2 of 10 runs (~104s TCP connect timeout, ssh exit 255).
+        # A schedule that alarmed on those would false-red ~20% of the time and be
+        # trained out within a week. ssh returns the REMOTE exit code (1 = a real
+        # ASSERT_FAIL) and reserves 255 for its own transport errors, so we retry
+        # only 255 and never retry a genuine 1.
         run: |
-          printf '%s\n' "$REMOTE_SCRIPT" | ssh "$VPS" "bash -s"
+          set -uo pipefail
+          attempt=0
+          while : ; do
+            attempt=$(( attempt + 1 ))
+            set +e
+            printf '%s\n' "$REMOTE_SCRIPT" | ssh -o ConnectTimeout=20 "$VPS" "bash -s"
+            rc=$?
+            set -e
+            if [ "$rc" -ne 255 ]; then
+              exit "$rc"          # 0 = armed and ticking, 1 = real ASSERT_FAIL
+            fi
+            echo "::warning::attempt ${attempt}: ssh transport failure (exit 255), not a watchdog verdict"
+            if [ "$attempt" -ge 3 ]; then break; fi
+            sleep 30
+          done
+          echo "TRANSPORT_FAIL: could not reach the VPS over SSH in 3 attempts"
+          exit 2                  # distinct from an assert failure on purpose
+
+      # Backstop for the false-green above: if the scheduled run somehow skipped
+      # the verify step, the job would otherwise report success having asserted
+      # nothing. This step makes that state loud.
+      - name: guard -- a scheduled run must actually have verified
+        if: ${{ always() && github.event_name == 'schedule' }}
+        run: |
+          echo "verify step outcome: ${{ steps.verify.outcome }}"
+          if [ "${{ steps.verify.outcome }}" != "success" ]; then
+            echo "GUARD_FAIL: scheduled verify did not run and pass (outcome=${{ steps.verify.outcome }})"
+            exit 1
+          fi
