@@ -52,7 +52,13 @@ concurrency:
 jobs:
   gate:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # LAT-4943: gelijkgetrokken met deploy.yml (30). Deze job doet dezelfde
+    # VPS-build als deploy.yml en daarna nog een dist-rsync terug plus de
+    # gate-stappen, maar had een strakkere cap. Deploy-runs van 2026-08-11
+    # duurden 7m36s / 8m49s / 16m45s; op 20 min sneuvelde run 31504188773
+    # midden in de build (stap 6 `cancelled`, stappen 9/10 `skipped`) — een
+    # rode gate die niets over i18n zei.
+    timeout-minutes: 30
 
     steps:
       - name: Checkout PR head
