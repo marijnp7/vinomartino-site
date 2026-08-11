@@ -15,6 +15,7 @@ export interface ImageCredit {
 }
 
 const CC_BY_SA_40 = 'https://creativecommons.org/licenses/by-sa/4.0/';
+const CC_BY_SA_30 = 'https://creativecommons.org/licenses/by-sa/3.0/';
 const CC_BY_ND_20 = 'https://creativecommons.org/licenses/by-nd/2.0/';
 
 const CREDITS: Record<string, ImageCredit> = {
@@ -58,6 +59,17 @@ const CREDITS: Record<string, ImageCredit> = {
         author: '© CRDO Ribera del Duero',
         licenseLabel: 'CC BY-ND 2.0',
         licenseUrl: CC_BY_ND_20,
+    },
+    // LAT-4942 bordeaux-rechterover-entre-deux-mers-na-de-krach hero — het dorp
+    // Saint-Michel-de-Fronsac gezien vanuit de wijngaard (2013). Fronsac ligt op de
+    // rechteroever, dezelfde commune waar het artikel opent; het enige Bordeaux-beeld
+    // dat al in de DAM zat is een Pauillac-kelder (Médoc) die al hero is van het
+    // En Primeur-artikel. CC BY-SA 3.0 staat bewerken wél toe, dus dit beeld mag
+    // geschaald worden — de attributie is verplicht en staat daarom hier.
+    '15fccd27-f785-4abb-b654-aa2084aa8ffe': {
+        author: '© Michael bx / Wikimedia Commons',
+        licenseLabel: 'CC BY-SA 3.0',
+        licenseUrl: CC_BY_SA_30,
     },
 };
 

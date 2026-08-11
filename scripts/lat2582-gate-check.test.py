@@ -215,19 +215,78 @@ class TestCoverage(unittest.TestCase):
         self.assertEqual(orphan, ["/artikelen/"])
 
 
+class TestExactNlOnlyPath(unittest.TestCase):
+    """LAT-4918 -- EN_MISSING_EXACT_PATHS: één los pad NL-only binnen een
+    familie die verder wél vertaald wordt."""
+
+    EXACT = ("/artikelen/ik-weet-het-ik-drink-toch-wijn/",)
+
+    def test_exact_nl_only_path_leaves_the_denominator(self):
+        paths = ["/artikelen/", "/en/artikelen/",
+                 "/artikelen/ik-weet-het-ik-drink-toch-wijn/"]
+        _, counted, missing, nl_only, _ = gate.coverage_gaps(
+            paths, NL_ONLY, self.EXACT)
+        self.assertEqual(missing, [])
+        self.assertEqual(nl_only, ["/artikelen/ik-weet-het-ik-drink-toch-wijn/"])
+        self.assertNotIn("/artikelen/ik-weet-het-ik-drink-toch-wijn/", counted)
+
+    def test_rest_of_the_family_still_needs_en(self):
+        # De kern van "exact, geen prefix": het buurartikel blijft een gat.
+        # Zonder deze assert zou een per ongeluk als prefix behandelde regel
+        # heel /artikelen/ vrijstellen zonder dat een test omvalt.
+        paths = ["/artikelen/ik-weet-het-ik-drink-toch-wijn/",
+                 "/artikelen/wijnoogst-vervroegd-klimaat-wijnreis/"]
+        _, _, missing, _, _ = gate.coverage_gaps(paths, NL_ONLY, self.EXACT)
+        self.assertEqual(missing, ["/artikelen/wijnoogst-vervroegd-klimaat-wijnreis/"])
+
+    def test_exact_path_counts_again_once_en_exists(self):
+        # Geen permanente vrijstelling: komt de EN-versie er tóch, dan telt de
+        # pagina weer mee (zelfde regel als EN_PRESENT_EXACT_PATHS).
+        paths = ["/artikelen/ik-weet-het-ik-drink-toch-wijn/",
+                 "/en/artikelen/ik-weet-het-ik-drink-toch-wijn/"]
+        _, counted, missing, nl_only, _ = gate.coverage_gaps(
+            paths, NL_ONLY, self.EXACT)
+        self.assertEqual((nl_only, missing), ([], []))
+        self.assertEqual(counted, ["/artikelen/ik-weet-het-ik-drink-toch-wijn/"])
+
+    def test_en_link_to_the_exact_path_is_not_a_leak(self):
+        # nl-links moet dezelfde scope hanteren als coverage; anders ruilt deze
+        # fix een dekkingsgat in voor een link-lek op precies hetzelfde pad.
+        raw = page(body='<a href="/artikelen/ik-weet-het-ik-drink-toch-wijn/">x</a>')
+        self.assertEqual(
+            gate.internal_nl_links(raw, BASE, NL_ONLY, self.EXACT), [])
+        self.assertEqual(
+            gate.internal_nl_links(raw, BASE, NL_ONLY),
+            ["/artikelen/ik-weet-het-ik-drink-toch-wijn/"])
+
+    def test_trailing_slash_variants_match(self):
+        self.assertTrue(gate.is_nl_only(
+            "/artikelen/ik-weet-het-ik-drink-toch-wijn", NL_ONLY, self.EXACT))
+
+
 class TestPrefixLoading(unittest.TestCase):
     def test_prefixes_come_from_i18n_ts(self):
         # Drift tussen de gate en src/lib/i18n.ts is stil en gevaarlijk: hij
         # verandert de dekkings-noemer zonder dat iemand het merkt.
         repo = os.path.dirname(_HERE)
-        prefixes, src = gate.load_nl_only_prefixes(repo)
+        prefixes, exact, src = gate.load_nl_only_prefixes(repo)
         self.assertIn("i18n.ts", src)
         self.assertIn("/reizen-nareizen/", prefixes)
 
+    def test_exact_nl_only_paths_come_from_i18n_ts(self):
+        # LAT-4918: de gate leest de uitzondering uit de site, er staat geen
+        # tweede lijst in dit script. Drift hier is precies wat LAT-4917 vroeg
+        # te voorkomen.
+        repo = os.path.dirname(_HERE)
+        _, exact, src = gate.load_nl_only_prefixes(repo)
+        self.assertIn("/artikelen/ik-weet-het-ik-drink-toch-wijn/", exact)
+        self.assertIn("ik-weet-het-ik-drink-toch-wijn", src)
+
     def test_fallback_when_file_missing(self):
-        prefixes, src = gate.load_nl_only_prefixes("/nonexistent")
+        prefixes, exact, src = gate.load_nl_only_prefixes("/nonexistent")
         self.assertIn("fallback", src)
         self.assertEqual(prefixes, gate.NL_ONLY_PREFIXES_FALLBACK)
+        self.assertEqual(exact, ())
 
 
 class TestNoindexScope(unittest.TestCase):

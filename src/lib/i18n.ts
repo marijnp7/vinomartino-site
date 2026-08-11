@@ -66,6 +66,44 @@ const EN_MISSING_PREFIXES: readonly string[] = [
 // expliciete taalwissel dan een 404.
 const EN_PRESENT_EXACT_PATHS: readonly string[] = ['/reizen-nareizen/'];
 
+// LAT-4918 — het spiegelbeeld van `EN_PRESENT_EXACT_PATHS`: LOSSE paden zonder
+// EN-tegenhanger binnen een familie die verder wél vertaald wordt. Een prefix
+// zou hier te grof zijn — `/artikelen/` als geheel krijgt juist wél een EN-versie,
+// het gaat om dit ene stuk.
+//
+// `/artikelen/ik-weet-het-ik-drink-toch-wijn/` blijft bewust NL-only
+// (redactionele beslissing Lead Editor, LAT-4917): het artikel hangt aan het
+// Gezondheidsraad-advies van 25 juni 2026 en de behandeling daarvan in de Tweede
+// Kamer — Nederlandse beleidscontext zonder zinvol EN-equivalent.
+//
+// Twee effecten, allebei bewust: EN-links hiernaartoe blijven op het kale NL-pad
+// staan (expliciete taalwissel i.p.v. een harde 404), en de i18n-nl-gate
+// (LAT-4912) telt het pad niet meer als dekkingsgat. Komt er ooit tóch een
+// EN-versie, haal het pad hier weg — één plek, geen sweep.
+const EN_MISSING_EXACT_PATHS: readonly string[] = [
+    '/artikelen/ik-weet-het-ik-drink-toch-wijn/',
+];
+
+// Padvergelijking die zowel `/x/` als `/x` accepteert; sitemap-URLs dragen een
+// trailing slash, href-attributen in de content lang niet altijd.
+function matchesExact(pathname: string, candidates: readonly string[]): boolean {
+  return candidates.some((p) => pathname === p || pathname === p.replace(/\/$/, ''));
+}
+
+/**
+ * LAT-4918 — heeft dit NL-pad bewust GEEN /en/-tegenhanger?
+ *
+ * Rangorde: een exact NL-only pad wint van alles (het is de fijnmazigste regel),
+ * daarna geldt de familie-regel behalve waar `EN_PRESENT_EXACT_PATHS` hem opheft.
+ */
+export function isEnMissingPath(pathname: string): boolean {
+  if (matchesExact(pathname, EN_MISSING_EXACT_PATHS)) return true;
+  if (matchesExact(pathname, EN_PRESENT_EXACT_PATHS)) return false;
+  return EN_MISSING_PREFIXES.some(
+    (p) => pathname === p.replace(/\/$/, '') || pathname.startsWith(p),
+  );
+}
+
 /**
  * LAT-2704 — locale-aware href voor INTERNE links.
  *
@@ -74,7 +112,8 @@ const EN_PRESENT_EXACT_PATHS: readonly string[] = ['/reizen-nareizen/'];
  *
  * - NL (`DEFAULT_LOCALE`) blijft byte-identiek: het kale pad komt onveranderd terug.
  * - Externe URLs, mailto/tel, hash- en query-only links en asset-paden blijven ongemoeid.
- * - Paden onder een route-familie zonder EN-tegenhanger (`EN_MISSING_PREFIXES`) blijven NL.
+ * - Paden zonder EN-tegenhanger (`isEnMissingPath`: hele families via
+ *   `EN_MISSING_PREFIXES`, losse paden via `EN_MISSING_EXACT_PATHS`) blijven NL.
  * - Al gelokaliseerde paden (`/en/...`) worden niet dubbel geprefixt.
  */
 export function localizeHref(href: string, locale: Locale): string {
@@ -92,15 +131,7 @@ export function localizeHref(href: string, locale: Locale): string {
   if (href.startsWith('//')) return href; // protocol-relatief extern
   const [pathname] = href.split(/(?=[?#])/, 1);
   if (/\.[a-z0-9]{2,5}$/i.test(pathname)) return href; // asset (.svg, .png, .json, .xml, ...)
-  const isPresentExact = EN_PRESENT_EXACT_PATHS.some(
-    (p) => pathname === p || pathname === p.replace(/\/$/, ''),
-  );
-  if (
-    !isPresentExact &&
-    EN_MISSING_PREFIXES.some((p) => pathname === p.replace(/\/$/, '') || pathname.startsWith(p))
-  ) {
-    return href;
-  }
+  if (isEnMissingPath(pathname)) return href;
   const suffix = href.slice(pathname.length);
   return `${localizePath(pathname, locale)}${suffix}`;
 }

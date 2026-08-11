@@ -340,7 +340,7 @@ def check_technical(raw: str, url: str, code: int, base: str):
     return problems
 
 
-def internal_nl_links(raw: str, base: str, nl_only_prefixes):
+def internal_nl_links(raw: str, base: str, nl_only_prefixes, nl_only_exact=()):
     """Interne links vanaf een /en/-pagina naar de NL-kant (LAT-2704).
 
     Chrome gaat er eerst uit, anders is de meting onbruikbaar ruizig:
@@ -351,7 +351,8 @@ def internal_nl_links(raw: str, base: str, nl_only_prefixes):
       wisselaar zelf draagt hreflang="nl") en dus geen lek;
     * /cdn-cgi/ is Cloudflare email-protection, geen content;
     * assets hebben geen taalvariant;
-    * bewust NL-only families horen NL te blijven.
+    * bewust NL-only paden horen NL te blijven -- hele families
+      (`EN_MISSING_PREFIXES`) en losse paden (`EN_MISSING_EXACT_PATHS`).
 
     Zonder die filters meldt de check elke pagina en zegt hij dus niets.
     """
@@ -369,7 +370,7 @@ def internal_nl_links(raw: str, base: str, nl_only_prefixes):
             continue
         if path.startswith("/cdn-cgi/") or ASSET_RE.search(path):
             continue
-        if any(path.startswith(p) for p in nl_only_prefixes):
+        if is_nl_only(path, nl_only_prefixes, nl_only_exact):
             continue
         out.append(path)
     return out
@@ -413,7 +414,24 @@ def sitemap_urls(base: str):
     return out
 
 
-def coverage_gaps(all_paths, nl_only_prefixes):
+def _same_path(a: str, b: str) -> bool:
+    """Padvergelijking die `/x/` en `/x` als hetzelfde pad ziet."""
+    return a.rstrip("/") == b.rstrip("/")
+
+
+def is_nl_only(path: str, nl_only_prefixes, nl_only_exact=()) -> bool:
+    """Spiegelt `isEnMissingPath` uit src/lib/i18n.ts (LAT-4918).
+
+    Rangorde: een exact NL-only pad wint (fijnmazigste regel), daarna de
+    familie-regel. Loopt deze functie uit de pas met de TS-kant, dan meet de
+    gate iets anders dan de site doet -- houd ze samen.
+    """
+    if any(_same_path(path, p) for p in nl_only_exact):
+        return True
+    return any(path.startswith(p) for p in nl_only_prefixes)
+
+
+def coverage_gaps(all_paths, nl_only_prefixes, nl_only_exact=()):
     """-> (en_paths, counted, missing, nl_only, orphan).
 
     `missing` is het echte dekkingsgat: een NL-pagina zonder EN-tegenhanger.
@@ -426,7 +444,7 @@ def coverage_gaps(all_paths, nl_only_prefixes):
                 for p in all_paths if p.startswith("/en/") or p == "/en"}
     nl_paths = {p for p in all_paths if not (p.startswith("/en/") or p == "/en")}
     nl_only = sorted(p for p in nl_paths
-                     if any(p.startswith(x) for x in nl_only_prefixes)
+                     if is_nl_only(p, nl_only_prefixes, nl_only_exact)
                      and p not in en_paths)
     counted = sorted(nl_paths - set(nl_only))
     missing = [p for p in counted if p not in en_paths]
@@ -434,26 +452,40 @@ def coverage_gaps(all_paths, nl_only_prefixes):
     return en_paths, counted, missing, nl_only, orphan
 
 
+def _const_array(src: str, name: str):
+    """De string-literals uit `const <name>... = [ ... ]`, of None als de
+    declaratie ontbreekt. Het `const`-anker voorkomt dat een vermelding van de
+    naam in commentaar of een docblock hierboven de match kaapt."""
+    m = re.search(rf"\bconst\s+{name}[^=]*=\s*\[([^\]]*)\]", src)
+    if not m:
+        return None
+    pairs = re.findall(r"'([^']+)'|\"([^\"]+)\"", m.group(1))
+    return tuple(a or b for a, b in pairs)
+
+
 def load_nl_only_prefixes(repo_root: str):
-    """EN_MISSING_PREFIXES uit src/lib/i18n.ts, zodat de gate niet uit de pas
-    loopt met de site. Valt terug op de constante als het bestand er niet is."""
+    """-> (prefixes, exact_paths, bron-label).
+
+    Leest de NL-only-scope uit src/lib/i18n.ts, zodat de gate niet uit de pas
+    loopt met de site zelf: `EN_MISSING_PREFIXES` (hele route-families) en
+    `EN_MISSING_EXACT_PATHS` (losse paden binnen een verder vertaalde familie,
+    LAT-4918). Valt terug op de constante als het bestand er niet is."""
     ts = os.path.join(repo_root, "src", "lib", "i18n.ts")
     try:
         with open(ts, encoding="utf-8") as fh:
             src = fh.read()
     except OSError:
-        return NL_ONLY_PREFIXES_FALLBACK, "fallback (src/lib/i18n.ts niet gevonden)"
-    m = re.search(r"EN_MISSING_PREFIXES[^=]*=\s*\[([^\]]*)\]", src)
-    if not m:
-        return NL_ONLY_PREFIXES_FALLBACK, "fallback (EN_MISSING_PREFIXES niet gevonden)"
-    prefixes = tuple(re.findall(r"'([^']+)'|\"([^\"]+)\"", m.group(1)))
-    prefixes = tuple(a or b for a, b in prefixes)
-    exact = re.search(r"EN_PRESENT_EXACT_PATHS[^=]*=\s*\[([^\]]*)\]", src)
-    exact_paths = ()
-    if exact:
-        pairs = re.findall(r"'([^']+)'|\"([^\"]+)\"", exact.group(1))
-        exact_paths = tuple(a or b for a, b in pairs)
-    return prefixes, f"src/lib/i18n.ts ({', '.join(prefixes)}; uitzonderingen: {', '.join(exact_paths) or 'geen'})"
+        return NL_ONLY_PREFIXES_FALLBACK, (), "fallback (src/lib/i18n.ts niet gevonden)"
+    prefixes = _const_array(src, "EN_MISSING_PREFIXES")
+    if prefixes is None:
+        return (NL_ONLY_PREFIXES_FALLBACK, (),
+                "fallback (EN_MISSING_PREFIXES niet gevonden)")
+    exact_missing = _const_array(src, "EN_MISSING_EXACT_PATHS") or ()
+    exact_present = _const_array(src, "EN_PRESENT_EXACT_PATHS") or ()
+    label = (f"src/lib/i18n.ts ({', '.join(prefixes)}"
+             f"; losse NL-only paden: {', '.join(exact_missing) or 'geen'}"
+             f"; uitzonderingen: {', '.join(exact_present) or 'geen'})")
+    return prefixes, exact_missing, label
 
 
 # --------------------------------------------------------------------------- #
@@ -650,7 +682,7 @@ def main() -> int:
                   file=sys.stderr)
             return EXIT_OPERATIONAL
 
-    nl_only_prefixes, prefix_src = load_nl_only_prefixes(repo_root)
+    nl_only_prefixes, nl_only_exact, prefix_src = load_nl_only_prefixes(repo_root)
 
     print(f"Omgeving : {base}")
     if not args.dist:
@@ -710,7 +742,7 @@ def main() -> int:
     # ---- dekking ---------------------------------------------------------- #
     if "coverage" in active:
         en_paths, counted, missing, nl_only, orphan = coverage_gaps(
-            all_paths, nl_only_prefixes)
+            all_paths, nl_only_prefixes, nl_only_exact)
         pct = 100.0 * (len(counted) - len(missing)) / max(1, len(counted))
         print(f"Dekking  : {len(en_paths)} EN vs {len(counted)} NL "
               f"sitemap-URLs ({pct:.1f}%)")
@@ -747,7 +779,8 @@ def main() -> int:
                 row["word_hits"] = hits
                 row["nl_sentences"] = [{"markers": n, "text": s} for n, s in flagged]
             if "nl-links" in active_page:
-                row["nl_links"] = internal_nl_links(raw, base, nl_only_prefixes)
+                row["nl_links"] = internal_nl_links(
+                    raw, base, nl_only_prefixes, nl_only_exact)
             if "nl-literals" in active_page:
                 row["literals"] = find_literals(raw)
         rows.append(row)

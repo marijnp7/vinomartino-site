@@ -33,6 +33,17 @@
 #
 # Vereiste secrets (gedeeld met deploy.yml, geen nieuwe nodig):
 # VPS_HOST, VPS_USER, VPS_SSH_PRIVATE_KEY.
+#
+# LAT-4956: run 31506170846 haalde de toenmalige 30-min cap (LAT-4943) niet —
+# afgekapt in stap 6, 23m33s daarvan alleen al in [streek].astro. Oorzaak was
+# geen hang maar volume: de build zette DIRECTUS_INCLUDE_DRAFTS=1 onvoor-
+# waardelijk aan (deploy.yml doet dat alleen op TARGET=preview), waardoor
+# deze gate ~9x meer accommodaties bouwde dan er live staan (311 i.p.v. 34
+# streek-roundups) en de bewust lage asset-concurrency/retry-tuning
+# (LAT-2779/LAT-3331/LAT-2518) evenredig vaker en langer volliep. Vlag nu
+# weg — zie de build-stap hieronder. timeout-minutes blijft op 30 als
+# marge; niet verder ophogen zonder eerst te meten of dit volstaat (het was
+# precies de symptoombestrijding die LAT-4956 wilde vermijden).
 
 name: i18n-nl gate (PR)
 
@@ -52,7 +63,13 @@ concurrency:
 jobs:
   gate:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # LAT-4943: gelijkgetrokken met deploy.yml (30). Deze job doet dezelfde
+    # VPS-build als deploy.yml en daarna nog een dist-rsync terug plus de
+    # gate-stappen, maar had een strakkere cap. Deploy-runs van 2026-08-11
+    # duurden 7m36s / 8m49s / 16m45s; op 20 min sneuvelde run 31504188773
+    # midden in de build (stap 6 `cancelled`, stappen 9/10 `skipped`) — een
+    # rode gate die niets over i18n zei.
+    timeout-minutes: 30
 
     steps:
       - name: Checkout PR head
@@ -76,6 +93,15 @@ jobs:
             StrictHostKeyChecking accept-new
             UserKnownHostsFile ~/.ssh/known_hosts
           EOF
+          # LAT-4943: dezelfde keepalive/retry-opties als deploy.yml. Deze
+          # workflow is ná LAT-3769/LAT-3910 aangemaakt en miste het snippet,
+          # dus draaide hij als enige VPS-workflow zónder ConnectTimeout en
+          # ConnectionAttempts: één stille NAT-eviction op de runner gaf direct
+          # `ssh: connect to host *** port 22: Connection timed out` na ~2 min
+          # (runs 31496935022, 31489410733), terwijl deploy.yml op hetzelfde
+          # moment groen bleef. Hard falen als het bestand ontbreekt — stil
+          # zonder keepalive draaien is precies de bug die dit oplost.
+          cat "$GITHUB_WORKSPACE/ops/ssh-config-snippet" >> ~/.ssh/config
           ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
 
       - name: Sync PR source to VPS scratch staging
@@ -93,18 +119,54 @@ jobs:
             --exclude='deploy-key-github-actions*' \
             ./ "$VPS:$STAGE/"
 
+      # LAT-4968: reapen VÓÓR de build. Twee van de drie wezen van 2026-08-11
+      # kwamen uit runs van deze workflow, en samen maakten ze de VPS zo traag
+      # (load 9,5-14,4 op 2 vCPU) dat de volgende gate-run zijn eigen 30-min cap
+      # haalde en een derde wees achterliet (LAT-4956/LAT-4967). Zonder deze stap
+      # bouwt de gate op de puinhoop van zijn vorige run.
+      - name: Reap orphan build containers (pre-build)
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          SELF: vino-gate-pr-${{ github.run_id }}
+        run: |
+          ssh -o StrictHostKeyChecking=accept-new "$VPS" \
+            "SELF='$SELF' MODE=reap bash -s" < scripts/reap-build-containers.sh \
+            || echo "::warning::Pre-build reaper overgeslagen (SSH niet beschikbaar)"
+
       - name: Build PR head on VPS (Directus reachable only from VPS network)
         env:
           VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
           STAGE: /srv/vino-builds/pr-${{ github.run_id }}
+          RUN_ID: ${{ github.run_id }}
           BUILD_SCRIPT: |
             set -euo pipefail
             cd "$STAGE"
             if [ -f /root/vinomartino-site/.env ]; then
               cp /root/vinomartino-site/.env .env
             fi
-            docker run --rm --network directus_directus_net \
-              -e DIRECTUS_INCLUDE_DRAFTS=1 \
+            # LAT-4956: geen DIRECTUS_INCLUDE_DRAFTS hier. deploy.yml zet die
+            # vlag alleen op TARGET=preview; deze gate heeft geen preview-
+            # concept en moet dekking meten over wat prod ook echt serveert
+            # (status=published), niet over draft-only pagina's. Onvoorwaardelijk
+            # aan bouwde ~9x meer accommodaties (311 i.p.v. 34 streek-roundups)
+            # en verklaart het leeuwendeel van de 23,5 min in
+            # [streek].astro (run 31506170846): de globale asset-concurrency-cap
+            # (LAT-2779/LAT-3331, DIRECTUS_ASSET_CONCURRENCY=4) en de
+            # retry/backoff op mislukte downloads (LAT-2518) zijn bewust zo
+            # laag/traag getuned om Directus niet te DoS'en — bij 9x zoveel
+            # accommodaties lopen die twee mechanismes vaker en langer vol.
+            # Root-cause is dus vlag-volume, niet de timeout/concurrency-
+            # instellingen zelf; die blijven ongewijzigd.
+            # LAT-4968: --name is verplicht, om dezelfde reden als in deploy.yml.
+            # Twee van de drie wezen die op 2026-08-11 op de VPS stonden kwamen
+            # uit runs van juist déze workflow (LAT-4967): hij erfde het defect
+            # bij het kopiëren van de build-stap.
+            # Een GHA re-run hergebruikt hetzelfde run_id; een achtergebleven
+            # wees met deze naam zou `docker run --name` laten afketsen op
+            # "container name is already in use".
+            docker rm -f "vino-gate-pr-$RUN_ID" >/dev/null 2>&1 || true
+            docker run --rm --name "vino-gate-pr-$RUN_ID" \
+              --network directus_directus_net \
               -v "$STAGE":/app -w /app \
               node:24 bash -c "npm ci && npm run build" 2>&1 | tee build.log
             build_rc=${PIPESTATUS[0]}
@@ -114,7 +176,7 @@ jobs:
             fi
         run: |
           printf '%s\n' "$BUILD_SCRIPT" \
-            | ssh "$VPS" "STAGE='$STAGE' bash -s"
+            | ssh "$VPS" "STAGE='$STAGE' RUN_ID='$RUN_ID' bash -s"
 
       - name: Fetch dist back for the gate check
         env:
@@ -133,9 +195,30 @@ jobs:
       - name: i18n-nl gate — pattern self-check (--selftest, live prod)
         run: python3 scripts/lat2582-gate-check.py --selftest
 
+      # LAT-4968: reapen VÓÓR de rm -rf. Een build die de 30-min cap haalde
+      # (LAT-4956: run 31506170846) draait op de VPS gewoon door — de docker-CLI
+      # sterft met de ssh-sessie mee, de container niet. `rm -rf` op zijn stage
+      # levert dan een half-gewiste map op die hij meteen weer aanvult. Het
+      # script kent ook wezen van vóór deze fix (willekeurige naam, herkenbaar
+      # aan de bind-mount onder /srv/vino-builds) en spaart bewust jonge
+      # containers van ándere runs: deze workflow is per PR geserialiseerd
+      # (`group: i18n-gate-pr-<nr>`), niet fleet-breed, dus twee PR-builds kunnen
+      # tegelijk draaien.
+      - name: Reap orphan build containers
+        if: always()
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          SELF: vino-gate-pr-${{ github.run_id }}
+        run: |
+          ssh -o StrictHostKeyChecking=accept-new "$VPS" \
+            "SELF='$SELF' MODE=reap bash -s" < scripts/reap-build-containers.sh \
+            || echo "::warning::Reaper overgeslagen (SSH niet beschikbaar)"
+
       - name: Clean up VPS scratch staging
         if: always()
         env:
           VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
           STAGE: /srv/vino-builds/pr-${{ github.run_id }}
-        run: ssh "$VPS" "rm -rf '$STAGE'"
+        run: |
+          ssh "$VPS" "rm -rf '$STAGE'" \
+            || echo "::warning::Staging-cleanup overgeslagen (SSH niet beschikbaar)"
