@@ -21,6 +21,9 @@ const { slug, variant, title, caption, pois, kindMeta, routeLine = null, locale 
 
 // LAT-2848 — aria-label via de UI-dictionary. 'Kaart:' is de prefix, de titel
 // volgt als variabele in de template. NL is een no-op → NL-HTML byte-identiek.
+// LAT-4909 — `title`/`caption`/`kindMeta[].label` komen al in de juiste taal
+// binnen (rhoneMapConfigFor in lib/rhone-maps.ts); de drie chrome-strings
+// hieronder zijn van het component zelf en lopen daarom via dezelfde dictionary.
 const ui = await loadUiStrings(locale);
 const canvasAria = `${ui.t('rhonemap.aria.mapPre')} ${title}`;
 
@@ -36,12 +39,12 @@ const mapData = {
 
 <figure class="rhonemap" data-rhonemap id={mapId} aria-labelledby={`${mapId}-cap`}>
   <figcaption class="rhonemap__cap" id={`${mapId}-cap`}>
-    <span class="rhonemap__label">Kaart</span>
+    <span class="rhonemap__label">{ui.t('rhonemap.label')}</span>
     <span class="rhonemap__title">{caption}</span>
   </figcaption>
   <div class="rhonemap__canvas" data-rhonemap-canvas role="application" aria-label={canvasAria}></div>
   <script type="application/json" data-rhonemap-data set:html={JSON.stringify(mapData)} />
-  <ul class="rhonemap__legend" aria-label="Legenda">
+  <ul class="rhonemap__legend" aria-label={ui.t('rhonemap.legend.aria')}>
     {kindMeta.map((m) => (
       <li class="rhonemap__legend-item">
         <span class="rhonemap__swatch" style={`background:${m.color}`} aria-hidden="true"></span>
@@ -51,7 +54,7 @@ const mapData = {
     {routeLine && (
       <li class="rhonemap__legend-item">
         <span class="rhonemap__swatch rhonemap__swatch--line" aria-hidden="true"></span>
-        Route noord → zuid
+        {ui.t('rhonemap.legend.route')}
       </li>
     )}
   </ul>

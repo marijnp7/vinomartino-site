@@ -100,7 +100,9 @@ const modifiedTime = article.updatedAt || article.pubDate;
 // LAT-1719: de twee Rhône-artikelen krijgen een interactieve Leaflet-kaart inline
 // in de body. splitBodyForRhoneMap() knipt de bodyHtml op een vast anker; null
 // voor alle andere artikelen (dan rendert de body ongewijzigd).
-const rhoneMap = splitBodyForRhoneMap(article.bodyHtml, article.slug);
+// LAT-4909: de locale gaat mee, zodat de kaartteksten (titel/bijschrift/legenda)
+// én het split-anker bij de taal van de gerenderde body horen. NL = no-op.
+const rhoneMap = splitBodyForRhoneMap(article.bodyHtml, article.slug, locale);
 
 // LAT-1687: verplichte beeldcredit (bv. Wikimedia Commons CC BY-SA) bij de hero.
 const heroCredit = getImageCredit(article.heroImageId);

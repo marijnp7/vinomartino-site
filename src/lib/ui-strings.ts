@@ -374,6 +374,16 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'gerelateerdeStukken.title': 'Gerelateerde stukken',
     'rhonemap.aria.mapPre': 'Kaart:',
 
+    // LAT-4909 — de resterende zichtbare chrome van RhoneMap.astro, die als kale
+    // literals in de template stond en daardoor NL rendeerde op /en/: het
+    // "Kaart"-kickerlabel, het aria-label van de legenda en het legenda-item van
+    // de routelijn (alleen variant 'route'). De kaartteksten zelf
+    // (titel/bijschrift/legenda-labels) zijn kaart-inhoud, geen chrome, en staan
+    // daarom in src/lib/rhone-maps.ts en niet in deze dictionary.
+    'rhonemap.label': 'Kaart',
+    'rhonemap.legend.aria': 'Legenda',
+    'rhonemap.legend.route': 'Route noord → zuid',
+
     // AffiliatePlaceholder.astro (LAT-1029) — per-type affiliate-blok chrome
     // (titel/omschrijving/cta). De icon-emoji staat in de component (taal-neutraal).
     'affiliate.block.accommodation.title': 'Waar slapen',
@@ -669,6 +679,14 @@ export const UI_STRING_EN: Record<string, string> = {
     // LangheCaptureBlock.astro — gedeeld e-mail veld.
     'langhe.capture.email.label': 'Email address',
     'langhe.capture.email.placeholder': 'your@email.com',
+
+    // RhoneMap.astro — kaart-chrome (LAT-4909). `rhonemap.aria.mapPre` is in
+    // Directus geseed (LAT-2848) maar had nog geen code-level fallback: bij een
+    // Directus-degradatie tijdens de build viel het aria-label terug op "Kaart:".
+    'rhonemap.aria.mapPre': 'Map:',
+    'rhonemap.label': 'Map',
+    'rhonemap.legend.aria': 'Legend',
+    'rhonemap.legend.route': 'Route north → south',
 
     // Rubriek-labels voor /en/artikelen/ — LAT-3319.
     'artikelen.rubriek.regio-gidsen': 'Region guides',
