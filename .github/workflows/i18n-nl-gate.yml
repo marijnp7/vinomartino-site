@@ -76,6 +76,15 @@ jobs:
             StrictHostKeyChecking accept-new
             UserKnownHostsFile ~/.ssh/known_hosts
           EOF
+          # LAT-4943: dezelfde keepalive/retry-opties als deploy.yml. Deze
+          # workflow is ná LAT-3769/LAT-3910 aangemaakt en miste het snippet,
+          # dus draaide hij als enige VPS-workflow zónder ConnectTimeout en
+          # ConnectionAttempts: één stille NAT-eviction op de runner gaf direct
+          # `ssh: connect to host *** port 22: Connection timed out` na ~2 min
+          # (runs 31496935022, 31489410733), terwijl deploy.yml op hetzelfde
+          # moment groen bleef. Hard falen als het bestand ontbreekt — stil
+          # zonder keepalive draaien is precies de bug die dit oplost.
+          cat "$GITHUB_WORKSPACE/ops/ssh-config-snippet" >> ~/.ssh/config
           ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
 
       - name: Sync PR source to VPS scratch staging
