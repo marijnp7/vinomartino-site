@@ -41,11 +41,13 @@ const totaalRijtijd = itinerary.days.reduce((sum, d) => sum + (d.rijtijdMin ?? 0
 
 const bookHref = boekbaar && streekSlug ? `/accommodaties/${streekSlug}/` : null;
 
+// LAT-4911 — stonden als kale NL-literals en renderden daardoor Nederlands op de
+// 11 /en/wijnroutes/-pagina's ('Wijnhuis' 4-7x per pagina, 'Bezienswaardigheid' op 8).
 const KIND_LABEL: Record<ItineraryStop['kind'], string> = {
-  wijnhuis: 'Wijnhuis',
-  eten: 'Eten',
-  bezienswaardigheid: 'Bezienswaardigheid',
-  overnachting: 'Overnachting',
+  wijnhuis: ui.t('route.stop.wijnhuis'),
+  eten: ui.t('route.stop.eten'),
+  bezienswaardigheid: ui.t('route.stop.bezienswaardigheid'),
+  overnachting: ui.t('route.stop.overnachting'),
 };
 
 // LAT-2125 [VIS-STRAT-02] — nummer de POI-cards zó dat het nummer de kaart-pin

@@ -8,6 +8,7 @@
 // de pagina terug op de schematische RouteMap (LAT-1608).
 import type { RouteStopGeo } from '../lib/routes';
 import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
 
 export interface Props {
   /** LAT-2704 — locale van de renderende pagina; stuurt de interne hrefs. */
@@ -23,6 +24,9 @@ const { stops = [], title, slug, duration = null, transport = null, locale = DEF
 
 // LAT-2704 — interne hrefs locale-aware; NL blijft byte-identiek.
 const lh = (href: string) => localizeHref(href, locale);
+
+// LAT-4911 — de kaart-chrome (label, legenda, aria) stond als kale NL-literals.
+const ui = await loadUiStrings(locale);
 
 const geo = stops.filter((s: RouteStopGeo) => s && Number.isFinite(s.lat) && Number.isFinite(s.lng));
 const hasGeo = geo.length >= 2;
@@ -59,15 +63,15 @@ const mapData = {
 {hasGeo && (
   <figure class="routegeo" data-routegeo id={mapId} aria-labelledby={`${mapId}-cap`}>
     <figcaption class="routegeo__cap" id={`${mapId}-cap`}>
-      <span class="routegeo__label">Routekaart</span>
+      <span class="routegeo__label">{ui.t('routegeo.label')}</span>
       <span class="routegeo__from-to">{line[0].naam} <span class="routegeo__arrow">&rarr;</span> {line[line.length - 1].naam}</span>
     </figcaption>
-    <div class="routegeo__canvas" data-routegeo-canvas role="application" aria-label={`Kaart van de route ${title}`}></div>
+    <div class="routegeo__canvas" data-routegeo-canvas role="application" aria-label={`${ui.t('routegeo.aria.mapPre')} ${title}`}></div>
     {(hasWijnhuis || hasSlaap) && (
-      <ul class="routegeo__legend" aria-label="Legenda">
-        <li class="routegeo__legend-item"><span class="routegeo__swatch routegeo__swatch--dag" aria-hidden="true">1</span>Dagetappe</li>
-        {hasWijnhuis && <li class="routegeo__legend-item"><span class="routegeo__swatch routegeo__swatch--wijnhuis" aria-hidden="true"></span>Wijnhuis</li>}
-        {hasSlaap && <li class="routegeo__legend-item"><span class="routegeo__swatch routegeo__swatch--slaap" aria-hidden="true"></span>Overnachten</li>}
+      <ul class="routegeo__legend" aria-label={ui.t('routegeo.legend.aria')}>
+        <li class="routegeo__legend-item"><span class="routegeo__swatch routegeo__swatch--dag" aria-hidden="true">1</span>{ui.t('routegeo.legend.dagetappe')}</li>
+        {hasWijnhuis && <li class="routegeo__legend-item"><span class="routegeo__swatch routegeo__swatch--wijnhuis" aria-hidden="true"></span>{ui.t('routegeo.legend.wijnhuis')}</li>}
+        {hasSlaap && <li class="routegeo__legend-item"><span class="routegeo__swatch routegeo__swatch--slaap" aria-hidden="true"></span>{ui.t('routegeo.legend.overnachten')}</li>}
       </ul>
     )}
     <script type="application/json" data-routegeo-data set:html={JSON.stringify(mapData)} />

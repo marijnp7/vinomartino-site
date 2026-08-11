@@ -104,6 +104,20 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'related.kind.wijnroute': 'Wijnroute',
     'related.kind.land': 'Land',
 
+    // Stop-soort-labels in de route-itinerary (LAT-4911, RouteItineraryDays.astro)
+    // en de chrome van de geo-kaart (RouteGeoMap.astro). Stonden als kale
+    // NL-literals op de 11 /en/wijnroutes/-pagina's.
+    'route.stop.wijnhuis': 'Wijnhuis',
+    'route.stop.eten': 'Eten',
+    'route.stop.bezienswaardigheid': 'Bezienswaardigheid',
+    'route.stop.overnachting': 'Overnachting',
+    'routegeo.label': 'Routekaart',
+    'routegeo.aria.mapPre': 'Kaart van de route',
+    'routegeo.legend.aria': 'Legenda',
+    'routegeo.legend.dagetappe': 'Dagetappe',
+    'routegeo.legend.wijnhuis': 'Wijnhuis',
+    'routegeo.legend.overnachten': 'Overnachten',
+
     // Wijnroute-detailpagina chrome (LAT-2638, RouteDetail.astro).
     'route.breadcrumb.index': 'Wijnroutes',
     'route.daysAria': 'Dagen op deze route',
@@ -757,6 +771,20 @@ export const UI_STRING_EN: Record<string, string> = {
     'related.kind.wijnhuis': 'Winery',
     'related.kind.wijnroute': 'Wine route',
     'related.kind.land': 'Country',
+
+    // RouteItineraryDays.astro + RouteGeoMap.astro — stop-soorten en kaart-chrome
+    // op de /en/wijnroutes/-pagina's (LAT-4911). `Winery` volgt de goedgekeurde
+    // wijnhuis-set; de rest is nieuw en staat ter bevestiging in het EN-copy-issue.
+    'route.stop.wijnhuis': 'Winery',
+    'route.stop.eten': 'Food',
+    'route.stop.bezienswaardigheid': 'Sight',
+    'route.stop.overnachting': 'Stay',
+    'routegeo.label': 'Route map',
+    'routegeo.aria.mapPre': 'Map of the route',
+    'routegeo.legend.aria': 'Legend',
+    'routegeo.legend.dagetappe': 'Day leg',
+    'routegeo.legend.wijnhuis': 'Winery',
+    'routegeo.legend.overnachten': 'Stay',
 
     // Keys die de infrastructuur al hadden in UI_STRING_DEFAULTS maar nog geen
     // EN-waarde, en daardoor op /en/ NL terugvielen (LAT-4911). Vallen buiten de

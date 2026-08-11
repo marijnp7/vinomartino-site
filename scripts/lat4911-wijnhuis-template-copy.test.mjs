@@ -44,6 +44,8 @@ const PAGE_CONTENT = src('../src/components/pages/WijnhuisPageContent.astro');
 const DETAIL = src('../src/components/WijnhuisDetail.astro');
 const STAYNEAR = src('../src/components/WijnhuisStayNear.astro');
 const RELATED = src('../src/components/RelatedEntities.astro');
+const ITINERARY = src('../src/components/RouteItineraryDays.astro');
+const GEOMAP = src('../src/components/RouteGeoMap.astro');
 
 /** key → de literal die vóór LAT-4911 in de template stond. */
 const NL_WAS = {
@@ -72,6 +74,18 @@ const NL_WAS = {
   'related.kind.wijnhuis': 'Wijnhuis',
   'related.kind.wijnroute': 'Wijnroute',
   'related.kind.land': 'Land',
+  // RouteItineraryDays.astro + RouteGeoMap.astro — vierde en vijfde vindplaats:
+  // stop-soorten en kaart-chrome op de 11 /en/wijnroutes/-pagina's.
+  'route.stop.wijnhuis': 'Wijnhuis',
+  'route.stop.eten': 'Eten',
+  'route.stop.bezienswaardigheid': 'Bezienswaardigheid',
+  'route.stop.overnachting': 'Overnachting',
+  'routegeo.label': 'Routekaart',
+  'routegeo.aria.mapPre': 'Kaart van de route',
+  'routegeo.legend.aria': 'Legenda',
+  'routegeo.legend.dagetappe': 'Dagetappe',
+  'routegeo.legend.wijnhuis': 'Wijnhuis',
+  'routegeo.legend.overnachten': 'Overnachten',
 };
 
 /**
@@ -94,7 +108,7 @@ test('NL-defaults zijn byte-identiek aan de literals van vóór LAT-4911', async
 });
 
 test('elke ui.t()-key in de wijnhuis-templates heeft een NL-default', () => {
-  const bronnen = { PAGE_CONTENT, DETAIL, STAYNEAR, RELATED };
+  const bronnen = { PAGE_CONTENT, DETAIL, STAYNEAR, RELATED, ITINERARY, GEOMAP };
   for (const [naam, bron] of Object.entries(bronnen)) {
     for (const key of [...bron.matchAll(/ui\.t\('([^']+)'\)/g)].map((m) => m[1])) {
       assert.ok(key in UI_STRING_DEFAULTS, `ontbrekende NL-default voor ${key} (${naam})`);
@@ -103,11 +117,11 @@ test('elke ui.t()-key in de wijnhuis-templates heeft een NL-default', () => {
 });
 
 test('elke wijnhuis.*-key die op /en/ rendert heeft een EN-waarde', async () => {
-  const bronnen = [PAGE_CONTENT, DETAIL, STAYNEAR, RELATED].join('\n');
-  const keys = [...new Set([...bronnen.matchAll(/ui\.t\('((?:wijnhuis|related)\.[^']+)'\)/g)].map((m) => m[1]))];
+  const bronnen = [PAGE_CONTENT, DETAIL, STAYNEAR, RELATED, ITINERARY, GEOMAP].join('\n');
+  const keys = [...new Set([...bronnen.matchAll(/ui\.t\('((?:wijnhuis|related|route\.stop|routegeo)\.[^']+)'\)/g)].map((m) => m[1]))];
 
   // Vangnet: als de regex niets vindt is de test stil groen zonder iets te bewijzen.
-  assert.ok(keys.length >= 26, `verwachtte >=26 wijnhuis/related-keys, vond ${keys.length}`);
+  assert.ok(keys.length >= 36, `verwachtte >=36 template-keys, vond ${keys.length}`);
 
   const en = await loadUiStrings('en');
   for (const key of keys) {
@@ -153,6 +167,18 @@ test('geen hardcoded NL-copy meer in de wijnhuis-templates', () => {
     assert.ok(
       !RELATED.includes(literal),
       `NL-literal "${literal}" staat weer hardcoded in RelatedEntities.astro`,
+    );
+  }
+  for (const literal of ["bezienswaardigheid: 'Bezienswaardigheid'", "wijnhuis: 'Wijnhuis'"]) {
+    assert.ok(
+      !ITINERARY.includes(literal),
+      `NL-literal "${literal}" staat weer hardcoded in RouteItineraryDays.astro`,
+    );
+  }
+  for (const literal of ['>Routekaart<', '>Dagetappe<', '>Wijnhuis<', '>Overnachten<', 'aria-label="Legenda"']) {
+    assert.ok(
+      !GEOMAP.includes(literal),
+      `NL-literal "${literal}" staat weer hardcoded in RouteGeoMap.astro`,
     );
   }
 });
