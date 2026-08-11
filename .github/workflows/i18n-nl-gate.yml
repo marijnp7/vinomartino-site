@@ -1,0 +1,141 @@
+# LAT-3598 — i18n-nl gate op PR's die content-templates raken (LAT-3326 punt 4 / LAT-3311 punt 3)
+#
+# Draait scripts/lat2582-gate-check.py als PR-check zodra de diff een
+# content-dimensie raakt: src/pages/**, src/components/**, src/lib/i18n.ts,
+# of het gate-script zelf. Voorkomt de stille regressie uit LAT-3055 /
+# LAT-3311: de gate werd tot nu toe alleen met de hand gedraaid, dus een
+# eerdere groen-verklaring kon wegdrijven zonder dat iemand het zag.
+#
+# Modus: --dist, bewust gekozen boven sitemap-modus. Een PR heeft geen live
+# URL om tegen te draaien; --dist scant de net-gebouwde HTML rechtstreeks en
+# meet daardoor ELKE gebouwde /en/-route inclusief noindex-mockups, in
+# tegenstelling tot de sitemap (die noindex-routes nooit bevat). Sinds
+# LAT-3326 zijn --dist en sitemap-modus het weer eens op de content-
+# dimensies (nl-sentences/nl-links/nl-literals): noindex-routes worden per
+# pagina uit de gerenderde HTML herkend (<meta name="robots" content=
+# "noindex">) en overgeslagen op precies die dimensies, niet via een
+# hand-onderhouden uitsluitlijst. Zie LAT-3326 voor de meting.
+#
+# --selftest draait mee (tegen live prod) zodat "0 treffers" niet te
+# verwarren is met een kapot detectiepatroon — zonder deze stap zou een
+# stilzwijgend kapotte NL_MARKERS-regex ook exit 0 geven.
+#
+# Build: zelfde VPS-side docker-build als deploy.yml (Directus is alleen
+# bereikbaar vanaf de VPS via het directus_directus_net docker-netwerk; GHA
+# heeft er zelf geen toegang toe). Deze workflow deployt niets — een
+# wegwerp-build in een PR-specifieke staging-map, opgeruimd in een always()
+# cleanup-step.
+#
+# Aanname: dit is geen public-fork repo. `pull_request` (niet
+# `pull_request_target`) deelt VPS-secrets met de PR-build; dat is alleen
+# veilig zolang PR's uitsluitend van org-leden/agents met push-toegang komen,
+# nooit van externe forks. Bevestig dat voordat dit live gaat.
+#
+# Vereiste secrets (gedeeld met deploy.yml, geen nieuwe nodig):
+# VPS_HOST, VPS_USER, VPS_SSH_PRIVATE_KEY.
+
+name: i18n-nl gate (PR)
+
+on:
+  pull_request:
+    branches: [main, preview]
+    paths:
+      - 'src/pages/**'
+      - 'src/components/**'
+      - 'src/lib/i18n.ts'
+      - 'scripts/lat2582-gate-check.py'
+
+concurrency:
+  group: i18n-gate-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          cat >> ~/.ssh/config <<EOF
+          Host $VPS_HOST
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+          EOF
+          ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Sync PR source to VPS scratch staging
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          STAGE: /srv/vino-builds/pr-${{ github.run_id }}
+        run: |
+          ssh "$VPS" "mkdir -p '$STAGE'"
+          rsync -avz --delete \
+            --exclude=node_modules \
+            --exclude=dist \
+            --exclude=preview-dist \
+            --exclude=.git \
+            --exclude='*.old-*' \
+            --exclude='deploy-key-github-actions*' \
+            ./ "$VPS:$STAGE/"
+
+      - name: Build PR head on VPS (Directus reachable only from VPS network)
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          STAGE: /srv/vino-builds/pr-${{ github.run_id }}
+          BUILD_SCRIPT: |
+            set -euo pipefail
+            cd "$STAGE"
+            if [ -f /root/vinomartino-site/.env ]; then
+              cp /root/vinomartino-site/.env .env
+            fi
+            docker run --rm --network directus_directus_net \
+              -e DIRECTUS_INCLUDE_DRAFTS=1 \
+              -v "$STAGE":/app -w /app \
+              node:24 bash -c "npm ci && npm run build" 2>&1 | tee build.log
+            build_rc=${PIPESTATUS[0]}
+            if [ "$build_rc" -ne 0 ]; then
+              echo "::error::astro build exit $build_rc"
+              exit "$build_rc"
+            fi
+        run: |
+          printf '%s\n' "$BUILD_SCRIPT" \
+            | ssh "$VPS" "STAGE='$STAGE' bash -s"
+
+      - name: Fetch dist back for the gate check
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          STAGE: /srv/vino-builds/pr-${{ github.run_id }}
+        run: rsync -avz "$VPS:$STAGE/dist/" ./dist/
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: i18n-nl gate — PR-build (--dist)
+        run: python3 scripts/lat2582-gate-check.py --dist dist
+
+      - name: i18n-nl gate — pattern self-check (--selftest, live prod)
+        run: python3 scripts/lat2582-gate-check.py --selftest
+
+      - name: Clean up VPS scratch staging
+        if: always()
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          STAGE: /srv/vino-builds/pr-${{ github.run_id }}
+        run: ssh "$VPS" "rm -rf '$STAGE'"
