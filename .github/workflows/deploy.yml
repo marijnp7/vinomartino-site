@@ -204,6 +204,22 @@ jobs:
       # in GHA — Directus zit achter CF Access en is alleen vanaf de VPS
       # bereikbaar via het Docker-netwerk. Script wordt via stdin verstuurd
       # zodat we geen bash heredoc binnen YAML hoeven te jongleren.
+      # LAT-4968: reapen VÓÓR de build, niet alleen erna. Een wees vreet CPU en
+      # schijf, waardoor de volgende build trager wordt en éérder zijn timeout
+      # haalt — wat weer een wees oplevert. Op 2026-08-11 stonden er drie
+      # tegelijk: ~300% CPU-vraag en load 9,5-14,4 op 2 vCPU (LAT-4967), waar
+      # geen build meer bij past. Alleen een always()-reaper achteraf breekt die
+      # lus niet: dan bouw je nog steeds op een verzadigde machine. Kost enkele
+      # seconden en raakt niets van een gezonde run.
+      - name: Reap orphan build containers (pre-build)
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          SELF: vino-build-${{ github.run_id }}
+        run: |
+          ssh -o StrictHostKeyChecking=accept-new "$VPS" \
+            "SELF='$SELF' MODE=reap bash -s" < scripts/reap-build-containers.sh \
+            || echo "::warning::Pre-build reaper overgeslagen (SSH niet beschikbaar)"
+
       - name: Build on VPS
         env:
           VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}

@@ -82,6 +82,17 @@ jobs:
             --exclude='deploy-key-github-actions*' \
             ./ "$VPS:$STAGE/"
 
+      # LAT-4968: reapen VÓÓR de build, zodat we niet op een door wezen
+      # verzadigde VPS bouwen (zie LAT-4967: 3 wezen = ~300% CPU op 2 vCPU).
+      - name: Reap orphan build containers (pre-build)
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          SELF: vino-publish-${{ github.run_id }}
+        run: |
+          ssh -o StrictHostKeyChecking=accept-new "$VPS" \
+            "SELF='$SELF' MODE=reap bash -s" < scripts/reap-build-containers.sh \
+            || echo "::warning::Pre-build reaper overgeslagen (SSH niet beschikbaar)"
+
       - name: Build on VPS (docker, directus_directus_net)
         env:
           VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}

@@ -119,6 +119,20 @@ jobs:
             --exclude='deploy-key-github-actions*' \
             ./ "$VPS:$STAGE/"
 
+      # LAT-4968: reapen VÓÓR de build. Twee van de drie wezen van 2026-08-11
+      # kwamen uit runs van deze workflow, en samen maakten ze de VPS zo traag
+      # (load 9,5-14,4 op 2 vCPU) dat de volgende gate-run zijn eigen 30-min cap
+      # haalde en een derde wees achterliet (LAT-4956/LAT-4967). Zonder deze stap
+      # bouwt de gate op de puinhoop van zijn vorige run.
+      - name: Reap orphan build containers (pre-build)
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          SELF: vino-gate-pr-${{ github.run_id }}
+        run: |
+          ssh -o StrictHostKeyChecking=accept-new "$VPS" \
+            "SELF='$SELF' MODE=reap bash -s" < scripts/reap-build-containers.sh \
+            || echo "::warning::Pre-build reaper overgeslagen (SSH niet beschikbaar)"
+
       - name: Build PR head on VPS (Directus reachable only from VPS network)
         env:
           VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}

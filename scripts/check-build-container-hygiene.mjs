@@ -66,19 +66,29 @@ for (const file of readdirSync(DIR).filter((f) => /\.ya?ml$/.test(f))) {
 
   if (!checked.some((c) => c.startsWith(file + ':'))) continue;
 
-  const reapIdx = text.indexOf(REAPER);
-  if (reapIdx === -1) {
-    problems.push(`${file}: bouwt in een stage-mount maar draait ${REAPER} niet in een if: always()-stap`);
+  // Een workflow mag de reaper meer dan één keer draaien: één keer vóór de
+  // build (schone machine, breekt de saturatie-lus) en één keer als
+  // `if: always()` erna (ruimt de eigen wees op). Alleen die tweede is
+  // verplicht — zonder always() draait hij juist niet bij de timeout die de
+  // wees maakt.
+  const reapOccurrences = [];
+  for (let k = text.indexOf(REAPER); k !== -1; k = text.indexOf(REAPER, k + 1)) {
+    const stepStart = text.lastIndexOf('- name:', k);
+    reapOccurrences.push({ at: k, always: /if:\s*always\(\)/.test(text.slice(stepStart, k)) });
+  }
+  if (reapOccurrences.length === 0) {
+    problems.push(`${file}: bouwt in een stage-mount maar draait ${REAPER} nergens`);
     continue;
   }
-  const reapStepStart = text.lastIndexOf('- name:', reapIdx);
-  if (!/if:\s*always\(\)/.test(text.slice(reapStepStart, reapIdx))) {
-    problems.push(`${file}: de reaper-stap mist \`if: always()\` — draait dan juist niet bij de timeout die de wees maakt`);
+  const alwaysReap = reapOccurrences.find((o) => o.always);
+  if (!alwaysReap) {
+    problems.push(`${file}: geen enkele reaper-stap heeft \`if: always()\` — draait dan juist niet bij de timeout die de wees maakt`);
+    continue;
   }
   // Volgorde: killen vóór wissen.
   const rmIdx = text.indexOf("rm -rf '$STAGE'");
-  if (rmIdx > -1 && rmIdx < reapIdx) {
-    problems.push(`${file}: stage-cleanup staat vóór de reaper — een levende schrijver vult de map tijdens de rm -rf weer aan`);
+  if (rmIdx > -1 && rmIdx < alwaysReap.at) {
+    problems.push(`${file}: stage-cleanup staat vóór de always()-reaper — een levende schrijver vult de map tijdens de rm -rf weer aan`);
   }
 }
 
