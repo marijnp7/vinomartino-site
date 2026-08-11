@@ -53,7 +53,9 @@ const CREDITS: Record<string, ImageCredit> = {
     // hero-container door CSS `object-fit: cover` bijgesneden — nooit
     // kleurgecorrigeerd of gefilterd.
     'ca01bf9e-e3d9-402d-8c23-46d9160a33c6': {
-        author: 'Foto: CRDO Ribera del Duero',
+        // LAT-4908: `©` in plaats van "Foto:" — taalneutraal, zodat de credit ook
+        // op /en/ klopt; consistent met de zes Wikimedia-entries hierboven.
+        author: '© CRDO Ribera del Duero',
         licenseLabel: 'CC BY-ND 2.0',
         licenseUrl: CC_BY_ND_20,
     },
