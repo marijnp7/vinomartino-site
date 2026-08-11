@@ -1,10 +1,30 @@
 # LAT-3598 — i18n-nl gate op PR's die content-templates raken (LAT-3326 punt 4 / LAT-3311 punt 3)
 #
 # Draait scripts/lat2582-gate-check.py als PR-check zodra de diff een
-# content-dimensie raakt: src/pages/**, src/components/**, src/lib/i18n.ts,
-# of het gate-script zelf. Voorkomt de stille regressie uit LAT-3055 /
-# LAT-3311: de gate werd tot nu toe alleen met de hand gedraaid, dus een
-# eerdere groen-verklaring kon wegdrijven zonder dat iemand het zag.
+# content-dimensie raakt: src/pages/**, src/components/**, src/lib/**, of het
+# gate-script zelf. Voorkomt de stille regressie uit LAT-3055 / LAT-3311: de
+# gate werd tot nu toe alleen met de hand gedraaid, dus een eerdere
+# groen-verklaring kon wegdrijven zonder dat iemand het zag.
+#
+# LAT-4909 — waarom `src/lib/**` en niet een opsomming van content-modules.
+# Het filter dekte alleen `src/lib/i18n.ts`, waardoor de gate NIET draaide op
+# de PR die "Foto:" in `src/lib/image-credits.ts` zette (LAT-4804 → LAT-4908):
+# content-dragende *data*, geen template. Gemeten op de echte build en de
+# echte historie voordat dit werd verbreed:
+#
+#   * 18 van de 52 modules in src/lib/** renderen literals in de HTML — niet
+#     alleen ui-strings.ts en image-credits.ts, maar ook rhone-maps.ts,
+#     authors.ts, affiliates.ts, ui-copy.ts, stay-tier.ts, navigation.ts,
+#     brands.ts, seo.ts, route-body.ts en meer. Een opsomming van "de bekende
+#     content-modules" is dus geen korte lijst, en een nieuwe module valt er
+#     stil buiten — hetzelfde faalpatroon, één laag verderop.
+#   * Van 127 commits op main sinds 2026-06-01 raakten er 21 UITSLUITEND
+#     src/lib/**. Dat is de volledige marginale kost van deze verbreding:
+#     ~2 extra gate-runs per week bovenop de 58 die al draaiden. Een
+#     opsomming had 12 van die 21 gedekt en 9 gemist.
+#
+# De verbreding is dus goedkoop en de opsomming was het niet waard. Zie
+# LAT-4909 voor de meetscripts.
 #
 # Modus: --dist, bewust gekozen boven sitemap-modus. Een PR heeft geen live
 # URL om tegen te draaien; --dist scant de net-gebouwde HTML rechtstreeks en
@@ -42,7 +62,7 @@ on:
     paths:
       - 'src/pages/**'
       - 'src/components/**'
-      - 'src/lib/i18n.ts'
+      - 'src/lib/**'
       - 'scripts/lat2582-gate-check.py'
 
 concurrency:
