@@ -96,9 +96,10 @@ function stopToPoi(stop: ItineraryStop, pin: CardPin): PoiCardData {
     fotoTheme: stop.kind === 'wijnhuis' ? 'winery' : 'region',
     badge: KIND_LABEL[stop.kind],
     whyRegel: stop.why,
-    beschrijving: stop.duur ? `Reken op ${stop.duur}.` : null,
+    // LAT-4911 — stonden als kale NL-literals op de 11 /en/wijnroutes/-pagina's.
+    beschrijving: stop.duur ? ui.t('route.stop.duur').replace('{duur}', stop.duur) : null,
     detailUrl,
-    cta: 'Lees portret',
+    cta: ui.t('route.leesPortret'),
     n: pin.n,
     plotted: pin.plotted,
     cardId: pin.n != null ? `route-poi-${pin.n}` : undefined,
@@ -107,7 +108,7 @@ function stopToPoi(stop: ItineraryStop, pin: CardPin): PoiCardData {
 ---
 
 <div class="route-itinerary">
-  <nav class="route-daystrip" aria-label="Dagen op deze route">
+  <nav class="route-daystrip" aria-label={ui.t('route.daysAria')}>
     {itinerary.days.map((d) => (
       <a class="route-daychip" href={`#${dagAnchor(d.n)}`}>
         <span class="route-daychip__label">Dag {d.n}</span>

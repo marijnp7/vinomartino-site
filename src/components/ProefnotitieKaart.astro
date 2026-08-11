@@ -17,15 +17,24 @@
  * exports zijn een aparte pipeline (zie follow-up).
  */
 import SmartImg from './SmartImg.astro';
-import { UI_COPY } from '../lib/ui-copy';
 import type { Proefnotitie } from '../lib/articles';
+import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
 
 interface Props {
   proefnotities: Proefnotitie[];
   format?: 'ig' | 'grid';
+  /**
+   * LAT-4911 — de kaartlabels kwamen rechtstreeks uit de kale copy-module en
+   * rendeerden daardoor Nederlands op /en/ ('Uit de kelder' is de `kelder`-
+   * gate-marker). De keys bestonden al in de dictionary; de bedrading ontbrak.
+   */
+  locale?: Locale;
 }
 
-const { proefnotities, format = 'ig' } = Astro.props;
+const { proefnotities, format = 'ig', locale = DEFAULT_LOCALE } = Astro.props;
+const ui = await loadUiStrings(locale);
+const kaartLabel = ui.t('ui.proefnotitie.kaartLabel');
 const notes = (proefnotities ?? []).filter((n) => n && n.wijnnaam);
 
 function datarij1(n: Proefnotitie): string[] {
@@ -33,14 +42,14 @@ function datarij1(n: Proefnotitie): string[] {
 }
 ---
 {notes.length > 0 && (
-  <section class="proefnotities" aria-label={UI_COPY.proefnotitieKaartLabel}>
+  <section class="proefnotities" aria-label={kaartLabel}>
     {notes.map((n) => (
       <article class:list={['pnk', `pnk--${format}`]}>
         <div class="pnk__figure">
           <SmartImg src={n.etiketFoto ?? undefined} alt={n.etiketFotoAlt ?? `Etiket ${n.wijnnaam}`} theme="bottle" class="pnk__img" />
         </div>
         <div class="pnk__body">
-          <span class="pnk__label">{UI_COPY.proefnotitieKaartLabel}</span>
+          <span class="pnk__label">{kaartLabel}</span>
           <h3 class="pnk__wijnnaam">{n.wijnnaam}</h3>
 
           {datarij1(n).length > 0 && (
@@ -57,11 +66,11 @@ function datarij1(n: Proefnotitie): string[] {
           {(n.gedronkenIn || n.prijs) && (
             <p class="pnk__datarij">
               {n.gedronkenIn && (
-                <span class="pnk__cell">{UI_COPY.proefnotitieGedronkenLabel}: {n.gedronkenIn}</span>
+                <span class="pnk__cell">{ui.t('ui.proefnotitie.gedronkenLabel')}: {n.gedronkenIn}</span>
               )}
               {n.gedronkenIn && n.prijs && <span class="pnk__sep" aria-hidden="true">/</span>}
               {n.prijs && (
-                <span class="pnk__cell">{UI_COPY.proefnotitiePrijsLabel}: {n.prijs}</span>
+                <span class="pnk__cell">{ui.t('ui.proefnotitie.prijsLabel')}: {n.prijs}</span>
               )}
             </p>
           )}

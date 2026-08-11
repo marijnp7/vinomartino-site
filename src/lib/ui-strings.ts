@@ -111,6 +111,8 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'route.stop.eten': 'Eten',
     'route.stop.bezienswaardigheid': 'Bezienswaardigheid',
     'route.stop.overnachting': 'Overnachting',
+    // {duur} wordt vervangen door de duur-string uit de itinerary-data.
+    'route.stop.duur': 'Reken op {duur}.',
     'routegeo.label': 'Routekaart',
     'routegeo.aria.mapPre': 'Kaart van de route',
     'routegeo.legend.aria': 'Legenda',
@@ -779,6 +781,9 @@ export const UI_STRING_EN: Record<string, string> = {
     'route.stop.eten': 'Food',
     'route.stop.bezienswaardigheid': 'Sight',
     'route.stop.overnachting': 'Stay',
+    'route.stop.duur': 'Allow {duur}.',
+    'route.daysAria': 'Days on this route',
+    'route.leesPortret': 'Read the portrait',
     'routegeo.label': 'Route map',
     'routegeo.aria.mapPre': 'Map of the route',
     'routegeo.legend.aria': 'Legend',
@@ -790,6 +795,10 @@ export const UI_STRING_EN: Record<string, string> = {
     // EN-waarde, en daardoor op /en/ NL terugvielen (LAT-4911). Vallen buiten de
     // twaalf gate-markers, maar staan op dezelfde ~130 pagina's.
     'wijnhuis.breadcrumb.index': 'Wineries',
+    'wijnhuizen.index.hero.label': 'Wineries',
+    // ProefnotitieKaart.astro — 'Uit de kelder' stond via UI_COPY hardcoded in het
+    // component (LAT-4924 §3). EN-copy goedgekeurd door de Lead Editor.
+    'ui.proefnotitie.kaartLabel': 'From the cellar',
     'wijnhuis.staynear.aria': 'Nearby places to stay',
     'wijnhuis.staynear.labelPrefix': 'Stay near',
     'wijnhuis.staynear.disclosure': 'Affiliate links · no extra cost to you',
