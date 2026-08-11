@@ -73,22 +73,32 @@ function toAbsoluteUrl(value?: string | null): string | undefined {
 const DEFAULT_OG_IMAGE = '/og-default.png';
 const DEFAULT_OG_IMAGE_ALT = 'VinoMartino — wijnreis-verhalen, routes en proefnotities';
 
+// LAT-4988: Reject non-raster og:image formats (e.g., SVG). Scrapers (FB/LinkedIn/X/Slack)
+// don't render vector images in social cards. Fall back to DEFAULT_OG_IMAGE instead.
+function isRasterImageFormat(url: string): boolean {
+  const lower = url.toLowerCase();
+  return /\.(jpg|jpeg|png|webp|gif)($|\?)/i.test(lower);
+}
+
 const pageOgImageUrl = toAbsoluteUrl(ogImage);
-const ogImageUrl = pageOgImageUrl ?? toAbsoluteUrl(DEFAULT_OG_IMAGE);
+const validPageOgImageUrl = pageOgImageUrl && isRasterImageFormat(pageOgImageUrl) ? pageOgImageUrl : undefined;
+const ogImageUrl = validPageOgImageUrl ?? toAbsoluteUrl(DEFAULT_OG_IMAGE);
 
 // LAT-4907: de afmetingen stonden hier als literals 1200x630 — de maat van
 // og-default.png — en logen dus zodra een pagina een echt beeld had (511 van de
 // 555 live-URLs). Meet het bestand dat we werkelijk serveren; dit is de plek
 // waar de keten `og_image -> hero_image -> og-default.png` samenkomt, dus één
-// meting hier dekt alle content-types. Onmeetbaar (SVG, extern) => geen tags.
-const ogImageSourcePath = ogImage ?? DEFAULT_OG_IMAGE;
+// meting hier dekt alle content-types. Onmeetbaar (extern) => geen tags.
+// Meet de bron die ná de LAT-4988-guard overblijft: bij een SVG serveren we
+// og-default.png, dus dan horen de afmetingen óók van og-default.png te komen.
+const ogImageSourcePath = (validPageOgImageUrl ? ogImage : DEFAULT_OG_IMAGE) ?? DEFAULT_OG_IMAGE;
 const measuredOgImage = await getPublicImageDimensions(ogImageSourcePath);
 const resolvedOgImageWidth = ogImageWidth ?? measuredOgImage?.width;
 const resolvedOgImageHeight = ogImageHeight ?? measuredOgImage?.height;
 const hasOgImageDimensions = Boolean(resolvedOgImageWidth && resolvedOgImageHeight);
 // Op de merkkaart staat de paginatitel niet afgebeeld, dus beschrijft de alt de
 // kaart zelf in plaats van de pagina.
-const ogImageAlt = pageOgImageUrl ? pageTitle : DEFAULT_OG_IMAGE_ALT;
+const ogImageAlt = validPageOgImageUrl ? pageTitle : DEFAULT_OG_IMAGE_ALT;
 const resolvedOgType: OgType = ogType ?? (article ? 'article' : 'website');
 const articleTags = article?.tags?.filter((tag): tag is string => Boolean(tag && tag.trim())) ?? [];
 ---
