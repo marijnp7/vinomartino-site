@@ -223,20 +223,34 @@ NL_NOUNS = {
     "noordelijke": "/artikelen/10-wijnhuizen-rhone-benchmark/",
     "oogst": "/artikelen/grower-champagne-2026-vroegste-oogst-bezoeken/",
     "streek": "/wijnhuizen/",
-    "wijnhuis": "/wijnhuizen/",
     "zuidelijke": "/artikelen/10-wijnhuizen-rhone-benchmark/",
 }
 
 # Markers die de meting WEL als bruikbaar aanwees, maar die op /en/ nog vuurden
-# omdat er echte NL-labels op de EN-kant stonden. Die twaalf zijn per LAT-4911
-# gefixt (template-, module- en Directus-kant) en staan nu gewoon in NL_NOUNS
-# hierboven; deze set is daarmee leeg.
+# omdat er echte NL-labels op de EN-kant stonden. Elf van de twaalf zijn per
+# LAT-4911 gefixt (template-, module- en Directus-kant) en staan nu gewoon in
+# NL_NOUNS hierboven.
 #
-# Hij blijft bestaan als landingsplaats: een marker die vandaag terecht vuurt op
-# /en/ hoort hier, niet weggelaten. Een stil geschrapte marker is niet te
-# onderscheiden van een marker die nooit is overwogen, en dan verdwijnt de
+# Deze set blijft bestaan als landingsplaats: een marker die vandaag terecht
+# vuurt op /en/ hoort hier, niet weggelaten. Een stil geschrapte marker is niet
+# te onderscheiden van een marker die nooit is overwogen, en dan verdwijnt de
 # bekende blinde vlek uit beeld. De gate print de inhoud bij elke run.
-NL_NOUNS_PENDING: dict[str, str] = {}
+NL_NOUNS_PENDING: dict[str, str] = {
+    # LAT-4911 -- 'wijnhuis' is op 129 van de 131 pagina's opgelost (het
+    # wijnhuis-template rendert nu Engels). Wat overblijft zijn 2 artikelen met
+    # de affiliate-disclosure van AffiliateBlockDisclosure.astro:
+    #   "Reservering via de directe link naar het wijnhuis, VinoMartino
+    #    ontvangt commissie, prijs voor jou identiek."
+    # Die zin is disclosure-copy onder de M1-Optie-B-regels; een EN-formulering
+    # vaststellen is een redactionele/compliance-keuze, geen technische. Dat
+    # ligt bij de Lead Editor in LAT-4979. Zodra die EN-tekst er is, krijgt het
+    # component een locale-prop en verhuist deze marker alsnog naar NL_NOUNS.
+    #
+    # Bewust hier en niet in NL_NOUNS: aanzetten zou de gate op ELKE PR rood
+    # zetten voor een bekende, belegde copy-vraag, en een gate die altijd rood
+    # staat leert iedereen hem te negeren.
+    "wijnhuis": "/wijnhuizen/",
+}
 
 NOUN_RE = {w: re.compile(r"\b" + re.escape(w) + r"\b") for w in NL_NOUNS}
 
