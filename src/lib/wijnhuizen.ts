@@ -27,6 +27,9 @@ export interface Wijnhuis {
     // (image-credits.ts) het beeld kan volgen los van slug/pad (LAT-2478).
     heroImageId: string | null;
     ogImage: string | null;
+    // LAT-4907: og:image dimension metadata voor sociale media kaarten.
+    ogImageWidth: number | null;
+    ogImageHeight: number | null;
     drieluik: WijnhuisDrieluikBeeld[];
     status: string;
     metaTitle: string;
@@ -166,6 +169,8 @@ function mapWijnhuis(
         heroImage: heroImagePath,
         heroImageId: r.hero_image ? String(r.hero_image) : null,
         ogImage: ogImagePath,
+        ogImageWidth: null,
+        ogImageHeight: null,
         drieluik,
         status: String(r.status || 'draft'),
         metaTitle: String(r.meta_title || r.name),

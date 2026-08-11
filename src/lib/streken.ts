@@ -128,6 +128,9 @@ export interface Streek {
     nearestAirport: string;
     heroImage: string | null;
     ogImage: string | null;
+    // LAT-4907: og:image dimension metadata voor sociale media kaarten.
+    ogImageWidth: number | null;
+    ogImageHeight: number | null;
     // LAT-2427 — beeldcredit voor de hero (CC-attributie). Null = geen credit
     // in Directus; de hero-credit-guard bepaalt of het beeld dan nog mag tonen.
     heroCredit: HeroCredit | null;
@@ -544,6 +547,8 @@ function mapStreek(
         nearestAirport: firstString(r, ['nearest_airport', 'dichtstbijzijnd_vliegveld', 'vliegveld', 'airport']),
         heroImage: heroImagePath,
         ogImage: ogImagePath,
+        ogImageWidth: null,
+        ogImageHeight: null,
         heroCredit: parseHeroCredit(r.hero_credit),
         status: String(r.status || 'draft'),
         metaTitle: String(r.meta_title || r.name),

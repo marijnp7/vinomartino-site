@@ -26,6 +26,9 @@ export interface Article {
     // Determines object-fit: contain (illustration) vs cover (photo).
     heroIsIllustration: boolean;
     ogImage: string | null;
+    // LAT-4907: og:image dimension metadata voor sociale media kaarten.
+    ogImageWidth: number | null;
+    ogImageHeight: number | null;
     status: string;
     featured: boolean;
     metaTitle: string;
@@ -327,6 +330,46 @@ async function downloadArticleAsset(assetId: string, directusUrl: string, token:
     }
 }
 
+// LAT-4907: extract JPEG dimensions from SOF (Start of Frame) marker
+function extractJpegDimensions(buffer: Buffer): { width: number; height: number } | null {
+    try {
+        let pos = 2; // skip SOI marker
+        while (pos < buffer.length - 8) {
+            const marker = buffer[pos];
+            if (marker !== 0xFF) {
+                pos++;
+                continue;
+            }
+            const markerType = buffer[pos + 1];
+            if (markerType >= 0xC0 && markerType <= 0xC3) {
+                // SOF marker found
+                const height = (buffer[pos + 5] << 8) | buffer[pos + 6];
+                const width = (buffer[pos + 7] << 8) | buffer[pos + 8];
+                return { width, height };
+            }
+            const len = (buffer[pos + 2] << 8) | buffer[pos + 3];
+            pos += len + 2;
+        }
+    } catch {
+        return null;
+    }
+    return null;
+}
+
+// LAT-4907: extract image dimensions from a file path
+async function getImageDimensions(filePath: string | null): Promise<{ width: number; height: number } | null> {
+    if (!filePath) return null;
+    try {
+        const { readFileSync } = await import('node:fs');
+        const { join } = await import('node:path');
+        const fullPath = join(process.cwd(), 'public', filePath);
+        const buffer = readFileSync(fullPath);
+        return extractJpegDimensions(buffer);
+    } catch {
+        return null;
+    }
+}
+
 // LAT-1098: Directus M2M-junction shape on `articles.related_<entity>` is
 // `{[junction_id_or_index]: {<entity>_id: {slug, name|title}}}`. Reverse on the
 // entity side uses `{articles_id: {slug, title}}`. We accept a few common shapes
@@ -418,6 +461,7 @@ function mapArticle(
     a: Record<string, unknown>,
     heroImagePath: string | null,
     ogImagePath: string | null,
+    ogImageDims: { width: number; height: number } | null,
     bodyHtml: string,
     toc: TocItem[],
     wordCount: number,
@@ -436,6 +480,8 @@ function mapArticle(
           heroImageId: a.hero_image ? String(a.hero_image) : null,
           heroIsIllustration: a.hero_is_illustration === true || a.hero_is_illustration === 1 || a.hero_is_illustration === '1',
           ogImage: ogImagePath,
+          ogImageWidth: ogImageDims?.width ?? null,
+          ogImageHeight: ogImageDims?.height ?? null,
           status: String(a.status || 'draft'),
           featured: a.featured === true || a.featured === 1 || a.featured === '1',
           metaTitle: normalizeEmDashes(String(a.meta_title || a.title)),
@@ -657,7 +703,8 @@ async function loadFromDirectus(url: string, token: string, locale: Locale): Pro
                         // LAT-2509: haal élke body-asset lokaal binnen (zelfde route als hero).
                         ...bodyAssetIds.map((id) => downloadArticleAsset(id, url, token)),
                   ]);
-                  return mapArticle(a, heroImagePath, ogImagePath, bodyHtml, toc, wordCount, readingMinutes);
+                  const ogImageDims = await getImageDimensions(ogImagePath);
+                  return mapArticle(a, heroImagePath, ogImagePath, ogImageDims, bodyHtml, toc, wordCount, readingMinutes);
           }),
         );
     console.log(`[loadArticles] fetched ${items.length} articles from Directus`);

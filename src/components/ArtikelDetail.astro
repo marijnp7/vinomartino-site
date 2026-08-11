@@ -144,6 +144,8 @@ if (article.faqSchema) {
   title={article.metaTitle || article.title}
   description={article.metaDescription || article.description}
   ogImage={article.ogImage || article.heroImage || undefined}
+  ogImageWidth={article.ogImageWidth || (article.ogImage ? undefined : 1200)}
+  ogImageHeight={article.ogImageHeight || (article.ogImage ? undefined : 630)}
   ogType="article"
   article={{
     publishedTime: article.pubDate,

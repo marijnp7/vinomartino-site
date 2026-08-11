@@ -43,6 +43,9 @@ export interface Land {
     bestTimeToVisit: string;
     heroImage: string | null;
     ogImage: string | null;
+    // LAT-4907: og:image dimension metadata voor sociale media kaarten.
+    ogImageWidth: number | null;
+    ogImageHeight: number | null;
     wijnstreken: { name: string; slug?: string }[];
     // LAT-1760: proefprofiel ("Wat je hier proeft") + praktische tips ("Voor je
     // gaat") als Directus JSON-velden, zodat alle 7 landen Italië-parity halen
@@ -314,6 +317,8 @@ function mapLand(
         bestTimeToVisit: String(r.best_time_to_visit || ''),
         heroImage: heroImagePath,
         ogImage: ogImagePath,
+        ogImageWidth: null,
+        ogImageHeight: null,
         wijnstreken: mapWijnstreken(r.wijnstreken),
         druiven: mapDruiven(r.druiven),
         practical: mapPractical(r.practical),

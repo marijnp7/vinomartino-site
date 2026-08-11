@@ -36,6 +36,9 @@ export interface WijnRoute {
     stopsGeo: RouteStopGeo[];
     heroImage: string | null;
     ogImage: string | null;
+    // LAT-4907: og:image dimension metadata voor sociale media kaarten.
+    ogImageWidth: number | null;
+    ogImageHeight: number | null;
     status: string;
     metaTitle: string;
     metaDescription: string;
@@ -249,6 +252,8 @@ function mapRoute(
         stopsGeo,
         heroImage: heroImagePath,
         ogImage: ogImagePath,
+        ogImageWidth: null,
+        ogImageHeight: null,
         status: String(r.status || 'draft'),
         metaTitle: String(r.meta_title || r.title),
         metaDescription: String(r.meta_description || r.description || ''),

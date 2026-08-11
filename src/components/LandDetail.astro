@@ -294,6 +294,8 @@ const schema = [
     description: entry?.metaDescription || pageData.description,
   }, locale)}
   ogImage={landOgImage || undefined}
+  ogImageWidth={entry?.ogImageWidth || (landOgImage ? undefined : 1200)}
+  ogImageHeight={entry?.ogImageHeight || (landOgImage ? undefined : 630)}
   schema={schema}
   activeNav="landen"
   locale={locale}
