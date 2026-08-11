@@ -18,6 +18,7 @@
     "test:cta-wine-retail": "node --test scripts/lat3726-cta-wine-retail.test.mjs",
     "test:beeld-herkomst": "node --test scripts/lat4776-beeld-herkomst.test.mjs",
     "test:og-default": "node --test scripts/lat4755-og-default.test.mjs",
+    "test:artikel-nl-only": "node --test scripts/lat4918-artikel-nl-only.test.mjs",
     "gen:og-default": "node scripts/gen-og-default.mjs",
     "audit:i18n-crosslinks": "node scripts/i18n-crosslink-audit.mjs",
     "gate:i18n-nl": "python3 scripts/lat2582-gate-check.py",
