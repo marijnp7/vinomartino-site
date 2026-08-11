@@ -119,10 +119,25 @@ jobs:
             --exclude='deploy-key-github-actions*' \
             ./ "$VPS:$STAGE/"
 
+      # LAT-4968: reapen VÓÓR de build. Twee van de drie wezen van 2026-08-11
+      # kwamen uit runs van deze workflow, en samen maakten ze de VPS zo traag
+      # (load 9,5-14,4 op 2 vCPU) dat de volgende gate-run zijn eigen 30-min cap
+      # haalde en een derde wees achterliet (LAT-4956/LAT-4967). Zonder deze stap
+      # bouwt de gate op de puinhoop van zijn vorige run.
+      - name: Reap orphan build containers (pre-build)
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          SELF: vino-gate-pr-${{ github.run_id }}
+        run: |
+          ssh -o StrictHostKeyChecking=accept-new "$VPS" \
+            "SELF='$SELF' MODE=reap bash -s" < scripts/reap-build-containers.sh \
+            || echo "::warning::Pre-build reaper overgeslagen (SSH niet beschikbaar)"
+
       - name: Build PR head on VPS (Directus reachable only from VPS network)
         env:
           VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
           STAGE: /srv/vino-builds/pr-${{ github.run_id }}
+          RUN_ID: ${{ github.run_id }}
           BUILD_SCRIPT: |
             set -euo pipefail
             cd "$STAGE"
@@ -142,7 +157,16 @@ jobs:
             # accommodaties lopen die twee mechanismes vaker en langer vol.
             # Root-cause is dus vlag-volume, niet de timeout/concurrency-
             # instellingen zelf; die blijven ongewijzigd.
-            docker run --rm --network directus_directus_net \
+            # LAT-4968: --name is verplicht, om dezelfde reden als in deploy.yml.
+            # Twee van de drie wezen die op 2026-08-11 op de VPS stonden kwamen
+            # uit runs van juist déze workflow (LAT-4967): hij erfde het defect
+            # bij het kopiëren van de build-stap.
+            # Een GHA re-run hergebruikt hetzelfde run_id; een achtergebleven
+            # wees met deze naam zou `docker run --name` laten afketsen op
+            # "container name is already in use".
+            docker rm -f "vino-gate-pr-$RUN_ID" >/dev/null 2>&1 || true
+            docker run --rm --name "vino-gate-pr-$RUN_ID" \
+              --network directus_directus_net \
               -v "$STAGE":/app -w /app \
               node:24 bash -c "npm ci && npm run build" 2>&1 | tee build.log
             build_rc=${PIPESTATUS[0]}
@@ -152,7 +176,7 @@ jobs:
             fi
         run: |
           printf '%s\n' "$BUILD_SCRIPT" \
-            | ssh "$VPS" "STAGE='$STAGE' bash -s"
+            | ssh "$VPS" "STAGE='$STAGE' RUN_ID='$RUN_ID' bash -s"
 
       - name: Fetch dist back for the gate check
         env:
@@ -171,9 +195,30 @@ jobs:
       - name: i18n-nl gate — pattern self-check (--selftest, live prod)
         run: python3 scripts/lat2582-gate-check.py --selftest
 
+      # LAT-4968: reapen VÓÓR de rm -rf. Een build die de 30-min cap haalde
+      # (LAT-4956: run 31506170846) draait op de VPS gewoon door — de docker-CLI
+      # sterft met de ssh-sessie mee, de container niet. `rm -rf` op zijn stage
+      # levert dan een half-gewiste map op die hij meteen weer aanvult. Het
+      # script kent ook wezen van vóór deze fix (willekeurige naam, herkenbaar
+      # aan de bind-mount onder /srv/vino-builds) en spaart bewust jonge
+      # containers van ándere runs: deze workflow is per PR geserialiseerd
+      # (`group: i18n-gate-pr-<nr>`), niet fleet-breed, dus twee PR-builds kunnen
+      # tegelijk draaien.
+      - name: Reap orphan build containers
+        if: always()
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          SELF: vino-gate-pr-${{ github.run_id }}
+        run: |
+          ssh -o StrictHostKeyChecking=accept-new "$VPS" \
+            "SELF='$SELF' MODE=reap bash -s" < scripts/reap-build-containers.sh \
+            || echo "::warning::Reaper overgeslagen (SSH niet beschikbaar)"
+
       - name: Clean up VPS scratch staging
         if: always()
         env:
           VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
           STAGE: /srv/vino-builds/pr-${{ github.run_id }}
-        run: ssh "$VPS" "rm -rf '$STAGE'"
+        run: |
+          ssh "$VPS" "rm -rf '$STAGE'" \
+            || echo "::warning::Staging-cleanup overgeslagen (SSH niet beschikbaar)"

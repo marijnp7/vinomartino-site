@@ -204,6 +204,22 @@ jobs:
       # in GHA — Directus zit achter CF Access en is alleen vanaf de VPS
       # bereikbaar via het Docker-netwerk. Script wordt via stdin verstuurd
       # zodat we geen bash heredoc binnen YAML hoeven te jongleren.
+      # LAT-4968: reapen VÓÓR de build, niet alleen erna. Een wees vreet CPU en
+      # schijf, waardoor de volgende build trager wordt en éérder zijn timeout
+      # haalt — wat weer een wees oplevert. Op 2026-08-11 stonden er drie
+      # tegelijk: ~300% CPU-vraag en load 9,5-14,4 op 2 vCPU (LAT-4967), waar
+      # geen build meer bij past. Alleen een always()-reaper achteraf breekt die
+      # lus niet: dan bouw je nog steeds op een verzadigde machine. Kost enkele
+      # seconden en raakt niets van een gezonde run.
+      - name: Reap orphan build containers (pre-build)
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          SELF: vino-build-${{ github.run_id }}
+        run: |
+          ssh -o StrictHostKeyChecking=accept-new "$VPS" \
+            "SELF='$SELF' MODE=reap bash -s" < scripts/reap-build-containers.sh \
+            || echo "::warning::Pre-build reaper overgeslagen (SSH niet beschikbaar)"
+
       - name: Build on VPS
         env:
           VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
@@ -240,8 +256,20 @@ jobs:
             # live content type returns too few published rows. In preview the
             # DRAFTS_ENV flag makes the preflight warn-only. --env-file-if-exists
             # loads DIRECTUS_URL/TOKEN from the copied .env into the node process.
+            # LAT-4968: --name is verplicht. Zonder naam overleeft deze
+            # container een job-timeout als naamloze wees (de docker-CLI sterft
+            # met de ssh-sessie mee, de container is een kind van de daemon) en
+            # is er niets om een opruimer op te richten. Met een deterministische
+            # naam kan de `if: always()`-reaper hieronder hem killen.
+            # Een GHA re-run hergebruikt hetzelfde run_id. Bleef er van de vorige
+            # poging een wees met deze naam staan, dan zou `docker run --name`
+            # afketsen op "container name is already in use" — een verwarrende
+            # rode build i.p.v. de timeout die er werkelijk was. Die container is
+            # per definitie dood-of-verweesd op dit punt, dus weg ermee.
+            docker rm -f "vino-build-$RUN_ID" >/dev/null 2>&1 || true
             set +e
-            docker run --rm --network directus_directus_net \
+            docker run --rm --name "vino-build-$RUN_ID" \
+              --network directus_directus_net \
               $DRAFTS_ENV \
               -v "$STAGE":/app -w /app \
               node:24 bash -c "npm ci && node --env-file-if-exists=.env scripts/preflight-content.mjs && npm run build && node scripts/check-rendered-content.mjs && node --test scripts/check-affiliate-links.test.mjs && node scripts/check-affiliate-links.mjs" 2>&1 | tee build.log
@@ -595,7 +623,27 @@ jobs:
       - name: Done
         run: echo "::notice::Deploy naar ${{ steps.env.outputs.target }} voltooid (${{ github.sha }})"
 
-      # ── 9. Staging-cleanup (altijd) ──────────────────────────────────────
+      # ── 9a. Wees-buildcontainers reapen (altijd, VÓÓR de rm -rf) ─────────
+      # LAT-4968. Twee dingen die de `find -mmin +1440` hieronder principieel
+      # niet kan:
+      #   * Een container die de job-timeout overleefde blijft in zijn stage
+      #     schrijven, dus de mtime van die map wordt nooit ouder dan 1440 min.
+      #     De opruimer slaat precies het duurste geval over (LAT-3441/LAT-4967).
+      #   * De schrijver moet dóód voordat je zijn map wist, anders zet hij de
+      #     bestanden tijdens de rm -rf gewoon terug.
+      # Het script kent ook de wezen van vóór deze fix: die hebben willekeurige
+      # namen en worden herkend aan hun bind-mount onder /srv/vino-builds.
+      - name: Reap orphan build containers
+        if: always()
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          SELF: vino-build-${{ github.run_id }}
+        run: |
+          ssh -o StrictHostKeyChecking=accept-new "$VPS" \
+            "SELF='$SELF' MODE=reap bash -s" < scripts/reap-build-containers.sh \
+            || echo "::warning::Reaper overgeslagen (SSH niet beschikbaar)"
+
+      # ── 9b. Staging-cleanup (altijd) ─────────────────────────────────────
       # LAT-1326: de `rm -rf "$STAGE"` in stap 7 wordt alleen bereikt op het
       # success-pad. Faalt de build of de SSH-sync (zie de historie van
       # transient SSH-timeouts), dan blijft /srv/vino-builds/<run_id> staan —

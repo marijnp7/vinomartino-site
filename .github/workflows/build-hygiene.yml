@@ -1,0 +1,44 @@
+# LAT-4968 — build-container hygiene als PR-check
+#
+# Bewaakt dat een VPS-build nooit weer als naamloze container start. Het defect
+# is twee keer ontstaan door hetzelfde blok te kopiëren: i18n-nl-gate.yml erfde
+# in LAT-3598 de build-stap van deploy.yml inclusief het ontbrekende `--name`,
+# waardoor LAT-3441 niet structureel opgelost was (LAT-4967: twee van de drie
+# wezen op 2026-08-11 kwamen uit gate-runs, niet uit deploys).
+#
+# Draait bewust GEEN build en raakt de VPS niet: puur een statische check plus
+# de unit-test van de reaper, samen enkele seconden. Geen secrets nodig.
+name: build-container hygiene
+
+on:
+  pull_request:
+    branches: [main, preview]
+    paths:
+      - '.github/workflows/**'
+      - 'scripts/reap-build-containers.sh'
+      - 'scripts/reap-build-containers.test.sh'
+      - 'scripts/check-build-container-hygiene.mjs'
+
+concurrency:
+  group: build-hygiene-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  hygiene:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      # Faalt als een `docker run` met stage-bind-mount geen --name heeft, of
+      # als de job geen `if: always()`-reaper draait vóór de stage-cleanup.
+      - name: Statische check op de workflows
+        run: node scripts/check-build-container-hygiene.mjs
+
+      # Draait de reaper tegen een nep-docker: welke containers worden gereapt
+      # en, net zo belangrijk, welke moeten blijven staan (een jonge build van
+      # een ándere PR — deze workflows zijn niet fleet-breed geserialiseerd).
+      - name: Unit-test van de reaper
+        run: bash scripts/reap-build-containers.test.sh
