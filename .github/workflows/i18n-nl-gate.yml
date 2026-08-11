@@ -52,7 +52,13 @@ concurrency:
 jobs:
   gate:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # LAT-4943: gelijkgetrokken met deploy.yml (30). Deze job doet dezelfde
+    # VPS-build als deploy.yml en daarna nog een dist-rsync terug plus de
+    # gate-stappen, maar had een strakkere cap. Deploy-runs van 2026-08-11
+    # duurden 7m36s / 8m49s / 16m45s; op 20 min sneuvelde run 31504188773
+    # midden in de build (stap 6 `cancelled`, stappen 9/10 `skipped`) — een
+    # rode gate die niets over i18n zei.
+    timeout-minutes: 30
 
     steps:
       - name: Checkout PR head
@@ -76,6 +82,15 @@ jobs:
             StrictHostKeyChecking accept-new
             UserKnownHostsFile ~/.ssh/known_hosts
           EOF
+          # LAT-4943: dezelfde keepalive/retry-opties als deploy.yml. Deze
+          # workflow is ná LAT-3769/LAT-3910 aangemaakt en miste het snippet,
+          # dus draaide hij als enige VPS-workflow zónder ConnectTimeout en
+          # ConnectionAttempts: één stille NAT-eviction op de runner gaf direct
+          # `ssh: connect to host *** port 22: Connection timed out` na ~2 min
+          # (runs 31496935022, 31489410733), terwijl deploy.yml op hetzelfde
+          # moment groen bleef. Hard falen als het bestand ontbreekt — stil
+          # zonder keepalive draaien is precies de bug die dit oplost.
+          cat "$GITHUB_WORKSPACE/ops/ssh-config-snippet" >> ~/.ssh/config
           ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
 
       - name: Sync PR source to VPS scratch staging
