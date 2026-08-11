@@ -150,7 +150,21 @@ jobs:
       - name: i18n-nl gate — PR-build (--dist)
         run: python3 scripts/lat2582-gate-check.py --dist dist
 
+      # LAT-4913 — de `if:`-guard is hier het punt, niet een detail.
+      # Zonder guard draait deze step onder `bash -e` alleen als --dist groen
+      # was, dus juist bij een rode gate bleef de liveness-check van de
+      # patronen liggen. Precies verkeerd om: "0 treffers" van een dimensie is
+      # pas bewijs als je ook weet dat de patronen nog vuren op de NL-kant, en
+      # met 32 verse NL_NOUNS-markers hangt daar nu meer aan dan ooit.
+      # De step blijft blokkerend (een dode marker hoort de PR rood te maken),
+      # hij wordt alleen niet meer overgeslagen.
+      #
+      # `!cancelled()` en niet `always()`: de concurrency-groep hierboven staat
+      # op cancel-in-progress, dus elke nieuwe push annuleert de vorige run.
+      # Met always() zou zo'n geannuleerde run alsnog ~40 requests naar live
+      # prod doen voor een uitslag die niemand meer leest.
       - name: i18n-nl gate — pattern self-check (--selftest, live prod)
+        if: ${{ !cancelled() }}
         run: python3 scripts/lat2582-gate-check.py --selftest
 
       - name: Clean up VPS scratch staging
