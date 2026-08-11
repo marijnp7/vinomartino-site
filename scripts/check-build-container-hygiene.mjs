@@ -2,8 +2,8 @@
 // scripts/check-build-container-hygiene.mjs — LAT-4968
 //
 // Statische check op .github/workflows/*.yml. Faalt (exit 1) zodra een workflow
-// een VPS-build start zonder de twee dingen die een wees-buildcontainer
-// onmogelijk maken:
+// een VPS-build start zonder de dingen die een wees-buildcontainer onmogelijk
+// maken (1-2) of die de VPS tegen zichzelf beschermen (3):
 //
 //   1. `docker run` met een deterministische `--name`. Zonder naam overleeft de
 //      container een job-timeout als naamloze wees (docker-CLI sterft met de
@@ -12,6 +12,11 @@
 //   2. een `if: always()`-stap in dezelfde job die scripts/reap-build-containers.sh
 //      draait, en die VÓÓR de stage-cleanup staat — de schrijver moet dood zijn
 //      voordat je zijn map wist.
+//   3. een `. scripts/vps-build-lock.sh` vóór de docker run (LAT-4966). De VPS
+//      heeft nproc=2; twee gelijktijdige builds kosten elk ~2,9x de solo-tijd en
+//      duwen elkaar naar de job-cap. GHA-`concurrency:` kan dit niet oplossen —
+//      zie het script. Een vierde kopie van de build-stap moet de lock dus
+//      meenemen, net als --name en de reaper.
 //
 // Waarom dit bestaat en niet alleen de fix zelf: het defect is twee keer
 // ontstaan door hetzelfde te kopiëren. i18n-nl-gate.yml erfde in LAT-3598 de
@@ -33,6 +38,11 @@ const REAPER = 'scripts/reap-build-containers.sh';
 // wees-vorm die dit bewaakt. Een `docker run` zonder zo'n mount (bv. een
 // wegwerp-tool-container) valt hier bewust buiten.
 const STAGE_MOUNT = /-v\s+"\$STAGE"/;
+
+// LAT-4966 — de build-lock. Alleen de source-vorm (`. pad` of `source pad`)
+// telt: uitvoeren in een subshell geeft de lock direct weer vrij.
+const BUILD_LOCK_SCRIPT = 'scripts/vps-build-lock.sh';
+const BUILD_LOCK = /(^|\s)(\.|source)\s+scripts\/vps-build-lock\.sh/m;
 
 const problems = [];
 const checked = [];
@@ -61,6 +71,12 @@ for (const file of readdirSync(DIR).filter((f) => /\.ya?ml$/.test(f))) {
       // run_id bij een re-run, dus een achtergebleven wees met dezelfde naam
       // laat `docker run --name` afketsen.
       problems.push(`${where}: geen \`docker rm -f\` vóór de docker run (re-run met hetzelfde run_id ketst af op een naamconflict)`);
+    }
+    // LAT-4966: de lock moet ERVOOR staan en gesourced worden. `bash
+    // scripts/vps-build-lock.sh` zou de lock in een subshell nemen en meteen
+    // weer vrijgeven — stil kapot, dus expliciet op de punt-vorm matchen.
+    if (!BUILD_LOCK.test(text.slice(0, text.indexOf(line)))) {
+      problems.push(`${where}: geen \`. ${BUILD_LOCK_SCRIPT}\` vóór de docker run — gelijktijdige VPS-builds kosten elk ~2,9x de solo-tijd en lopen samen tegen de job-cap (LAT-4966)`);
     }
   });
 
