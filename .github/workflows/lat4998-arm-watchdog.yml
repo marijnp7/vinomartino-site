@@ -23,7 +23,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'probe = dry-run calibration only, installs nothing. arm = install the cron (run only after a probe shows green). unpause = docker unpause paperclip-devops-proxy-1 (liveness check / rollback).'
+        description: 'probe = dry-run calibration only, installs nothing. arm = install the cron (run only after a probe shows green). unpause = docker unpause paperclip-devops-proxy-1 (liveness check / rollback). pause = the real trigger test, docker pause paperclip-devops-proxy-1 (run only after arm + a proven unpause liveness check). status = read-only container state + watchdog.log tail (no mutation; use this to poll recovery after pause, since dws_exec.sh depends on the broker being tested).'
         required: true
         type: choice
         default: probe
@@ -31,6 +31,8 @@ on:
           - probe
           - arm
           - unpause
+          - pause
+          - status
 
 permissions:
   contents: read
@@ -89,6 +91,33 @@ jobs:
             docker unpause paperclip-devops-proxy-1
             echo "EXIT=$?"
             docker inspect -f '{{.State.Status}}' paperclip-devops-proxy-1
+        run: |
+          printf '%s\n' "$REMOTE_SCRIPT" | ssh "$VPS" "bash -s"
+
+      - name: pause -- the real trigger test (docker pause paperclip-devops-proxy-1)
+        if: ${{ inputs.mode == 'pause' }}
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          REMOTE_SCRIPT: |
+            set -uo pipefail
+            docker pause paperclip-devops-proxy-1
+            echo "EXIT=$?"
+            docker inspect -f '{{.State.Status}}' paperclip-devops-proxy-1
+        run: |
+          printf '%s\n' "$REMOTE_SCRIPT" | ssh "$VPS" "bash -s"
+
+      - name: status -- read-only container state + watchdog.log tail, no mutation
+        if: ${{ inputs.mode == 'status' }}
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          REMOTE_SCRIPT: |
+            set -uo pipefail
+            echo "--- container state ---"
+            docker inspect -f '{{.State.Status}}' paperclip-devops-proxy-1
+            echo "--- watchdog.log tail ---"
+            tail -n 20 /opt/paperclip-cos/lat3204/watchdog.log 2>/dev/null || echo "(missing)"
+            echo "--- watchdog-state.json ---"
+            cat /opt/paperclip-cos/lat3204/watchdog-state.json 2>/dev/null || echo "(missing)"
         run: |
           printf '%s\n' "$REMOTE_SCRIPT" | ssh "$VPS" "bash -s"
 
