@@ -33,6 +33,17 @@
 #
 # Vereiste secrets (gedeeld met deploy.yml, geen nieuwe nodig):
 # VPS_HOST, VPS_USER, VPS_SSH_PRIVATE_KEY.
+#
+# LAT-4956: run 31506170846 haalde de toenmalige 30-min cap (LAT-4943) niet —
+# afgekapt in stap 6, 23m33s daarvan alleen al in [streek].astro. Oorzaak was
+# geen hang maar volume: de build zette DIRECTUS_INCLUDE_DRAFTS=1 onvoor-
+# waardelijk aan (deploy.yml doet dat alleen op TARGET=preview), waardoor
+# deze gate ~9x meer accommodaties bouwde dan er live staan (311 i.p.v. 34
+# streek-roundups) en de bewust lage asset-concurrency/retry-tuning
+# (LAT-2779/LAT-3331/LAT-2518) evenredig vaker en langer volliep. Vlag nu
+# weg — zie de build-stap hieronder. timeout-minutes blijft op 30 als
+# marge; niet verder ophogen zonder eerst te meten of dit volstaat (het was
+# precies de symptoombestrijding die LAT-4956 wilde vermijden).
 
 name: i18n-nl gate (PR)
 
@@ -118,8 +129,20 @@ jobs:
             if [ -f /root/vinomartino-site/.env ]; then
               cp /root/vinomartino-site/.env .env
             fi
+            # LAT-4956: geen DIRECTUS_INCLUDE_DRAFTS hier. deploy.yml zet die
+            # vlag alleen op TARGET=preview; deze gate heeft geen preview-
+            # concept en moet dekking meten over wat prod ook echt serveert
+            # (status=published), niet over draft-only pagina's. Onvoorwaardelijk
+            # aan bouwde ~9x meer accommodaties (311 i.p.v. 34 streek-roundups)
+            # en verklaart het leeuwendeel van de 23,5 min in
+            # [streek].astro (run 31506170846): de globale asset-concurrency-cap
+            # (LAT-2779/LAT-3331, DIRECTUS_ASSET_CONCURRENCY=4) en de
+            # retry/backoff op mislukte downloads (LAT-2518) zijn bewust zo
+            # laag/traag getuned om Directus niet te DoS'en — bij 9x zoveel
+            # accommodaties lopen die twee mechanismes vaker en langer vol.
+            # Root-cause is dus vlag-volume, niet de timeout/concurrency-
+            # instellingen zelf; die blijven ongewijzigd.
             docker run --rm --network directus_directus_net \
-              -e DIRECTUS_INCLUDE_DRAFTS=1 \
               -v "$STAGE":/app -w /app \
               node:24 bash -c "npm ci && npm run build" 2>&1 | tee build.log
             build_rc=${PIPESTATUS[0]}
