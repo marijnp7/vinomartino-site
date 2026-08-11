@@ -95,7 +95,16 @@ jobs:
             if [ -f /root/vinomartino-site/.env ]; then
               cp /root/vinomartino-site/.env .env
             fi
-            docker run --rm --network directus_directus_net \
+            # LAT-4968: --name is verplicht. Zonder naam overleeft deze container
+            # een job-timeout als naamloze wees (docker-CLI sterft mee met de
+            # ssh-sessie, de container is een kind van de daemon) en is er niets
+            # om een opruimer op te richten. Zie de reaper-stap onderaan deze job.
+            # Een GHA re-run hergebruikt hetzelfde run_id; een achtergebleven
+            # wees met deze naam zou `docker run --name` laten afketsen op
+            # "container name is already in use".
+            docker rm -f "vino-publish-$RUN_ID" >/dev/null 2>&1 || true
+            docker run --rm --name "vino-publish-$RUN_ID" \
+              --network directus_directus_net \
               -v "$STAGE":/app -w /app \
               node:24 bash -c "npm ci && npm run build"
             printf '{"sha":"%s","runId":"%s","runNumber":"%s","builtAt":"%s"}\n' \
@@ -177,6 +186,20 @@ jobs:
       # de rm -rf in de swap-stap); elke stage bevat een volledige node_modules
       # (npm ci in bind-mount). Ruim de huidige run altijd op + prune stages
       # ouder dan 1 dag zodat de VPS-schijf niet volloopt.
+      # LAT-4968: reapen VÓÓR de rm -rf hieronder. De `find -mmin +1440` kan een
+      # hangende build principieel niet raken (de levende container houdt de
+      # mtime vers) en wissen zonder eerst te killen levert een map op die de
+      # schrijver meteen weer aanvult.
+      - name: Reap orphan build containers
+        if: always()
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          SELF: vino-publish-${{ github.run_id }}
+        run: |
+          ssh -o StrictHostKeyChecking=accept-new "$VPS" \
+            "SELF='$SELF' MODE=reap bash -s" < scripts/reap-build-containers.sh \
+            || echo "::warning::Reaper overgeslagen (SSH niet beschikbaar)"
+
       - name: Cleanup VPS staging
         if: always()
         env:
