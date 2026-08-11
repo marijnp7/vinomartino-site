@@ -97,6 +97,21 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
 
+      # LAT-4911: de copy-test kwam mee met deze fix maar werd door geen enkele
+      # workflow uitgevoerd -- alleen als npm-script. Een detector die niemand
+      # draait is onzichtbaar.
+      # Hij draait op de runner (alleen bron nodig, geen Directus), dus een
+      # ontbrekende EN-waarde faalt binnen seconden in plaats van na de ~10
+      # minuten VPS-build. Node 24 want de test importeert ui-strings.ts
+      # rechtstreeks (type-stripping is pas vanaf 22.18 standaard aan).
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: wijnhuis-template copy-test (NL-defaults + EN-dekking)
+        run: node --test scripts/lat4911-wijnhuis-template-copy.test.mjs
+
       - name: Setup SSH agent
         uses: webfactory/ssh-agent@v0.9.0
         with:

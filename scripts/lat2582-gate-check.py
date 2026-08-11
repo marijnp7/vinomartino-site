@@ -207,31 +207,49 @@ NL_NOUNS = {
     "wijnstreken": "/landen/",
     "streken": "/landen/",
     "zoeken": "/voor-accommodaties/",
+    # LAT-4911 -- verhuisd uit NL_NOUNS_PENDING nadat de wijnhuis-/route-/kaart-
+    # templates en de Directus-content Engels renderen op /en/. Anders dan de
+    # families hierboven wijzen de zeldzame markers naar een exacte NL-pagina
+    # (zelfde vorm als "foto": "/colofon/"): ze staan op een of twee pagina's, en
+    # met een familie-prefix zou de selftest-steekproef (6 detailpagina's) ze
+    # missen en DOOD melden terwijl de marker gewoon meetbaar is.
+    "appellatie": "/streken/bourgogne/",
+    "appellaties": "/artikelen/10-wijnhuizen-rhone-benchmark/",
+    "bezienswaardigheid": "/wijnroutes/",
+    "domein": "/streken/rioja/",
+    "kaart": "/artikelen/10-wijnhuizen-rhone-benchmark/",
+    "kelder": "/artikelen/waar-slapen-langhe-piemonte/",
+    "ligging": "/accommodaties/bourgogne/",
+    "noordelijke": "/artikelen/10-wijnhuizen-rhone-benchmark/",
+    "oogst": "/artikelen/grower-champagne-2026-vroegste-oogst-bezoeken/",
+    "streek": "/wijnhuizen/",
+    "zuidelijke": "/artikelen/10-wijnhuizen-rhone-benchmark/",
 }
 
-# Markers die de meting WEL als bruikbaar aanwees, maar die vandaag op /en/ al
-# vuren -- niet omdat het vals-positieven zijn, maar omdat er echte NL-labels op
-# de EN-kant staan (LAT-4911). Ze staan hier apart in plaats van weggelaten:
-# een stil geschrapte marker is niet te onderscheiden van een marker die nooit
-# is overwogen, en dan verdwijnt de bekende blinde vlek uit beeld.
+# Markers die de meting WEL als bruikbaar aanwees, maar die op /en/ nog vuurden
+# omdat er echte NL-labels op de EN-kant stonden. Elf van de twaalf zijn per
+# LAT-4911 gefixt (template-, module- en Directus-kant) en staan nu gewoon in
+# NL_NOUNS hierboven.
 #
-# Ze aanzetten voordat die content gefixt is maakt de gate rood op elke PR, en
-# een gate die altijd rood staat leert iedereen hem te negeren -- dat is duurder
-# dan het gat. Zodra LAT-4911 gefixt is verhuizen deze regels naar NL_NOUNS
-# hierboven; de gate print ze tot die tijd bij elke run als bekend gat.
-NL_NOUNS_PENDING = {
-    "wijnhuis": "129 /en/wijnhuizen/-pagina's ('Wijnhuis-portret')",
-    "streek": "130 /en/wijnhuizen/-pagina's ('STREEK'-label)",
-    "kaart": "4 /en/-pagina's (rhone-maps.ts kaarttitel)",
-    "appellaties": "1 /en/-pagina (rhone-maps.ts bijschrift)",
-    "appellatie": "3 /en/-pagina's",
-    "noordelijke": "1 /en/-pagina (rhone-maps.ts legenda)",
-    "zuidelijke": "1 /en/-pagina (rhone-maps.ts legenda)",
-    "bezienswaardigheid": "8 /en/-pagina's (rhone-maps.ts legenda)",
-    "oogst": "1 /en/-pagina",
-    "ligging": "2 /en/-pagina's",
-    "domein": "1 /en/-pagina",
-    "kelder": "1 /en/-pagina",
+# Deze set blijft bestaan als landingsplaats: een marker die vandaag terecht
+# vuurt op /en/ hoort hier, niet weggelaten. Een stil geschrapte marker is niet
+# te onderscheiden van een marker die nooit is overwogen, en dan verdwijnt de
+# bekende blinde vlek uit beeld. De gate print de inhoud bij elke run.
+NL_NOUNS_PENDING: dict[str, str] = {
+    # LAT-4911 -- 'wijnhuis' is op 129 van de 131 pagina's opgelost (het
+    # wijnhuis-template rendert nu Engels). Wat overblijft zijn 2 artikelen met
+    # de affiliate-disclosure van AffiliateBlockDisclosure.astro:
+    #   "Reservering via de directe link naar het wijnhuis, VinoMartino
+    #    ontvangt commissie, prijs voor jou identiek."
+    # Die zin is disclosure-copy onder de M1-Optie-B-regels; een EN-formulering
+    # vaststellen is een redactionele/compliance-keuze, geen technische. Dat
+    # ligt bij de Lead Editor in LAT-4979. Zodra die EN-tekst er is, krijgt het
+    # component een locale-prop en verhuist deze marker alsnog naar NL_NOUNS.
+    #
+    # Bewust hier en niet in NL_NOUNS: aanzetten zou de gate op ELKE PR rood
+    # zetten voor een bekende, belegde copy-vraag, en een gate die altijd rood
+    # staat leert iedereen hem te negeren.
+    "wijnhuis": "/wijnhuizen/",
 }
 
 NOUN_RE = {w: re.compile(r"\b" + re.escape(w) + r"\b") for w in NL_NOUNS}

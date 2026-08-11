@@ -29,6 +29,7 @@ import { currencyForLand, formatNightlyPrice } from '../lib/currency';
 import { streekSchema, streekMetaTitle, streekMetaDescription, breadcrumbSchema } from '../lib/seo';
 import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
 import { loadUiStrings } from '../lib/ui-strings';
+import { licenseLabelFor } from '../lib/image-credits';
 
 interface Props {
   entry: Streek;
@@ -321,8 +322,8 @@ const hasFactBox = Boolean(
               {entry.heroCredit.author}
               {entry.heroCredit.licenseLabel && (
                 <> — {entry.heroCredit.licenseUrl
-                  ? <a href={entry.heroCredit.licenseUrl} rel="license noopener" target="_blank">{entry.heroCredit.licenseLabel}</a>
-                  : entry.heroCredit.licenseLabel}</>
+                  ? <a href={entry.heroCredit.licenseUrl} rel="license noopener" target="_blank">{licenseLabelFor(entry.heroCredit.licenseLabel, locale)}</a>
+                  : licenseLabelFor(entry.heroCredit.licenseLabel, locale)}</>
               )}
               {entry.heroCredit.sourceUrl && (
                 <> — <a href={entry.heroCredit.sourceUrl} rel="noopener" target="_blank">{ui.t('streek.hero.bron')}</a></>

@@ -69,6 +69,57 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     // wanneer de Land→Streek-keten (nog) onbekend is.
     'wijnhuis.breadcrumb.index': 'Wijnhuizen',
 
+    // Wijnhuis-detailpagina template-chrome (LAT-4911, WijnhuisPageContent.astro).
+    // Stonden als kale NL-literals in de template en renderden daardoor op alle
+    // ~130 /en/wijnhuizen/-pagina's in het Nederlands. De defaults hieronder zijn
+    // tekstueel identiek aan die literals — inclusief de `§ ` in `story.label` en
+    // de letterlijke pijl in `visit.mapsCta` — zodat de NL-HTML byte-identiek blijft.
+    // `meta.biologisch.ja` is de *waarde* (niet het label): WijnhuisDetail.astro gaf
+    // `entry.biodynamisch ? 'Ja' : undefined` door.
+    'wijnhuis.hero.eyebrow': 'Wijnhuis-portret',
+    'wijnhuis.meta.streek': 'STREEK',
+    'wijnhuis.meta.route': 'ROUTE',
+    'wijnhuis.meta.sinds': 'SINDS',
+    'wijnhuis.meta.hectaren': 'HECTAREN',
+    'wijnhuis.meta.biologisch': 'BIOLOGISCH',
+    'wijnhuis.meta.biologisch.ja': 'Ja',
+    'wijnhuis.drieluik.beeldenVanPrefix': 'Beelden van',
+    'wijnhuis.story.label': '§ Het verhaal',
+    'wijnhuis.wines.eyebrow': 'De wijnen',
+    'wijnhuis.wines.title': 'Wat we proefden',
+    'wijnhuis.visit.eyebrow': 'Bezoek',
+    'wijnhuis.visit.title': 'Voor je heen rijdt',
+    'wijnhuis.visit.mapsCta': 'Open in Google Maps →',
+    'wijnhuis.visit.reserveCta': 'Reservering aanvragen',
+    'wijnhuis.related.label': 'Gerelateerd',
+    'wijnhuis.related.title': 'Meer wijnhuizen in deze streek',
+
+    // Cross-linkblok onderaan de artikelpagina's (LAT-4911, RelatedEntities.astro).
+    // Stonden als kale NL-literals — het component laadde de dictionary niet eens —
+    // en zetten daardoor `Streek` op 20 en `Wijnhuis` op 9 /en/artikelen/-pagina's.
+    'related.label': 'Gerelateerd',
+    'related.title': 'Lees verder',
+    'related.kind.streek': 'Streek',
+    'related.kind.wijnhuis': 'Wijnhuis',
+    'related.kind.wijnroute': 'Wijnroute',
+    'related.kind.land': 'Land',
+
+    // Stop-soort-labels in de route-itinerary (LAT-4911, RouteItineraryDays.astro)
+    // en de chrome van de geo-kaart (RouteGeoMap.astro). Stonden als kale
+    // NL-literals op de 11 /en/wijnroutes/-pagina's.
+    'route.stop.wijnhuis': 'Wijnhuis',
+    'route.stop.eten': 'Eten',
+    'route.stop.bezienswaardigheid': 'Bezienswaardigheid',
+    'route.stop.overnachting': 'Overnachting',
+    // {duur} wordt vervangen door de duur-string uit de itinerary-data.
+    'route.stop.duur': 'Reken op {duur}.',
+    'routegeo.label': 'Routekaart',
+    'routegeo.aria.mapPre': 'Kaart van de route',
+    'routegeo.legend.aria': 'Legenda',
+    'routegeo.legend.dagetappe': 'Dagetappe',
+    'routegeo.legend.wijnhuis': 'Wijnhuis',
+    'routegeo.legend.overnachten': 'Overnachten',
+
     // Wijnroute-detailpagina chrome (LAT-2638, RouteDetail.astro).
     'route.breadcrumb.index': 'Wijnroutes',
     'route.daysAria': 'Dagen op deze route',
@@ -374,6 +425,16 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'gerelateerdeStukken.title': 'Gerelateerde stukken',
     'rhonemap.aria.mapPre': 'Kaart:',
 
+    // LAT-4909 — de resterende zichtbare chrome van RhoneMap.astro, die als kale
+    // literals in de template stond en daardoor NL rendeerde op /en/: het
+    // "Kaart"-kickerlabel, het aria-label van de legenda en het legenda-item van
+    // de routelijn (alleen variant 'route'). De kaartteksten zelf
+    // (titel/bijschrift/legenda-labels) zijn kaart-inhoud, geen chrome, en staan
+    // daarom in src/lib/rhone-maps.ts en niet in deze dictionary.
+    'rhonemap.label': 'Kaart',
+    'rhonemap.legend.aria': 'Legenda',
+    'rhonemap.legend.route': 'Route noord → zuid',
+
     // AffiliatePlaceholder.astro (LAT-1029) — per-type affiliate-blok chrome
     // (titel/omschrijving/cta). De icon-emoji staat in de component (taal-neutraal).
     'affiliate.block.accommodation.title': 'Waar slapen',
@@ -669,6 +730,80 @@ export const UI_STRING_EN: Record<string, string> = {
     // LangheCaptureBlock.astro — gedeeld e-mail veld.
     'langhe.capture.email.label': 'Email address',
     'langhe.capture.email.placeholder': 'your@email.com',
+
+    // RhoneMap.astro — kaart-chrome (LAT-4909). `rhonemap.aria.mapPre` is in
+    // Directus geseed (LAT-2848) maar had nog geen code-level fallback: bij een
+    // Directus-degradatie tijdens de build viel het aria-label terug op "Kaart:".
+    'rhonemap.aria.mapPre': 'Map:',
+    'rhonemap.label': 'Map',
+    'rhonemap.legend.aria': 'Legend',
+    'rhonemap.legend.route': 'Route north → south',
+
+    // WijnhuisPageContent.astro — template-chrome van de ~130 wijnhuis-portretten
+    // (LAT-4911). EN-copy aangeleverd en goedgekeurd door de Lead Editor.
+    // `visit.mapsCta` is bewust identiek aan de NL-default: eigennaam + universele
+    // frase. De `§ ` in `story.label` is een typografisch teken, geen taal, dus die
+    // blijft ook in de EN-waarde staan.
+    'wijnhuis.hero.eyebrow': 'Winery portrait',
+    'wijnhuis.meta.streek': 'REGION',
+    'wijnhuis.meta.route': 'ROUTE',
+    'wijnhuis.meta.sinds': 'SINCE',
+    'wijnhuis.meta.hectaren': 'HECTARES',
+    'wijnhuis.meta.biologisch': 'ORGANIC',
+    'wijnhuis.meta.biologisch.ja': 'Yes',
+    'wijnhuis.drieluik.beeldenVanPrefix': 'Images of',
+    'wijnhuis.story.label': '§ The story',
+    'wijnhuis.wines.eyebrow': 'The wines',
+    'wijnhuis.wines.title': 'What we tasted',
+    'wijnhuis.visit.eyebrow': 'Visit',
+    'wijnhuis.visit.title': 'Getting there',
+    'wijnhuis.visit.mapsCta': 'Open in Google Maps →',
+    'wijnhuis.visit.reserveCta': 'Request a reservation',
+    'wijnhuis.related.label': 'Related',
+    'wijnhuis.related.title': 'More wineries in this region',
+
+    // RelatedEntities.astro — cross-linkblok onderaan de artikelpagina's (LAT-4911).
+    // `related.label`/`related.kind.streek`/`related.kind.wijnhuis` volgen de door de
+    // Lead Editor goedgekeurde termen uit de wijnhuis-set (Related / Region / Winery);
+    // `related.title`, `related.kind.wijnroute` en `related.kind.land` zijn nieuw en
+    // staan ter bevestiging in het EN-copy-issue.
+    'related.label': 'Related',
+    'related.title': 'Read on',
+    'related.kind.streek': 'Region',
+    'related.kind.wijnhuis': 'Winery',
+    'related.kind.wijnroute': 'Wine route',
+    'related.kind.land': 'Country',
+
+    // RouteItineraryDays.astro + RouteGeoMap.astro — stop-soorten en kaart-chrome
+    // op de /en/wijnroutes/-pagina's (LAT-4911). `Winery` volgt de goedgekeurde
+    // wijnhuis-set; de rest is nieuw en staat ter bevestiging in het EN-copy-issue.
+    'route.stop.wijnhuis': 'Winery',
+    'route.stop.eten': 'Food',
+    'route.stop.bezienswaardigheid': 'Sight',
+    'route.stop.overnachting': 'Stay',
+    'route.stop.duur': 'Allow {duur}.',
+    'route.daysAria': 'Days on this route',
+    'route.leesPortret': 'Read the portrait',
+    'routegeo.label': 'Route map',
+    'routegeo.aria.mapPre': 'Map of the route',
+    'routegeo.legend.aria': 'Legend',
+    'routegeo.legend.dagetappe': 'Day leg',
+    'routegeo.legend.wijnhuis': 'Winery',
+    'routegeo.legend.overnachten': 'Stay',
+
+    // Keys die de infrastructuur al hadden in UI_STRING_DEFAULTS maar nog geen
+    // EN-waarde, en daardoor op /en/ NL terugvielen (LAT-4911). Vallen buiten de
+    // twaalf gate-markers, maar staan op dezelfde ~130 pagina's.
+    'wijnhuis.breadcrumb.index': 'Wineries',
+    'wijnhuizen.index.hero.label': 'Wineries',
+    // ProefnotitieKaart.astro — 'Uit de kelder' stond via UI_COPY hardcoded in het
+    // component (LAT-4924 §3). EN-copy goedgekeurd door de Lead Editor.
+    'ui.proefnotitie.kaartLabel': 'From the cellar',
+    'wijnhuis.staynear.aria': 'Nearby places to stay',
+    'wijnhuis.staynear.labelPrefix': 'Stay near',
+    'wijnhuis.staynear.disclosure': 'Affiliate links · no extra cost to you',
+    'wijnhuis.staynear.ctaNearPrefix': 'Stay near',
+    'wijnhuis.staynear.ctaNear': 'Stay nearby',
 
     // Rubriek-labels voor /en/artikelen/ — LAT-3319.
     'artikelen.rubriek.regio-gidsen': 'Region guides',

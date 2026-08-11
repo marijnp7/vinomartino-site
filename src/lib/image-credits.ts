@@ -14,6 +14,21 @@ export interface ImageCredit {
     licenseUrl: string;
 }
 
+// LAT-4911 — licentielabels komen uit de basis-collectie (`streken.hero_credit`),
+// die géén *_translations-tegenhanger heeft: er is dus geen veld waar een EN-label
+// in kan. Alle labels op de site zijn taalneutrale licentiecodes ("CC BY-SA 4.0")
+// op één na — "Publiek domein" rendert Nederlands op /en/ (/en/streken/rioja/).
+// Een lookup is genoeg; een schema-wijziging voor één string is dat niet.
+const LICENSE_LABEL_EN: Record<string, string> = {
+    'Publiek domein': 'Public domain',
+};
+
+/** Geeft het licentielabel in `locale`; onbekende/taalneutrale labels ongewijzigd terug. */
+export function licenseLabelFor(label: string, locale: string): string {
+    if (locale === 'nl') return label;
+    return LICENSE_LABEL_EN[label.trim()] ?? label;
+}
+
 const CC_BY_SA_40 = 'https://creativecommons.org/licenses/by-sa/4.0/';
 const CC_BY_SA_30 = 'https://creativecommons.org/licenses/by-sa/3.0/';
 const CC_BY_ND_20 = 'https://creativecommons.org/licenses/by-nd/2.0/';

@@ -31,7 +31,7 @@ import { type Article } from '../lib/articles';
 import { articleSchema, breadcrumbSchema } from '../lib/seo';
 import { getAffiliateBlock, resolveAccommodationHref } from '../lib/affiliates';
 import { getAuthorByByline } from '../lib/authors';
-import { getImageCredit } from '../lib/image-credits';
+import { getImageCredit, licenseLabelFor } from '../lib/image-credits';
 import { type AccommodatieRoundup as AccommodatieRoundupData } from '../lib/accommodaties';
 import { loadUiStrings } from '../lib/ui-strings';
 import { rubriekLabel } from '../lib/rubriek-labels';
@@ -100,7 +100,9 @@ const modifiedTime = article.updatedAt || article.pubDate;
 // LAT-1719: de twee Rhône-artikelen krijgen een interactieve Leaflet-kaart inline
 // in de body. splitBodyForRhoneMap() knipt de bodyHtml op een vast anker; null
 // voor alle andere artikelen (dan rendert de body ongewijzigd).
-const rhoneMap = splitBodyForRhoneMap(article.bodyHtml, article.slug);
+// LAT-4909: de locale gaat mee, zodat de kaartteksten (titel/bijschrift/legenda)
+// én het split-anker bij de taal van de gerenderde body horen. NL = no-op.
+const rhoneMap = splitBodyForRhoneMap(article.bodyHtml, article.slug, locale);
 
 // LAT-1687: verplichte beeldcredit (bv. Wikimedia Commons CC BY-SA) bij de hero.
 const heroCredit = getImageCredit(article.heroImageId);
@@ -165,7 +167,7 @@ if (article.faqSchema) {
         <BeeldHerkomst fileId={article.heroImageId} src={article.heroImage} locale={locale} />
         {heroCredit && (
           <figcaption class="article-hero-credit">
-            {heroCredit.author}, <a href={heroCredit.licenseUrl} rel="license noopener" target="_blank">{heroCredit.licenseLabel}</a>
+            {heroCredit.author}, <a href={heroCredit.licenseUrl} rel="license noopener" target="_blank">{licenseLabelFor(heroCredit.licenseLabel, locale)}</a>
           </figcaption>
         )}
       </figure>
@@ -190,7 +192,13 @@ if (article.faqSchema) {
             <span class="article-date">{new Date(article.pubDate).toLocaleDateString(dateLocale, { day: 'numeric', month: 'long', year: 'numeric' })}</span>
             <span class="article-reading">· {`${article.readingMinutes} ${ui.t('artikel.meta.minLezen')}`}</span>
           </div>
-          {article.tags && article.tags.length > 0 && (
+          {/* LAT-4911 — `article.tags` is een kale string-array op de basis-collectie:
+              er is geen `tags_translations`, dus op /en/ renderden hier NL-woorden.
+              Een EN-taxonomie optuigen voor vier artikelen is een eigen project
+              (afgewogen in LAT-4924); tot die er is tonen we het blok alleen op NL.
+              De tags blijven wél in de OG/schema-metadata staan — die zijn niet
+              zichtbaar en dienen als machine-leesbare onderwerp-hint. */}
+          {locale === DEFAULT_LOCALE && article.tags && article.tags.length > 0 && (
             <div class="article-tags">
               {article.tags.map(tag => <span class="tag">{tag}</span>)}
             </div>
@@ -223,7 +231,7 @@ if (article.faqSchema) {
         )}
 
         {/* LAT-2112 — "Uit de kelder": fles-first proefnotitie-kaarten (kader LAT-2014). */}
-        <ProefnotitieKaart proefnotities={article.proefnotities} />
+        <ProefnotitieKaart proefnotities={article.proefnotities} locale={locale} />
 
         {/* LAT-2112 — "Eerst dit boeken": praktisch afsluitblok van reisartikelen. */}
         <EerstDitBoeken items={article.eerstDitBoeken} />

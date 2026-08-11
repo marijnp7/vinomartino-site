@@ -10,11 +10,26 @@
 // Plaatsing in het artikel gebeurt door splitBodyForRhoneMap() die de gerenderde
 // bodyHtml op een vast anker splitst; [slug].astro rendert de kaart tussen de
 // twee helften. Anker niet gevonden → kaart bovenaan i.p.v. stil verdwijnen.
+//
+// LAT-4909 — dit bestand was tot nu toe volledig taalloos: één hardcoded
+// NL-config per slug. Beide Rhône-artikelen hebben wél een /en/-tegenhanger, dus
+// op /en/artikelen/… renderden titel, bijschrift en legenda letterlijk
+// Nederlands ("Wijnhuis", "Noordelijke Rhône", "Tien appellaties, noord naar
+// zuid"). NL blijft hieronder de bron van waarheid; EN is een overlay
+// (RHONE_MAPS_EN) die alléén de zichtbare teksten vervangt. De locale komt via
+// splitBodyForRhoneMap() mee uit ArtikelDetail.astro — de kaart heeft geen eigen
+// route en kan er dus niet zelf aan komen.
+
+import { DEFAULT_LOCALE, type Locale } from './i18n';
 
 export type RhonePoiKind = 'wijnhuis' | 'hotel' | 'bezienswaardigheid' | 'noord' | 'zuid' | 'tavel';
 
 export interface RhonePoi {
   n: number;
+  // LAT-4909 — `naam` en `detail` zijn taalneutraal en blijven daarom buiten de
+  // EN-overlay: het zijn Franse eigennamen (Côte-Rôtie, Cave de Tain) en
+  // plaatsnamen, en "walk-in" is in het Nederlands net zo gangbaar als in het
+  // Engels. Ze vertalen zou de adressen juist onvindbaar maken ter plaatse.
   naam: string;
   lat: number;
   lng: number;
@@ -23,6 +38,7 @@ export interface RhonePoi {
 }
 
 export interface RhoneKindMeta {
+  // `kind` is een structurele sleutel (kleurkoppeling + EN-overlay), geen tekst.
   kind: RhonePoiKind;
   label: string;
   color: string;
@@ -112,16 +128,85 @@ export const RHONE_MAPS: Record<string, RhoneMapConfig> = {
   },
 };
 
+/**
+ * LAT-4909 — EN-overlay op `RHONE_MAPS`. Bevat alléén de zichtbare teksten; de
+ * POI's, coördinaten, kleuren en `kind`-sleutels blijven gedeeld, zodat een
+ * vertaling nooit de kaartdata kan laten divergeren. Ontbreekt een slug of een
+ * `kind`, dan valt die terug op de NL-waarde: een vertaalgat mag hooguit een
+ * Nederlands woord opleveren, geen lege legenda.
+ */
+interface RhoneMapCopy {
+  title: string;
+  caption: string;
+  kindLabels: Partial<Record<RhonePoiKind, string>>;
+}
+
+const RHONE_MAPS_EN: Record<string, RhoneMapCopy> = {
+  'van-macon-naar-aix-rhone-route': {
+    title: 'From Mâcon to Aix — the route',
+    // Bijschrift en kaarttitel echoën bewust de koppen van het EN-artikel
+    // ("The route at a glance"), net als in het NL — de kaart hoort visueel bij
+    // die kop.
+    caption: 'The route at a glance',
+    kindLabels: {
+      wijnhuis: 'Winery',
+      hotel: 'Hotel',
+      bezienswaardigheid: 'Point of interest',
+    },
+  },
+  '10-wijnhuizen-rhone-benchmark': {
+    title: 'Ten appellations, north to south',
+    caption: 'The ten Rhône appellations on the map',
+    kindLabels: {
+      noord: 'Northern Rhône',
+      zuid: 'Southern Rhône',
+      // Eigennaam + internationale wijnterm: in beide talen identiek. Staat er
+      // expliciet in zodat de EN-legenda compleet leesbaar is naast de NL-bron.
+      tavel: 'Tavel (rosé)',
+    },
+  },
+};
+
+/**
+ * LAT-4909 — kaartconfig voor `slug` in `locale`, of null voor niet-Rhône-slugs.
+ *
+ * NL geeft het `RHONE_MAPS`-object ongewijzigd (zelfde referentie) terug, zodat
+ * de gerenderde NL-HTML byte-identiek blijft; alleen EN bouwt een nieuw object.
+ */
+export function rhoneMapConfigFor(slug: string, locale: Locale = DEFAULT_LOCALE): RhoneMapConfig | null {
+  const base = RHONE_MAPS[slug];
+  if (!base) return null;
+  if (locale === DEFAULT_LOCALE) return base;
+
+  const copy = RHONE_MAPS_EN[slug];
+  if (!copy) return base;
+
+  return {
+    ...base,
+    title: copy.title,
+    caption: copy.caption,
+    kindMeta: base.kindMeta.map((m) => ({ ...m, label: copy.kindLabels[m.kind] ?? m.label })),
+  };
+}
+
 // Vaste ankers in de gerenderde bodyHtml (geverifieerd op prod, LAT-1719). De
 // kaart komt ná de "in één oogopslag"-kop (route) resp. vóór de eerste
 // inhoudskop (benchmark, d.w.z. direct onder de intro).
-const SPLIT_ANCHORS: Record<string, { marker: string; place: 'after' | 'before' }> = {
+//
+// LAT-4909 — de EN-body draagt vertaalde koppen én vertaalde slug-id's, dus het
+// NL-anker matcht daar nooit. Zonder `markerEn` viel /en/ altijd terug op
+// "kaart bovenaan"; de EN-markers zijn afgelezen uit de live prod-HTML van
+// /en/artikelen/… (2026-08-11). Mist het anker alsnog (redactie herschrijft de
+// kop), dan geldt onveranderd de oude fallback: kaart bovenaan, nooit weg.
+const SPLIT_ANCHORS: Record<string, { marker: string; markerEn: string; place: 'after' | 'before' }> = {
   'van-macon-naar-aix-rhone-route': {
     marker: '<h2 id="de-route-in-een-oogopslag">De route in één oogopslag</h2>',
+    markerEn: '<h2 id="the-route-at-a-glance">The route at a glance</h2>',
     place: 'after',
   },
   '10-wijnhuizen-rhone-benchmark': {
     marker: '<h2 id="de-structuur-van-de-rhone">',
+    markerEn: '<h2 id="the-structure-of-the-rhone">',
     place: 'before',
   },
 };
@@ -137,17 +222,25 @@ export interface RhoneBodySplit {
  * inline between the two halves. Returns null for non-Rhône articles. If the
  * anchor is missing (content changed), the map is placed at the top so it never
  * silently disappears.
+ *
+ * LAT-4909 — `locale` bepaalt zowel de gebruikte kaartteksten als het anker.
+ * Weglaten = NL-gedrag, byte-identiek aan vóór deze wijziging.
  */
-export function splitBodyForRhoneMap(bodyHtml: string, slug: string): RhoneBodySplit | null {
-  const config = RHONE_MAPS[slug];
+export function splitBodyForRhoneMap(
+  bodyHtml: string,
+  slug: string,
+  locale: Locale = DEFAULT_LOCALE,
+): RhoneBodySplit | null {
+  const config = rhoneMapConfigFor(slug, locale);
   const anchor = SPLIT_ANCHORS[slug];
   if (!config || !anchor) return null;
 
-  const idx = bodyHtml.indexOf(anchor.marker);
+  const marker = locale === DEFAULT_LOCALE ? anchor.marker : anchor.markerEn;
+  const idx = bodyHtml.indexOf(marker);
   if (idx === -1) {
     return { before: '', after: bodyHtml, config };
   }
-  const cut = anchor.place === 'after' ? idx + anchor.marker.length : idx;
+  const cut = anchor.place === 'after' ? idx + marker.length : idx;
   return {
     before: bodyHtml.slice(0, cut),
     after: bodyHtml.slice(cut),
