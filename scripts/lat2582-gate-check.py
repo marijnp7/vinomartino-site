@@ -11,6 +11,7 @@ parsen:
       2       4  nl-links      interne links van /en/ naar de NL-kant (LAT-2704)
       3       8  coverage      NL-pagina's zonder EN-tegenhanger
       4      16  nl-literals   ratio-blinde NL-literals               (LAT-2820)
+      5      32  nl-nouns      losse NL inhoudswoorden                (LAT-4909)
              64  operationeel  er kon niets gemeten worden
 
 Een run die op zowel nl-sentences als nl-links faalt geeft dus exit 5.
@@ -45,6 +46,15 @@ Een literal-check die *niets* matcht is niet te onderscheiden van een geslaagde
 gate. `--selftest` dekt dat af: het draait elke literal tegen de NL-tegenhanger,
 waar hij per definitie hoort te staan. Vuurt een patroon daar niet, dan is het
 patroon dood en niet de content schoon.
+
+Waarom losse inhoudswoorden er nog een dimensie bij zijn (LAT-4909)
+-------------------------------------------------------------------
+Dimensie 1 vraagt om drie functiewoorden in één zin, dimensie 5 om een exacte
+string die iemand na een incident heeft ingevoerd. Een kort label -- "Foto:",
+"Kaart", "Noordelijke Rhône" -- haalt de eerste drempel nooit en staat per
+definitie niet in de tweede. Dat gat liet LAT-4908 door. NL_NOUNS sluit het met
+de spiegel van NL_MARKERS: alleen inhoudswoorden, ratio-blind, en met dezelfde
+selftest-plicht op de NL-kant.
 
 Gebruik
 -------
@@ -82,9 +92,11 @@ EXIT_TECHNICAL = 2
 EXIT_LINKS = 4
 EXIT_COVERAGE = 8
 EXIT_LITERALS = 16
+EXIT_NOUNS = 32
 EXIT_OPERATIONAL = 64
 
-DIMENSIONS = ("nl-sentences", "technical", "nl-links", "coverage", "nl-literals")
+DIMENSIONS = ("nl-sentences", "technical", "nl-links", "coverage",
+              "nl-literals", "nl-nouns")
 
 # Bewust NL-only route-families. Wordt bij voorkeur uit src/lib/i18n.ts gelezen
 # (`EN_MISSING_PREFIXES`), zodat de gate niet uit de pas loopt met de site zelf;
@@ -116,6 +128,113 @@ NL_MARKERS = {
     "doen", "zegt", "zeggen", "schreef", "reed", "rijden", "weet", "beginnen",
     "leren", "kennen", "gereden", "bezocht", "gesproken", "begint",
 }
+
+# --------------------------------------------------------------------------- #
+# dimensie 6 -- losse NL inhoudswoorden (LAT-4909)
+# --------------------------------------------------------------------------- #
+# Waarom dit los staat van dimensie 1 en 5.
+#
+# LAT-4908 vond "Foto:" in de zichtbare tekst van een /en/-artikel. Geen van de
+# bestaande dimensies zag het, en dat was geen toeval:
+#
+#   * dimensie 1 (nl-sentences) eist >=3 VERSCHILLENDE functiewoorden in één
+#     zin. "Foto: CRDO Ribera del Duero" heeft er nul. Elk kort label -- een
+#     bijschrift, een legenda-item, een knop, een tabelkop -- ligt structureel
+#     onder die drempel. De drempel is juist (hij houdt Romaanse eigennamen
+#     buiten), maar hij is blind voor losse woorden.
+#   * dimensie 5 (nl-literals) matcht EXACTE, met de hand geankerde strings.
+#     Die lijst groeit alleen achteraf, per incident, en dekt per definitie
+#     nooit het volgende woord.
+#
+# NL_MARKERS is bewust alleen functiewoorden. Deze lijst is het spiegelbeeld:
+# alleen INHOUDSWOORDEN, en een enkele treffer in de zichtbare tekst van een
+# /en/-pagina is al fout -- ratio-blind, net als de literals.
+#
+# Selectie is gemeten, niet bedacht (meetscripts in LAT-4909). Uit de 2717
+# distinct woorden in de korte labels van de NL-build zijn de woorden gehouden
+# die aan drie eisen voldoen:
+#
+#   1. ze komen voor in de zichtbare tekst van de NL-build;
+#   2. ze komen op GEEN ENKELE van de 295 /en/-pagina's voor -- een treffer is
+#      dus per definitie een lek en geen vals-positief;
+#   3. ze zijn eenduidig Nederlands. Homografen met het Engels/Frans/
+#      Italiaans/Spaans ("brief", "slim", "luxe", "spring", "past", "basis")
+#      en eigennaam-risico ("landen", "huis", "vallei", "dorp") zijn eruit
+#      gelaten -- dezelfde les als LAT-2865, waar "voor" moest wijken voor
+#      "Voor-Paardeberg".
+#
+# De waarde is de NL-route-familie waar het woord aantoonbaar staat; --selftest
+# eist daar minstens één treffer, precies zoals bij NL_LITERALS. Alleen woorden
+# met >=60% dekking BINNEN hun familie staan hier: bij een dunnere spreiding
+# wordt de selftest-steekproef van SELFTEST_SAMPLE pagina's een dobbelsteen, en
+# een flaky gate leert iedereen hem te negeren.
+#
+# Een woord toevoegen? Draai eerst eis 2 tegen de EN-build. Een woord dat daar
+# al voorkomt hoort hier niet -- dan is het geen marker maar een leenwoord.
+NL_NOUNS = {
+    "accommodaties": "/accommodaties/",
+    "artikelen": "/artikelen/",
+    "bekijk": "/",
+    "boek": "/",
+    "druiven": "/",
+    "druivenrassen": "/landen/",
+    # LAT-4908 zelf. Het woord bestaat nog volop op de NL-kant (bijschriften en
+    # herocredits, o.a. /colofon/), dus het is gewoon aantoonbaar meetbaar --
+    # het hoefde alleen nooit naar /en/ te lekken.
+    "foto": "/colofon/",
+    "geboekt": "/streken/",
+    "gerelateerde": "/wijnroutes/",
+    "huurauto": "/affiliate-verklaring/",
+    "kwaliteit": "/streken/",
+    "mailadres": "/",
+    "nieuwsbrief": "/artikelen/",
+    "ontdek": "/",
+    "overnachtingen": "/streken/",
+    "proefnotities": "/",
+    "proeverijen": "/affiliate-verklaring/",
+    "redactiegids": "/artikelen/",
+    "reistijd": "/landen/",
+    "slapen": "/accommodaties/",
+    "transparantie": "/voor-accommodaties/",
+    "verblijven": "/accommodaties/",
+    "wijnatlas": "/",
+    "wijnkarakter": "/landen/",
+    "wijnreisverhalen": "/artikelen/",
+    "wijnroutes": "/",
+    "wijngaard": "/over-ons/",
+    "wijngaarden": "/",
+    "wijnstreek": "/streken/",
+    "wijnstreken": "/landen/",
+    "streken": "/landen/",
+    "zoeken": "/voor-accommodaties/",
+}
+
+# Markers die de meting WEL als bruikbaar aanwees, maar die vandaag op /en/ al
+# vuren -- niet omdat het vals-positieven zijn, maar omdat er echte NL-labels op
+# de EN-kant staan (LAT-4911). Ze staan hier apart in plaats van weggelaten:
+# een stil geschrapte marker is niet te onderscheiden van een marker die nooit
+# is overwogen, en dan verdwijnt de bekende blinde vlek uit beeld.
+#
+# Ze aanzetten voordat die content gefixt is maakt de gate rood op elke PR, en
+# een gate die altijd rood staat leert iedereen hem te negeren -- dat is duurder
+# dan het gat. Zodra LAT-4911 gefixt is verhuizen deze regels naar NL_NOUNS
+# hierboven; de gate print ze tot die tijd bij elke run als bekend gat.
+NL_NOUNS_PENDING = {
+    "wijnhuis": "129 /en/wijnhuizen/-pagina's ('Wijnhuis-portret')",
+    "streek": "130 /en/wijnhuizen/-pagina's ('STREEK'-label)",
+    "kaart": "4 /en/-pagina's (rhone-maps.ts kaarttitel)",
+    "appellaties": "1 /en/-pagina (rhone-maps.ts bijschrift)",
+    "appellatie": "3 /en/-pagina's",
+    "noordelijke": "1 /en/-pagina (rhone-maps.ts legenda)",
+    "zuidelijke": "1 /en/-pagina (rhone-maps.ts legenda)",
+    "bezienswaardigheid": "8 /en/-pagina's (rhone-maps.ts legenda)",
+    "oogst": "1 /en/-pagina",
+    "ligging": "2 /en/-pagina's",
+    "domein": "1 /en/-pagina",
+    "kelder": "1 /en/-pagina",
+}
+
+NOUN_RE = {w: re.compile(r"\b" + re.escape(w) + r"\b") for w in NL_NOUNS}
 
 # --------------------------------------------------------------------------- #
 # dimensie 5 -- ratio-blinde NL-literals (LAT-2820)
@@ -220,7 +339,7 @@ NOINDEX_RE = re.compile(
     r"<meta\b(?=[^>]*\bname=[\"']robots[\"'])(?=[^>]*\bcontent=[\"'][^\"']*\bnoindex\b)[^>]*>",
     re.I,
 )
-CONTENT_DIMENSIONS = ("nl-sentences", "nl-links", "nl-literals")
+CONTENT_DIMENSIONS = ("nl-sentences", "nl-links", "nl-literals", "nl-nouns")
 
 # Alleen voor `--selftest`. Dit is NADRUKKELIJK geen scope-lijst -- de gate
 # leest scope uit de pagina, niet hieruit. Het zijn de routes waarvan we weten
@@ -300,6 +419,27 @@ def find_literals(raw: str):
             n = raw.count(spec["pattern"])
         if n:
             out[key] = n
+    return out
+
+
+def find_nouns(raw: str):
+    """-> {woord: [context, ...]}. Alleen woorden die echt voorkomen.
+
+    Gemeten op de ZICHTBARE tekst, niet op de ruwe HTML: anders vuurt elk woord
+    dat toevallig in een slug, een class-naam of een JSON-LD-blob staat
+    ("/wijnroutes/", `data-foto`), en dat zijn geen zichtbare lekken. Daarin
+    verschilt deze dimensie van nl-literals, die juist op de ruwe HTML ankert
+    omdat die patronen op tag-grenzen leunen.
+    """
+    text = visible_text(raw)
+    flat = re.sub(r"\s+", " ", text)
+    low = flat.lower()
+    out = {}
+    for word, rx in NOUN_RE.items():
+        spans = [m.start() for m in rx.finditer(low)]
+        if spans:
+            out[word] = [flat[max(0, i - 45):i + len(word) + 45].strip()
+                         for i in spans[:3]]
     return out
 
 
@@ -550,11 +690,61 @@ def run_selftest(base: str, workers: int) -> int:
     else:
         print("  -> elke literal is aantoonbaar meetbaar")
 
+    failed |= selftest_nouns(base, nl_paths, workers)
     failed |= selftest_noindex(base, all_paths, workers)
 
     print()
     print(f"SELFTEST: {'NIET GESLAAGD' if failed else 'GESLAAGD'}")
     return 1 if failed else 0
+
+
+def selftest_nouns(base: str, nl_paths, workers: int) -> int:
+    """Bewijs dat elke NL_NOUNS-marker nog op de NL-kant staat (LAT-4909).
+
+    Zelfde contract als de literal-selftest, en om dezelfde reden: "0 treffers
+    op /en/" van een schone site en "0 treffers" van een marker die uit de
+    NL-copy is wegvertaald zien er identiek uit. Vuurt een woord hier niet meer,
+    dan is de marker dood gewicht -- haal hem weg of vervang hem, in plaats van
+    hem stil te laten meeliften als bewijs van iets dat niet meer gemeten wordt.
+    """
+    print("\nSelftest: staan de NL_NOUNS-markers nog op de NL-kant? (LAT-4909)\n")
+    if not nl_paths:
+        print("  DOOD  geen NL-paden in de sitemap -- niets te bewijzen")
+        return 1
+
+    wanted = []
+    for word, familie in NL_NOUNS.items():
+        if familie == "/":
+            sample = ["/"]
+        else:
+            detail = [p for p in nl_paths if p.startswith(familie) and p != familie]
+            sample = ([familie] if familie in nl_paths else []) + detail[:SELFTEST_SAMPLE]
+        wanted.append((word, familie, sample))
+
+    todo = sorted({p for _w, _f, sample in wanted for p in sample})
+    with futures.ThreadPoolExecutor(workers) as ex:
+        pages = dict(zip(todo, ex.map(lambda p: fetch(base + p), todo)))
+
+    dead = []
+    for word, familie, sample in wanted:
+        firing = [p for p in sample
+                  if pages[p][0] == 200 and word in find_nouns(pages[p][1])]
+        status = "ok  " if firing else "DOOD"
+        example = f"  bv. {firing[0]}" if firing else ""
+        print(f"  {status} {word:22} {len(firing)}/{len(sample)} "
+              f"{familie}-pagina's{example}")
+        if not firing:
+            dead.append((word, familie, sample))
+
+    print()
+    if dead:
+        print(f"{len(dead)} marker(s) vuurden nergens op de NL-kant. Dat is GEEN")
+        print("schone content -- de gate is op die woorden blind:")
+        for word, familie, sample in dead:
+            print(f"  - {word}: geen match op {len(sample)} pagina's onder {familie}")
+        return 1
+    print("  -> elke marker is aantoonbaar meetbaar")
+    return 0
 
 
 def selftest_noindex(base: str, all_paths, workers: int) -> int:
@@ -783,6 +973,8 @@ def main() -> int:
                     raw, base, nl_only_prefixes, nl_only_exact)
             if "nl-literals" in active_page:
                 row["literals"] = find_literals(raw)
+            if "nl-nouns" in active_page:
+                row["nouns"] = find_nouns(raw)
         rows.append(row)
 
     if args.json:
@@ -872,11 +1064,41 @@ def main() -> int:
             exit_code |= EXIT_LITERALS
         print()
 
+    # ---- NL inhoudswoorden (LAT-4909) -------------------------------------- #
+    if "nl-nouns" in active:
+        per_word = {}
+        for r in rows:
+            for w, ctxs in (r.get("nouns") or {}).items():
+                per_word.setdefault(w, []).append((r["path"], ctxs))
+        total = sum(len(v) for v in per_word.values())
+        print(f"Nouns    : {total} /en/-pagina's met een los NL inhoudswoord")
+        # Bekende blinde vlek, altijd zichtbaar -- zie NL_NOUNS_PENDING.
+        if NL_NOUNS_PENDING:
+            print(f"  let op: {len(NL_NOUNS_PENDING)} marker(s) staan UIT zolang "
+                  f"LAT-4911 loopt; die leks worden hier niet geteld:")
+            for w, waar in NL_NOUNS_PENDING.items():
+                print(f"    {w}: {waar}")
+        if not per_word:
+            print(f"  geen -- alle {len(NL_NOUNS)} markers zijn afwezig op /en/")
+            print("  (draai --selftest om te bevestigen dat ze nog leven op NL)")
+        else:
+            for w in sorted(per_word, key=lambda x: -len(per_word[x])):
+                pages = per_word[w]
+                print(f"  {w!r} op {len(pages)} pagina's:")
+                for path, ctxs in pages[:3]:
+                    print(f"    {path}")
+                    for c in ctxs[:1]:
+                        print(f"      ...{c}...")
+                if len(pages) > 3:
+                    print(f"    (+{len(pages) - 3} meer)")
+            exit_code |= EXIT_NOUNS
+        print()
+
     # ---- slot -------------------------------------------------------------- #
     failed = [name for name, bit in (
         ("nl-sentences", EXIT_SENTENCES), ("technical", EXIT_TECHNICAL),
         ("nl-links", EXIT_LINKS), ("coverage", EXIT_COVERAGE),
-        ("nl-literals", EXIT_LITERALS)) if exit_code & bit]
+        ("nl-literals", EXIT_LITERALS), ("nl-nouns", EXIT_NOUNS)) if exit_code & bit]
     print(f"gescand {len(rows)} /en/-pagina's")
     print(f"GATE: {'NIET GESLAAGD (' + ', '.join(failed) + ')' if failed else 'GESLAAGD'}"
           f"  [exit {exit_code}]")
