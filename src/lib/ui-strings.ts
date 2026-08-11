@@ -94,6 +94,16 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'wijnhuis.related.label': 'Gerelateerd',
     'wijnhuis.related.title': 'Meer wijnhuizen in deze streek',
 
+    // Cross-linkblok onderaan de artikelpagina's (LAT-4911, RelatedEntities.astro).
+    // Stonden als kale NL-literals — het component laadde de dictionary niet eens —
+    // en zetten daardoor `Streek` op 20 en `Wijnhuis` op 9 /en/artikelen/-pagina's.
+    'related.label': 'Gerelateerd',
+    'related.title': 'Lees verder',
+    'related.kind.streek': 'Streek',
+    'related.kind.wijnhuis': 'Wijnhuis',
+    'related.kind.wijnroute': 'Wijnroute',
+    'related.kind.land': 'Land',
+
     // Wijnroute-detailpagina chrome (LAT-2638, RouteDetail.astro).
     'route.breadcrumb.index': 'Wijnroutes',
     'route.daysAria': 'Dagen op deze route',
@@ -735,6 +745,18 @@ export const UI_STRING_EN: Record<string, string> = {
     'wijnhuis.visit.reserveCta': 'Request a reservation',
     'wijnhuis.related.label': 'Related',
     'wijnhuis.related.title': 'More wineries in this region',
+
+    // RelatedEntities.astro — cross-linkblok onderaan de artikelpagina's (LAT-4911).
+    // `related.label`/`related.kind.streek`/`related.kind.wijnhuis` volgen de door de
+    // Lead Editor goedgekeurde termen uit de wijnhuis-set (Related / Region / Winery);
+    // `related.title`, `related.kind.wijnroute` en `related.kind.land` zijn nieuw en
+    // staan ter bevestiging in het EN-copy-issue.
+    'related.label': 'Related',
+    'related.title': 'Read on',
+    'related.kind.streek': 'Region',
+    'related.kind.wijnhuis': 'Winery',
+    'related.kind.wijnroute': 'Wine route',
+    'related.kind.land': 'Country',
 
     // Keys die de infrastructuur al hadden in UI_STRING_DEFAULTS maar nog geen
     // EN-waarde, en daardoor op /en/ NL terugvielen (LAT-4911). Vallen buiten de

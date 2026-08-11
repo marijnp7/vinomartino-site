@@ -43,6 +43,7 @@ const src = (rel) => readFileSync(new URL(rel, import.meta.url), 'utf8');
 const PAGE_CONTENT = src('../src/components/pages/WijnhuisPageContent.astro');
 const DETAIL = src('../src/components/WijnhuisDetail.astro');
 const STAYNEAR = src('../src/components/WijnhuisStayNear.astro');
+const RELATED = src('../src/components/RelatedEntities.astro');
 
 /** key → de literal die vóór LAT-4911 in de template stond. */
 const NL_WAS = {
@@ -63,6 +64,14 @@ const NL_WAS = {
   'wijnhuis.visit.reserveCta': 'Reservering aanvragen',
   'wijnhuis.related.label': 'Gerelateerd',
   'wijnhuis.related.title': 'Meer wijnhuizen in deze streek',
+  // RelatedEntities.astro — zelfde bug, ander component: het laadde de
+  // dictionary niet eens, waardoor deze zes labels NL renderden op /en/artikelen/.
+  'related.label': 'Gerelateerd',
+  'related.title': 'Lees verder',
+  'related.kind.streek': 'Streek',
+  'related.kind.wijnhuis': 'Wijnhuis',
+  'related.kind.wijnroute': 'Wijnroute',
+  'related.kind.land': 'Land',
 };
 
 /**
@@ -85,7 +94,7 @@ test('NL-defaults zijn byte-identiek aan de literals van vóór LAT-4911', async
 });
 
 test('elke ui.t()-key in de wijnhuis-templates heeft een NL-default', () => {
-  const bronnen = { PAGE_CONTENT, DETAIL, STAYNEAR };
+  const bronnen = { PAGE_CONTENT, DETAIL, STAYNEAR, RELATED };
   for (const [naam, bron] of Object.entries(bronnen)) {
     for (const key of [...bron.matchAll(/ui\.t\('([^']+)'\)/g)].map((m) => m[1])) {
       assert.ok(key in UI_STRING_DEFAULTS, `ontbrekende NL-default voor ${key} (${naam})`);
@@ -94,11 +103,11 @@ test('elke ui.t()-key in de wijnhuis-templates heeft een NL-default', () => {
 });
 
 test('elke wijnhuis.*-key die op /en/ rendert heeft een EN-waarde', async () => {
-  const bronnen = [PAGE_CONTENT, DETAIL, STAYNEAR].join('\n');
-  const keys = [...new Set([...bronnen.matchAll(/ui\.t\('(wijnhuis\.[^']+)'\)/g)].map((m) => m[1]))];
+  const bronnen = [PAGE_CONTENT, DETAIL, STAYNEAR, RELATED].join('\n');
+  const keys = [...new Set([...bronnen.matchAll(/ui\.t\('((?:wijnhuis|related)\.[^']+)'\)/g)].map((m) => m[1]))];
 
   // Vangnet: als de regex niets vindt is de test stil groen zonder iets te bewijzen.
-  assert.ok(keys.length >= 20, `verwachtte >=20 wijnhuis-keys, vond ${keys.length}`);
+  assert.ok(keys.length >= 26, `verwachtte >=26 wijnhuis/related-keys, vond ${keys.length}`);
 
   const en = await loadUiStrings('en');
   for (const key of keys) {
@@ -140,4 +149,10 @@ test('geen hardcoded NL-copy meer in de wijnhuis-templates', () => {
     !/biologisch=\{[^}]*'Ja'/.test(DETAIL),
     `de waarde 'Ja' staat weer hardcoded in WijnhuisDetail.astro`,
   );
+  for (const literal of ['>Gerelateerd<', "'Lees verder'", "streek: 'Streek'", "wijnhuis: 'Wijnhuis'"]) {
+    assert.ok(
+      !RELATED.includes(literal),
+      `NL-literal "${literal}" staat weer hardcoded in RelatedEntities.astro`,
+    );
+  }
 });
