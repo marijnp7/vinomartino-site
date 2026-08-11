@@ -111,14 +111,14 @@ const heroCredit = getImageCredit(heroImageId);
 
     <div class="wh-hero__grid">
       <div class="wh-hero__left">
-        {subtitle && <div class="wh-eyebrow">Wijnhuis-portret</div>}
+        {subtitle && <div class="wh-eyebrow">{ui.t('wijnhuis.hero.eyebrow')}</div>}
         <h1 class="wh-hero__title">{name}</h1>
         {subtitle && <p class="wh-hero__subtitle">{subtitle}</p>}
       </div>
 
       <div class="wh-hero__meta">
         <div class="wh-meta-item">
-          <span class="wh-meta-label">STREEK</span>
+          <span class="wh-meta-label">{ui.t('wijnhuis.meta.streek')}</span>
           {regionHref ? (
             <a class="wh-meta-value wh-meta-value--link" href={regionHref}>{region}</a>
           ) : (
@@ -127,25 +127,25 @@ const heroCredit = getImageCredit(heroImageId);
         </div>
         {routeHref && routeLabel && (
           <div class="wh-meta-item">
-            <span class="wh-meta-label">ROUTE</span>
+            <span class="wh-meta-label">{ui.t('wijnhuis.meta.route')}</span>
             <a class="wh-meta-value wh-meta-value--link" href={routeHref}>{routeLabel}</a>
           </div>
         )}
         {since && (
           <div class="wh-meta-item">
-            <span class="wh-meta-label">SINDS</span>
+            <span class="wh-meta-label">{ui.t('wijnhuis.meta.sinds')}</span>
             <span class="wh-meta-value">{since}</span>
           </div>
         )}
         {hectaren && (
           <div class="wh-meta-item">
-            <span class="wh-meta-label">HECTAREN</span>
+            <span class="wh-meta-label">{ui.t('wijnhuis.meta.hectaren')}</span>
             <span class="wh-meta-value">{hectaren}</span>
           </div>
         )}
         {biologisch && (
           <div class="wh-meta-item">
-            <span class="wh-meta-label">BIOLOGISCH</span>
+            <span class="wh-meta-label">{ui.t('wijnhuis.meta.biologisch')}</span>
             <span class="wh-meta-value">{biologisch}</span>
           </div>
         )}
@@ -174,7 +174,7 @@ const heroCredit = getImageCredit(heroImageId);
 
 <!-- ── DRIELUIK ──────────────────────────────────────── -->
 {drieluikBeelden.length > 0 && (
-  <section class="wh-drieluik" aria-label={`Beelden van ${name}`}>
+  <section class="wh-drieluik" aria-label={`${ui.t('wijnhuis.drieluik.beeldenVanPrefix')} ${name}`}>
     <div class="container">
       <div
         class:list={['wh-drieluik__grid', `wh-drieluik__grid--${drieluikBeelden.length}`]}
@@ -201,7 +201,7 @@ const heroCredit = getImageCredit(heroImageId);
 {(Astro.slots.has('story') || storyBody.length > 0) && (
   <section class="wh-story">
     <div class="wh-story__inner">
-      <div class="wh-section-label">§ Het verhaal</div>
+      <div class="wh-section-label">{ui.t('wijnhuis.story.label')}</div>
       {storyTitle && <h2 class="wh-story__title">{storyTitle}</h2>}
       {Astro.slots.has('story') ? (
         <div class="wh-story__prose"><slot name="story" /></div>
@@ -221,8 +221,8 @@ const heroCredit = getImageCredit(heroImageId);
   <section class="wh-wines">
     <div class="container">
       <div class="wh-wines__header">
-        <div class="wh-eyebrow wh-eyebrow--rust">De wijnen</div>
-        <h2 class="wh-wines__title">Wat we proefden</h2>
+        <div class="wh-eyebrow wh-eyebrow--rust">{ui.t('wijnhuis.wines.eyebrow')}</div>
+        <h2 class="wh-wines__title">{ui.t('wijnhuis.wines.title')}</h2>
       </div>
       <div class="wh-wines__grid">
         {wines.map((wine) => (
@@ -249,8 +249,8 @@ const heroCredit = getImageCredit(heroImageId);
     <div class="container">
       <div class="wh-visit__grid">
         <div class="wh-visit__info">
-          <div class="wh-eyebrow wh-eyebrow--rust">Bezoek</div>
-          <h2 class="wh-visit__title">Voor je heen rijdt</h2>
+          <div class="wh-eyebrow wh-eyebrow--rust">{ui.t('wijnhuis.visit.eyebrow')}</div>
+          <h2 class="wh-visit__title">{ui.t('wijnhuis.visit.title')}</h2>
           <dl class="wh-visit__list">
             {visitInfo.map((item) => (
               <div class="wh-visit__row">
@@ -262,12 +262,12 @@ const heroCredit = getImageCredit(heroImageId);
           <div class="wh-visit__actions">
             {mapsUrl && (
               <a href={mapsUrl} class="btn btn--primary" target="_blank" rel="noopener">
-                Open in Google Maps →
+                {ui.t('wijnhuis.visit.mapsCta')}
               </a>
             )}
             {reserveringUrl && (
               <a href={reserveringUrl} class="btn btn--outline">
-                Reservering aanvragen
+                {ui.t('wijnhuis.visit.reserveCta')}
               </a>
             )}
           </div>
@@ -296,8 +296,8 @@ const heroCredit = getImageCredit(heroImageId);
 {relatedWijnhuizen.length > 0 && (
   <section class="wh-related">
     <div class="container">
-      <div class="wh-section-label">Gerelateerd</div>
-      <h2 class="wh-related__title">Meer wijnhuizen in deze streek</h2>
+      <div class="wh-section-label">{ui.t('wijnhuis.related.label')}</div>
+      <h2 class="wh-related__title">{ui.t('wijnhuis.related.title')}</h2>
       <div class="wh-related__grid">
         {relatedWijnhuizen.map((wh) => (
           <a href={wh.href} class="wh-related__card">
