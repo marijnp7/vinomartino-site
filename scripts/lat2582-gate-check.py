@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# LAT-4970: trigger-only commit — draait de pre-build reaper van LAT-4968 op de VPS. Niet mergen.
 """i18n launch-gate voor de Engelse (/en/) kant van vinomartino.com.
 
 De gate meet vijf onafhankelijke dimensies. Elke dimensie heeft een eigen bit in
