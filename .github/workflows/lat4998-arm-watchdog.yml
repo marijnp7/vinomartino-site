@@ -20,6 +20,15 @@
 name: LAT-3204 Watchdog Control
 
 on:
+  # LAT-5004 — the watchdog's own silence needs an observer, and that observer
+  # must sit OUTSIDE the blast radius it watches. A checker on the VPS would die
+  # with the same host outage it is meant to report (the failure mode that cost
+  # 33.6h unreported once already). GitHub's scheduler is off-host by
+  # construction and adds no moving part to the VPS, so the regress
+  # ("who watches the watcher's watcher?") terminates at a third party whose
+  # liveness we do not maintain.
+  schedule:
+    - cron: '*/15 * * * *'
   workflow_dispatch:
     inputs:
       mode:
@@ -33,6 +42,7 @@ on:
           - unpause
           - pause
           - status
+          - verify
 
 permissions:
   contents: read
@@ -135,3 +145,93 @@ jobs:
             cat /etc/cron.d/paperclip-devops-proxy-watchdog 2>/dev/null || echo "(not installed)"
         run: |
           printf '%s\n' "$REMOTE_SCRIPT" | ssh "$VPS" "bash -s"
+
+      # LAT-5004 — independent second-observer confirmation (read-only, zero mutation).
+      # Unlike `status`, this asserts rather than prints: the step EXITS NON-ZERO if the
+      # cron is missing/wrong or the log has not ticked recently, so the GHA run
+      # conclusion itself is the verdict and cannot be read as green by mistake.
+      - name: verify -- assert cron armed + log still ticking (read-only)
+        id: verify
+        # On a `schedule` event the workflow_dispatch `inputs` context is NOT
+        # populated and the input default is NOT applied, so `inputs.mode` is ''.
+        # Without the event_name arm every step would skip and the run would go
+        # GREEN having checked nothing — the exact false-green this alarm exists
+        # to prevent. The `guard` step below is the backstop for that.
+        if: ${{ github.event_name == 'schedule' || inputs.mode == 'verify' }}
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          REMOTE_SCRIPT: |
+            set -uo pipefail
+            CRON=/etc/cron.d/paperclip-devops-proxy-watchdog
+            LOG=/opt/paperclip-cos/lat3204/watchdog.log
+            SH=/opt/paperclip-cos/lat3204/devops-proxy-watchdog.sh
+            rc=0
+            echo "--- host clock (UTC) ---"; date -u +%FT%TZ
+            echo "--- cron entry ---"
+            if [ -f "$CRON" ]; then
+              cat "$CRON"
+              grep -q '\*/2 \* \* \* \*' "$CRON" || { echo "ASSERT_FAIL: cron is not */2"; rc=1; }
+              grep -qF "$SH" "$CRON" || { echo "ASSERT_FAIL: cron does not point at $SH"; rc=1; }
+            else
+              echo "ASSERT_FAIL: $CRON missing"; rc=1
+            fi
+            echo "--- watchdog script ---"
+            ls -l "$SH" 2>/dev/null || { echo "ASSERT_FAIL: $SH missing"; rc=1; }
+            echo "--- cron daemon ---"
+            systemctl is-active cron 2>/dev/null || systemctl is-active crond 2>/dev/null || echo "(systemctl unavailable)"
+            echo "--- container state ---"
+            docker inspect -f '{{.State.Status}}' paperclip-devops-proxy-1 || rc=1
+            echo "--- watchdog.log tail ---"
+            tail -n 8 "$LOG" 2>/dev/null || echo "(missing)"
+            echo "--- freshness ---"
+            MT=$(stat -c %Y "$LOG" 2>/dev/null || echo 0)
+            NOW=$(date -u +%s)
+            AGE=$(( NOW - MT ))
+            echo "log_mtime_epoch=$MT now_epoch=$NOW log_age_seconds=$AGE"
+            # cron is */2, so a healthy log is < 240s old; 300s allows one skewed tick.
+            if [ "$MT" -eq 0 ]; then
+              echo "ASSERT_FAIL: $LOG unreadable/missing"; rc=1
+            elif [ "$AGE" -ge 300 ]; then
+              echo "ASSERT_FAIL: log stale, ${AGE}s since last write (threshold 300s)"; rc=1
+            else
+              echo "OK: log ticked ${AGE}s ago"
+            fi
+            echo "VERIFY_RC=$rc"
+            exit $rc
+        # Transport failure and assert failure are NOT the same event and must not
+        # share an exit code. Measured 2026-08-11 (LAT-5004): the GHA->VPS SSH leg
+        # timed out on 2 of 10 runs (~104s TCP connect timeout, ssh exit 255).
+        # A schedule that alarmed on those would false-red ~20% of the time and be
+        # trained out within a week. ssh returns the REMOTE exit code (1 = a real
+        # ASSERT_FAIL) and reserves 255 for its own transport errors, so we retry
+        # only 255 and never retry a genuine 1.
+        run: |
+          set -uo pipefail
+          attempt=0
+          while : ; do
+            attempt=$(( attempt + 1 ))
+            set +e
+            printf '%s\n' "$REMOTE_SCRIPT" | ssh -o ConnectTimeout=20 "$VPS" "bash -s"
+            rc=$?
+            set -e
+            if [ "$rc" -ne 255 ]; then
+              exit "$rc"          # 0 = armed and ticking, 1 = real ASSERT_FAIL
+            fi
+            echo "::warning::attempt ${attempt}: ssh transport failure (exit 255), not a watchdog verdict"
+            if [ "$attempt" -ge 3 ]; then break; fi
+            sleep 30
+          done
+          echo "TRANSPORT_FAIL: could not reach the VPS over SSH in 3 attempts"
+          exit 2                  # distinct from an assert failure on purpose
+
+      # Backstop for the false-green above: if the scheduled run somehow skipped
+      # the verify step, the job would otherwise report success having asserted
+      # nothing. This step makes that state loud.
+      - name: guard -- a scheduled run must actually have verified
+        if: ${{ always() && github.event_name == 'schedule' }}
+        run: |
+          echo "verify step outcome: ${{ steps.verify.outcome }}"
+          if [ "${{ steps.verify.outcome }}" != "success" ]; then
+            echo "GUARD_FAIL: scheduled verify did not run and pass (outcome=${{ steps.verify.outcome }})"
+            exit 1
+          fi
