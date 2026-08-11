@@ -38,12 +38,12 @@ function layoutConst(name) {
     return m[1];
 }
 
-/** Leest het getal uit `<meta property="og:image:${dim}" content="N" />`. */
-function declaredDimension(dim) {
-    const m = LAYOUT.match(new RegExp(`og:image:${dim}" content="(\\d+)"`));
-    assert.ok(m, `SiteLayout.astro mist een og:image:${dim}-declaratie`);
-    return Number(m[1]);
-}
+// LAT-4907: de afmetingen stonden hier als literal in SiteLayout en werden dus
+// uit de layout-broncode gelezen. Ze worden nu uit het bestand gemeten, dus is
+// die hele driftklasse weg — er is geen tweede getal meer dat kan afwijken.
+// Wat wél stil kan breken is de meting zelf, en die wordt door dezelfde
+// implementatie geleverd die SiteLayout gebruikt.
+import { getPublicImageDimensions } from '../src/lib/og-image-dimensions.ts';
 
 test('SiteLayout valt terug op een default-OG wanneer de pagina geen eigen beeld heeft', () => {
     // Literal uit de live code, niet nagetypt: breekt de fallback, dan breekt dit.
@@ -68,11 +68,21 @@ test('de default-OG die SiteLayout noemt staat ook echt in public/', () => {
     );
 });
 
-test('het formaat van de kaart klopt met de og:image:width/height die SiteLayout declareert', async () => {
-    const file = resolve(REPO, 'public', layoutConst('DEFAULT_OG_IMAGE').slice(1));
-    const meta = await sharp(readFileSync(file)).metadata();
-    assert.equal(meta.width, declaredDimension('width'));
-    assert.equal(meta.height, declaredDimension('height'));
+test('de og:image:width/height die SiteLayout declareert komt uit de kaart zelf', async () => {
+    const ref = layoutConst('DEFAULT_OG_IMAGE');
+    const file = resolve(REPO, 'public', ref.slice(1));
+    const truth = await sharp(readFileSync(file)).metadata();
+
+    // Wat SiteLayout gaat declareren voor een pagina zonder eigen beeld, via
+    // exact dezelfde functie-aanroep als in de layout.
+    const declared = await getPublicImageDimensions(ref);
+    assert.ok(declared, `de default-OG ${ref} is niet meetbaar — dan laat SiteLayout de tags weg`);
+    assert.equal(declared.width, truth.width);
+    assert.equal(declared.height, truth.height);
+
+    // LAT-4755 leunde op 1200x630. Dat mag veranderen als de kaart verandert,
+    // maar niet stil: hier staat wat er nu geserveerd wordt.
+    assert.deepEqual({ width: declared.width, height: declared.height }, { width: 1200, height: 630 });
 });
 
 test('de kaart is niet leeg — en de leegte-check zou een lege kaart betrappen', async () => {
