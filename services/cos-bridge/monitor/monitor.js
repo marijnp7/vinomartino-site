@@ -13,6 +13,7 @@
 // code die approvals kan posten is precies hoe dit terugkomt.
 import crypto from "node:crypto";
 import http from "node:http";
+import https from "node:https";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
@@ -33,6 +34,22 @@ const RESTART_WINDOW_MS = 60 * 60 * 1000;
 const ALERT_COOLDOWN_MS = 60 * 60 * 1000;
 // Vanaf hier is een volle schijf geen waarschuwing meer maar een storing.
 const DISK_CRITICAL_THRESHOLD = 95;
+
+// --- LAT-3210: edge-cache-waakhond -----------------------------------------
+// Op 19-07 cachete Cloudflare stilletjes HTML onder /en/-keys (LAT-2582) en
+// niemand merkte het tot de volgende go-live-meting. De purge-stap in
+// LAT-2701 is een vangnet, geen bewaking: hij purget niets als niemand weet
+// dát er iets te purgen was. Deze twee checks meten de faalmodus direct.
+const EDGE_CACHE_SITE = process.env.EDGE_CACHE_SITE_URL || "https://vinomartino.com";
+const EDGE_CACHE_ROUTES = ["/", "/en/", "/streken/bourgogne/"];
+// cf-cache-status mag voor HTML nooit iets anders zijn dan DYNAMIC/BYPASS —
+// ook een MISS is fout: dat is het moment vóór de eerste HIT, niet "gezond".
+const EDGE_CACHE_OK_STATUSES = new Set(["DYNAMIC", "BYPASS"]);
+// Drempel ruim boven de gemeten 12-17 min normale deploytijd, zodat een
+// lopende deploy niet als stale content wordt gelezen.
+const DEPLOY_STALE_THRESHOLD_MS = 20 * 60 * 1000;
+const GITHUB_REPO = process.env.GITHUB_REPO || "marijnp7/vinomartino-site";
+const GITHUB_WORKFLOW_FILE = process.env.GITHUB_WORKFLOW_FILE || "deploy.yml";
 
 // --- LAT-2802: meldingsritme per conditie ----------------------------------
 // De oude vaste cooldown van 1u was even lang als de approval-timeout, en te
@@ -215,7 +232,157 @@ async function checkDisk() {
   }
 }
 
-// --- Docker API over the devops socket-proxy --------------------------------
+// --- LAT-3210: plain HTTPS GET, geen Cache-Control (zoals een echte bezoeker) -
+function fetchGet(urlStr, extraHeaders = {}) {
+  return new Promise((resolve) => {
+    let url;
+    try { url = new URL(urlStr); } catch { resolve(null); return; }
+    const transport = url.protocol === "https:" ? https : http;
+    const req = transport.request(
+      {
+        hostname: url.hostname,
+        port: url.port || (url.protocol === "https:" ? 443 : 80),
+        path: url.pathname + url.search,
+        method: "GET",
+        headers: { "User-Agent": "paperclip-monitor (LAT-3210)", ...extraHeaders },
+      },
+      (res) => {
+        const chunks = [];
+        res.on("data", (c) => chunks.push(c));
+        res.on("end", () =>
+          resolve({ status: res.statusCode, headers: res.headers, body: Buffer.concat(chunks).toString("utf8") })
+        );
+      }
+    );
+    req.on("error", () => resolve(null));
+    req.setTimeout(10000, () => { req.destroy(); resolve(null); });
+    req.end();
+  });
+}
+
+async function fetchEdgeCacheStatuses() {
+  const results = [];
+  for (const route of EDGE_CACHE_ROUTES) {
+    const res = await fetchGet(new URL(route, EDGE_CACHE_SITE).toString());
+    results.push({
+      route,
+      cfCacheStatus: res ? res.headers["cf-cache-status"] : undefined,
+      lastModified: res ? res.headers["last-modified"] : undefined,
+    });
+  }
+  return results;
+}
+
+// Dom en zonder netwerk testbaar (zie ops/lat3210-monitor-test.mjs): geen
+// enkele meting mag hier tot "gezond" leiden als de bron zelf niets teruggaf.
+function classifyEdgeCacheStatuses(results) {
+  const reachable = results.filter((r) => r.cfCacheStatus);
+  if (reachable.length === 0) {
+    return { fault: `geen enkele route gaf een cf-cache-status terug (${results.length} routes geprobeerd)` };
+  }
+  const caching = reachable.filter((r) => !EDGE_CACHE_OK_STATUSES.has(r.cfCacheStatus));
+  if (caching.length > 0) {
+    return {
+      sev: 2,
+      caching: caching.map((r) => r.route),
+      detail: caching.map((r) => `${r.route}: cf-cache-status=${r.cfCacheStatus}`).join("\n"),
+    };
+  }
+  return { sev: 0 };
+}
+
+async function checkEdgeCacheStatus() {
+  const key = "edge-cache";
+  const results = await fetchEdgeCacheStatuses();
+  const verdict = classifyEdgeCacheStatuses(results);
+  if (verdict.fault) {
+    console.error(`[edge-cache check error] ${verdict.fault}`);
+    return;
+  }
+  if (verdict.sev === 2) {
+    if (shouldFire(key)) {
+      await notify({
+        title: `Cloudflare cachet HTML: ${verdict.caching.join(", ")}`,
+        body: `cf-cache-status is niet DYNAMIC/BYPASS voor HTML-routes (LAT-2582-klasse):\n\n${verdict.detail}\n\nDe purge-stap uit LAT-2701 is nu een actief vangnet in plaats van een dode stap. Zoek de CF Cache Rule / "Cache Everything" die dit aanzette.`,
+        severity: "critical",
+      });
+    }
+  } else if (clearCondition(key)) {
+    await notify({
+      title: "Cloudflare edge-cache terug op DYNAMIC/BYPASS voor HTML",
+      body: `Alle bewaakte HTML-routes (${EDGE_CACHE_ROUTES.join(", ")}) geven weer cf-cache-status DYNAMIC of BYPASS.`,
+      severity: "info",
+    });
+  }
+}
+
+async function fetchLiveBuildInfo() {
+  const res = await fetchGet(new URL("/build-info.json", EDGE_CACHE_SITE).toString());
+  if (!res || res.status !== 200) return { error: `build-info.json onbereikbaar of zonder sha: HTTP ${res ? res.status : 0}` };
+  let parsed;
+  try { parsed = JSON.parse(res.body); } catch { return { error: "build-info.json: onleesbare JSON" }; }
+  if (!parsed || typeof parsed.sha !== "string" || !parsed.sha) {
+    return { error: "build-info.json onbereikbaar of zonder sha" };
+  }
+  return { sha: parsed.sha, builtAt: parsed.builtAt, runNumber: parsed.runNumber };
+}
+
+async function fetchLastSuccessfulDeploy() {
+  const res = await fetchGet(
+    `https://api.github.com/repos/${GITHUB_REPO}/actions/workflows/${GITHUB_WORKFLOW_FILE}/runs?status=success&per_page=1`,
+    { Accept: "application/vnd.github+json" }
+  );
+  if (!res || res.status !== 200) {
+    return { error: `GitHub Actions-antwoord onbereikbaar of onvolledig: HTTP ${res ? res.status : 0}` };
+  }
+  let parsed;
+  try { parsed = JSON.parse(res.body); } catch { return { error: "GitHub Actions: onleesbare JSON" }; }
+  const run = parsed && Array.isArray(parsed.workflow_runs) ? parsed.workflow_runs[0] : undefined;
+  if (!run || typeof run.head_sha !== "string") return { error: "GitHub Actions: geen geslaagde runs gevonden" };
+  return { sha: run.head_sha, completedAt: run.updated_at, runNumber: run.run_number };
+}
+
+// Dom en zonder netwerk testbaar. Een onbereikbare bron (live óf GitHub) mag
+// nooit als "gelijk" of "gezond" gelezen worden — dat is precies de fout die
+// LAT-2905 al eens maakte tussen een dode bewaker en een dode meting.
+function classifyDeployFreshness(live, lastDeploy, now) {
+  if (live.error) return { fault: live.error };
+  if (lastDeploy.error) return { fault: lastDeploy.error };
+  if (live.sha === lastDeploy.sha) return { sev: 0 };
+  const completedMs = Date.parse(lastDeploy.completedAt);
+  if (Number.isNaN(completedMs)) return { fault: "laatste deploy: completedAt niet parseerbaar" };
+  const ageMs = now - completedMs;
+  if (ageMs < DEPLOY_STALE_THRESHOLD_MS) return { sev: 0 }; // deploy loopt waarschijnlijk nog
+  return { sev: 2, ageMs, liveSha: live.sha, deploySha: lastDeploy.sha };
+}
+
+async function checkDeployFreshness() {
+  const key = "deploy-freshness";
+  const [live, lastDeploy] = await Promise.all([fetchLiveBuildInfo(), fetchLastSuccessfulDeploy()]);
+  const verdict = classifyDeployFreshness(live, lastDeploy, Date.now());
+  if (verdict.fault) {
+    console.error(`[deploy-freshness check error] ${verdict.fault}`);
+    return;
+  }
+  if (verdict.sev === 2) {
+    if (shouldFire(key)) {
+      const ageMin = Math.round(verdict.ageMs / 60000);
+      await notify({
+        title: `Live build loopt ${ageMin} min achter op de laatste deploy`,
+        body: `Live sha ${verdict.liveSha} != laatst geslaagde deploy.yml-sha ${verdict.deploySha} (die deploy is ${ageMin} min geleden afgerond, drempel ${DEPLOY_STALE_THRESHOLD_MS / 60000} min).\n\nDit vangt stale content ongeacht de oorzaak — Cloudflare-cache of iets anders op de origin.`,
+        severity: "critical",
+      });
+    }
+  } else if (clearCondition(key)) {
+    await notify({
+      title: "Live build weer gelijk aan laatste deploy",
+      body: "Live build-info.json sha komt weer overeen met de laatst geslaagde deploy.yml-run.",
+      severity: "info",
+    });
+  }
+}
+
+// --- Docker API over de devops socket-proxy --------------------------------
 
 function dockerRequest(method, path, body) {
   return new Promise((resolve) => {
@@ -386,7 +553,7 @@ async function checkRestarts() {
 
 async function runChecks() {
   console.log(`[${new Date().toISOString()}] running checks`);
-  await Promise.allSettled([checkDisk(), checkRestarts()]);
+  await Promise.allSettled([checkDisk(), checkRestarts(), checkEdgeCacheStatus(), checkDeployFreshness()]);
 }
 
 // Initial check after 30s startup grace, then every 5min
