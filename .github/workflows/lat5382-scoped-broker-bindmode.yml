@@ -121,6 +121,7 @@ jobs:
           DIAG: |
             set -uo pipefail
             D=/opt/paperclip-cos/_lat3001
+            PROBE_IMAGE=node:24
             echo "=== bestanden in $D ==="
             ls -la "$D" || { echo "GEEN $D"; exit 1; }
 
@@ -141,14 +142,25 @@ jobs:
             docker inspect -f '{{range .Mounts}}{{.Source}} -> {{.Destination}} rw={{.RW}}{{println}}{{end}}' \
               paperclip-monitor-1 2>&1
 
+            # Welke images staan er echt? Een create met een ontbrekend image
+            # geeft 404 van docker zelf -- dat zegt niets over de ACL en maakte
+            # de eerste versie van deze proef onbruikbaar (alle drie 404).
+            echo "=== beschikbare images (voor de proef hieronder) ==="
+            docker images --format '{{.Repository}}:{{.Tag}}' | head -20
+
             echo "=== huidige ACL, live gemeten (rood gedrag vóór de fix) ==="
+            # Verdict is 403 vs NIET-403, niet 201 vs de rest: 404 (image
+            # ontbreekt) betekent dat de broker het verzoek heeft DOORGELATEN
+            # en docker zelf antwoordde -- voor een ACL-meting telt dat als
+            # toegestaan.
             for B in '/:/host:ro' '/:/host:rw' '/:/host'; do
               CODE=$(docker exec paperclip-devops-workspace-1 \
                 curl -s -o /dev/null -w '%{http_code}' --max-time 10 \
                 -X POST -H 'Content-Type: application/json' \
-                -d "{\"Image\":\"alpine\",\"Cmd\":[\"true\"],\"HostConfig\":{\"Binds\":[\"$B\"]}}" \
+                -d "{\"Image\":\"$PROBE_IMAGE\",\"Cmd\":[\"true\"],\"HostConfig\":{\"Binds\":[\"$B\"]}}" \
                 http://paperclip-devops-proxy-scoped-1:2375/containers/create 2>/dev/null || echo 000)
-              echo "create Binds=[$B] -> HTTP $CODE"
+              if [ "$CODE" = "403" ]; then V="GEWEIGERD door de broker"; else V="DOORGELATEN (docker antwoordde $CODE)"; fi
+              echo "create Binds=[$B] -> HTTP $CODE : $V"
             done
 
             echo "=== laatste logregels ==="
@@ -190,6 +202,9 @@ jobs:
           LIVE_WANT=$LIVE_SHA_WANT
           CTR=paperclip-devops-proxy-scoped-1
           WS=paperclip-devops-workspace-1
+          # node:24 is het image dat deploy.yml zelf op deze host draait, dus
+          # het staat er. Zie de 404-noot bij stap 5.
+          PROBE_IMAGE=node:24
 
           echo "=== 0. preconditie: aangeleverde blob is exact de geteste blob ==="
           [ -f "\$INCOMING" ] || { echo "::error::\$INCOMING ontbreekt"; exit 1; }
@@ -251,35 +266,50 @@ jobs:
           # Dit is de enige stap die bewijst dat de deploy iets veranderd heeft.
           # De rode kant (:rw moet 403) en de groene kant (:ro moet blijven
           # werken) worden allebei getoetst; alleen groen zou niets zeggen.
-          RW_CODE=000; RO_CODE=000; DEL_CODE=000
+          #
+          # Verdict is 403 vs NIET-403. Een create met een image dat niet op de
+          # host staat geeft 404 van docker zelf -- gemeten in mode=diagnose,
+          # waar alpine ontbrak en alle drie de probes 404 gaven. 404 betekent
+          # dat de broker heeft DOORGELATEN, dus voor de ACL telt dat als
+          # toegestaan; alleen 403 is een weigering.
+          RW_CODE=000; RO_CODE=000; DEL_CODE=nvt
           if [ "\$ok" = "1" ]; then
             RW_CODE=\$(docker exec "\$WS" curl -s -o /dev/null -w '%{http_code}' --max-time 10 \
               -X POST -H 'Content-Type: application/json' \
-              -d '{"Image":"alpine","Cmd":["true"],"HostConfig":{"Binds":["/:/host:rw"]}}' \
+              -d "{\"Image\":\"\$PROBE_IMAGE\",\"Cmd\":[\"true\"],\"HostConfig\":{\"Binds\":[\"/:/host:rw\"]}}" \
               http://paperclip-devops-proxy-scoped-1:2375/containers/create 2>/dev/null || echo 000)
-            echo "ACL create /:/host:rw -> HTTP \$RW_CODE (moet 403)"
+            echo "ACL create /:/host:rw -> HTTP \$RW_CODE (moet 403 = geweigerd)"
 
-            RESP=\$(docker exec "\$WS" curl -s --max-time 10 \
+            RESP=\$(docker exec "\$WS" curl -s -w '\n%{http_code}' --max-time 10 \
               -X POST -H 'Content-Type: application/json' \
-              -d '{"Image":"alpine","Cmd":["true"],"HostConfig":{"Binds":["/:/host:ro"]}}' \
-              http://paperclip-devops-proxy-scoped-1:2375/containers/create 2>/dev/null || echo '')
-            RO_CODE=\$(printf '%s' "\$RESP" | grep -q '"Id"' && echo 201 || echo fout)
-            echo "ACL create /:/host:ro -> \$RO_CODE (moet 201)"
+              -d "{\"Image\":\"\$PROBE_IMAGE\",\"Cmd\":[\"true\"],\"HostConfig\":{\"Binds\":[\"/:/host:ro\"]}}" \
+              http://paperclip-devops-proxy-scoped-1:2375/containers/create 2>/dev/null || echo '000')
+            RO_CODE=\$(printf '%s' "\$RESP" | tail -n1)
+            echo "ACL create /:/host:ro -> HTTP \$RO_CODE (mag NIET 403 zijn)"
 
             # Zelfde blob repareert LAT-5360: ruim de zojuist gemaakte container
-            # op via de nieuwe DELETE-route. Slaagt dit, dan is bewezen dat een
-            # legitieme create geen exited container meer achterlaat.
-            CID=\$(printf '%s' "\$RESP" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("Id",""))' 2>/dev/null || echo '')
-            if [ -n "\$CID" ]; then
-              DEL_CODE=\$(docker exec "\$WS" curl -s -o /dev/null -w '%{http_code}' --max-time 10 \
-                -X DELETE "http://paperclip-devops-proxy-scoped-1:2375/containers/\$CID" 2>/dev/null || echo 000)
-              echo "DELETE eigen container -> HTTP \$DEL_CODE (moet 204)"
-              # Vangnet: blijft de container toch staan, dan hier opruimen zodat
-              # deze proef zelf geen litter achterlaat.
-              docker rm -f "\$CID" >/dev/null 2>&1 || true
+            # op via de nieuwe DELETE-route. Dit kan alleen als de create echt
+            # een container opleverde (201). Bij 404 (image ontbreekt) wordt de
+            # proef overgeslagen en dat wordt hier hardop gezegd in plaats van
+            # stil als geslaagd geteld.
+            if [ "\$RO_CODE" = "201" ]; then
+              CID=\$(printf '%s' "\$RESP" | head -n-1 | python3 -c 'import json,sys; print(json.load(sys.stdin).get("Id",""))' 2>/dev/null || echo '')
+              if [ -n "\$CID" ]; then
+                DEL_CODE=\$(docker exec "\$WS" curl -s -o /dev/null -w '%{http_code}' --max-time 10 \
+                  -X DELETE "http://paperclip-devops-proxy-scoped-1:2375/containers/\$CID" 2>/dev/null || echo 000)
+                echo "DELETE eigen container -> HTTP \$DEL_CODE (moet 204)"
+                # Vangnet: blijft de container toch staan, dan hier opruimen
+                # zodat deze proef zelf geen litter achterlaat.
+                docker rm -f "\$CID" >/dev/null 2>&1 || true
+              fi
+            else
+              echo "LET OP: DELETE-proef OVERGESLAGEN -- create gaf \$RO_CODE, geen container."
+              echo "        (image \$PROBE_IMAGE staat waarschijnlijk niet op de host)"
             fi
 
-            if [ "\$RW_CODE" != "403" ] || [ "\$RO_CODE" != "201" ]; then
+            # De security-fix is de gate; de LAT-5360-opruimroute is bijvangst
+            # en mag een geslaagde tightening niet terugrollen.
+            if [ "\$RW_CODE" != "403" ] || [ "\$RO_CODE" = "403" ] || [ "\$RO_CODE" = "000" ]; then
               echo "::error::ACL-proef mislukt (rw=\$RW_CODE ro=\$RO_CODE)"
               ok=0
             fi
