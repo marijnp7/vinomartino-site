@@ -49,7 +49,9 @@ test('SiteLayout valt terug op een default-OG wanneer de pagina geen eigen beeld
     // Literal uit de live code, niet nagetypt: breekt de fallback, dan breekt dit.
     assert.match(
         LAYOUT,
-        /const ogImageUrl = pageOgImageUrl \?\? toAbsoluteUrl\(DEFAULT_OG_IMAGE\);/,
+        // LAT-4988 schoof `pageOgImageUrl` op naar `validPageOgImageUrl` (raster-guard);
+        // de fallback zelf — eindigen in DEFAULT_OG_IMAGE — is ongewijzigd.
+        /const ogImageUrl = validPageOgImageUrl \?\? toAbsoluteUrl\(DEFAULT_OG_IMAGE\);/,
         'de og:image-keten eindigt niet meer in DEFAULT_OG_IMAGE — pagina\'s zonder eigen beeld krijgen weer géén deelkaart',
     );
     assert.match(
