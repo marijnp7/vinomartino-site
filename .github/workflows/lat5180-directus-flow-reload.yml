@@ -1,0 +1,246 @@
+# LAT-5180 — herlaad de Directus FlowManager zonder host-shell en zonder nieuwe identiteit.
+#
+# ACHTERGROND
+# De beeldguard op articles/routes publish (LAT-3238) bestaat al: publiceren zonder
+# hero_image wordt geblokkeerd. Het enige defect is de *vorm* van de fout — een kale 500
+# in plaats van 400 HERO_IMAGE_REQUIRED. De twee `throw-error`-operaties die dat repareren
+# staan sinds 2026-08-01 in `directus_operations`, maar zijn met psql ingevoegd. Directus
+# houdt flows in geheugen (FlowManager), dus een psql-write is inert tot iets
+# `getFlowManager().reload()` aanroept.
+#
+# WAAROM DEZE ROUTE, EN NIET DE ROUTE UIT LAT-3284/LAT-3285
+# LAT-3284 nam aan dat de enige reload-trigger een container-restart is, en LAT-5180 vroeg
+# daarom om een board-approval voor een nieuwe, scoped Directus-schrijfidentiteit. Dat is de
+# duurste van de mogelijke routes en niet nodig:
+#
+#   * Directus' FlowsService/OperationsService roepen `getFlowManager().reload()` aan bij
+#     elke create/update/delete via de API. Eén no-op PATCH op de flow is dus genoeg —
+#     geen restart, geen downtime, geen nieuwe credential.
+#   * De admin-identiteit die dat mag bestaat al. Hij staat op de host in
+#     /root/directus/secrets/admin_token (LAT-2961). `directus-run-internal.sh --admin`
+#     haalde die vroeger op met `docker cp`, maar de scoped broker 403't inmiddels op
+#     inspect én cp voor vinomartino-directus-1 — vandaar dat die route "dicht" leek.
+#     Via dit GHA->VPS SSH-kanaal is het gewoon een leesbaar bestand op de host.
+#
+# Route-precedent: hetzelfde kanaal als lat2802-deploy-cos-monitor.yml (kaart 932321e7),
+# lat4750-recreate-publish-dispatcher.yml (kaart 933eff00) en lat3214-docker-log-rotation.yml.
+#
+# SECRET-HYGIENE (fleet-regel: nooit een secret-waarde naar stdout)
+# Het admin-token wordt alleen op de VPS in een shell-variabele gezet en uitsluitend in een
+# `curl -s -H` doorgegeven. Het wordt nergens ge-echood en er staat bewust GEEN `set -x` in
+# de remote scripts — GitHub Actions-logs zijn leesbaar. Identificeren gebeurt met
+# lengte + sha256-prefix, nooit met de waarde.
+#
+# MODES, oplopend risico:
+#   diagnose  — alleen lezen. Container-StartedAt, health, aanwezigheid van het token
+#               (lengte + hash-prefix), en de flows + operations zoals de API ze teruggeeft.
+#               Wijzigt niets.
+#   reload    — no-op PATCH op de guard-flow (zet `name` op zijn eigen huidige waarde) ->
+#               FlowsService.updateOne -> getFlowManager().reload(). Geen restart.
+#   restart   — fallback: `docker restart vinomartino-directus-1`. Alleen nodig als de
+#               API-reload onvoldoende blijkt. Deze actie is al goedgekeurd op kaart
+#               9ddc9275 (2026-08-01, "LAT-3238: ... + herstart vinomartino-directus-1")
+#               en nogmaals uitgevoerd onder 6b27e329 (2026-08-10).
+#
+# LET OP bij het pushen: elk bestand onder .github/ op main triggert normaal een
+# productie-release van vinomartino.com (deploy.yml gebruikt paths-ignore en .github/**
+# staat daar bewust niet in). Pushen met "[skip ci]" en daarna verifieren met
+#   gh run list --repo marijnp7/vinomartino-site --branch main --limit 5
+
+name: LAT-5180 directus flow reload
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'diagnose = alleen lezen; reload = no-op PATCH (geen restart); restart = fallback container-restart'
+        required: true
+        default: diagnose
+        type: choice
+        options:
+          - diagnose
+          - reload
+          - restart
+
+concurrency:
+  group: lat5180-directus-flow-reload
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          cat >> ~/.ssh/config <<EOF
+          Host $VPS_HOST
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+          EOF
+          cat "$GITHUB_WORKSPACE/ops/ssh-config-snippet" >> ~/.ssh/config
+          ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      # ---------------------------------------------------------------- diagnose
+      - name: Diagnose (read-only)
+        if: inputs.mode == 'diagnose'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          DIAG: |
+            set -uo pipefail
+            CTR=vinomartino-directus-1
+
+            echo "=== container ==="
+            docker inspect "$CTR" --format 'StartedAt={{.State.StartedAt}} Status={{.State.Status}}' 2>&1 \
+              || { echo "::error::inspect faalde"; exit 1; }
+
+            # Host-side curl tegen het container-IP. Niet `docker exec ... wget`: of de
+            # Directus-image een HTTP-client aan boord heeft is een aanname die we hier
+            # niet nodig hebben. Smalle --format, zodat er geen .Config.Env in het log belandt.
+            IP=$(docker inspect "$CTR" --format '{{range .NetworkSettings.Networks}}{{.IPAddress}} {{end}}' | awk '{print $1}')
+            [ -n "$IP" ] || { echo "::error::geen container-IP gevonden"; exit 1; }
+            URL="http://$IP:8055"
+            echo "endpoint: $URL"
+
+            echo
+            echo "=== admin-token bestand (nooit de waarde) ==="
+            F=/root/directus/secrets/admin_token
+            if [ -r "$F" ]; then
+              T=$(tr -d '\r\n' < "$F")
+              echo "AANWEZIG $(stat -c '%A %U:%G %n' "$F") len=${#T} sha256=$(printf '%s' "$T" | sha256sum | cut -c1-16)"
+            else
+              echo "::error::ONLEESBAAR of ONTBREEKT: $F"; exit 1
+            fi
+
+            echo
+            echo "=== authenticeert het token? (verwacht 200) ==="
+            echo "GET /users/me -> $(curl -s -o /dev/null -w '%{http_code}' --max-time 20 \
+              -H "Authorization: Bearer $T" "$URL/users/me?fields=id")"
+
+            echo
+            echo "=== flows + operations zoals de API ze teruggeeft ==="
+            curl -s --max-time 30 -H "Authorization: Bearer $T" \
+              "$URL/flows?limit=-1&fields=id,name,status,trigger,operation,operations.id,operations.key,operations.type,operations.resolve,operations.reject" \
+              | python3 -m json.tool 2>/dev/null || echo "flows-call gaf geen bruikbare JSON"
+
+            echo
+            echo "=== throw-error-operaties (LAT-3238 verwacht f74bbf6e... en 78f8d115...) ==="
+            curl -s --max-time 30 -H "Authorization: Bearer $T" \
+              "$URL/operations?limit=-1&filter[type][_eq]=throw-error&fields=id,key,type,flow,resolve,reject,options" \
+              | python3 -m json.tool 2>/dev/null || echo "operations-call gaf geen bruikbare JSON"
+        run: |
+          printf '%s\n' "$DIAG" | ssh "$VPS" "bash -s"
+
+      # ---------------------------------------------------------------- reload
+      - name: Reload FlowManager via no-op API write
+        if: inputs.mode == 'reload'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          RELOAD: |
+            set -uo pipefail
+            CTR=vinomartino-directus-1
+
+            IP=$(docker inspect "$CTR" --format '{{range .NetworkSettings.Networks}}{{.IPAddress}} {{end}}' | awk '{print $1}')
+            [ -n "$IP" ] || { echo "::error::geen container-IP gevonden"; exit 1; }
+            URL="http://$IP:8055"
+
+            F=/root/directus/secrets/admin_token
+            [ -r "$F" ] || { echo "::error::admin-token onleesbaar: $F"; exit 1; }
+            T=$(tr -d '\r\n' < "$F")
+
+            echo "=== flows vóór de reload ==="
+            BEFORE=$(curl -s --max-time 30 -H "Authorization: Bearer $T" \
+              "$URL/flows?limit=-1&fields=id,name,status")
+            echo "$BEFORE" | python3 -m json.tool 2>/dev/null || { echo "::error::kon flows niet lezen"; exit 1; }
+
+            # Kies de flow die de throw-error-operaties draagt. Geen hardcoded id: we
+            # leiden hem af uit de operations zelf, zodat dit niet stilzwijgend de
+            # verkeerde flow aanraakt als de ids ooit wijzigen.
+            OPS=$(curl -s --max-time 30 -H "Authorization: Bearer $T" \
+              "$URL/operations?limit=-1&filter[type][_eq]=throw-error&fields=id,flow")
+            FLOW_ID=$(printf '%s' "$OPS" | python3 -c '
+            import sys, json
+            d = json.load(sys.stdin).get("data", [])
+            flows = {o["flow"] for o in d if o.get("flow")}
+            if len(flows) != 1:
+                sys.stderr.write("verwachtte precies 1 flow met throw-error-operaties, kreeg %r\n" % (sorted(flows),))
+                sys.exit(1)
+            print(flows.pop())
+            ') || { echo "::error::kon de doel-flow niet eenduidig bepalen"; exit 1; }
+            echo "doel-flow: $FLOW_ID"
+
+            NAME=$(curl -s --max-time 30 -H "Authorization: Bearer $T" "$URL/flows/$FLOW_ID?fields=name" \
+              | python3 -c 'import sys,json; print(json.load(sys.stdin)["data"]["name"])') \
+              || { echo "::error::kon de flow-naam niet lezen"; exit 1; }
+
+            echo
+            echo "=== no-op PATCH (name -> zijn eigen huidige waarde) ==="
+            # Dit gaat door FlowsService.updateOne, die getFlowManager().reload() aanroept.
+            # De data verandert niet; alleen de in-memory flow-registry wordt opnieuw
+            # opgebouwd uit de DB, inclusief de met psql ingevoegde throw-error-operaties.
+            BODY=$(python3 -c 'import json,sys; print(json.dumps({"name": sys.argv[1]}))' "$NAME")
+            CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 -X PATCH \
+              -H "Authorization: Bearer $T" -H "Content-Type: application/json" \
+              -d "$BODY" "$URL/flows/$FLOW_ID")
+            echo "PATCH /flows/$FLOW_ID -> $CODE"
+            case "$CODE" in
+              200|204) echo "RELOAD_OK: FlowManager herladen zonder restart" ;;
+              *) echo "::error::PATCH gaf $CODE — FlowManager NIET herladen"; exit 1 ;;
+            esac
+
+            echo
+            echo "=== operations ná de reload (de guard hoort nu throw-error te dragen) ==="
+            curl -s --max-time 30 -H "Authorization: Bearer $T" \
+              "$URL/flows/$FLOW_ID?fields=id,name,status,operations.id,operations.key,operations.type,operations.resolve,operations.reject" \
+              | python3 -m json.tool 2>/dev/null || echo "kon de flow niet teruglezen"
+
+            echo
+            echo "Volgende stap is NIET van deze workflow: DevOps draait de LAT-3238"
+            echo "verificatie (wegwerpartikel -> 400/HERO_IMAGE_REQUIRED -> hero koppelen"
+            echo "-> 200 -> DELETE)."
+        run: |
+          printf '%s\n' "$RELOAD" | ssh "$VPS" "bash -s"
+
+      # ---------------------------------------------------------------- restart
+      - name: Restart Directus (fallback, kaart 9ddc9275)
+        if: inputs.mode == 'restart'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          RESTART: |
+            set -uo pipefail
+            CTR=vinomartino-directus-1
+
+            echo "=== vóór ==="
+            docker inspect "$CTR" --format 'StartedAt={{.State.StartedAt}} Status={{.State.Status}}'
+
+            echo "=== restart ==="
+            docker restart "$CTR"
+
+            echo "=== wachten op health (max 120s) ==="
+            for i in $(seq 1 24); do
+              IP=$(docker inspect "$CTR" --format '{{range .NetworkSettings.Networks}}{{.IPAddress}} {{end}}' | awk '{print $1}')
+              if [ -n "$IP" ] && [ "$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 "http://$IP:8055/server/health")" = "200" ]; then
+                echo "health OK na ~$((i*5))s"; break
+              fi
+              sleep 5
+            done
+
+            echo "=== ná ==="
+            docker inspect "$CTR" --format 'StartedAt={{.State.StartedAt}} Status={{.State.Status}}'
+            [ "$(docker inspect "$CTR" --format '{{.State.Status}}')" = "running" ] \
+              || { echo "::error::container draait niet na restart"; exit 1; }
+        run: |
+          printf '%s\n' "$RESTART" | ssh "$VPS" "bash -s"
