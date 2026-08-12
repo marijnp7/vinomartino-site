@@ -26,6 +26,7 @@
     "test:asset-slot-scope": "node --test scripts/lat5157-asset-slot-scope.test.mjs",
     "test:reap-build-containers": "bash scripts/reap-build-containers.test.sh",
     "test:all": "node scripts/run-all-tests.mjs",
+    "test": "npm run test:all",
     "gen:og-default": "node scripts/gen-og-default.mjs",
     "audit:i18n-crosslinks": "node scripts/i18n-crosslink-audit.mjs",
     "gate:i18n-nl": "python3 scripts/lat2582-gate-check.py",
