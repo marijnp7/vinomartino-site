@@ -134,11 +134,15 @@ jobs:
             echo "=== afgeleide overlay met host-pad ==="
             sed 's#/agent-secrets/github-publish.env#/root/.agent-secrets/github-publish.env#' \
               "$SRC" > "$OVR"
-            if grep -q '/agent-secrets/' "$OVR"; then
-              echo "::error::sed heeft niet elk /agent-secrets/-pad vervangen; afgebroken"
+            # Alleen ACTIEVE regels controleren. De bron heeft ook commentaar met
+            # "/agent-secrets/..." als prozavoorbeeld; dat is geen pad dat compose leest,
+            # en een guard die daarop afgaat breekt terecht af op niets.
+            if grep -v '^[[:space:]]*#' "$OVR" | grep -q '/agent-secrets/'; then
+              echo "::error::actieve regel wijst nog naar /agent-secrets/; afgebroken"
               exit 1
             fi
-            grep -n 'agent-secrets' "$OVR"
+            echo "actieve env_file-regels na substitutie:"
+            grep -v '^[[:space:]]*#' "$OVR" | grep -n 'agent-secrets' || true
 
             echo "=== validatie vooraf (afbreken zonder iets aan te raken als dit faalt) ==="
             # --quiet is essentieel: zonder --quiet kan compose env_file expanderen en
