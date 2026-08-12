@@ -122,6 +122,9 @@ jobs:
             (crontab -l 2>&1 | grep -i compose) || echo "geen compose-regel in crontab van huidige user"
             systemctl list-units --all 2>&1 | grep -i paperclip || echo "geen paperclip-systemd-unit"
             grep -rl "docker compose" /opt/paperclip*/*.sh /opt/paperclip*/**/*.sh 2>/dev/null | head -5 || echo "geen .sh-treffers met 'docker compose' onder /opt/paperclip*"
+
+            echo "=== de docker compose-aanroep-regel(s) uit apply-compose-patch.sh (precedent-script van LAT-3228) ==="
+            grep -n "docker compose\|COMPOSE_FILE\|compose config\|compose up" /opt/paperclip-cos/lat3228/apply-compose-patch.sh 2>&1 || echo "script niet gevonden"
         run: |
           printf '%s\n' "$DIAG" | ssh "$VPS" "bash -s"
 
