@@ -8,7 +8,10 @@ const src = fs.readFileSync(
 );
 
 const a = src.indexOf("const BACKOFF_STEPS_MS");
-const b = src.indexOf("// --- LAT-2790");
+// LAT-5123: de OAuth-guard ("// --- LAT-2790") die hier vroeger als
+// eindmarkering diende is verwijderd (dood pad, altijd 403 — zie monitor.js).
+// clearCondition() eindigt nu direct voor de HMAC_SECRET-guard.
+const b = src.indexOf("if (!HMAC_SECRET)");
 if (a === -1 || b === -1 || b < a) throw new Error("blok niet gevonden");
 
 const harness = `
