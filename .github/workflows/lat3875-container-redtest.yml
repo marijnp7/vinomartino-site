@@ -80,14 +80,24 @@ jobs:
             STUB_403='Y29uc3QgaD1yZXF1aXJlKCJub2RlOmh0dHAiKTtoLmNyZWF0ZVNlcnZlcigocSxzKT0+e3Mud3JpdGVIZWFkKDQwMyx7ImNvbnRlbnQtdHlwZSI6ImFwcGxpY2F0aW9uL2pzb24iLCJnaXRodWItYXV0aGVudGljYXRpb24tdG9rZW4tZXhwaXJhdGlvbiI6IjIwMjctMDEtMDEgMTI6MDA6MDAgVVRDIn0pO3MuZW5kKCd7Im1lc3NhZ2UiOiJSZXNvdXJjZSBub3QgYWNjZXNzaWJsZSBieSBwZXJzb25hbCBhY2Nlc3MgdG9rZW4ifScpO30pLmxpc3Rlbig4MDgwLCIxMjcuMC4wLjEiKTsK'
             STUB_422='Y29uc3QgaD1yZXF1aXJlKCJub2RlOmh0dHAiKTtoLmNyZWF0ZVNlcnZlcigocSxzKT0+e3Mud3JpdGVIZWFkKDQyMix7ImNvbnRlbnQtdHlwZSI6ImFwcGxpY2F0aW9uL2pzb24iLCJnaXRodWItYXV0aGVudGljYXRpb24tdG9rZW4tZXhwaXJhdGlvbiI6IjIwMjctMDEtMDEgMTI6MDA6MDAgVVRDIn0pO3MuZW5kKCd7Im1lc3NhZ2UiOiJObyByZWYgZm91bmQifScpO30pLmxpc3Rlbig4MDgwLCIxMjcuMC4wLjEiKTsK'
 
+            # Body-ophaler. NIET met `wget -qO-`: busybox/GNU wget gooit de body weg zodra de
+            # status niet-2xx is (rc=8, lege stdout). Precies de twee ROOD-cases antwoorden 503,
+            # dus de body-eis kon daar per constructie nooit slagen — de eerste run (31591876535)
+            # faalde daarop, terwijl de container wel degelijk unhealthy werd. Een controle die
+            # alleen in het groene geval kan slagen is dezelfde fout als het ticket zelf aanklaagt.
+            # Node zit in het image en leest de body ongeacht de status; hij print
+            # "http_status=<n> <body>" zodat de status zelf ook toetsbaar is.
+            FETCH_B64='Y29uc3QgaD1yZXF1aXJlKCJub2RlOmh0dHAiKTtoLmdldCh7aG9zdDoiMTI3LjAuMC4xIixwb3J0OjMyMDEscGF0aDoiL2hlYWx0aCIsdGltZW91dDo1MDAwfSxyPT57bGV0IGI9IiI7ci5vbigiZGF0YSIsYz0+Yis9Yyk7ci5vbigiZW5kIiwoKT0+cHJvY2Vzcy5zdGRvdXQud3JpdGUoImh0dHBfc3RhdHVzPSIrci5zdGF0dXNDb2RlKyIgIitiKSk7fSkub24oImVycm9yIixlPT5wcm9jZXNzLnN0ZG91dC53cml0ZSgiaHR0cF9zdGF0dXM9RVJSIGZldGNoX2Vycm9yPSIrZS5tZXNzYWdlKSk7Cg=='
+
             # $1 naam  $2 token  $3 api-base  $4 verwachte health  $5 stub-b64 of "-"
             # $6 tekst die in de /health-body MOET staan ("-" = geen eis)
+            # $7 verwachte HTTP-status van /health ("-" = geen eis)
             #
-            # $6 bestaat omdat het health-verdict alleen niet genoeg is: valt het netwerk weg,
+            # $6/$7 bestaan omdat het health-verdict alleen niet genoeg is: valt het netwerk weg,
             # dan gaat de container ook rood, en dan zou ROOD 1/2 slagen om de verkeerde reden.
             # De body moet aantonen dat het verdict uit de ECHTE probe-status komt.
             run_case() {
-              NAME=$1; TOKEN=$2; APIBASE=$3; WANT=$4; STUB=$5; WANT_BODY=$6
+              NAME=$1; TOKEN=$2; APIBASE=$3; WANT=$4; STUB=$5; WANT_BODY=$6; WANT_HTTP=$7
               echo
               echo "----------------------------------------------------------------"
               echo "case: $NAME   verwacht docker health=$WANT"
@@ -126,8 +136,8 @@ jobs:
                 case "$S" in healthy|unhealthy|GEEN-HEALTHCHECK|weg) break ;; esac
               done
               echo "  docker health na $((i * 5))s: $S"
-              BODY=$(docker exec "$NAME" wget -qO- http://127.0.0.1:3201/health 2>/dev/null)
-              echo "  /health body: $BODY"
+              BODY=$(docker exec "$NAME" sh -c "echo $FETCH_B64 | base64 -d > /tmp/fetch.cjs && node /tmp/fetch.cjs" 2>/dev/null)
+              echo "  /health: $BODY"
               echo "  laatste healthcheck-log:"
               docker inspect -f '{{if .State.Health}}{{range .State.Health.Log}}{{.ExitCode}} {{.Output}}{{end}}{{end}}' "$NAME" 2>/dev/null | tail -c 400 | sed 's/^/    /'
 
@@ -142,6 +152,12 @@ jobs:
                   *) echo "  FAIL: /health-body bevat '$WANT_BODY' niet — verdict komt niet uit de echte probe"; OK=0 ;;
                 esac
               fi
+              if [ "$WANT_HTTP" != "-" ]; then
+                case "$BODY" in
+                  "http_status=$WANT_HTTP "*) : ;;
+                  *) echo "  FAIL: /health gaf niet HTTP $WANT_HTTP — de compose-healthcheck leest de status, dus die moet kloppen"; OK=0 ;;
+                esac
+              fi
               if [ "$OK" = 1 ]; then
                 echo "  RESULT: PASS"
               else
@@ -153,17 +169,17 @@ jobs:
 
             echo
             echo "=== 1. ROOD 1/2: ingetrokken/ongeldig token, echte api.github.com -> 401 ==="
-            run_case lat3875-ct-red401 "github_pat_11NOTAREALTOKEN_lat3875_redtest" "https://api.github.com" unhealthy - '"probe_status":401'
+            run_case lat3875-ct-red401 "github_pat_11NOTAREALTOKEN_lat3875_redtest" "https://api.github.com" unhealthy - '"probe_status":401' 503
 
             echo
             echo "=== 2. ROOD 2/2: onderscoped token (stub antwoordt 403) -> degraded ==="
             # Bewust een stub en niet het echte productietoken: dat heeft sinds LAT-4715
             # wel Actions:write (422), dus het kan het onderscoped-geval niet meer spelen.
-            run_case lat3875-ct-red403 "lat3875-stub-token-not-real" "http://127.0.0.1:8080" unhealthy "$STUB_403" '"probe_status":403'
+            run_case lat3875-ct-red403 "lat3875-stub-token-not-real" "http://127.0.0.1:8080" unhealthy "$STUB_403" '"probe_status":403' 503
 
             echo
             echo "=== 3. GROENE CONTROLE: stub antwoordt 422 -> de check kan ook groen ==="
-            run_case lat3875-ct-green422 "lat3875-stub-token-not-real" "http://127.0.0.1:8080" healthy "$STUB_422" '"probe_status":422'
+            run_case lat3875-ct-green422 "lat3875-stub-token-not-real" "http://127.0.0.1:8080" healthy "$STUB_422" '"probe_status":422' 200
 
             echo
             echo "=== 4. OPRUIMEN weesresten van 2026-08-05 (LAT-3875 punt 4) ==="
