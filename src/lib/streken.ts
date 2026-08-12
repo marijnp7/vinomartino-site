@@ -236,19 +236,48 @@ const assetDebug: Array<Record<string, unknown>> = [];
 // TCP-connecties ("fetch failed"), waardoor een hele regio zonder foto's
 // rendert (2 van 30 regio's per build, wisselend). Retry met backoff maakt de
 // build deterministisch compleet zonder de data te wijzigen.
-async function fetchAssetWithRetry(url: string, token: string, attempts = 4): Promise<Response> {
+/**
+ * LAT-5157 — het slot moet fetch + body-read + graden + wegschrijven omvatten.
+ *
+ * Deze functie gaf eerst een `Response` terug met alléén de `fetch()` in het
+ * slot. Dat slot viel dus al bij de *headers* vrij, waarna `res.arrayBuffer()`
+ * en het CPU-zware `gradeBuffer()` (sharp) van álle streken tegelijk doorliepen:
+ * `DIRECTUS_ASSET_CONCURRENCY` begrensde alleen nog de TCP-handshake. Precies de
+ * uithongering uit LAT-3423 — `UND_ERR_CONNECT_TIMEOUT (directus:8055)` terwijl
+ * Directus zelf 200 bleef antwoorden. LAT-3587 heeft dit in de zes andere
+ * loaders rechtgezet; streken.ts bleef staan, en is met 30 streken x hero + og
+ * plus de geneste `Promise.all` over de verblijffoto's juist de grootste bron.
+ *
+ * `consume` draait daarom binnen hetzelfde slot als de fetch. De
+ * retry-backoff-sleeps blijven er bewust buiten: een wachtende download mag geen
+ * slot bezet houden terwijl hij niets aan Directus vraagt (LAT-2779).
+ *
+ * LAT-2518 (ongewijzigd): Directus dropt onder de parallelle last sporadisch
+ * TCP-connecties ("fetch failed"), waardoor een hele regio zonder foto's
+ * rendert. Retry met backoff maakt de build deterministisch compleet.
+ */
+async function withAssetRetry<T>(
+    url: string,
+    token: string,
+    consume: (res: Response) => Promise<T>,
+    attempts = 4,
+): Promise<T> {
     let lastErr: unknown = new Error('fetch not attempted');
     for (let i = 0; i < attempts; i++) {
         try {
-            const res = await withAssetSlot(() =>
-                fetch(url, {
+            const outcome = await withAssetSlot(async () => {
+                const res = await fetch(url, {
                     headers: { Authorization: `Bearer ${token}` },
                     signal: AbortSignal.timeout(3000), // LAT-3331: zie accommodaties-loader.ts
-                }),
-            );
-            // 2xx of niet-transiente 4xx → direct teruggeven; caller logt de status.
-            if (res.ok || (res.status >= 400 && res.status < 500 && res.status !== 429)) return res;
-            lastErr = new Error(`HTTP ${res.status}`);
+                });
+                // 2xx of niet-transiente 4xx → nu verwerken; consume logt de status.
+                if (res.ok || (res.status >= 400 && res.status < 500 && res.status !== 429)) {
+                    return { done: true as const, value: await consume(res) };
+                }
+                return { done: false as const, status: res.status };
+            });
+            if (outcome.done) return outcome.value;
+            lastErr = new Error(`HTTP ${outcome.status}`);
         } catch (err) {
             lastErr = err; // netwerk-drop ("fetch failed") of timeout → retry
         }
@@ -266,25 +295,27 @@ async function downloadAsset(assetId: string, directusUrl: string, token: string
     const outPath = join(outDir, fileName);
     if (existsSync(outPath)) return `/images/streken/${fileName}`;
     try {
-        const res = await fetchAssetWithRetry(assetUrl(directusUrl, assetId), token);
-        if (!res.ok) {
-            const body = await res.text().catch(() => '');
-            console.warn(`[loadStreken] could not fetch asset ${assetId}: ${res.status} body=${body.slice(0, 300)}`);
-            assetDebug.push({ assetId, prefix, status: res.status, body: body.slice(0, 500) });
-            return null;
-        }
-        const buf = Buffer.from(await res.arrayBuffer());
-        let outBuf = buf;
-        try {
-            const { gradeBuffer } = await import('./grade-image.mjs');
-            outBuf = await gradeBuffer(buf); // Meegereisd Warm preset (LAT-2007)
-        } catch (e) {
-            console.warn(`[loadStreken] grading-preset overgeslagen voor ${assetId}: ${e instanceof Error ? e.message : String(e)}`);
-        }
-        mkdirSync(outDir, { recursive: true });
-        writeFileSync(outPath, outBuf);
-        assetDebug.push({ assetId, prefix, status: 200, bytes: outBuf.byteLength });
-        return `/images/streken/${fileName}`;
+        // LAT-5157: body-read + graden + wegschrijven draaien binnen het slot.
+        return await withAssetRetry(assetUrl(directusUrl, assetId), token, async (res) => {
+            if (!res.ok) {
+                const body = await res.text().catch(() => '');
+                console.warn(`[loadStreken] could not fetch asset ${assetId}: ${res.status} body=${body.slice(0, 300)}`);
+                assetDebug.push({ assetId, prefix, status: res.status, body: body.slice(0, 500) });
+                return null;
+            }
+            const buf = Buffer.from(await res.arrayBuffer());
+            let outBuf = buf;
+            try {
+                const { gradeBuffer } = await import('./grade-image.mjs');
+                outBuf = await gradeBuffer(buf); // Meegereisd Warm preset (LAT-2007)
+            } catch (e) {
+                console.warn(`[loadStreken] grading-preset overgeslagen voor ${assetId}: ${e instanceof Error ? e.message : String(e)}`);
+            }
+            mkdirSync(outDir, { recursive: true });
+            writeFileSync(outPath, outBuf);
+            assetDebug.push({ assetId, prefix, status: 200, bytes: outBuf.byteLength });
+            return `/images/streken/${fileName}`;
+        });
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         console.warn(`[loadStreken] asset download failed for ${assetId}: ${msg}`);
@@ -305,24 +336,26 @@ async function downloadAccommodatieAsset(assetId: string, directusUrl: string, t
     const outPath = join(outDir, fileName);
     if (existsSync(outPath)) return `/images/accommodaties/${fileName}`;
     try {
-        const res = await fetchAssetWithRetry(assetUrl(directusUrl, assetId), token);
-        if (!res.ok) {
-            console.warn(`[loadStreken] kon accommodatie-foto ${assetId} niet ophalen: ${res.status}`);
-            assetDebug.push({ kind: 'accommodatie-foto', assetId, status: res.status });
-            return null;
-        }
-        const buf = Buffer.from(await res.arrayBuffer());
-        let outBuf = buf;
-        try {
-            const { gradeBuffer } = await import('./grade-image.mjs');
-            outBuf = await gradeBuffer(buf); // Meegereisd Warm preset (LAT-2007)
-        } catch (e) {
-            console.warn(`[loadStreken] grading-preset overgeslagen voor accommodatie-foto ${assetId}: ${e instanceof Error ? e.message : String(e)}`);
-        }
-        mkdirSync(outDir, { recursive: true });
-        writeFileSync(outPath, outBuf);
-        assetDebug.push({ kind: 'accommodatie-foto', assetId, status: 200, bytes: outBuf.byteLength });
-        return `/images/accommodaties/${fileName}`;
+        // LAT-5157: body-read + graden + wegschrijven draaien binnen het slot.
+        return await withAssetRetry(assetUrl(directusUrl, assetId), token, async (res) => {
+            if (!res.ok) {
+                console.warn(`[loadStreken] kon accommodatie-foto ${assetId} niet ophalen: ${res.status}`);
+                assetDebug.push({ kind: 'accommodatie-foto', assetId, status: res.status });
+                return null;
+            }
+            const buf = Buffer.from(await res.arrayBuffer());
+            let outBuf = buf;
+            try {
+                const { gradeBuffer } = await import('./grade-image.mjs');
+                outBuf = await gradeBuffer(buf); // Meegereisd Warm preset (LAT-2007)
+            } catch (e) {
+                console.warn(`[loadStreken] grading-preset overgeslagen voor accommodatie-foto ${assetId}: ${e instanceof Error ? e.message : String(e)}`);
+            }
+            mkdirSync(outDir, { recursive: true });
+            writeFileSync(outPath, outBuf);
+            assetDebug.push({ kind: 'accommodatie-foto', assetId, status: 200, bytes: outBuf.byteLength });
+            return `/images/accommodaties/${fileName}`;
+        });
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         console.warn(`[loadStreken] accommodatie-foto download faalde voor ${assetId}: ${msg}`);
