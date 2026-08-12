@@ -1,0 +1,191 @@
+# LAT-3875 — container-level rode tegenproef voor de capability-probe `/health`.
+#
+# Waarom dit bestaat: LAT-3875 vraagt niet om "het endpoint geeft 503", maar om
+# "de CONTAINER wordt daadwerkelijk `unhealthy`". Dat verdict is `.State.Health.Status`
+# van Docker zelf en is voor geen enkele agent leesbaar — de scoped broker geeft 403 op
+# /containers/<naam>/json. Dit draait daarom over hetzelfde GHA->VPS SSH-kanaal als
+# LAT-4750 (route goedgekeurd onder kaart 933eff00).
+#
+# Alleen-lezen op productie. De drie testcontainers draaien met --rm op een eigen naam en
+# raken paperclip-publish-dispatcher-1 niet aan.
+#
+# Geen enkele input wordt in een commando geinterpoleerd; het script is vast.
+#
+# LET OP bij pushen: elk bestand onder .github/ op main triggert normaal een
+# productie-release (deploy.yml heeft .github/** niet in paths-ignore). Pushen met
+# "[skip ci]".
+
+name: LAT-3875 container redtest publish-dispatcher
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: lat3875-container-redtest
+  cancel-in-progress: false
+
+jobs:
+  redtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          cat >> ~/.ssh/config <<EOF
+          Host $VPS_HOST
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+          EOF
+          cat "$GITHUB_WORKSPACE/ops/ssh-config-snippet" >> ~/.ssh/config
+          ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Container-level rode tegenproef
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          SCRIPT: |
+            set -uo pipefail
+
+            LIVE=paperclip-publish-dispatcher-1
+            FAILED=0
+
+            # ---------------------------------------------------------------- 0. binding
+            # De proef moet gaan over het image dat productie NU draait, niet over een
+            # image dat ooit gebouwd is. Daarom het image-id uit de levende container.
+            IMG=$(docker inspect -f '{{.Image}}' "$LIVE") || { echo "::error::$LIVE niet gevonden"; exit 1; }
+            echo "=== 0. BINDING AAN LIVE ==="
+            echo "live container image id : $IMG"
+            docker inspect -f 'latest_tag={{.Id}}' paperclip-publish-dispatcher:latest || true
+            echo "live health status      : $(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}GEEN-HEALTHCHECK{{end}}' "$LIVE")"
+            echo "live healthcheck config : $(docker inspect -f '{{json .Config.Healthcheck}}' "$LIVE")"
+            echo
+            echo "Als hierboven GEEN-HEALTHCHECK staat kan de container per definitie niet"
+            echo "unhealthy worden en is de rest van deze run zinloos."
+
+            # Stub-GitHub (CommonJS, daarom .cjs: het image zelf is ESM). Antwoordt met een
+            # vaste status; de expiry-header staat ver weg zodat de expiry-as het verdict
+            # niet vertroebelt. 403 -> degraded, 422 -> ok.
+            STUB_403='Y29uc3QgaD1yZXF1aXJlKCJub2RlOmh0dHAiKTtoLmNyZWF0ZVNlcnZlcigocSxzKT0+e3Mud3JpdGVIZWFkKDQwMyx7ImNvbnRlbnQtdHlwZSI6ImFwcGxpY2F0aW9uL2pzb24iLCJnaXRodWItYXV0aGVudGljYXRpb24tdG9rZW4tZXhwaXJhdGlvbiI6IjIwMjctMDEtMDEgMTI6MDA6MDAgVVRDIn0pO3MuZW5kKCd7Im1lc3NhZ2UiOiJSZXNvdXJjZSBub3QgYWNjZXNzaWJsZSBieSBwZXJzb25hbCBhY2Nlc3MgdG9rZW4ifScpO30pLmxpc3Rlbig4MDgwLCIxMjcuMC4wLjEiKTsK'
+            STUB_422='Y29uc3QgaD1yZXF1aXJlKCJub2RlOmh0dHAiKTtoLmNyZWF0ZVNlcnZlcigocSxzKT0+e3Mud3JpdGVIZWFkKDQyMix7ImNvbnRlbnQtdHlwZSI6ImFwcGxpY2F0aW9uL2pzb24iLCJnaXRodWItYXV0aGVudGljYXRpb24tdG9rZW4tZXhwaXJhdGlvbiI6IjIwMjctMDEtMDEgMTI6MDA6MDAgVVRDIn0pO3MuZW5kKCd7Im1lc3NhZ2UiOiJObyByZWYgZm91bmQifScpO30pLmxpc3Rlbig4MDgwLCIxMjcuMC4wLjEiKTsK'
+
+            # $1 naam  $2 token  $3 api-base  $4 verwachte health  $5 stub-b64 of "-"
+            # $6 tekst die in de /health-body MOET staan ("-" = geen eis)
+            #
+            # $6 bestaat omdat het health-verdict alleen niet genoeg is: valt het netwerk weg,
+            # dan gaat de container ook rood, en dan zou ROOD 1/2 slagen om de verkeerde reden.
+            # De body moet aantonen dat het verdict uit de ECHTE probe-status komt.
+            run_case() {
+              NAME=$1; TOKEN=$2; APIBASE=$3; WANT=$4; STUB=$5; WANT_BODY=$6
+              echo
+              echo "----------------------------------------------------------------"
+              echo "case: $NAME   verwacht docker health=$WANT"
+              # Nooit een tokenwaarde printen; lengte + hash is genoeg om te identificeren.
+              echo "      token len=${#TOKEN} fp=$(printf %s "$TOKEN" | sha256sum | cut -c1-16)"
+
+              docker rm -f "$NAME" >/dev/null 2>&1 || true
+
+              if [ "$STUB" = "-" ]; then
+                CMD='exec node src/index.js'
+              else
+                CMD="echo $STUB | base64 -d > /tmp/stub.cjs && node /tmp/stub.cjs & sleep 1; exec node src/index.js"
+              fi
+
+              # PUBLISH_PORT=3201 zodat de HEALTHCHECK uit het image (default 3201) meet.
+              docker run -d --rm --name "$NAME" \
+                -e BRIDGE_HMAC_SECRET=lat3875-redtest-not-a-real-secret \
+                -e PUBLISH_PORT=3201 \
+                -e STATE_DIR=/tmp \
+                -e LOG_LEVEL=info \
+                -e GITHUB_REPO=marijnp7/vinomartino-site \
+                -e GITHUB_WORKFLOW=deploy.yml \
+                -e GITHUB_API_BASE="$APIBASE" \
+                -e GH_TOKEN="$TOKEN" \
+                --entrypoint sh "$IMG" -c "$CMD" >/dev/null || {
+                  echo "  ::error::docker run faalde voor $NAME"; FAILED=1; return; }
+
+              # HEALTHCHECK: interval 30s, retries 3 -> een echt kapot token moet binnen
+              # ~2 min op unhealthy staan. Tot 240s pollen zodat een FAIL nooit ongeduld is.
+              S=starting
+              i=0
+              while [ $i -lt 48 ]; do
+                sleep 5
+                i=$((i + 1))
+                S=$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}GEEN-HEALTHCHECK{{end}}' "$NAME" 2>/dev/null || echo weg)
+                case "$S" in healthy|unhealthy|GEEN-HEALTHCHECK|weg) break ;; esac
+              done
+              echo "  docker health na $((i * 5))s: $S"
+              BODY=$(docker exec "$NAME" wget -qO- http://127.0.0.1:3201/health 2>/dev/null)
+              echo "  /health body: $BODY"
+              echo "  laatste healthcheck-log:"
+              docker inspect -f '{{if .State.Health}}{{range .State.Health.Log}}{{.ExitCode}} {{.Output}}{{end}}{{end}}' "$NAME" 2>/dev/null | tail -c 400 | sed 's/^/    /'
+
+              OK=1
+              if [ "$S" != "$WANT" ]; then
+                echo "  FAIL: docker health is $S, verwacht $WANT"
+                OK=0
+              fi
+              if [ "$WANT_BODY" != "-" ]; then
+                case "$BODY" in
+                  *"$WANT_BODY"*) : ;;
+                  *) echo "  FAIL: /health-body bevat '$WANT_BODY' niet — verdict komt niet uit de echte probe"; OK=0 ;;
+                esac
+              fi
+              if [ "$OK" = 1 ]; then
+                echo "  RESULT: PASS"
+              else
+                echo "  RESULT: FAIL"
+                FAILED=1
+              fi
+              docker rm -f "$NAME" >/dev/null 2>&1 || true
+            }
+
+            echo
+            echo "=== 1. ROOD 1/2: ingetrokken/ongeldig token, echte api.github.com -> 401 ==="
+            run_case lat3875-ct-red401 "github_pat_11NOTAREALTOKEN_lat3875_redtest" "https://api.github.com" unhealthy - '"probe_status":401'
+
+            echo
+            echo "=== 2. ROOD 2/2: onderscoped token (stub antwoordt 403) -> degraded ==="
+            # Bewust een stub en niet het echte productietoken: dat heeft sinds LAT-4715
+            # wel Actions:write (422), dus het kan het onderscoped-geval niet meer spelen.
+            run_case lat3875-ct-red403 "lat3875-stub-token-not-real" "http://127.0.0.1:8080" unhealthy "$STUB_403" '"probe_status":403'
+
+            echo
+            echo "=== 3. GROENE CONTROLE: stub antwoordt 422 -> de check kan ook groen ==="
+            run_case lat3875-ct-green422 "lat3875-stub-token-not-real" "http://127.0.0.1:8080" healthy "$STUB_422" '"probe_status":422'
+
+            echo
+            echo "=== 4. OPRUIMEN weesresten van 2026-08-05 (LAT-3875 punt 4) ==="
+            for c in lat3875-y lat3875-red-401 lat3875-red-403b lat3875-red-403 lat3875-green-422; do
+              if docker inspect "$c" >/dev/null 2>&1; then
+                docker rm -f "$c" >/dev/null 2>&1 && echo "  verwijderd: $c" || echo "  KON NIET verwijderen: $c"
+              else
+                echo "  niet aanwezig: $c"
+              fi
+            done
+
+            echo
+            echo "=== 5. PRODUCTIE ONAANGETAST? ==="
+            echo "live health status na afloop: $(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}GEEN-HEALTHCHECK{{end}}' "$LIVE")"
+            echo "live image id na afloop     : $(docker inspect -f '{{.Image}}' "$LIVE")"
+
+            echo
+            if [ "$FAILED" = 0 ]; then
+              echo "LAT3875_REDTEST=PASS"
+            else
+              echo "LAT3875_REDTEST=FAIL"
+              exit 1
+            fi
+        run: |
+          printf '%s\n' "$SCRIPT" | ssh "$VPS" "bash -s"
