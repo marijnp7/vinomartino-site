@@ -1,0 +1,71 @@
+# LAT-2735 / pakket C — C1: mobiele overflow-baseline + 16 basisscreenshots.
+#
+# Waarom een losse, GitHub-hosted workflow:
+#   • Er is een echte headless browser nodig (overflow is een layout-meting, geen
+#     HTML-meting). Agent-containers hebben de chromium-systeemlibraries niet en
+#     geen root om ze te installeren; de reguliere build draait op de VPS zonder
+#     browser. Zelfde reden als de affiliate-nightly (LAT-2532).
+#   • Playwright staat BEWUST niet in package.json — dat zou de blokkerende
+#     VPS-build een chromium-download opleggen. Hier CI-only en ephemeer.
+#   • Dit is een BASELINE, geen gate: hij blokkeert niets en draait op verzoek.
+#
+# Output: artifact `mobile-overflow-baseline` met 16 PNG's + report.json +
+# report.md, en dezelfde tabel in de job-summary.
+
+name: Mobile overflow baseline (C1)
+
+on:
+  workflow_dispatch:
+    inputs:
+      site:
+        description: "Te meten site"
+        required: false
+        default: "https://vinomartino.com"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-overflow-baseline
+  cancel-in-progress: true
+
+jobs:
+  baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      BASELINE_SITE: ${{ github.event.inputs.site || 'https://vinomartino.com' }}
+      BASELINE_OUT: mobile-overflow-baseline
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # CI-only, ephemeer — niet in package.json, zie kopcommentaar.
+      - name: Install Playwright + chromium
+        run: |
+          npm install --no-save playwright@1.58.2
+          npx playwright install --with-deps chromium
+
+      - name: Meet mobiele overflow + maak 16 screenshots
+        run: node scripts/lat2735-mobile-overflow-baseline.mjs
+
+      - name: Zet rapport in de job-summary
+        if: always()
+        run: |
+          if [ -f mobile-overflow-baseline/report.md ]; then
+            cat mobile-overflow-baseline/report.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Geen rapport geproduceerd — zie de stap hierboven." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload baseline (screenshots + rapport)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-overflow-baseline
+          path: mobile-overflow-baseline/
+          retention-days: 90
+          if-no-files-found: error
