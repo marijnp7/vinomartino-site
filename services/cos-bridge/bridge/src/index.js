@@ -53,6 +53,12 @@ const {
   // Maximaal aantal aanvragen per samenvattings-bericht (Telegram: 4096 tekens,
   // max 100 knoppen). Bij meer wordt de samenvatting opgesplitst.
   QUIET_FLUSH_CHUNK = "8",
+  // LAT-2909 — herhaal-rem op de critical-doorbraak. Binnen de stille uren mag
+  // 'critical' door het venster heen, maar alleen voor een storing die nog niet
+  // gemeld is. Is dezelfde melding (zelfde bundle_key) in de afgelopen
+  // QUIET_REPEAT_WINDOW_HOURS al afgeleverd, dan is de herhaling geen nieuws en
+  // wordt hij als 'normal' geparkeerd. Zet op "0" om de rem uit te schakelen.
+  QUIET_REPEAT_WINDOW_HOURS = "12",
   // Herindien-rem: identieke aanvraag (zelfde agent + zelfde tekst) die binnen
   // RESUBMIT_WINDOW_HOURS al RESUBMIT_LIMIT keer op timeout liep, wordt
   // geweigerd in plaats van opnieuw gepusht.
@@ -125,6 +131,7 @@ const QUIET_DEFER_ON = QUIET_DEFER !== "0";
 const FLUSH_CHUNK = Math.max(1, Number(QUIET_FLUSH_CHUNK) || 8);
 // Ondergrens 60 s zodat een kapotte env de klok niet op 0 zet (0 = direct timeout).
 const DEFAULT_TIMEOUT_S = Math.max(60, Number(APPROVAL_DEFAULT_TIMEOUT_SECONDS) || 14400);
+const QUIET_REPEAT_H = Math.max(0, Number(QUIET_REPEAT_WINDOW_HOURS) || 0);
 const RESUBMIT_WINDOW_H = Math.max(0, Number(RESUBMIT_WINDOW_HOURS) || 0);
 const RESUBMIT_MAX = Math.max(0, Number(RESUBMIT_LIMIT) || 0);
 
@@ -171,10 +178,21 @@ function quietWindowEnd(now = new Date()) {
 // Twee aanvragen zijn 'dezelfde vraag' als dezelfde agent letterlijk dezelfde
 // tekst instuurt. Gebruikt voor de herindien-rem en voor het bundelen in de
 // ochtendsamenvatting.
-function bundleKey(requesterAgent, proposal) {
+//
+// LAT-2909 — dat werkt voor een agent die één vraag stelt, maar niet voor een
+// monitor die dezelfde storing elk uur opnieuw meldt. `Disk usage: 92%` kreeg
+// elk uur een andere sleutel omdat de byte-tellers uit de `df`-output in de body
+// meelopen (#680 c38b40d2, #681 be0b09d0, #683 3b5d0917 — één storing, drie
+// sleutels), en de titel schuift mee met het percentage (91% ⇄ 92%). Een
+// afzender die weet dat hij een terugkerende toestand meldt, stuurt daarom een
+// eigen `alert_key` mee — de klasse van de storing, niet de meting ervan
+// ("disk:/host", "oauth-token"). Die sleutel is stabiel over herhalingen en is
+// wat de herhaal-rem en de ochtendsamenvatting nodig hebben.
+function bundleKey(requesterAgent, proposal, alertKey = null) {
+  const material = alertKey ? `alert:${alertKey}` : proposal;
   return crypto
     .createHash("sha256")
-    .update(`${requesterAgent}\0${proposal}`)
+    .update(`${requesterAgent}\0${material}`)
     .digest("hex")
     .slice(0, 16);
 }
@@ -963,6 +981,7 @@ async function handleApprovalPost(req, body) {
     callback_url = null,
     run_id = null,
     issue_id = null,
+    alert_key = null,
   } = payload;
 
   // LAT-5297 — beleidsvloer, geen plafond. Een indiener mag de klok langer
@@ -991,6 +1010,21 @@ async function handleApprovalPost(req, body) {
   if (!["normal", "critical"].includes(urgency)) {
     return { status: 400, body: JSON.stringify({ error: "urgency must be 'normal' or 'critical'" }) };
   }
+  // LAT-2909 — optioneel. Alleen een afzender die een terugkerende toestand
+  // meldt hoort hem te sturen; een eenmalige vraag laat hem weg en houdt het
+  // oude gedrag (sleutel over de volledige tekst).
+  if (alert_key !== null && (typeof alert_key !== "string" || !alert_key.trim() || alert_key.length > 120)) {
+    return {
+      status: 400,
+      body: JSON.stringify({
+        error: "alert_key must be a non-empty string of at most 120 chars",
+        hint:
+          `Gebruik de klasse van de storing, niet de meting: "disk:/host", niet ` +
+          `"disk 92%". De sleutel moet gelijk blijven als de melding zich herhaalt.`,
+      }),
+    };
+  }
+  const alertKey = alert_key ? alert_key.trim() : null;
 
   // Dedup op request_id
   const [existing] = await q(
@@ -1119,8 +1153,44 @@ async function handleApprovalPost(req, body) {
   // De klok begint pas te lopen op het moment dat de push écht verstuurd is.
   // 'critical' breekt door het venster heen — niemand wil zijn VPS in brand
   // zien staan omdat het toevallig nacht is.
-  const deferring = QUIET_DEFER_ON && urgency !== "critical" && isQuietHours();
+  //
+  // LAT-2909 — die doorbraak is inmiddels het normale pad: in de nacht van
+  // 24→25 juli ging 16 van de 16 'critical' direct door (gem. 0,1 s), 15 daarvan
+  // liepen af zonder antwoord. Het waren twee storingen, elk uur opnieuw gemeld.
+  // De doorbraak blijft dus, maar alleen voor NIEUWS: is dezelfde melding
+  // recent al afgeleverd, dan voegt de herhaling niets toe en gaat hij als
+  // 'normal' mee in de ochtendsamenvatting. De rem kijkt naar afgeleverde
+  // (`pushed_at IS NOT NULL`) meldingen — een eerdere herhaling die zelf al
+  // geparkeerd is telt niet mee, anders zou de rem zichzelf voeden.
+  const inQuietWindow = QUIET_DEFER_ON && isQuietHours();
+  const bundle = bundleKey(agent, `${title}\n\n${proposalBody}`, alertKey);
+  let repeatOf = null;
+  if (inQuietWindow && urgency === "critical" && QUIET_REPEAT_H > 0) {
+    const [prior] = await q(
+      `SELECT id, to_char(pushed_at AT TIME ZONE 'Europe/Amsterdam','DD-MM HH24:MI') AS pushed_hhmm
+         FROM cos.actions
+        WHERE bundle_key = $1
+          AND pushed_at IS NOT NULL
+          AND pushed_at > NOW() - ($2 || ' hours')::interval
+        ORDER BY pushed_at DESC
+        LIMIT 1`,
+      [bundle, String(QUIET_REPEAT_H)]
+    );
+    if (prior) repeatOf = prior;
+  }
+
+  const deferring = inQuietWindow && (urgency !== "critical" || repeatOf !== null);
   const deferUntil = deferring ? quietWindowEnd() : null;
+  // Een afgeremde 'critical' wordt ook echt als 'normal' vastgelegd: de
+  // ochtendsamenvatting, de vries-sweep en elke latere meting kijken naar de
+  // kolom, niet naar wat de afzender bedoelde.
+  const storedUrgency = repeatOf ? "normal" : urgency;
+  if (repeatOf) {
+    log.info(
+      { agent, request_id, alertKey, bundle, repeatOf: repeatOf.id, windowHours: QUIET_REPEAT_H },
+      "critical downgraded to normal — repeat of an alert already delivered"
+    );
+  }
 
   const [row] = await q(
     `INSERT INTO cos.actions
@@ -1140,21 +1210,23 @@ async function handleApprovalPost(req, body) {
       "external",
       request_id,
       agent,
-      urgency,
+      storedUrgency,
       callback_url,
       String(timeout_seconds),
       run_id || null,
       issue_id || null,
       deferUntil ? deferUntil.toISOString() : null,
-      bundleKey(agent, `${title}\n\n${proposalBody}`),
+      bundle,
     ]
   );
   const actionId = row.id;
 
   if (deferring) {
     log.info(
-      { actionId, agent, request_id, deferUntil: deferUntil.toISOString() },
-      "approval deferred — quiet hours, no push"
+      { actionId, agent, request_id, deferUntil: deferUntil.toISOString(), repeatOf: repeatOf?.id ?? null },
+      repeatOf
+        ? "approval deferred — repeat of an already-delivered alert, no push"
+        : "approval deferred — quiet hours, no push"
     );
     return {
       status: 202,
@@ -1164,12 +1236,21 @@ async function handleApprovalPost(req, body) {
         status: "deferred",
         deferred_until: deferUntil.toISOString(),
         quiet_hours: `${QSTART}:00–${QEND}:00`,
-        hint:
-          `Geregistreerd, maar niet verstuurd: het is stille uren. De aanvraag ` +
-          `gaat als onderdeel van één ochtendsamenvatting de deur uit om ` +
-          `${String(QEND).padStart(2, "0")}:00. De timeout-klok staat stil tot ` +
-          `dat moment — dit wordt GEEN timeout. Sluit je run af en dien niet ` +
-          `opnieuw in; je hoort het via het issue zodra er een besluit is.`,
+        ...(repeatOf
+          ? { downgraded_from: "critical", repeat_of: repeatOf.id, bundle_key: bundle }
+          : {}),
+        hint: repeatOf
+          ? `Geregistreerd, maar niet verstuurd: deze melding is vannacht al ` +
+            `afgeleverd als #${repeatOf.id} (${repeatOf.pushed_hhmm}) en de storing ` +
+            `is dus bekend. Een herhaling binnen het stiltevenster wekt niemand ` +
+            `een tweede keer; hij gaat mee in de ochtendsamenvatting om ` +
+            `${String(QEND).padStart(2, "0")}:00. Verandert de situatie wezenlijk, ` +
+            `stuur dan een melding met een andere alert_key.`
+          : `Geregistreerd, maar niet verstuurd: het is stille uren. De aanvraag ` +
+            `gaat als onderdeel van één ochtendsamenvatting de deur uit om ` +
+            `${String(QEND).padStart(2, "0")}:00. De timeout-klok staat stil tot ` +
+            `dat moment — dit wordt GEEN timeout. Sluit je run af en dien niet ` +
+            `opnieuw in; je hoort het via het issue zodra er een besluit is.`,
       }),
     };
   }
@@ -1238,11 +1319,19 @@ async function handleApprovalPost(req, body) {
 async function handleApprovalGet(actionId) {
   const [row] = await q(
     `SELECT id, request_id, requester_agent, decision, decided_at, timeout_at, created_at,
-            deferred_until, pushed_at
+            deferred_until, pushed_at, paperclip_issue_id, proposal
        FROM cos.actions WHERE id=$1`,
     [actionId]
   );
   if (!row) return { status: 404, body: JSON.stringify({ error: "not found" }) };
+  // LAT-3631: expose paperclip_issue_id + title so callers can verify server-side
+  // that a *specific* already-approved action authorizes a *specific* follow-up
+  // execution (e.g. directus-publish.sh --approved-action-id), instead of just
+  // trusting a bare "approve" decision on any action id. proposal is stored as
+  // `${title}\n\n${body}` (see handleApprovalPost) and title itself never
+  // contains "\n\n", so the first split recovers the exact original title.
+  const sepIdx = row.proposal.indexOf("\n\n");
+  const title = sepIdx === -1 ? row.proposal : row.proposal.slice(0, sepIdx);
   return {
     status: 200,
     body: JSON.stringify({
@@ -1256,11 +1345,187 @@ async function handleApprovalGet(actionId) {
       responded_at: row.decided_at,
       timeout_at: row.timeout_at,
       created_at: row.created_at,
+      paperclip_issue_id: row.paperclip_issue_id,
+      title,
     }),
   };
 }
 
-// ---- HTTP server: /health + /approval ----
+// ---- POST /notify — meldingen zonder beslissing (LAT-2802) ----
+//
+// Een drempel-alarm vraagt niets: er is geen beslisser, geen callback en geen
+// timeout. Toch liep elk alarm van paperclip-monitor tot nu toe via /approval,
+// met knoppen die niets deden — 163 timeouts, 8 rejects en 5 approves sinds
+// 12-06, alle drie no-ops. /notify is dat pad zonder de beslis-machinerie:
+// geen rij in cos.actions, geen inline keyboard, geen timeout-watcher.
+
+const NOTIFY_SEVERITIES = ["info", "warn", "critical"];
+
+const NOTIFY_PREFIX = {
+  info: "ℹ️ ",
+  warn: "⚠️ ",
+  // Gelijk aan de bestaande approval-prefix, zodat 'critical' er in Telegram
+  // hetzelfde uitziet ongeacht via welk endpoint het binnenkwam.
+  critical: "🚨 <b>CRITICAL</b>\n\n",
+};
+
+// Een titel of afzender die de hele 4096 opslokt laat geen ruimte voor de body.
+// Beide zijn agent-input, dus beide krijgen een eigen plafond.
+const NOTIFY_TITLE_MAX = 256;
+const NOTIFY_AGENT_MAX = 64;
+const NOTIFY_TRUNCATION_MARKER = "\n\n… (afgekapt)";
+
+// Kap een RÉÉDS geëscapete string af zonder een HTML-entity doormidden te
+// knippen. escapeHtml() maakt van '&' vijf tekens ('&amp;'), dus afkappen op
+// een vaste index kan midden in '&am|p;' landen — Telegram antwoordt daarop met
+// 400 "can't parse entities" en dan is de melding alsnog weg (LAT-2802 A4).
+function truncateEscaped(escaped, budget) {
+  if (budget <= 0) return "";
+  if (escaped.length <= budget) return escaped;
+  let cut = escaped.slice(0, budget);
+  const lastAmp = cut.lastIndexOf("&");
+  // Een '&' zonder afsluitende ';' erna is een half afgekapte entity.
+  if (lastAmp !== -1 && cut.indexOf(";", lastAmp) === -1) cut = cut.slice(0, lastAmp);
+  return cut;
+}
+
+// Anders dan /approval wijst /notify een te lang bericht niet af maar kapt het
+// af. Bij een approval was afwijzen juist goed — daar wacht iemand op een
+// beslissing en die kan de tekst inkorten. Bij een melding wacht niemand: een
+// afgekapte melding is altijd beter dan een verdwenen melding.
+//
+// Het budget wordt berekend op de DEFINITIEVE, geëscapete string inclusief
+// prefix, ⏸-marker en voettekst. Afkappen vóór het escapen zou je alsnog over
+// de 4096 heen duwen zodra de body '&' of '<' bevat.
+function buildNotifyText({ severity, title, body, agent, paused }) {
+  const prefix = NOTIFY_PREFIX[severity] || NOTIFY_PREFIX.info;
+  const quiet = isQuietHours() ? "🌙 (stille uren) " : "";
+  // COS staat gepauzeerd maar de melding gaat toch door (§2.3): laat zien dat
+  // de pauze aan staat, zodat 'stil' niet als 'niets aan de hand' leest.
+  const pause = paused ? "⏸ " : "";
+  const head =
+    `${prefix}${pause}${quiet}` +
+    `<b>${truncateEscaped(escapeHtml(title), NOTIFY_TITLE_MAX)}</b>\n\n`;
+  const foot = `\n\n— melding van <code>${truncateEscaped(escapeHtml(agent), NOTIFY_AGENT_MAX)}</code>`;
+
+  const escapedBody = escapeHtml(body);
+  const budget = TELEGRAM_MAX_CHARS - head.length - foot.length;
+  const truncated = escapedBody.length > budget;
+  const shownBody = truncated
+    ? truncateEscaped(escapedBody, budget - NOTIFY_TRUNCATION_MARKER.length) +
+      NOTIFY_TRUNCATION_MARKER
+    : escapedBody;
+
+  return { text: head + shownBody + foot, truncated };
+}
+
+async function handleNotifyPost(req, body) {
+  // Zelfde volgorde als /approval: geen secret → 503, slechte signature → 401.
+  if (!APPROVAL_HMAC_SECRET) {
+    return { status: 503, body: JSON.stringify({ error: "notify endpoint disabled (no HMAC secret set)" }) };
+  }
+  if (!verifyHmac(body, req.headers["x-signature"])) {
+    return { status: 401, body: JSON.stringify({ error: "bad or missing signature" }) };
+  }
+  let payload;
+  try {
+    payload = JSON.parse(body);
+  } catch {
+    return { status: 400, body: JSON.stringify({ error: "invalid json" }) };
+  }
+
+  const {
+    agent,
+    title,
+    body: notifyBody,
+    severity = "info",
+    // Alleen voor terugzoeken in cos.notifications. Bewust GEEN dedup-sleutel:
+    // een herhaalde melding na de backoff is legitiem, geen duplicaat.
+    request_id = null,
+  } = payload;
+
+  if (!agent || !title || !notifyBody) {
+    return {
+      status: 400,
+      body: JSON.stringify({ error: "missing required fields: agent, title, body" }),
+    };
+  }
+  if (!NOTIFY_SEVERITIES.includes(severity)) {
+    return {
+      status: 400,
+      body: JSON.stringify({ error: `severity must be one of: ${NOTIFY_SEVERITIES.join(", ")}` }),
+    };
+  }
+
+  // Pauze-stand (LAT-2802 A3). 'warn' en 'critical' gaan door — de pauze bestaat
+  // om Marijn niet met beslissingen lastig te vallen, en een melding vraagt
+  // niets. 'info' is de herstel-categorie en dat is precies waarvoor de pauze
+  // wél bedoeld is: onderdrukken. De rij wordt hoe dan ook weggeschreven; de
+  // oorspronkelijke klacht was spoorloosheid en die los je op in de tabel, niet
+  // door alles door te duwen.
+  const state = await getPauseState();
+  const suppressed = Boolean(state.paused) && severity === "info";
+
+  const { text, truncated } = buildNotifyText({
+    severity,
+    title,
+    body: notifyBody,
+    agent,
+    paused: Boolean(state.paused),
+  });
+
+  let delivered = false;
+  let deliveryError = null;
+  if (!suppressed) {
+    try {
+      // Geen inline keyboard, met opzet: er valt niets te beslissen.
+      await bot.telegram.sendMessage(OWNER_ID, text, { parse_mode: "HTML" });
+      delivered = true;
+    } catch (err) {
+      deliveryError = err.message;
+      log.error({ err: err.message, agent, title }, "notify telegram send failed");
+    }
+  }
+
+  const [row] = await q(
+    `INSERT INTO cos.notifications
+       (request_id, agent, title, body, severity, delivered, delivery_error, truncated, suppressed)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+     RETURNING id`,
+    [request_id, agent, title, notifyBody, severity, delivered, deliveryError, truncated, suppressed]
+  );
+
+  if (suppressed) {
+    log.info({ notificationId: row.id, agent, title }, "notify suppressed (cos paused, severity=info)");
+  }
+
+  // 502 bij een Telegram-fout, maar zonder de 'undelivered'-semantiek van
+  // /approval: er is geen wachtende beslisser en geen timeout-watcher die de
+  // rij verkeerd kan lezen. De rij bewaart delivery_error voor het terugzoeken.
+  if (deliveryError) {
+    return {
+      status: 502,
+      body: JSON.stringify({
+        error: "telegram push failed",
+        notification_id: row.id,
+        delivered: false,
+        detail: deliveryError,
+      }),
+    };
+  }
+
+  return {
+    status: 202,
+    body: JSON.stringify({
+      notification_id: row.id,
+      delivered,
+      suppressed,
+      truncated,
+    }),
+  };
+}
+
+// ---- HTTP server: /health + /approval + /notify ----
 http
   .createServer((req, res) => {
     // /health — liveness
@@ -1286,6 +1551,30 @@ http
           res.end(result.body);
         } catch (err) {
           log.error({ err: err.message }, "POST /approval failed");
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "internal error" }));
+        }
+      });
+      return;
+    }
+
+    // POST /notify — melding zonder beslissing (LAT-2802)
+    if (req.url === "/notify" && req.method === "POST") {
+      let body = "";
+      req.on("data", (chunk) => {
+        body += chunk;
+        if (body.length > 64 * 1024) {
+          res.writeHead(413).end(JSON.stringify({ error: "payload too large" }));
+          req.destroy();
+        }
+      });
+      req.on("end", async () => {
+        try {
+          const result = await handleNotifyPost(req, body);
+          res.writeHead(result.status, { "Content-Type": "application/json" });
+          res.end(result.body);
+        } catch (err) {
+          log.error({ err: err.message }, "POST /notify failed");
           res.writeHead(500, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ error: "internal error" }));
         }
@@ -1543,6 +1832,27 @@ async function flushDeferredApprovals() {
   log.info({ ids: flushed }, "deferred approvals pushed — timeout clock started");
 }
 
+// Control-plane approvals ('approved'/'rejected') map onto the same decision
+// values the Telegram approve/reject flow already writes to cos.actions.
+const CONTROL_PLANE_DECISION = { approved: "approve", rejected: "reject" };
+
+// LAT-2994 — read-back before writing a timeout. cos.actions.request_id can
+// double as public.approvals.id (some callers register a board approval and
+// the bridge request under the same id). The board can resolve that approval
+// while the bridge's own decision stays NULL — 16 of 85 historical rows were
+// approved on the control plane 45min+ before the bridge wrote 'timeout',
+// because nothing here ever read that decision back. A GET that 404s or
+// returns a still-pending status is the common case and falls through to the
+// normal timeout path unchanged.
+async function readControlPlaneDecision(requestId) {
+  const res = await paperclipFetch(`/api/approvals/${requestId}`, { timeoutMs: 5_000 });
+  if (!res || !res.ok) return null;
+  const data = await res.json().catch(() => null);
+  const decision = data && CONTROL_PLANE_DECISION[data.status];
+  if (!decision) return null;
+  return { decision, decidedAt: data.decided_at || null };
+}
+
 // ---- timeout-watcher: markeer expired pending requests als 'timeout' + fire callbacks ----
 setInterval(async () => {
   try {
@@ -1552,24 +1862,63 @@ setInterval(async () => {
     log.error({ err: err.message }, "quiet-window sweep failed");
   }
   try {
-    const rows = await q(
-      `UPDATE cos.actions
-          SET decision='timeout', decided_at=NOW()
+    // Select first (no mutation yet) so each row can be read back against the
+    // control plane before we decide what to write.
+    const candidates = await q(
+      `SELECT id, callback_url, request_id, requester_agent,
+              paperclip_run_id, paperclip_issue_id, timeout_seconds
+         FROM cos.actions
         WHERE decision IS NULL
           AND timeout_at IS NOT NULL
-          AND timeout_at < NOW()
-        RETURNING id, callback_url, request_id, requester_agent,
-                  paperclip_run_id, paperclip_issue_id, timeout_seconds`
+          AND timeout_at < NOW()`
     );
-    for (const row of rows) {
+    for (const row of candidates) {
+      let resolved = null;
+      if (row.request_id) {
+        resolved = await readControlPlaneDecision(row.request_id).catch((err) => {
+          log.warn({ err: err.message, id: row.id }, "control-plane read-back failed");
+          return null;
+        });
+      }
+
+      if (resolved) {
+        const [updated] = await q(
+          `UPDATE cos.actions SET decision=$1, decided_at=COALESCE($2, NOW())
+            WHERE id=$3 AND decision IS NULL
+            RETURNING id`,
+          [resolved.decision, resolved.decidedAt, row.id]
+        );
+        if (!updated) continue; // someone else (Telegram tap) decided it in the meantime
+        log.info(
+          { id: row.id, agent: row.requester_agent, decision: resolved.decision },
+          "read back control-plane decision — did not write a false timeout"
+        );
+        if (row.callback_url && row.request_id) {
+          fireCallback(row.callback_url, row.request_id, resolved.decision).catch((err) =>
+            log.error({ err: err.message, id: row.id }, "decision callback fire failed")
+          );
+        }
+        // Not a timeout: leave the run and issue alone. terminateApprovalTimeout
+        // is only for genuine non-answers.
+        continue;
+      }
+
+      const [timedOut] = await q(
+        `UPDATE cos.actions SET decision='timeout', decided_at=NOW()
+          WHERE id=$1 AND decision IS NULL
+          RETURNING id, callback_url, request_id, requester_agent,
+                    paperclip_run_id, paperclip_issue_id, timeout_seconds`,
+        [row.id]
+      );
+      if (!timedOut) continue;
       log.info({ id: row.id, agent: row.requester_agent }, "approval timed out");
-      if (row.callback_url && row.request_id) {
-        fireCallback(row.callback_url, row.request_id, "timeout").catch((err) =>
+      if (timedOut.callback_url && timedOut.request_id) {
+        fireCallback(timedOut.callback_url, timedOut.request_id, "timeout").catch((err) =>
           log.error({ err: err.message, id: row.id }, "timeout callback fire failed")
         );
       }
       // Proactively cancel the run and update the issue.
-      terminateApprovalTimeout(row).catch((err) =>
+      terminateApprovalTimeout(timedOut).catch((err) =>
         log.error({ err: err.message, id: row.id }, "terminateApprovalTimeout failed")
       );
     }
@@ -1577,6 +1926,78 @@ setInterval(async () => {
     log.error({ err: err.message }, "timeout-watcher sweep failed");
   }
 }, 60_000);
+
+// ---- LAT-5317: post-timeout reconciliation ----
+// readControlPlaneDecision() above is only consulted once, right before the
+// timeout-watcher writes 'timeout' — a pre-write check. Board decisions land
+// late often enough (measured: median board response ~54 min, well past the
+// approval clock) that a genuine approve/reject regularly arrives *after* the
+// row is already marked 'timeout', and nothing ever revisits it: the
+// misrecorded row sits there forever. This pass re-checks recent timeouts
+// against the control plane and corrects the historical record when a later
+// real decision is found.
+//
+// Deliberately does NOT call fireCallback or terminateApprovalTimeout: a row
+// that already timed out already ran that side-effect path (run cancelled,
+// issue set to blocked). Re-firing those here would be a *second*,
+// out-of-band cancel/blocked-update against a run or issue that may have
+// already been handled by a human in the meantime — a new problem, not a
+// fix. This pass only corrects what cos.actions *records* as having
+// happened, so later readers (GET /approval/:id, LAT-3631 verification,
+// reporting) see the true outcome instead of a false timeout.
+const RECONCILE_INTERVAL_MS = 5 * 60_000; // control-plane API is called per candidate row — don't tighten this
+const RECONCILE_WINDOW_DAYS = 7; // bounded window so this doesn't re-check timeouts forever
+
+async function reconcileStaleTimeouts() {
+  const candidates = await q(
+    `SELECT id, request_id, requester_agent, decided_at
+       FROM cos.actions
+      WHERE decision = 'timeout'
+        AND request_id IS NOT NULL
+        AND decided_at > NOW() - ($1 || ' days')::interval`,
+    [RECONCILE_WINDOW_DAYS]
+  );
+  for (const row of candidates) {
+    const resolved = await readControlPlaneDecision(row.request_id).catch((err) => {
+      log.warn({ err: err.message, id: row.id }, "reconcile: control-plane read-back failed");
+      return null;
+    });
+    // No decision, or no timestamp on it — without a decidedAt we can't prove
+    // it's genuinely *later* than what's already on file, so skip rather than
+    // risk overwriting a correct timeout with ambiguous data.
+    if (!resolved || !resolved.decidedAt) continue;
+
+    // Same WHERE-guard pattern as the timeout-watcher above: only overwrite a
+    // row that is still 'timeout' (nothing else resolved it meanwhile) and
+    // only when the control-plane decision is strictly later than what's on
+    // file (i.e. a genuinely late board decision, not stale/replayed data).
+    const [updated] = await q(
+      `UPDATE cos.actions SET decision=$1, decided_at=$2::timestamptz
+        WHERE id=$3 AND decision='timeout' AND decided_at < $2::timestamptz
+        RETURNING id`,
+      [resolved.decision, resolved.decidedAt, row.id]
+    );
+    if (!updated) continue;
+
+    log.info(
+      {
+        id: row.id,
+        agent: row.requester_agent,
+        previousDecision: "timeout",
+        correctedDecision: resolved.decision,
+        previousDecidedAt: row.decided_at,
+        correctedDecidedAt: resolved.decidedAt,
+      },
+      "corrected a false timeout — control plane had a genuine later decision on record"
+    );
+  }
+}
+
+setInterval(() => {
+  reconcileStaleTimeouts().catch((err) =>
+    log.error({ err: err.message }, "post-timeout reconciliation sweep failed")
+  );
+}, RECONCILE_INTERVAL_MS);
 
 // ---- startup ----
 (async () => {
