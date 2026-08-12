@@ -4,6 +4,7 @@ import SiteFooter from '../components/SiteFooter.astro';
 import SearchDialog from '../components/SearchDialog.astro';
 import { DEFAULT_LOCALE, HTML_LANG, OG_LOCALE, HREFLANG, type Locale } from '../lib/i18n';
 import { getPublicImageDimensions } from '../lib/og-image-dimensions';
+import { isRasterImageFormat } from '../lib/og-image-format';
 import '../styles/tokens.css';
 
 type OgType = 'website' | 'article' | 'profile' | 'place';
@@ -73,15 +74,10 @@ function toAbsoluteUrl(value?: string | null): string | undefined {
 const DEFAULT_OG_IMAGE = '/og-default.png';
 const DEFAULT_OG_IMAGE_ALT = 'VinoMartino — wijnreis-verhalen, routes en proefnotities';
 
-// LAT-4988: Reject non-raster og:image formats (e.g., SVG). Scrapers (FB/LinkedIn/X/Slack)
-// don't render vector images in social cards. Fall back to DEFAULT_OG_IMAGE instead.
-function isRasterImageFormat(url: string): boolean {
-  const lower = url.toLowerCase();
-  return /\.(jpg|jpeg|png|webp|gif)($|\?)/i.test(lower);
-}
-
+// LAT-4988: een SVG als og:image levert bij FB/LinkedIn/X/Slack géén deelkaart op.
+// Alleen raster mag door; de rest valt terug op dezelfde merkkaart als hierboven.
 const pageOgImageUrl = toAbsoluteUrl(ogImage);
-const validPageOgImageUrl = pageOgImageUrl && isRasterImageFormat(pageOgImageUrl) ? pageOgImageUrl : undefined;
+const validPageOgImageUrl = isRasterImageFormat(pageOgImageUrl) ? pageOgImageUrl : undefined;
 const ogImageUrl = validPageOgImageUrl ?? toAbsoluteUrl(DEFAULT_OG_IMAGE);
 
 // LAT-4907: de afmetingen stonden hier als literals 1200x630 — de maat van

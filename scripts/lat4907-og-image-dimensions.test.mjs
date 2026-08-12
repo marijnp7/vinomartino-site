@@ -137,7 +137,10 @@ test('SiteLayout declareert de afmetingen niet meer als literal', () => {
     );
     assert.match(
         LAYOUT,
-        /const ogImageSourcePath = ogImage \?\? DEFAULT_OG_IMAGE;/,
+        // LAT-4988: de keten kan nu ook op de default uitkomen doordat het eigen beeld
+        // een SVG is. De meting moet die afslag volgen, anders declareren we de maat
+        // van een beeld dat we niet serveren — precies het defect van LAT-4907.
+        /const ogImageSourcePath = \(validPageOgImageUrl \? ogImage : DEFAULT_OG_IMAGE\) \?\? DEFAULT_OG_IMAGE;/,
         'de gemeten bron volgt niet de og:image-keten (og_image → hero → default)',
     );
     assert.match(
