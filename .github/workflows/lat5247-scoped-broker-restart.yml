@@ -1,0 +1,189 @@
+# LAT-5247 — dispatch-only deploy van de geconsolideerde scoped_broker.py + herstart.
+#
+# Goedgekeurd: kaart 2f35aedd (de deploy zelf, Marijn 2026-08-10 11:27:25Z). De route
+# (agent voert een al goedgekeurd VPS-commando zelf uit via het bestaande GHA->VPS
+# SSH-kanaal in plaats van een handmatige host-shell) is goedgekeurd op kaart 933eff00
+# en voor het eerst gebruikt in lat4750-recreate-publish-dispatcher.yml.
+#
+# Geen push-trigger. `mode` kiest alleen tussen twee vaste scripts; er wordt niets uit
+# de input in een commando geinterpoleerd.
+#
+# De bron van de deploy is het al gestagede /opt/paperclip-cos/_lat3001/scoped_broker.py.proposed.
+# Dat pad is schrijfbaar vanuit paperclip-devops-workspace-1, dus het wordt NIET op
+# vertrouwen gedeployd: het script breekt af tenzij sha256 exact gelijk is aan de blob
+# uit LAT-3591#document-consolidated-deploy-plan. Content-addressed, dus een agent kan
+# er niets anders voor in de plaats schuiven.
+#
+# LET OP bij het pushen: elk bestand onder .github/ op main triggert normaal een
+# productie-release van vinomartino.com (deploy.yml gebruikt paths-ignore en .github/**
+# staat daar bewust niet in). Daarom pushen met "[skip ci]" en daarna verifieren per sha:
+#   gh run list --repo marijnp7/vinomartino-site --limit 20 \
+#     --json databaseId,headSha,workflowName --jq '.[]|select(.headSha=="<sha>")'
+
+name: LAT-5247 scoped-broker consolidated deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'diagnose = alleen lezen; deploy = promote .proposed + restart'
+        required: true
+        default: diagnose
+        type: choice
+        options:
+          - diagnose
+          - deploy
+
+concurrency:
+  group: lat5247-scoped-broker-restart
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          cat >> ~/.ssh/config <<EOF
+          Host $VPS_HOST
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+          EOF
+          cat "$GITHUB_WORKSPACE/ops/ssh-config-snippet" >> ~/.ssh/config
+          ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      # ---------------------------------------------------------------- diagnose
+      - name: Diagnose (read-only)
+        if: inputs.mode == 'diagnose'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          DIAG: |
+            set -uo pipefail
+            D=/opt/paperclip-cos/_lat3001
+            echo "=== bestanden in $D ==="
+            ls -la "$D" || { echo "GEEN $D"; exit 1; }
+
+            echo "=== sha256 (bestandshashes, geen secretwaarden) ==="
+            sha256sum "$D"/scoped_broker.py "$D"/scoped_broker.py.proposed \
+                      "$D"/scoped_broker.py.bak-lat3591-20260804T155945Z 2>&1
+
+            echo "=== verwacht na deploy: 9c968792f3f141eea680d7c4a233b722130cf80bb96eca663901187f719b5886 ==="
+
+            echo "=== containerstaat (nooit een kale docker inspect: die print .Config.Env) ==="
+            docker inspect -f 'status={{.State.Status}} started={{.State.StartedAt}} restarts={{.RestartCount}}' \
+              paperclip-devops-proxy-scoped-1
+
+            echo "=== laatste logregels ==="
+            docker logs --tail 5 paperclip-devops-proxy-scoped-1 2>&1
+        run: |
+          printf '%s\n' "$DIAG" | ssh "$VPS" "bash -s"
+
+      # ---------------------------------------------------------------- deploy
+      - name: Deploy geconsolideerde broker + herstart
+        if: inputs.mode == 'deploy'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          DEPLOY: |
+            set -euo pipefail
+            D=/opt/paperclip-cos/_lat3001
+            LIVE="$D/scoped_broker.py"
+            PROP="$D/scoped_broker.py.proposed"
+            ROLLBACK="$D/scoped_broker.py.bak-lat3591-20260804T155945Z"
+            BAK="$D/scoped_broker.py.bak-consolidated-20260810"
+            WANT=9c968792f3f141eea680d7c4a233b722130cf80bb96eca663901187f719b5886
+            CTR=paperclip-devops-proxy-scoped-1
+
+            echo "=== 0. preconditie: bron is exact de goedgekeurde blob ==="
+            GOT=$(sha256sum "$PROP" | cut -d' ' -f1)
+            echo "proposed sha256 = $GOT"
+            if [ "$GOT" != "$WANT" ]; then
+              echo "::error::.proposed wijkt af van de goedgekeurde blob ($WANT); afgebroken, niets aangeraakt"
+              exit 1
+            fi
+            echo "PRECONDITIE_OK"
+
+            echo "=== 0b. rollback-anker aanwezig? ==="
+            [ -f "$ROLLBACK" ] || { echo "::error::rollback-bestand $ROLLBACK ontbreekt; afgebroken"; exit 1; }
+            LIVE_SHA=$(sha256sum "$LIVE" | cut -d' ' -f1)
+            RB_SHA=$(sha256sum "$ROLLBACK" | cut -d' ' -f1)
+            echo "live=$LIVE_SHA rollback=$RB_SHA"
+            if [ "$LIVE_SHA" != "$RB_SHA" ]; then
+              echo "::error::live wijkt af van het rollback-anker; onverwachte staat, afgebroken"
+              exit 1
+            fi
+            echo "ROLLBACK_OK"
+
+            echo "=== 1. backup (naam uit het goedgekeurde plan) ==="
+            cp "$LIVE" "$BAK"
+            sha256sum "$BAK"
+
+            echo "=== 2. schrijf nieuwe inhoud (promote .proposed) ==="
+            cp "$PROP" "$LIVE"
+
+            echo "=== 3. valideer VOOR herstart ==="
+            if ! python3 -m py_compile "$LIVE"; then
+              echo "::error::py_compile faalde; terugrollen zonder herstart"
+              cp "$BAK" "$LIVE"
+              exit 1
+            fi
+            echo "COMPILE_OK"
+            NEW=$(sha256sum "$LIVE" | cut -d' ' -f1)
+            echo "live sha256 na schrijven = $NEW"
+            if [ "$NEW" != "$WANT" ]; then
+              echo "::error::hash na schrijven klopt niet; terugrollen zonder herstart"
+              cp "$BAK" "$LIVE"
+              exit 1
+            fi
+            echo "SHA_OK"
+
+            echo "=== 4. herstart ==="
+            docker restart "$CTR"
+
+            ok=0
+            for i in 1 2 3 4 5 6 7 8 9 10; do
+              sleep 3
+              ST=$(docker inspect -f '{{.State.Status}}' "$CTR")
+              echo "poging $i: status=$ST"
+              if [ "$ST" = "running" ] && docker logs --tail 20 "$CTR" 2>&1 | grep -q 'listening'; then
+                ok=1; break
+              fi
+            done
+
+            echo "=== docker logs --tail 5 ==="
+            docker logs --tail 5 "$CTR" 2>&1
+            docker inspect -f 'status={{.State.Status}} started={{.State.StartedAt}} restarts={{.RestartCount}}' "$CTR"
+
+            if [ "$ok" != "1" ]; then
+              echo "::error::broker kwam niet schoon op; AUTOMATISCHE ROLLBACK"
+              cp "$BAK" "$LIVE"
+              docker restart "$CTR"
+              sleep 5
+              docker logs --tail 10 "$CTR" 2>&1
+              docker inspect -f 'na-rollback status={{.State.Status}}' "$CTR"
+              exit 1
+            fi
+
+            echo "=== EINDSTAAT ==="
+            sha256sum "$LIVE"
+            echo "LAT5247_DEPLOY_OK"
+        run: |
+          printf '%s\n' "$DEPLOY" | ssh "$VPS" "bash -s"
+
+      # Handmatige rollback (als de automatische hierboven zelf niet zou landen):
+      #   cp /opt/paperclip-cos/_lat3001/scoped_broker.py.bak-consolidated-20260810 \
+      #      /opt/paperclip-cos/_lat3001/scoped_broker.py
+      #   docker restart paperclip-devops-proxy-scoped-1
