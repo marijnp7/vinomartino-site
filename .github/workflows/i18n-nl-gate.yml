@@ -199,6 +199,12 @@ jobs:
             # Een GHA re-run hergebruikt hetzelfde run_id; een achtergebleven
             # wees met deze naam zou `docker run --name` laten afketsen op
             # "container name is already in use".
+            # LAT-4966: serialiseer met de andere VPS-builds. Juist déze workflow
+            # zit in een per-PR-concurrency-groep, dus hij kan naast een deploy
+            # én naast een tweede gate draaien — de meting die de lock motiveert
+            # (runs 31515069478 + 31515283123) was precies die combinatie.
+            # Best-effort; sourcen, niet uitvoeren. Zie het script voor de rest.
+            if [ -f scripts/vps-build-lock.sh ]; then . scripts/vps-build-lock.sh; fi
             docker rm -f "vino-gate-pr-$RUN_ID" >/dev/null 2>&1 || true
             docker run --rm --name "vino-gate-pr-$RUN_ID" \
               --network directus_directus_net \

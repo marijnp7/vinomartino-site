@@ -113,6 +113,11 @@ jobs:
             # Een GHA re-run hergebruikt hetzelfde run_id; een achtergebleven
             # wees met deze naam zou `docker run --name` laten afketsen op
             # "container name is already in use".
+            # LAT-4966: serialiseer met de andere VPS-builds. Best-effort; sourcen,
+            # niet uitvoeren. Let op de laagste job-cap van de drie workflows:
+            # build-preview staat op `timeout-minutes: 20`, en LOCK_WAIT_S (600s)
+            # is daarop afgestemd. Zie het script.
+            if [ -f scripts/vps-build-lock.sh ]; then . scripts/vps-build-lock.sh; fi
             docker rm -f "vino-publish-$RUN_ID" >/dev/null 2>&1 || true
             docker run --rm --name "vino-publish-$RUN_ID" \
               --network directus_directus_net \

@@ -266,6 +266,13 @@ jobs:
             # afketsen op "container name is already in use" — een verwarrende
             # rode build i.p.v. de timeout die er werkelijk was. Die container is
             # per definitie dood-of-verweesd op dit punt, dus weg ermee.
+            # LAT-4966: serialiseer met de andere VPS-builds. nproc=2, en twee
+            # gelijktijdige builds kosten elk ~2,9x de solo-tijd. Best-effort:
+            # loopt de wachttijd af, dan bouwt hij gelijktijdig verder. Volledige
+            # onderbouwing (incl. waarom GHA-`concurrency:` dit NIET oplost) staat
+            # in het script. Sourcen, niet uitvoeren — de lock hangt aan fd 9 van
+            # deze shell en moet de docker run overleven.
+            if [ -f scripts/vps-build-lock.sh ]; then . scripts/vps-build-lock.sh; fi
             docker rm -f "vino-build-$RUN_ID" >/dev/null 2>&1 || true
             set +e
             docker run --rm --name "vino-build-$RUN_ID" \
