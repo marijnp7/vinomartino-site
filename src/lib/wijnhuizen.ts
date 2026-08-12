@@ -56,8 +56,10 @@ function mapRelatedArticles(val: unknown): RelatedRef[] {
 
 import { markdownToHtml as renderMarkdown, normalizeEmDashes } from './markdown';
 
-function markdownToHtml(markdown: string): Promise<string> {
-    return renderMarkdown(markdown, { stripFirstH1: true });
+// LAT-2819: locale erdoorheen zodat interne links in de redactionele body
+// locale-aware worden (no-op op NL).
+function markdownToHtml(markdown: string, locale: Locale): Promise<string> {
+    return renderMarkdown(markdown, { stripFirstH1: true, locale });
 }
 
 import {
@@ -66,12 +68,11 @@ import {
     assertDirectusConfigured,
     assetUrl,
     assertCollectionReadableOrDegrade,
-    directusSignal,
     withAssetSlot,
     fetchDirectusCollection,
 } from './directus-config';
 import { DEFAULT_LOCALE, type Locale } from './i18n';
-import { localizeRecords, localizeJoinedRefs } from './directus-i18n';
+import { localizeRecords, localizeJoinedRefs, localizeNestedRefs } from './directus-i18n';
 
 // LAT-2575 — vertaalbare wijnhuis-velden (native Directus translations, LAT-2574).
 const WIJNHUIZEN_TRANSLATABLE = ['description', 'body', 'meta_title', 'meta_description', 'hero_alt'];
@@ -86,30 +87,33 @@ async function downloadAsset(assetId: string, directusUrl: string, token: string
     const outPath = join(outDir, fileName);
     if (existsSync(outPath)) return `/images/wijnhuizen/${fileName}`;
     try {
-        const res = await withAssetSlot(() =>
-            fetch(assetUrl(directusUrl, assetId), {
+        // LAT-3423/LAT-3587: slot moet fetch + body-read + graden + wegschrijven omvatten —
+        // anders geeft de semafoor het slot al vrij bij de headers en verzadigt het
+        // CPU-zware graden de event-loop ongelimiteerd (zie accommodaties-loader.ts).
+        return await withAssetSlot(async () => {
+            const res = await fetch(assetUrl(directusUrl, assetId), {
                 headers: { Authorization: `Bearer ${token}` },
-                signal: directusSignal(),
-            }),
-        );
-        if (!res.ok) {
-            const body = await res.text().catch(() => '');
-            console.warn(`[loadWijnhuizen] could not fetch asset ${assetId}: ${res.status} body=${body.slice(0, 300)}`);
-            assetDebug.push({ assetId, prefix, status: res.status, body: body.slice(0, 500) });
-            return null;
-        }
-        const buf = Buffer.from(await res.arrayBuffer());
-        let outBuf = buf;
-        try {
-            const { gradeBuffer } = await import('./grade-image.mjs');
-            outBuf = await gradeBuffer(buf); // Meegereisd Warm preset (LAT-2007)
-        } catch (e) {
-            console.warn(`[loadWijnhuizen] grading-preset overgeslagen voor ${assetId}: ${e instanceof Error ? e.message : String(e)}`);
-        }
-        mkdirSync(outDir, { recursive: true });
-        writeFileSync(outPath, outBuf);
-        assetDebug.push({ assetId, prefix, status: 200, bytes: outBuf.byteLength });
-        return `/images/wijnhuizen/${fileName}`;
+                signal: AbortSignal.timeout(3000), // LAT-3331: zie accommodaties-loader.ts
+            });
+            if (!res.ok) {
+                const body = await res.text().catch(() => '');
+                console.warn(`[loadWijnhuizen] could not fetch asset ${assetId}: ${res.status} body=${body.slice(0, 300)}`);
+                assetDebug.push({ assetId, prefix, status: res.status, body: body.slice(0, 500) });
+                return null;
+            }
+            const buf = Buffer.from(await res.arrayBuffer());
+            let outBuf = buf;
+            try {
+                const { gradeBuffer } = await import('./grade-image.mjs');
+                outBuf = await gradeBuffer(buf); // Meegereisd Warm preset (LAT-2007)
+            } catch (e) {
+                console.warn(`[loadWijnhuizen] grading-preset overgeslagen voor ${assetId}: ${e instanceof Error ? e.message : String(e)}`);
+            }
+            mkdirSync(outDir, { recursive: true });
+            writeFileSync(outPath, outBuf);
+            assetDebug.push({ assetId, prefix, status: 200, bytes: outBuf.byteLength });
+            return `/images/wijnhuizen/${fileName}`;
+        });
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         console.warn(`[loadWijnhuizen] asset download failed for ${assetId}: ${msg}`);
@@ -298,12 +302,21 @@ async function loadFromDirectus(url: string, token: string, locale: Locale): Pro
             locale,
         },
     );
+    // LAT-2829 — idem voor de artikeltitels in het cross-linkblok (geneste M2M).
+    await localizeNestedRefs(data, 'related_articles', 'articles_id', {
+        env: readDirectusEnv(),
+        collection: 'articles',
+        junction: 'articles_translations',
+        parentIdField: 'articles_id',
+        fields: ['title'],
+        locale,
+    });
     const items = await Promise.all(
         data.map(async (r) => {
             const streek = r.streek_id as Record<string, unknown> | null;
             if (streek && streek.name) r.streek_name = streek.name;
             if (streek && streek.slug) r.streek_slug = streek.slug;
-            const bodyHtml = r.body ? await markdownToHtml(String(r.body)) : '';
+            const bodyHtml = r.body ? await markdownToHtml(String(r.body), locale) : '';
             const heroImagePath = r.hero_image
                 ? await downloadAsset(String(r.hero_image), url, token)
                 : null;

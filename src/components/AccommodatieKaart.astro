@@ -23,7 +23,10 @@ interface Props {
   bronValuta?: string | null;
   /** Display-valuta; default EUR. Hook voor een latere valuta-switcher (LAT-1664). */
   displayValuta?: string;
-  /** LAT-2771: locale voor badge/CTA/prijs/disclosure uit de UI-dictionary. */
+  /**
+   * LAT-2771: locale voor badge/CTA/prijs/disclosure uit de UI-dictionary.
+   * LAT-2704: en zodat de interne links in PoiCard locale-aware zijn.
+   */
   locale?: Locale;
 }
 
@@ -52,6 +55,7 @@ else if (hoog) prijs = `${ui.t('stay.price.upToPrefix')} ${hoog} ${perNight}`;
 ---
 
 <PoiCard
+  locale={locale}
   poi={{
     naam: kaart.naam,
     foto: kaart.foto ?? null,

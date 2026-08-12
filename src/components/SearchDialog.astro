@@ -15,6 +15,11 @@ const c = {
   term: isEn ? 'Search term' : 'Zoekterm',
   close: isEn ? 'Close' : 'Sluiten',
   results: isEn ? 'Search results' : 'Zoekresultaten',
+  // LAT-2582 — de toetsenbord-hints in de footer bleven bij de SearchDialog-
+  // lokalisatie (1a14f3c) staan en lekten daardoor NL op alle 293 EN-pagina's.
+  navigate: isEn ? 'navigate' : 'navigeren',
+  open: isEn ? 'open' : 'openen',
+  dismiss: isEn ? 'close' : 'sluiten',
 };
 ---
 
@@ -54,9 +59,9 @@ const c = {
     <div class="vm-search__results" id="vm-search-results" role="listbox" data-search-results aria-label={c.results}></div>
 
     <div class="vm-search__footer" aria-hidden="true">
-      <span><kbd>↑</kbd><kbd>↓</kbd> navigeren</span>
-      <span><kbd>↵</kbd> openen</span>
-      <span><kbd>esc</kbd> sluiten</span>
+      <span><kbd>↑</kbd><kbd>↓</kbd> {c.navigate}</span>
+      <span><kbd>↵</kbd> {c.open}</span>
+      <span><kbd>esc</kbd> {c.dismiss}</span>
     </div>
   </div>
 </div>

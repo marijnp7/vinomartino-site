@@ -5,7 +5,8 @@
  * Reads src/content/_legacy/{streken,wijnhuizen,wijnroutes}/<slug>.md (path moved
  * by LAT-1078), extracts the frontmatter description and the markdown body, and
  * PATCHes the matching Directus item — only when the live `body` field is empty.
- * Hero images are untouched (set by set-content-hero-images.mjs).
+ * Hero images are untouched (they were set by _archive/set-content-hero-images.mjs,
+ * archived by LAT-2830 — see directus/scripts/_archive/README.md).
  *
  * After this runs, Directus is the source of truth — editors can change
  * body/description/etc. via the Directus UI and changes appear on the next

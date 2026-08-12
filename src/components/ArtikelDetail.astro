@@ -19,6 +19,7 @@ import CtaStructure from './CtaStructure.astro';
 import RhoneMap from './RhoneMap.astro';
 import ZelfGereisdBadge from './ZelfGereisdBadge.astro';
 import PlaatsStempel from './PlaatsStempel.astro';
+import BeeldHerkomst from './BeeldHerkomst.astro';  // LAT-4776: §7-disclosure bij AI-beeld
 import RubriekSignatuur from './RubriekSignatuur.astro';
 import ProefnotitieKaart from './ProefnotitieKaart.astro';
 import EerstDitBoeken from './EerstDitBoeken.astro';
@@ -30,10 +31,11 @@ import { type Article } from '../lib/articles';
 import { articleSchema, breadcrumbSchema } from '../lib/seo';
 import { getAffiliateBlock, resolveAccommodationHref } from '../lib/affiliates';
 import { getAuthorByByline } from '../lib/authors';
-import { getImageCredit } from '../lib/image-credits';
+import { getImageCredit, licenseLabelFor } from '../lib/image-credits';
 import { type AccommodatieRoundup as AccommodatieRoundupData } from '../lib/accommodaties';
 import { loadUiStrings } from '../lib/ui-strings';
-import { type Locale, DEFAULT_LOCALE } from '../lib/i18n';
+import { rubriekLabel } from '../lib/rubriek-labels';
+import { type Locale, DEFAULT_LOCALE, localizeHref } from '../lib/i18n';
 
 export type ArticleRoundup = { slug: string; roundup: AccommodatieRoundupData };
 // LAT-2010 [VIS-BL-11]: het "hoort bij"-voetblok. Primaire streek/route komen uit
@@ -50,6 +52,9 @@ const { article, accRoundups, voetblok, locale = DEFAULT_LOCALE, alternates } = 
   locale?: Locale;
   alternates?: Record<string, string>;
 };
+
+// LAT-2704 — interne hrefs locale-aware; NL blijft byte-identiek.
+const lh = (href: string) => localizeHref(href, locale);
 
 const ui = await loadUiStrings(locale);
 const dateLocale = locale === 'en' ? 'en-GB' : 'nl-NL';
@@ -83,13 +88,21 @@ const authorProfile = getAuthorByByline(article.author);
 // nog "Martin" kan zijn). Zo resolveren byline, author-card en JSON-LD via een
 // bron van waarheid; het ruwe veld blijft alleen fallback als er geen record matcht.
 const authorDisplayName = authorProfile?.name ?? article.author;
+// LAT-2582: de auteurskaart onder het artikel toonde altijd de NL-bio, waardoor
+// 72 van de 73 /en/artikelen/-pagina's een Nederlandse alinea droegen. Zelfde
+// `bioEn ?? bio`-patroon als AuteurDetail/AuteursIndex (LAT-2715/LAT-2771).
+const authorCardBio = authorProfile
+  ? (locale === 'en' ? authorProfile.bioEn ?? authorProfile.bio : authorProfile.bio)
+  : '';
 
 const modifiedTime = article.updatedAt || article.pubDate;
 
 // LAT-1719: de twee Rhône-artikelen krijgen een interactieve Leaflet-kaart inline
 // in de body. splitBodyForRhoneMap() knipt de bodyHtml op een vast anker; null
 // voor alle andere artikelen (dan rendert de body ongewijzigd).
-const rhoneMap = splitBodyForRhoneMap(article.bodyHtml, article.slug);
+// LAT-4909: de locale gaat mee, zodat de kaartteksten (titel/bijschrift/legenda)
+// én het split-anker bij de taal van de gerenderde body horen. NL = no-op.
+const rhoneMap = splitBodyForRhoneMap(article.bodyHtml, article.slug, locale);
 
 // LAT-1687: verplichte beeldcredit (bv. Wikimedia Commons CC BY-SA) bij de hero.
 const heroCredit = getImageCredit(article.heroImageId);
@@ -138,7 +151,7 @@ if (article.faqSchema) {
     publishedTime: article.pubDate,
     modifiedTime,
     author: authorDisplayName,
-    section: article.category,
+    section: rubriekLabel(ui, article.category),
     tags: article.tags,
   }}
   schema={schema}
@@ -148,12 +161,13 @@ if (article.faqSchema) {
 >
   <article class="article-page">
     {article.heroImage && (
-      <figure class="article-hero">
+      <figure class={`article-hero ${article.heroIsIllustration ? 'article-hero--illustration' : 'article-hero--photo'}`}>
         <img src={article.heroImage} alt={article.title} class="article-hero-img" />
         <PlaatsStempel text={article.plaatsstempel} variant="hero" />
+        <BeeldHerkomst fileId={article.heroImageId} src={article.heroImage} locale={locale} />
         {heroCredit && (
           <figcaption class="article-hero-credit">
-            {heroCredit.author}, <a href={heroCredit.licenseUrl} rel="license noopener" target="_blank">{heroCredit.licenseLabel}</a>
+            {heroCredit.author}, <a href={heroCredit.licenseUrl} rel="license noopener" target="_blank">{licenseLabelFor(heroCredit.licenseLabel, locale)}</a>
           </figcaption>
         )}
       </figure>
@@ -163,22 +177,28 @@ if (article.faqSchema) {
       <div class="article-main">
         <header class="article-header">
           <nav class="breadcrumb" aria-label="Breadcrumb">
-            <a href="/">{ui.t('streek.breadcrumb.home')}</a> / <a href="/artikelen/">{ui.t('artikel.breadcrumb.index')}</a> / <span>{article.title}</span>
+            <a href={lh('/')}>{ui.t('streek.breadcrumb.home')}</a> / <a href={lh('/artikelen/')}>{ui.t('artikel.breadcrumb.index')}</a> / <span>{article.title}</span>
           </nav>
-          {article.category && <span class="article-cat">{article.category}</span>}
+          {article.category && <span class="article-cat">{rubriekLabel(ui, article.category)}</span>}
           <RubriekSignatuur rubriek={article.rubriek} tier={article.tier} />
           <ZelfGereisdBadge visited={article.zelfGereisd} year={article.bezoekjaar} locale={locale} />
           <h1>{article.title}</h1>
           <div class="article-meta">
             {authorProfile ? (
-              <a class="article-author author-link" href={`/auteurs/${authorProfile.slug}/`} rel="author">{authorProfile.name}</a>
+              <a class="article-author author-link" href={lh(`/auteurs/${authorProfile.slug}/`)} rel="author">{authorProfile.name}</a>
             ) : (
               <span class="article-author">{article.author}</span>
             )}
             <span class="article-date">{new Date(article.pubDate).toLocaleDateString(dateLocale, { day: 'numeric', month: 'long', year: 'numeric' })}</span>
             <span class="article-reading">· {`${article.readingMinutes} ${ui.t('artikel.meta.minLezen')}`}</span>
           </div>
-          {article.tags && article.tags.length > 0 && (
+          {/* LAT-4911 — `article.tags` is een kale string-array op de basis-collectie:
+              er is geen `tags_translations`, dus op /en/ renderden hier NL-woorden.
+              Een EN-taxonomie optuigen voor vier artikelen is een eigen project
+              (afgewogen in LAT-4924); tot die er is tonen we het blok alleen op NL.
+              De tags blijven wél in de OG/schema-metadata staan — die zijn niet
+              zichtbaar en dienen als machine-leesbare onderwerp-hint. */}
+          {locale === DEFAULT_LOCALE && article.tags && article.tags.length > 0 && (
             <div class="article-tags">
               {article.tags.map(tag => <span class="tag">{tag}</span>)}
             </div>
@@ -203,7 +223,7 @@ if (article.faqSchema) {
         {rhoneMap ? (
           <Fragment>
             <div class="article-prose" set:html={rhoneMap.before} />
-            <RhoneMap slug={article.slug} {...rhoneMap.config} />
+            <RhoneMap slug={article.slug} {...rhoneMap.config} locale={locale} />
             <div class="article-prose" set:html={rhoneMap.after} />
           </Fragment>
         ) : (
@@ -211,29 +231,29 @@ if (article.faqSchema) {
         )}
 
         {/* LAT-2112 — "Uit de kelder": fles-first proefnotitie-kaarten (kader LAT-2014). */}
-        <ProefnotitieKaart proefnotities={article.proefnotities} />
+        <ProefnotitieKaart proefnotities={article.proefnotities} locale={locale} />
 
         {/* LAT-2112 — "Eerst dit boeken": praktisch afsluitblok van reisartikelen. */}
         <EerstDitBoeken items={article.eerstDitBoeken} />
 
         {article.slug === 'langhe-piemonte-4-dagen-route' && (
-          <LangheCaptureBlock variant="a" />
+          <LangheCaptureBlock variant="a" locale={locale} />
         )}
 
         {authorProfile && (
           <aside class="article-author-card" aria-label={`${ui.t('artikel.author.overDeAuteur')}: ${authorProfile.name}`}>
             {authorProfile.portrait && (
-              <a class="author-card-portrait" href={`/auteurs/${authorProfile.slug}/`}>
+              <a class="author-card-portrait" href={lh(`/auteurs/${authorProfile.slug}/`)}>
                 <img src={authorProfile.portrait} alt={authorProfile.portraitAlt} width="96" height="96" loading="lazy" />
               </a>
             )}
             <div class="author-card-body">
               <span class="author-card-kicker">{ui.t('artikel.author.overDeAuteur')}</span>
               <h2 class="author-card-name">
-                <a href={`/auteurs/${authorProfile.slug}/`} rel="author">{authorProfile.name}</a>
+                <a href={lh(`/auteurs/${authorProfile.slug}/`)} rel="author">{authorProfile.name}</a>
               </h2>
-              <p class="author-card-bio">{authorProfile.bio}</p>
-              <a class="author-card-link" href={`/auteurs/${authorProfile.slug}/`}>{`${ui.t('artikel.author.meerArtikelenVan')} ${authorProfile.name} →`}</a>
+              <p class="author-card-bio">{authorCardBio}</p>
+              <a class="author-card-link" href={lh(`/auteurs/${authorProfile.slug}/`)}>{`${ui.t('artikel.author.meerArtikelenVan')} ${authorProfile.name} →`}</a>
             </div>
           </aside>
         )}
@@ -313,24 +333,25 @@ if (article.faqSchema) {
             locale={locale}
           />
         )}
-        <ArtikelGerelateerdeStukken items={article.relatedArtikelen} />
+        <ArtikelGerelateerdeStukken items={article.relatedArtikelen} locale={locale} />
       </aside>
     </div>
 
     <CtaStructure data={article.cta} sid={article.slug} locale={locale} />
 
-    <ArtikelMeerOver items={article.meerOver} topic={article.tags?.[0] ?? undefined} />
+    <ArtikelMeerOver items={article.meerOver} topic={article.tags?.[0] ?? undefined} locale={locale} />
 
     <RelatedEntities
+      locale={locale}
       streken={article.relatedStreken}
       wijnhuizen={article.relatedWijnhuizen}
       wijnroutes={article.relatedWijnroutes}
       landen={article.relatedLanden}
     />
 
-    <HubBacklink type="artikel" slug={article.slug} />
+    <HubBacklink type="artikel" slug={article.slug} locale={locale} />
 
-    <ArtikelVoetblok streek={voetblok.streek} route={voetblok.route} hotel={voetblok.hotel} />
+    <ArtikelVoetblok streek={voetblok.streek} route={voetblok.route} hotel={voetblok.hotel} locale={locale} />
   </article>
 
   <NewsletterFooter locale={locale} />
@@ -344,10 +365,21 @@ if (article.faqSchema) {
     overflow: hidden;
     margin: 0;
   }
+  .article-hero--photo {
+    background: transparent;
+  }
+  .article-hero--illustration {
+    background: var(--paper);
+  }
   .article-hero-img {
     width: 100%;
     height: 100%;
+  }
+  .article-hero--photo .article-hero-img {
     object-fit: cover;
+  }
+  .article-hero--illustration .article-hero-img {
+    object-fit: contain;
   }
   .article-hero-credit {
     position: absolute;

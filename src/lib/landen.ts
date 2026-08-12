@@ -1,4 +1,4 @@
-import { normalizeEmDashes } from './markdown';
+import { localizeHastLinks, normalizeEmDashes } from './markdown';
 import type { RelatedRef } from './articles';
 import { getCtaStructure, type CtaStructure } from './cta-blocks';
 import type { FaqItem } from './seo';
@@ -108,12 +108,17 @@ export function stripGridPlaceholders(markdown: string): string {
         .trim();
 }
 
-async function markdownToHtml(markdown: string): Promise<string> {
+// Landen renderen bewust buiten de gedeelde markdown-pipeline om (geen
+// H1-strip/toc), maar delen wél de link-localisatie: LAT-2819 draait dezelfde
+// hast-pas op de gerenderde boom, zodat interne links in de redactionele body
+// ook hier meeschalen naar /en/ (no-op op NL).
+async function markdownToHtml(markdown: string, locale: Locale): Promise<string> {
     const { fromMarkdown } = await import('mdast-util-from-markdown');
     const { toHast } = await import('mdast-util-to-hast');
     const { toHtml } = await import('hast-util-to-html');
     const mdast = fromMarkdown(markdown);
     const hast = toHast(mdast);
+    localizeHastLinks(hast as Parameters<typeof localizeHastLinks>[0], locale);
     return toHtml(hast as Parameters<typeof toHtml>[0]);
 }
 
@@ -123,17 +128,20 @@ import {
     assertDirectusConfigured,
     assetUrl,
     assertCollectionReadableOrDegrade,
-    directusSignal,
     withAssetSlot,
     fetchDirectusCollection,
 } from './directus-config';
 import { DEFAULT_LOCALE, type Locale } from './i18n';
-import { localizeRecords, localizeRecordsSoft } from './directus-i18n';
+import { localizeRecords, localizeRecordsSoft, localizeNestedRefs } from './directus-i18n';
 
 // LAT-2575 — vertaalbare landen-velden (native Directus translations, LAT-2574).
 // LAT-2602 — main_grapes/cta_blocks zijn JSON-blobs; EN levert alléén de
 // leestekst-keys, diep gemerged over de NL-basis (directus-i18n mergeTranslatedValue).
-const LANDEN_TRANSLATABLE = ['name', 'description', 'body', 'climate', 'wine_history', 'best_time_to_visit', 'hub_h1', 'infographic_kicker', 'meta_title', 'meta_description', 'hero_alt', 'main_grapes', 'cta_blocks'];
+// LAT-2816/LAT-2814 — druiven/practical/faq/reistijd_tabel/budget_tabel idem: de
+// kolommen bestaan sinds LAT-2816 op landen_translations (curl-bevestigd 200 met
+// het build-token). Een leeg of ontbrekend EN-veld valt terug op NL, want
+// mergeTranslatedValue laat de NL-staart staan bij een kortere overlay-array.
+const LANDEN_TRANSLATABLE = ['name', 'description', 'body', 'climate', 'wine_history', 'best_time_to_visit', 'hub_h1', 'infographic_kicker', 'meta_title', 'meta_description', 'hero_alt', 'main_grapes', 'cta_blocks', 'druiven', 'practical', 'faq', 'reistijd_tabel', 'budget_tabel'];
 
 const assetDebug: Array<Record<string, unknown>> = [];
 
@@ -156,30 +164,33 @@ async function downloadAsset(assetId: string, directusUrl: string, token: string
     const outPath = join(outDir, fileName);
     if (existsSync(outPath)) return `/images/landen/${fileName}`;
     try {
-        const res = await withAssetSlot(() =>
-            fetch(assetUrl(directusUrl, assetId), {
+        // LAT-3423/LAT-3587: slot moet fetch + body-read + graden + wegschrijven omvatten —
+        // anders geeft de semafoor het slot al vrij bij de headers en verzadigt het
+        // CPU-zware graden de event-loop ongelimiteerd (zie accommodaties-loader.ts).
+        return await withAssetSlot(async () => {
+            const res = await fetch(assetUrl(directusUrl, assetId), {
                 headers: { Authorization: `Bearer ${token}` },
-                signal: directusSignal(),
-            }),
-        );
-        if (!res.ok) {
-            const body = await res.text().catch(() => '');
-            console.warn(`[loadLanden] could not fetch asset ${assetId}: ${res.status} body=${body.slice(0, 300)}`);
-            assetDebug.push({ assetId, prefix, status: res.status, body: body.slice(0, 500) });
-            return null;
-        }
-        const buf = Buffer.from(await res.arrayBuffer());
-        let outBuf = buf;
-        try {
-            const { gradeBuffer } = await import('./grade-image.mjs');
-            outBuf = await gradeBuffer(buf); // Meegereisd Warm preset (LAT-2007)
-        } catch (e) {
-            console.warn(`[loadLanden] grading-preset overgeslagen voor ${assetId}: ${e instanceof Error ? e.message : String(e)}`);
-        }
-        mkdirSync(outDir, { recursive: true });
-        writeFileSync(outPath, outBuf);
-        assetDebug.push({ assetId, prefix, status: 200, bytes: outBuf.byteLength });
-        return `/images/landen/${fileName}`;
+                signal: AbortSignal.timeout(3000), // LAT-3331: zie accommodaties-loader.ts
+            });
+            if (!res.ok) {
+                const body = await res.text().catch(() => '');
+                console.warn(`[loadLanden] could not fetch asset ${assetId}: ${res.status} body=${body.slice(0, 300)}`);
+                assetDebug.push({ assetId, prefix, status: res.status, body: body.slice(0, 500) });
+                return null;
+            }
+            const buf = Buffer.from(await res.arrayBuffer());
+            let outBuf = buf;
+            try {
+                const { gradeBuffer } = await import('./grade-image.mjs');
+                outBuf = await gradeBuffer(buf); // Meegereisd Warm preset (LAT-2007)
+            } catch (e) {
+                console.warn(`[loadLanden] grading-preset overgeslagen voor ${assetId}: ${e instanceof Error ? e.message : String(e)}`);
+            }
+            mkdirSync(outDir, { recursive: true });
+            writeFileSync(outPath, outBuf);
+            assetDebug.push({ assetId, prefix, status: 200, bytes: outBuf.byteLength });
+            return `/images/landen/${fileName}`;
+        });
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         console.warn(`[loadLanden] asset download failed for ${assetId}: ${msg}`);
@@ -421,9 +432,20 @@ async function loadFromDirectus(url: string, token: string, locale: Locale): Pro
         fields: LANDEN_TRANSLATABLE,
         locale,
     });
+    // LAT-2829 — de cross-linkblokken laden hun artikeltitel via een geneste
+    // M2M-hop op `articles`; localizeRecords raakt alleen de land-eigen velden,
+    // dus zonder deze overlay staat het "Lees ook"-blok op /en/ in het NL.
+    await localizeNestedRefs(data, 'related_articles', 'articles_id', {
+        env: readDirectusEnv(),
+        collection: 'articles',
+        junction: 'articles_translations',
+        parentIdField: 'articles_id',
+        fields: ['title'],
+        locale,
+    });
     const items = await Promise.all(
         data.map(async (r) => {
-            const bodyHtml = r.body ? await markdownToHtml(stripGridPlaceholders(String(r.body))) : '';
+            const bodyHtml = r.body ? await markdownToHtml(stripGridPlaceholders(String(r.body)), locale) : '';
             const heroImagePath = r.hero_image
                 ? await downloadAsset(String(r.hero_image), url, token)
                 : null;

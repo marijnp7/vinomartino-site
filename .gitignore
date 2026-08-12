@@ -10,3 +10,6 @@ public/images/articles/
 public/images/wijnhuizen/
 public/images/streken/
 public/images/routes/
+
+# python-gate scripts
+__pycache__/

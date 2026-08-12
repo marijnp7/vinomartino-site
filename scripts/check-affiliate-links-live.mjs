@@ -81,6 +81,19 @@ export function isBlockOrThrottle(status) {
   );
 }
 
+// Booking serveert zijn anti-bot-challenge NIET met 403/429 maar met een
+// interstitial op HTTP 202, en plakt daarbij `chal_t` (challenge-timestamp) en
+// `force_referer` op de URL. De eind-URL is dan de AANGEVRAAGDE URL plus die
+// twee params — de echte bestemming is nooit geladen, dus er valt niets te
+// beoordelen. Dat toch als rood scoren is exact dezelfde false-red-klasse als
+// de 403/429 hierboven, alleen op een status die daar niet onder viel.
+// Gemeten op run 31459168822 (2026-08-11): 25 van de 55 reds waren dit, en in
+// alle 25 gevallen was het pad én de `ss`-zoekterm identiek aan de bron —
+// bewijs dat er geen redirect had plaatsgevonden. Zie LAT-5014.
+export function isBookingChallenge(fu) {
+  return fu.searchParams.has('chal_t') || fu.searchParams.has('force_referer');
+}
+
 // Strip een leidend locale-segment (nl-nl, en, de-de) — zelfde regel als de
 // offline guard, zodat "tour" vs. "zoekpagina" op het echte pad wordt bepaald.
 function pathSegments(u) {
@@ -112,19 +125,64 @@ export function judgeGetYourGuide(fu, status) {
   return null;
 }
 
-export function judgeBooking(fu, status) {
-  if (status && DEAD_STATUS.has(status)) return `HTTP ${status} op eindbestemming — property weg`;
+// Wat de BRON bedoelde aan te wijzen. Zonder dit rekent de judge elke link af
+// op "is dit een property-pagina?", terwijl een deel van de links redactioneel
+// bedoeld is als regio-zoeklink ("zoek een verblijf in de Langhe"). Die landen
+// per definitie op /searchresults — correct gedrag, geen kapotte link. Op run
+// 31459168822 was dit de tweede false-red-bron naast de challenge hierboven.
+export function bookingSourceIntent(sourceUrl) {
+  let u;
+  try {
+    u = new URL(sourceUrl);
+  } catch {
+    return 'unknown';
+  }
+  // CJ-wrapper (kqzyfj/anrdoezrs/dpbolvw): de echte bestemming zit in ?url=.
+  const inner = u.searchParams.get('url');
+  if (inner) {
+    try {
+      u = new URL(inner);
+    } catch {
+      /* geen geldige inner-URL → oordeel op de wrapper */
+    }
+  }
+  const path = u.pathname.toLowerCase();
+  if (/^\/(hotel|hostel|apartments|aparthotel|resort|villas|homes|bb)\//.test(path)) {
+    return 'property';
+  }
+  if (path.includes('/searchresults') || path.includes('/search') || u.searchParams.has('ss')) {
+    return 'search';
+  }
+  return 'unknown';
+}
+
+export function judgeBooking(fu, status, sourceUrl) {
+  const intent = bookingSourceIntent(sourceUrl);
+  if (status && DEAD_STATUS.has(status)) {
+    // Een 404 op een zoek-URL betekent niet "property weg" maar "dit pad
+    // bestaat niet". Booking's zoekpad is /searchresults.html; /search.html
+    // 404't altijd. Die reden is direct actionable, "property weg" niet.
+    return intent === 'search'
+      ? `HTTP ${status} op eindbestemming — zoek-URL bestaat niet (Booking gebruikt /searchresults.html, niet /search.html)`
+      : `HTTP ${status} op eindbestemming — property weg`;
+  }
   const host = normHost(fu.hostname);
   if (host !== 'booking.com') {
     return `eindbestemming niet booking.com maar "${host}" — kapotte redirect`;
   }
   const path = fu.pathname.toLowerCase();
   // Property-pagina's zitten onder /hotel/… (of /hostel/, /apartments/, …).
-  // Landen op de home of een generieke zoek-/foutpagina = kapot.
+  // Landen op de home of een generieke zoek-/foutpagina = kapot. Dit geldt óók
+  // voor een zoek-intentie: `errorc_searchstring_not_found` betekent dat
+  // Booking de zoekterm niet kon resolven en naar de home terugvalt.
   if (path === '/' || path === '' || path.startsWith('/index')) {
-    return 'geland op Booking-home i.p.v. de property-pagina — deeplink verlopen';
+    return fu.searchParams.has('errorc_searchstring_not_found')
+      ? 'geland op Booking-home — zoekterm levert niets op (errorc_searchstring_not_found)'
+      : 'geland op Booking-home i.p.v. de property-pagina — deeplink verlopen';
   }
   if (path.includes('/searchresults') || fu.searchParams.has('ss')) {
+    // Bron was zélf een zoeklink → op zoekresultaten landen is de bedoeling.
+    if (intent === 'search') return null;
     return 'geland op Booking-zoekresultaten i.p.v. de specifieke property';
   }
   if (path.includes('error') || path.includes('unavailable')) {
@@ -188,7 +246,20 @@ async function visit(browser, entry) {
           reason: `HTTP ${httpStatus} — block/rate-limit vanaf headless GHA-runner-IP (geen dood-signaal)`,
         };
       }
-      const reason = judge ? judge(finalUrl, httpStatus) : null;
+      // Anti-bot-challenge: de eindbestemming is niet geladen, dus niet te
+      // beoordelen → onbereikbaar (waarschuwing), nooit rood. Zie
+      // isBookingChallenge().
+      if (normHost(finalUrl.hostname) === 'booking.com' && isBookingChallenge(finalUrl)) {
+        return {
+          status: 'unreachable',
+          httpStatus,
+          finalUrl: finalUrl.toString(),
+          reason:
+            `HTTP ${httpStatus} — Booking anti-bot-challenge (chal_t/force_referer) vanaf ` +
+            'headless GHA-runner-IP; eindbestemming niet beoordeeld',
+        };
+      }
+      const reason = judge ? judge(finalUrl, httpStatus, entry.url) : null;
       return {
         status: reason ? 'red' : 'ok',
         httpStatus,
@@ -397,7 +468,10 @@ async function main() {
     l.push('## Live affiliate-eindbestemmings-check (LAT-2532)');
     l.push('');
     l.push(`- Gescand: ${scanned} HTML-bestanden, ${entries.length} unieke affiliate-URL('s)`);
-    l.push(`- Resultaat: **${reds.length} kapot**, ${unreachable.length} onbereikbaar (block/throttle/timeout, geen rood), ${okCount} ok`);
+    l.push(
+      `- Resultaat: **${reds.length} kapot**, ${unreachable.length} niet beoordeeld ` +
+        `(block/throttle/anti-bot-challenge/timeout — geen rood, maar ook geen groen), ${okCount} ok`,
+    );
     l.push('');
     if (breakdown.length > 0) {
       l.push('| # | reden |');

@@ -1,0 +1,4 @@
+{
+  "_comment": "LAT-2821 — EN ui_strings-translation voor 'streekkaart.popupLeesMeer' (Read more link op POI-kaarten). LAT-2821 gemeten scattered 'Lees meer' links op streken-detail- en artikel-preview-kaarten op /en/-paginas. Dit is de hardcoded fallback wanneer er geen externe boeklink of categorie-specifieke CTA is.",
+  "streekkaart.popupLeesMeer": "Read more"
+}

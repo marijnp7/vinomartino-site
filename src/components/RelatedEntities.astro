@@ -4,8 +4,12 @@
 // wijnroutes → landen), cap op 6 cards. Section verschijnt niet als alle vier
 // leeg zijn (per spec acceptance: geen lege "Gerelateerd"-kop).
 import type { RelatedRef } from '../lib/articles';
+import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
 
 interface Props {
+  /** LAT-2704 — locale van de renderende pagina; stuurt de interne hrefs. */
+  locale?: Locale;
   streken?: RelatedRef[];
   wijnhuizen?: RelatedRef[];
   wijnroutes?: RelatedRef[];
@@ -19,9 +23,20 @@ const {
   wijnhuizen = [],
   wijnroutes = [],
   landen = [],
-  title = 'Lees verder',
+  title,
   maxItems = 6,
+  locale = DEFAULT_LOCALE,
 } = Astro.props;
+
+// LAT-2704 — interne hrefs locale-aware; NL blijft byte-identiek.
+const lh = (href: string) => localizeHref(href, locale);
+
+// LAT-4911 — de kop en de vier kaart-labels stonden hier als kale NL-literals en
+// renderden daardoor Nederlands op /en/artikelen/ (20 pagina's voor `streek`,
+// 9 voor `wijnhuis`). Geen enkele call-site geeft `title` mee, dus de default
+// loopt nu via de dictionary; een expliciete `title`-prop wint nog steeds.
+const ui = await loadUiStrings(locale);
+const heading = title ?? ui.t('related.title');
 
 type Card = { slug: string; name: string; type: 'streek' | 'wijnhuis' | 'wijnroute' | 'land' };
 
@@ -33,10 +48,10 @@ const href: Record<Card['type'], (slug: string) => string> = {
 };
 
 const label: Record<Card['type'], string> = {
-  streek: 'Streek',
-  wijnhuis: 'Wijnhuis',
-  wijnroute: 'Wijnroute',
-  land: 'Land',
+  streek: ui.t('related.kind.streek'),
+  wijnhuis: ui.t('related.kind.wijnhuis'),
+  wijnroute: ui.t('related.kind.wijnroute'),
+  land: ui.t('related.kind.land'),
 };
 
 const cards: Card[] = [
@@ -50,11 +65,11 @@ const cards: Card[] = [
 {cards.length > 0 && (
   <section class="related-entities">
     <div class="container">
-      <span class="related-label">Gerelateerd</span>
-      <h2 class="related-title">{title}</h2>
+      <span class="related-label">{ui.t('related.label')}</span>
+      <h2 class="related-title">{heading}</h2>
       <div class="related-grid">
         {cards.map((card) => (
-          <a href={href[card.type](card.slug)} class="related-card">
+          <a href={lh(href[card.type](card.slug))} class="related-card">
             <span class="related-meta">{label[card.type]}</span>
             <span class="related-name">{card.name}</span>
           </a>

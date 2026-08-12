@@ -1,0 +1,165 @@
+---
+// LAT-3209 — losstaand opt-in-formulier voor de Seizoenskalender-lead-magnet.
+//
+// Bewust NIET de gedeelde artikel-footer-form (NewsletterFooter.astro): die post
+// naar een ander MailerLite-form en houdt de regiokeuze optioneel. Hier gelden
+// twee afwijkingen:
+//
+//   1. Ander MailerLite-form: "Seizoenskalender Lead Magnet"
+//      (form 194582697828418830, account 2415940). De form-level koppeling zet
+//      de inschrijver in de groep "Seizoenskalender Downloaders"
+//      (193726247759513408); double opt-in staat aan.
+//   2. `region_preference` (custom field 1377354) is VERPLICHT. Dat is puur
+//      front-end: MailerLite kent geen per-veld required op formulierniveau.
+//      Zie NewsletterRegionField (`required`) en de bypass-uitzondering in
+//      src/lib/newsletter-signup.ts.
+//
+// De vier "Regio-routing …"-automations zijn account-breed (trigger:
+// field_updated op field 1377354), dus dit form triggert ze automatisch zodra
+// het datzelfde veld vult. Niets opnieuw te bouwen aan MailerLite-kant.
+//
+// Copy-herkomst: de frequentiebelofte en de veldlabels komen uit de gedeelde
+// `ui_strings`-dictionary (`newsletter.footer.*` / `newsletter.region.*`), zodat
+// homepage, De Brief en deze pagina één belofte doen (koersnota-besluit 2,
+// PROJECT_BRIEF v3.3). Pagina-specifieke copy komt uit Directus en wordt als
+// prop doorgegeven. Er staat hier geen zin die niet uit een van die twee komt.
+import NewsletterRegionField from './NewsletterRegionField.astro';
+import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
+
+const FORM_ACTION =
+  import.meta.env.PUBLIC_MAILERLITE_SEIZOENSKALENDER_FORM_ACTION ||
+  'https://assets.mailerlite.com/jsonp/2415940/forms/194582697828418830/subscribe';
+
+interface Props {
+  /** Kop boven het formulier. Uit Directus; leeg = geen kop. */
+  heading?: string;
+  /** Bevestigingstekst na aanmelden. Uit Directus; leeg = gedeelde default. */
+  successMessage?: string;
+  /** Foutmelding. Uit Directus; leeg = gedeelde default. */
+  errorMessage?: string;
+  locale?: Locale;
+}
+
+const { heading = '', successMessage = '', errorMessage = '', locale = DEFAULT_LOCALE } =
+  Astro.props;
+const ui = await loadUiStrings(locale);
+---
+
+<section class="sk-form" aria-labelledby={heading ? 'sk-form-heading' : undefined}>
+  {heading && <h2 id="sk-form-heading">{heading}</h2>}
+  <p class="sk-form__lede">{ui.t('newsletter.footer.lede')}</p>
+
+  <form
+    class="sk-form__form"
+    action={FORM_ACTION}
+    method="post"
+    data-newsletter-signup
+    data-newsletter-success={successMessage || undefined}
+    data-newsletter-error={errorMessage || undefined}
+  >
+    <div class="sk-form__row">
+      <label for="sk-email" class="visually-hidden">{ui.t('newsletter.footer.emailLabel')}</label>
+      <input
+        id="sk-email"
+        type="email"
+        name="fields[email]"
+        autocomplete="email"
+        placeholder={ui.t('newsletter.footer.emailPlaceholder')}
+        required
+      />
+      <button type="submit" data-plausible-cta="seizoenskalender_signup">
+        {ui.t('newsletter.footer.submit')}
+      </button>
+    </div>
+
+    <NewsletterRegionField id="sk-region" locale={locale} required={true} />
+  </form>
+
+  <p class="sk-form__fineprint">{ui.t('newsletter.footer.fineprint')}</p>
+</section>
+
+<style>
+  .sk-form {
+    margin: clamp(2.5rem, 6vw, 4rem) auto 0;
+    padding: clamp(1.75rem, 4vw, 2.75rem);
+    max-width: 620px;
+    border: 1px solid var(--color-rule, #c9b98f);
+    background: var(--color-bg-soft, var(--color-bg, #fff));
+  }
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+  .sk-form h2 {
+    font-family: var(--font-display);
+    font-size: clamp(1.375rem, 2.5vw + 0.5rem, 1.875rem);
+    font-weight: 500;
+    color: var(--color-text);
+    margin: 0;
+    line-height: 1.1;
+  }
+  .sk-form__lede {
+    font-family: var(--font-serif, var(--font-body));
+    font-size: 1.0625rem;
+    line-height: 1.6;
+    color: var(--color-text-soft, var(--color-text));
+    margin: 0.9rem 0 0;
+  }
+  .sk-form__form {
+    margin: 1.5rem 0 0;
+  }
+  .sk-form__row {
+    display: flex;
+    gap: 0.5rem;
+  }
+  .sk-form__row input {
+    flex: 1;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--color-rule, #c9b98f);
+    background: var(--color-bg);
+    font-family: var(--font-serif, var(--font-body));
+    font-size: 1rem;
+    outline: none;
+    color: var(--color-text);
+  }
+  .sk-form__row input:focus {
+    border-color: var(--color-primary);
+  }
+  .sk-form__row button {
+    background: var(--color-primary);
+    color: var(--color-bg);
+    padding: 0.75rem 1.25rem;
+    border: none;
+    font-family: var(--font-ui);
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+  }
+  .sk-form__row button:hover {
+    background: var(--color-primary-hover, var(--color-primary));
+  }
+  .sk-form__fineprint {
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: var(--color-text-faint, var(--color-text-soft, var(--color-text)));
+    margin: 1rem 0 0;
+  }
+
+  @media (max-width: 560px) {
+    .sk-form__row {
+      flex-direction: column;
+    }
+  }
+</style>

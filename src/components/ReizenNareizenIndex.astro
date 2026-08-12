@@ -1,0 +1,247 @@
+---
+// LAT-2826 — gedeeld "Reizen & nareizen"-overzicht (listing-index). De NL-route
+// (/reizen-nareizen/) en de /en/-tegenhanger renderen dit component; `locale`
+// stuurt de loader (no-translation-guard) en de UI-dictionary. NL is de
+// canonieke render; EN toont alléén vertaalde pakketten (of de empty-state).
+//
+// Redactionele structuur (Lead Editor, LAT-2826):
+//   - reverse chronologisch, gegroepeerd per bestemming/wijnreis
+//   - per item: regio-tag + korte teaser + thumbnail
+//   - geen paginering in fase 1 (simpele scrolllijst)
+//
+// Een lege lijst gaat op `noindex`: zolang er geen (vertaalde) pakketten zijn is
+// dit een dunne pagina, en dat geldt met name voor /en/ tot de
+// reispakketten-vertalingen in Directus staan.
+import SiteLayout from '../layouts/SiteLayout.astro';
+import SmartImg from '../components/SmartImg.astro';
+import { loadReispakketten, type ReisPakket } from '../lib/reispakketten';
+import { organizationSchema, breadcrumbSchema } from '../lib/seo';
+import { loadUiStrings } from '../lib/ui-strings';
+import { DEFAULT_LOCALE, localizePath, type Locale } from '../lib/i18n';
+
+interface Props {
+  locale?: Locale;
+  alternates?: Partial<Record<Locale, string>>;
+}
+
+const { locale = DEFAULT_LOCALE, alternates } = Astro.props;
+const ui = await loadUiStrings(locale);
+
+const entries = await loadReispakketten(locale);
+
+// Reverse chronologisch. `pub_date` is optioneel in Directus; pakketten zonder
+// datum zakken naar onderen i.p.v. de kop te kapen (NaN-sortering).
+function timestamp(entry: ReisPakket): number {
+  const t = entry.pubDate ? Date.parse(entry.pubDate) : NaN;
+  return Number.isNaN(t) ? -Infinity : t;
+}
+const sorted = [...entries].sort((a, b) => timestamp(b) - timestamp(a) || a.titel.localeCompare(b.titel));
+
+// Groepeer per bestemming. De volgorde van de groepen volgt uit het nieuwste
+// item per groep, zodat de pagina als geheel reverse-chronologisch blijft lezen.
+const groupFallback = ui.t('reizen.index.groupFallback');
+const groups: { key: string; naam: string; streekSlug: string; items: ReisPakket[] }[] = [];
+for (const entry of sorted) {
+  const naam = entry.streekName || groupFallback;
+  const key = entry.streekSlug || naam;
+  const existing = groups.find((g) => g.key === key);
+  if (existing) existing.items.push(entry);
+  else groups.push({ key, naam, streekSlug: entry.streekSlug, items: [entry] });
+}
+
+const schema = [
+  organizationSchema(),
+  breadcrumbSchema([
+    { name: ui.t('streek.breadcrumb.home'), url: localizePath('/', locale) },
+    { name: ui.t('reizen.breadcrumb.index'), url: localizePath('/reizen-nareizen/', locale) },
+  ]),
+];
+---
+
+<SiteLayout
+  title={ui.t('reizen.index.meta.title')}
+  description={ui.t('reizen.index.meta.description')}
+  schema={schema}
+  activeNav="wijnroutes"
+  locale={locale}
+  alternates={alternates}
+  noindex={groups.length === 0}
+>
+  <section class="hero-sm">
+    <div class="container">
+      <span class="section-label">{ui.t('reizen.index.hero.label')}</span>
+      <h1>{ui.t('reizen.index.hero.h1')}</h1>
+      <p class="hero-desc">{ui.t('reizen.index.hero.desc')}</p>
+    </div>
+  </section>
+
+  <section class="section container">
+    {groups.length > 0 ? (
+      groups.map((group) => (
+        <div class="reis-group">
+          <h2 class="reis-group__title">
+            {group.streekSlug ? (
+              <a href={localizePath(`/streken/${group.streekSlug}/`, locale)}>{group.naam}</a>
+            ) : (
+              group.naam
+            )}
+          </h2>
+          <div class="grid">
+            {group.items.map((entry) => (
+              <a href={localizePath(`/reizen-nareizen/${entry.slug}/`, locale)} class="card card-link">
+                <div class:list={['card-img-wrap', !entry.heroImage && 'is-empty']}>
+                  <SmartImg src={entry.heroImage || undefined} alt={entry.titel} theme="region" class="card-img" />
+                </div>
+                <div class="card-body">
+                  {group.naam && <span class="card-regio">{group.naam}</span>}
+                  <h3 class="card-title">{entry.titel}</h3>
+                  {(entry.tagline || entry.metaDescription) && (
+                    <p class="card-desc">{entry.tagline || entry.metaDescription}</p>
+                  )}
+                  <span class="card-cta">{ui.t('reizen.index.readCta')}</span>
+                </div>
+              </a>
+            ))}
+          </div>
+        </div>
+      ))
+    ) : (
+      <div class="empty-state">
+        <h2>{ui.t('reizen.index.empty.title')}</h2>
+        <p>
+          {ui.t('reizen.index.empty.descPre')}<a href={localizePath('/wijnroutes/', locale)}>{ui.t('reizen.index.empty.descLink')}</a>{ui.t('reizen.index.empty.descPost')}
+        </p>
+      </div>
+    )}
+  </section>
+</SiteLayout>
+
+<style>
+  .hero-sm {
+    background: var(--paperDeep);
+    padding: var(--space-12) 0 var(--space-8);
+    text-align: center;
+  }
+  .hero-sm h1 {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 1.6rem + 1.5vw, 3rem);
+    font-weight: 400;
+    font-style: italic;
+    color: var(--ink);
+    margin-top: var(--space-3);
+  }
+  .hero-desc {
+    font-family: var(--font-body);
+    font-size: 1rem;
+    line-height: 1.7;
+    color: var(--inkSoft);
+    margin-top: var(--space-3);
+    max-width: 44rem;
+    margin-inline: auto;
+  }
+  .reis-group + .reis-group {
+    margin-top: var(--space-12);
+    padding-top: var(--space-8);
+    border-top: 1px solid var(--rule);
+  }
+  .reis-group__title {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-weight: 500;
+    font-style: italic;
+    color: var(--ink);
+    margin-bottom: var(--space-5);
+  }
+  .reis-group__title a {
+    color: inherit;
+    text-decoration: none;
+  }
+  .reis-group__title a:hover { text-decoration: underline; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: var(--space-6);
+  }
+  /* LAT-1118 (M5-hardening): geen horizontale overflow op smalle telefoons. */
+  @media (max-width: 420px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+  .card-link {
+    text-decoration: none;
+    color: inherit;
+    display: block;
+  }
+  .card-img-wrap {
+    aspect-ratio: 16 / 11;
+    overflow: hidden;
+    background: var(--paperShade);
+  }
+  /* LAT-2455: geen beeld → compacte branded band i.p.v. loze reuzenvlak op mobiel. */
+  .card-img-wrap.is-empty {
+    aspect-ratio: auto;
+    height: clamp(96px, 26vw, 140px);
+  }
+  .card-img-wrap :global(img),
+  .card-img-wrap :global(.smart-img-placeholder) {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform var(--duration-image) var(--ease-out);
+  }
+  .card-link:hover .card-img-wrap :global(img) { transform: scale(1.03); }
+  .card-body { padding: 1.25rem; }
+  .card-regio {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    background: var(--paperDeep);
+    color: var(--inkSoft);
+    padding: 0.2rem 0.5rem;
+    border-radius: 1px;
+    margin-bottom: var(--space-2);
+  }
+  .card-title {
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    font-weight: 500;
+    color: var(--ink);
+    margin-bottom: var(--space-2);
+    line-height: 1.25;
+  }
+  .card-desc {
+    font-family: var(--font-body);
+    font-size: 0.875rem;
+    color: var(--inkSoft);
+    line-height: 1.5;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    margin-bottom: var(--space-3);
+  }
+  .card-cta {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--burgundy);
+  }
+  .empty-state {
+    text-align: center;
+    padding: var(--space-16) var(--space-4);
+  }
+  .empty-state h2 {
+    font-family: var(--font-display);
+    font-size: 1.75rem;
+    font-weight: 400;
+    font-style: italic;
+    color: var(--ink);
+    margin-bottom: var(--space-3);
+  }
+  .empty-state p {
+    font-size: 1rem;
+    color: var(--inkSoft);
+  }
+</style>

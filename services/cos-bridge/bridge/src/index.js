@@ -984,11 +984,20 @@ async function handleApprovalPost(req, body) {
 
 async function handleApprovalGet(actionId) {
   const [row] = await q(
-    `SELECT id, request_id, requester_agent, decision, decided_at, timeout_at, created_at
+    `SELECT id, request_id, requester_agent, decision, decided_at, timeout_at, created_at,
+            paperclip_issue_id, proposal
        FROM cos.actions WHERE id=$1`,
     [actionId]
   );
   if (!row) return { status: 404, body: JSON.stringify({ error: "not found" }) };
+  // LAT-3631: expose paperclip_issue_id + title so callers can verify server-side
+  // that a *specific* already-approved action authorizes a *specific* follow-up
+  // execution (e.g. directus-publish.sh --approved-action-id), instead of just
+  // trusting a bare "approve" decision on any action id. proposal is stored as
+  // `${title}\n\n${body}` (see handleApprovalPost) and title itself never
+  // contains "\n\n", so the first split recovers the exact original title.
+  const sepIdx = row.proposal.indexOf("\n\n");
+  const title = sepIdx === -1 ? row.proposal : row.proposal.slice(0, sepIdx);
   return {
     status: 200,
     body: JSON.stringify({
@@ -1000,6 +1009,8 @@ async function handleApprovalGet(actionId) {
       responded_at: row.decided_at,
       timeout_at: row.timeout_at,
       created_at: row.created_at,
+      paperclip_issue_id: row.paperclip_issue_id,
+      title,
     }),
   };
 }
@@ -1324,27 +1335,87 @@ async function terminateApprovalTimeout(row) {
   }
 }
 
+// Control-plane approvals ('approved'/'rejected') map onto the same decision
+// values the Telegram approve/reject flow already writes to cos.actions.
+const CONTROL_PLANE_DECISION = { approved: "approve", rejected: "reject" };
+
+// LAT-2994 — read-back before writing a timeout. cos.actions.request_id can
+// double as public.approvals.id (some callers register a board approval and
+// the bridge request under the same id). The board can resolve that approval
+// while the bridge's own decision stays NULL — 16 of 85 historical rows were
+// approved on the control plane 45min+ before the bridge wrote 'timeout',
+// because nothing here ever read that decision back. A GET that 404s or
+// returns a still-pending status is the common case and falls through to the
+// normal timeout path unchanged.
+async function readControlPlaneDecision(requestId) {
+  const res = await paperclipFetch(`/api/approvals/${requestId}`, { timeoutMs: 5_000 });
+  if (!res || !res.ok) return null;
+  const data = await res.json().catch(() => null);
+  const decision = data && CONTROL_PLANE_DECISION[data.status];
+  if (!decision) return null;
+  return { decision, decidedAt: data.decided_at || null };
+}
+
 // ---- timeout-watcher: markeer expired pending requests als 'timeout' + fire callbacks ----
 setInterval(async () => {
   try {
-    const rows = await q(
-      `UPDATE cos.actions
-          SET decision='timeout', decided_at=NOW()
+    // Select first (no mutation yet) so each row can be read back against the
+    // control plane before we decide what to write.
+    const candidates = await q(
+      `SELECT id, callback_url, request_id, requester_agent,
+              paperclip_run_id, paperclip_issue_id
+         FROM cos.actions
         WHERE decision IS NULL
           AND timeout_at IS NOT NULL
-          AND timeout_at < NOW()
-        RETURNING id, callback_url, request_id, requester_agent,
-                  paperclip_run_id, paperclip_issue_id`
+          AND timeout_at < NOW()`
     );
-    for (const row of rows) {
+    for (const row of candidates) {
+      let resolved = null;
+      if (row.request_id) {
+        resolved = await readControlPlaneDecision(row.request_id).catch((err) => {
+          log.warn({ err: err.message, id: row.id }, "control-plane read-back failed");
+          return null;
+        });
+      }
+
+      if (resolved) {
+        const [updated] = await q(
+          `UPDATE cos.actions SET decision=$1, decided_at=COALESCE($2, NOW())
+            WHERE id=$3 AND decision IS NULL
+            RETURNING id`,
+          [resolved.decision, resolved.decidedAt, row.id]
+        );
+        if (!updated) continue; // someone else (Telegram tap) decided it in the meantime
+        log.info(
+          { id: row.id, agent: row.requester_agent, decision: resolved.decision },
+          "read back control-plane decision — did not write a false timeout"
+        );
+        if (row.callback_url && row.request_id) {
+          fireCallback(row.callback_url, row.request_id, resolved.decision).catch((err) =>
+            log.error({ err: err.message, id: row.id }, "decision callback fire failed")
+          );
+        }
+        // Not a timeout: leave the run and issue alone. terminateApprovalTimeout
+        // is only for genuine non-answers.
+        continue;
+      }
+
+      const [timedOut] = await q(
+        `UPDATE cos.actions SET decision='timeout', decided_at=NOW()
+          WHERE id=$1 AND decision IS NULL
+          RETURNING id, callback_url, request_id, requester_agent,
+                    paperclip_run_id, paperclip_issue_id`,
+        [row.id]
+      );
+      if (!timedOut) continue;
       log.info({ id: row.id, agent: row.requester_agent }, "approval timed out");
-      if (row.callback_url && row.request_id) {
-        fireCallback(row.callback_url, row.request_id, "timeout").catch((err) =>
+      if (timedOut.callback_url && timedOut.request_id) {
+        fireCallback(timedOut.callback_url, timedOut.request_id, "timeout").catch((err) =>
           log.error({ err: err.message, id: row.id }, "timeout callback fire failed")
         );
       }
       // Proactively cancel the run and update the issue.
-      terminateApprovalTimeout(row).catch((err) =>
+      terminateApprovalTimeout(timedOut).catch((err) =>
         log.error({ err: err.message, id: row.id }, "terminateApprovalTimeout failed")
       );
     }

@@ -66,10 +66,13 @@ function mapRelatedArticles(val: unknown): RelatedRef[] {
 
 import { markdownToHtml as renderMarkdown, normalizeEmDashes } from './markdown';
 import { hasRouteDirectives, renderEnrichedRouteBody } from './route-body';
+import { loadUiStrings } from './ui-strings';
 import { buildBookingSearchLink, resolveAccommodationHref } from './affiliates';
 
-function markdownToHtml(markdown: string): Promise<string> {
-    return renderMarkdown(markdown, { stripFirstH1: true });
+// LAT-2819: locale erdoorheen zodat interne links in de redactionele body
+// locale-aware worden (no-op op NL).
+function markdownToHtml(markdown: string, locale: Locale): Promise<string> {
+    return renderMarkdown(markdown, { stripFirstH1: true, locale });
 }
 
 // LAT-2270: verrijkte body-render zodra de markdown `:::foto`/`:::boek`/`:::infographic`
@@ -82,9 +85,15 @@ async function renderRouteBody(
     slug: string,
     directusUrl: string,
     token: string,
+    locale: Locale,
 ): Promise<string> {
-    if (!hasRouteDirectives(markdown)) return markdownToHtml(markdown);
+    if (!hasRouteDirectives(markdown)) return markdownToHtml(markdown, locale);
+    // LAT-2582: de affiliate-voetregel onder de boek-CTA stond hardcoded in het
+    // NL; route-body.ts blijft dependency-vrij, dus we geven hem vertaald mee.
+    const ui = await loadUiStrings(locale);
     const { html } = await renderEnrichedRouteBody(markdown, {
+        disclosure: ui.t('stay.disclosure.microcopy'),
+        locale,
         downloadFoto: (ref) => downloadAsset(ref, directusUrl, token, 'body-'),
         resolveBoekHref: async (attrs) => {
             const acc = attrs.acc ? Number(attrs.acc) : NaN;
@@ -103,18 +112,20 @@ import {
     assertDirectusConfigured,
     assetUrl,
     assertCollectionReadableOrDegrade,
-    directusSignal,
     withAssetSlot,
     fetchDirectusCollection,
 } from './directus-config';
 import { DEFAULT_LOCALE, type Locale } from './i18n';
-import { localizeRecords } from './directus-i18n';
+import { localizeRecords, localizeNestedRefs } from './directus-i18n';
 
 // LAT-2575 — vertaalbare route-velden (native Directus translations, LAT-2574).
 // LAT-2602 — itinerary is een geneste JSON-blob (days[].title/summary,
 // stops[].naam/why/duur); EN levert alléén de leestekst en wordt diep gemerged
 // over de NL-basis (directus-i18n mergeTranslatedValue), zodat stop-geo/slug behouden blijft.
-const ROUTES_TRANSLATABLE = ['title', 'description', 'body', 'duration', 'transport', 'style', 'meta_title', 'meta_description', 'hero_alt', 'itinerary'];
+// LAT-2921 — cta_blocks (CtaStructure = {primary, comparison, closing}) draagt de
+// aside-/vergelijkings-/afsluitcopy; ontbrak hier terwijl de kolom al bestaat op
+// landen/streken. Zonder dit veld valt /en/ terug op de NL-copy in die blokken.
+const ROUTES_TRANSLATABLE = ['title', 'description', 'body', 'duration', 'transport', 'style', 'meta_title', 'meta_description', 'hero_alt', 'itinerary', 'cta_blocks'];
 
 const assetDebug: Array<Record<string, unknown>> = [];
 
@@ -126,30 +137,33 @@ async function downloadAsset(assetId: string, directusUrl: string, token: string
     const outPath = join(outDir, fileName);
     if (existsSync(outPath)) return `/images/routes/${fileName}`;
     try {
-        const res = await withAssetSlot(() =>
-            fetch(assetUrl(directusUrl, assetId), {
+        // LAT-3423/LAT-3587: slot moet fetch + body-read + graden + wegschrijven omvatten —
+        // anders geeft de semafoor het slot al vrij bij de headers en verzadigt het
+        // CPU-zware graden de event-loop ongelimiteerd (zie accommodaties-loader.ts).
+        return await withAssetSlot(async () => {
+            const res = await fetch(assetUrl(directusUrl, assetId), {
                 headers: { Authorization: `Bearer ${token}` },
-                signal: directusSignal(),
-            }),
-        );
-        if (!res.ok) {
-            const body = await res.text().catch(() => '');
-            console.warn(`[loadRoutes] could not fetch asset ${assetId}: ${res.status} body=${body.slice(0, 300)}`);
-            assetDebug.push({ assetId, prefix, status: res.status, body: body.slice(0, 500) });
-            return null;
-        }
-        const buf = Buffer.from(await res.arrayBuffer());
-        let outBuf = buf;
-        try {
-            const { gradeBuffer } = await import('./grade-image.mjs');
-            outBuf = await gradeBuffer(buf); // Meegereisd Warm preset (LAT-2007)
-        } catch (e) {
-            console.warn(`[loadRoutes] grading-preset overgeslagen voor ${assetId}: ${e instanceof Error ? e.message : String(e)}`);
-        }
-        mkdirSync(outDir, { recursive: true });
-        writeFileSync(outPath, outBuf);
-        assetDebug.push({ assetId, prefix, status: 200, bytes: outBuf.byteLength });
-        return `/images/routes/${fileName}`;
+                signal: AbortSignal.timeout(3000), // LAT-3331: zie accommodaties-loader.ts
+            });
+            if (!res.ok) {
+                const body = await res.text().catch(() => '');
+                console.warn(`[loadRoutes] could not fetch asset ${assetId}: ${res.status} body=${body.slice(0, 300)}`);
+                assetDebug.push({ assetId, prefix, status: res.status, body: body.slice(0, 500) });
+                return null;
+            }
+            const buf = Buffer.from(await res.arrayBuffer());
+            let outBuf = buf;
+            try {
+                const { gradeBuffer } = await import('./grade-image.mjs');
+                outBuf = await gradeBuffer(buf); // Meegereisd Warm preset (LAT-2007)
+            } catch (e) {
+                console.warn(`[loadRoutes] grading-preset overgeslagen voor ${assetId}: ${e instanceof Error ? e.message : String(e)}`);
+            }
+            mkdirSync(outDir, { recursive: true });
+            writeFileSync(outPath, outBuf);
+            assetDebug.push({ assetId, prefix, status: 200, bytes: outBuf.byteLength });
+            return `/images/routes/${fileName}`;
+        });
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         console.warn(`[loadRoutes] asset download failed for ${assetId}: ${msg}`);
@@ -426,10 +440,20 @@ async function loadFromDirectus(url: string, token: string, locale: Locale): Pro
         fields: ROUTES_TRANSLATABLE,
         locale,
     });
+    // LAT-2829 — artikeltitels in het cross-linkblok komen uit een geneste
+    // M2M-hop en worden niet door localizeRecords geraakt.
+    await localizeNestedRefs(data, 'related_articles', 'articles_id', {
+        env: readDirectusEnv(),
+        collection: 'articles',
+        junction: 'articles_translations',
+        parentIdField: 'articles_id',
+        fields: ['title'],
+        locale,
+    });
     const items = await Promise.all(
         data.map(async (r) => {
             const bodyHtml = r.body
-                ? await renderRouteBody(stripEditorialHeader(String(r.body)), String(r.slug), url, token)
+                ? await renderRouteBody(stripEditorialHeader(String(r.body)), String(r.slug), url, token, locale)
                 : '';
             const heroImagePath = r.hero_image
                 ? await downloadAsset(String(r.hero_image), url, token)

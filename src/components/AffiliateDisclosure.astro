@@ -2,7 +2,7 @@
 // Affiliate disclosure footer — appears on all content pages with affiliate placeholders.
 // LAT-2575: vaste copy via de UI-dictionary. NL draait op DEFAULT_LOCALE →
 // byte-identiek; de /en/-tegenhanger geeft `locale="en"` mee.
-import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
+import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
 import { loadUiStrings } from '../lib/ui-strings';
 
 interface Props {
@@ -10,13 +10,16 @@ interface Props {
 }
 
 const { locale = DEFAULT_LOCALE } = Astro.props;
+
+// LAT-2704 — interne hrefs locale-aware; NL blijft byte-identiek.
+const lh = (href: string) => localizeHref(href, locale);
 const ui = await loadUiStrings(locale);
 ---
 
 <footer class="affiliate-disclosure">
   <p class="affiliate-disclosure__text">
     {ui.t('affiliate.disclosure.text')}
-    <a href="/affiliate-verklaring/" class="affiliate-disclosure__link">{ui.t('affiliate.disclosure.meer')}</a>
+    <a href={lh('/affiliate-verklaring/')} class="affiliate-disclosure__link">{ui.t('affiliate.disclosure.meer')}</a>
   </p>
 </footer>
 

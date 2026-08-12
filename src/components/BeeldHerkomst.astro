@@ -1,0 +1,80 @@
+---
+/**
+ * LAT-4776 — beeld-niveau §7-disclosure voor AI-/synthetisch beeld.
+ *
+ * Rendert een bijschrift BIJ HET BEELD (niet in de artikelheader naast de
+ * <h1>) zodra het getoonde bestand volgens `directus_files` AI-gegenereerd is.
+ * Zet dit component binnen de <figure> van de hero, naast een eventuele
+ * licentie-credit.
+ *
+ * Bewust een <p> en GEEN <figcaption>: elke hero-<figure> waar dit component in
+ * hangt draagt al een figcaption voor de licentie-credit, en een <figure> mag er
+ * maar één bevatten. Twee figcaptions is ongeldige HTML en de tweede wordt door
+ * parsers niet betrouwbaar afgehandeld — precies het element dat hier juist
+ * gevonden moet worden.
+ *
+ * Waarom niet de bestaande "Redactiegids"-badge: die is een zuivere functie van
+ * `articles.zelf_gereisd` (reisprovenance) en zegt niets over het beeld — zie
+ * de kopcommentaar van src/lib/synthetic-images.ts. Dit component hergebruikt
+ * dat label bewust NIET.
+ *
+ * Het `data-beeldherkomst`-attribuut is de machineleesbare kant: locale-
+ * onafhankelijk, zodat de detector (lat4745-synth-disclosure-detector.py) de
+ * disclosure ook op /en/-pagina's terugvindt zonder taalspecifieke regex.
+ */
+import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
+import {
+    loadSyntheticImageIds,
+    isSyntheticImage,
+    SYNTHETIC_MARKER_ATTR,
+} from '../lib/synthetic-images';
+
+interface Props {
+    /** Directus file-UUID van het getoonde beeld, wanneer bekend. */
+    fileId?: string | null;
+    /** Gerenderde src; de UUID wordt hieruit gehaald als `fileId` ontbreekt. */
+    src?: string | null;
+    locale?: Locale;
+    /** `hero` = overlay op het beeld, `inline` = bijschrift eronder. */
+    variant?: 'hero' | 'inline';
+}
+
+const { fileId = null, src = null, locale = DEFAULT_LOCALE, variant = 'hero' } = Astro.props;
+
+const syntheticIds = await loadSyntheticImageIds();
+const synthetic = isSyntheticImage(syntheticIds, fileId, src);
+const ui = synthetic ? await loadUiStrings(locale) : null;
+---
+{synthetic && ui && (
+  <p
+    class={`beeld-herkomst beeld-herkomst--${variant}`}
+    data-beeldherkomst={SYNTHETIC_MARKER_ATTR}
+    title={ui.t('ui.beeldherkomst.ai.title')}
+  >{ui.t('ui.beeldherkomst.ai')}</p>
+)}
+
+<style>
+  .beeld-herkomst {
+    max-width: 100%;
+    padding: 0.25rem 0.625rem;
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    line-height: 1.4;
+    letter-spacing: 0.02em;
+  }
+  /* Overlay linksonder: rechtsonder is bezet door de licentie-credit
+     (.article-hero-credit), zodat beide naast elkaar kunnen staan. */
+  .beeld-herkomst--hero {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    color: #fff;
+    background: rgba(0, 0, 0, 0.55);
+  }
+  .beeld-herkomst--inline {
+    display: block;
+    margin-top: 0.375rem;
+    color: #6b6257;
+  }
+</style>

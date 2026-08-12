@@ -6,8 +6,8 @@
  * `type: uuid` + `interface: file-image` but WITHOUT `meta.special: ['file']`
  * and without a relations row. Result: the Directus admin opens a file
  * picker, but the selection never sticks because Directus does not treat
- * the field as a file-relation. Programmatic PATCHes (set-article-hero-images.mjs)
- * still worked because they write the UUID directly via REST.
+ * the field as a file-relation. Programmatic PATCHes (_archive/set-article-hero-images.mjs,
+ * archived by LAT-2830) still worked because they write the UUID directly via REST.
  *
  * This script:
  *   1. PATCHes meta.special=['file'] + meta.display='image' on each field.

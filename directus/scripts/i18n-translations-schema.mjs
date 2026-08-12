@@ -12,6 +12,12 @@
  *        streken, wijnhuizen, landen, routes, accommodations, appellaties
  *      (`<collection>_translations` + `<collection>_id` M2O + `languages_code`
  *       M2O + translatable text fields + parent `translations` alias).
+ *      LAT-2602 + LAT-2816: `landen_translations` also carries seven structured
+ *      JSON counterparts (main_grapes, cta_blocks, druiven, practical, faq,
+ *      reistijd_tabel, budget_tabel). LAT-2602's two were applied straight to
+ *      the live Directus and never landed here, so this script had stopped
+ *      being the source of truth for a fresh bootstrap. Both sets are now in
+ *      `TRANSLATABLE.landen` and created idempotently.
  *   4. `articles` already has `articles_translations` + `translations` alias
  *      (template bootstrap). We only add the missing `languages_code -> languages`
  *      relation and a `hero_alt` field so it matches the others.
@@ -65,6 +71,22 @@ const S = (field, opts = {}) => ({
   schema: { is_nullable: true },
 });
 
+// ---- json-field factory (structured translatable field inside a junction) ----
+// LAT-2602 / LAT-2816: some reader-visible copy lives in structured JSON on the
+// parent (grape profiles, practical tips, FAQ, tables). Mirror the parent field
+// 1:1 as `json` so the editor can enter a translated counterpart. Empty = fall
+// back to NL, so these are never required.
+const J = (field, note, parent = 'landen') => ({
+  field, type: 'json',
+  meta: {
+    interface: 'input-code', options: { language: 'json' }, special: ['cast-json'],
+    width: 'full',
+    note: `[i18n] Vertaalde tegenhanger van ${parent}.${field}. ${note} `
+        + 'Alleen leestekst vertalen; ids/urls/slugs/coords/prijzen/hero_image = NL laten. Leeg = val terug op NL.',
+  },
+  schema: { is_nullable: true },
+});
+
 // Translatable field set per parent collection (reader-visible text only; no UUIDs/numbers).
 const TRANSLATABLE = {
   streken: [
@@ -85,12 +107,25 @@ const TRANSLATABLE = {
     S('best_time_to_visit'), S('hub_h1'), S('infographic_kicker'),
     S('meta_title'), S('meta_description', { long: true }),
     S('hero_alt', { note: 'Alt text for hero image.' }),
+    // LAT-2602: applied straight to Directus, never landed here — the script had
+    // drifted from the live schema. LAT-2816: the remaining five pillar-hub JSON
+    // blocks, which carried the bulk of the untranslated NL copy on /en/landen/*.
+    J('main_grapes', 'Array van druivennamen.'),
+    J('cta_blocks', '{primary, comparison, closing} — vertaal alleen de copy, laat aid/urls staan.'),
+    J('druiven', 'Array van {name, color, description, wines[]} — vertaal name/description/wines-tekst, niet color.'),
+    J('practical', 'Array van {key, value}.'),
+    J('faq', 'Array van {question, answer}. Voedt FAQPage JSON-LD; moet de zichtbare FAQ spiegelen.'),
+    J('reistijd_tabel', 'Array van {regio, vliegveld, reistijd, beste_reistijd}.'),
+    J('budget_tabel', 'Array van {categorie, bedrag, toelichting} — bedrag blijft EUR/NL, vertaal categorie + toelichting.'),
   ],
   routes: [
     S('title'), S('description', { long: true }), S('body', { long: true }),
     S('duration'), S('transport'), S('style'),
     S('meta_title'), S('meta_description', { long: true }),
     S('hero_alt', { note: 'Alt text for hero image.' }),
+    // LAT-2921: aside-/vergelijkings-/afsluitblok komt uit dit JSON-veld
+    // (CtaStructure = {primary, comparison, closing}), zie src/lib/cta-blocks.ts.
+    J('cta_blocks', '{primary, comparison, closing} — vertaal alleen de copy, laat aid/urls staan.', 'routes'),
   ],
   accommodations: [
     S('description', { long: true }), S('why_this_one', { long: true }),
@@ -100,6 +135,16 @@ const TRANSLATABLE = {
   ],
   appellaties: [
     S('description', { long: true }), S('classification'),
+  ],
+  // LAT-2826: `reizen-nareizen` heeft sinds deze ticket een NL-listingpagina en
+  // een /en/-tegenhanger. De EN-routes draaien op dezelfde no-translation-guard
+  // als de rest, dus zonder deze junction bouwt de site nul /en/-pakketpagina's.
+  // Draai dit script opnieuw om 'm aan te maken (idempotent).
+  reispakketten: [
+    S('titel'), S('tagline', { long: true }),
+    S('introductie', { long: true }), S('dag_tot_dag', { long: true }),
+    S('reismoment', { long: true }), S('cta_heading'), S('cta_tekst', { long: true }),
+    S('meta_title'), S('meta_description', { long: true }),
   ],
 };
 
@@ -256,6 +301,12 @@ async function ensureTranslations(parent) {
 async function ensureArticles() {
   const junction = 'articles_translations';
   await ensureField(junction, S('hero_alt', { note: 'Alt text for hero image.' }));
+  // LAT-2921: aside-/vergelijkings-/afsluitblok komt uit dit JSON-veld
+  // (CtaStructure = {primary, comparison, closing}), zie src/lib/cta-blocks.ts.
+  await ensureField(junction, J('cta_blocks', '{primary, comparison, closing} — vertaal alleen de copy, laat aid/urls staan.', 'articles'));
+  // LAT-2921: articles.tags is een JSON string-array (src/lib/articles.ts:467);
+  // vertaal de zichtbare tag-chips zonder de NL-brontags te overschrijven.
+  await ensureField(junction, J('tags', 'Array van tag-strings — vertaal elke tag 1-op-1, zelfde volgorde als NL.', 'articles'));
   await ensureRelation(junction, 'languages_code', 'languages', { junction_field: 'articles_id' });
   await ensureParentAlias('articles');
 }

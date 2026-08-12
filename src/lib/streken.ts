@@ -182,8 +182,10 @@ function mapRelatedArticles(val: unknown): RelatedRef[] {
 import { markdownToHtml as renderMarkdown, normalizeEmDashes } from './markdown';
 import { heroImageAllowed } from './hero-credit-guard';
 
-function markdownToHtml(markdown: string): Promise<string> {
-    return renderMarkdown(markdown, { stripFirstH1: true });
+// LAT-2819: locale erdoorheen zodat interne links in de redactionele body
+// locale-aware worden (no-op op NL).
+function markdownToHtml(markdown: string, locale: Locale): Promise<string> {
+    return renderMarkdown(markdown, { stripFirstH1: true, locale });
 }
 
 import {
@@ -192,12 +194,11 @@ import {
     assertDirectusConfigured,
     assetUrl,
     assertCollectionReadableOrDegrade,
-    directusSignal,
     withAssetSlot,
     fetchDirectusCollection,
 } from './directus-config';
 import { DEFAULT_LOCALE, type Locale } from './i18n';
-import { localizeRecords, localizeRecordsSoft, localizeJoinedRefs } from './directus-i18n';
+import { localizeRecords, localizeRecordsSoft, localizeJoinedRefs, localizeNestedRefs } from './directus-i18n';
 
 // LAT-2575 — vertaalbare streek-velden (native Directus translations, LAT-2574).
 // Identiek aan de parent-veldnamen zodat de overlay ze 1-op-1 kan overschrijven.
@@ -242,7 +243,7 @@ async function fetchAssetWithRetry(url: string, token: string, attempts = 4): Pr
             const res = await withAssetSlot(() =>
                 fetch(url, {
                     headers: { Authorization: `Bearer ${token}` },
-                    signal: directusSignal(),
+                    signal: AbortSignal.timeout(3000), // LAT-3331: zie accommodaties-loader.ts
                 }),
             );
             // 2xx of niet-transiente 4xx → direct teruggeven; caller logt de status.
@@ -788,16 +789,25 @@ async function loadFromDirectus(url: string, token: string, locale: Locale): Pro
             locale,
         },
     );
+    // LAT-2829 — idem voor de artikeltitels in het cross-linkblok (geneste M2M).
+    await localizeNestedRefs(data, 'related_articles', 'articles_id', {
+        env: readDirectusEnv(),
+        collection: 'articles',
+        junction: 'articles_translations',
+        parentIdField: 'articles_id',
+        fields: ['title'],
+        locale,
+    });
     const items = await Promise.all(
         data.map(async (r) => {
             const land = r.land_id as Record<string, unknown> | null;
             if (land && land.name) r.land_name = land.name;
             if (land && land.slug) r.land_slug = land.slug;
-            const bodyHtml = r.body ? await markdownToHtml(String(r.body)) : '';
+            const bodyHtml = r.body ? await markdownToHtml(String(r.body), locale) : '';
             // LAT-1898: intro is een los markdown-blok (eigen H2-kop, geen H1 om te
             // strippen) → render zonder stripFirstH1.
             const waarSlapenIntroHtml = r.waar_slapen_intro
-                ? await renderMarkdown(String(r.waar_slapen_intro))
+                ? await renderMarkdown(String(r.waar_slapen_intro), { locale })
                 : '';
             const heroImagePath = r.hero_image
                 ? await downloadAsset(String(r.hero_image), url, token)
@@ -836,12 +846,29 @@ async function loadFromDirectus(url: string, token: string, locale: Locale): Pro
     return items;
 }
 
-export async function loadStreken(locale: Locale = DEFAULT_LOCALE): Promise<Streek[]> {
+const strekenCache = new Map<Locale, Promise<Streek[]>>();
+
+async function fetchStreken(locale: Locale): Promise<Streek[]> {
     const env = readDirectusEnv();
     assertDirectusConfigured('loadStreken', env);
     const items = await loadFromDirectus(env.url, env.token, locale);
     await writeAssetDebug('directus');
     return items;
+}
+
+export function loadStreken(locale: Locale = DEFAULT_LOCALE): Promise<Streek[]> {
+    const cached = strekenCache.get(locale);
+    if (cached) return cached;
+
+    const pending = fetchStreken(locale).then(
+        (items) => items,
+        (err) => {
+            strekenCache.delete(locale);
+            throw err;
+        },
+    );
+    strekenCache.set(locale, pending);
+    return pending;
 }
 
 export interface NavStreek {

@@ -15,9 +15,18 @@ interface Props {
   defaultRegion?: RegionValue | null;
   /** LAT-2575: NL byte-identiek op DEFAULT_LOCALE; /en/ geeft "en" mee. */
   locale?: Locale;
+  /**
+   * LAT-3209: op lead-magnet-landingspagina's is de regiokeuze verplicht, want
+   * die stuurt welke seizoenskalender-inhoud de lezer krijgt. MailerLite kent
+   * geen per-veld required op formulierniveau, dus dit is puur front-end: het
+   * `required`-attribuut op de <select> plus het weglaten van de
+   * "verwijder leeg veld"-bypass in newsletter-signup.ts.
+   * Default false = het bestaande, optionele gedrag van de artikel-footer-form.
+   */
+  required?: boolean;
 }
 
-const { id, defaultRegion = null, locale = DEFAULT_LOCALE } = Astro.props;
+const { id, defaultRegion = null, locale = DEFAULT_LOCALE, required = false } = Astro.props;
 const ui = await loadUiStrings(locale);
 
 // `value` blijft MailerLite-literal (hoofdlettergevoelig); alleen de label is
@@ -32,9 +41,9 @@ const REGION_OPTIONS: { value: RegionValue; label: string }[] = [
 
 <div class="nl-region">
   <label for={id} class="nl-region__label">
-    {ui.t('newsletter.region.label')} <span class="nl-region__opt">{ui.t('newsletter.region.optional')}</span>
+    {ui.t('newsletter.region.label')} <span class="nl-region__opt">{ui.t(required ? 'newsletter.region.required' : 'newsletter.region.optional')}</span>
   </label>
-  <select id={id} name="fields[region_preference]" class="nl-region__select">
+  <select id={id} name="fields[region_preference]" class="nl-region__select" required={required}>
     <option value="">{ui.t('newsletter.region.placeholder')}</option>
     {REGION_OPTIONS.map((opt) => (
       <option value={opt.value} selected={defaultRegion === opt.value}>{opt.label}</option>

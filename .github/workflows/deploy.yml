@@ -20,22 +20,81 @@
 #   De menselijke gate zit in de PR-review + merge (R2-governance), niet hier.
 #   Er is GEEN required-reviewers gate op de `production` environment.
 #
+#   LAT-2844: die gate toetst alleen het juiste als de merge óók echt over
+#   de site gaat. Een push die uitsluitend niet-site-bestanden raakt
+#   (services/, docs/, directus/, losse .md) releaset daarom niet meer mee
+#   — zie de `paths-ignore` bij `on.push` hieronder.
+#
 # Vereiste secrets (slechts 3):
 #   VPS_HOST, VPS_USER, VPS_SSH_PRIVATE_KEY
 
 name: Deploy VinoMartino
 
+# LAT-3298: dispatch-inputs zijn achteraf niet via de API opvraagbaar. Zonder
+# dit kun je aan de runlijst niet zien of een run productie raakte.
+run-name: >-
+  Deploy → ${{ (github.event_name == 'workflow_dispatch' && inputs.target != 'auto' && inputs.target)
+  || (github.ref == 'refs/heads/main' && 'production' || 'preview') }}
+  (${{ github.ref_name }}, ${{ github.event_name }})
+
 on:
   push:
     branches: [preview, main]
+    # ── Wanneer deployt een push? (LAT-2844) ───────────────────────────
+    #
+    # Een push naar `main` is een PRODUCTIE-RELEASE. De build haalt content
+    # op uit Directus op het moment van draaien, dus wat er live gaat is
+    # NIET af te leiden uit de diff van de commit. Daarom deployt een push
+    # die uitsluitend niet-site-bestanden raakt niet meer mee.
+    #
+    # Bewust een DENYLIST (`paths-ignore`), geen allowlist (`paths`):
+    # een nieuw toegevoegd site-pad deployt dan vanzelf mee. Bij een
+    # allowlist zou een vergeten pad een STILLE niet-deploy opleveren —
+    # dat is de duurdere fout. Fail-open dus.
+    #
+    # NIET in deze lijst, en dat is opzet:
+    #   • nginx-*.conf, htpasswd, docker-compose.vinomartino-*.yml
+    #     → stap 7 synct deze naar /root/vinomartino-site/ op de VPS.
+    #       Wegfilteren betekent dat een nginx-wijziging de VPS nooit
+    #       bereikt.
+    #   • scripts/**  → scripts/verify-build.sh is de dist-completeness
+    #       gate uit stap 6 (LAT-1014).
+    #   • .github/**  → een wijziging aan deze workflow hoort zichzelf
+    #       één keer echt uit te voeren.
+    #
+    # Moet je de site herpubliceren tegen de HUIDIGE Directus-inhoud
+    # zonder code-wijziging? Dat is een expliciete actie, geen neveneffect
+    # van een merge:
+    #   gh workflow run deploy.yml --repo marijnp7/vinomartino-site \
+    #     --ref main -f target=production
+    paths-ignore:
+      - "services/**" # cos-bridge — draait op de VPS, niet in de site
+      - "docs/**" # runbooks en documentatie
+      - "directus/**" # schema/bootstrap-scripts, geen build-input
+      - "*.md" # losse .md's in de repo-root (niet src/**/*.md)
+      - "docker-compose.directus.yml"
+      - "docker-compose.site.yml"
+      - "docker-compose.site-preview.yml"
+      - ".gitignore"
+      - ".dockerignore"
   workflow_dispatch:
     inputs:
+      # LAT-3298/LAT-3294: NIET meer `default: preview`. Die default maakte de
+      # `elif`-tak in stap 1 onbereikbaar, waardoor `gh workflow run --ref main`
+      # zónder expliciete `-f target` naar PREVIEW deployde en tóch groen afliep
+      # (run 30700769553). `auto` spiegelt nu het push-gedrag: de branch bepaalt
+      # het doel, precies zoals bij een push naar main.
       target:
-        description: "Doel (preview of production)"
-        required: true
-        default: preview
+        description: "Doel — 'auto' volgt de branch (main → production)"
+        required: false
+        default: auto
         type: choice
-        options: [preview, production]
+        options: [auto, preview, production]
+      force_preview_from_main:
+        description: "Sta preview-deploy vanaf main toe (normaal geweigerd)"
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: vinomartino-write
@@ -54,12 +113,25 @@ jobs:
       - name: Determine target environment
         id: env
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            target="${{ github.event.inputs.target }}"
-          elif [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            target="production"
-          else
-            target="preview"
+          # LAT-3298: branch-default. 'auto' (of geen input) volgt de ref,
+          # zodat dispatch- en push-gedrag identiek zijn.
+          target="${{ github.event.inputs.target }}"
+          if [ "${{ github.event_name }}" != "workflow_dispatch" ] \
+             || [ -z "$target" ] || [ "$target" = "auto" ]; then
+            if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+              target="production"
+            else
+              target="preview"
+            fi
+          fi
+
+          # LAT-3294: main+preview mag niet meer STIL groen aflopen. Wie het
+          # echt wil, zet force_preview_from_main=true en ziet dat terug in
+          # de run-name.
+          if [ "${{ github.ref }}" = "refs/heads/main" ] && [ "$target" = "preview" ] \
+             && [ "${{ github.event.inputs.force_preview_from_main }}" != "true" ]; then
+            echo "::error::Dispatch op main met target=preview raakt productie NIET en zou groen aflopen (LAT-3294). Gebruik target=auto/production, of zet force_preview_from_main=true."
+            exit 1
           fi
 
           if [ "$target" = "production" ]; then
@@ -100,6 +172,12 @@ jobs:
             StrictHostKeyChecking accept-new
             UserKnownHostsFile ~/.ssh/known_hosts
           EOF
+          # LAT-3769/LAT-3910: keepalive- en timeout-opties staan in
+          # ops/ssh-config-snippet, buiten .github/workflows/, zodat toekomstige
+          # SSH-tuning geen Workflows-permissie op het agent-token kost.
+          # Hard falen als het bestand ontbreekt: stil zonder keepalive draaien
+          # is precies de bug die dit oplost.
+          cat "$GITHUB_WORKSPACE/ops/ssh-config-snippet" >> ~/.ssh/config
           # Best-effort host-key prefetch; non-fataal als netwerk flakey is
           ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
 
@@ -126,6 +204,22 @@ jobs:
       # in GHA — Directus zit achter CF Access en is alleen vanaf de VPS
       # bereikbaar via het Docker-netwerk. Script wordt via stdin verstuurd
       # zodat we geen bash heredoc binnen YAML hoeven te jongleren.
+      # LAT-4968: reapen VÓÓR de build, niet alleen erna. Een wees vreet CPU en
+      # schijf, waardoor de volgende build trager wordt en éérder zijn timeout
+      # haalt — wat weer een wees oplevert. Op 2026-08-11 stonden er drie
+      # tegelijk: ~300% CPU-vraag en load 9,5-14,4 op 2 vCPU (LAT-4967), waar
+      # geen build meer bij past. Alleen een always()-reaper achteraf breekt die
+      # lus niet: dan bouw je nog steeds op een verzadigde machine. Kost enkele
+      # seconden en raakt niets van een gezonde run.
+      - name: Reap orphan build containers (pre-build)
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          SELF: vino-build-${{ github.run_id }}
+        run: |
+          ssh -o StrictHostKeyChecking=accept-new "$VPS" \
+            "SELF='$SELF' MODE=reap bash -s" < scripts/reap-build-containers.sh \
+            || echo "::warning::Pre-build reaper overgeslagen (SSH niet beschikbaar)"
+
       - name: Build on VPS
         env:
           VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
@@ -162,8 +256,27 @@ jobs:
             # live content type returns too few published rows. In preview the
             # DRAFTS_ENV flag makes the preflight warn-only. --env-file-if-exists
             # loads DIRECTUS_URL/TOKEN from the copied .env into the node process.
+            # LAT-4968: --name is verplicht. Zonder naam overleeft deze
+            # container een job-timeout als naamloze wees (de docker-CLI sterft
+            # met de ssh-sessie mee, de container is een kind van de daemon) en
+            # is er niets om een opruimer op te richten. Met een deterministische
+            # naam kan de `if: always()`-reaper hieronder hem killen.
+            # Een GHA re-run hergebruikt hetzelfde run_id. Bleef er van de vorige
+            # poging een wees met deze naam staan, dan zou `docker run --name`
+            # afketsen op "container name is already in use" — een verwarrende
+            # rode build i.p.v. de timeout die er werkelijk was. Die container is
+            # per definitie dood-of-verweesd op dit punt, dus weg ermee.
+            # LAT-4966: serialiseer met de andere VPS-builds. nproc=2, en twee
+            # gelijktijdige builds kosten elk ~2,9x de solo-tijd. Best-effort:
+            # loopt de wachttijd af, dan bouwt hij gelijktijdig verder. Volledige
+            # onderbouwing (incl. waarom GHA-`concurrency:` dit NIET oplost) staat
+            # in het script. Sourcen, niet uitvoeren — de lock hangt aan fd 9 van
+            # deze shell en moet de docker run overleven.
+            if [ -f scripts/vps-build-lock.sh ]; then . scripts/vps-build-lock.sh; fi
+            docker rm -f "vino-build-$RUN_ID" >/dev/null 2>&1 || true
             set +e
-            docker run --rm --network directus_directus_net \
+            docker run --rm --name "vino-build-$RUN_ID" \
+              --network directus_directus_net \
               $DRAFTS_ENV \
               -v "$STAGE":/app -w /app \
               node:24 bash -c "npm ci && node --env-file-if-exists=.env scripts/preflight-content.mjs && npm run build && node scripts/check-rendered-content.mjs && node --test scripts/check-affiliate-links.test.mjs && node scripts/check-affiliate-links.mjs" 2>&1 | tee build.log
@@ -517,7 +630,27 @@ jobs:
       - name: Done
         run: echo "::notice::Deploy naar ${{ steps.env.outputs.target }} voltooid (${{ github.sha }})"
 
-      # ── 9. Staging-cleanup (altijd) ──────────────────────────────────────
+      # ── 9a. Wees-buildcontainers reapen (altijd, VÓÓR de rm -rf) ─────────
+      # LAT-4968. Twee dingen die de `find -mmin +1440` hieronder principieel
+      # niet kan:
+      #   * Een container die de job-timeout overleefde blijft in zijn stage
+      #     schrijven, dus de mtime van die map wordt nooit ouder dan 1440 min.
+      #     De opruimer slaat precies het duurste geval over (LAT-3441/LAT-4967).
+      #   * De schrijver moet dóód voordat je zijn map wist, anders zet hij de
+      #     bestanden tijdens de rm -rf gewoon terug.
+      # Het script kent ook de wezen van vóór deze fix: die hebben willekeurige
+      # namen en worden herkend aan hun bind-mount onder /srv/vino-builds.
+      - name: Reap orphan build containers
+        if: always()
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          SELF: vino-build-${{ github.run_id }}
+        run: |
+          ssh -o StrictHostKeyChecking=accept-new "$VPS" \
+            "SELF='$SELF' MODE=reap bash -s" < scripts/reap-build-containers.sh \
+            || echo "::warning::Reaper overgeslagen (SSH niet beschikbaar)"
+
+      # ── 9b. Staging-cleanup (altijd) ─────────────────────────────────────
       # LAT-1326: de `rm -rf "$STAGE"` in stap 7 wordt alleen bereikt op het
       # success-pad. Faalt de build of de SSH-sync (zie de historie van
       # transient SSH-timeouts), dan blijft /srv/vino-builds/<run_id> staan —

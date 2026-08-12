@@ -14,7 +14,24 @@ export interface ImageCredit {
     licenseUrl: string;
 }
 
+// LAT-4911 — licentielabels komen uit de basis-collectie (`streken.hero_credit`),
+// die géén *_translations-tegenhanger heeft: er is dus geen veld waar een EN-label
+// in kan. Alle labels op de site zijn taalneutrale licentiecodes ("CC BY-SA 4.0")
+// op één na — "Publiek domein" rendert Nederlands op /en/ (/en/streken/rioja/).
+// Een lookup is genoeg; een schema-wijziging voor één string is dat niet.
+const LICENSE_LABEL_EN: Record<string, string> = {
+    'Publiek domein': 'Public domain',
+};
+
+/** Geeft het licentielabel in `locale`; onbekende/taalneutrale labels ongewijzigd terug. */
+export function licenseLabelFor(label: string, locale: string): string {
+    if (locale === 'nl') return label;
+    return LICENSE_LABEL_EN[label.trim()] ?? label;
+}
+
 const CC_BY_SA_40 = 'https://creativecommons.org/licenses/by-sa/4.0/';
+const CC_BY_SA_30 = 'https://creativecommons.org/licenses/by-sa/3.0/';
+const CC_BY_ND_20 = 'https://creativecommons.org/licenses/by-nd/2.0/';
 
 const CREDITS: Record<string, ImageCredit> = {
     // auto-huren-sardinie hero (DAM-1704, Wikimedia Commons)
@@ -44,6 +61,30 @@ const CREDITS: Record<string, ImageCredit> = {
         author: '© Pmau / Wikimedia Commons', // Champagne Marie-Courtin — Vignoble à Spoy
         licenseLabel: 'CC BY-SA 4.0',
         licenseUrl: CC_BY_SA_40,
+    },
+    // LAT-4804 ribera-del-duero-tempranillo-hoogte hero — officiële beeldbank van
+    // het DO-consortium (Gumiel de Mercado, Burgos). CC BY-ND 2.0: attributie is
+    // verplicht én bewerken is niet toegestaan, dus dit beeld mag alleen
+    // mechanisch geschaald worden (ASSET_TRANSFORM `fit=inside`) en in de
+    // hero-container door CSS `object-fit: cover` bijgesneden — nooit
+    // kleurgecorrigeerd of gefilterd.
+    'ca01bf9e-e3d9-402d-8c23-46d9160a33c6': {
+        // LAT-4908: `©` in plaats van "Foto:" — taalneutraal, zodat de credit ook
+        // op /en/ klopt; consistent met de zes Wikimedia-entries hierboven.
+        author: '© CRDO Ribera del Duero',
+        licenseLabel: 'CC BY-ND 2.0',
+        licenseUrl: CC_BY_ND_20,
+    },
+    // LAT-4942 bordeaux-rechterover-entre-deux-mers-na-de-krach hero — het dorp
+    // Saint-Michel-de-Fronsac gezien vanuit de wijngaard (2013). Fronsac ligt op de
+    // rechteroever, dezelfde commune waar het artikel opent; het enige Bordeaux-beeld
+    // dat al in de DAM zat is een Pauillac-kelder (Médoc) die al hero is van het
+    // En Primeur-artikel. CC BY-SA 3.0 staat bewerken wél toe, dus dit beeld mag
+    // geschaald worden — de attributie is verplicht en staat daarom hier.
+    '15fccd27-f785-4abb-b654-aa2084aa8ffe': {
+        author: '© Michael bx / Wikimedia Commons',
+        licenseLabel: 'CC BY-SA 3.0',
+        licenseUrl: CC_BY_SA_30,
     },
 };
 

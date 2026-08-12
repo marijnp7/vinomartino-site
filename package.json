@@ -10,6 +10,26 @@
     "check:affiliate-links": "node scripts/check-affiliate-links.mjs",
     "check:affiliate-links:live": "node scripts/check-affiliate-links-live.mjs",
     "test:affiliate-links": "node --test scripts/check-affiliate-links.test.mjs scripts/check-affiliate-links-live.test.mjs",
+    "test:i18n-body-links": "node --test scripts/i18n-body-links.test.mjs",
+    "test:i18n-voetblok-copy": "node --test scripts/i18n-voetblok-copy.test.mjs",
+    "test:i18n-reizen-nareizen": "node --test scripts/i18n-reizen-nareizen.test.mjs",
+    "test:i18n-crosslink-refs": "node --test scripts/i18n-crosslink-refs.test.mjs",
+    "test:seizoenskalender": "node --test scripts/lat3209-seizoenskalender.test.mjs",
+    "test:cta-wine-retail": "node --test scripts/lat3726-cta-wine-retail.test.mjs",
+    "test:beeld-herkomst": "node --test scripts/lat4776-beeld-herkomst.test.mjs",
+    "test:og-default": "node --test scripts/lat4755-og-default.test.mjs",
+    "test:og-image-dimensions": "node --test scripts/lat4907-og-image-dimensions.test.mjs",
+    "test:og-image-raster": "node --test scripts/lat4988-og-image-raster.test.mjs",
+    "test:wijnhuis-template-copy": "node --test scripts/lat4911-wijnhuis-template-copy.test.mjs",
+    "test:artikel-nl-only": "node --test scripts/lat4918-artikel-nl-only.test.mjs",
+    "test:ui-strings-cache": "node --test scripts/lat3319-ui-strings-cache.test.mjs",
+    "test:reap-build-containers": "bash scripts/reap-build-containers.test.sh",
+    "test:all": "node scripts/run-all-tests.mjs",
+    "gen:og-default": "node scripts/gen-og-default.mjs",
+    "audit:i18n-crosslinks": "node scripts/i18n-crosslink-audit.mjs",
+    "gate:i18n-nl": "python3 scripts/lat2582-gate-check.py",
+    "gate:i18n-nl:selftest": "python3 scripts/lat2582-gate-check.py --selftest",
+    "test:i18n-gate": "python3 scripts/lat2582-gate-check.test.py",
     "directus:bootstrap": "node directus/scripts/bootstrap-schema.mjs",
     "directus:seed": "node directus/scripts/seed-countries.mjs",
     "directus:migrate": "node directus/scripts/migrate-blog-posts.mjs",
@@ -23,6 +43,7 @@
     "micromark-extension-directive": "^3.0.2"
   },
   "devDependencies": {
-    "@types/leaflet": "^1.9.21"
+    "@types/leaflet": "^1.9.21",
+    "sharp": "^0.34.5"
   }
 }

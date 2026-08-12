@@ -40,6 +40,11 @@ export default defineConfig({
         // `noindex, nofollow`. Die pagina's horen dus ook niet in de sitemap —
         // NL noch EN. Besluit T9-gate: niet vertalen, wel uit de sitemap.
         !page.includes('/infographics/') &&
+        // LAT-3209: /seizoenskalender/ is een lead-magnet-landingspagina waarvan
+        // de PDF nog geblokkeerd is (LAT-2684/LAT-2318). De route wordt standaard
+        // niet eens gegenereerd (SEIZOENSKALENDER_ENABLED), maar mocht een
+        // preview-build hem wel emitten dan hoort hij niet in de sitemap.
+        !page.includes('/seizoenskalender/') &&
         // LAT-859: /routes/* non-canonical; canonical is /wijnroutes/*
         !page.includes('/routes/') &&
         // LAT-859: douro/mosel have canonical Directus entries at douro-portugal/mosel-duitsland
@@ -47,15 +52,21 @@ export default defineConfig({
         page !== 'https://vinomartino.com/streken/mosel/' &&
         // LAT-1853/LAT-2457: keyword-cannibalisatie 301's; canonical is de doel-slug.
         page !== 'https://vinomartino.com/artikelen/een-week-in-piemonte-barolo-barbaresco-en-alles-daartussenin/' &&
-        page !== 'https://vinomartino.com/artikelen/langhe-vier-dagen-route/',
+        page !== 'https://vinomartino.com/artikelen/langhe-vier-dagen-route/' &&
+        // LAT-2769, herstel via LAT-3071: de 7 persona-auteurspagina's (NL + EN)
+        // 301'en naar /over-ons/ via nginx-prod.conf en horen niet meer in de
+        // sitemap. /auteurs/, /en/auteurs/ en de twee marijn-pagina's blijven staan.
+        !/^https:\/\/vinomartino\.com\/(en\/)?auteurs\/(charly|hugo|lea|mira|robin|sophie|tomas)\/$/.test(page),
       serialize(item) {
         // Homepage
         if (item.url === 'https://vinomartino.com/') {
           return { ...item, priority: 1.0, changefreq: 'daily' };
         }
         // New content-type index pages get high priority
+        // LAT-2826: /reizen-nareizen/ heeft sinds deze ticket een echte
+        // listingpagina (voorheen 403 op een directory zonder index, LAT-2707).
         if (
-          item.url.match(/\/(wijnhuizen|wijnroutes|streken|landen)\/$/)
+          item.url.match(/\/(wijnhuizen|wijnroutes|streken|landen|reizen-nareizen)\/$/)
         ) {
           return { ...item, priority: 0.9, changefreq: 'weekly' };
         }
@@ -65,7 +76,7 @@ export default defineConfig({
         }
         // Other new content-type detail pages
         if (
-          item.url.match(/\/(wijnhuizen|wijnroutes|streken)\/[^/]+\/$/)
+          item.url.match(/\/(wijnhuizen|wijnroutes|streken|reizen-nareizen)\/[^/]+\/$/)
         ) {
           return { ...item, priority: 0.8, changefreq: 'monthly' };
         }
@@ -90,3 +101,11 @@ export default defineConfig({
     }),
   ],
 });
+
+// LAT-4661: rebuild trigger 2026-08-10T08:57Z
+
+// LAT-4724: rebuild trigger 2026-08-10T15:17Z (verwijderde Vietti-render uit route-body 6/10)
+
+// LAT-4727: rebuild trigger 2026-08-10T15:45Z (3 body-beelden zonder vastgelegde herkomst uit route-body 6)
+
+// LAT-4733: rebuild trigger 2026-08-10T15:57Z (3 wijnhuis-heroes weggehaald + pagina's gedepubliceerd)

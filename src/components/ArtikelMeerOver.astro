@@ -3,14 +3,20 @@
 // footer. Max 3 redactioneel gekozen artikel-cards (Directus-veld `meer_over`).
 // 3-koloms grid op desktop, 1-kolom op mobiel. Leeg → niets renderen.
 import type { RelatedRef } from '../lib/articles';
+import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
 
 interface Props {
+  /** LAT-2704 — locale van de renderende pagina; stuurt de interne hrefs. */
+  locale?: Locale;
   items: RelatedRef[];
   topic?: string;
   maxItems?: number;
 }
 
-const { items, topic, maxItems = 3 } = Astro.props;
+const { items, topic, maxItems = 3, locale = DEFAULT_LOCALE } = Astro.props;
+
+// LAT-2704 — interne hrefs locale-aware; NL blijft byte-identiek.
+const lh = (href: string) => localizeHref(href, locale);
 const cards = items.slice(0, maxItems);
 const heading = topic ? `Meer over ${topic}` : 'Meer lezen';
 ---
@@ -22,7 +28,7 @@ const heading = topic ? `Meer over ${topic}` : 'Meer lezen';
       <h2 class="mo-title">{heading}</h2>
       <div class="mo-grid">
         {cards.map((card) => (
-          <a href={`/artikelen/${card.slug}/`} class="mo-card">
+          <a href={lh(`/artikelen/${card.slug}/`)} class="mo-card">
             <span class="mo-meta">Artikel</span>
             <span class="mo-name">{card.name}</span>
           </a>

@@ -59,6 +59,12 @@ jobs:
             StrictHostKeyChecking accept-new
             UserKnownHostsFile ~/.ssh/known_hosts
           EOF
+          # LAT-3769/LAT-3910: keepalive- en timeout-opties staan in
+          # ops/ssh-config-snippet, buiten .github/workflows/, zodat toekomstige
+          # SSH-tuning geen Workflows-permissie op het agent-token kost.
+          # Hard falen als het bestand ontbreekt: stil zonder keepalive draaien
+          # is precies de bug die dit oplost.
+          cat "$GITHUB_WORKSPACE/ops/ssh-config-snippet" >> ~/.ssh/config
           ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
 
       - name: Sync source to VPS staging
@@ -76,6 +82,17 @@ jobs:
             --exclude='deploy-key-github-actions*' \
             ./ "$VPS:$STAGE/"
 
+      # LAT-4968: reapen VÓÓR de build, zodat we niet op een door wezen
+      # verzadigde VPS bouwen (zie LAT-4967: 3 wezen = ~300% CPU op 2 vCPU).
+      - name: Reap orphan build containers (pre-build)
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          SELF: vino-publish-${{ github.run_id }}
+        run: |
+          ssh -o StrictHostKeyChecking=accept-new "$VPS" \
+            "SELF='$SELF' MODE=reap bash -s" < scripts/reap-build-containers.sh \
+            || echo "::warning::Pre-build reaper overgeslagen (SSH niet beschikbaar)"
+
       - name: Build on VPS (docker, directus_directus_net)
         env:
           VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
@@ -89,7 +106,21 @@ jobs:
             if [ -f /root/vinomartino-site/.env ]; then
               cp /root/vinomartino-site/.env .env
             fi
-            docker run --rm --network directus_directus_net \
+            # LAT-4968: --name is verplicht. Zonder naam overleeft deze container
+            # een job-timeout als naamloze wees (docker-CLI sterft mee met de
+            # ssh-sessie, de container is een kind van de daemon) en is er niets
+            # om een opruimer op te richten. Zie de reaper-stap onderaan deze job.
+            # Een GHA re-run hergebruikt hetzelfde run_id; een achtergebleven
+            # wees met deze naam zou `docker run --name` laten afketsen op
+            # "container name is already in use".
+            # LAT-4966: serialiseer met de andere VPS-builds. Best-effort; sourcen,
+            # niet uitvoeren. Let op de laagste job-cap van de drie workflows:
+            # build-preview staat op `timeout-minutes: 20`, en LOCK_WAIT_S (600s)
+            # is daarop afgestemd. Zie het script.
+            if [ -f scripts/vps-build-lock.sh ]; then . scripts/vps-build-lock.sh; fi
+            docker rm -f "vino-publish-$RUN_ID" >/dev/null 2>&1 || true
+            docker run --rm --name "vino-publish-$RUN_ID" \
+              --network directus_directus_net \
               -v "$STAGE":/app -w /app \
               node:24 bash -c "npm ci && npm run build"
             printf '{"sha":"%s","runId":"%s","runNumber":"%s","builtAt":"%s"}\n' \
@@ -171,6 +202,20 @@ jobs:
       # de rm -rf in de swap-stap); elke stage bevat een volledige node_modules
       # (npm ci in bind-mount). Ruim de huidige run altijd op + prune stages
       # ouder dan 1 dag zodat de VPS-schijf niet volloopt.
+      # LAT-4968: reapen VÓÓR de rm -rf hieronder. De `find -mmin +1440` kan een
+      # hangende build principieel niet raken (de levende container houdt de
+      # mtime vers) en wissen zonder eerst te killen levert een map op die de
+      # schrijver meteen weer aanvult.
+      - name: Reap orphan build containers
+        if: always()
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          SELF: vino-publish-${{ github.run_id }}
+        run: |
+          ssh -o StrictHostKeyChecking=accept-new "$VPS" \
+            "SELF='$SELF' MODE=reap bash -s" < scripts/reap-build-containers.sh \
+            || echo "::warning::Reaper overgeslagen (SSH niet beschikbaar)"
+
       - name: Cleanup VPS staging
         if: always()
         env:
@@ -187,6 +232,14 @@ jobs:
     timeout-minutes: 15
 
     steps:
+      # LAT-3910: deze job had géén checkout — de SSH-opties komen nu uit
+      # ops/ssh-config-snippet en dat bestand moet dus op de runner staan.
+      # Sparse: alleen ops/, geen volledige worktree voor 5 config-regels.
+      - name: Checkout ops/
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: ops
+
       - name: Setup SSH agent
         uses: webfactory/ssh-agent@v0.9.0
         with:
@@ -203,6 +256,12 @@ jobs:
             StrictHostKeyChecking accept-new
             UserKnownHostsFile ~/.ssh/known_hosts
           EOF
+          # LAT-3769/LAT-3910: keepalive- en timeout-opties staan in
+          # ops/ssh-config-snippet, buiten .github/workflows/, zodat toekomstige
+          # SSH-tuning geen Workflows-permissie op het agent-token kost.
+          # Hard falen als het bestand ontbreekt: stil zonder keepalive draaien
+          # is precies de bug die dit oplost.
+          cat "$GITHUB_WORKSPACE/ops/ssh-config-snippet" >> ~/.ssh/config
           ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
 
       - name: Verify preview-dist + CoS approval + promote
@@ -273,6 +332,11 @@ jobs:
             DECISION="pending"
             for i in $(seq 1 120); do
               sleep 5
+              # LAT-3769: houd het SSH-kanaal hoorbaar. Een volledig stille
+              # sessie werd na ~4,5 min ge-evict (run 30980347827).
+              if [ $((i % 12)) -eq 0 ]; then
+                echo "… nog steeds pending ($((i * 5)) s van max 600 s)"
+              fi
               STATUS=$(curl -sS "$COS_URL/approval/$APPROVAL_ID" || echo '{}')
               DECISION=$(echo "$STATUS" | python3 -c "
             import sys,json

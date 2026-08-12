@@ -7,8 +7,11 @@
 import type { AccommodatieRoundup } from '../lib/accommodaties';
 import { filterRoundupOpFotos } from '../lib/accommodaties';
 import SmartImg from './SmartImg.astro';
+import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
 
 interface Props {
+  /** LAT-2704 — locale van de renderende pagina; stuurt de interne hrefs. */
+  locale?: Locale;
   roundup: AccommodatieRoundup;
   /** Streek-slug → /accommodaties/<streekSlug>/. */
   streekSlug: string;
@@ -20,7 +23,10 @@ interface Props {
   max?: number;
 }
 
-const { roundup, streekSlug, regio, context, placement = 'sidebar', max = 3 } = Astro.props;
+const { roundup, streekSlug, regio, context, placement = 'sidebar', max = 3, locale = DEFAULT_LOCALE } = Astro.props;
+
+// LAT-2704 — interne hrefs locale-aware; NL blijft byte-identiek.
+const lh = (href: string) => localizeHref(href, locale);
 
 // Alleen kaarten met een echte DAM-foto — gelijk aan de regel die bepaalt of de
 // /accommodaties/<streek>/-pagina überhaupt bestaat (LAT-1371). Zonder foto's is
@@ -28,7 +34,7 @@ const { roundup, streekSlug, regio, context, placement = 'sidebar', max = 3 } = 
 const fotoRoundup = filterRoundupOpFotos(roundup);
 const kaarten = fotoRoundup.clusters.flatMap((c) => c.kaarten).slice(0, max);
 const regioNaam = regio || roundup.regio || streekSlug;
-const regioHref = `/accommodaties/${streekSlug}/`;
+const regioHref = lh(`/accommodaties/${streekSlug}/`);
 ---
 
 {kaarten.length > 0 && (

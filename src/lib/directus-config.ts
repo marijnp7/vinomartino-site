@@ -109,6 +109,24 @@ function readPositiveIntEnv(name: string, fallback: number): number {
  * bufferen is die fout retry-baar geworden en kan `res.json()` niet meer
  * afbreken.
  */
+/**
+ * LAT-3423 — undici verpakt élke netwerkfout als de nietszeggende
+ * `TypeError: fetch failed` en hangt de echte oorzaak onder `.cause`. Zonder
+ * die cause is een connect-timeout niet te onderscheiden van een ECONNRESET of
+ * een DNS-fout. Precies dat gat leidde in LAT-3331/LAT-3332 twee dagen lang
+ * naar de verkeerde conclusie ("Directus' DB-pool loopt vol"), terwijl de
+ * werkelijke oorzaak `UND_ERR_CONNECT_TIMEOUT` was — client-side uithongering.
+ */
+export function describeFetchError(err: unknown): string {
+    if (!(err instanceof Error)) return String(err);
+    const cause = (err as { cause?: unknown }).cause;
+    if (cause instanceof Error) {
+        const code = (cause as { code?: string }).code;
+        return `${err.message} (${code ?? cause.name}: ${cause.message})`;
+    }
+    return err.message;
+}
+
 export async function fetchDirectusCollection(
     loaderName: string,
     url: string,
@@ -156,7 +174,7 @@ export async function fetchDirectusCollection(
             return buffered;
         } catch (err) {
             lastErr = err;
-            const msg = err instanceof Error ? err.message : String(err);
+            const msg = describeFetchError(err);
             if (attempt === retries) break;
             console.warn(
                 `[${loaderName}] Directus-fetch mislukt (poging ${attempt + 1}/${retries + 1}): ${msg} — ` +
@@ -182,13 +200,19 @@ export async function fetchDirectusCollection(
  * omdat de build zélf het lawaai maakt.
  *
  * Een gedeelde semafoor begrenst het totaal aantal parallelle asset-fetches over
- * álle loaders heen. Default 8 (CTO-besluit LAT-2779: start op 8, zak naar 6/4 als
- * dat nog floodt), bij te stellen via `DIRECTUS_ASSET_CONCURRENCY` zonder
- * codewijziging. Alleen de netwerk-fetch zit in de slot — niet de
- * retry-backoff-sleeps of de image-grading — zodat een wachtende download geen
- * slot bezet houdt terwijl hij niets aan Directus vraagt.
+ * álle loaders heen. Default was 8 (CTO-besluit LAT-2779: start op 8, zak naar 6/4
+ * als dat nog floodt). LAT-3331: floodt nog steeds op 8 — 3 opeenvolgende
+ * prod-deploys faalden op `directus:8055` connect-timeout tijdens de assetfase,
+ * en `vinomartino-directus-1` logde in exact hetzelfde venster (18:46-18:51)
+ * herhaalde `KnexTimeoutError: Timeout acquiring a connection. The pool is
+ * probably full.` Concurrency naar 4 (de lagere helft van het CTO-besluit) om de
+ * gelijktijdige DB- en sharp-gradinglast tijdens de assetfase te verlagen. Bij
+ * te stellen via `DIRECTUS_ASSET_CONCURRENCY` zonder codewijziging. Alleen de
+ * netwerk-fetch zit in de slot — niet de retry-backoff-sleeps of de
+ * image-grading — zodat een wachtende download geen slot bezet houdt terwijl
+ * hij niets aan Directus vraagt.
  */
-export const DIRECTUS_ASSET_CONCURRENCY_DEFAULT = 8;
+export const DIRECTUS_ASSET_CONCURRENCY_DEFAULT = 4;
 
 function readPositiveNonZeroIntEnv(name: string, fallback: number): number {
     const raw = (process.env[name] || '').trim();

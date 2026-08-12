@@ -30,6 +30,10 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'ui.badge.zelfGereisd.title': UI_COPY.zelfGereisdBadgeTitle,
     'ui.badge.redactiegids': UI_COPY.redactiegidsBadge,
     'ui.badge.redactiegids.title': UI_COPY.redactiegidsBadgeTitle,
+    // LAT-4776 — beeld-niveau §7-disclosure (BeeldHerkomst.astro). Niet te
+    // verwarren met de reisprovenance-badge hierboven.
+    'ui.beeldherkomst.ai': UI_COPY.beeldHerkomstAiCaption,
+    'ui.beeldherkomst.ai.title': UI_COPY.beeldHerkomstAiTitle,
     'ui.rubriek.de_route': UI_COPY.rubrieken.de_route,
     'ui.rubriek.het_portret': UI_COPY.rubrieken.het_portret,
     'ui.rubriek.uit_de_kelder': UI_COPY.rubrieken.uit_de_kelder,
@@ -64,6 +68,57 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     // Wijnhuis-detailpagina breadcrumb-fallback (LAT-2638). Laterale index-crumb
     // wanneer de Land→Streek-keten (nog) onbekend is.
     'wijnhuis.breadcrumb.index': 'Wijnhuizen',
+
+    // Wijnhuis-detailpagina template-chrome (LAT-4911, WijnhuisPageContent.astro).
+    // Stonden als kale NL-literals in de template en renderden daardoor op alle
+    // ~130 /en/wijnhuizen/-pagina's in het Nederlands. De defaults hieronder zijn
+    // tekstueel identiek aan die literals — inclusief de `§ ` in `story.label` en
+    // de letterlijke pijl in `visit.mapsCta` — zodat de NL-HTML byte-identiek blijft.
+    // `meta.biologisch.ja` is de *waarde* (niet het label): WijnhuisDetail.astro gaf
+    // `entry.biodynamisch ? 'Ja' : undefined` door.
+    'wijnhuis.hero.eyebrow': 'Wijnhuis-portret',
+    'wijnhuis.meta.streek': 'STREEK',
+    'wijnhuis.meta.route': 'ROUTE',
+    'wijnhuis.meta.sinds': 'SINDS',
+    'wijnhuis.meta.hectaren': 'HECTAREN',
+    'wijnhuis.meta.biologisch': 'BIOLOGISCH',
+    'wijnhuis.meta.biologisch.ja': 'Ja',
+    'wijnhuis.drieluik.beeldenVanPrefix': 'Beelden van',
+    'wijnhuis.story.label': '§ Het verhaal',
+    'wijnhuis.wines.eyebrow': 'De wijnen',
+    'wijnhuis.wines.title': 'Wat we proefden',
+    'wijnhuis.visit.eyebrow': 'Bezoek',
+    'wijnhuis.visit.title': 'Voor je heen rijdt',
+    'wijnhuis.visit.mapsCta': 'Open in Google Maps →',
+    'wijnhuis.visit.reserveCta': 'Reservering aanvragen',
+    'wijnhuis.related.label': 'Gerelateerd',
+    'wijnhuis.related.title': 'Meer wijnhuizen in deze streek',
+
+    // Cross-linkblok onderaan de artikelpagina's (LAT-4911, RelatedEntities.astro).
+    // Stonden als kale NL-literals — het component laadde de dictionary niet eens —
+    // en zetten daardoor `Streek` op 20 en `Wijnhuis` op 9 /en/artikelen/-pagina's.
+    'related.label': 'Gerelateerd',
+    'related.title': 'Lees verder',
+    'related.kind.streek': 'Streek',
+    'related.kind.wijnhuis': 'Wijnhuis',
+    'related.kind.wijnroute': 'Wijnroute',
+    'related.kind.land': 'Land',
+
+    // Stop-soort-labels in de route-itinerary (LAT-4911, RouteItineraryDays.astro)
+    // en de chrome van de geo-kaart (RouteGeoMap.astro). Stonden als kale
+    // NL-literals op de 11 /en/wijnroutes/-pagina's.
+    'route.stop.wijnhuis': 'Wijnhuis',
+    'route.stop.eten': 'Eten',
+    'route.stop.bezienswaardigheid': 'Bezienswaardigheid',
+    'route.stop.overnachting': 'Overnachting',
+    // {duur} wordt vervangen door de duur-string uit de itinerary-data.
+    'route.stop.duur': 'Reken op {duur}.',
+    'routegeo.label': 'Routekaart',
+    'routegeo.aria.mapPre': 'Kaart van de route',
+    'routegeo.legend.aria': 'Legenda',
+    'routegeo.legend.dagetappe': 'Dagetappe',
+    'routegeo.legend.wijnhuis': 'Wijnhuis',
+    'routegeo.legend.overnachten': 'Overnachten',
 
     // Wijnroute-detailpagina chrome (LAT-2638, RouteDetail.astro).
     'route.breadcrumb.index': 'Wijnroutes',
@@ -307,6 +362,9 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     // display-tekst; de MailerLite `value`-opties blijven literal.
     'newsletter.region.label': 'Welke wijnregio interesseert jou het meest?',
     'newsletter.region.optional': '(optioneel)',
+    // LAT-3209: op een lead-magnet-landingspagina is de regiokeuze verplicht,
+    // want die bepaalt welke versie de lezer krijgt. Zelfde veld, andere status.
+    'newsletter.region.required': '(verplicht)',
     'newsletter.region.placeholder': 'Maak een keuze…',
     'newsletter.region.optionOther': 'Een andere regio',
 
@@ -345,6 +403,37 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'routemap.endpointVan': 'Van',
     'routemap.endpointNaar': 'Naar',
     'routemap.stopsSuffix': 'stops',
+
+    // ArtikelVoetblok.astro (LAT-2820) — vast voetblok onder elk artikel. De
+    // lede is één zin met twee inline links ("Dit artikel hoort bij <streek> en
+    // <route>."); t() kent geen interpolatie, dus de zin valt uiteen in een
+    // prefix en een voegwoord. De spaties eromheen staan in de template, niet in
+    // de waarde — een vertaler kan er dan geen per ongeluk weglaten.
+    'voetblok.aria': 'Verder lezen',
+    'voetblok.hoortBijPre': 'Dit artikel hoort bij',
+    'voetblok.hoortBijJoin': 'en',
+    'voetblok.routeThumbAria': 'Bekijk de route',
+    'voetblok.hotel.kicker': 'Overnachten',
+    'voetblok.hotel.labelPre': 'Waar je slaapt in',
+
+    // ArtikelGerelateerdeStukken.astro (LAT-1619) — kop van de rechterzijbalk;
+    // rendert zowel als zichtbare <p class="gs-heading"> als in het nav-aria-label.
+    // RhoneMap.astro (LAT-1719) — aria-label van de kaart-canvas: 'Kaart:' is de
+    // prefix, de kaarttitel volgt als variabele in de template (t() kent geen
+    // interpolatie, net als voetblok.routeThumbAria). Beide zijn te kort om de
+    // NL-woordratio over NL_THRESHOLD te tillen en stonden dus nog NL op /en/ (LAT-2848).
+    'gerelateerdeStukken.title': 'Gerelateerde stukken',
+    'rhonemap.aria.mapPre': 'Kaart:',
+
+    // LAT-4909 — de resterende zichtbare chrome van RhoneMap.astro, die als kale
+    // literals in de template stond en daardoor NL rendeerde op /en/: het
+    // "Kaart"-kickerlabel, het aria-label van de legenda en het legenda-item van
+    // de routelijn (alleen variant 'route'). De kaartteksten zelf
+    // (titel/bijschrift/legenda-labels) zijn kaart-inhoud, geen chrome, en staan
+    // daarom in src/lib/rhone-maps.ts en niet in deze dictionary.
+    'rhonemap.label': 'Kaart',
+    'rhonemap.legend.aria': 'Legenda',
+    'rhonemap.legend.route': 'Route noord → zuid',
 
     // AffiliatePlaceholder.astro (LAT-1029) — per-type affiliate-blok chrome
     // (titel/omschrijving/cta). De icon-emoji staat in de component (taal-neutraal).
@@ -511,14 +600,15 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'accommodaties.roundup.meta.descPost': ", met echte foto's, locatie en prijsindicatie. Geen willekeurig hotelaanbod, maar adressen die we zelf zouden boeken.",
 
     // LAT-2693 — auteurs-overzicht + auteur-detail (bios blijven NL; vertaling later)
-    'auteurs.breadcrumb.index': 'Auteurs',
-    'auteurs.index.meta.title': 'Auteurs — VinoMartino',
-    'auteurs.index.meta.description': 'Wie schrijft VinoMartino? Maak kennis met de schrijvers achter onze wijnreizen en proefnotities.',
-    'auteurs.index.kicker': 'Auteurs',
-    'auteurs.index.h1': 'Wie schrijft VinoMartino',
-    'auteurs.index.lead': 'Eén notitieboekje per reis, een eigen stem per schrijver. Hieronder vindt u wie er achter de stukken zit.',
-    'auteurs.index.readMorePre': 'Lees artikelen van ',
-    'auteurs.index.readMorePost': ' →',
+    // LAT-3068 (A4): index herbouwd tot één Marijn-profiel; grid + per-auteur
+    // kaarten zijn vervallen. `auteurs.breadcrumb.index` blijft ook de
+    // middelste kruimel op de auteur-detailpagina's (AuteurDetail.astro).
+    'auteurs.breadcrumb.index': 'Auteur',
+    'auteurs.index.meta.title': 'Marijn — de auteur van VinoMartino',
+    'auteurs.index.meta.description': 'Marijn is de stem achter VinoMartino: wijnreiziger, schrijver en de auteur van (vrijwel) elk artikel op deze site.',
+    'auteurs.index.kicker': 'Auteur',
+    'auteurs.index.lead': 'Eén notitieboekje per reis, één stem achter VinoMartino.',
+    'auteurs.index.sophieCameo': 'Sophie reist regelmatig mee en duikt af en toe op in een verhaal — met haar eigen blik op wat er in het glas zit, maar niet als aparte auteur.',
     'auteurs.detail.kicker': 'Auteur',
     'auteurs.detail.metaTitleSuffix': ' — Auteur | VinoMartino',
     'auteurs.detail.regionsHeading': 'Bereisde streken',
@@ -527,6 +617,202 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'auteurs.detail.articlesHeadingPre': 'Artikelen van ',
     'auteurs.detail.emptyPre': 'Er zijn nog geen gepubliceerde artikelen van ',
     'auteurs.detail.emptyPost': '. Houd deze pagina in de gaten; nieuw werk verschijnt hier zodra het live staat.',
+
+    // LAT-2826 — "Reizen & nareizen"-listing. NL-copy is definitief vastgesteld
+    // door de Lead Editor in de ticketomschrijving (Martino-voice goedgekeurd);
+    // wijzig deze vier hero/meta-keys niet zonder redactie.
+    'reizen.breadcrumb.index': 'Reizen & nareizen',
+    'reizen.index.meta.title': 'Reizen & nareizen — wijnreizen van Martino | VinoMartino',
+    'reizen.index.meta.description':
+        'Verslagen van wijnreizen door Europa en daarbuiten. Marijn reist, proeft en schrijft — na de reis, als het beter te vertellen is.',
+    'reizen.index.hero.label': 'Reizen & nareizen',
+    'reizen.index.hero.h1': 'Reizen & nareizen',
+    'reizen.index.hero.desc':
+        'Elke wijnreis eindigt op de terugreis. Soms in een propvolle intercity met een fles te veel in je rugzak, soms in een stiltecoupé met aantekeningen in een linnen boekje. Hier staan de verhalen die daarna pas goed op gang komen — als de geur van de kelder al verdwenen is maar het gevoel niet.',
+    'reizen.index.groupFallback': 'Onderweg',
+    'reizen.index.readCta': 'Lees de nareis →',
+    'reizen.index.empty.title': 'De nareizen zijn onderweg',
+    'reizen.index.empty.descPre': 'Er staat nog geen verslag online. Begin intussen bij de ',
+    'reizen.index.empty.descLink': 'wijnroutes',
+    'reizen.index.empty.descPost': ' — daar staat waar de reizen beginnen.',
+
+    // LAT-2826 — chrome van de pakket-/nareisdetailpagina. Stond als losse
+    // NL-literals in src/pages/reizen-nareizen/[slug].astro; nu dictionary-driven
+    // zodat de /en/-tegenhanger dezelfde keys kan overlayen.
+    'reizen.detail.crumbsAria': 'Breadcrumb',
+    'reizen.detail.kicker': 'Reizen nareizen',
+    'reizen.detail.metaTitleSuffix': ' · Reizen nareizen',
+    'reizen.detail.section.dagTotDag': 'Route dag-tot-dag',
+    'reizen.detail.section.wijnhuizen': 'Wijnhuizen om te boeken',
+    'reizen.detail.section.accommodaties': 'Waar te slapen',
+    'reizen.detail.section.reismoment': 'Reismoment',
+    'reizen.detail.leesPortret': 'Lees portret →',
+
+    // LAT-2868 — LangheCaptureBlock (Langhe-PDF lead magnet). Stond als hardcoded
+    // NL-`variants` in src/components/LangheCaptureBlock.astro; nu dictionary-driven
+    // zodat de /en/-artikelpagina de EN-overlay krijgt (seed: ui-strings-en-lat2832).
+    'langhe.capture.a.koptekst': 'De volledige reisplanner als PDF',
+    'langhe.capture.a.body': 'Dit artikel geeft de kern. Als je de route daadwerkelijk rijdt, is er meer: telefoonnummers voor de wijnhuizen, openingstijden per seizoen, en een overzicht van wat elke dag kost. Dat staat in de compacte Langhe-PDF die ik stuur naar iedereen die zich aanmeldt voor De Brief.',
+    'langhe.capture.a.ctaText': 'Stuur me de Langhe-PDF',
+    'langhe.capture.a.subCopy': 'Elke twee weken ontvang je ook De Brief: over wijn, reizen en de mensen erachter. Uitschrijven kan altijd.',
+    'langhe.capture.c.koptekst': 'Begin met Piemonte',
+    'langhe.capture.c.body': 'Als je wilt weten waar te beginnen in de Langhe: ik schreef een compacte reisplanner. Route, wijnhuizen, hotels, budget. Aanmelden voor De Brief, en hij is meteen van jou.',
+    'langhe.capture.c.ctaText': 'Stuur me de Langhe-PDF',
+    'langhe.capture.c.subCopy': 'Elke twee weken volgt De Brief: over wijn en reizen vanuit eigen ervaring.',
+    'langhe.capture.email.label': 'E-mailadres',
+    'langhe.capture.email.placeholder': 'je@adres.nl',
+
+    // LAT-2921 — HubBacklink (pillar-hub terugverwijzing, src/lib/hub-backlinks.ts).
+    // Stond als hardcoded NL-`label` op het HubDef-target; nu dictionary-driven
+    // zodat de /en/-tegenhangers van de hub-leden (o.a. auto-huren-sardinie) een
+    // EN-label krijgen i.p.v. altijd "Onderdeel van de Italië-wijngids".
+    'hub.italie.backlinkLabel': 'Onderdeel van de Italië-wijngids',
+
+    // LAT-3306 (B4) — artikel-rubrieklabels. De NL-waarde is exact de rauwe
+    // `articles.category`-string uit Directus, zodat NL byte-identiek blijft en
+    // de slug (= filter-URL) ongewijzigd uit die rauwe string blijft komen. Zie
+    // src/lib/rubriek-labels.ts; EN-values staan in ui_strings_translations.
+    'artikelen.rubriek.regio-gidsen': 'Regio-gidsen',
+    'artikelen.rubriek.routes-logistiek': 'Routes & logistiek',
+    'artikelen.rubriek.huis-portretten': 'Huis-portretten',
+    'artikelen.rubriek.wijnkennis-losjes-uitgelegd': 'Wijnkennis losjes uitgelegd',
+    'artikelen.rubriek.verborgen-regio-s': "Verborgen regio's",
+    'artikelen.rubriek.proefnotities': 'Proefnotities',
+    'artikelen.rubriek.wijn-tafel': 'Wijn & tafel',
+};
+
+/**
+ * LAT-2831 — statische EN-seed voor de gate-blokkerende UI-strings.
+ * Directus `ui_strings_translations` wint (live override); deze map is de
+ * code-level fallback zodat de /en/-pagina's de gate passeren ook als Directus
+ * nog geen EN-values heeft.  Volgorde in t(): Directus → UI_STRING_EN → UI_STRING_DEFAULTS.
+ */
+export const UI_STRING_EN: Record<string, string> = {
+    // LAT-4776 — beeld-niveau §7-disclosure (BeeldHerkomst.astro). De
+    // machineleesbare marker zit in het data-attribuut, niet in deze copy, dus
+    // de detector blijft ook op /en/-pagina's werken als deze zin verandert.
+    'ui.beeldherkomst.ai': 'AI-generated illustration: editorial interpretation, not photographic evidence.',
+    'ui.beeldherkomst.ai.title': 'This image was created with AI as an editorial illustration. It is not photographic evidence of this place.',
+
+    // StreekCard.astro — "Begin hier"-badge.
+    'streken.card.beginHier': 'Start here',
+
+    // StrekenIndex.astro (/en/streken/).
+    'streken.index.meta.title': 'Wine Regions, From Piedmont to the Mosel | VinoMartino',
+    'streken.index.meta.description': 'Discover the great wine regions of Europe — terroir, grape varieties, climate and the best producers. In-depth guides for wine lovers.',
+    'streken.index.hero.label': 'Wine regions',
+    'streken.index.hero.h1': 'Terroir, grapes &amp; tradition',
+    'streken.index.hero.desc': 'Piedmont, Etna, Burgundy, Mosel — each region has its own logic of soil, climate and grape. I explain them here as I came to know them: by driving there.',
+    'streken.index.tier1.label': 'Visited in person',
+    'streken.index.tier1.title': 'Regions I\'ve driven myself',
+    'streken.index.tier1.desc': 'These guides were written after my own visits. Not sure where to start? Begin with the four marked "Start here".',
+    'streken.index.tier2.label': 'Editorial guides',
+    'streken.index.tier2.title': 'Guides by country',
+    'streken.index.tier2.desc': 'Carefully compiled from primary sources and local knowledge, grouped by country.',
+    'streken.index.overig': 'Other',
+    'streken.index.empty.title': 'The guides are on their way',
+    'streken.index.empty.descPre': 'Piedmont, Etna, Burgundy, Mosel and Priorat are at the top of the list. I\'d rather write them well than fast — in the meantime, start with the ',
+    'streken.index.empty.descLink': 'articles',
+    'streken.index.empty.descPost': '.',
+
+    // LangheCaptureBlock.astro — PDF lead magnet (variant a = mid-article).
+    'langhe.capture.a.koptekst': 'The complete travel planner as a PDF',
+    'langhe.capture.a.body': 'This article gives you the essentials. If you actually drive the route, there is more: phone numbers for the wineries, seasonal opening hours, and a daily cost breakdown. All of that is in the compact Langhe PDF I send to everyone who signs up for The Brief.',
+    'langhe.capture.a.ctaText': 'Send me the Langhe PDF',
+    'langhe.capture.a.subCopy': 'Every two weeks you\'ll also receive The Brief: about wine, travel, and the people behind it. Unsubscribe anytime.',
+
+    // LangheCaptureBlock.astro — PDF lead magnet (variant c = homepage-style).
+    'langhe.capture.c.koptekst': 'Start with Piedmont',
+    'langhe.capture.c.body': 'If you want to know where to begin in the Langhe: I wrote a compact travel planner. Route, wineries, hotels, budget. Sign up for The Brief and it\'s yours immediately.',
+    'langhe.capture.c.ctaText': 'Send me the Langhe PDF',
+    'langhe.capture.c.subCopy': 'Every two weeks The Brief follows: about wine and travel from personal experience.',
+
+    // LangheCaptureBlock.astro — gedeeld e-mail veld.
+    'langhe.capture.email.label': 'Email address',
+    'langhe.capture.email.placeholder': 'your@email.com',
+
+    // RhoneMap.astro — kaart-chrome (LAT-4909). `rhonemap.aria.mapPre` is in
+    // Directus geseed (LAT-2848) maar had nog geen code-level fallback: bij een
+    // Directus-degradatie tijdens de build viel het aria-label terug op "Kaart:".
+    'rhonemap.aria.mapPre': 'Map:',
+    'rhonemap.label': 'Map',
+    'rhonemap.legend.aria': 'Legend',
+    'rhonemap.legend.route': 'Route north → south',
+
+    // WijnhuisPageContent.astro — template-chrome van de ~130 wijnhuis-portretten
+    // (LAT-4911). EN-copy aangeleverd en goedgekeurd door de Lead Editor.
+    // `visit.mapsCta` is bewust identiek aan de NL-default: eigennaam + universele
+    // frase. De `§ ` in `story.label` is een typografisch teken, geen taal, dus die
+    // blijft ook in de EN-waarde staan.
+    'wijnhuis.hero.eyebrow': 'Winery portrait',
+    'wijnhuis.meta.streek': 'REGION',
+    'wijnhuis.meta.route': 'ROUTE',
+    'wijnhuis.meta.sinds': 'SINCE',
+    'wijnhuis.meta.hectaren': 'HECTARES',
+    'wijnhuis.meta.biologisch': 'ORGANIC',
+    'wijnhuis.meta.biologisch.ja': 'Yes',
+    'wijnhuis.drieluik.beeldenVanPrefix': 'Images of',
+    'wijnhuis.story.label': '§ The story',
+    'wijnhuis.wines.eyebrow': 'The wines',
+    'wijnhuis.wines.title': 'What we tasted',
+    'wijnhuis.visit.eyebrow': 'Visit',
+    'wijnhuis.visit.title': 'Getting there',
+    'wijnhuis.visit.mapsCta': 'Open in Google Maps →',
+    'wijnhuis.visit.reserveCta': 'Request a reservation',
+    'wijnhuis.related.label': 'Related',
+    'wijnhuis.related.title': 'More wineries in this region',
+
+    // RelatedEntities.astro — cross-linkblok onderaan de artikelpagina's (LAT-4911).
+    // `related.label`/`related.kind.streek`/`related.kind.wijnhuis` volgen de door de
+    // Lead Editor goedgekeurde termen uit de wijnhuis-set (Related / Region / Winery);
+    // `related.title`, `related.kind.wijnroute` en `related.kind.land` zijn nieuw en
+    // staan ter bevestiging in het EN-copy-issue.
+    'related.label': 'Related',
+    'related.title': 'Read on',
+    'related.kind.streek': 'Region',
+    'related.kind.wijnhuis': 'Winery',
+    'related.kind.wijnroute': 'Wine route',
+    'related.kind.land': 'Country',
+
+    // RouteItineraryDays.astro + RouteGeoMap.astro — stop-soorten en kaart-chrome
+    // op de /en/wijnroutes/-pagina's (LAT-4911). `Winery` volgt de goedgekeurde
+    // wijnhuis-set; de rest is nieuw en staat ter bevestiging in het EN-copy-issue.
+    'route.stop.wijnhuis': 'Winery',
+    'route.stop.eten': 'Food',
+    'route.stop.bezienswaardigheid': 'Sight',
+    'route.stop.overnachting': 'Stay',
+    'route.stop.duur': 'Allow {duur}.',
+    'route.daysAria': 'Days on this route',
+    'route.leesPortret': 'Read the portrait',
+    'routegeo.label': 'Route map',
+    'routegeo.aria.mapPre': 'Map of the route',
+    'routegeo.legend.aria': 'Legend',
+    'routegeo.legend.dagetappe': 'Day leg',
+    'routegeo.legend.wijnhuis': 'Winery',
+    'routegeo.legend.overnachten': 'Stay',
+
+    // Keys die de infrastructuur al hadden in UI_STRING_DEFAULTS maar nog geen
+    // EN-waarde, en daardoor op /en/ NL terugvielen (LAT-4911). Vallen buiten de
+    // twaalf gate-markers, maar staan op dezelfde ~130 pagina's.
+    'wijnhuis.breadcrumb.index': 'Wineries',
+    'wijnhuizen.index.hero.label': 'Wineries',
+    // ProefnotitieKaart.astro — 'Uit de kelder' stond via UI_COPY hardcoded in het
+    // component (LAT-4924 §3). EN-copy goedgekeurd door de Lead Editor.
+    'ui.proefnotitie.kaartLabel': 'From the cellar',
+    'wijnhuis.staynear.aria': 'Nearby places to stay',
+    'wijnhuis.staynear.labelPrefix': 'Stay near',
+    'wijnhuis.staynear.disclosure': 'Affiliate links · no extra cost to you',
+    'wijnhuis.staynear.ctaNearPrefix': 'Stay near',
+    'wijnhuis.staynear.ctaNear': 'Stay nearby',
+
+    // Rubriek-labels voor /en/artikelen/ — LAT-3319.
+    'artikelen.rubriek.regio-gidsen': 'Region guides',
+    'artikelen.rubriek.routes-logistiek': 'Routes & logistics',
+    'artikelen.rubriek.huis-portretten': 'Producer profiles',
+    'artikelen.rubriek.wijnkennis-losjes-uitgelegd': 'Wine, plainly explained',
+    'artikelen.rubriek.verborgen-regio-s': 'Hidden regions',
+    'artikelen.rubriek.proefnotities': 'Tasting notes',
+    'artikelen.rubriek.wijn-tafel': 'Wine & food',
 };
 
 /** Resolver over de UI-dictionary: EN-value indien aanwezig, anders NL-default. */
@@ -538,7 +824,59 @@ export interface UiStrings {
 }
 
 function fromDefaults(locale: Locale): UiStrings {
+    if (locale === 'en') {
+        return { locale, t: (key) => UI_STRING_EN[key] ?? UI_STRING_DEFAULTS[key] ?? key };
+    }
     return { locale, t: (key) => UI_STRING_DEFAULTS[key] ?? key };
+}
+
+/**
+ * LAT-3319 — build-cache per locale.
+ *
+ * `loadUiStrings()` wordt per *pagina* aangeroepen (ArtikelDetail, AuteurDetail,
+ * ArtikelenIndex, HomeContent, ...). Zonder cache betekent dat één Directus-fetch
+ * per EN-pagina: bij ~300 EN-pagina's ~300 keer dezelfde dictionary ophalen.
+ * Onder die buildload slaat Directus' pressure-limiter aan en antwoordt `503`,
+ * waarna `fetchDirectusCollection` per poging 2000 ms slaapt (LAT-2779). In run
+ * 30709928435 gebeurde dat 47×; de build tikte daardoor tegen de
+ * `timeout-minutes: 30` van deploy.yml aan en werd twee keer op rij afgebroken.
+ *
+ * De dictionary is build-constant, dus één fetch per locale volstaat. We cachen
+ * de *promise* zodat gelijktijdige renders dezelfde fetch delen.
+ *
+ * Belangrijk: alleen een Directus-gedekt resultaat wordt vastgehouden. Een
+ * degradatie (Directus onbereikbaar/503) valt terug op `fromDefaults()`, en
+ * `UI_STRING_EN` dekt maar 34 van de 433 keys — dat resultaat site-breed
+ * vastpinnen zou 399 keys in het NL zetten op /en/. Zo'n uitkomst wordt dus
+ * *niet* gecachet: een volgende pagina probeert het gewoon opnieuw, precies
+ * zoals vóór deze wijziging.
+ */
+const uiStringsCache = new Map<Locale, Promise<UiStrings>>();
+
+export function loadUiStrings(locale: Locale = DEFAULT_LOCALE): Promise<UiStrings> {
+    const cached = uiStringsCache.get(locale);
+    if (cached) return cached;
+
+    const pending = fetchUiStrings(locale).then(
+        ({ ui, cacheable }) => {
+            // Terugval op de hardcoded defaults = geen geldige cache-inhoud.
+            if (!cacheable) uiStringsCache.delete(locale);
+            return ui;
+        },
+        (err) => {
+            uiStringsCache.delete(locale);
+            throw err;
+        },
+    );
+    uiStringsCache.set(locale, pending);
+    return pending;
+}
+
+/** Resultaat + of het de moeite waard is om vast te houden. */
+interface UiStringsLoad {
+    ui: UiStrings;
+    /** `false` zodra we op de hardcoded defaults zijn teruggevallen ná een mislukte fetch. */
+    cacheable: boolean;
 }
 
 /**
@@ -546,11 +884,13 @@ function fromDefaults(locale: Locale): UiStrings {
  * hardcoded defaults). EN = haalt de `ui_strings`-rijen met hun `translations`
  * op, bouwt een key→EN-value-Map en overlayt die op de NL-defaults.
  */
-export async function loadUiStrings(locale: Locale = DEFAULT_LOCALE): Promise<UiStrings> {
-    if (locale === DEFAULT_LOCALE) return fromDefaults(locale);
+async function fetchUiStrings(locale: Locale = DEFAULT_LOCALE): Promise<UiStringsLoad> {
+    // NL en "niet geconfigureerd" zijn deterministisch: geen fetch, dus niets om
+    // opnieuw te proberen — cachen is hier gratis en juist.
+    if (locale === DEFAULT_LOCALE) return { ui: fromDefaults(locale), cacheable: true };
 
     const env = readDirectusEnv();
-    if (!env.configured) return fromDefaults(locale);
+    if (!env.configured) return { ui: fromDefaults(locale), cacheable: true };
 
     const url = `${env.url}/items/ui_strings?limit=-1&fields=key,translations.languages_code,translations.value`;
     let res: Response;
@@ -561,11 +901,11 @@ export async function loadUiStrings(locale: Locale = DEFAULT_LOCALE): Promise<Ui
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         console.warn(`[loadUiStrings] Directus onbereikbaar (${locale}): ${msg} — terugval op NL-defaults.`);
-        return fromDefaults(locale);
+        return { ui: fromDefaults(locale), cacheable: false };
     }
     if (!res.ok) {
         console.warn(`[loadUiStrings] Directus ${res.status} op ui_strings (${locale}) — terugval op NL-defaults.`);
-        return fromDefaults(locale);
+        return { ui: fromDefaults(locale), cacheable: false };
     }
 
     const json = await res.json().catch(() => null) as { data?: Record<string, unknown>[] } | null;
@@ -583,7 +923,10 @@ export async function loadUiStrings(locale: Locale = DEFAULT_LOCALE): Promise<Ui
     }
 
     return {
-        locale,
-        t: (key) => overlay.get(key) ?? UI_STRING_DEFAULTS[key] ?? key,
+        ui: {
+            locale,
+            t: (key) => overlay.get(key) ?? UI_STRING_EN[key] ?? UI_STRING_DEFAULTS[key] ?? key,
+        },
+        cacheable: true,
     };
 }

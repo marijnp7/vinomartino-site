@@ -1,0 +1,166 @@
+---
+// LAT-3209 — landingspagina-template /seizoenskalender. NIET PUBLICEREN.
+//
+// Waarom een rest-route en geen gewone index.astro
+// ------------------------------------------------
+// Een `index.astro` wordt altijd geëmit en is daarmee op productie met een
+// simpele curl op te halen. Deze pagina mag dat niet zijn: de lead magnet zelf
+// (de PDF) is nog geblokkeerd op LAT-2684/LAT-2318, en een landingspagina die
+// een download belooft die niet bestaat is een gebroken belofte aan de lezer.
+// `[...slug].astro` laat `getStaticPaths()` beslissen of de pagina überhaupt
+// bestaat: geeft die een lege array terug, dan komt er geen HTML in dist/ en
+// geeft nginx (`try_files $uri $uri/ =404`) een harde 404.
+//
+// Drie onafhankelijke sluitingen, elk voldoende op zichzelf:
+//   1. Feature-flag `SEIZOENSKALENDER_ENABLED=1` (default UIT).
+//   2. De Directus-rij `landing_pages.seizoenskalender` staat op `draft`, en een
+//      productie-build leest alleen `published` (statusFilterQuery).
+//   3. Geen nav-item, geen footerlink, uit de sitemap (astro.config.mjs) en
+//      `noindex` in de <head>.
+// Publiceren is dus: flag aan én de rij op `published` zetten. Bewust twee
+// handelingen, in twee verschillende systemen.
+import SiteLayout from '../../layouts/SiteLayout.astro';
+import SeizoenskalenderForm from '../../components/SeizoenskalenderForm.astro';
+import { loadLandingPage, hasRenderableContent, type LandingPage } from '../../lib/landing-pages';
+
+export async function getStaticPaths() {
+  // Astro tilt `getStaticPaths` uit de frontmatter naar een eigen modulescope:
+  // consts die hierboven staan zijn hierbinnen NIET zichtbaar (ReferenceError bij
+  // het renderen, niet bij het compileren). De slug staat daarom lokaal.
+  const slug = 'seizoenskalender';
+
+  // Build-time flag: `process.env` en niet `import.meta.env`, gelijk aan de
+  // Directus-loaders (src/lib/directus-config.ts). getStaticPaths draait in node
+  // tijdens de build, dus dit is de betrouwbare bron.
+  if (process.env['SEIZOENSKALENDER_ENABLED'] !== '1') {
+    console.log('[seizoenskalender] SEIZOENSKALENDER_ENABLED != 1 — route niet gegenereerd (LAT-3209).');
+    return [];
+  }
+
+  const page = await loadLandingPage(slug);
+  // Geen rij, of een rij zonder kop en zonder lede: niets renderen. Er is
+  // bewust geen fallback-copy in deze template (PROJECT_BRIEF §3.0).
+  if (!page || !hasRenderableContent(page)) {
+    console.log(`[seizoenskalender] geen bruikbare landing_pages-rij '${slug}' — route niet gegenereerd.`);
+    return [];
+  }
+
+  // `slug: undefined` op een rest-param levert exact /seizoenskalender/ op.
+  return [{ params: { slug: undefined }, props: { page } }];
+}
+
+interface Props {
+  page: LandingPage;
+}
+
+const { page } = Astro.props as Props;
+---
+
+<SiteLayout title={page.seoTitle || page.heroHeading} description={page.seoDescription || undefined} noindex>
+  <section class="sk-hero">
+    <div class="sk-container">
+      {page.heroKicker && <span class="sk-kicker">{page.heroKicker}</span>}
+      {page.heroHeading && <h1>{page.heroHeading}</h1>}
+      {page.heroLede && <p class="sk-lede">{page.heroLede}</p>}
+    </div>
+  </section>
+
+  {(page.valueHeading || page.valueItems.length > 0) && (
+    <section class="sk-value">
+      <div class="sk-container">
+        {page.valueHeading && <h2>{page.valueHeading}</h2>}
+        {page.valueItems.length > 0 && (
+          <ul class="sk-value__list">
+            {page.valueItems.map((item) => (
+              <li>
+                {item.title && <h3>{item.title}</h3>}
+                {item.body && <p>{item.body}</p>}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </section>
+  )}
+
+  <div class="sk-container">
+    <SeizoenskalenderForm
+      heading={page.formHeading}
+      successMessage={page.formSuccess}
+      errorMessage={page.formError}
+    />
+  </div>
+</SiteLayout>
+
+<style>
+  .sk-container {
+    max-width: 760px;
+    margin: 0 auto;
+    padding-inline: var(--gutter);
+  }
+  .sk-hero {
+    padding-block: clamp(2.5rem, 7vw, 4.5rem) 0;
+  }
+  .sk-kicker {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--color-rust, #a14f2a);
+    margin: 0 0 0.75rem;
+  }
+  .sk-hero h1 {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 5vw + 0.5rem, 3.25rem);
+    font-weight: 500;
+    line-height: 1.05;
+    color: var(--color-text);
+    margin: 0;
+  }
+  .sk-lede {
+    font-family: var(--font-serif, var(--font-body));
+    font-size: 1.1875rem;
+    line-height: 1.65;
+    color: var(--color-text-soft, var(--color-text));
+    margin: 1.25rem 0 0;
+  }
+  .sk-value {
+    padding-block: clamp(2rem, 5vw, 3rem) 0;
+  }
+  .sk-value h2 {
+    font-family: var(--font-display);
+    font-size: clamp(1.5rem, 3vw + 0.5rem, 2rem);
+    font-weight: 500;
+    color: var(--color-text);
+    margin: 0;
+    line-height: 1.1;
+  }
+  .sk-value__list {
+    list-style: none;
+    margin: 1.5rem 0 0;
+    padding: 0;
+    display: grid;
+    gap: 1.5rem;
+  }
+  .sk-value__list h3 {
+    font-family: var(--font-ui);
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--color-text);
+    margin: 0 0 0.35rem;
+  }
+  .sk-value__list p {
+    font-family: var(--font-serif, var(--font-body));
+    font-size: 1rem;
+    line-height: 1.6;
+    color: var(--color-text-soft, var(--color-text));
+    margin: 0;
+  }
+
+  @media (min-width: 640px) {
+    .sk-value__list {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+</style>

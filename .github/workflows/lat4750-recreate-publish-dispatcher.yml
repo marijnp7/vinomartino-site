@@ -1,0 +1,188 @@
+# LAT-4750 — dispatch-only recreate van paperclip-publish-dispatcher-1.
+#
+# Goedgekeurd: kaart 6cc8fde8 (de recreate zelf) + 933eff00 (deze route: agent voert uit via
+# de bestaande GHA->VPS SSH-kanaal in plaats van een handmatige host-shell).
+#
+# Geen push-trigger. `mode` kiest alleen tussen twee vaste scripts; er wordt niets uit de
+# input in een commando geinterpoleerd.
+#
+# LET OP bij het pushen: elk bestand onder .github/ op main triggert normaal een
+# productie-release van vinomartino.com (deploy.yml gebruikt paths-ignore en .github/**
+# staat daar bewust niet in). Daarom pushen met "[skip ci]" en daarna verifieren met
+#   gh run list --repo marijnp7/vinomartino-site --branch main --limit 5
+
+name: LAT-4750 recreate publish-dispatcher
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'diagnose = alleen lezen; recreate = daadwerkelijk up -d'
+        required: true
+        default: diagnose
+        type: choice
+        options:
+          - diagnose
+          - recreate
+
+concurrency:
+  group: lat4750-recreate-publish-dispatcher
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          cat >> ~/.ssh/config <<EOF
+          Host $VPS_HOST
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+          EOF
+          cat "$GITHUB_WORKSPACE/ops/ssh-config-snippet" >> ~/.ssh/config
+          ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      # ---------------------------------------------------------------- diagnose
+      - name: Diagnose (read-only)
+        if: inputs.mode == 'diagnose'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          DIAG: |
+            set -uo pipefail
+            cd /opt/paperclip-cos || { echo "GEEN /opt/paperclip-cos"; exit 1; }
+
+            echo "=== env_file-paden (bestaan ze op de HOST?) ==="
+            # Alleen bestaan + mode tonen, nooit inhoud: deze bestanden dragen GH_TOKEN.
+            for f in /agent-secrets/github-publish.env \
+                     /root/.agent-secrets/github-publish.env \
+                     /opt/paperclip-cos/.env.publish-dispatcher; do
+              if [ -e "$f" ]; then
+                echo "AANWEZIG $(stat -c '%A %U:%G %n' "$f")"
+              else
+                echo "ONTBREEKT $f"
+              fi
+            done
+
+            echo "=== compose-validatie (geen output, alleen exitcode) ==="
+            # --quiet is essentieel: `docker compose config` zonder --quiet kan env_file
+            # expanderen naar environment: en zou GH_TOKEN in dit workflow-log zetten.
+            if docker compose -f docker-compose.cos.yml \
+                 -f lat920/docker-compose.publish-dispatcher.yml config --quiet 2>/tmp/lat4750-cfg.err; then
+              echo "CONFIG_OK"
+            else
+              echo "CONFIG_FAIL"
+              # stderr van compose bevat paden/foutmeldingen, geen secretwaarden
+              sed -e 's/github_pat_[A-Za-z0-9_]*/<redacted>/g' /tmp/lat4750-cfg.err
+            fi
+
+            echo "=== huidige staat ==="
+            docker inspect -f 'ctr_image={{.Image}} created={{.Created}} status={{.State.Status}}' \
+              paperclip-publish-dispatcher-1
+            docker image inspect -f 'latest={{.Id}} created={{.Created}}' \
+              paperclip-publish-dispatcher:latest
+
+            echo "=== residu dat opgeruimd moet worden ==="
+            docker ps -a --filter name=lat4750-verify-cto --format '{{.Names}} {{.Status}}'
+        run: |
+          printf '%s\n' "$DIAG" | ssh "$VPS" "bash -s"
+
+      # ---------------------------------------------------------------- recreate
+      - name: Recreate op het gebouwde image
+        if: inputs.mode == 'recreate'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          RECREATE: |
+            set -euo pipefail
+            cd /opt/paperclip-cos
+            PROJ=paperclip-cos
+            SRC=lat920/docker-compose.publish-dispatcher.yml
+            OVR=/opt/paperclip-cos/lat920/docker-compose.publish-dispatcher.hostpath.yml
+
+            echo "=== VOOR ==="
+            # -f filters: nooit een kale `docker inspect`, die print de hele env_file.
+            docker inspect -f 'ctr_image={{.Image}}' paperclip-publish-dispatcher-1
+            docker image inspect -f 'latest={{.Id}} created={{.Created}}' \
+              paperclip-publish-dispatcher:latest
+
+            # De overlay verwijst naar /agent-secrets/... — dat pad bestaat alleen BINNEN
+            # paperclip-devops-workspace-1, niet op de host (gemeten in mode=diagnose).
+            # Daarom een afgeleide overlay met het host-pad. Eerst bewijzen dat het om
+            # exact hetzelfde bestand gaat: hash vergelijken, nooit de waarde printen.
+            echo "=== env-bestand identiek aan de agent-kant? ==="
+            H=$(sha256sum /root/.agent-secrets/github-publish.env | cut -c1-16)
+            echo "host sha256(16)=$H"
+            if [ "$H" != "b679e6d0288755b3" ]; then
+              echo "::error::env-bestand wijkt af van wat de agent-kant ziet; afgebroken"
+              exit 1
+            fi
+
+            echo "=== afgeleide overlay met host-pad ==="
+            sed 's#/agent-secrets/github-publish.env#/root/.agent-secrets/github-publish.env#' \
+              "$SRC" > "$OVR"
+            # Alleen ACTIEVE regels controleren. De bron heeft ook commentaar met
+            # "/agent-secrets/..." als prozavoorbeeld; dat is geen pad dat compose leest,
+            # en een guard die daarop afgaat breekt terecht af op niets.
+            if grep -v '^[[:space:]]*#' "$OVR" | grep -q '/agent-secrets/'; then
+              echo "::error::actieve regel wijst nog naar /agent-secrets/; afgebroken"
+              exit 1
+            fi
+            echo "actieve env_file-regels na substitutie:"
+            grep -v '^[[:space:]]*#' "$OVR" | grep -n 'agent-secrets' || true
+
+            echo "=== validatie vooraf (afbreken zonder iets aan te raken als dit faalt) ==="
+            # --quiet is essentieel: zonder --quiet kan compose env_file expanderen en
+            # GH_TOKEN in dit workflow-log zetten.
+            docker compose -p "$PROJ" --project-directory /opt/paperclip-cos \
+              -f docker-compose.cos.yml -f "$OVR" config --quiet
+            echo "CONFIG_OK"
+
+            echo "=== RECREATE (geen --build: :latest wijst al naar het geteste image) ==="
+            docker compose -p "$PROJ" --project-directory /opt/paperclip-cos \
+              -f docker-compose.cos.yml -f "$OVR" \
+              up -d publish-dispatcher
+
+            echo "=== NA ==="
+            docker inspect -f 'ctr_image={{.Image}} created={{.Created}}' paperclip-publish-dispatcher-1
+
+            # Poort 3202 is niet gepubliceerd op de host, dus meten vanuit de container zelf.
+            ok=0
+            for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
+              if docker exec paperclip-publish-dispatcher-1 node -e "
+                fetch('http://127.0.0.1:3202/health')
+                  .then(async r=>{console.log('LAT4750_HTTP='+r.status);
+                                  console.log('LAT4750_BODY='+await r.text());
+                                  process.exit(0)})
+                  .catch(e=>{console.log('LAT4750_WACHT='+e.message);process.exit(1)})"; then
+                ok=1; break
+              fi
+              sleep 5
+            done
+            [ "$ok" = "1" ] || echo "::warning::/health gaf binnen 60s geen antwoord"
+
+            echo "=== OPRUIMEN residu LAT-4750 ==="
+            docker rm lat4750-verify-cto 2>/dev/null || echo "lat4750-verify-cto al weg"
+            docker rmi lat4750-smoke:tmp lat4750-smoke-old:tmp 2>/dev/null || true
+            docker volume rm lat4750verify_state 2>/dev/null || true
+        run: |
+          printf '%s\n' "$RECREATE" | ssh "$VPS" "bash -s"
+
+      # Rollback is bewust handmatig, zodat een rode container inspecteerbaar blijft:
+      #   docker tag sha256:673fed8d9375f6d8765af26c3b7a9f1d445f1ce804624cb3742864ec0ef60158 \
+      #     paperclip-publish-dispatcher:latest
+      #   docker compose -f docker-compose.cos.yml \
+      #     -f lat920/docker-compose.publish-dispatcher.yml up -d publish-dispatcher

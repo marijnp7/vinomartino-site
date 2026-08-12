@@ -3,6 +3,8 @@ import SiteHeader from '../components/SiteHeader.astro';
 import SiteFooter from '../components/SiteFooter.astro';
 import SearchDialog from '../components/SearchDialog.astro';
 import { DEFAULT_LOCALE, HTML_LANG, OG_LOCALE, HREFLANG, type Locale } from '../lib/i18n';
+import { getPublicImageDimensions } from '../lib/og-image-dimensions';
+import { isRasterImageFormat } from '../lib/og-image-format';
 import '../styles/tokens.css';
 
 type OgType = 'website' | 'article' | 'profile' | 'place';
@@ -20,6 +22,11 @@ interface Props {
   description?: string;
   canonicalUrl?: string;
   ogImage?: string;
+  // LAT-4907: normaal niet nodig — de afmetingen worden uit het bestand zelf
+  // gemeten. Alleen zetten wanneer de aanroeper ze beter weet dan de meting,
+  // bijvoorbeeld bij een extern og-beeld dat wij niet zelf serveren.
+  ogImageWidth?: number;
+  ogImageHeight?: number;
   ogType?: OgType;
   article?: ArticleMeta;
   noindex?: boolean;
@@ -32,7 +39,7 @@ interface Props {
   alternates?: Partial<Record<Locale, string>>;
 }
 
-const { title, description, canonicalUrl, ogImage, ogType, article, noindex, schema, activeNav, locale, alternates } = Astro.props;
+const { title, description, canonicalUrl, ogImage, ogImageWidth, ogImageHeight, ogType, article, noindex, schema, activeNav, locale, alternates } = Astro.props;
 
 const currentLocale: Locale = locale ?? DEFAULT_LOCALE;
 
@@ -59,7 +66,35 @@ function toAbsoluteUrl(value?: string | null): string | undefined {
   return new URL(value.startsWith('/') ? value : `/${value}`, Astro.site ?? 'https://vinomartino.com').href;
 }
 
-const ogImageUrl = toAbsoluteUrl(ogImage);
+// LAT-4755: site-brede default-OG. De keten was `og_image` → `hero_image` → niets,
+// waardoor elke pagina zonder eigen beeld helemaal géén og:image kreeg — op
+// LAT-4754 gemeten als 34 van de 546 live-URLs, vrijwel allemaal index- en
+// utility-pagina's. Die vallen nu terug op een merkkaart (typografie + beeldmerk,
+// geen foto), gegenereerd door scripts/gen-og-default.mjs.
+const DEFAULT_OG_IMAGE = '/og-default.png';
+const DEFAULT_OG_IMAGE_ALT = 'VinoMartino — wijnreis-verhalen, routes en proefnotities';
+
+// LAT-4988: een SVG als og:image levert bij FB/LinkedIn/X/Slack géén deelkaart op.
+// Alleen raster mag door; de rest valt terug op dezelfde merkkaart als hierboven.
+const pageOgImageUrl = toAbsoluteUrl(ogImage);
+const validPageOgImageUrl = isRasterImageFormat(pageOgImageUrl) ? pageOgImageUrl : undefined;
+const ogImageUrl = validPageOgImageUrl ?? toAbsoluteUrl(DEFAULT_OG_IMAGE);
+
+// LAT-4907: de afmetingen stonden hier als literals 1200x630 — de maat van
+// og-default.png — en logen dus zodra een pagina een echt beeld had (511 van de
+// 555 live-URLs). Meet het bestand dat we werkelijk serveren; dit is de plek
+// waar de keten `og_image -> hero_image -> og-default.png` samenkomt, dus één
+// meting hier dekt alle content-types. Onmeetbaar (extern) => geen tags.
+// Meet de bron die ná de LAT-4988-guard overblijft: bij een SVG serveren we
+// og-default.png, dus dan horen de afmetingen óók van og-default.png te komen.
+const ogImageSourcePath = (validPageOgImageUrl ? ogImage : DEFAULT_OG_IMAGE) ?? DEFAULT_OG_IMAGE;
+const measuredOgImage = await getPublicImageDimensions(ogImageSourcePath);
+const resolvedOgImageWidth = ogImageWidth ?? measuredOgImage?.width;
+const resolvedOgImageHeight = ogImageHeight ?? measuredOgImage?.height;
+const hasOgImageDimensions = Boolean(resolvedOgImageWidth && resolvedOgImageHeight);
+// Op de merkkaart staat de paginatitel niet afgebeeld, dus beschrijft de alt de
+// kaart zelf in plaats van de pagina.
+const ogImageAlt = validPageOgImageUrl ? pageTitle : DEFAULT_OG_IMAGE_ALT;
 const resolvedOgType: OgType = ogType ?? (article ? 'article' : 'website');
 const articleTags = article?.tags?.filter((tag): tag is string => Boolean(tag && tag.trim())) ?? [];
 ---
@@ -79,9 +114,13 @@ const articleTags = article?.tags?.filter((tag): tag is string => Boolean(tag &&
     {ogImageUrl && (
       <>
         <meta property="og:image" content={ogImageUrl} />
-        <meta property="og:image:width" content="1200" />
-        <meta property="og:image:height" content="630" />
-        <meta property="og:image:alt" content={pageTitle} />
+        {hasOgImageDimensions && (
+          <>
+            <meta property="og:image:width" content={String(resolvedOgImageWidth)} />
+            <meta property="og:image:height" content={String(resolvedOgImageHeight)} />
+          </>
+        )}
+        <meta property="og:image:alt" content={ogImageAlt} />
       </>
     )}
     <meta property="og:locale" content={OG_LOCALE[currentLocale]} />
@@ -106,7 +145,7 @@ const articleTags = article?.tags?.filter((tag): tag is string => Boolean(tag &&
     <meta name="twitter:title" content={pageTitle} />
     {description && <meta name="twitter:description" content={description} />}
     {ogImageUrl && <meta name="twitter:image" content={ogImageUrl} />}
-    {ogImageUrl && <meta name="twitter:image:alt" content={pageTitle} />}
+    {ogImageUrl && <meta name="twitter:image:alt" content={ogImageAlt} />}
     <link rel="canonical" href={canonical} />
     {hreflangLinks.map((alt) => (
       <link rel="alternate" hreflang={alt.hreflang} href={alt.href} />

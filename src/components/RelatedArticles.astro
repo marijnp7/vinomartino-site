@@ -3,7 +3,7 @@
 // detail-pages. Lijst gerelateerde artikelen. Section verschijnt niet als de
 // items-array leeg is (per spec acceptance).
 import type { RelatedRef } from '../lib/articles';
-import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
+import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
 import { loadUiStrings } from '../lib/ui-strings';
 
 interface Props {
@@ -14,6 +14,9 @@ interface Props {
 }
 
 const { items, title, maxItems = 6, locale = DEFAULT_LOCALE } = Astro.props;
+
+// LAT-2704 — interne hrefs locale-aware; NL blijft byte-identiek.
+const lh = (href: string) => localizeHref(href, locale);
 const ui = await loadUiStrings(locale);
 const cards = items.slice(0, maxItems);
 const heading = title ?? ui.t('ui.relatedArticles.title');
@@ -26,7 +29,7 @@ const heading = title ?? ui.t('ui.relatedArticles.title');
       <h2 class="related-title">{heading}</h2>
       <div class="related-grid">
         {cards.map((card) => (
-          <a href={`/artikelen/${card.slug}/`} class="related-card">
+          <a href={lh(`/artikelen/${card.slug}/`)} class="related-card">
             <span class="related-meta">{ui.t('ui.relatedArticles.meta')}</span>
             <span class="related-name">{card.name}</span>
           </a>

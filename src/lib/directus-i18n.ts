@@ -163,6 +163,165 @@ export async function localizeJoinedRefs(
 }
 
 /**
+ * LAT-2829 — vertaal refs die via een GENESTE M2M/M2O-hop zijn ingeladen
+ * (de cross-linkblokken: `related_articles.articles_id.title`,
+ * `related_streken.streken_id.name`, `wijnhuizen.wijnhuizen_id.description`, …).
+ *
+ * Waarom niet localizeJoinedRefs? Die keyt op de parent-PK, en de geneste
+ * field-selecties in de loaders vragen bewust alléén `slug` + de weergavenaam op
+ * — geen `id`. Dat `id` alsnog aan die selecties toevoegen zou de degradatie-
+ * ladders raken (`withRelations` in landen/streken/routes draagt óók
+ * cta_blocks/druiven/practical; één 400 op de tier sleept die mee). Daarom keyen
+ * we hier op `slug`: die zit per definitie al in élke ref-selectie, want de
+ * cross-link heeft 'm nodig voor de href.
+ *
+ * De prijs is één extra `id,slug`-indexquery per collectie; die wordt per
+ * (collectie, junction, locale, velden) gememoïseerd zodat de zes loaders samen
+ * niet zes keer dezelfde index ophalen.
+ */
+export interface NestedRefOverlayOptions {
+    env: DirectusEnv;
+    /** Doelcollectie van de ref, bv. `articles` — nodig voor de slug→id-index. */
+    collection: string;
+    /** Junction-collectie met de vertalingen, bv. `articles_translations`. */
+    junction: string;
+    /** M2O-veld op die junction dat naar de parent-PK wijst, bv. `articles_id`. */
+    parentIdField: string;
+    /**
+     * Vertaalbare veldnamen. Vraag hier ALLEEN velden op die daadwerkelijk op de
+     * junction bestaan: `wijnhuizen_translations`/`accommodations_translations`
+     * hebben bewust géén `name` (eigennamen vertalen niet), dus daar hoort
+     * `['description']` en niet `['name']`.
+     */
+    fields: string[];
+    locale: Locale;
+}
+
+const slugOverlayCache = new Map<string, Promise<Map<string, Record<string, unknown>>>>();
+
+/** Haal de `id,slug`-index van een collectie op (alle statussen). */
+async function fetchSlugIndex(env: DirectusEnv, collection: string): Promise<Map<string, string>> {
+    const url = `${env.url}/items/${collection}?limit=-1&fields=id,slug`;
+    const res = await fetchDirectusCollection(`i18n:index:${collection}`, url, {
+        headers: { Authorization: `Bearer ${env.token}` },
+    });
+    if (!res.ok) {
+        const body = await res.text().catch(() => '');
+        throw new Error(
+            `[i18n] slug-index ${collection} faalde: ${res.status} ${res.statusText}: ${body.slice(0, 200)}`,
+        );
+    }
+    const json = await res.json();
+    const out = new Map<string, string>();
+    for (const row of (json.data || []) as Record<string, unknown>[]) {
+        const id = String(row.id ?? '');
+        const slug = row.slug ? String(row.slug) : '';
+        if (id && slug) out.set(id, slug);
+    }
+    return out;
+}
+
+/** Vertaalvelden per slug i.p.v. per PK. Gememoïseerd voor de hele build. */
+async function fetchSlugKeyedOverlay(
+    opts: NestedRefOverlayOptions,
+): Promise<Map<string, Record<string, unknown>>> {
+    const key = `${opts.collection}|${opts.junction}|${opts.locale}|${opts.fields.join(',')}`;
+    const cached = slugOverlayCache.get(key);
+    if (cached) return cached;
+    const pending = (async () => {
+        const [byId, index] = await Promise.all([
+            fetchTranslationOverlay({
+                env: opts.env,
+                junction: opts.junction,
+                parentIdField: opts.parentIdField,
+                fields: opts.fields,
+                locale: opts.locale,
+            }),
+            fetchSlugIndex(opts.env, opts.collection),
+        ]);
+        const bySlug = new Map<string, Record<string, unknown>>();
+        for (const [id, translated] of byId) {
+            const slug = index.get(id);
+            if (slug) bySlug.set(slug, translated);
+        }
+        return bySlug;
+    })();
+    slugOverlayCache.set(key, pending);
+    // Een mislukte fetch mag niet permanent in de cache blijven staan.
+    pending.catch(() => slugOverlayCache.delete(key));
+    return pending;
+}
+
+/**
+ * Muteer ref-objecten in-place met hun vertaalde weergavevelden, gekoppeld op
+ * `slug`. Zacht: een ref zonder vertaalrij houdt z'n NL-waarde (alleen het label
+ * verandert, nooit de slug/href). Faalt de overlay-fetch, dan blijft ALLES NL en
+ * gaat er een waarschuwing naar de buildlog — een cross-linklabel mag nooit een
+ * build breken.
+ */
+export async function localizeRefsBySlug(
+    refs: Array<Record<string, unknown> | null | undefined>,
+    opts: NestedRefOverlayOptions,
+): Promise<void> {
+    if (opts.locale === DEFAULT_LOCALE) return;
+    const targets = refs.filter((r): r is Record<string, unknown> => Boolean(r && r.slug));
+    if (targets.length === 0) return;
+    let bySlug: Map<string, Record<string, unknown>>;
+    try {
+        bySlug = await fetchSlugKeyedOverlay(opts);
+    } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn(
+            `[i18n] cross-link-overlay ${opts.collection} (${opts.locale}) faalde: ${msg} — NL-labels blijven staan.`,
+        );
+        return;
+    }
+    for (const ref of targets) {
+        const translated = bySlug.get(String(ref.slug));
+        if (!translated) continue;
+        for (const [f, v] of Object.entries(translated)) ref[f] = v;
+    }
+}
+
+/**
+ * Verzamel de geneste ref-objecten uit een M2M-lijstveld. Junctionrijen leveren
+ * óf `{ <refField>: {...} }` óf — bij een platte selectie — het ref-object zelf;
+ * beide vormen worden herkend (spiegelt de unwrap in de loaders). Rijen die
+ * alleen een kale id dragen hebben geen te vertalen label en vallen weg.
+ */
+export function collectNestedRefs(
+    records: Array<Record<string, unknown> | null | undefined>,
+    listField: string,
+    refField: string,
+): Record<string, unknown>[] {
+    const out: Record<string, unknown>[] = [];
+    for (const rec of records) {
+        if (!rec) continue;
+        const list = rec[listField];
+        if (!Array.isArray(list)) continue;
+        for (const row of list) {
+            if (!row || typeof row !== 'object') continue;
+            const junction = row as Record<string, unknown>;
+            const inner = junction[refField];
+            const target = inner && typeof inner === 'object' ? (inner as Record<string, unknown>) : junction;
+            if (target.slug) out.push(target);
+        }
+    }
+    return out;
+}
+
+/** Gemaksfunctie: verzamel geneste refs + overlay ze in één stap. */
+export async function localizeNestedRefs(
+    records: Array<Record<string, unknown> | null | undefined>,
+    listField: string,
+    refField: string,
+    opts: NestedRefOverlayOptions,
+): Promise<void> {
+    if (opts.locale === DEFAULT_LOCALE) return;
+    await localizeRefsBySlug(collectNestedRefs(records, listField, refField), opts);
+}
+
+/**
  * Gemaksfunctie: fetch overlay + pas guard toe in één stap.
  */
 export async function localizeRecords<T extends Record<string, unknown>>(

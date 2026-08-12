@@ -17,6 +17,7 @@ import StreekFeitenblok from './StreekFeitenblok.astro';
 import RouteMap from './RouteMap.astro';
 import TourCards from './TourCards.astro';
 import ZelfGereisdBadge from './ZelfGereisdBadge.astro';
+import BeeldHerkomst from './BeeldHerkomst.astro';  // LAT-4776: §7-disclosure bij AI-beeld
 import NewsletterFooter from './NewsletterFooter.astro';
 import { accommodatieBookingDeeplink } from '../lib/affiliates';
 import { type Streek, type Accommodation } from '../lib/streken';
@@ -26,8 +27,9 @@ import type { AccommodatieRoundup as AccommodatieRoundupData } from '../lib/acco
 import { type WijnRoute } from '../lib/routes';
 import { currencyForLand, formatNightlyPrice } from '../lib/currency';
 import { streekSchema, streekMetaTitle, streekMetaDescription, breadcrumbSchema } from '../lib/seo';
-import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
+import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
 import { loadUiStrings } from '../lib/ui-strings';
+import { licenseLabelFor } from '../lib/image-credits';
 
 interface Props {
   entry: Streek;
@@ -43,6 +45,9 @@ interface Props {
 }
 
 const { entry, wijnhuizen, routes, accRoundup, locale = DEFAULT_LOCALE, alternates } = Astro.props;
+
+// LAT-2704 — interne hrefs locale-aware; NL blijft byte-identiek.
+const lh = (href: string) => localizeHref(href, locale);
 // LAT-2575: chrome-labels via de UI-dictionary i.p.v. hardcoded literals. Op
 // DEFAULT_LOCALE geeft t() byte-identiek de bestaande NL-copy terug; de
 // /en/-tegenhanger overlayt dezelfde keys.
@@ -259,11 +264,11 @@ const hasFactBox = Boolean(
     <section class="streek-hero">
       <div class="container">
         <nav class="breadcrumb" aria-label="Breadcrumb">
-          <a href="/">{ui.t('streek.breadcrumb.home')}</a> /
+          <a href={lh('/')}>{ui.t('streek.breadcrumb.home')}</a> /
           {hasParentLand ? (
-            <><a href="/landen/">{ui.t('streek.breadcrumb.landen')}</a> / <a href={`/landen/${entry.landSlug}/`}>{entry.country}</a> / </>
+            <><a href={lh('/landen/')}>{ui.t('streek.breadcrumb.landen')}</a> / <a href={lh(`/landen/${entry.landSlug}/`)}>{entry.country}</a> / </>
           ) : (
-            <><a href="/streken/">{ui.t('streek.breadcrumb.streken')}</a> / </>
+            <><a href={lh('/streken/')}>{ui.t('streek.breadcrumb.streken')}</a> / </>
           )}
           <span>{entry.name}</span>
         </nav>
@@ -311,13 +316,14 @@ const hasFactBox = Boolean(
       {entry.heroImage && (
         <figure class="streek-hero-img-wrap">
           <img src={entry.heroImage} alt={entry.name} class="streek-hero-img" loading="eager" />
+          <BeeldHerkomst src={entry.heroImage} locale={locale} variant="inline" />
           {entry.heroCredit && (
             <figcaption class="streek-hero-credit">
               {entry.heroCredit.author}
               {entry.heroCredit.licenseLabel && (
                 <> — {entry.heroCredit.licenseUrl
-                  ? <a href={entry.heroCredit.licenseUrl} rel="license noopener" target="_blank">{entry.heroCredit.licenseLabel}</a>
-                  : entry.heroCredit.licenseLabel}</>
+                  ? <a href={entry.heroCredit.licenseUrl} rel="license noopener" target="_blank">{licenseLabelFor(entry.heroCredit.licenseLabel, locale)}</a>
+                  : licenseLabelFor(entry.heroCredit.licenseLabel, locale)}</>
               )}
               {entry.heroCredit.sourceUrl && (
                 <> — <a href={entry.heroCredit.sourceUrl} rel="noopener" target="_blank">{ui.t('streek.hero.bron')}</a></>
@@ -396,7 +402,7 @@ const hasFactBox = Boolean(
           </div>
           <div class="route-grid">
             {routes.map(route => (
-              <a class="route-card" href={`/wijnroutes/${route.slug}/`}>
+              <a class="route-card" href={lh(`/wijnroutes/${route.slug}/`)}>
                 <span class="route-card__name">{route.title}</span>
                 {route.stops.length >= 2 && (
                   <RouteMap stops={route.stops} variant="mini" locale={locale} />
@@ -459,9 +465,9 @@ const hasFactBox = Boolean(
 
     <RelatedArticles items={entry.relatedArticles} locale={locale} />
 
-    <HubBacklink type="streek" slug={entry.slug} />
+    <HubBacklink type="streek" slug={entry.slug} locale={locale} />
 
-    <AffiliateDisclosure />
+    <AffiliateDisclosure locale={locale} />
   </article>
 
   <NewsletterFooter defaultRegion={newsletterRegion} locale={locale} />

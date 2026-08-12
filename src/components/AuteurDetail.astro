@@ -7,6 +7,7 @@ import { type Author, getAuthorByByline, bioParagraphs } from '../lib/authors';
 import { loadArticles, type Article } from '../lib/articles';
 import { breadcrumbSchema } from '../lib/seo';
 import { loadUiStrings } from '../lib/ui-strings';
+import { rubriekLabel } from '../lib/rubriek-labels';
 import { DEFAULT_LOCALE, localizePath, type Locale } from '../lib/i18n';
 
 interface Props {
@@ -81,8 +82,8 @@ const metaDescription = (paragraphs[0] ?? bio).slice(0, 155);
       <div class="author-intro">
         <span class="kicker">{ui.t('auteurs.detail.kicker')}</span>
         <h1>{author.name}</h1>
-        {author.tagline && <p class="author-tagline">{author.tagline}</p>}
-        {author.role && <p class="author-role">{author.role}</p>}
+        {(locale === 'en' ? author.taglineEn ?? author.tagline : author.tagline) && <p class="author-tagline">{locale === 'en' ? author.taglineEn ?? author.tagline : author.tagline}</p>}
+        {(locale === 'en' ? author.roleEn ?? author.role : author.role) && <p class="author-role">{locale === 'en' ? author.roleEn ?? author.role : author.role}</p>}
         <div class="author-bio">
           {paragraphs.map((p) => <p>{p}</p>)}
         </div>
@@ -109,7 +110,7 @@ const metaDescription = (paragraphs[0] ?? bio).slice(0, 155);
           {articles.map((article) => (
             <li class="article-item">
               <a href={localizePath(`/artikelen/${article.slug}/`, locale)} class="article-link">
-                {article.category && <span class="article-cat">{article.category}</span>}
+                {article.category && <span class="article-cat">{rubriekLabel(ui, article.category)}</span>}
                 <h3 class="article-title">{article.title}</h3>
                 {article.description && <p class="article-desc">{article.description}</p>}
                 <span class="article-date">

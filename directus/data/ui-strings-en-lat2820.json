@@ -1,0 +1,17 @@
+{
+  "_comment": "LAT-2820 — EN ui_strings-overlay voor het artikel-voetblok. De copy in ArtikelVoetblok.astro is met deze ticket naar de dictionary verhuisd; zonder deze EN-values valt t() terug op de NL-default en staat er op /en/ nog steeds Nederlands. De routemap.*-keys stonden al in de dictionary (LAT-1608) maar hadden nog geen EN-vertaling — het voetblok rendert de mini-RouteMap nu met locale, dus het aria-label 'Route van X naar Y' zou anders NL blijven. Seeden met: DIRECTUS_URL=... DIRECTUS_TOKEN=... node directus/scripts/seed-ui-strings-en.mjs directus/data/ui-strings-en-lat2820.json",
+
+  "voetblok.aria": "Further reading",
+  "voetblok.hoortBijPre": "This article is part of",
+  "voetblok.hoortBijJoin": "and",
+  "voetblok.routeThumbAria": "View the route",
+  "voetblok.hotel.kicker": "Where to stay",
+  "voetblok.hotel.labelPre": "Where to stay in",
+
+  "routemap.label": "Route map",
+  "routemap.ariaPrefix": "Route from",
+  "routemap.ariaMid": "to",
+  "routemap.endpointVan": "From",
+  "routemap.endpointNaar": "To",
+  "routemap.stopsSuffix": "stops"
+}

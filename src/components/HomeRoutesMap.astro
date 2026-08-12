@@ -18,7 +18,7 @@
 // geen enkele route bruikbare stopsGeo, dan rendert dit component niets en blijft
 // de sectie met de kaartjes intact.
 import type { WijnRoute, RouteStopGeo } from '../lib/routes';
-import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
+import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
 
 export interface Props {
   routes: WijnRoute[];
@@ -28,6 +28,8 @@ export interface Props {
 
 const { routes = [], title, locale = DEFAULT_LOCALE } = Astro.props;
 const isEn = locale === 'en';
+// LAT-2704 — interne hrefs locale-aware; NL blijft byte-identiek.
+const lh = (href: string) => localizeHref(href, locale);
 const resolvedTitle = title ?? (isEn ? 'Our wine routes on the map' : 'Onze wijnroutes op de kaart');
 const mapKicker = isEn ? 'On the map' : 'Op de kaart';
 const legendAria = isEn ? 'Routes on the map' : 'Routes op de kaart';
@@ -48,6 +50,9 @@ const mapped = routes
     if (line.length < 2) return null;
     return {
       slug: r.slug,
+      // LAT-2704 — href server-side gelokaliseerd; de client-side popup/klik gebruikt
+      // deze waarde i.p.v. zelf een NL-pad samen te stellen.
+      href: lh(`/wijnroutes/${r.slug}/`),
       title: r.title,
       color: PALETTE[i % PALETTE.length],
       line: line.map((s) => [s.lat, s.lng] as [number, number]),
@@ -71,7 +76,7 @@ const mapData = { routes: mapped };
     <ul class="hrm__legend" aria-label={legendAria}>
       {mapped.map((r) => (
         <li class="hrm__legend-item">
-          <a href={`/wijnroutes/${r.slug}/`} class="hrm__legend-link">
+          <a href={lh(`/wijnroutes/${r.slug}/`)} class="hrm__legend-link">
             <span class="hrm__swatch" style={`--c: ${r.color};`} aria-hidden="true"></span>
             <span class="hrm__legend-name">{r.title}</span>
           </a>
@@ -87,6 +92,8 @@ const mapData = { routes: mapped };
 
   type Route = {
     slug: string;
+    /** LAT-2704 — server-side gelokaliseerde routepad (NL kaal, EN met /en-prefix). */
+    href?: string;
     title: string;
     color: string;
     line: [number, number][];
@@ -142,7 +149,8 @@ const mapData = { routes: mapped };
       if (!r.line || r.line.length < 2) continue;
       for (const p of r.line) allPts.push(p);
 
-      const href = `/wijnroutes/${encodeURIComponent(r.slug)}/`;
+      // LAT-2704 — server-gelokaliseerde href (valt terug op het NL-pad voor oude data).
+      const href: string = r.href || `/wijnroutes/${encodeURIComponent(r.slug)}/`;
 
       // Klikbare route-as in de eigen merk-kleur.
       const poly = L.polyline(r.line, {

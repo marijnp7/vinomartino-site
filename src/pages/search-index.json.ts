@@ -4,6 +4,8 @@ import { loadStreken } from '../lib/streken';
 import { loadWijnhuizen } from '../lib/wijnhuizen';
 import { loadRoutes } from '../lib/routes';
 import { loadLanden } from '../lib/landen';
+import { loadUiStrings } from '../lib/ui-strings';
+import { rubriekLabel } from '../lib/rubriek-labels';
 
 // LAT-1202: build-time search index. Emits one flat JSON document that the
 // client-side SearchDialog fetches once and scores locally. Static, cacheable,
@@ -55,14 +57,21 @@ export const GET: APIRoute = async () => {
 
     const records: SearchRecord[] = [];
 
+    // LAT-3306: rubrieklabel via de UI-dictionary. Deze index is (nog) NL-only —
+    // `loadArticles()` zonder locale — dus dit levert vandaag byte-identiek de
+    // rauwe NL-`category` op. Het houdt de zevende renderplek wél op dezelfde
+    // helper, zodat een /en/-index later geen NL-labels doorlekt.
+    const ui = await loadUiStrings();
+
     for (const a of articles) {
+        const rubriek = rubriekLabel(ui, a.category);
         records.push({
             type: 'Artikel',
             title: a.title,
-            subtitle: a.category || 'Artikel',
+            subtitle: rubriek || 'Artikel',
             url: `/artikelen/${a.slug}/`,
             excerpt: a.description || excerpt(a.bodyHtml),
-            keywords: clean([a.category, a.author, ...(a.tags || [])]),
+            keywords: clean([rubriek, a.author, ...(a.tags || [])]),
             body: bodyText(a.bodyHtml),
         });
     }

@@ -1,4 +1,5 @@
 ---
+import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
 interface RelatedItem {
   name: string;
   slug: string;
@@ -6,11 +7,16 @@ interface RelatedItem {
 }
 
 interface Props {
+  /** LAT-2704 — locale van de renderende pagina; stuurt de interne hrefs. */
+  locale?: Locale;
   items: RelatedItem[];
   title?: string;
 }
 
-const { items, title = 'Andere wijnlanden' } = Astro.props;
+const { items, title = 'Andere wijnlanden', locale = DEFAULT_LOCALE } = Astro.props;
+
+// LAT-2704 — interne hrefs locale-aware; NL blijft byte-identiek.
+const lh = (href: string) => localizeHref(href, locale);
 ---
 
 {items.length > 0 && (
@@ -20,7 +26,7 @@ const { items, title = 'Andere wijnlanden' } = Astro.props;
       <h2 class="related-title">{title}</h2>
       <div class="related-grid">
         {items.map(item => (
-          <a href={`/landen/${item.slug}/`} class="related-card">
+          <a href={lh(`/landen/${item.slug}/`)} class="related-card">
             <div class="related-body">
               {item.continent && <span class="related-meta">{item.continent}</span>}
               <span class="related-name">{item.name}</span>
