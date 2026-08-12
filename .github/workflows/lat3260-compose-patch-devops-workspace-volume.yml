@@ -125,6 +125,13 @@ jobs:
 
             echo "=== de docker compose-aanroep-regel(s) uit apply-compose-patch.sh (precedent-script van LAT-3228) ==="
             grep -n "docker compose\|COMPOSE_FILE\|compose config\|compose up" /opt/paperclip-cos/lat3228/apply-compose-patch.sh 2>&1 || echo "script niet gevonden"
+
+            echo "=== volledige inhoud van apply-compose-patch.sh (ops-script, geen credentials) ==="
+            cat /opt/paperclip-cos/lat3228/apply-compose-patch.sh 2>&1
+            echo "=== bash -n syntax check ==="
+            bash -n /opt/paperclip-cos/lat3228/apply-compose-patch.sh && echo SYNTAX_OK
+            echo "=== sha256 van dit script ==="
+            sha256sum /opt/paperclip-cos/lat3228/apply-compose-patch.sh
         run: |
           printf '%s\n' "$DIAG" | ssh "$VPS" "bash -s"
 
