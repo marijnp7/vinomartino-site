@@ -106,40 +106,28 @@ jobs:
             docker inspect -f '{{range .Mounts}}{{if eq .Destination "/paperclip"}}{{.Name}} {{.Source}}{{end}}{{end}}' \
               paperclip-devops-workspace-1 2>&1
 
-            echo "=== docker compose config (alleen het volumes:-blok, geen secrets hierin) ==="
-            cd "$(dirname "$F")"
-            OUT=$(docker compose -f "$F" config 2>&1); RC=$?
-            echo "$OUT" | sed -n '/^volumes:/,/^[a-z]/p'
+            echo "=== docker compose config (base + overlay, zoals echt aangeroepen -- zie apply-compose-patch.sh regel 54) ==="
+            cd /opt/paperclip
+            OUT=$(docker compose -f docker-compose.yml -f infra/devops-workspace/docker-compose.devops.yml config 2>&1); RC=$?
+            echo "$OUT" | grep -A3 'paperclip_vol:' || true
             if [ "$RC" != "0" ]; then
-              echo "=== docker compose config faalde (rc=$RC); laatste 15 regels (geen secrets: dit bestand bevat geen credentials) ==="
+              echo "=== docker compose config (base+overlay) faalde (rc=$RC); laatste 15 regels ==="
               echo "$OUT" | tail -15
             fi
-
-            echo "=== is dit een overlay? bestandsnamen in dezelfde map (geen inhoud) ==="
-            ls -la .
-
-            echo "=== hoe wordt compose up echt aangeroepen? (cron/systemd, geen inhoud van andere files) ==="
-            (crontab -l 2>&1 | grep -i compose) || echo "geen compose-regel in crontab van huidige user"
-            systemctl list-units --all 2>&1 | grep -i paperclip || echo "geen paperclip-systemd-unit"
-            grep -rl "docker compose" /opt/paperclip*/*.sh /opt/paperclip*/**/*.sh 2>/dev/null | head -5 || echo "geen .sh-treffers met 'docker compose' onder /opt/paperclip*"
-
-            echo "=== de docker compose-aanroep-regel(s) uit apply-compose-patch.sh (precedent-script van LAT-3228) ==="
-            grep -n "docker compose\|COMPOSE_FILE\|compose config\|compose up" /opt/paperclip-cos/lat3228/apply-compose-patch.sh 2>&1 || echo "script niet gevonden"
-
-            echo "=== volledige inhoud van apply-compose-patch.sh (ops-script, geen credentials) ==="
-            cat /opt/paperclip-cos/lat3228/apply-compose-patch.sh 2>&1
-            echo "=== bash -n syntax check ==="
-            bash -n /opt/paperclip-cos/lat3228/apply-compose-patch.sh && echo SYNTAX_OK
-            echo "=== sha256 van dit script ==="
-            sha256sum /opt/paperclip-cos/lat3228/apply-compose-patch.sh
         run: |
           printf '%s\n' "$DIAG" | ssh "$VPS" "bash -s"
 
       # ---------------------------------------------------------------- patch
-      # EXPECTED_OLD_SHA256 hieronder is een placeholder totdat een diagnose-run het echte
-      # live sha256 bevestigt (zie run-log); wordt vóór dispatchen van `patch` bijgewerkt naar
-      # de bevestigde waarde. Zelfde reden als hierboven: letterlijke waarden, geen $VAR's die
-      # via SSH niet doorkomen.
+      # EXPECTED_OLD_SHA256 hieronder is bevestigd via diagnose-run 31591228140
+      # (2026-08-12T11:18:16Z): live sha256 = 3708073599bddafb...5b8a67, precies 1 regel met
+      # OLD, 0 met NEW. `apply-compose-patch.sh` (het precedent-script) bleek zelf ON HOLD te
+      # staan en te controleren op een verouderd PAPERCLIP_VOLUME_NAME-patroon dat niet meer
+      # in het live bestand voorkomt (0 treffers) -- dat script wordt hier NIET gebruikt, deze
+      # stap doet zijn eigen sed-vervanging op het huidige, geverifieerde live patroon.
+      # docker compose config faalt standalone op dit overlay-bestand ("paperclip service has
+      # neither an image nor a build context") -- de echte aanroep combineert de base-file,
+      # bevestigd uit apply-compose-patch.sh regel 54: cd /opt/paperclip && docker compose
+      # -f docker-compose.yml -f infra/devops-workspace/docker-compose.devops.yml config.
       - name: Patch compose volume name
         if: inputs.mode == 'patch'
         env:
@@ -149,7 +137,7 @@ jobs:
             F=/opt/paperclip/infra/devops-workspace/docker-compose.devops.yml
             OLD=6e70e905369b205ceebde64c2bc96dd8a204ddd7d10f43ecd7b36c659062ead1
             NEW=paperclip_devops2-home
-            EXPECTED_OLD_SHA256=591826913689afa3f5a21af3644a6506eb3b612799322125aac4d5e9d02b1f7c
+            EXPECTED_OLD_SHA256=3708073599bddafb35d65690de35bcee367eea71716046ba9c06f844be5b8a67
 
             echo "=== guard: live sha256 moet exact matchen met de bevestigde waarde ==="
             CUR_SHA=$(sha256sum "$F" | cut -d' ' -f1)
@@ -182,14 +170,17 @@ jobs:
             echo "=== NA (sha256) ==="
             sha256sum "$F"
 
-            echo "=== validatie: docker compose config moet slagen en de nieuwe naam tonen ==="
-            cd "$(dirname "$F")"
-            docker compose -f "$F" config >/tmp/lat3260-config.out 2>&1
+            echo "=== validatie: docker compose config (base + overlay, zoals echt aangeroepen) moet de nieuwe naam tonen ==="
+            cd /opt/paperclip
+            docker compose -f docker-compose.yml -f infra/devops-workspace/docker-compose.devops.yml config \
+              >/tmp/lat3260-config.out 2>&1 || true
             if ! grep -q "$NEW" /tmp/lat3260-config.out; then
-              echo "::error::docker compose config toont $NEW niet na de patch; rol terug met: cp -p $BACKUP $F"
+              echo "::error::docker compose config (base+overlay) toont $NEW niet na de patch; rol terug met: cp -p $BACKUP $F"
+              tail -20 /tmp/lat3260-config.out
               exit 1
             fi
-            echo "CONFIG_OK: $NEW zichtbaar in docker compose config"
+            echo "CONFIG_OK: $NEW zichtbaar in docker compose config (base+overlay)"
+            grep -A3 'paperclip_vol:' /tmp/lat3260-config.out
 
             echo "=== nogmaals: geen 'docker compose up' hier; dat is uitdrukkelijk buiten scope ==="
         run: |
