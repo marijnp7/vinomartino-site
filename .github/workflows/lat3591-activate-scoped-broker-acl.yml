@@ -1,0 +1,212 @@
+# LAT-3591 — dispatch-only activatie van de stop/kill-ACL in de scoped docker-broker
+# (/opt/paperclip-cos/_lat3001/scoped_broker.py op de VPS).
+#
+# NIET DISPATCHEN zonder een expliciet Marijn-akkoord op kaart 603968fb:
+#   https://LAT/approvals/603968fb-c38a-4613-9115-ca472de530a7 (ingediend 2026-08-04, pending).
+# Die kaart dekt de UITKOMST (de ACL + de restart van paperclip-devops-proxy-scoped-1).
+# Dit bestand is het MIDDEL en is zelf een aparte R2/Marijn-gated infra-wijziging (LAT-5137)
+# — een goedkeuring voor de uitkomst is geen goedkeuring voor dit workflow-bestand. Vraag
+# daar apart om via request_board_approval zodra 603968fb is beantwoord, dien nu geen tweede
+# kaart in.
+#
+# Route volgt het precedent van lat4750-recreate-publish-dispatcher.yml (kaart 933eff00) en
+# lat2802-deploy-cos-monitor.yml (kaart 932321e7): agent voert uit via het bestaande
+# GHA->VPS SSH-kanaal (secrets.VPS_SSH_PRIVATE_KEY) in plaats van een handmatige host-shell.
+# Gebruik dit kanaal, verbreed het niet (LAT-5137).
+#
+# Geen push-trigger. `mode` kiest alleen tussen vaste scripts; er wordt niets uit de input
+# in een commando geinterpoleerd.
+#
+# `activate` schrijft NOOIT scoped_broker.py.proposed -> live als de sha256 van .proposed
+# afwijkt van wat hieronder is vastgelegd (PROPOSED_SHA256) — dat bewijst dat het bestand
+# sinds de approval-aanvraag is aangeraakt en de kaart dekt dan niet meer wat er staat.
+# LIVE_SHA256 is de staat bij het schrijven van dit workflow-bestand (2026-08-12, gelijk aan
+# de .bak-lat3591-20260804T155945Z-kopie uit de approval) en dient als VOOR-de-swap-guard:
+# activate breekt af als de live file inmiddels is gewijzigd door iets anders dan deze swap.
+#
+# LET OP bij het pushen: elk bestand onder .github/ op main triggert normaal een
+# productie-release van vinomartino.com (deploy.yml gebruikt paths-ignore en .github/**
+# staat daar bewust niet in). Daarom pushen met "[skip ci]" en daarna verifieren met
+#   gh run list --repo marijnp7/vinomartino-site --branch main --limit 5
+# [skip ci] onderdrukt alleen de push-trigger, niet deze Marijn-gate (LAT-5137).
+#
+# Dispatch nooit deploy-cos.yml voor deze actie: dat rsync't --delete services/cos-bridge/
+# over de LIVE bridge (die vóór op main loopt) en recreate't alleen cos-bridge, niet de
+# scoped-broker container (LAT-5137).
+
+name: LAT-3591 activate scoped-broker ACL
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'diagnose = alleen lezen; activate = swap .proposed -> live + restart + ACL-probe'
+        required: true
+        default: diagnose
+        type: choice
+        options:
+          - diagnose
+          - activate
+
+concurrency:
+  group: lat3591-activate-scoped-broker-acl
+  cancel-in-progress: false
+
+env:
+  # Vastgelegd op 2026-08-12 door sha256sum op de host uit te lezen (geen inhoud gedumpt).
+  LIVE_SHA256: 0e621ac67887f63d0a1687d2263977867d82f8a32681a3352c283781d4e33666
+  PROPOSED_SHA256: 9c968792f3f141eea680d7c4a233b722130cf80bb96eca663901187f719b5886
+  BACKUP_FILE: scoped_broker.py.bak-lat3591-20260804T155945Z
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          cat >> ~/.ssh/config <<EOF
+          Host $VPS_HOST
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+          EOF
+          cat "$GITHUB_WORKSPACE/ops/ssh-config-snippet" >> ~/.ssh/config
+          ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      # ---------------------------------------------------------------- diagnose
+      - name: Diagnose (read-only)
+        if: inputs.mode == 'diagnose'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          LIVE_SHA256: ${{ env.LIVE_SHA256 }}
+          PROPOSED_SHA256: ${{ env.PROPOSED_SHA256 }}
+          BACKUP_FILE: ${{ env.BACKUP_FILE }}
+          DIAG: |
+            set -uo pipefail
+            cd /opt/paperclip-cos/_lat3001 || { echo "GEEN /opt/paperclip-cos/_lat3001"; exit 1; }
+
+            echo "=== hashes (nooit inhoud printen) ==="
+            for f in scoped_broker.py scoped_broker.py.proposed "$BACKUP_FILE"; do
+              if [ -e "$f" ]; then
+                echo "$f $(sha256sum "$f" | cut -d' ' -f1)"
+              else
+                echo "$f ONTBREEKT"
+              fi
+            done
+
+            echo "=== komt live overeen met de bij activate-time vastgelegde LIVE_SHA256? ==="
+            CUR_LIVE=$(sha256sum scoped_broker.py 2>/dev/null | cut -d' ' -f1)
+            [ "$CUR_LIVE" = "$LIVE_SHA256" ] && echo "LIVE_ONGEWIJZIGD" || echo "LIVE_GEWIJZIGD sinds workflow-bestand geschreven -- activate zal weigeren"
+
+            echo "=== komt .proposed overeen met de approval-scope (PROPOSED_SHA256)? ==="
+            CUR_PROP=$(sha256sum scoped_broker.py.proposed 2>/dev/null | cut -d' ' -f1)
+            [ "$CUR_PROP" = "$PROPOSED_SHA256" ] && echo "PROPOSED_ONGEWIJZIGD" || echo "PROPOSED_GEWIJZIGD sinds kaart 603968fb -- activate zal weigeren"
+
+            echo "=== broker-container status ==="
+            docker inspect -f 'image={{.Image}} created={{.Created}} status={{.State.Status}}' \
+              paperclip-devops-proxy-scoped-1
+
+            echo "=== huidige orphan vino-build containers (informatief) ==="
+            docker ps -a --format '{{.Names}}\t{{.Image}}\t{{.Status}}' | grep -i node:24 || echo "geen node:24-containers"
+        run: |
+          printf '%s\n' "$DIAG" | ssh "$VPS" "bash -s"
+
+      # ---------------------------------------------------------------- activate
+      - name: Activate ACL (swap + restart + probe)
+        if: inputs.mode == 'activate'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          LIVE_SHA256: ${{ env.LIVE_SHA256 }}
+          PROPOSED_SHA256: ${{ env.PROPOSED_SHA256 }}
+          BACKUP_FILE: ${{ env.BACKUP_FILE }}
+          ACTIVATE: |
+            set -euo pipefail
+            cd /opt/paperclip-cos/_lat3001
+
+            echo "=== guard: live + proposed moeten exact matchen met wat kaart 603968fb dekte ==="
+            CUR_LIVE=$(sha256sum scoped_broker.py | cut -d' ' -f1)
+            CUR_PROP=$(sha256sum scoped_broker.py.proposed | cut -d' ' -f1)
+            if [ "$CUR_LIVE" != "$LIVE_SHA256" ]; then
+              echo "::error::live scoped_broker.py is gewijzigd sinds dit workflow-bestand is geschreven; afgebroken zonder iets aan te raken"
+              exit 1
+            fi
+            if [ "$CUR_PROP" != "$PROPOSED_SHA256" ]; then
+              echo "::error::scoped_broker.py.proposed wijkt af van de approval-scope (603968fb); afgebroken zonder iets aan te raken"
+              exit 1
+            fi
+            if [ ! -e "$BACKUP_FILE" ]; then
+              echo "::error::rollback-kopie $BACKUP_FILE ontbreekt; afgebroken zonder iets aan te raken"
+              exit 1
+            fi
+
+            echo "=== VOOR ==="
+            docker inspect -f 'image={{.Image}} status={{.State.Status}}' paperclip-devops-proxy-scoped-1
+
+            echo "=== swap: proposed -> live (backup blijft liggen als rollback) ==="
+            cp -p scoped_broker.py.proposed scoped_broker.py
+            sha256sum scoped_broker.py
+
+            echo "=== restart broker (niet in zijn eigen RESTART_ALLOWLIST, vandaar host-shell) ==="
+            docker restart paperclip-devops-proxy-scoped-1
+
+            echo "=== wacht op gezonde staat ==="
+            ok=0
+            for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
+              st=$(docker inspect -f '{{.State.Status}}' paperclip-devops-proxy-scoped-1 2>/dev/null || echo "?")
+              [ "$st" = "running" ] && { ok=1; break; }
+              sleep 5
+            done
+            [ "$ok" = "1" ] || { echo "::error::broker niet 'running' binnen 60s na restart"; exit 1; }
+
+            echo "=== NA ==="
+            docker inspect -f 'image={{.Image}} created={{.Created}} status={{.State.Status}}' \
+              paperclip-devops-proxy-scoped-1
+
+            echo "=== negatieve ACL-probe: infra-containers moeten nog steeds 403 geven op stop/kill ==="
+            # Positieve kant (een echte node:24/vino-build-orphan mogen stoppen) is NIET hier
+            # getest: er is momenteel geen orphan-container om tegen te testen zonder er zelf
+            # een te fabriceren, en dat valt buiten de scope van deze activatie-stap. De
+            # offline + HTTP-harness tests uit kaart 603968fb dekken die kant al falsifieerbaar.
+            #
+            # BROKER_ENDPOINT wordt hier LIVE opgezocht (root op de host, geen broker-restrictie)
+            # in plaats van hardcoded: dit bestand is nooit tegen een echte host geverifieerd.
+            # Draai eerst mode=diagnose en controleer de "broker luistert op"-regel handmatig
+            # voordat dit ooit als mode=activate draait.
+            BROKER_ENDPOINT=$(docker port paperclip-devops-proxy-scoped-1 2>/dev/null | head -1 | awk -F' -> ' '{print $2}')
+            if [ -z "$BROKER_ENDPOINT" ]; then
+              echo "::error::kon geen gepubliceerd host-poort voor paperclip-devops-proxy-scoped-1 vinden; ACL-probe overgeslagen, activatie afgebroken (broker draait al, restart is niet teruggedraaid -- gebruik de rollback-regel onderaan als dit ongewenst is)"
+              exit 1
+            fi
+            echo "broker luistert op: $BROKER_ENDPOINT"
+            for name in paperclip-devops-proxy-1 paperclip-db-1; do
+              cid=$(docker inspect -f '{{.Id}}' "$name")
+              code=$(curl -s -o /tmp/lat3591-probe.out -w '%{http_code}' \
+                -X POST "http://${BROKER_ENDPOINT}/containers/${cid}/stop" || echo "000")
+              body=$(cat /tmp/lat3591-probe.out 2>/dev/null | head -c 200)
+              echo "$name stop-probe http=$code body=$body"
+              if [ "$code" = "204" ] || [ "$code" = "304" ]; then
+                echo "::error::$name accepteerde een stop-probe -- ACL is LEKKENDER dan bedoeld, rol direct terug"
+                exit 1
+              fi
+            done
+            echo "NEGATIEVE_PROBE_OK: infra-containers blijven geweigerd"
+        run: |
+          printf '%s\n' "$ACTIVATE" | ssh "$VPS" "bash -s"
+
+      # Rollback is bewust handmatig, zodat een kapotte broker inspecteerbaar blijft:
+      #   ssh "$VPS" 'cd /opt/paperclip-cos/_lat3001 && \
+      #     cp -p scoped_broker.py.bak-lat3591-20260804T155945Z scoped_broker.py && \
+      #     docker restart paperclip-devops-proxy-scoped-1'
