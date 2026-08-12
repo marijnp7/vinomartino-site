@@ -114,6 +114,14 @@ jobs:
               echo "=== docker compose config faalde (rc=$RC); laatste 15 regels (geen secrets: dit bestand bevat geen credentials) ==="
               echo "$OUT" | tail -15
             fi
+
+            echo "=== is dit een overlay? bestandsnamen in dezelfde map (geen inhoud) ==="
+            ls -la .
+
+            echo "=== hoe wordt compose up echt aangeroepen? (cron/systemd, geen inhoud van andere files) ==="
+            (crontab -l 2>&1 | grep -i compose) || echo "geen compose-regel in crontab van huidige user"
+            systemctl list-units --all 2>&1 | grep -i paperclip || echo "geen paperclip-systemd-unit"
+            grep -rl "docker compose" /opt/paperclip*/*.sh /opt/paperclip*/**/*.sh 2>/dev/null | head -5 || echo "geen .sh-treffers met 'docker compose' onder /opt/paperclip*"
         run: |
           printf '%s\n' "$DIAG" | ssh "$VPS" "bash -s"
 
