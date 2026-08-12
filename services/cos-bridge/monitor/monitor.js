@@ -1,6 +1,7 @@
 // paperclip-monitor — threshold checks → cos-bridge notifications
 // Checks every 5 minutes:
-//   - disk usage on /host > 85% → notify severity=warn (critical vanaf 95%)
+//   - disk usage on /host >= 85% → notify severity=warn (critical vanaf 95%),
+//     herstel pas onder 82% (hysterese, LAT-5494)
 //   - container restarts > 3 in 1h → notify severity=critical
 // Checks every 15 minutes (LAT-2790):
 //   - OAuth-token guard inside paperclip-paperclip-1 → notify severity=critical
@@ -33,6 +34,14 @@ const RESTART_WINDOW_MS = 60 * 60 * 1000;
 const ALERT_COOLDOWN_MS = 60 * 60 * 1000;
 // Vanaf hier is een volle schijf geen waarschuwing meer maar een storing.
 const DISK_CRITICAL_THRESHOLD = 95;
+// LAT-5494: hysterese. Zonder gat tussen alarm- en herstel-drempel wist elke
+// meting onder 85% de conditie (clearCondition), dus een schijf die om en om
+// 84/85 meet vuurt bij elke meting opnieuw op step 0 in plaats van de
+// 1u→4u→12u backoff te doorlopen — 4 van de 8 kaarten in de ochtenddigest van
+// 13-08 kwamen zo van dezelfde storing. Herstel telt nu pas onder 82%; tussen
+// 82 en 85% blijft een actieve conditie actief (en dus in backoff) zonder
+// opnieuw te vuren of te herstellen.
+const DISK_RECOVERY_THRESHOLD = 82;
 
 // --- LAT-2802: meldingsritme per conditie ----------------------------------
 // De oude vaste cooldown van 1u was even lang als de approval-timeout, en te
@@ -322,7 +331,7 @@ function postSigned(path, payloadObj, label) {
 // bridge terwijl de nieuwe monitor blijft staan — de enige volgorde waarin een
 // melding anders stilletjes in een 404 verdwijnt. Dat is een goede reden om het
 // te hebben en een betere reden om het daarna echt te verwijderen.
-async function approvalFallback({ title, body, severity }) {
+async function approvalFallback({ title, body, severity, alertKey }) {
   const payload = {
     // Uniek per poging, niet afgeleid van de conditie: /approval dedupt op
     // request_id, dus een stabiele sleutel zou de tweede terugval als
@@ -336,6 +345,14 @@ async function approvalFallback({ title, body, severity }) {
     // mét knoppen maken — precies het gedrag dat LAT-2802 weghaalt, maar luider.
     urgency: severity === "critical" ? "critical" : "normal",
     timeout_seconds: 3600,
+    // LAT-5494/LAT-2909: zonder alert_key bundelt de bridge op een hash van
+    // title+body, en die drift mee met de byte-tellers in df-output — elke
+    // meting krijgt zo een andere bundle_key en de ochtenddigest krijgt één
+    // regel per meting in plaats van één regel per storing. Met alert_key
+    // bundelt de bridge (vanaf de LAT-5317-reconciliatie) op de KLASSE van de
+    // storing. Op een bridge zonder die reconciliatie wordt dit veld genegeerd
+    // — onschadelijk, geen gedragsverandering totdat de deploy live is.
+    ...(alertKey ? { alert_key: alertKey } : {}),
   };
   console.error(
     `[notify fallback] /notify gaf 404 — teruggevallen op /approval ` +
@@ -344,13 +361,13 @@ async function approvalFallback({ title, body, severity }) {
   return postSigned("/approval", payload, "approval fallback");
 }
 
-async function notify({ title, body, severity = "info" }) {
+async function notify({ title, body, severity = "info", alertKey = null }) {
   const res = await postSigned(
     "/notify",
     { request_id: newRequestId(), agent: "DevOps Monitor", title, body, severity },
     "notify sent"
   );
-  if (res.status === 404) return approvalFallback({ title, body, severity });
+  if (res.status === 404) return approvalFallback({ title, body, severity, alertKey });
   return res;
 }
 
@@ -371,17 +388,25 @@ async function checkDisk() {
             title: `Disk usage: ${usePct}% on ${mountPoint}`,
             body: `VPS disk usage has reached ${usePct}% (threshold: ${DISK_THRESHOLD}%).\n\n${stdout.trim()}`,
             severity: usePct >= DISK_CRITICAL_THRESHOLD ? "critical" : "warn",
+            alertKey: key,
           });
         }
-      } else if (clearCondition(key)) {
-        // Herstelmelding: de disk-check had er nog geen, de OAuth-check wel.
-        // Zonder deze melding is "geen bericht" dubbelzinnig — opgelost of
-        // vergeten?
-        await notify({
-          title: `Disk terug onder drempel: ${usePct}% on ${mountPoint}`,
-          body: `VPS disk usage is terug op ${usePct}% (drempel: ${DISK_THRESHOLD}%).\n\n${stdout.trim()}`,
-          severity: "info",
-        });
+      } else if (usePct < DISK_RECOVERY_THRESHOLD) {
+        // Hysterese (LAT-5494): pas onder DISK_RECOVERY_THRESHOLD telt dit als
+        // herstel. Tussen de recovery- en alarm-drempel in doet deze check
+        // bewust niets — de conditie blijft actief (of inactief) zoals hij was,
+        // zodat 84↔85 geen clear+fire-paar per meting meer oplevert.
+        if (clearCondition(key)) {
+          // Herstelmelding: de disk-check had er nog geen, de OAuth-check wel.
+          // Zonder deze melding is "geen bericht" dubbelzinnig — opgelost of
+          // vergeten?
+          await notify({
+            title: `Disk terug onder drempel: ${usePct}% on ${mountPoint}`,
+            body: `VPS disk usage is terug op ${usePct}% (drempel: ${DISK_THRESHOLD}%, herstel-drempel: ${DISK_RECOVERY_THRESHOLD}%).\n\n${stdout.trim()}`,
+            severity: "info",
+            alertKey: key,
+          });
+        }
       }
     }
   } catch (err) {
