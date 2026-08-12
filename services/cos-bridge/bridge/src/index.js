@@ -1552,12 +1552,46 @@ setInterval(async () => {
     log.error({ err: err.message }, "quiet-window sweep failed");
   }
   try {
+    // LAT-5444: een besluit dat via de Paperclip-approvals-UI/API valt (niet via de
+    // Telegram-knop) schrijft alleen public.approvals.status — er is geen route die dat
+    // ooit in cos.actions.decision zet. Zonder deze stap voorkomt de guard hieronder wel
+    // de foute 'timeout'-schrijf, maar de rij blijft daarna voor altijd op decision IS NULL
+    // staan: geen callback, geen issue-update, de aanvrager hoort nooit meer iets.
+    const synced = await q(
+      `UPDATE cos.actions c
+          SET decision = CASE a.status WHEN 'approved' THEN 'approve' ELSE 'reject' END,
+              decided_at = COALESCE(a.decided_at, NOW())
+        FROM public.approvals a
+       WHERE a.id::text = c.request_id
+         AND c.decision IS NULL
+         AND a.status IN ('approved', 'rejected')
+       RETURNING c.id, c.callback_url, c.request_id, c.requester_agent,
+                 (CASE a.status WHEN 'approved' THEN 'approve' ELSE 'reject' END) AS decision`
+    );
+    for (const row of synced) {
+      log.info(
+        { id: row.id, decision: row.decision },
+        "decision found in public.approvals — synced back into cos.actions"
+      );
+      notifyDecisionTargets(row.id, row.decision).catch((err) =>
+        log.error({ err: err.message, id: row.id }, "notifyDecisionTargets failed after approvals sync")
+      );
+    }
+  } catch (err) {
+    log.error({ err: err.message }, "approvals read-back sync failed");
+  }
+  try {
     const rows = await q(
-      `UPDATE cos.actions
+      `UPDATE cos.actions c
           SET decision='timeout', decided_at=NOW()
-        WHERE decision IS NULL
-          AND timeout_at IS NOT NULL
-          AND timeout_at < NOW()
+        WHERE c.decision IS NULL
+          AND c.timeout_at IS NOT NULL
+          AND c.timeout_at < NOW()
+          AND NOT EXISTS (
+                SELECT 1 FROM public.approvals a
+                 WHERE a.id::text = c.request_id
+                   AND a.status IN ('approved', 'rejected')
+              )
         RETURNING id, callback_url, request_id, requester_agent,
                   paperclip_run_id, paperclip_issue_id, timeout_seconds`
     );
