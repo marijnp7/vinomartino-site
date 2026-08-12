@@ -107,7 +107,13 @@ jobs:
               paperclip-devops-workspace-1 2>&1
 
             echo "=== docker compose config (alleen het volumes:-blok, geen secrets hierin) ==="
-            cd "$(dirname "$F")" && docker compose -f "$F" config 2>&1 | sed -n '/^volumes:/,/^[a-z]/p'
+            cd "$(dirname "$F")"
+            OUT=$(docker compose -f "$F" config 2>&1); RC=$?
+            echo "$OUT" | sed -n '/^volumes:/,/^[a-z]/p'
+            if [ "$RC" != "0" ]; then
+              echo "=== docker compose config faalde (rc=$RC); laatste 15 regels (geen secrets: dit bestand bevat geen credentials) ==="
+              echo "$OUT" | tail -15
+            fi
         run: |
           printf '%s\n' "$DIAG" | ssh "$VPS" "bash -s"
 
