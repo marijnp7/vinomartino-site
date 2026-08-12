@@ -16,6 +16,21 @@
 #   * Directus' FlowsService/OperationsService roepen `getFlowManager().reload()` aan bij
 #     elke create/update/delete via de API. Eén no-op PATCH op de flow is dus genoeg —
 #     geen restart, geen downtime, geen nieuwe credential.
+#
+#     Geverifieerd tegen de v11.17.3-broncode, niet aangenomen:
+#       services/flows.ts  updateMany() -> getFlowManager().reload()
+#       flows.ts:105       reload()     -> messenger.publish('flows', {type:'reload'})
+#       flows.ts:85        subscriber   -> reloadQueue -> unload() + load()
+#       flows.ts:158       load()       -> readByQuery({ filter:{status:{_eq:'active'}},
+#                                                        fields:['*','operations.*'] })
+#
+#     Twee consequenties die je moet kennen voor je dit draait:
+#       (1) load() leest `operations.*` vers uit de DB — dáárom pikt een reload de met
+#           psql ingevoegde throw-error-rijen alsnog op.
+#       (2) load() filtert op status 'active'. Een niet-actieve flow wordt stil
+#           overgeslagen. De reload-mode faalt daarom expliciet op een andere status.
+#       (3) reload() publiceert alleen op de bus en wacht niet af. Een 200 op de PATCH
+#           bewijst de reload dus NIET — alleen de functionele LAT-3238-test doet dat.
 #   * De admin-identiteit die dat mag bestaat al. Hij staat op de host in
 #     /root/directus/secrets/admin_token (LAT-2961). `directus-run-internal.sh --admin`
 #     haalde die vroeger op met `docker cp`, maar de scoped broker 403't inmiddels op
@@ -182,24 +197,49 @@ jobs:
             ') || { echo "::error::kon de doel-flow niet eenduidig bepalen"; exit 1; }
             echo "doel-flow: $FLOW_ID"
 
-            NAME=$(curl -s --max-time 30 -H "Authorization: Bearer $T" "$URL/flows/$FLOW_ID?fields=name" \
-              | python3 -c 'import sys,json; print(json.load(sys.stdin)["data"]["name"])') \
+            META=$(curl -s --max-time 30 -H "Authorization: Bearer $T" "$URL/flows/$FLOW_ID?fields=name,status")
+            NAME=$(printf '%s' "$META" | python3 -c 'import sys,json; print(json.load(sys.stdin)["data"]["name"])') \
               || { echo "::error::kon de flow-naam niet lezen"; exit 1; }
+            STATUS=$(printf '%s' "$META" | python3 -c 'import sys,json; print(json.load(sys.stdin)["data"]["status"])')
+            echo "doel-flow status: $STATUS"
+
+            # load() haalt uitsluitend flows met status 'active' op (flows.ts:158-162). Staat
+            # de guard-flow op iets anders, dan laadt de reload hem simpelweg niet en blijft
+            # de guard inert -- zonder enige foutmelding. Dat is precies het soort stilte
+            # waar deze hele ketting al twee weken op vastzit, dus faal hier luid.
+            [ "$STATUS" = "active" ] || {
+              echo "::error::flow-status is '$STATUS', niet 'active' -- load() slaat hem over en de reload doet niets."
+              echo "Zet de flow eerst op active (PATCH /flows/$FLOW_ID {\"status\":\"active\"}) en draai dit opnieuw."
+              exit 1
+            }
 
             echo
             echo "=== no-op PATCH (name -> zijn eigen huidige waarde) ==="
-            # Dit gaat door FlowsService.updateOne, die getFlowManager().reload() aanroept.
-            # De data verandert niet; alleen de in-memory flow-registry wordt opnieuw
-            # opgebouwd uit de DB, inclusief de met psql ingevoegde throw-error-operaties.
+            # Geverifieerd tegen de v11.17.3-broncode (niet aangenomen):
+            #   FlowsService.updateMany  -> getFlowManager().reload()          services/flows.ts
+            #   reload()                 -> messenger.publish('flows',{reload}) flows.ts:105
+            #   subscriber               -> unload() + load()                   flows.ts:85
+            #   load()                   -> readByQuery({filter:{status:{_eq:'active'}},
+            #                                            fields:['*','operations.*']})  flows.ts:158
+            # Die laatste regel is waarom dit werkt: load() leest de operations vers uit de
+            # DB, dus de met psql ingevoegde throw-error-rijen komen alsnog mee.
             BODY=$(python3 -c 'import json,sys; print(json.dumps({"name": sys.argv[1]}))' "$NAME")
             CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 -X PATCH \
               -H "Authorization: Bearer $T" -H "Content-Type: application/json" \
               -d "$BODY" "$URL/flows/$FLOW_ID")
             echo "PATCH /flows/$FLOW_ID -> $CODE"
             case "$CODE" in
-              200|204) echo "RELOAD_OK: FlowManager herladen zonder restart" ;;
-              *) echo "::error::PATCH gaf $CODE — FlowManager NIET herladen"; exit 1 ;;
+              200|204) echo "PATCH_OK" ;;
+              *) echo "::error::PATCH gaf $CODE — reload is niet eens aangevraagd"; exit 1 ;;
             esac
+
+            # LET OP -- een 200 hier bewijst de reload NIET.
+            # reload() publiceert alleen op de bus en wacht niet op de subscriber; die doet
+            # unload()+load() asynchroon via een reloadQueue. Faalt of hangt die kant (denk
+            # aan een geconfigureerde maar onbereikbare Redis-bus), dan is de PATCH nog
+            # steeds 200 en is er niets herladen. Het enige echte bewijs is gedrag, en dat
+            # is de functionele LAT-3238-test hieronder -- niet deze exit-code.
+            echo "PATCH geaccepteerd; de reload zelf is asynchroon en hier NIET bewezen."
 
             echo
             echo "=== operations ná de reload (de guard hoort nu throw-error te dragen) ==="
