@@ -18,8 +18,11 @@
 # Patch is een 1-regel name-swap, geen env-var-route.
 #
 # Geen push-trigger. `mode` kiest alleen tussen vaste scripts; er wordt niets uit de input
-# in een commando geinterpoleerd. `diagnose` schrijft de live sha256 naar de run-log zodat die
-# hieronder als OLD_SHA256-guard vastgelegd kan worden voor `patch`.
+# in een commando geinterpoleerd. Waarden staan als letterlijke tekst IN de script-body (niet
+# als GHA `env:`/$VAR-referenties) omdat SSH de lokale job-env niet doorgeeft aan de remote
+# shell -- eerdere versie brak hierop (run 31590998844, "COMPOSE_FILE: unbound variable").
+# `diagnose` schrijft de live sha256 naar de run-log zodat die in de `patch`-stap als
+# EXPECTED_OLD_SHA256-guard bevestigd/bijgewerkt kan worden voor dispatch.
 #
 # LET OP bij het pushen: elk bestand onder .github/ op main triggert normaal een
 # productie-release van vinomartino.com (deploy.yml gebruikt paths-ignore en .github/**
@@ -43,14 +46,6 @@ on:
 concurrency:
   group: lat3260-compose-patch-devops-workspace-volume
   cancel-in-progress: false
-
-env:
-  COMPOSE_FILE: /opt/paperclip/infra/devops-workspace/docker-compose.devops.yml
-  OLD_NAME: 6e70e905369b205ceebde64c2bc96dd8a204ddd7d10f43ecd7b36c659062ead1
-  NEW_NAME: paperclip_devops2-home
-  # Vastgelegd op 2026-08-12 uit LAT-3260 (het sha256-voor uit de eerdere fbf962df-analyse).
-  # De patch-stap her-toetst dit LIVE voor het schrijven en breekt af bij mismatch.
-  EXPECTED_OLD_SHA256: 591826913689afa3f5a21af3644a6506eb3b612799322125aac4d5e9d02b1f7c
 
 jobs:
   run:
@@ -81,87 +76,96 @@ jobs:
           ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
 
       # ---------------------------------------------------------------- diagnose
+      # LET OP: SSH geeft de lokale GHA-env NIET door aan de remote shell (geen SendEnv/
+      # AcceptEnv). Waarden staan daarom hieronder als letterlijke tekst in het script, niet
+      # als $VAR-referenties -- eerdere versie brak op "COMPOSE_FILE: unbound variable" (run
+      # 31590998844) omdat $COMPOSE_FILE op de VPS nergens gezet was.
       - name: Diagnose (read-only)
         if: inputs.mode == 'diagnose'
         env:
           VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
-          COMPOSE_FILE: ${{ env.COMPOSE_FILE }}
-          OLD_NAME: ${{ env.OLD_NAME }}
-          NEW_NAME: ${{ env.NEW_NAME }}
           DIAG: |
             set -uo pipefail
+            F=/opt/paperclip/infra/devops-workspace/docker-compose.devops.yml
+            OLD=6e70e905369b205ceebde64c2bc96dd8a204ddd7d10f43ecd7b36c659062ead1
+            NEW=paperclip_devops2-home
+
             echo "=== bestaat het bestand? ==="
-            ls -la "$COMPOSE_FILE" 2>&1
+            ls -la "$F" 2>&1
 
             echo "=== sha256 (nooit inhoud printen) ==="
-            sha256sum "$COMPOSE_FILE" 2>&1
+            sha256sum "$F" 2>&1
 
             echo "=== hoeveel regels noemen de oude anonieme naam? ==="
-            grep -c "$OLD_NAME" "$COMPOSE_FILE" 2>&1 || echo 0
+            grep -c "$OLD" "$F" 2>&1 || echo 0
 
             echo "=== hoeveel regels noemen de nieuwe naam al? ==="
-            grep -c "$NEW_NAME" "$COMPOSE_FILE" 2>&1 || echo 0
+            grep -c "$NEW" "$F" 2>&1 || echo 0
 
             echo "=== huidige LIVE mount van paperclip-devops-workspace-1 (ter vergelijking) ==="
             docker inspect -f '{{range .Mounts}}{{if eq .Destination "/paperclip"}}{{.Name}} {{.Source}}{{end}}{{end}}' \
               paperclip-devops-workspace-1 2>&1
 
             echo "=== docker compose config (alleen het volumes:-blok, geen secrets hierin) ==="
-            cd "$(dirname "$COMPOSE_FILE")" && docker compose -f "$COMPOSE_FILE" config 2>&1 | sed -n '/^volumes:/,/^[a-z]/p'
+            cd "$(dirname "$F")" && docker compose -f "$F" config 2>&1 | sed -n '/^volumes:/,/^[a-z]/p'
         run: |
           printf '%s\n' "$DIAG" | ssh "$VPS" "bash -s"
 
       # ---------------------------------------------------------------- patch
+      # EXPECTED_OLD_SHA256 hieronder is een placeholder totdat een diagnose-run het echte
+      # live sha256 bevestigt (zie run-log); wordt vóór dispatchen van `patch` bijgewerkt naar
+      # de bevestigde waarde. Zelfde reden als hierboven: letterlijke waarden, geen $VAR's die
+      # via SSH niet doorkomen.
       - name: Patch compose volume name
         if: inputs.mode == 'patch'
         env:
           VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
-          COMPOSE_FILE: ${{ env.COMPOSE_FILE }}
-          OLD_NAME: ${{ env.OLD_NAME }}
-          NEW_NAME: ${{ env.NEW_NAME }}
-          EXPECTED_OLD_SHA256: ${{ env.EXPECTED_OLD_SHA256 }}
           PATCH: |
             set -euo pipefail
+            F=/opt/paperclip/infra/devops-workspace/docker-compose.devops.yml
+            OLD=6e70e905369b205ceebde64c2bc96dd8a204ddd7d10f43ecd7b36c659062ead1
+            NEW=paperclip_devops2-home
+            EXPECTED_OLD_SHA256=591826913689afa3f5a21af3644a6506eb3b612799322125aac4d5e9d02b1f7c
 
-            echo "=== guard: live sha256 moet exact matchen met wat kaart cee97089 dekte ==="
-            CUR_SHA=$(sha256sum "$COMPOSE_FILE" | cut -d' ' -f1)
+            echo "=== guard: live sha256 moet exact matchen met de bevestigde waarde ==="
+            CUR_SHA=$(sha256sum "$F" | cut -d' ' -f1)
             if [ "$CUR_SHA" != "$EXPECTED_OLD_SHA256" ]; then
-              echo "::error::live $COMPOSE_FILE is gewijzigd sinds de approval; afgebroken zonder iets aan te raken (huidige sha256: $CUR_SHA)"
+              echo "::error::live $F is gewijzigd sinds de approval; afgebroken zonder iets aan te raken (huidige sha256: $CUR_SHA)"
               exit 1
             fi
 
             echo "=== guard: precies 1 regel met de oude naam, 0 met de nieuwe ==="
-            OLD_COUNT=$(grep -c "$OLD_NAME" "$COMPOSE_FILE")
-            NEW_COUNT=$(grep -c "$NEW_NAME" "$COMPOSE_FILE" || true)
+            OLD_COUNT=$(grep -c "$OLD" "$F")
+            NEW_COUNT=$(grep -c "$NEW" "$F" || true)
             if [ "$OLD_COUNT" != "1" ]; then
-              echo "::error::verwachtte precies 1 regel met $OLD_NAME, vond $OLD_COUNT; afgebroken"
+              echo "::error::verwachtte precies 1 regel met $OLD, vond $OLD_COUNT; afgebroken"
               exit 1
             fi
             if [ "$NEW_COUNT" != "0" ]; then
-              echo "::error::$NEW_NAME komt al voor in het bestand; afgebroken (mogelijk al gepatcht)"
+              echo "::error::$NEW komt al voor in het bestand; afgebroken (mogelijk al gepatcht)"
               exit 1
             fi
 
-            BACKUP="${COMPOSE_FILE}.bak-lat3260-$(date -u +%Y%m%dT%H%M%SZ)"
-            cp -p "$COMPOSE_FILE" "$BACKUP"
+            BACKUP="${F}.bak-lat3260-$(date -u +%Y%m%dT%H%M%SZ)"
+            cp -p "$F" "$BACKUP"
             echo "backup: $BACKUP"
 
             echo "=== VOOR (sha256) ==="
-            sha256sum "$COMPOSE_FILE"
+            sha256sum "$F"
 
-            sed -i "s/$OLD_NAME/$NEW_NAME/" "$COMPOSE_FILE"
+            sed -i "s/$OLD/$NEW/" "$F"
 
             echo "=== NA (sha256) ==="
-            sha256sum "$COMPOSE_FILE"
+            sha256sum "$F"
 
             echo "=== validatie: docker compose config moet slagen en de nieuwe naam tonen ==="
-            cd "$(dirname "$COMPOSE_FILE")"
-            docker compose -f "$COMPOSE_FILE" config >/tmp/lat3260-config.out 2>&1
-            if ! grep -q "$NEW_NAME" /tmp/lat3260-config.out; then
-              echo "::error::docker compose config toont $NEW_NAME niet na de patch; rol terug met: cp -p $BACKUP $COMPOSE_FILE"
+            cd "$(dirname "$F")"
+            docker compose -f "$F" config >/tmp/lat3260-config.out 2>&1
+            if ! grep -q "$NEW" /tmp/lat3260-config.out; then
+              echo "::error::docker compose config toont $NEW niet na de patch; rol terug met: cp -p $BACKUP $F"
               exit 1
             fi
-            echo "CONFIG_OK: $NEW_NAME zichtbaar in docker compose config"
+            echo "CONFIG_OK: $NEW zichtbaar in docker compose config"
 
             echo "=== nogmaals: geen 'docker compose up' hier; dat is uitdrukkelijk buiten scope ==="
         run: |
