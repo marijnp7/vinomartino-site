@@ -154,14 +154,44 @@ jobs:
             # en docker zelf antwoordde -- voor een ACL-meting telt dat als
             # toegestaan.
             for B in '/:/host:ro' '/:/host:rw' '/:/host'; do
-              CODE=$(docker exec paperclip-devops-workspace-1 \
-                curl -s -o /dev/null -w '%{http_code}' --max-time 10 \
+              RESP=$(docker exec paperclip-devops-workspace-1 \
+                curl -s -w '\n%{http_code}' --max-time 10 \
                 -X POST -H 'Content-Type: application/json' \
                 -d "{\"Image\":\"$PROBE_IMAGE\",\"Cmd\":[\"true\"],\"HostConfig\":{\"Binds\":[\"$B\"]}}" \
-                http://paperclip-devops-proxy-scoped-1:2375/containers/create 2>/dev/null || echo 000)
+                http://paperclip-devops-proxy-scoped-1:2375/containers/create 2>/dev/null || printf '\n000')
+              CODE=$(printf '%s' "$RESP" | tail -n1)
               if [ "$CODE" = "403" ]; then V="GEWEIGERD door de broker"; else V="DOORGELATEN (docker antwoordde $CODE)"; fi
               echo "create Binds=[$B] -> HTTP $CODE : $V"
+              # Een geslaagde probe maakt een echte container aan. Die hier
+              # meteen opruimen: deze meting mag zelf geen exited containers
+              # achterlaten -- dat is precies het lek (LAT-5360) dat in
+              # dezelfde blob wordt gerepareerd.
+              if [ "$CODE" = "201" ]; then
+                CID=$(printf '%s' "$RESP" | head -n-1 \
+                  | python3 -c 'import json,sys; print(json.load(sys.stdin).get("Id",""))' 2>/dev/null || echo '')
+                [ -n "$CID" ] && docker rm -f "$CID" >/dev/null 2>&1 \
+                  && echo "  opgeruimd: ${CID:0:12}"
+              fi
             done
+
+            # Eenmalige opruiming van eerdere probe-containers (die van vóór de
+            # regel hierboven, en die van andere agents die dezelfde route
+            # gebruikten). Bewust smal: alleen EXITED containers met een
+            # /host-bind. paperclip-monitor-1 heeft die bind ook maar draait,
+            # dus die valt hier niet onder.
+            echo "=== opruiming: exited containers met een /host-bind ==="
+            for C in $(docker ps -a -q --filter status=exited --filter status=created); do
+              BINDS=$(docker inspect -f '{{range .Mounts}}{{.Destination}} {{end}}' "$C" 2>/dev/null || echo '')
+              case " $BINDS " in
+                *" /host "*)
+                  NAME=$(docker inspect -f '{{.Name}} {{.Config.Image}}' "$C" 2>/dev/null)
+                  echo "  rm ${C:0:12} $NAME"
+                  docker rm -f "$C" >/dev/null 2>&1 || true
+                  ;;
+              esac
+            done
+            echo "=== resterende exited containers ==="
+            docker ps -a --filter status=exited --format '{{.ID}} {{.Image}} {{.Names}} {{.Status}}' | head -20
 
             echo "=== laatste logregels ==="
             docker logs --tail 5 paperclip-devops-proxy-scoped-1 2>&1
