@@ -109,6 +109,9 @@ jobs:
           RECREATE: |
             set -euo pipefail
             cd /opt/paperclip-cos
+            PROJ=paperclip-cos
+            SRC=lat920/docker-compose.publish-dispatcher.yml
+            OVR=/opt/paperclip-cos/lat920/docker-compose.publish-dispatcher.hostpath.yml
 
             echo "=== VOOR ==="
             # -f filters: nooit een kale `docker inspect`, die print de hele env_file.
@@ -116,14 +119,37 @@ jobs:
             docker image inspect -f 'latest={{.Id}} created={{.Created}}' \
               paperclip-publish-dispatcher:latest
 
+            # De overlay verwijst naar /agent-secrets/... — dat pad bestaat alleen BINNEN
+            # paperclip-devops-workspace-1, niet op de host (gemeten in mode=diagnose).
+            # Daarom een afgeleide overlay met het host-pad. Eerst bewijzen dat het om
+            # exact hetzelfde bestand gaat: hash vergelijken, nooit de waarde printen.
+            echo "=== env-bestand identiek aan de agent-kant? ==="
+            H=$(sha256sum /root/.agent-secrets/github-publish.env | cut -c1-16)
+            echo "host sha256(16)=$H"
+            if [ "$H" != "b679e6d0288755b3" ]; then
+              echo "::error::env-bestand wijkt af van wat de agent-kant ziet; afgebroken"
+              exit 1
+            fi
+
+            echo "=== afgeleide overlay met host-pad ==="
+            sed 's#/agent-secrets/github-publish.env#/root/.agent-secrets/github-publish.env#' \
+              "$SRC" > "$OVR"
+            if grep -q '/agent-secrets/' "$OVR"; then
+              echo "::error::sed heeft niet elk /agent-secrets/-pad vervangen; afgebroken"
+              exit 1
+            fi
+            grep -n 'agent-secrets' "$OVR"
+
             echo "=== validatie vooraf (afbreken zonder iets aan te raken als dit faalt) ==="
-            docker compose -f docker-compose.cos.yml \
-              -f lat920/docker-compose.publish-dispatcher.yml config --quiet
+            # --quiet is essentieel: zonder --quiet kan compose env_file expanderen en
+            # GH_TOKEN in dit workflow-log zetten.
+            docker compose -p "$PROJ" --project-directory /opt/paperclip-cos \
+              -f docker-compose.cos.yml -f "$OVR" config --quiet
             echo "CONFIG_OK"
 
             echo "=== RECREATE (geen --build: :latest wijst al naar het geteste image) ==="
-            docker compose -f docker-compose.cos.yml \
-              -f lat920/docker-compose.publish-dispatcher.yml \
+            docker compose -p "$PROJ" --project-directory /opt/paperclip-cos \
+              -f docker-compose.cos.yml -f "$OVR" \
               up -d publish-dispatcher
 
             echo "=== NA ==="
