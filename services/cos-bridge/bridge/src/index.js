@@ -44,6 +44,26 @@ const {
   COS_WORKDIR = "/cos",
   QUIET_HOURS_START = "22",
   QUIET_HOURS_END = "7",
+  // LAT-2799 — stiltevenster op bridge-niveau.
+  // QUIET_DEFER=1: niet-kritieke approval-aanvragen die binnen de stille uren
+  // binnenkomen worden NIET gepusht. Ze worden geparkeerd met timeout_at=NULL
+  // (klok staat stil) en gaan bij het openen van het venster als één
+  // samenvatting de deur uit. Zet op "0" om terug te vallen op het oude gedrag.
+  QUIET_DEFER = "1",
+  // Maximaal aantal aanvragen per samenvattings-bericht (Telegram: 4096 tekens,
+  // max 100 knoppen). Bij meer wordt de samenvatting opgesplitst.
+  QUIET_FLUSH_CHUNK = "8",
+  // LAT-2909 — herhaal-rem op de critical-doorbraak. Binnen de stille uren mag
+  // 'critical' door het venster heen, maar alleen voor een storing die nog niet
+  // gemeld is. Is dezelfde melding (zelfde bundle_key) in de afgelopen
+  // QUIET_REPEAT_WINDOW_HOURS al afgeleverd, dan is de herhaling geen nieuws en
+  // wordt hij als 'normal' geparkeerd. Zet op "0" om de rem uit te schakelen.
+  QUIET_REPEAT_WINDOW_HOURS = "12",
+  // Herindien-rem: identieke aanvraag (zelfde agent + zelfde tekst) die binnen
+  // RESUBMIT_WINDOW_HOURS al RESUBMIT_LIMIT keer op timeout liep, wordt
+  // geweigerd in plaats van opnieuw gepusht.
+  RESUBMIT_WINDOW_HOURS = "6",
+  RESUBMIT_LIMIT = "3",
   DAILY_BUDGET_CENTS = "300",
   DEFAULT_MODEL = "claude-haiku-4-5-20251001",
   STOP_WORD = "stop",
@@ -99,6 +119,11 @@ if (!BOT_TOKEN || !OWNER_USER_ID) {
 const OWNER_ID = Number(OWNER_USER_ID);
 const QSTART = Number(QUIET_HOURS_START);
 const QEND = Number(QUIET_HOURS_END);
+const QUIET_DEFER_ON = QUIET_DEFER !== "0";
+const FLUSH_CHUNK = Math.max(1, Number(QUIET_FLUSH_CHUNK) || 8);
+const QUIET_REPEAT_H = Math.max(0, Number(QUIET_REPEAT_WINDOW_HOURS) || 0);
+const RESUBMIT_WINDOW_H = Math.max(0, Number(RESUBMIT_WINDOW_HOURS) || 0);
+const RESUBMIT_MAX = Math.max(0, Number(RESUBMIT_LIMIT) || 0);
 
 // ---- postgres ----
 const pool = new pg.Pool({
@@ -128,6 +153,38 @@ function isQuietHours(now = new Date()) {
   // QSTART=22, QEND=7 → quiet when h>=22 OR h<7
   if (QSTART > QEND) return h >= QSTART || h < QEND;
   return h >= QSTART && h < QEND;
+}
+
+// Eerstvolgende moment waarop het stiltevenster opengaat (lokale tijd, TZ uit env).
+// Wordt gebruikt om de aanvrager te vertellen wanneer zijn vraag wél verstuurd wordt.
+function quietWindowEnd(now = new Date()) {
+  const end = new Date(now);
+  end.setMinutes(0, 0, 0);
+  end.setHours(QEND);
+  if (end <= now) end.setDate(end.getDate() + 1);
+  return end;
+}
+
+// Twee aanvragen zijn 'dezelfde vraag' als dezelfde agent letterlijk dezelfde
+// tekst instuurt. Gebruikt voor de herindien-rem en voor het bundelen in de
+// ochtendsamenvatting.
+//
+// LAT-2909 — dat werkt voor een agent die één vraag stelt, maar niet voor een
+// monitor die dezelfde storing elk uur opnieuw meldt. `Disk usage: 92%` kreeg
+// elk uur een andere sleutel omdat de byte-tellers uit de `df`-output in de body
+// meelopen (#680 c38b40d2, #681 be0b09d0, #683 3b5d0917 — één storing, drie
+// sleutels), en de titel schuift mee met het percentage (91% ⇄ 92%). Een
+// afzender die weet dat hij een terugkerende toestand meldt, stuurt daarom een
+// eigen `alert_key` mee — de klasse van de storing, niet de meting ervan
+// ("disk:/host", "oauth-token"). Die sleutel is stabiel over herhalingen en is
+// wat de herhaal-rem en de ochtendsamenvatting nodig hebben.
+function bundleKey(requesterAgent, proposal, alertKey = null) {
+  const material = alertKey ? `alert:${alertKey}` : proposal;
+  return crypto
+    .createHash("sha256")
+    .update(`${requesterAgent}\0${material}`)
+    .digest("hex")
+    .slice(0, 16);
 }
 
 async function getPauseState() {
@@ -709,10 +766,20 @@ bot.on("callback_query", async (ctx) => {
     return ctx.answerCbQuery("onbekend");
   }
   const idNum = Number(actionId);
-  await q(
-    `UPDATE cos.actions SET decision=$1, decided_at=NOW() WHERE id=$2`,
+  // `AND decision IS NULL` voorkomt dat een dubbel-tap of een late tap een al
+  // vastgelegd besluit overschrijft.
+  const [decided] = await q(
+    `UPDATE cos.actions SET decision=$1, decided_at=NOW()
+      WHERE id=$2 AND decision IS NULL
+      RETURNING id, requester_agent`,
     [action, idNum]
   );
+  if (!decided) {
+    const [already] = await q(`SELECT decision FROM cos.actions WHERE id=$1`, [idNum]);
+    return ctx.answerCbQuery(
+      already ? `al afgehandeld (${already.decision})` : "onbekend voorstel"
+    );
+  }
   await ctx.answerCbQuery(
     action === "approve" ? "akkoord" : action === "reject" ? "afgewezen" : "graag aanpassing"
   );
@@ -727,17 +794,92 @@ bot.on("callback_query", async (ctx) => {
     { parse_mode: "Markdown" }
   );
 
-  // Als dit een externe-agent aanvraag was, POST de decision terug.
-  const [row] = await q(
-    `SELECT callback_url, request_id, requester_agent FROM cos.actions WHERE id=$1`,
-    [idNum]
+  // LAT-2799 — bundel-siblings. In de ochtendsamenvatting krijgt een reeks
+  // letterlijk identieke aanvragen van dezelfde agent één knoppenpaar. Eén
+  // antwoord beantwoordt ze allemaal, dus leg hetzelfde besluit vast op de rest.
+  // Alleen exemplaren die daadwerkelijk in díe bundel zaten (bundled_into) —
+  // niet elke aanvraag die toevallig dezelfde tekst heeft en een eigen bericht
+  // met eigen knoppen op Marijns telefoon heeft staan.
+  const siblings = await q(
+    `UPDATE cos.actions
+        SET decision=$1, decided_at=NOW(), decision_note=$3
+      WHERE bundled_into=$2 AND decision IS NULL
+      RETURNING id, callback_url, request_id, requester_agent, paperclip_issue_id,
+                paperclip_run_id`,
+    [action, idNum, `gebundeld met #${idNum}`]
   );
-  if (row?.callback_url && row?.request_id) {
-    fireCallback(row.callback_url, row.request_id, action).catch((err) =>
-      log.error({ err: err.message, actionId: idNum, agent: row.requester_agent }, "callback fire failed")
+  if (siblings.length) {
+    log.info(
+      { actionId: idNum, siblings: siblings.map((s) => s.id) },
+      "bundled duplicates resolved with the same decision"
     );
   }
+
+  await notifyDecisionTargets(idNum, action, siblings);
 });
+
+// Meld het besluit terug aan de aanvrager: via callback_url wanneer die er is
+// (Paperclip-approvals), en via het Paperclip-issue voor script-aanvragen uit
+// request-approval.sh — die hebben geen callback_url en dus tot nu toe geen
+// enkele manier om een besluit te horen dat ná hun run binnenkomt (LAT-2799).
+async function notifyDecisionTargets(actionId, decision, siblings = []) {
+  const rows = await q(
+    `SELECT id, callback_url, request_id, requester_agent, paperclip_issue_id
+       FROM cos.actions WHERE id = ANY($1::bigint[])`,
+    [[actionId, ...siblings.map((s) => s.id)]]
+  );
+  const seenIssues = new Set();
+  for (const row of rows) {
+    if (row.callback_url && row.request_id) {
+      fireCallback(row.callback_url, row.request_id, decision).catch((err) =>
+        log.error(
+          { err: err.message, actionId: row.id, agent: row.requester_agent },
+          "callback fire failed"
+        )
+      );
+    } else if (row.paperclip_issue_id && !seenIssues.has(row.paperclip_issue_id)) {
+      seenIssues.add(row.paperclip_issue_id);
+      notifyIssueOfDecision(row, decision).catch((err) =>
+        log.error({ err: err.message, actionId: row.id }, "issue decision notify failed")
+      );
+    }
+  }
+}
+
+// Zet het issue terug op 'todo' en zeg wat het besluit is. Dit is de tegenhanger
+// van terminateApprovalTimeout(): die zet het issue op 'blocked', dit haalt het
+// er weer af zodra er een mens geantwoord heeft.
+async function notifyIssueOfDecision(row, decision) {
+  if (!PAPERCLIP_API_URL || !PAPERCLIP_API_KEY) return;
+  const verdict =
+    decision === "approve"
+      ? "goedgekeurd ✅"
+      : decision === "reject"
+      ? "afgewezen ❌"
+      : `beantwoord (${decision})`;
+  const res = await paperclipFetch(`/api/issues/${row.paperclip_issue_id}`, {
+    method: "PATCH",
+    timeoutMs: 10_000,
+    body: JSON.stringify({
+      status: "todo",
+      comment:
+        `Approval #${row.id} is ${verdict} door Marijn.\n\n` +
+        `Je vorige run was al afgesloten toen dit besluit binnenkwam. ` +
+        `Pak de taak op vanaf dit besluit — dien de aanvraag niet opnieuw in.`,
+    }),
+  });
+  if (res?.ok) {
+    log.info(
+      { actionId: row.id, issueId: row.paperclip_issue_id, decision },
+      "issue notified of late decision"
+    );
+  } else {
+    log.warn(
+      { actionId: row.id, issueId: row.paperclip_issue_id, status: res?.status },
+      "issue decision notify failed"
+    );
+  }
+}
 
 // ---- approval-flow helpers ----
 async function fireCallback(url, requestId, decision) {
@@ -774,9 +916,13 @@ const ACTION_ID_PROBE_WIDTH = 12;
 
 // 'undelivered' is géén beslissing van een mens: rapporteer het apart zodat
 // aanroepers het niet als timeout of afwijzing lezen.
-function approvalStatusFor(decision) {
+// 'deferred' is evenmin een beslissing: de aanvraag is geregistreerd maar bewust
+// nog niet verstuurd (stille uren, LAT-2799). De klok loopt niet.
+function approvalStatusFor(decision, row = null) {
   if (decision === "undelivered") return "undelivered";
-  return decision ? "decided" : "pending";
+  if (decision) return "decided";
+  if (row && row.deferred_until && !row.pushed_at) return "deferred";
+  return "pending";
 }
 
 function buildApprovalText({
@@ -821,10 +967,11 @@ async function handleApprovalPost(req, body) {
     body: proposalBody,
     plain_summary = null,
     urgency = "normal",
-    timeout_seconds = 3600,
+    timeout_seconds = 14400,
     callback_url = null,
     run_id = null,
     issue_id = null,
+    alert_key = null,
   } = payload;
   if (!request_id || !agent || !title || !proposalBody) {
     return {
@@ -835,10 +982,25 @@ async function handleApprovalPost(req, body) {
   if (!["normal", "critical"].includes(urgency)) {
     return { status: 400, body: JSON.stringify({ error: "urgency must be 'normal' or 'critical'" }) };
   }
+  // LAT-2909 — optioneel. Alleen een afzender die een terugkerende toestand
+  // meldt hoort hem te sturen; een eenmalige vraag laat hem weg en houdt het
+  // oude gedrag (sleutel over de volledige tekst).
+  if (alert_key !== null && (typeof alert_key !== "string" || !alert_key.trim() || alert_key.length > 120)) {
+    return {
+      status: 400,
+      body: JSON.stringify({
+        error: "alert_key must be a non-empty string of at most 120 chars",
+        hint:
+          `Gebruik de klasse van de storing, niet de meting: "disk:/host", niet ` +
+          `"disk 92%". De sleutel moet gelijk blijven als de melding zich herhaalt.`,
+      }),
+    };
+  }
+  const alertKey = alert_key ? alert_key.trim() : null;
 
   // Dedup op request_id
   const [existing] = await q(
-    `SELECT id, decision FROM cos.actions WHERE request_id=$1`,
+    `SELECT id, decision, deferred_until, pushed_at FROM cos.actions WHERE request_id=$1`,
     [request_id]
   );
   if (existing) {
@@ -847,8 +1009,9 @@ async function handleApprovalPost(req, body) {
       body: JSON.stringify({
         request_id,
         action_id: existing.id,
-        status: approvalStatusFor(existing.decision),
+        status: approvalStatusFor(existing.decision, existing),
         decision: existing.decision,
+        deferred_until: existing.deferred_until,
         duplicate: true,
       }),
     };
@@ -868,7 +1031,60 @@ async function handleApprovalPost(req, body) {
   }
 
   // Budget-cap geldt niet voor approval-pushes (geen LLM-call nodig).
-  // Stille uren: push gaat gewoon door, Telegram-DND regelt Marijn zelf.
+
+  // LAT-2799 — herindien-rem. De timeout-afhandeling cancelt de run en zet het
+  // issue op 'blocked'; de agent wordt daardoor gewekt en dient de vraag 15–90s
+  // later opnieuw in. In de nacht van 22→23 juli leverde dat 14 aanvragen van
+  // Lead Editor VinoMartino op, allemaal op issue 0a90d186. Zonder rem
+  // verplaatst een stiltevenster die lus alleen naar overdag.
+  //
+  // De rem telt op ISSUE, niet op tekst. Die 14 aanvragen hadden 14 verschillende
+  // md5's — de agent herformuleerde elke ronde (423 → 520 → 370 → … → 145 tekens).
+  // Een tekstvergelijking zou dus precies de lus missen waarvoor de rem bedoeld is.
+  // Zonder issue-id valt hij terug op (agent + letterlijke tekst).
+  if (RESUBMIT_MAX > 0 && RESUBMIT_WINDOW_H > 0) {
+    const byIssue = Boolean(issue_id);
+    const [prior] = await q(
+      byIssue
+        ? `SELECT count(*)::int AS n, max(id) AS last_id
+             FROM cos.actions
+            WHERE paperclip_issue_id = $1
+              AND decision = 'timeout'
+              AND created_at > NOW() - ($2 || ' hours')::interval`
+        : `SELECT count(*)::int AS n, max(id) AS last_id
+             FROM cos.actions
+            WHERE requester_agent = $1
+              AND proposal = $3
+              AND decision = 'timeout'
+              AND created_at > NOW() - ($2 || ' hours')::interval`,
+      byIssue
+        ? [issue_id, String(RESUBMIT_WINDOW_H)]
+        : [agent, String(RESUBMIT_WINDOW_H), `${title}\n\n${proposalBody}`]
+    );
+    if (prior && prior.n >= RESUBMIT_MAX) {
+      log.warn(
+        { agent, request_id, issue_id, byIssue, priorTimeouts: prior.n, lastId: prior.last_id },
+        "approval rejected: resubmit limit reached"
+      );
+      const scope = byIssue ? `dit issue (${issue_id})` : "deze aanvraag";
+      return {
+        status: 429,
+        body: JSON.stringify({
+          error: "resubmit limit reached",
+          prior_timeouts: prior.n,
+          last_action_id: prior.last_id,
+          window_hours: RESUBMIT_WINDOW_H,
+          scope: byIssue ? "issue" : "proposal",
+          hint:
+            `Voor ${scope} liepen in de afgelopen ${RESUBMIT_WINDOW_H} uur al ` +
+            `${prior.n} approval-aanvragen af zonder antwoord (laatste #${prior.last_id}). ` +
+            `Dien niet nog een keer in — dat levert alleen een nieuwe melding op bij ` +
+            `iemand die al niet reageerde. Zet het issue op 'blocked' met een verwijzing ` +
+            `naar #${prior.last_id} en wacht op een mens, of escaleer naar je manager.`,
+        }),
+      };
+    }
+  }
 
   // Lengtecontrole vóór registratie (LAT-2791). Het actie-id is hier nog niet
   // bekend, dus reken met een ruim bemeten id-breedte: de check mag nooit
@@ -903,12 +1119,62 @@ async function handleApprovalPost(req, body) {
     };
   }
 
+  // LAT-2799 — stiltevenster. Binnen de stille uren gaat er geen push uit en
+  // start de timeout-klok niet: timeout_at blijft NULL, zodat de
+  // timeout-watcher (die op `timeout_at IS NOT NULL` filtert) hem overslaat.
+  // De klok begint pas te lopen op het moment dat de push écht verstuurd is.
+  // 'critical' breekt door het venster heen — niemand wil zijn VPS in brand
+  // zien staan omdat het toevallig nacht is.
+  //
+  // LAT-2909 — die doorbraak is inmiddels het normale pad: in de nacht van
+  // 24→25 juli ging 16 van de 16 'critical' direct door (gem. 0,1 s), 15 daarvan
+  // liepen af zonder antwoord. Het waren twee storingen, elk uur opnieuw gemeld.
+  // De doorbraak blijft dus, maar alleen voor NIEUWS: is dezelfde melding
+  // recent al afgeleverd, dan voegt de herhaling niets toe en gaat hij als
+  // 'normal' mee in de ochtendsamenvatting. De rem kijkt naar afgeleverde
+  // (`pushed_at IS NOT NULL`) meldingen — een eerdere herhaling die zelf al
+  // geparkeerd is telt niet mee, anders zou de rem zichzelf voeden.
+  const inQuietWindow = QUIET_DEFER_ON && isQuietHours();
+  const bundle = bundleKey(agent, `${title}\n\n${proposalBody}`, alertKey);
+  let repeatOf = null;
+  if (inQuietWindow && urgency === "critical" && QUIET_REPEAT_H > 0) {
+    const [prior] = await q(
+      `SELECT id, to_char(pushed_at AT TIME ZONE 'Europe/Amsterdam','DD-MM HH24:MI') AS pushed_hhmm
+         FROM cos.actions
+        WHERE bundle_key = $1
+          AND pushed_at IS NOT NULL
+          AND pushed_at > NOW() - ($2 || ' hours')::interval
+        ORDER BY pushed_at DESC
+        LIMIT 1`,
+      [bundle, String(QUIET_REPEAT_H)]
+    );
+    if (prior) repeatOf = prior;
+  }
+
+  const deferring = inQuietWindow && (urgency !== "critical" || repeatOf !== null);
+  const deferUntil = deferring ? quietWindowEnd() : null;
+  // Een afgeremde 'critical' wordt ook echt als 'normal' vastgelegd: de
+  // ochtendsamenvatting, de vries-sweep en elke latere meting kijken naar de
+  // kolom, niet naar wat de afzender bedoelde.
+  const storedUrgency = repeatOf ? "normal" : urgency;
+  if (repeatOf) {
+    log.info(
+      { agent, request_id, alertKey, bundle, repeatOf: repeatOf.id, windowHours: QUIET_REPEAT_H },
+      "critical downgraded to normal — repeat of an alert already delivered"
+    );
+  }
+
   const [row] = await q(
     `INSERT INTO cos.actions
        (topic_slug, proposal, category, request_id, requester_agent, urgency, callback_url,
-        timeout_at, paperclip_run_id, paperclip_issue_id)
+        timeout_at, paperclip_run_id, paperclip_issue_id,
+        timeout_seconds, bundle_key, deferred_until)
      VALUES
-       ($1, $2, $3, $4, $5, $6, $7, NOW() + ($8 || ' seconds')::interval, $9, $10)
+       ($1, $2, $3, $4, $5, $6, $7,
+        CASE WHEN $11::timestamptz IS NULL
+             THEN NOW() + ($8 || ' seconds')::interval
+             ELSE NULL END,
+        $9, $10, $8::int, $12, $11)
      RETURNING id`,
     [
       "algemeen",
@@ -916,14 +1182,50 @@ async function handleApprovalPost(req, body) {
       "external",
       request_id,
       agent,
-      urgency,
+      storedUrgency,
       callback_url,
       String(timeout_seconds),
       run_id || null,
       issue_id || null,
+      deferUntil ? deferUntil.toISOString() : null,
+      bundle,
     ]
   );
   const actionId = row.id;
+
+  if (deferring) {
+    log.info(
+      { actionId, agent, request_id, deferUntil: deferUntil.toISOString(), repeatOf: repeatOf?.id ?? null },
+      repeatOf
+        ? "approval deferred — repeat of an already-delivered alert, no push"
+        : "approval deferred — quiet hours, no push"
+    );
+    return {
+      status: 202,
+      body: JSON.stringify({
+        request_id,
+        action_id: actionId,
+        status: "deferred",
+        deferred_until: deferUntil.toISOString(),
+        quiet_hours: `${QSTART}:00–${QEND}:00`,
+        ...(repeatOf
+          ? { downgraded_from: "critical", repeat_of: repeatOf.id, bundle_key: bundle }
+          : {}),
+        hint: repeatOf
+          ? `Geregistreerd, maar niet verstuurd: deze melding is vannacht al ` +
+            `afgeleverd als #${repeatOf.id} (${repeatOf.pushed_hhmm}) en de storing ` +
+            `is dus bekend. Een herhaling binnen het stiltevenster wekt niemand ` +
+            `een tweede keer; hij gaat mee in de ochtendsamenvatting om ` +
+            `${String(QEND).padStart(2, "0")}:00. Verandert de situatie wezenlijk, ` +
+            `stuur dan een melding met een andere alert_key.`
+          : `Geregistreerd, maar niet verstuurd: het is stille uren. De aanvraag ` +
+            `gaat als onderdeel van één ochtendsamenvatting de deur uit om ` +
+            `${String(QEND).padStart(2, "0")}:00. De timeout-klok staat stil tot ` +
+            `dat moment — dit wordt GEEN timeout. Sluit je run af en dien niet ` +
+            `opnieuw in; je hoort het via het issue zodra er een besluit is.`,
+      }),
+    };
+  }
 
   const text = buildApprovalText({
     urgency,
@@ -945,6 +1247,10 @@ async function handleApprovalPost(req, body) {
         ],
       ]),
     });
+    // pushed_at = "daadwerkelijk bij Marijn afgeleverd". Nodig om bij het
+    // invallen van de stille uren onderscheid te maken tussen aanvragen die nog
+    // gestuurd moeten worden en aanvragen die al op zijn telefoon staan.
+    await q(`UPDATE cos.actions SET pushed_at=NOW() WHERE id=$1`, [actionId]);
   } catch (err) {
     log.error({ err: err.message, actionId }, "telegram send failed");
     // LAT-2791: de actie staat wel in de tabel maar is nooit afgeleverd. Laat
@@ -985,7 +1291,7 @@ async function handleApprovalPost(req, body) {
 async function handleApprovalGet(actionId) {
   const [row] = await q(
     `SELECT id, request_id, requester_agent, decision, decided_at, timeout_at, created_at,
-            paperclip_issue_id, proposal
+            deferred_until, pushed_at, paperclip_issue_id, proposal
        FROM cos.actions WHERE id=$1`,
     [actionId]
   );
@@ -1004,8 +1310,10 @@ async function handleApprovalGet(actionId) {
       action_id: row.id,
       request_id: row.request_id,
       agent: row.requester_agent,
-      status: approvalStatusFor(row.decision),
+      status: approvalStatusFor(row.decision, row),
       decision: row.decision,
+      deferred_until: row.deferred_until,
+      pushed_at: row.pushed_at,
       responded_at: row.decided_at,
       timeout_at: row.timeout_at,
       created_at: row.created_at,
@@ -1314,11 +1622,22 @@ async function terminateApprovalTimeout(row) {
     }
   }
 
-  // 2. Set the issue to 'blocked' so the agent knows to resubmit when ready.
+  // 2. Set the issue to 'blocked'.
+  // LAT-2799: de oude tekst hier was "resubmit when ready" — en dat is precies
+  // wat er gebeurde. De agent werd door deze PATCH gewekt, las de instructie en
+  // diende 15–90s later dezelfde vraag opnieuw in. Veertien keer op één nacht.
+  // De timeout is een uitspraak over de wachttijd van de run, niet een uitnodiging
+  // om het nog eens te vragen.
   if (row.paperclip_issue_id) {
+    const mins = Math.round((row.timeout_seconds || 14400) / 60);
     const body = JSON.stringify({
       status: "blocked",
-      comment: "Approval timed out after 45 min — resubmit when ready.",
+      comment:
+        `Approval #${row.id} verliep na ${mins} min zonder antwoord van Marijn.\n\n` +
+        `Dien deze aanvraag **niet** automatisch opnieuw in — dat levert alleen een ` +
+        `nieuwe melding op bij iemand die al niet reageerde, en de bridge weigert ` +
+        `hem na ${RESUBMIT_MAX} herhalingen binnen ${RESUBMIT_WINDOW_H} uur. ` +
+        `Wacht op een mens of escaleer naar je manager.`,
     });
     const issueRes = await paperclipFetch(`/api/issues/${row.paperclip_issue_id}`, {
       method: "PATCH",
@@ -1333,6 +1652,156 @@ async function terminateApprovalTimeout(row) {
       );
     }
   }
+}
+
+// ---- LAT-2799: klok bevriezen bij het ingaan van de stille uren ----
+// Een aanvraag die om 21:55 binnenkomt met een timeout van 45 min verloopt om
+// 22:40 — midden in de nacht, met dezelfde cancel-en-blokkeer-gevolgen. Alleen
+// nieuwe aanvragen parkeren is dus niet genoeg: al afgeleverde aanvragen
+// waarvan de klok binnen het venster afloopt, zetten we ook stil. Ze worden
+// niet opnieuw gepusht — bij het openen van het venster start alleen de klok.
+async function freezeClocksForQuietHours() {
+  if (!QUIET_DEFER_ON || !isQuietHours()) return;
+  const end = quietWindowEnd().toISOString();
+  const rows = await q(
+    `UPDATE cos.actions
+        SET deferred_until = $1, timeout_at = NULL
+      WHERE decision IS NULL
+        AND urgency <> 'critical'
+        AND timeout_at IS NOT NULL
+        AND timeout_at < $1::timestamptz
+        AND deferred_until IS NULL
+      RETURNING id, requester_agent`,
+    [end]
+  );
+  if (rows.length) {
+    log.info(
+      { ids: rows.map((r) => r.id), until: end },
+      "quiet hours started — froze timeout clocks that would expire overnight"
+    );
+  }
+}
+
+// ---- LAT-2799: stiltevenster-flush ----
+// Draait elke minuut mee met de timeout-watcher. Zodra het venster open is,
+// gaan alle geparkeerde aanvragen in één (of bij grote aantallen: een paar)
+// samenvattings-berichten de deur uit. Pas op dat moment start de timeout-klok.
+async function flushDeferredApprovals() {
+  if (isQuietHours()) return;
+
+  const parked = await q(
+    `SELECT id, requester_agent, proposal, urgency, timeout_seconds, bundle_key, pushed_at,
+            to_char(created_at AT TIME ZONE 'Europe/Amsterdam','HH24:MI') AS created_hhmm
+       FROM cos.actions
+      WHERE decision IS NULL
+        AND deferred_until IS NOT NULL
+      ORDER BY id`
+  );
+  if (!parked.length) return;
+
+  // Twee soorten geparkeerde aanvragen:
+  //  - `pending`: nooit gepusht (binnengekomen tijdens het venster) → nu versturen
+  //  - `frozen` : al eerder afgeleverd, klok stilgezet → alleen klok herstarten
+  const pending = parked.filter((r) => !r.pushed_at);
+  const frozen = parked.filter((r) => r.pushed_at);
+
+  if (frozen.length) {
+    await q(
+      `UPDATE cos.actions
+          SET timeout_at = NOW() + (COALESCE(timeout_seconds, 14400) || ' seconds')::interval,
+              deferred_until = NULL
+        WHERE id = ANY($1::bigint[]) AND decision IS NULL`,
+      [frozen.map((r) => r.id)]
+    );
+    log.info(
+      { ids: frozen.map((r) => r.id) },
+      "quiet window opened — restarted clocks for already-delivered approvals"
+    );
+  }
+
+  if (!pending.length) return;
+
+  // Bundel letterlijk identieke aanvragen van dezelfde agent: DevOps Monitor
+  // stuurde 9× per nacht exact dezelfde schijf-melding. Eén regel, één
+  // knoppenpaar, en het besluit landt via bundle_key op alle exemplaren.
+  const groups = new Map();
+  for (const row of pending) {
+    const g = groups.get(row.bundle_key);
+    if (g) g.ids.push(row.id);
+    else groups.set(row.bundle_key, { rep: row, ids: [row.id] });
+  }
+  const entries = [...groups.values()];
+
+  log.info(
+    { deferred: pending.length, groups: entries.length },
+    "quiet window opened — flushing deferred approvals"
+  );
+
+  const flushed = [];
+  for (let i = 0; i < entries.length; i += FLUSH_CHUNK) {
+    const chunk = entries.slice(i, i + FLUSH_CHUNK);
+    const part =
+      entries.length > FLUSH_CHUNK
+        ? ` (deel ${Math.floor(i / FLUSH_CHUNK) + 1}/${Math.ceil(entries.length / FLUSH_CHUNK)})`
+        : "";
+    const stillOpen = frozen.length
+      ? `<i>Nog open van gisteravond: ${frozen.map((f) => "#" + f.id).join(", ")}.</i>\n`
+      : "";
+    const header =
+      `🌅 <b>${pending.length} aanvra${pending.length === 1 ? "ag" : "gen"} uit de stille uren</b>${part}\n` +
+      `<i>Niets hiervan is verlopen — de klok start nu pas.</i>\n${stillOpen}\n`;
+    const lines = chunk.map(({ rep, ids }) => {
+      const firstLine = String(rep.proposal || "").split("\n")[0].slice(0, 90);
+      const repeat = ids.length > 1 ? ` <i>(${ids.length}× herhaald)</i>` : "";
+      return (
+        `#${rep.id} · ${rep.created_hhmm} · <code>${escapeHtml(rep.requester_agent)}</code>${repeat}\n` +
+        `${escapeHtml(firstLine)}`
+      );
+    });
+    const buttons = chunk.map(({ rep }) => [
+      Markup.button.callback(`✅ #${rep.id}`, `approve:${rep.id}`),
+      Markup.button.callback(`❌ #${rep.id}`, `reject:${rep.id}`),
+    ]);
+
+    let text = header + lines.join("\n\n");
+    if (text.length > TELEGRAM_MAX_CHARS) text = text.slice(0, TELEGRAM_MAX_CHARS - 2) + "\n…";
+
+    try {
+      await bot.telegram.sendMessage(OWNER_ID, text, {
+        parse_mode: "HTML",
+        ...Markup.inlineKeyboard(buttons),
+      });
+      flushed.push(...chunk.flatMap((c) => c.ids));
+      // Leg vast welke exemplaren onder welk knoppenpaar zijn samengevat, zodat
+      // één druk op de knop de hele reeks afhandelt.
+      for (const { rep, ids } of chunk) {
+        const rest = ids.filter((id) => id !== rep.id);
+        if (rest.length) {
+          await q(
+            `UPDATE cos.actions SET bundled_into=$1 WHERE id = ANY($2::bigint[])`,
+            [rep.id, rest]
+          );
+        }
+      }
+    } catch (err) {
+      // Alleen deze chunk faalt; de rest blijft geparkeerd en gaat de volgende
+      // minuut opnieuw mee. Niets wordt als timeout weggeschreven (LAT-2791).
+      log.error({ err: err.message, chunk: chunk.map((c) => c.rep.id) }, "quiet-flush send failed");
+    }
+  }
+
+  if (!flushed.length) return;
+
+  // Klok starten: pas nu telt de timeout, en met de volle oorspronkelijke duur.
+  await q(
+    `UPDATE cos.actions
+        SET pushed_at = NOW(),
+            deferred_until = NULL,
+            timeout_at = NOW() + (COALESCE(timeout_seconds, 14400) || ' seconds')::interval
+      WHERE id = ANY($1::bigint[]) AND decision IS NULL`,
+    [flushed]
+  );
+  log.info({ ids: flushed }, "deferred approvals pushed — timeout clock started");
 }
 
 // Control-plane approvals ('approved'/'rejected') map onto the same decision
@@ -1359,11 +1828,17 @@ async function readControlPlaneDecision(requestId) {
 // ---- timeout-watcher: markeer expired pending requests als 'timeout' + fire callbacks ----
 setInterval(async () => {
   try {
+    await freezeClocksForQuietHours();
+    await flushDeferredApprovals();
+  } catch (err) {
+    log.error({ err: err.message }, "quiet-window sweep failed");
+  }
+  try {
     // Select first (no mutation yet) so each row can be read back against the
     // control plane before we decide what to write.
     const candidates = await q(
       `SELECT id, callback_url, request_id, requester_agent,
-              paperclip_run_id, paperclip_issue_id
+              paperclip_run_id, paperclip_issue_id, timeout_seconds
          FROM cos.actions
         WHERE decision IS NULL
           AND timeout_at IS NOT NULL
@@ -1404,7 +1879,7 @@ setInterval(async () => {
         `UPDATE cos.actions SET decision='timeout', decided_at=NOW()
           WHERE id=$1 AND decision IS NULL
           RETURNING id, callback_url, request_id, requester_agent,
-                    paperclip_run_id, paperclip_issue_id`,
+                    paperclip_run_id, paperclip_issue_id, timeout_seconds`,
         [row.id]
       );
       if (!timedOut) continue;
@@ -1423,6 +1898,78 @@ setInterval(async () => {
     log.error({ err: err.message }, "timeout-watcher sweep failed");
   }
 }, 60_000);
+
+// ---- LAT-5317: post-timeout reconciliation ----
+// readControlPlaneDecision() above is only consulted once, right before the
+// timeout-watcher writes 'timeout' — a pre-write check. Board decisions land
+// late often enough (measured: median board response ~54 min, well past the
+// approval clock) that a genuine approve/reject regularly arrives *after* the
+// row is already marked 'timeout', and nothing ever revisits it: the
+// misrecorded row sits there forever. This pass re-checks recent timeouts
+// against the control plane and corrects the historical record when a later
+// real decision is found.
+//
+// Deliberately does NOT call fireCallback or terminateApprovalTimeout: a row
+// that already timed out already ran that side-effect path (run cancelled,
+// issue set to blocked). Re-firing those here would be a *second*,
+// out-of-band cancel/blocked-update against a run or issue that may have
+// already been handled by a human in the meantime — a new problem, not a
+// fix. This pass only corrects what cos.actions *records* as having
+// happened, so later readers (GET /approval/:id, LAT-3631 verification,
+// reporting) see the true outcome instead of a false timeout.
+const RECONCILE_INTERVAL_MS = 5 * 60_000; // control-plane API is called per candidate row — don't tighten this
+const RECONCILE_WINDOW_DAYS = 7; // bounded window so this doesn't re-check timeouts forever
+
+async function reconcileStaleTimeouts() {
+  const candidates = await q(
+    `SELECT id, request_id, requester_agent, decided_at
+       FROM cos.actions
+      WHERE decision = 'timeout'
+        AND request_id IS NOT NULL
+        AND decided_at > NOW() - ($1 || ' days')::interval`,
+    [RECONCILE_WINDOW_DAYS]
+  );
+  for (const row of candidates) {
+    const resolved = await readControlPlaneDecision(row.request_id).catch((err) => {
+      log.warn({ err: err.message, id: row.id }, "reconcile: control-plane read-back failed");
+      return null;
+    });
+    // No decision, or no timestamp on it — without a decidedAt we can't prove
+    // it's genuinely *later* than what's already on file, so skip rather than
+    // risk overwriting a correct timeout with ambiguous data.
+    if (!resolved || !resolved.decidedAt) continue;
+
+    // Same WHERE-guard pattern as the timeout-watcher above: only overwrite a
+    // row that is still 'timeout' (nothing else resolved it meanwhile) and
+    // only when the control-plane decision is strictly later than what's on
+    // file (i.e. a genuinely late board decision, not stale/replayed data).
+    const [updated] = await q(
+      `UPDATE cos.actions SET decision=$1, decided_at=$2::timestamptz
+        WHERE id=$3 AND decision='timeout' AND decided_at < $2::timestamptz
+        RETURNING id`,
+      [resolved.decision, resolved.decidedAt, row.id]
+    );
+    if (!updated) continue;
+
+    log.info(
+      {
+        id: row.id,
+        agent: row.requester_agent,
+        previousDecision: "timeout",
+        correctedDecision: resolved.decision,
+        previousDecidedAt: row.decided_at,
+        correctedDecidedAt: resolved.decidedAt,
+      },
+      "corrected a false timeout — control plane had a genuine later decision on record"
+    );
+  }
+}
+
+setInterval(() => {
+  reconcileStaleTimeouts().catch((err) =>
+    log.error({ err: err.message }, "post-timeout reconciliation sweep failed")
+  );
+}, RECONCILE_INTERVAL_MS);
 
 // ---- startup ----
 (async () => {
