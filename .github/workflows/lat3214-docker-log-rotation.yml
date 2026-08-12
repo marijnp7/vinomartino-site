@@ -127,14 +127,9 @@ jobs:
               ORIG='{}'
             fi
 
-            echo "=== merge log-driver/log-opts in bestaande config (python3, geen sleutels overschrijven behalve log-driver/log-opts) ==="
-            NEW=$(python3 -c "
-import json
-orig = json.loads('''$ORIG''') if '''$ORIG'''.strip() else {}
-orig['log-driver'] = 'json-file'
-orig['log-opts'] = {'max-size': '50m', 'max-file': '3'}
-print(json.dumps(orig, indent=2))
-")
+            echo "=== merge log-driver/log-opts in bestaande config (jq, geen sleutels overschrijven behalve log-driver/log-opts) ==="
+            NEW=$(jq -n --argjson orig "$ORIG" \
+              '$orig + {"log-driver":"json-file","log-opts":{"max-size":"50m","max-file":"3"}}')
             echo "$NEW" > /etc/docker/daemon.json
             echo "--- nieuwe daemon.json ---"
             cat /etc/docker/daemon.json
