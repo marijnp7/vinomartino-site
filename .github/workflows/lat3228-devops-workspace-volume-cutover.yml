@@ -1,0 +1,114 @@
+# LAT-3228 — dispatch-only cutover van devops-workspace-1 naar de named volume.
+#
+# Goedgekeurd: kaart c61e0f46 ("VPS host: cutover devops-workspace-1 naar named volume
+# (LAT-3228)", goedgekeurd 2026-08-01T12:09:51Z). De route zelf (agent voert uit via het
+# bestaande GHA->VPS SSH-kanaal in plaats van een handmatige host-shell) volgt het precedent
+# van .github/workflows/lat4750-recreate-publish-dispatcher.yml (kaart 933eff00) en
+# .github/workflows/lat2802-deploy-cos-monitor.yml (kaart 932321e7).
+#
+# WAAROM EEN EIGEN WORKFLOW: het geapprovede commando (bash
+# /opt/paperclip-cos/lat3228/fix-volume-v2.sh) stopt en hermaakt paperclip-devops-workspace-1
+# zelf. Draaien vanuit een exec-sessie IN dat container zou de sessie halverwege afsnijden
+# (zelfde faalpad als LAT-3040). Het SSH-kanaal draait op de host, buiten de container om.
+#
+# Geen push-trigger. `mode` kiest alleen tussen vaste scripts; er wordt niets uit de input
+# in een commando geinterpoleerd.
+#
+# LET OP bij het pushen: elk bestand onder .github/ op main triggert normaal een
+# productie-release van vinomartino.com (deploy.yml gebruikt paths-ignore en .github/**
+# staat daar bewust niet in). Daarom pushen met "[skip ci]" en daarna verifieren met
+#   gh run list --repo marijnp7/vinomartino-site --branch main --limit 5
+
+name: LAT-3228 devops-workspace volume cutover
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'diagnose = alleen lezen; cutover = daadwerkelijk fix-volume-v2.sh draaien'
+        required: true
+        default: diagnose
+        type: choice
+        options:
+          - diagnose
+          - cutover
+
+concurrency:
+  group: lat3228-devops-workspace-volume-cutover
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          cat >> ~/.ssh/config <<EOF
+          Host $VPS_HOST
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+          EOF
+          cat "$GITHUB_WORKSPACE/ops/ssh-config-snippet" >> ~/.ssh/config
+          ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      # ---------------------------------------------------------------- diagnose
+      - name: Diagnose (read-only)
+        if: inputs.mode == 'diagnose'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          DIAG: |
+            set -uo pipefail
+            echo "=== huidig /paperclip mount van paperclip-devops-workspace-1 ==="
+            docker inspect -f '{{range .Mounts}}{{if eq .Destination "/paperclip"}}{{.Name}} {{.Source}}{{end}}{{end}}' \
+              paperclip-devops-workspace-1
+
+            echo "=== bestaat het geapprovede script? ==="
+            ls -la /opt/paperclip-cos/lat3228/fix-volume-v2.sh 2>&1
+
+            echo "=== bestaat de named-volume-target al? ==="
+            docker volume inspect paperclip_devops2-home --format '{{.Name}} {{.Mountpoint}}' 2>&1
+
+            echo "=== script-syntax (bash -n, voert niets uit) ==="
+            bash -n /opt/paperclip-cos/lat3228/fix-volume-v2.sh && echo SYNTAX_OK
+        run: |
+          printf '%s\n' "$DIAG" | ssh "$VPS" "bash -s"
+
+      # ---------------------------------------------------------------- cutover
+      - name: Cutover naar named volume
+        if: inputs.mode == 'cutover'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          CUTOVER: |
+            set -euo pipefail
+            echo "=== VOOR ==="
+            docker inspect -f '{{range .Mounts}}{{if eq .Destination "/paperclip"}}{{.Name}} {{.Source}}{{end}}{{end}}' \
+              paperclip-devops-workspace-1
+
+            echo "=== UITVOEREN (approval c61e0f46) ==="
+            bash /opt/paperclip-cos/lat3228/fix-volume-v2.sh
+
+            echo "=== NA ==="
+            docker inspect -f '{{range .Mounts}}{{if eq .Destination "/paperclip"}}{{.Name}} {{.Source}}{{end}}{{end}}' \
+              paperclip-devops-workspace-1
+        run: |
+          printf '%s\n' "$CUTOVER" | ssh "$VPS" "bash -s"
+
+      # Rollback: de -old container blijft staan als fallback (zie script). Handmatig:
+      #   docker stop paperclip-devops-workspace-1
+      #   docker rm paperclip-devops-workspace-1
+      #   docker rename paperclip-devops-workspace-1-old paperclip-devops-workspace-1
+      #   docker start paperclip-devops-workspace-1
