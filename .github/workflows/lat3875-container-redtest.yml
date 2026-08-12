@@ -182,6 +182,25 @@ jobs:
             run_case lat3875-ct-green422 "lat3875-stub-token-not-real" "http://127.0.0.1:8080" healthy "$STUB_422" '"probe_status":422' 200
 
             echo
+            echo "=== 3b. ROOD 3/3: expiry-as — token werkt (422) maar verloopt binnen 14 dagen ==="
+            # De drie cases hierboven pinnen expiry bewust ver weg, zodat de expiry-as het
+            # probe-verdict niet vertroebelt. Gevolg: de regel "degraded onder 14 dagen" uit
+            # dit ticket werd door geen enkele case aangeraakt en kon dus niet rood worden.
+            # Deze case is de tegenproef op precies die as: capability is in orde (422), alleen
+            # de vervaldatum is nabij. Verwachting is uit het ticket afgeleid, niet uit het
+            # waargenomen gedrag: <14 dagen -> degraded -> ok:false -> 503 -> unhealthy.
+            #
+            # De datum wordt bij elke run berekend, niet vastgezet: een hardgecodeerde datum
+            # verschuift stilletjes van "verloopt bijna" naar "al verlopen" en meet dan iets anders.
+            EXP_SOON=$(date -u -d '+5 days' '+%Y-%m-%d %H:%M:%S UTC')
+            echo "expiry-stub meldt vervaldatum: $EXP_SOON (~5 dagen, dus onder de drempel van 14)"
+            cat > /tmp/lat3875-cto-expiry-stub.cjs <<STUBEOF
+            const h=require("node:http");h.createServer((q,s)=>{s.writeHead(422,{"content-type":"application/json","github-authentication-token-expiration":"$EXP_SOON"});s.end('{"message":"No ref found"}');}).listen(8080,"127.0.0.1");
+            STUBEOF
+            STUB_EXPIRY=$(base64 -w0 < /tmp/lat3875-cto-expiry-stub.cjs)
+            run_case lat3875-ct-expiry "lat3875-stub-token-not-real" "http://127.0.0.1:8080" unhealthy "$STUB_EXPIRY" '"state":"degraded"' 503
+
+            echo
             echo "=== 4. OPRUIMEN weesresten van 2026-08-05 (LAT-3875 punt 4) ==="
             for c in lat3875-y lat3875-red-401 lat3875-red-403b lat3875-red-403 lat3875-green-422; do
               if docker inspect "$c" >/dev/null 2>&1; then
