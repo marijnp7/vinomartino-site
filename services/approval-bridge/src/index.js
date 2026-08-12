@@ -19,6 +19,10 @@ const {
   CALLBACK_PORT = "3201",
   CALLBACK_PUBLIC_URL = "",
   POLL_INTERVAL_MS = "30000",
+  // LAT-5426 — falsifiable deploy marker, not read anywhere else. The deploy
+  // workflow sets this to the git sha it built from; /health surfaces it so a
+  // redeploy is provable from the outside instead of trusting a green run.
+  SOURCE_COMMIT = "unknown",
 } = process.env;
 
 if (!PAPERCLIP_API_URL || !PAPERCLIP_API_KEY || !PAPERCLIP_COMPANY_ID) {
@@ -253,8 +257,8 @@ async function handleCallback(body) {
 http
   .createServer((req, res) => {
     if (req.url === "/health" && req.method === "GET") {
-      res.writeHead(200, { "Content-Type": "text/plain" });
-      return res.end("ok");
+      res.writeHead(200, { "Content-Type": "application/json" });
+      return res.end(JSON.stringify({ status: "ok", source_commit: SOURCE_COMMIT }));
     }
 
     if (req.url === "/callback" && req.method === "POST") {
