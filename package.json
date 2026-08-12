@@ -21,6 +21,9 @@
     "test:og-image-dimensions": "node --test scripts/lat4907-og-image-dimensions.test.mjs",
     "test:wijnhuis-template-copy": "node --test scripts/lat4911-wijnhuis-template-copy.test.mjs",
     "test:artikel-nl-only": "node --test scripts/lat4918-artikel-nl-only.test.mjs",
+    "test:ui-strings-cache": "node --test scripts/lat3319-ui-strings-cache.test.mjs",
+    "test:reap-build-containers": "bash scripts/reap-build-containers.test.sh",
+    "test:all": "node scripts/run-all-tests.mjs",
     "gen:og-default": "node scripts/gen-og-default.mjs",
     "audit:i18n-crosslinks": "node scripts/i18n-crosslink-audit.mjs",
     "gate:i18n-nl": "python3 scripts/lat2582-gate-check.py",
@@ -39,6 +42,7 @@
     "micromark-extension-directive": "^3.0.2"
   },
   "devDependencies": {
-    "@types/leaflet": "^1.9.21"
+    "@types/leaflet": "^1.9.21",
+    "sharp": "^0.34.5"
   }
 }

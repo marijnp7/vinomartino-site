@@ -1,0 +1,64 @@
+# LAT-4989 — blokkerende PR-gate voor alle scripts/*.test.* suites.
+#
+# Vóór deze workflow draaide op een PR precies 1 van de 15 testbestanden
+# (lat4911-wijnhuis-template-copy.test.mjs, via i18n-nl-gate.yml). De overige
+# 13 waren alleen met de hand aanroepbaar via een los `npm run test:*`-script
+# en zijn dus tests die niemand start — zie LAT-4989 voor de volledige meting,
+# inclusief een reëel voorbeeld (lat2582-gate-check.test.py stond al rood op
+# main omdat niets hem draaide totdat deze workflow werd toegevoegd).
+#
+# Alle 15 suites zijn netwerkloze/lokale unit-tests (geen live HTTP naar
+# externe hosts, geen VPS/Directus nodig) en draaien in totaal in enkele
+# tientallen seconden — vandaar hier op de GitHub-hosted runner, in
+# tegenstelling tot i18n-nl-gate.yml dat een VPS-build nodig heeft.
+# check-affiliate-links-live.test.mjs is ondanks de naam ook netwerkloos: hij
+# test alleen de pure beoordelingsregels van de live-checker, niet de live
+# HTTP-navigatie zelf (die zit in scripts/check-affiliate-links-live.mjs en
+# draait uitsluitend in de niet-blokkerende affiliate-links-nightly.yml).
+#
+# `npm run test:all` (scripts/run-all-tests.mjs) draait elk "test:*"-script
+# uit package.json en faalt EERST hard als een scripts/*.test.* bestand door
+# geen enkel "test:*"-script wordt geraakt — dat is de guard die dit gat
+# structureel dichthoudt: een nieuwe suite die niet wordt aangesloten, faalt
+# de PR meteen in plaats van stilzwijgend nooit te draaien.
+#
+# Node 24: lat4907-og-image-dimensions.test.mjs importeert een .ts-bestand en
+# leunt op native strip-types (pas standaard vanaf 22.18); lat4755-og-default
+# en lat4907 importeren `sharp` rechtstreeks (nu een expliciete devDependency,
+# niet langer alleen astro's optionalDependency).
+
+name: Tests (unit)
+
+on:
+  pull_request:
+    branches: [main, preview]
+
+concurrency:
+  group: tests-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: npm ci
+        run: npm ci
+
+      - name: npm run test:all
+        run: npm run test:all

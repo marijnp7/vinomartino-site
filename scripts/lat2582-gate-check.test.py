@@ -353,8 +353,11 @@ class TestNoindexScope(unittest.TestCase):
     def test_content_dimensions_are_the_only_ones_dropped(self):
         # technical en coverage blijven gelden op noindex-routes: een mockup
         # mag onvertaald zijn, maar niet uit de routing vallen.
+        # LAT-4989: nl-nouns hoort hier sinds LAT-4909 bij -- deze assertie
+        # was op de oude 3-dimensie set blijven staan omdat niets deze test
+        # ooit draaide (dat is precies het gat dat LAT-4989 dicht).
         self.assertEqual(set(gate.CONTENT_DIMENSIONS),
-                         {"nl-sentences", "nl-links", "nl-literals"})
+                         {"nl-sentences", "nl-links", "nl-literals", "nl-nouns"})
         self.assertNotIn("technical", gate.CONTENT_DIMENSIONS)
         self.assertNotIn("coverage", gate.CONTENT_DIMENSIONS)
 
