@@ -83,6 +83,61 @@ const browser = await chromium.launch();
 const report = { measuredAt: new Date().toISOString(), base: BASE, results: [] };
 let loadFailures = 0;
 
+// --- Falsifieerbaarheid: bewijs dat de probe overflow KAN zien -------------
+//
+// "Nul overflow" is pas een uitkomst als een kapotte probe zichtbaar rood gaat.
+// Een probe die altijd 0 teruggeeft ziet er anders exact hetzelfde uit als een
+// schone site. Daarom eerst twee controles tegen een lokale fixture, met een
+// verwachting die uit de fixture-constanten volgt en NIET uit de gemeten site:
+//
+//   positief : 900px-breed blok in een 320px-viewport -> moet >= 500px overflow
+//              melden en het blok bij naam als overtreder noemen.
+//   negatief : een blok dat de viewport netjes vult -> moet 0 melden.
+//
+// Faalt één van beide, dan is de meting niets waard en stopt de job hard.
+const selfTest = async () => {
+  const ctx = await browser.newContext({ viewport: { width: 320, height: 600 } });
+  const p = await ctx.newPage();
+
+  await p.setContent(
+    '<html><body style="margin:0">' +
+      '<div id="canary-overflow" style="width:900px;height:50px;background:#c00">breed</div>' +
+      '</body></html>'
+  );
+  const pos = await p.evaluate(probe);
+  const sawWidth = pos.horizontalOverflowPx >= 500; // 900 - 320 = 580
+  const namedIt = pos.offenders.some((o) => o.id === 'canary-overflow');
+
+  await p.setContent(
+    '<html><body style="margin:0">' +
+      '<div id="canary-clean" style="width:100%;height:50px;background:#0c0">smal</div>' +
+      '</body></html>'
+  );
+  const neg = await p.evaluate(probe);
+  const cleanIsClean = neg.horizontalOverflowPx === 0 && neg.offenderCount === 0;
+
+  await ctx.close();
+  return {
+    positive: { horizontalOverflowPx: pos.horizontalOverflowPx, namedOffender: namedIt, pass: sawWidth && namedIt },
+    negative: { horizontalOverflowPx: neg.horizontalOverflowPx, offenderCount: neg.offenderCount, pass: cleanIsClean },
+    pass: sawWidth && namedIt && cleanIsClean,
+  };
+};
+
+report.selfTest = await selfTest();
+console.log(
+  `canary  positief: +${report.selfTest.positive.horizontalOverflowPx}px ` +
+    `(element benoemd: ${report.selfTest.positive.namedOffender}) | ` +
+    `negatief: +${report.selfTest.negative.horizontalOverflowPx}px -> ` +
+    `${report.selfTest.pass ? 'PASS' : 'FAIL'}\n`
+);
+if (!report.selfTest.pass) {
+  console.error('Canary gefaald: de probe meet geen overflow die er aantoonbaar is.');
+  console.error('Een groene baseline zou hier betekenisloos zijn. Afgebroken.');
+  await browser.close();
+  process.exit(1);
+}
+
 for (const page of PAGES) {
   for (const width of WIDTHS) {
     const ctx = await browser.newContext({
@@ -159,6 +214,19 @@ if (withOverflow.length === 0) {
     }
   }
 }
+lines.push('');
+lines.push('## Falsifieerbaarheid');
+lines.push('');
+lines.push(
+  `Canary vóór de meting, tegen een lokale fixture in dezelfde browser met dezelfde probe: ` +
+    `een 900px-blok in een 320px-viewport werd gemeten als ` +
+    `**+${report.selfTest.positive.horizontalOverflowPx}px** en het blok werd bij naam als ` +
+    `overtreder genoemd (${report.selfTest.positive.namedOffender}); een blok dat de viewport ` +
+    `netjes vult gaf **${report.selfTest.negative.horizontalOverflowPx}px** en ` +
+    `${report.selfTest.negative.offenderCount} overtreders. ` +
+    `Een probe die altijd 0 meldt of die alles als overtreder aanmerkt, laat de job hier falen — ` +
+    `daarom is een lege uitslag hieronder een meting en niet een stille storing.`
+);
 lines.push('');
 lines.push(`Screenshots: ${report.results.filter((r) => r.screenshot).length}/16 in artifact \`${OUT}\`.`);
 
