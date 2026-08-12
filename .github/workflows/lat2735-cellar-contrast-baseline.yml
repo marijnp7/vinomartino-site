@@ -58,9 +58,17 @@ jobs:
           }
 
           function rgbToObject(rgbString) {
-            const match = rgbString.match(/rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/);
+            // Accepts rgb() and rgba() in both legacy-comma and space/slash syntax.
+            const match = String(rgbString).match(
+              /rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)(?:\s*[,/]\s*([\d.]+))?\s*\)/
+            );
             if (!match) return null;
-            return { r: parseInt(match[1]), g: parseInt(match[2]), b: parseInt(match[3]) };
+            return {
+              r: Math.round(parseFloat(match[1])),
+              g: Math.round(parseFloat(match[2])),
+              b: Math.round(parseFloat(match[3])),
+              a: match[4] === undefined ? 1 : parseFloat(match[4])
+            };
           }
 
           function isFontSizeLarge(fontSize) {
@@ -96,20 +104,70 @@ jobs:
 
                 // Get computed styles
                 const styles = await element.evaluate(el => {
+                  // Most elements compute to backgroundColor rgba(0,0,0,0). Taking that
+                  // literally skips nearly every node and yields a false "0 failures", so
+                  // resolve the *effective* background by compositing the ancestor chain.
+                  function parseColor(c) {
+                    const m = String(c).match(
+                      /rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)(?:\s*[,/]\s*([\d.]+))?\s*\)/
+                    );
+                    if (!m) return null;
+                    return {
+                      r: parseFloat(m[1]), g: parseFloat(m[2]), b: parseFloat(m[3]),
+                      a: m[4] === undefined ? 1 : parseFloat(m[4])
+                    };
+                  }
+
+                  function composite(top, bottom) {
+                    const a = top.a;
+                    return {
+                      r: Math.round(top.r * a + bottom.r * (1 - a)),
+                      g: Math.round(top.g * a + bottom.g * (1 - a)),
+                      b: Math.round(top.b * a + bottom.b * (1 - a)),
+                      a: 1
+                    };
+                  }
+
+                  // Collect painted layers from this element upwards, stopping at the
+                  // first fully opaque one.
+                  const layers = [];
+                  let node = el;
+                  let opaqueFound = false;
+                  let ownBg = null;
+                  while (node) {
+                    const c = parseColor(window.getComputedStyle(node).backgroundColor);
+                    if (node === el) ownBg = window.getComputedStyle(node).backgroundColor;
+                    if (c && c.a > 0) {
+                      layers.push(c);
+                      if (c.a >= 1) { opaqueFound = true; break; }
+                    }
+                    node = node.parentElement;
+                  }
+
+                  // Canvas beneath everything: the UA/base canvas. Only reached when no
+                  // opaque ancestor exists; recorded so the report can flag the assumption.
+                  let effective = { r: 255, g: 255, b: 255, a: 1 };
+                  for (let i = layers.length - 1; i >= 0; i--) {
+                    effective = composite(layers[i], effective);
+                  }
+
                   const computed = window.getComputedStyle(el);
-                  const bgColor = computed.backgroundColor;
-                  const color = computed.color;
-                  const fontSize = computed.fontSize;
-                  const fontWeight = computed.fontWeight;
+                  const fgRaw = parseColor(computed.color);
+                  // A translucent text colour paints over the effective background too.
+                  const fg = fgRaw && fgRaw.a < 1 ? composite(fgRaw, effective) : fgRaw;
 
                   return {
                     text: el.textContent.substring(0, 50),
-                    color,
-                    backgroundColor: bgColor,
-                    fontSize,
-                    fontWeight,
+                    color: fg ? `rgb(${fg.r}, ${fg.g}, ${fg.b})` : computed.color,
+                    colorRaw: computed.color,
+                    backgroundColor: `rgb(${effective.r}, ${effective.g}, ${effective.b})`,
+                    backgroundOwn: ownBg,
+                    backgroundInherited: !(layers.length && layers[0].a >= 1 && node === el),
+                    backgroundAssumedCanvas: !opaqueFound,
+                    fontSize: computed.fontSize,
+                    fontWeight: computed.fontWeight,
                     tagName: el.tagName,
-                    className: el.className
+                    className: typeof el.className === 'string' ? el.className : ''
                   };
                 });
 
@@ -137,7 +195,9 @@ jobs:
                   threshold,
                   category,
                   passes,
-                  fontsize: styles.fontSize
+                  fontsize: styles.fontSize,
+                  backgroundInherited: styles.backgroundInherited,
+                  backgroundAssumedCanvas: styles.backgroundAssumedCanvas
                 });
               } catch (e) {
                 // Skip elements we can't measure
@@ -172,7 +232,7 @@ jobs:
 
           async function main() {
             const browser = await chromium.launch();
-            const context = await browser.createContext();
+            const context = await browser.newContext();
             const page = await context.newPage();
 
             // Set viewport to standard desktop size
@@ -192,6 +252,9 @@ jobs:
 
               // Enable dark mode by toggling cellar theme
               console.log('Enabling dark mode (cellar theme)...');
+              const bgBefore = await page.evaluate(
+                () => window.getComputedStyle(document.body).backgroundColor
+              );
               await page.evaluate(() => {
                 document.documentElement.setAttribute('data-theme', 'cellar');
                 localStorage.setItem('theme', 'cellar');
@@ -199,6 +262,23 @@ jobs:
 
               // Wait for theme to apply
               await page.waitForTimeout(500);
+
+              // Measuring light mode and reporting it as the cellar baseline is the
+              // failure mode that looks most like success, so prove the theme landed.
+              const bgAfter = await page.evaluate(
+                () => window.getComputedStyle(document.body).backgroundColor
+              );
+              const themeAttr = await page.evaluate(
+                () => document.documentElement.getAttribute('data-theme')
+              );
+              console.log(`body background: ${bgBefore} -> ${bgAfter} (data-theme=${themeAttr})`);
+              if (bgBefore === bgAfter) {
+                throw new Error(
+                  `data-theme="cellar" did not change the rendered background (${bgAfter}). ` +
+                  `Either the site ignores the attribute or the theme is applied another way — ` +
+                  `refusing to report light-mode numbers as a cellar baseline.`
+                );
+              }
 
               // Run canary test first
               console.log('Running canary test...');
@@ -216,6 +296,15 @@ jobs:
               console.log('Measuring contrast in atlas section...');
               const results = await measureContrast(page);
 
+              // "0 measured" and "0 failed" serialise to the same green summary, so make
+              // an empty result set an explicit failure instead of a silent pass.
+              if (results.length === 0) {
+                throw new Error(
+                  'Measured 0 text elements under #atlas — selector, page structure or ' +
+                  'visibility gating is wrong. This is a broken run, not a passing baseline.'
+                );
+              }
+
               // Create output directory
               mkdirSync('artifacts', { recursive: true });
 
@@ -224,6 +313,7 @@ jobs:
                 timestamp: new Date().toISOString(),
                 url: url,
                 theme: 'cellar (dark mode)',
+                themeProof: { bodyBackgroundBefore: bgBefore, bodyBackgroundAfter: bgAfter, dataTheme: themeAttr },
                 canary: canary,
                 measurements: results,
                 summary: {
@@ -239,13 +329,22 @@ jobs:
               let markdown = `# WCAG AA Contrast Measurement Report\n\n`;
               markdown += `**Generated:** ${new Date().toISOString()}\n`;
               markdown += `**URL:** ${report.url}\n`;
-              markdown += `**Theme:** ${report.theme}\n\n`;
+              markdown += `**Theme:** ${report.theme}\n`;
+              markdown += `**Theme proof:** body background ${bgBefore} → ${bgAfter} (\`data-theme=${themeAttr}\`)\n\n`;
 
               markdown += `## Canary Test\n\n`;
               markdown += `| FG | BG | Ratio | Expected | Pass |\n`;
               markdown += `|----|----|-------|----------|------|\n`;
               for (const t of canary) {
                 markdown += `| ${t.fg} | ${t.bg} | ${t.ratio} | ${t.expected} | ${t.pass ? '✓' : '✗'} |\n`;
+              }
+
+              markdown += `\n## Measurements\n\n`;
+              markdown += `| Element | Text | FG | BG | Ratio | WCAG AA | Result |\n`;
+              markdown += `|---------|------|----|----|-------|---------|--------|\n`;
+              for (const r of results) {
+                const t = String(r.text).replace(/\s+/g, ' ').trim().substring(0, 40);
+                markdown += `| \`${r.element}\` | ${t} | ${r.foreground} | ${r.background} | ${r.ratio} | ${r.threshold}:1 (${r.category}) | ${r.passes ? 'PASS' : 'FAIL'} |\n`;
               }
 
               markdown += `\n## Summary\n\n`;
