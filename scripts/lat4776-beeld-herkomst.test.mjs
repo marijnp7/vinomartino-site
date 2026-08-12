@@ -193,6 +193,112 @@ test('het component rendert géén tweede <figcaption> in de hero-figure', () =>
     assert.match(markup, /data-beeldherkomst=/, 'de machineleesbare marker moet in de markup staan');
 });
 
+// ── LAT-5467 — kaart-/thumbnailrenders dragen dezelfde marker ────────────────
+//
+// LAT-4776 bond de disclosure aan het BESTAND, maar rendert hem alleen in de
+// hero-<figure> van de detailpagina. Op /, /artikelen/, /streken/ en /landen/*
+// staat hetzelfde bestand als kaart-thumbnail zónder marker. Dat werd vier keer
+// opgevangen met een per-bestand `disclosed_elsewhere`-ack; elk nieuw AI-hero-
+// artikel voegde er 2+ regels aan toe. Deze tests zijn de rem daarop: ze falen
+// als een kaartrender de marker verliest of als er een nieuwe bijkomt zonder.
+
+/** Markup-helft (na de tweede `---`) van een .astro-bestand. */
+function astroMarkup(path) {
+    const src = readFileSync(path, 'utf8');
+    return src.slice(src.indexOf('---', src.indexOf('---') + 3));
+}
+
+/** Alle `<img …>`-tags in een stuk markup, als losse strings. */
+function imgTags(markup) {
+    return markup.match(/<img\b[^>]*>/g) || [];
+}
+
+test('syntheticImageAttrs geeft het attribuut alleen voor AI-beeld', async () => {
+    const { syntheticImageAttrs, SYNTHETIC_MARKER_ATTR, SYNTHETIC_MARKER_DATA_ATTR } = await loadSynth();
+    const ids = new Set([ART92_HERO.id]);
+
+    assert.deepEqual(syntheticImageAttrs(ids, ART92_HERO.id), {
+        [SYNTHETIC_MARKER_DATA_ATTR]: SYNTHETIC_MARKER_ATTR,
+    });
+    // Zonder los file-id moet de UUID uit de gebuildde src komen — zo werkt het
+    // op de kaarten, die alleen `/images/<map>/<uuid>.jpg` bij de hand hebben.
+    assert.deepEqual(syntheticImageAttrs(ids, null, `/images/articles/${ART92_HERO.id}.jpg`), {
+        [SYNTHETIC_MARKER_DATA_ATTR]: SYNTHETIC_MARKER_ATTR,
+    });
+    // Een echte foto krijgt niets: het spreiden van {} mag de <img> niet raken.
+    assert.deepEqual(syntheticImageAttrs(ids, ECHTE_FOTO.id), {});
+    assert.deepEqual(syntheticImageAttrs(ids, null, '/images/auteurs/marijn.svg'), {});
+    assert.deepEqual(syntheticImageAttrs(ids, null, null), {});
+
+    // Het attribuut dat de kaarten uitzenden moet door de detector-regex komen,
+    // anders is de hele render-fix onzichtbaar voor de meting.
+    assert.match(
+        `${SYNTHETIC_MARKER_DATA_ATTR}="${SYNTHETIC_MARKER_ATTR}"`,
+        new RegExp(DETECTOR_RE_SOURCE, 'i'),
+    );
+});
+
+test('SmartImg — het gedeelde kaartbeeld draagt de marker', () => {
+    const path = 'src/components/SmartImg.astro';
+    const markup = astroMarkup(path);
+    const tags = imgTags(markup);
+
+    assert.equal(tags.length, 1, `${path} hoort precies één <img> te hebben; pas deze guard aan als dat verandert`);
+    assert.match(
+        tags[0],
+        /\{\.\.\.herkomst\}/,
+        'SmartImg is het kaartbeeld van /artikelen/, /streken/, /landen/* en /accommodaties/. ' +
+            'Zonder de marker vallen al die overzichten terug op per-bestand acks in lat4745-acks.json — ' +
+            'precies de hardgecodeerde scope uit LAT-4713 → 4725 → 4729 → 4761 (LAT-5467).',
+    );
+    assert.match(
+        readFileSync(path, 'utf8'),
+        /syntheticImageAttrs/,
+        'SmartImg moet de marker uit synthetic-images afleiden, niet uit een eigen lijst',
+    );
+    // Een kaart-<figure> draagt al een figcaption voor de licentie-credit; er
+    // mag er maar één zijn. Het attribuut is genoeg — zie LAT-5467.
+    assert.doesNotMatch(markup, /<figcaption/, 'een kaart hoort geen tweede bijschrift te krijgen');
+});
+
+test('HomeContent — elke kaart-<img> met een contentbeeld draagt de marker', () => {
+    // De homepage rendert haar kaarten met een rauwe <img> i.p.v. SmartImg, dus
+    // de marker moet daar per tag mee. Deze test is de vangrail voor een
+    // NIEUWE kaart: hij leidt de scope af uit de markup zelf i.p.v. uit een
+    // lijst van vier bekende regels.
+    const path = 'src/components/HomeContent.astro';
+    const tags = imgTags(astroMarkup(path));
+    assert.ok(tags.length >= 4, `verwacht meerdere <img> in ${path}, gevonden ${tags.length}`);
+
+    // Een contentbeeld herken je aan een src die uit een data-object komt
+    // (`streek.image`, `article.heroImage`, …). Statische paden en constants
+    // (`HERO_IMAGE`, "/over-ons-hero.jpg") staan niet in de DAM en zijn exempt.
+    const contentImgs = tags.filter((t) => /\bsrc=\{[A-Za-z_$][\w$]*\.[\w$.]+\}/.test(t));
+    assert.ok(
+        contentImgs.length >= 4,
+        `verwacht >=4 contentbeeld-<img> in ${path} (streek-tegel, route-kaart, spotlight, artikelkaart), ` +
+            `gevonden ${contentImgs.length} — is de markup herschreven?`,
+    );
+
+    const zonderMarker = contentImgs.filter((t) => !/\{\.\.\.herkomst\(/.test(t));
+    assert.deepEqual(
+        zonderMarker,
+        [],
+        'elke <img> op de homepage die een Directus-beeld toont moet {...herkomst(<src>)} spreiden, ' +
+            'anders staat AI-beeld daar ongemarkeerd en groeit lat4745-acks.json weer per artikel (LAT-5467)',
+    );
+
+    // Falsifieerbaarheid in de andere richting: de statische hero/portret mogen
+    // NIET meegenomen zijn, anders test de filter hierboven niets.
+    const statisch = tags.filter((t) => /src=\{HERO_IMAGE\}|src="\//.test(t));
+    assert.ok(statisch.length >= 2, 'de statische hero en het portret horen buiten de contentbeeld-scope te vallen');
+    assert.equal(
+        statisch.filter((t) => contentImgs.includes(t)).length,
+        0,
+        'de contentbeeld-filter vangt ook statische paden — dan bewijst hij niets over de kaarten',
+    );
+});
+
 test('assetIdFromSrc haalt de UUID uit gebuildde paden, ook met prefix', async () => {
     const { assetIdFromSrc } = await loadSynth();
     const id = '86cc34e0-dbc8-4c79-96e6-aff7567467df';

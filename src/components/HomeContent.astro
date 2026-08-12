@@ -14,6 +14,9 @@ import { getAuthorByByline } from '../lib/authors';
 import { loadUiStrings } from '../lib/ui-strings';
 import { rubriekLabel } from '../lib/rubriek-labels';
 import { type Locale, DEFAULT_LOCALE, localizeHref } from '../lib/i18n';
+// LAT-5467 — de homepage rendert haar kaarten met een rauwe <img> i.p.v.
+// SmartImg, dus de beeld-niveau §7-marker moet hier apart worden meegegeven.
+import { loadSyntheticImageIds, syntheticImageAttrs } from '../lib/synthetic-images';
 
 interface Props {
   locale?: Locale;
@@ -25,6 +28,11 @@ const { locale = DEFAULT_LOCALE, alternates } = Astro.props;
 // LAT-2704 — interne hrefs locale-aware; NL blijft byte-identiek.
 const lh = (href: string) => localizeHref(href, locale);
 const ui = await loadUiStrings(locale);
+
+// LAT-5467 — één gememoiseerde DAM-read per build; `herkomst(src)` geeft het
+// data-beeldherkomst-attribuut terug voor AI-beeld en niets voor de rest.
+const syntheticIds = await loadSyntheticImageIds();
+const herkomst = (src: string | null | undefined) => syntheticImageAttrs(syntheticIds, null, src);
 const dateLocale = locale === 'en' ? 'en-GB' : 'nl-NL';
 
 // LAT-2008 (VIS-BL-09) — De Brief inline op de homepage. Zelfde MailerLite-
@@ -253,6 +261,7 @@ function formatDate(value?: string | null) {
                 height="1000"
                 loading={idx < 2 ? 'eager' : 'lazy'}
                 decoding="async"
+                {...herkomst(streek.image)}
               />
             </div>
             {streek.visited && (
@@ -287,7 +296,7 @@ function formatDate(value?: string | null) {
         {featuredRoutes.map((r, idx) => (
           <a href={lh(`/wijnroutes/${r.slug}/`)} class="card-tile">
             <div class="card-media">
-              <img src={r.image} alt={r.title} width="600" height="450" loading={idx < 3 ? 'eager' : 'lazy'} decoding="async" />
+              <img src={r.image} alt={r.title} width="600" height="450" loading={idx < 3 ? 'eager' : 'lazy'} decoding="async" {...herkomst(r.image)} />
             </div>
             <div class="card-body">
               {(r.duration || r.regionTag) && (
@@ -320,6 +329,7 @@ function formatDate(value?: string | null) {
               loading="lazy"
               decoding="async"
               class="spotlight-img"
+              {...herkomst(spotlight.heroImage)}
             />
           ) : (
             <div class="spotlight-img spotlight-placeholder" aria-hidden="true"></div>
@@ -358,7 +368,7 @@ function formatDate(value?: string | null) {
             <a href={lh(`/artikelen/${article.slug}/`)} class="card-tile">
               <div class:list={['card-media', !article.heroImage && 'is-empty']}>
                 {article.heroImage ? (
-                  <img src={article.heroImage} alt={article.title} width="600" height="450" loading="lazy" decoding="async" />
+                  <img src={article.heroImage} alt={article.title} width="600" height="450" loading="lazy" decoding="async" {...herkomst(article.heroImage)} />
                 ) : (
                   <div class="card-placeholder" aria-hidden="true"></div>
                 )}
