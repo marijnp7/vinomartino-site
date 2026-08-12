@@ -169,3 +169,39 @@ export function isSyntheticImage(
     const id = (fileId && String(fileId).toLowerCase()) || assetIdFromSrc(src);
     return Boolean(id && syntheticIds.has(id));
 }
+
+/** Naam van het machineleesbare attribuut; zelfde op hero en kaart. */
+export const SYNTHETIC_MARKER_DATA_ATTR = 'data-beeldherkomst';
+
+/**
+ * LAT-5467 — kaart-/thumbnail-variant van de disclosure.
+ *
+ * Op een overzichtspagina (`/`, `/artikelen/`, `/streken/`, `/landen/*`) staat
+ * hetzelfde bestand als kaart-thumbnail. `BeeldHerkomst.astro` past daar niet:
+ * dat rendert een zichtbaar bijschrift dat op een kaart niet gewenst is, en de
+ * kaart-<figure>s dragen al een eigen figcaption (er mag er maar één zijn).
+ *
+ * Deze helper geeft daarom alléén het machineleesbare attribuut terug, te
+ * spreiden over de <img> zelf:
+ *
+ *     <img src={src} {...syntheticImageAttrs(ids, fileId, src)} />
+ *
+ * Waarom op de <img> en niet in een extra element: een wrapper zou de
+ * card-grid-layout raken, en het attribuut hoort semantisch bij het beeld dat
+ * het beschrijft — zo blijft de marker ook kloppen als er meerdere beelden op
+ * één kaartpagina staan.
+ *
+ * Dit vervangt de per-bestand `disclosed_elsewhere`-acks in
+ * /paperclip/ops/lat4745-acks.json: die schaalden mee met elk nieuw AI-hero-
+ * artikel (2+ regels per stuk) en zijn precies de hardgecodeerde scope waar
+ * LAT-4713 → 4725 → 4729 → 4761 vier rondes lang op stukliep.
+ */
+export function syntheticImageAttrs(
+    syntheticIds: ReadonlySet<string>,
+    fileId: string | null | undefined,
+    src?: string | null,
+): Record<string, string> {
+    return isSyntheticImage(syntheticIds, fileId, src)
+        ? { [SYNTHETIC_MARKER_DATA_ATTR]: SYNTHETIC_MARKER_ATTR }
+        : {};
+}

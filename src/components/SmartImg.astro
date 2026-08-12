@@ -1,4 +1,23 @@
 ---
+/**
+ * LAT-5467 — kaart-thumbnails dragen de beeld-niveau marker.
+ *
+ * Dit is het gedeelde kaart-/thumbnailbeeld van de overzichtspagina's
+ * (/artikelen/, /streken/, /landen/*, /accommodaties/, …). LAT-4776 bond de
+ * §7-disclosure aan het BESTAND, maar rendert hem alleen in de hero-<figure>
+ * van de detailpagina; hetzelfde bestand stond hier als thumbnail zónder
+ * marker. Dat werd opgevangen met per-bestand `disclosed_elsewhere`-acks in
+ * /paperclip/ops/lat4745-acks.json — vier stuks, en elk nieuw AI-hero-artikel
+ * voegde er 2+ regels aan toe. Dat is dezelfde hardgecodeerde scope waar
+ * LAT-4713 → 4725 → 4729 → 4761 vier rondes lang op stukliep.
+ *
+ * Hier hangt alléén het machineleesbare attribuut aan de <img>: een zichtbaar
+ * tweede bijschrift hoort niet op een kaart, en de kaart-<figure>s dragen al
+ * een eigen figcaption (er mag er maar één zijn). De leesbare disclosure staat
+ * op de detailpagina, één klik verderop.
+ */
+import { loadSyntheticImageIds, syntheticImageAttrs } from '../lib/synthetic-images';
+
 interface Props {
   src?: string;
   alt: string;
@@ -6,13 +25,18 @@ interface Props {
   class?: string;
   style?: string;
   loading?: 'lazy' | 'eager';
+  /** Directus file-UUID, als de aanroeper hem los bij de hand heeft. */
+  fileId?: string | null;
 }
 
-const { src, alt, class: className, style, loading = 'lazy' } = Astro.props;
+const { src, alt, class: className, style, loading = 'lazy', fileId = null } = Astro.props;
+
+// Gememoiseerd per build (één /files-read), dus deze await is per kaart gratis.
+const herkomst = syntheticImageAttrs(await loadSyntheticImageIds(), fileId, src);
 ---
 
 {src ? (
-  <img src={src} alt={alt} class={className} style={style} loading={loading} />
+  <img src={src} alt={alt} class={className} style={style} loading={loading} {...herkomst} />
 ) : (
   <div class:list={['smart-img-placeholder', className]} style={style} role="img" aria-label={alt}>
     <svg viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" preserveAspectRatio="xMidYMid slice">

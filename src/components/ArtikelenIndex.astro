@@ -154,7 +154,7 @@ function cardData(a: typeof articles[number]) {
                 data-streek={d.streek}
               >
                 <div class="article-img-wrap">
-                  <SmartImg src={article.heroImage || undefined} alt={article.title} theme="vineyard" class="article-img" />
+                  <SmartImg src={article.heroImage || undefined} alt={article.title} theme="vineyard" class="article-img" fileId={article.heroImageId} />
                 </div>
                 <div class="article-body">
                   {article.category && <span class="article-cat">{rubriekLabel(ui, article.category)}</span>}
