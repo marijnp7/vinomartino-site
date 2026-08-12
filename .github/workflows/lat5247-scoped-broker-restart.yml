@@ -153,17 +153,36 @@ jobs:
             echo "=== 4. herstart ==="
             docker restart "$CTR"
 
+            # Liveness wordt gemeten met een HTTP-probe, NIET met een grep op 'listening':
+            # in mode=diagnose gaf `docker logs --tail 5` op de draaiende, gezonde broker
+            # nul regels, dus een log-grep zou een geslaagde deploy terugrollen.
+            # De broker routet alleen /containers/... — /_ping hoort dus 403 te geven.
+            # Elke echte HTTP-status (dus != 000) bewijst dat hij luistert; 000 = dood.
             ok=0
             for i in 1 2 3 4 5 6 7 8 9 10; do
               sleep 3
               ST=$(docker inspect -f '{{.State.Status}}' "$CTR")
-              echo "poging $i: status=$ST"
-              if [ "$ST" = "running" ] && docker logs --tail 20 "$CTR" 2>&1 | grep -q 'listening'; then
+              CODE=$(docker exec paperclip-devops-workspace-1 \
+                       curl -s -o /dev/null -w '%{http_code}' --max-time 5 \
+                       http://paperclip-devops-proxy-scoped-1:2375/_ping 2>/dev/null || echo 000)
+              echo "poging $i: status=$ST probe_http=$CODE"
+              if [ "$ST" = "running" ] && [ "$CODE" != "000" ]; then
                 ok=1; break
               fi
             done
 
-            echo "=== docker logs --tail 5 ==="
+            if [ "$ok" = "1" ]; then
+              echo "=== bezinkcheck: 10s later nog steeds op? ==="
+              sleep 10
+              ST2=$(docker inspect -f '{{.State.Status}}' "$CTR")
+              CODE2=$(docker exec paperclip-devops-workspace-1 \
+                        curl -s -o /dev/null -w '%{http_code}' --max-time 5 \
+                        http://paperclip-devops-proxy-scoped-1:2375/_ping 2>/dev/null || echo 000)
+              echo "bezinken: status=$ST2 probe_http=$CODE2"
+              [ "$ST2" = "running" ] && [ "$CODE2" != "000" ] || ok=0
+            fi
+
+            echo "=== docker logs --tail 5 (informatief; kan leeg zijn) ==="
             docker logs --tail 5 "$CTR" 2>&1
             docker inspect -f 'status={{.State.Status}} started={{.State.StartedAt}} restarts={{.RestartCount}}' "$CTR"
 
