@@ -29,6 +29,18 @@ jobs:
     timeout-minutes: 10
 
     steps:
+      - name: Guard against wrong-ref dispatch
+        # LAT-5317: a manual workflow_dispatch has no ref restriction — GitHub
+        # runs whatever version of this file lives on the selected ref, so this
+        # only protects branches carrying this check. It caught a dispatch
+        # against a 17-day-stale orphan branch (feat/lat-2802-notify-endpoint)
+        # that silently regressed production. Real fix (repo Environment
+        # protection rule, enforced regardless of ref) still needs a repo admin.
+        if: github.ref != 'refs/heads/preview'
+        run: |
+          echo "::error::deploy-cos.yml must be dispatched against 'preview' (got '${{ github.ref_name }}'). Re-run workflow_dispatch with 'Use workflow from' set to preview."
+          exit 1
+
       - name: Checkout
         uses: actions/checkout@v4
 
