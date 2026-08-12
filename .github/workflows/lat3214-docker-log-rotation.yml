@@ -1,0 +1,179 @@
+# LAT-3214 — docker log-opts (max-size 50m, max-file 3) op de VPS-host.
+#
+# Geen enkele container had log-opts geconfigureerd; json-log-bestanden groeien
+# onbegrensd op /var/lib/docker/containers/*/*-json.log. Dit sluit dat gat via
+# /etc/docker/daemon.json.
+#
+# Route: zelfde GHA->VPS SSH-kanaal als .github/workflows/lat2802-deploy-cos-monitor.yml
+# (kaart 932321e7) en lat4750-recreate-publish-dispatcher.yml (kaart 933eff00) — geen
+# broker-ACL nodig, dit is een volwaardige host-shell.
+#
+# Drie modes, oplopend risico:
+#   measure       — alleen lezen: json-log-groottes + df. Geen wijziging.
+#   apply-reload  — schrijft daemon.json (met backup), stuurt SIGHUP via
+#                   `systemctl reload docker`, en TOETST met een wegwerp-testcontainer
+#                   of de nieuwe log-opts daadwerkelijk zijn opgepikt. Herstelt de
+#                   backup NIET automatisch — als reload niet werkt blijft de nieuwe
+#                   daemon.json staan (die is onschadelijk totdat er wél herstart wordt)
+#                   en rapporteert de job dat een restart nodig is.
+#   verify        — alleen lezen: leest de actieve daemon-config en test-container-config
+#                   terug, zonder iets te wijzigen. Voor gebruik ná een handmatige
+#                   restart-actie (die hoort niet in dit bestand thuis, zie hieronder).
+#
+# UITDRUKKELIJK NIET IN DIT BESTAND: `systemctl restart docker` / `dockerd` herstart.
+# Traefik, Directus en de Paperclip-control-plane draaien op deze host — een volledige
+# daemon-restart legt de hele agent-vloot plat. Blijkt reload onvoldoende (verwacht:
+# log-driver/log-opts default staat niet op Docker's live-reloadable lijst), dan is een
+# restart een APART voorstel met een eigen Marijn-gate (R4) en stiltevenster — nooit
+# vanuit een workflow-run zonder dat besluit.
+
+name: LAT-3214 docker log-rotation
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'measure = alleen meten; apply-reload = daemon.json schrijven + reload; verify = alleen aflezen'
+        required: true
+        default: measure
+        type: choice
+        options:
+          - measure
+          - apply-reload
+          - verify
+
+concurrency:
+  group: lat3214-docker-log-rotation
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          cat >> ~/.ssh/config <<EOF
+          Host $VPS_HOST
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+          EOF
+          cat "$GITHUB_WORKSPACE/ops/ssh-config-snippet" >> ~/.ssh/config
+          ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      # ---------------------------------------------------------------- measure
+      - name: Measure (read-only)
+        if: inputs.mode == 'measure'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          MEASURE: |
+            set -uo pipefail
+            echo "=== df BEFORE ==="
+            df -h / | tail -1
+            echo
+            echo "=== huidige daemon.json (indien aanwezig) ==="
+            if [ -f /etc/docker/daemon.json ]; then
+              cat /etc/docker/daemon.json
+            else
+              echo "(bestaat niet)"
+            fi
+            echo
+            echo "=== json-log-groottes, top 20 ==="
+            du -sh /var/lib/docker/containers/*/*-json.log 2>/dev/null | sort -rh | head -20
+            echo
+            echo "=== totaal alle json-logs ==="
+            du -ch /var/lib/docker/containers/*/*-json.log 2>/dev/null | tail -1
+            echo
+            echo "=== log-config van draaiende containers (huidige default) ==="
+            for c in $(docker ps -q); do
+              name=$(docker inspect -f '{{.Name}}' "$c" | sed 's|^/||')
+              cfg=$(docker inspect -f '{{.HostConfig.LogConfig.Type}} {{.HostConfig.LogConfig.Config}}' "$c")
+              echo "  $name: $cfg"
+            done
+        run: |
+          printf '%s\n' "$MEASURE" | ssh "$VPS" "bash -s"
+
+      # ---------------------------------------------------------------- apply-reload
+      - name: Apply daemon.json + reload (SIGHUP, geen restart)
+        if: inputs.mode == 'apply-reload'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          APPLY: |
+            set -uo pipefail
+            echo "=== df BEFORE ==="
+            df -h / | tail -1
+            echo
+
+            echo "=== backup ==="
+            if [ -f /etc/docker/daemon.json ]; then
+              cp /etc/docker/daemon.json "/etc/docker/daemon.json.bak-lat3214-$(date -u +%Y%m%dT%H%M%SZ)"
+              echo "backup gemaakt van bestaand daemon.json"
+              ORIG=$(cat /etc/docker/daemon.json)
+            else
+              echo "geen bestaand daemon.json — nieuw bestand"
+              ORIG='{}'
+            fi
+
+            echo "=== merge log-driver/log-opts in bestaande config (python3, geen sleutels overschrijven behalve log-driver/log-opts) ==="
+            NEW=$(python3 -c "
+import json
+orig = json.loads('''$ORIG''') if '''$ORIG'''.strip() else {}
+orig['log-driver'] = 'json-file'
+orig['log-opts'] = {'max-size': '50m', 'max-file': '3'}
+print(json.dumps(orig, indent=2))
+")
+            echo "$NEW" > /etc/docker/daemon.json
+            echo "--- nieuwe daemon.json ---"
+            cat /etc/docker/daemon.json
+
+            echo
+            echo "=== dockerd --validate (config-syntax check vóór reload) ==="
+            if command -v dockerd >/dev/null 2>&1; then
+              dockerd --validate --config-file /etc/docker/daemon.json || { echo "::error::daemon.json ongeldig, NIET reloaded"; exit 1; }
+            fi
+
+            echo
+            echo "=== systemctl reload docker (SIGHUP) ==="
+            systemctl reload docker
+            sleep 2
+            systemctl is-active docker
+
+            echo
+            echo "=== testcontainer NA reload: pikt de nieuwe default log-opts op? ==="
+            docker run -d --name lat3214-logtest alpine:3.20 sh -c 'sleep 30' >/dev/null
+            docker inspect -f 'type={{.HostConfig.LogConfig.Type}} config={{.HostConfig.LogConfig.Config}}' lat3214-logtest
+            docker rm -f lat3214-logtest >/dev/null
+
+            echo
+            echo "=== df AFTER ==="
+            df -h / | tail -1
+        run: |
+          printf '%s\n' "$APPLY" | ssh "$VPS" "bash -s"
+
+      # ---------------------------------------------------------------- verify
+      - name: Verify (read-only)
+        if: inputs.mode == 'verify'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          VERIFY: |
+            set -uo pipefail
+            cat /etc/docker/daemon.json 2>/dev/null || echo "(geen daemon.json)"
+            echo
+            docker run -d --name lat3214-verify alpine:3.20 sh -c 'sleep 30' >/dev/null
+            docker inspect -f 'type={{.HostConfig.LogConfig.Type}} config={{.HostConfig.LogConfig.Config}}' lat3214-verify
+            docker rm -f lat3214-verify >/dev/null
+        run: |
+          printf '%s\n' "$VERIFY" | ssh "$VPS" "bash -s"
