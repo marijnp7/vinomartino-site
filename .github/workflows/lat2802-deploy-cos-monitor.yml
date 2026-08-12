@@ -83,6 +83,17 @@ jobs:
             echo "notify-voorkomens in de DRAAIENDE monitor.js: $(docker exec paperclip-monitor-1 grep -c notify /app/monitor.js 2>/dev/null || echo onbekend)"
             echo "notify-voorkomens in de HOST-bron: $(grep -c notify monitor/monitor.js 2>/dev/null || echo 0)"
 
+            # LAT-5503: een telling van het woord "notify" schuift bij elke wijziging
+            # mee en bewijst dus nooit WELKE versie draait -- precies het gat waardoor
+            # "gedeployed" en "live" uit elkaar kunnen lopen. Draai daarom de constanten
+            # zelf uit de DRAAIENDE container; dat is de enige plek waar staat wat er
+            # echt gebeurt (de host-bron kan nieuwer zijn dan het image). Uitvoer is een
+            # kale naam=waarde-lijst, geen env, dus hier lekt niets.
+            echo "=== drempels in de DRAAIENDE monitor.js (LAT-5503) ==="
+            docker exec paperclip-monitor-1 \
+              grep -E '^const DISK_(THRESHOLD|RECOVERY_THRESHOLD|CRITICAL_THRESHOLD)' /app/monitor.js \
+              2>/dev/null || echo "GEEN DREMPELS GEVONDEN — draaiende monitor is ouder dan LAT-5494"
+
             echo "=== compose-validatie (geen output, alleen exitcode) ==="
             # --quiet is essentieel: `docker compose config` zonder --quiet kan env_file
             # expanderen naar environment: en zou secrets in dit workflow-log zetten.
