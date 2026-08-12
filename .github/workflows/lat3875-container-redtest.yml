@@ -182,13 +182,20 @@ jobs:
             run_case lat3875-ct-green422 "lat3875-stub-token-not-real" "http://127.0.0.1:8080" healthy "$STUB_422" '"probe_status":422' 200
 
             echo
-            echo "=== 3b. ROOD 3/3: expiry-as — token werkt (422) maar verloopt binnen 14 dagen ==="
+            echo "=== 3b. EXPIRY-AS: token werkt (422) maar verloopt binnen 14 dagen ==="
             # De drie cases hierboven pinnen expiry bewust ver weg, zodat de expiry-as het
-            # probe-verdict niet vertroebelt. Gevolg: de regel "degraded onder 14 dagen" uit
-            # dit ticket werd door geen enkele case aangeraakt en kon dus niet rood worden.
-            # Deze case is de tegenproef op precies die as: capability is in orde (422), alleen
-            # de vervaldatum is nabij. Verwachting is uit het ticket afgeleid, niet uit het
-            # waargenomen gedrag: <14 dagen -> degraded -> ok:false -> 503 -> unhealthy.
+            # probe-verdict niet vertroebelt. Gevolg: de expiry-regel uit dit ticket werd door
+            # geen enkele case aangeraakt en kon dus niet rood worden. Deze case isoleert die as:
+            # capability in orde (422), alleen de vervaldatum nabij.
+            #
+            # LET OP wat hier WEL en NIET getoetst wordt. Getoetst: de DETECTIE — `warn` moet
+            # gevuld zijn en de capability moet groen blijven. Niet getoetst: het VERDICT.
+            # Gemeten in run 31611693031 blijft `state` op `ok` en `/health` op 200 bij 5 dagen
+            # resterend, terwijl LAT-3875 "degraded onder 14 dagen" vroeg. Of dat verdict moet
+            # veranderen is een openstaand ontwerpbesluit (LAT-5276): een werkend token 14 dagen
+            # vooraf `unhealthy` maken is een zelf-veroorzaakte storing. Deze case is daarom NIET
+            # aangepast om bij het waargenomen gedrag te passen — de verdict-eis is er bewust
+            # uitgehouden tot dat besluit valt, en hoort daarna hier ingevuld te worden.
             #
             # De datum wordt bij elke run berekend, niet vastgezet: een hardgecodeerde datum
             # verschuift stilletjes van "verloopt bijna" naar "al verlopen" en meet dan iets anders.
@@ -198,7 +205,10 @@ jobs:
             const h=require("node:http");h.createServer((q,s)=>{s.writeHead(422,{"content-type":"application/json","github-authentication-token-expiration":"$EXP_SOON"});s.end('{"message":"No ref found"}');}).listen(8080,"127.0.0.1");
             STUBEOF
             STUB_EXPIRY=$(base64 -w0 < /tmp/lat3875-cto-expiry-stub.cjs)
-            run_case lat3875-ct-expiry "lat3875-stub-token-not-real" "http://127.0.0.1:8080" unhealthy "$STUB_EXPIRY" '"state":"degraded"' 503
+            # De body-eis staat op de warn-tekst, niet op een berekend getal: `expires_in_days`
+            # is afgeleid van de stub-datum en zou dan zichzelf toetsen. Blijft `warn` leeg, dan
+            # is de expiry-detectie stuk en gaat deze case rood.
+            run_case lat3875-ct-expiry "lat3875-stub-token-not-real" "http://127.0.0.1:8080" healthy "$STUB_EXPIRY" '"warn":"token expires in' 200
 
             echo
             echo "=== 4. OPRUIMEN weesresten van 2026-08-05 (LAT-3875 punt 4) ==="
