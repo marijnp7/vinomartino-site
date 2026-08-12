@@ -1,0 +1,161 @@
+# LAT-2802 — dispatch-only deploy van paperclip-monitor-1 (de monitor-helft van PR #195).
+#
+# Goedgekeurd: kaart 932321e7 ("Deploy /notify op cos-bridge + monitor (LAT-2802) — PR #195",
+# goedgekeurd 2026-07-23). De route zelf (agent voert uit via het bestaande GHA->VPS
+# SSH-kanaal in plaats van een handmatige host-shell) volgt het precedent van
+# .github/workflows/lat4750-recreate-publish-dispatcher.yml (kaart 933eff00).
+#
+# WAAROM EEN EIGEN WORKFLOW: deploy-cos.yml synct alleen services/cos-bridge/bridge/ en
+# raakt monitor/ en docker-compose.monitoring.yml niet aan. De scoped docker-broker
+# (_lat3001/scoped_broker.py) weigert DELETE, dus een `compose up --force-recreate` kan
+# niet vanuit een agent-container: de oude container met vaste container_name kan er niet
+# af en de nieuwe botst op de naam. Het SSH-kanaal heeft die beperking niet.
+#
+# Geen push-trigger. `mode` kiest alleen tussen vaste scripts; er wordt niets uit de input
+# in een commando geinterpoleerd.
+#
+# LET OP bij het pushen: elk bestand onder .github/ op main triggert normaal een
+# productie-release van vinomartino.com (deploy.yml gebruikt paths-ignore en .github/**
+# staat daar bewust niet in). Daarom pushen met "[skip ci]" en daarna verifieren met
+#   gh run list --repo marijnp7/vinomartino-site --branch main --limit 5
+
+name: LAT-2802 deploy cos-monitor
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'diagnose = alleen lezen; deploy = rsync + rebuild monitor'
+        required: true
+        default: diagnose
+        type: choice
+        options:
+          - diagnose
+          - deploy
+
+concurrency:
+  group: lat2802-deploy-cos-monitor
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          cat >> ~/.ssh/config <<EOF
+          Host $VPS_HOST
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+          EOF
+          cat "$GITHUB_WORKSPACE/ops/ssh-config-snippet" >> ~/.ssh/config
+          ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      # ---------------------------------------------------------------- diagnose
+      - name: Diagnose (read-only)
+        if: inputs.mode == 'diagnose'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          DIAG: |
+            set -uo pipefail
+            cd /opt/paperclip-cos || { echo "GEEN /opt/paperclip-cos"; exit 1; }
+
+            echo "=== schijf (de hold-reden van LAT-2802) ==="
+            df -h / | tail -1
+
+            echo "=== huidige monitor ==="
+            # -f filter: nooit een kale `docker inspect`, die print de hele env_file.
+            docker inspect -f 'ctr_image={{.Image}} status={{.State.Status}}' paperclip-monitor-1
+            echo "notify-voorkomens in de DRAAIENDE monitor.js: $(docker exec paperclip-monitor-1 grep -c notify /app/monitor.js 2>/dev/null || echo onbekend)"
+            echo "notify-voorkomens in de HOST-bron: $(grep -c notify monitor/monitor.js 2>/dev/null || echo 0)"
+
+            echo "=== compose-validatie (geen output, alleen exitcode) ==="
+            # --quiet is essentieel: `docker compose config` zonder --quiet kan env_file
+            # expanderen naar environment: en zou secrets in dit workflow-log zetten.
+            if docker compose -f docker-compose.cos.yml -f docker-compose.monitoring.yml \
+                 config --quiet 2>/tmp/lat2802-cfg.err; then
+              echo "CONFIG_OK"
+            else
+              echo "CONFIG_FAIL"
+              sed -e 's/github_pat_[A-Za-z0-9_]*/<redacted>/g' /tmp/lat2802-cfg.err
+            fi
+
+            echo "=== bridge /notify aanwezig? (202/401 = aanwezig, 404 = niet gedeployed) ==="
+            curl -s -o /dev/null -w 'ongetekende POST /notify -> HTTP %{http_code}\n' \
+              -X POST http://localhost:3200/notify -d '{}'
+        run: |
+          printf '%s\n' "$DIAG" | ssh "$VPS" "bash -s"
+
+      # ---------------------------------------------------------------- deploy
+      - name: Sync monitor-bron naar VPS
+        if: inputs.mode == 'deploy'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+        run: |
+          # Backup vóór het overschrijven. Bewust geen --delete op monitor/: de
+          # .bak-bestanden op de host zijn het rollback-materiaal van eerdere tickets.
+          ssh "$VPS" "cd /opt/paperclip-cos && cp -n monitor/monitor.js monitor/monitor.js.bak-lat2802 || true"
+
+          rsync -avz \
+            services/cos-bridge/monitor/ \
+            "$VPS:/opt/paperclip-cos/monitor/"
+
+          rsync -avz \
+            services/cos-bridge/docker-compose.monitoring.yml \
+            "$VPS:/opt/paperclip-cos/docker-compose.monitoring.yml"
+
+          rsync -avz \
+            services/cos-bridge/sql/ \
+            "$VPS:/opt/paperclip-cos/sql/"
+
+      - name: Rebuild paperclip-monitor
+        if: inputs.mode == 'deploy'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          REBUILD: |
+            set -euo pipefail
+            cd /opt/paperclip-cos
+
+            echo "=== VOOR ==="
+            docker inspect -f 'ctr_image={{.Image}}' paperclip-monitor-1 || true
+
+            echo "=== validatie vooraf (afbreken zonder iets aan te raken als dit faalt) ==="
+            docker compose -f docker-compose.cos.yml -f docker-compose.monitoring.yml config --quiet
+            echo "CONFIG_OK"
+
+            echo "=== REBUILD + RECREATE ==="
+            docker compose -f docker-compose.cos.yml -f docker-compose.monitoring.yml \
+              up -d --build --force-recreate paperclip-monitor
+
+            echo "=== NA ==="
+            docker inspect -f 'ctr_image={{.Image}} created={{.Created}} status={{.State.Status}}' \
+              paperclip-monitor-1
+            echo "notify-voorkomens in de nieuwe monitor.js: $(docker exec paperclip-monitor-1 grep -c notify /app/monitor.js || echo onbekend)"
+
+            echo "=== opstartlog (30s venster) ==="
+            sleep 30
+            docker logs --tail=40 paperclip-monitor-1 2>&1 | sed -e 's/github_pat_[A-Za-z0-9_]*/<redacted>/g'
+
+            echo "=== draait hij nog? ==="
+            status=$(docker inspect -f '{{.State.Status}}' paperclip-monitor-1)
+            echo "status=$status"
+            if [ "$status" != "running" ]; then
+              echo "::error::monitor draait niet na deploy — rollback: cp monitor/monitor.js.bak-lat2802 monitor/monitor.js && docker compose -f docker-compose.cos.yml -f docker-compose.monitoring.yml up -d --build --force-recreate paperclip-monitor"
+              exit 1
+            fi
+        run: |
+          printf '%s\n' "$REBUILD" | ssh "$VPS" "bash -s"
