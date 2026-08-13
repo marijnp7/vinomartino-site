@@ -151,7 +151,11 @@ jobs:
               echo "::error::build-info.json ontbreekt in preview-dist na rsync"
               exit 1
             fi
-            CONFIG_FILES="nginx-preview.conf htpasswd docker-compose.vinomartino-preview.yml"
+            # LAT-5560: `htpasswd` stond hier ook in. Preview en prod delen
+            # EEN bestand ($SITE_ROOT/htpasswd), dus een preview-publish
+            # schreef de repo-hash over de PRODUCTIE-hash heen. De host is nu
+            # de bron van waarheid; prod-deploy bootstrapt hem als hij mist.
+            CONFIG_FILES="nginx-preview.conf docker-compose.vinomartino-preview.yml"
             for f in $CONFIG_FILES; do
               if [ -f "$STAGE/$f" ]; then
                 [ -f "$SITE_ROOT/$f" ] && cp "$SITE_ROOT/$f" "$SITE_ROOT/$f.bak"

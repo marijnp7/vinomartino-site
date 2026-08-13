@@ -53,10 +53,12 @@ on:
     # dat is de duurdere fout. Fail-open dus.
     #
     # NIET in deze lijst, en dat is opzet:
-    #   • nginx-*.conf, htpasswd, docker-compose.vinomartino-*.yml
+    #   • nginx-*.conf, docker-compose.vinomartino-*.yml
     #     → stap 7 synct deze naar /root/vinomartino-site/ op de VPS.
     #       Wegfilteren betekent dat een nginx-wijziging de VPS nooit
     #       bereikt.
+    #     LAT-5560: `htpasswd` stond hier ook bij en is er bewust uit —
+    #       de host is nu de bron van waarheid, zie stap 7.
     #   • scripts/**  → scripts/verify-build.sh is de dist-completeness
     #       gate uit stap 6 (LAT-1014).
     #   • .github/**  → een wijziging aan deze workflow hoort zichzelf
@@ -321,10 +323,27 @@ jobs:
       # blijft gelijk, de mount blijft geldig. Als rollback maken we eerst
       # een hardlink-snapshot (kost ~0 schijfruimte).
       #
-      # Config-files (nginx, htpasswd, docker-compose) worden ook gesynct
-      # vanuit staging naar /root/vinomartino-site/ zodat repo en VPS in
-      # sync blijven. nginx -t valideert de config vóór reload; bij falen
+      # Config-files (nginx, docker-compose) worden ook gesynct vanuit
+      # staging naar /root/vinomartino-site/ zodat repo en VPS in sync
+      # blijven. nginx -t valideert de config vóór reload; bij falen
       # worden config-files teruggerold.
+      #
+      # LAT-5560 — `htpasswd` zit NIET meer in CONFIG_FILES. Hij bevatte de
+      # $apr1$-hash van de /intern/ basic-auth, stond daardoor in elke clone
+      # en in de git-historie, en werd bij ELKE deploy teruggeschreven naar
+      # de host. Dat laatste maakte een host-only rotatie onmogelijk: iedere
+      # rotatie moest de hash opnieuw committen, en legde hem dus opnieuw
+      # permanent vast. De host is nu de bron van waarheid.
+      #
+      # Randvoorwaarde die dat oplevert (gemeten op LAT-5560): niets in deze
+      # repo maakt /root/vinomartino-site/ aan. Zonder de repo-kopie zou een
+      # VERSE VPS dus geen htpasswd hebben; docker maakt van een ontbrekende
+      # bind-mount-bron een DIRECTORY, `auth_basic_user_file` wijst dan naar
+      # een map en `nginx -t` faalt — de site komt niet op. Vandaar de
+      # bootstrap hieronder: hij genereert het bestand alleen als het er niet
+      # is, met een credential die de host niet verlaat. Bestaat het bestand
+      # al (het normale geval), dan is de bootstrap een no-op en raakt deze
+      # deploy de live hash niet aan.
       - name: Sync to DIST + config + reload
         env:
           VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
@@ -356,8 +375,60 @@ jobs:
               exit 1
             fi
 
+            # htpasswd-bootstrap (LAT-5560) — draait VOOR de config-sync en
+            # voor `nginx -t`, want zonder dit bestand start nginx niet.
+            #
+            # Strikt aanmaken-als-afwezig. Bestaat er al een regulier bestand,
+            # dan gebeurt er niets: een bestaande (mogelijk zojuist geroteerde)
+            # hash mag deze deploy nooit overschrijven. Dat is precies de
+            # stille terugzetting die LAT-5560 wegneemt.
+            HTP="$SITE_ROOT/htpasswd"
+            if [ -f "$HTP" ] && [ -s "$HTP" ]; then
+              echo "htpasswd: aanwezig ($(sha256sum "$HTP" | cut -c1-16)...), bootstrap overgeslagen"
+            else
+              # Een directory op dit pad is het typische gevolg van een eerdere
+              # `docker compose up` zonder bronbestand. Opruimen, anders blijft
+              # `nginx -t` falen.
+              if [ -d "$HTP" ]; then
+                echo "htpasswd: pad is een DIRECTORY (docker heeft hem aangemaakt) -- verwijderen"
+                rmdir "$HTP" || { echo "::error::$HTP is een niet-lege directory; handmatig nakijken"; exit 1; }
+              fi
+              echo "htpasswd: ONTBREEKT -- verse bootstrap"
+              command -v openssl >/dev/null 2>&1 \
+                || { echo "::error::openssl ontbreekt op de host; kan geen htpasswd bootstrappen"; exit 1; }
+              # Wachtwoord wordt hier gegenereerd en verlaat deze host niet:
+              # niet naar de runlog, niet naar de repo, niet naar een secret.
+              # Alleen lengte + sha256-prefix worden gerapporteerd (LAT-3641/3644).
+              BOOT_PW=$(openssl rand -base64 96 | tr -dc 'A-Za-z0-9')
+              BOOT_PW=${BOOT_PW:0:32}
+              [ "${#BOOT_PW}" = "32" ] || { echo "::error::wachtwoordgeneratie faalde"; exit 1; }
+              BOOT_HASH=$(printf '%s' "$BOOT_PW" | openssl passwd -apr1 -stdin)
+              case "$BOOT_HASH" in
+                '$apr1$'*) : ;;
+                *) echo "::error::onverwacht hashformaat uit openssl"; exit 1 ;;
+              esac
+              # umask hier expliciet zetten EN terugzetten: de config-sync
+              # hieronder maakt in dezelfde shell bestanden aan, die mogen
+              # hun eigen rechten houden.
+              OLD_UMASK=$(umask)
+              umask 077
+              printf 'marijn:%s\n' "$BOOT_HASH" > "$HTP"
+              chmod 600 "$HTP"
+              {
+                printf '# LAT-5560 bootstrap basic-auth vinomartino.com/intern/ -- %s\n' "$(date -u +%Y%m%dT%H%M%SZ)"
+                printf '# gebruiker: marijn\n'
+                printf '%s\n' "$BOOT_PW"
+              } > "$SITE_ROOT/.htpasswd-marijn.cred"
+              chmod 600 "$SITE_ROOT/.htpasswd-marijn.cred"
+              echo "htpasswd: aangemaakt, lengte=${#BOOT_PW} wachtwoord-sha256=$(printf '%s' "$BOOT_PW" | sha256sum | cut -c1-16)..."
+              echo "htpasswd: credential opgeborgen in $SITE_ROOT/.htpasswd-marijn.cred (0600)"
+              umask "$OLD_UMASK"
+              unset BOOT_PW BOOT_HASH
+            fi
+
             # Config-files syncen naar site-root (LAT-779)
-            CONFIG_FILES="nginx-prod.conf nginx-preview.conf htpasswd docker-compose.vinomartino-prod.yml docker-compose.vinomartino-preview.yml"
+            # LAT-5560: htpasswd staat hier bewust NIET meer bij.
+            CONFIG_FILES="nginx-prod.conf nginx-preview.conf docker-compose.vinomartino-prod.yml docker-compose.vinomartino-preview.yml"
             for f in $CONFIG_FILES; do
               if [ -f "$STAGE/$f" ]; then
                 [ -f "$SITE_ROOT/$f" ] && cp "$SITE_ROOT/$f" "$SITE_ROOT/$f.bak"
