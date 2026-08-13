@@ -28,9 +28,16 @@
 #   resterend   state      ok     HTTP  container   wie handelt
 #   ---------   --------   -----  ----  ---------   -------------------------------
 #   > 14d       ok         true   200   healthy     niemand
-#   <= 14d      ok         true   200   healthy     alerting leest `warn` (LAT-3858)
+#   <= 14d      ok         true   200   healthy     mens, via het LAT-3858-alarm
 #   <= 2d       degraded   false  503   unhealthy   mens: nu roteren
 #   verlopen    down       false  503   unhealthy   mens: incident (401-as)
+#
+# LET OP: het veld `warn` in de /health-body heeft GEEN lezer. Het 14-daagse alarm van
+# LAT-3858 meet het token rechtstreeks (curl op /user, expiration-header, over de env- en
+# de bestand-kant) en pollt /health niet. Dat is bewust beter — dat alarm werkt ook als de
+# dispatcher plat ligt — maar het betekent dat `warn` diagnostisch is en geen alarm-as.
+# Bouw er geen tweede alarm op zonder eerst LAT-3858's dekking voor DEZE token te meten:
+# twee alarmen op een klasse ontdubbelen op elkaar en zetten er een van stil.
 #
 # Waarom een WARN-tier die groen blijft: 14 dagen rood traint iedereen om het rood
 # te negeren, en dan wordt `unhealthy` genegeerd wanneer hij wel telt.
