@@ -336,6 +336,7 @@ jobs:
             docker rm -f "vino-verify-$RUN_ID" >/dev/null 2>&1 || true
             docker run --rm --name "vino-verify-$RUN_ID" \
               --network none \
+              -e VERIFY_BUILD_MIN_HTML=99999 \
               -v "$STAGE":/app -w /app \
               node:24 bash scripts/verify-build.sh dist
         run: |
