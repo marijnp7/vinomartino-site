@@ -13,3 +13,6 @@ public/images/routes/
 
 # python-gate scripts
 __pycache__/
+
+# LAT-5560: htpasswd hoort op de host, niet in de repo (zie deploy.yml stap 7)
+/htpasswd

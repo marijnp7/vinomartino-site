@@ -79,7 +79,20 @@ docker compose -f docker-compose.vinomartino-prod.yml \
 ```
 
 Als compose niet beschikbaar is of een onverwachte fout geeft, val terug op
-de `docker create + start` flow uit het LAT-909 incident:
+de `docker create + start` flow uit het LAT-909 incident.
+
+> **LAT-5560 — de htpasswd-mount stond hier niet bij.** Dit blok miste
+> `-v /root/vinomartino-site/htpasswd:/etc/nginx/.htpasswd:ro`, terwijl
+> `nginx-prod.conf` wel `auth_basic_user_file /etc/nginx/.htpasswd` gebruikt.
+> Wie dit blok letterlijk volgde, kreeg een container waarin dat bestand
+> ontbreekt; `nginx -t` faalt dan en /intern/ komt niet op. De mount is
+> hieronder toegevoegd.
+>
+> Ontbreekt `/root/vinomartino-site/htpasswd` op de host (verse VPS), maak hem
+> dan **niet** met de hand aan en haal hem **niet** uit de repo — hij staat daar
+> sinds LAT-5560 niet meer in. Draai een productie-deploy: stap 7 genereert hem
+> dan zelf en legt de credential op `/root/vinomartino-site/.htpasswd-marijn.cred`
+> (0600). Roteren daarna via `lat3052-htpasswd-rotate.yml` (`mode=apply`).
 
 ```bash
 docker create \
@@ -89,6 +102,7 @@ docker create \
   --network paperclip_default \
   -v /root/vinomartino-site/dist:/usr/share/nginx/html:ro \
   -v /root/vinomartino-site/nginx-prod.conf:/etc/nginx/conf.d/default.conf:ro \
+  -v /root/vinomartino-site/htpasswd:/etc/nginx/.htpasswd:ro \
   --label traefik.enable=true \
   --label traefik.http.routers.vinomartino.entrypoints=websecure \
   --label "traefik.http.routers.vinomartino.rule=Host(\`vinomartino.com\`) || Host(\`www.vinomartino.com\`)" \
@@ -113,9 +127,10 @@ docker inspect paperclip-vinomartino-prod-1 \
 
 docker inspect paperclip-vinomartino-prod-1 \
   --format '{{range .Mounts}}{{.Source}} → {{.Destination}} ({{if .RW}}rw{{else}}ro{{end}}){{"\n"}}{{end}}'
-# Verwacht twee bind-mounts:
+# Verwacht DRIE bind-mounts:
 #   /root/vinomartino-site/dist → /usr/share/nginx/html (ro)
 #   /root/vinomartino-site/nginx-prod.conf → /etc/nginx/conf.d/default.conf (ro)
+#   /root/vinomartino-site/htpasswd → /etc/nginx/.htpasswd (ro)
 
 docker inspect paperclip-vinomartino-prod-1 \
   --format '{{range $k, $v := .NetworkSettings.Networks}}{{$k}}{{"\n"}}{{end}}'
