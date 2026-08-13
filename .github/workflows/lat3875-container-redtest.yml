@@ -127,6 +127,22 @@ jobs:
             echo "live expiry-drempels (geen secrets, gewone getallen):"
             docker exec "$LIVE" sh -c 'echo "  WARN_DAYS=${HEALTH_EXPIRY_WARN_DAYS:-<default 14>} FAIL_DAYS=${HEALTH_EXPIRY_FAIL_DAYS:-<default 2>}"' 2>/dev/null \
               || echo "  (exec niet mogelijk)"
+            # De WARN-tier leunt erop dat het 14-daagse alarm van LAT-3858 DIT token dekt. Dat
+            # alarm controleert `github-publish.env:GH_TOKEN`; de dispatcher pakt echter
+            # `process.env.GH_TOKEN` (env_file) VOOR /run/secrets/github-publish.env. Draait
+            # productie op een env_file-token met een andere waarde, dan bewaakt het alarm een
+            # ander credential dan de dispatcher gebruikt en vuurt de 14-daagse waarschuwing
+            # nooit voor deze. Alleen de fp (16 tekens sha256), nooit de waarde.
+            echo "live token-herkomst en fp (LAT-5276 -> dekking LAT-3858):"
+            docker exec "$LIVE" sh -c 'printf "  fp=%s len=%s\n" "$(printf %s "$GH_TOKEN" | sha256sum | cut -c1-16)" "${#GH_TOKEN}"' 2>/dev/null \
+              || echo "  (exec niet mogelijk)"
+            # Niet `... | sed || echo`: de exit-status van een pipeline is die van de LAATSTE
+            # stap, dus die fallback vuurt nooit en "niets gevonden" ziet er dan uit als stilte.
+            HERKOMST=$(docker logs "$LIVE" 2>&1 | grep -o 'GH_TOKEN loaded from [a-z ()_]*' | tail -1)
+            if [ -n "$HERKOMST" ]; then echo "  $HERKOMST"; else
+              echo "  (herkomst-regel staat niet meer in de bewaarde logs — log-rotatie, LAT-3214)"; fi
+            echo "  vergelijk met: github-publish.env=88eda9dd… (door LAT-3858 bewaakt),"
+            echo "                 store 5e58949a v4=2fe4c9c5… (NIET in de bestand-inventaris)"
             echo "Docker herstart zelf NIET op unhealthy (alleen Swarm/autoheal doet dat);"
             echo "restart policy hierboven zegt alleen iets over EXIT, niet over health."
 
