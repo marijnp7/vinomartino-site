@@ -110,15 +110,22 @@ jobs:
             echo "=== vm.swappiness ==="
             sysctl vm.swappiness
             echo
-            echo "=== zou apply doorgaan? (4G + 2G marge) ==="
+            echo "=== zou apply doorgaan? ==="
             AVAIL_MB=$(df -BM --output=avail / | tail -1 | tr -dc '0-9')
+            SIZE_MB=$(df -BM --output=size / | tail -1 | tr -dc '0-9')
+            USED_MB=$(df -BM --output=used / | tail -1 | tr -dc '0-9')
             NEED_MB=4096
             MIN_FREE_AFTER_MB=2048
+            DISK_THRESHOLD=85
+            PCT_AFTER=$(( (USED_MB + NEED_MB) * 100 / SIZE_MB ))
             echo "beschikbaar=${AVAIL_MB}M nodig=${NEED_MB}M marge-na=${MIN_FREE_AFTER_MB}M"
-            if [ "$AVAIL_MB" -ge "$((NEED_MB + MIN_FREE_AFTER_MB))" ]; then
-              echo "VERDICT: apply zou DOORGAAN"
-            else
+            echo "schijfgebruik na allocatie = ${PCT_AFTER}% (monitordrempel ${DISK_THRESHOLD}%)"
+            if [ "$AVAIL_MB" -lt "$((NEED_MB + MIN_FREE_AFTER_MB))" ]; then
               echo "VERDICT: apply zou AFBREKEN (te weinig vrije schijf)"
+            elif [ "$PCT_AFTER" -ge "$DISK_THRESHOLD" ]; then
+              echo "VERDICT: apply zou AFBREKEN (zou de monitordrempel van ${DISK_THRESHOLD}% overschrijden)"
+            else
+              echo "VERDICT: apply zou DOORGAAN"
             fi
             echo "LAT5145_MEASURE_OK"
         run: |
@@ -134,6 +141,7 @@ jobs:
             SWAPFILE=/swapfile
             SIZE_MB=4096
             MIN_FREE_AFTER_MB=2048
+            DISK_THRESHOLD=85
             SYSCTL_D=/etc/sysctl.d/99-lat5145-swappiness.conf
 
             echo "=== 0. is er al swap? (dan is dit een no-op, geen fout) ==="
@@ -149,12 +157,29 @@ jobs:
               exit 1
             fi
 
-            echo "=== 1. schijfruimte-preconditie (hard) ==="
+            echo "=== 1. schijfruimte-precondities (hard, twee toetsen) ==="
             AVAIL_MB=$(df -BM --output=avail / | tail -1 | tr -dc '0-9')
-            echo "beschikbaar=${AVAIL_MB}M nodig=${SIZE_MB}M marge-na=${MIN_FREE_AFTER_MB}M"
+            FS_SIZE_MB=$(df -BM --output=size / | tail -1 | tr -dc '0-9')
+            FS_USED_MB=$(df -BM --output=used / | tail -1 | tr -dc '0-9')
             df -h /
+
+            # Toets A — absolute ruimte.
+            echo "beschikbaar=${AVAIL_MB}M nodig=${SIZE_MB}M marge-na=${MIN_FREE_AFTER_MB}M"
             if [ "$AVAIL_MB" -lt "$((SIZE_MB + MIN_FREE_AFTER_MB))" ]; then
               echo "::error::te weinig vrije schijf: ${AVAIL_MB}M beschikbaar, ${SIZE_MB}M nodig plus ${MIN_FREE_AFTER_MB}M marge. Afgebroken; niets aangeraakt."
+              exit 1
+            fi
+
+            # Toets B — percentage tegen de drempel van de draaiende monitor.
+            # Dit is de toets die er echt toe doet, en toets A vangt hem NIET: op
+            # 2026-08-13 stond de host op 87% met 13,7G vrij, dus toets A gaf ruim
+            # groen terwijl 4G erbij het gebruik naar ~91% duwt. `fallocate` reserveert
+            # meteen, dus dat is geen prognose maar het directe gevolg van deze run.
+            # DISK_THRESHOLD staat op 85 in services/cos-bridge/monitor/monitor.js:31.
+            PCT_AFTER=$(( (FS_USED_MB + SIZE_MB) * 100 / FS_SIZE_MB ))
+            echo "schijfgebruik na allocatie = ${PCT_AFTER}% (monitordrempel ${DISK_THRESHOLD}%)"
+            if [ "$PCT_AFTER" -ge "$DISK_THRESHOLD" ]; then
+              echo "::error::deze allocatie zet het schijfgebruik op ${PCT_AFTER}%, op of over de monitordrempel van ${DISK_THRESHOLD}%. Dat maakt een bestaand alarm erger voor een voorzorgsmaatregel. Eerst schijfruimte terugwinnen (LAT-2886). Afgebroken; niets aangeraakt."
               exit 1
             fi
             echo "DISK_OK"
