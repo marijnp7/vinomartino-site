@@ -14,6 +14,37 @@
 # LET OP bij pushen: elk bestand onder .github/ op main triggert normaal een
 # productie-release (deploy.yml heeft .github/** niet in paths-ignore). Pushen met
 # "[skip ci]".
+#
+# ---------------------------------------------------------------------------
+# LAT-5276 — BESLUIT over het expiry-verdict (CTO, 2026-08-13)
+#
+# Vraag: wat doet een token dat NU werkt maar binnenkort verloopt met het
+# health-verdict? LAT-3875 vroeg "degraded onder 14 dagen"; letterlijk uitgevoerd
+# zet dat een volledig werkend token 14 dagen lang op `unhealthy`.
+#
+# Besluit: NIET letterlijk. Expiry is een eigen as met TWEE drempels, en die
+# staan al in `src/index.js` (HEALTH_EXPIRY_WARN_DAYS=14, HEALTH_EXPIRY_FAIL_DAYS=2):
+#
+#   resterend   state      ok     HTTP  container   wie handelt
+#   ---------   --------   -----  ----  ---------   -------------------------------
+#   > 14d       ok         true   200   healthy     niemand
+#   <= 14d      ok         true   200   healthy     alerting leest `warn` (LAT-3858)
+#   <= 2d       degraded   false  503   unhealthy   mens: nu roteren
+#   verlopen    down       false  503   unhealthy   mens: incident (401-as)
+#
+# Waarom een WARN-tier die groen blijft: 14 dagen rood traint iedereen om het rood
+# te negeren, en dan wordt `unhealthy` genegeerd wanneer hij wel telt.
+# Waarom een FAIL-tier toch bestaat: op <= 2 dagen is de storing niet meer
+# hypothetisch maar ingepland, en heeft de warn-tier al 12 dagen geroepen.
+# `unhealthy` is daar geen zelf-veroorzaakte storing maar het laatste signaal
+# voor een onvermijdelijke.
+#
+# Het GEDRAG was dus al af; wat ontbrak was de tegenproef. Case 3b raakte alleen
+# de warn-tier en liet het verdict expliciet ongemoeid, en de FAIL-tier werd door
+# geen enkele case aangeraakt — precies de fout die LAT-3875 zelf aanklaagt: een
+# drempel die niet rood KAN worden. Case 3b toetst nu ook het verdict (groen
+# blijven IS het besluit) en case 3c isoleert de FAIL-tier.
+# ---------------------------------------------------------------------------
 
 name: LAT-3875 container redtest publish-dispatcher
 
@@ -73,6 +104,24 @@ jobs:
             echo
             echo "Als hierboven GEEN-HEALTHCHECK staat kan de container per definitie niet"
             echo "unhealthy worden en is de rest van deze run zinloos."
+
+            # ------------------------------------------------- 0b. wie handelt op unhealthy?
+            # LAT-5276 leunt op de aanname dat `unhealthy` een SIGNAAL is en geen ACTIE. Klopt
+            # die niet — herstart iets de container, of trekt iets verkeer weg — dan is de
+            # FAIL-tier op 2 dagen een zelf-veroorzaakte storing en moet HEALTH_EXPIRY_FAIL_DAYS
+            # naar 0 (alleen de echte 401 nog rood). Daarom hier gemeten, niet geredeneerd.
+            # Alleen-lezen, en met smalle --format: een kale `docker inspect` dumpt .Config.Env.
+            echo
+            echo "=== 0b. CONSUMENTEN VAN HET HEALTH-VERDICT (LAT-5276-aanname) ==="
+            echo "restart policy live : $(docker inspect -f '{{.HostConfig.RestartPolicy.Name}}:{{.HostConfig.RestartPolicy.MaximumRetryCount}}' "$LIVE")"
+            echo "autoheal-achtige containers:"
+            docker ps --format '{{.Names}} {{.Image}}' | grep -Ei 'autoheal|willfarrell|docker-autoheal' | sed 's/^/  /' || true
+            docker ps --format '{{.Names}}' | grep -Eiq 'autoheal' || echo "  geen"
+            echo "live expiry-drempels (geen secrets, gewone getallen):"
+            docker exec "$LIVE" sh -c 'echo "  WARN_DAYS=${HEALTH_EXPIRY_WARN_DAYS:-<default 14>} FAIL_DAYS=${HEALTH_EXPIRY_FAIL_DAYS:-<default 2>}"' 2>/dev/null \
+              || echo "  (exec niet mogelijk)"
+            echo "Docker herstart zelf NIET op unhealthy (alleen Swarm/autoheal doet dat);"
+            echo "restart policy hierboven zegt alleen iets over EXIT, niet over health."
 
             # Stub-GitHub (CommonJS, daarom .cjs: het image zelf is ESM). Antwoordt met een
             # vaste status; de expiry-header staat ver weg zodat de expiry-as het verdict
@@ -147,10 +196,22 @@ jobs:
                 OK=0
               fi
               if [ "$WANT_BODY" != "-" ]; then
-                case "$BODY" in
-                  *"$WANT_BODY"*) : ;;
-                  *) echo "  FAIL: /health-body bevat '$WANT_BODY' niet — verdict komt niet uit de echte probe"; OK=0 ;;
-                esac
+                # Meerdere eisen, gescheiden door "|". Nodig sinds LAT-5276: bij de expiry-cases
+                # moet de body tegelijk aantonen WELKE as het verdict zette. Een case die alleen
+                # `"state":"degraded"` eist zou ook slagen als de capability-probe stukging.
+                OLDIFS=$IFS
+                set -f            # geen pathname-expansie op de losse eisen
+                IFS='|'
+                for want in $WANT_BODY; do
+                  IFS=$OLDIFS
+                  case "$BODY" in
+                    *"$want"*) : ;;
+                    *) echo "  FAIL: /health-body bevat '$want' niet — verdict komt niet uit de echte probe"; OK=0 ;;
+                  esac
+                  IFS='|'
+                done
+                IFS=$OLDIFS
+                set +f
               fi
               if [ "$WANT_HTTP" != "-" ]; then
                 case "$BODY" in
@@ -182,37 +243,57 @@ jobs:
             run_case lat3875-ct-green422 "lat3875-stub-token-not-real" "http://127.0.0.1:8080" healthy "$STUB_422" '"probe_status":422' 200
 
             echo
-            echo "=== 3b. EXPIRY-AS: token werkt (422) maar verloopt binnen 14 dagen ==="
+            echo "=== 3b. EXPIRY WARN-TIER: token werkt (422), verloopt over ~5 dagen ==="
             # De drie cases hierboven pinnen expiry bewust ver weg, zodat de expiry-as het
-            # probe-verdict niet vertroebelt. Gevolg: de expiry-regel uit dit ticket werd door
-            # geen enkele case aangeraakt en kon dus niet rood worden. Deze case isoleert die as:
-            # capability in orde (422), alleen de vervaldatum nabij.
+            # probe-verdict niet vertroebelt. Gevolg: de expiry-regel uit LAT-3875 werd door
+            # geen enkele case aangeraakt en kon dus niet rood worden. 3b en 3c isoleren die as:
+            # capability in orde (422), alleen de vervaldatum verschilt.
             #
-            # LET OP wat hier WEL en NIET getoetst wordt. Getoetst: de DETECTIE — `warn` moet
-            # gevuld zijn en de capability moet groen blijven. Niet getoetst: het VERDICT.
-            # Gemeten in run 31611693031 blijft `state` op `ok` en `/health` op 200 bij 5 dagen
-            # resterend, terwijl LAT-3875 "degraded onder 14 dagen" vroeg. Of dat verdict moet
-            # veranderen is een openstaand ontwerpbesluit (LAT-5276): een werkend token 14 dagen
-            # vooraf `unhealthy` maken is een zelf-veroorzaakte storing. Deze case is daarom NIET
-            # aangepast om bij het waargenomen gedrag te passen — de verdict-eis is er bewust
-            # uitgehouden tot dat besluit valt, en hoort daarna hier ingevuld te worden.
+            # 3b zat tot LAT-5276 alleen op de DETECTIE (`warn` gevuld) en liet het verdict
+            # bewust ongemoeid, omdat toen niet vaststond welk verdict hoorde. Dat besluit is
+            # nu genomen (kop van dit bestand): tussen 2 en 14 dagen hoort de container GROEN te
+            # blijven. Dat is hier geen waarneming die is overgenomen maar de verwachting uit het
+            # besluit — vandaar dat `"state":"ok"` en HTTP 200 nu HARDE eisen zijn. Zou iemand
+            # LAT-3875 alsnog letterlijk implementeren (degraded onder 14d), dan gaat deze case
+            # rood, en dat is precies de bedoeling.
             #
             # De datum wordt bij elke run berekend, niet vastgezet: een hardgecodeerde datum
             # verschuift stilletjes van "verloopt bijna" naar "al verlopen" en meet dan iets anders.
             EXP_SOON=$(date -u -d '+5 days' '+%Y-%m-%d %H:%M:%S UTC')
-            echo "expiry-stub meldt vervaldatum: $EXP_SOON (~5 dagen, dus onder de drempel van 14)"
+            echo "expiry-stub meldt vervaldatum: $EXP_SOON (~5 dagen: onder WARN=14, boven FAIL=2)"
             cat > /tmp/lat3875-cto-expiry-stub.cjs <<STUBEOF
             const h=require("node:http");h.createServer((q,s)=>{s.writeHead(422,{"content-type":"application/json","github-authentication-token-expiration":"$EXP_SOON"});s.end('{"message":"No ref found"}');}).listen(8080,"127.0.0.1");
             STUBEOF
             STUB_EXPIRY=$(base64 -w0 < /tmp/lat3875-cto-expiry-stub.cjs)
-            # De body-eis staat op de warn-tekst, niet op een berekend getal: `expires_in_days`
-            # is afgeleid van de stub-datum en zou dan zichzelf toetsen. Blijft `warn` leeg, dan
-            # is de expiry-detectie stuk en gaat deze case rood.
-            run_case lat3875-ct-expiry "lat3875-stub-token-not-real" "http://127.0.0.1:8080" healthy "$STUB_EXPIRY" '"warn":"token expires in' 200
+            # De warn-eis staat op de tekst, niet op een berekend getal: `expires_in_days` is
+            # afgeleid van de stub-datum en zou dan zichzelf toetsen. `"probe_status":422` erbij,
+            # zodat een groen verdict dat uit iets anders komt dan een geslaagde probe niet als
+            # PASS kan doorgaan.
+            run_case lat3875-ct-expiry-warn "lat3875-stub-token-not-real" "http://127.0.0.1:8080" healthy "$STUB_EXPIRY" '"warn":"token expires in|"state":"ok"|"probe_status":422' 200
+
+            echo
+            echo "=== 3c. EXPIRY FAIL-TIER: token werkt (422), verloopt over ~1 dag ==="
+            # De andere helft van het LAT-5276-besluit, en de enige case die de FAIL-drempel
+            # aanraakt. Zonder deze case is HEALTH_EXPIRY_FAIL_DAYS een tak die nooit is
+            # uitgevoerd — dezelfde soort dode drempel als waar LAT-3875 over ging.
+            #
+            # `(< 2d)` in de reason is de scherpe eis: die tekst komt ALLEEN uit de FAIL-tak en
+            # pint tegelijk de drempelwaarde uit het besluit. `"probe_status":422` bewijst dat het
+            # rood van de EXPIRY-as komt en niet van een kapotte capability-probe of een
+            # weggevallen netwerk — zonder die eis zou deze case om de verkeerde reden slagen.
+            EXP_CRIT=$(date -u -d '+1 day' '+%Y-%m-%d %H:%M:%S UTC')
+            echo "expiry-stub meldt vervaldatum: $EXP_CRIT (~1 dag, dus onder FAIL=2)"
+            cat > /tmp/lat3875-cto-expiry-crit-stub.cjs <<STUBEOF
+            const h=require("node:http");h.createServer((q,s)=>{s.writeHead(422,{"content-type":"application/json","github-authentication-token-expiration":"$EXP_CRIT"});s.end('{"message":"No ref found"}');}).listen(8080,"127.0.0.1");
+            STUBEOF
+            STUB_EXPIRY_CRIT=$(base64 -w0 < /tmp/lat3875-cto-expiry-crit-stub.cjs)
+            run_case lat3875-ct-expiry-fail "lat3875-stub-token-not-real" "http://127.0.0.1:8080" unhealthy "$STUB_EXPIRY_CRIT" '"state":"degraded"|(< 2d) at|"probe_status":422' 503
 
             echo
             echo "=== 4. OPRUIMEN weesresten van 2026-08-05 (LAT-3875 punt 4) ==="
-            for c in lat3875-y lat3875-red-401 lat3875-red-403b lat3875-red-403 lat3875-green-422; do
+            # `lat3875-ct-expiry` heette zo tot LAT-5276 en is nu gesplitst in -warn/-fail;
+            # een run die halverwege afbrak kan die oude naam nog laten staan.
+            for c in lat3875-y lat3875-red-401 lat3875-red-403b lat3875-red-403 lat3875-green-422 lat3875-ct-expiry; do
               if docker inspect "$c" >/dev/null 2>&1; then
                 docker rm -f "$c" >/dev/null 2>&1 && echo "  verwijderd: $c" || echo "  KON NIET verwijderen: $c"
               else
