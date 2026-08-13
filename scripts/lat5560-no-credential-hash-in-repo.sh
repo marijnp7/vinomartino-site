@@ -10,15 +10,20 @@
 # deze guard sluipt hij er terug in zonder dat iemand het ziet.
 #
 # WAAR DE GUARD OP SLUIT. Niet op de bestandsnaam `htpasswd` — die is te makkelijk te
-# omzeilen door hem `auth.conf` te noemen. De invariant is de VORM van een crypt-hash
-# in een getrackt bestand: `gebruiker:$apr1$...`, `$2y$` (bcrypt), `$5$`/`$6$` (SHA),
-# `$1$` (MD5). De bestandsnaam wordt er als tweede, bredere regel bij gecontroleerd.
+# omzeilen door hem `auth.conf` te noemen. De invariant is de VORM van een crypt-hash in
+# een getrackt bestand: een dubbele punt gevolgd door DOLLAR-apr1-DOLLAR (of 2y/2a/2b voor
+# bcrypt, 5/6 voor SHA, 1 voor MD5). De bestandsnaam wordt er als tweede, bredere regel
+# bij gecontroleerd.
 #
-# ZELF-MATCH. Een detector die zijn eigen patroon als literal bevat, vindt zichzelf en
-# staat dan permanent rood (of moet zichzelf uitsluiten, wat een blinde vlek maakt).
-# Daarom wordt het patroon hier uit losse stukken OPGEBOUWD; de te zoeken tekst komt
-# nergens aaneengesloten in dit bestand voor. Er is dus geen uitsluitingsregel nodig
-# en geen enkel pad is blind.
+# ZELF-MATCH — en waarom deze tekst zo omslachtig is. Een detector die zijn eigen patroon
+# als literal bevat, vindt zichzelf en staat dan permanent rood; zichzelf uitsluiten maakt
+# er een blinde vlek van. Het patroon wordt daarom uit losse stukken OPGEBOUWD.
+#
+# Dat gold aanvankelijk alleen voor de CODE: twee commentaarregels bevatten de vorm nog wel
+# letterlijk, precies onder een regel die beweerde dat dat niet zo was. De guard vond dat
+# op zijn eerste echte run — op zichzelf. Vandaar dat er hieronder nergens, ook niet in
+# commentaar, een dubbele punt direct voor een dollarteken staat. Er is dus geen
+# uitsluitingsregel nodig en geen enkel pad is blind.
 #
 # Gebruik:
 #   scripts/lat5560-no-credential-hash-in-repo.sh            # scan getrackte bestanden
@@ -29,7 +34,7 @@
 set -euo pipefail
 
 D='$'
-# ':$apr1$' etc. — opgebouwd, nooit als literal aanwezig.
+# Opgebouwd uit losse stukken; zie de ZELF-MATCH-noot hierboven.
 #
 # RE_D, niet D: in ERE is een kale `$` een anker (einde-regel), ook midden in het
 # patroon zodra er `(` of `|` op volgt. Ongeescaped matchte dit patroon daardoor
@@ -91,6 +96,18 @@ self_test() {
     echo "  zelftest GROEN op schoon.sh: goed"
   else
     echo "::error::zelftest: schoon.sh gaf een vals alarm — de guard is te breed"
+    rc=1
+  fi
+
+  # De guard mag zichzelf niet vinden. Dit stond eerder alleen impliciet in de echte
+  # scan, en dat is te laat: hij ging pas rood in CI, niet hier. Nu is het een expliciete
+  # bewering, zodat een teruggeslopen literal meteen bij de zelftest opvalt.
+  fail=0
+  scan_file "$0" >/dev/null 2>&1
+  if [ "$fail" = "0" ]; then
+    echo "  zelftest GROEN op de guard zelf: goed"
+  else
+    echo "::error::zelftest: de guard matcht ZICHZELF — er staat een patroon-literal in dit bestand"
     rc=1
   fi
 
