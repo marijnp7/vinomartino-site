@@ -1,0 +1,336 @@
+# LAT-5463 / LAT-5145 — swapfile (4G) op de VPS-host, via het GHA->VPS SSH-kanaal.
+#
+# GOEDKEURING — twee losse handelingen, allebei al gedekt, GEEN nieuwe kaart:
+#   * de actie zelf : kaart e69d6aff (2026-08-12 10:55:51Z)
+#   * de route      : kaart 933eff00 (2026-08-12 06:29:24Z), hergebruikt in
+#                     lat4750-recreate-publish-dispatcher.yml, lat5247-scoped-broker-restart.yml,
+#                     lat5382-scoped-broker-bindmode.yml en lat3052-htpasswd-rotate.yml.
+# Kaart 933eff00 zegt expliciet dat goedkeuren en inloggen op de server twee aparte
+# handelingen zijn: een agent mag een al goedgekeurd VPS-commando zelf via dit CI-kanaal
+# uitvoeren.
+#
+# Geen push-trigger. `mode` kiest alleen tussen vaste scripts; er wordt niets uit de
+# input in een commando geinterpoleerd.
+#
+# WAAROM DE SCHIJFTOETS HIER HARD IS  <-- het echte risico van dit bestand
+# Een swapfile van 4G is 4 GiB die je van dezelfde volle schijf afhaalt. De host stond
+# recent op 84% (LAT-5114/LAT-5494) bij een monitor-drempel van 85%. `fallocate` reserveert
+# de ruimte direct, dus een run die "gewoon" doorzet kan de schijf over de drempel duwen en
+# een productie-alarm veroorzaken terwijl hij groen afloopt. `apply` breekt daarom af tenzij
+# er NA de allocatie nog marge over is (zie MIN_FREE_AFTER_MB). Dit is een voorzorgsmaat-
+# regel op een gezonde host; er is geen reden om hem tegen een volle schijf in te forceren.
+#
+# WAAROM GEEN `fallocate` OP ELK FILESYSTEEM
+# Op btrfs/zfs levert `fallocate` een bestand met gaten/CoW waar `mkswap`+`swapon` op
+# afketst of dataverlies geeft. Het script leest daarom eerst het fstype van `/` en
+# gebruikt alleen `fallocate` op ext4/xfs; anders valt het terug op `dd` (traag maar veilig).
+#
+# IDEMPOTENT. `apply` is een no-op zodra er al swap actief is of /swapfile bestaat, en de
+# fstab-regel wordt alleen toegevoegd als hij er nog niet staat. Twee keer draaien geeft
+# dus geen dubbele regel en geen tweede swapfile.
+#
+# LET OP bij het pushen: elk bestand onder .github/ op main triggert normaal een
+# productie-release van vinomartino.com (deploy.yml gebruikt paths-ignore en .github/**
+# staat daar bewust niet in). Push met "[skip ci]" en verifieer daarna per sha:
+#   gh run list --repo marijnp7/vinomartino-site --limit 20 \
+#     --json databaseId,headSha,workflowName --jq '.[]|select(.headSha=="<sha>")'
+
+name: LAT-5145 swapfile (VPS host)
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'measure = alleen lezen; apply = swapfile aanmaken+activeren; verify = read-back; rollback = swapfile weer weg'
+        required: true
+        default: measure
+        type: choice
+        options:
+          - measure
+          - apply
+          - verify
+          - rollback
+
+concurrency:
+  group: lat5145-swapfile
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          cat >> ~/.ssh/config <<EOF
+          Host $VPS_HOST
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+          EOF
+          cat "$GITHUB_WORKSPACE/ops/ssh-config-snippet" >> ~/.ssh/config
+          ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      # ---------------------------------------------------------------- measure
+      - name: Measure (read-only)
+        if: inputs.mode == 'measure'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          MEASURE: |
+            set -uo pipefail
+            echo "=== geheugen ==="
+            free -h
+            echo
+            echo "=== actieve swap ==="
+            swapon --show || echo "(geen actieve swap)"
+            echo
+            echo "=== schijf / ==="
+            df -h /
+            df -BM --output=avail,pcent / | tail -1
+            echo "fstype / = $(findmnt -no FSTYPE / 2>/dev/null || stat -f -c %T /)"
+            echo
+            echo "=== bestaat /swapfile al? ==="
+            ls -la /swapfile 2>&1 || echo "(geen /swapfile)"
+            echo
+            echo "=== fstab swap-regels ==="
+            grep -n 'swap' /etc/fstab || echo "(geen swap-regel in /etc/fstab)"
+            echo
+            echo "=== vm.swappiness ==="
+            sysctl vm.swappiness
+            echo
+            echo "=== zou apply doorgaan? (4G + 2G marge) ==="
+            AVAIL_MB=$(df -BM --output=avail / | tail -1 | tr -dc '0-9')
+            NEED_MB=4096
+            MIN_FREE_AFTER_MB=2048
+            echo "beschikbaar=${AVAIL_MB}M nodig=${NEED_MB}M marge-na=${MIN_FREE_AFTER_MB}M"
+            if [ "$AVAIL_MB" -ge "$((NEED_MB + MIN_FREE_AFTER_MB))" ]; then
+              echo "VERDICT: apply zou DOORGAAN"
+            else
+              echo "VERDICT: apply zou AFBREKEN (te weinig vrije schijf)"
+            fi
+            echo "LAT5145_MEASURE_OK"
+        run: |
+          printf '%s\n' "$MEASURE" | ssh "$VPS" "bash -s"
+
+      # ---------------------------------------------------------------- apply
+      - name: Apply swapfile
+        if: inputs.mode == 'apply'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          APPLY: |
+            set -euo pipefail
+            SWAPFILE=/swapfile
+            SIZE_MB=4096
+            MIN_FREE_AFTER_MB=2048
+            SYSCTL_D=/etc/sysctl.d/99-lat5145-swappiness.conf
+
+            echo "=== 0. is er al swap? (dan is dit een no-op, geen fout) ==="
+            if swapon --show --noheadings 2>/dev/null | grep -q .; then
+              echo "Er is al actieve swap:"
+              swapon --show
+              echo "LAT5145_APPLY_NOOP"
+              exit 0
+            fi
+            if [ -e "$SWAPFILE" ]; then
+              echo "::error::$SWAPFILE bestaat al maar is niet geactiveerd. Handmatig beoordelen; niets aangeraakt."
+              ls -la "$SWAPFILE"
+              exit 1
+            fi
+
+            echo "=== 1. schijfruimte-preconditie (hard) ==="
+            AVAIL_MB=$(df -BM --output=avail / | tail -1 | tr -dc '0-9')
+            echo "beschikbaar=${AVAIL_MB}M nodig=${SIZE_MB}M marge-na=${MIN_FREE_AFTER_MB}M"
+            df -h /
+            if [ "$AVAIL_MB" -lt "$((SIZE_MB + MIN_FREE_AFTER_MB))" ]; then
+              echo "::error::te weinig vrije schijf: ${AVAIL_MB}M beschikbaar, ${SIZE_MB}M nodig plus ${MIN_FREE_AFTER_MB}M marge. Afgebroken; niets aangeraakt."
+              exit 1
+            fi
+            echo "DISK_OK"
+
+            echo "=== 2. filesystem-check (fallocate mag niet op btrfs/zfs) ==="
+            FSTYPE=$(findmnt -no FSTYPE / 2>/dev/null || echo unknown)
+            echo "fstype / = $FSTYPE"
+
+            echo "=== 2b. fstab-nulmeting ==="
+            # We toetsen straks of ONZE regel /etc/fstab breekt. Een host met een
+            # al bestaande fstab-klacht mag geen geslaagde swap-toevoeging terugrollen,
+            # dus we vergelijken met de situatie van voor de wijziging.
+            FSTAB_RC_BEFORE=0
+            findmnt --verify >/dev/null 2>&1 || FSTAB_RC_BEFORE=$?
+            echo "findmnt --verify rc voor wijziging = $FSTAB_RC_BEFORE"
+
+            # Trap staat bewust VOOR het aanmaken: cleanup is veilig als er nog
+            # niets bestaat (rm -f / sed zonder match / swapoff || true), en zo valt
+            # ook een fout tussen fallocate en chmod nog binnen de opruiming.
+            cleanup() {
+              echo "::warning::opruimen na fout"
+              swapoff "$SWAPFILE" 2>/dev/null || true
+              rm -f "$SWAPFILE"
+              sed -i "\|^$SWAPFILE |d" /etc/fstab || true
+            }
+            trap cleanup ERR
+
+            echo "=== 3. swapfile aanmaken ==="
+            case "$FSTYPE" in
+              ext4|xfs)
+                echo "fallocate op $FSTYPE"
+                fallocate -l "${SIZE_MB}M" "$SWAPFILE"
+                ;;
+              *)
+                echo "geen fallocate op '$FSTYPE' — dd-fallback (trager, maar zonder gaten)"
+                dd if=/dev/zero of="$SWAPFILE" bs=1M count="$SIZE_MB" status=none
+                ;;
+            esac
+            chmod 600 "$SWAPFILE"
+            ls -la "$SWAPFILE"
+
+            echo "=== 4. mkswap + swapon ==="
+            mkswap "$SWAPFILE"
+            swapon "$SWAPFILE"
+            swapon --show
+
+            echo "=== 5. fstab (idempotent) ==="
+            if grep -q "^$SWAPFILE " /etc/fstab; then
+              echo "fstab-regel stond er al; niet nog een keer toegevoegd"
+            else
+              cp /etc/fstab "/etc/fstab.bak-lat5145-$(date -u +%Y%m%dT%H%M%SZ)"
+              printf '%s none swap sw 0 0\n' "$SWAPFILE" >> /etc/fstab
+              echo "fstab-regel toegevoegd"
+            fi
+            echo "--- swap-regels in fstab (moet er precies 1 zijn) ---"
+            grep -c "^$SWAPFILE " /etc/fstab
+
+            echo "=== 6. fstab valideren VOOR we hem laten staan ==="
+            # Een kapotte fstab maakt de host onbootbaar, dus dit moet echt getoetst.
+            #
+            # Waarom niet gewoon `if ! findmnt --verify | tail -20`: die vorm werkt hier
+            # wel (dit script zet `pipefail`, dus de pipeline neemt de status van findmnt
+            # over) maar hij toetst het verkeerde. `findmnt --verify` geeft ook non-zero
+            # op een klacht die al voor onze wijziging bestond, en dan zou een verder
+            # geslaagde swap-toevoeging worden teruggerold om een reden die er niets mee
+            # te maken heeft. Daarom vergelijken we met de nulmeting uit stap 2b: alleen
+            # als ONZE regel het slechter maakt, draaien we terug.
+            FSTAB_RC_AFTER=0
+            FSTAB_OUT=$(findmnt --verify --verbose 2>&1) || FSTAB_RC_AFTER=$?
+            printf '%s\n' "$FSTAB_OUT" | tail -20
+            echo "findmnt --verify rc na wijziging = $FSTAB_RC_AFTER (was $FSTAB_RC_BEFORE)"
+            if [ "$FSTAB_RC_AFTER" -gt "$FSTAB_RC_BEFORE" ]; then
+              echo "::error::onze fstab-regel maakt findmnt --verify slechter ($FSTAB_RC_BEFORE -> $FSTAB_RC_AFTER); terugdraaien"
+              false
+            fi
+
+            echo "=== 7. swappiness (nu + persistent) ==="
+            sysctl -w vm.swappiness=10
+            printf 'vm.swappiness = 10\n' > "$SYSCTL_D"
+            cat "$SYSCTL_D"
+
+            trap - ERR
+
+            echo "=== EINDSTAAT ==="
+            free -h
+            swapon --show
+            df -h /
+            echo "LAT5145_APPLY_OK"
+        run: |
+          printf '%s\n' "$APPLY" | ssh "$VPS" "bash -s"
+
+      # ---------------------------------------------------------------- verify
+      - name: Verify
+        if: inputs.mode == 'verify'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          VERIFY: |
+            set -uo pipefail
+            SWAPFILE=/swapfile
+            RC=0
+
+            echo "=== actieve swap ==="
+            swapon --show
+            SWAP_TOTAL_KB=$(awk '/^SwapTotal:/{print $2}' /proc/meminfo)
+            SWAP_MB=$((SWAP_TOTAL_KB / 1024))
+            echo "SwapTotal = ${SWAP_MB}M"
+            # 4G via fallocate/mkswap levert net iets minder dan 4096M bruikbaar
+            # (mkswap houdt een header aan), dus toetsen op een ondergrens.
+            [ "$SWAP_MB" -ge 4000 ] || { echo "::error::SwapTotal is ${SWAP_MB}M, verwacht >= 4000M"; RC=1; }
+
+            echo "=== swapfile zelf ==="
+            ls -la "$SWAPFILE" 2>&1 || { echo "::error::$SWAPFILE ontbreekt"; RC=1; }
+            PERM=$(stat -c %a "$SWAPFILE" 2>/dev/null || echo "?")
+            echo "mode = $PERM (moet 600)"
+            [ "$PERM" = "600" ] || { echo "::error::verkeerde permissies op $SWAPFILE: $PERM"; RC=1; }
+
+            echo "=== fstab: precies 1 regel ==="
+            N=$(grep -c "^$SWAPFILE " /etc/fstab || true)
+            grep -n "^$SWAPFILE " /etc/fstab || true
+            echo "aantal regels = $N"
+            [ "$N" = "1" ] || { echo "::error::verwacht precies 1 fstab-regel, gevonden $N"; RC=1; }
+
+            echo "=== fstab is geldig (host blijft bootbaar) ==="
+            findmnt --verify --verbose 2>&1 | tail -10
+
+            echo "=== swappiness ==="
+            sysctl vm.swappiness
+            SW=$(sysctl -n vm.swappiness)
+            [ "$SW" = "10" ] || { echo "::error::vm.swappiness=$SW, verwacht 10"; RC=1; }
+
+            echo "=== schijf na allocatie ==="
+            df -h /
+
+            [ "$RC" = "0" ] && echo "LAT5145_VERIFY_OK" || exit 1
+        run: |
+          printf '%s\n' "$VERIFY" | ssh "$VPS" "bash -s"
+
+      # ---------------------------------------------------------------- rollback
+      - name: Rollback (swapfile verwijderen)
+        if: inputs.mode == 'rollback'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          ROLLBACK: |
+            set -uo pipefail
+            SWAPFILE=/swapfile
+            SYSCTL_D=/etc/sysctl.d/99-lat5145-swappiness.conf
+
+            echo "=== voor ==="
+            swapon --show || echo "(geen actieve swap)"
+            free -h
+
+            echo "=== swapoff ==="
+            # swapoff schrijft alles terug naar RAM; faalt als er te weinig vrij is.
+            if swapon --show --noheadings 2>/dev/null | grep -q "^$SWAPFILE"; then
+              swapoff "$SWAPFILE" || { echo "::error::swapoff faalde (te weinig vrij RAM?); niets verder aangeraakt"; exit 1; }
+            else
+              echo "(niet actief)"
+            fi
+
+            echo "=== fstab-regel weg ==="
+            cp /etc/fstab "/etc/fstab.bak-lat5145-rollback-$(date -u +%Y%m%dT%H%M%SZ)"
+            sed -i "\|^$SWAPFILE |d" /etc/fstab
+            grep -c "^$SWAPFILE " /etc/fstab || echo "0 regels over"
+            findmnt --verify --verbose 2>&1 | tail -5
+
+            echo "=== bestand weg ==="
+            rm -f "$SWAPFILE"
+            ls -la "$SWAPFILE" 2>&1 || echo "(weg)"
+
+            echo "=== swappiness terug naar de kernel-default ==="
+            rm -f "$SYSCTL_D"
+            sysctl -w vm.swappiness=60
+
+            echo "=== na ==="
+            free -h
+            df -h /
+            echo "LAT5145_ROLLBACK_OK"
+        run: |
+          printf '%s\n' "$ROLLBACK" | ssh "$VPS" "bash -s"
