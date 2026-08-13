@@ -308,7 +308,38 @@ jobs:
             # LAT-1014: dist-completeness gate. Hard-fail als verplichte
             # index-pagina's ontbreken of het HTML-aantal onder drempel
             # ligt.
-            bash scripts/verify-build.sh dist
+            #
+            # LAT-3824 (besluit D2 uit LAT-3816): dit was de LAATSTE repo-file
+            # die als root op de host draaide, buiten elke container, terwijl
+            # elk agent-token `scripts/**` mag schrijven. Dat is een
+            # privilege-pad dat het script zelf nergens voor nodig heeft: het
+            # leest uitsluitend $DIST (bestaan van 8 verplichte bestanden,
+            # HTML-telling, index.html-grootte, sha uit build-info.json),
+            # schrijft niets en praat met niets. Alle gebruikte tools
+            # (find/wc/sed/sort/grep/tr/[) zitten in node:24 (Debian).
+            #
+            # Zelfde bind-mount als de build hierboven, dus `dist` verwijst
+            # naar exact dezelfde bestanden — inclusief de build-info.json die
+            # de host er net in schreef.
+            #
+            # --network none: het script heeft geen netwerk nodig. Bewust NIET
+            # directus_directus_net zoals de build, want dat is precies het
+            # privilege dat hier niet thuishoort.
+            #
+            # --name + `docker rm -f` vooraf om dezelfde reden als LAT-4968:
+            # een naamloze container overleeft een job-timeout als wees (de
+            # docker-CLI sterft met de ssh-sessie mee, de container is een kind
+            # van de daemon), en een GHA re-run hergebruikt hetzelfde run_id.
+            # De reaper uit stap 9a vangt hem sowieso al op zijn bind-mount
+            # onder /srv/vino-builds, ook zonder dat hij SELF is.
+            #
+            # De gate blijft hard: BUILD_SCRIPT draait onder `set -euo
+            # pipefail`, en `docker run` geeft de exitcode van het script door.
+            docker rm -f "vino-verify-$RUN_ID" >/dev/null 2>&1 || true
+            docker run --rm --name "vino-verify-$RUN_ID" \
+              --network none \
+              -v "$STAGE":/app -w /app \
+              node:24 bash scripts/verify-build.sh dist
         run: |
           printf '%s\n' "$BUILD_SCRIPT" \
             | ssh "$VPS" "STAGE='$STAGE' GIT_SHA='$GIT_SHA' RUN_ID='$RUN_ID' RUN_NUMBER='$RUN_NUMBER' TARGET='$TARGET' bash -s"
