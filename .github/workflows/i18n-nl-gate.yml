@@ -112,6 +112,9 @@ jobs:
       - name: wijnhuis-template copy-test (NL-defaults + EN-dekking)
         run: node --test scripts/lat4911-wijnhuis-template-copy.test.mjs
 
+      - name: affiliate-disclosure copy-test (NL-defaults + EN-dekking, LAT-4979)
+        run: node --test scripts/lat4979-affiliate-disclosure-copy.test.mjs
+
       - name: Setup SSH agent
         uses: webfactory/ssh-agent@v0.9.0
         with:

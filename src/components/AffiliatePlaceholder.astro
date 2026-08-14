@@ -44,9 +44,11 @@ const {
 
 const ui = await loadUiStrings(locale);
 
-// Alleen de weergave-chrome (titel/omschrijving/cta) loopt via de dictionary; de
-// icon-emoji is taal-neutraal. Affiliate-URL/tracking en de blok-disclosure zijn
-// ongewijzigd (locale-wiring op de call-sites = T3/LAT-2576).
+// De weergave-chrome (titel/omschrijving/cta) loopt via de dictionary; de
+// icon-emoji is taal-neutraal. Affiliate-URL/tracking zijn ongewijzigd
+// (locale-wiring op de call-sites = T3/LAT-2576). Sinds LAT-4979 loopt ook de
+// blok-disclosure via de dictionary — `locale` gaat daarom door naar het
+// disclosure-component.
 const ICONS: Record<string, string> = {
   accommodation: '🏨', activity: '🎯', flight: '✈️', insurance: '🛡️', sidebar: '🧳',
 };
@@ -78,6 +80,7 @@ const descText = description ?? label.description;
       bezoekMaand={bezoekMaand!}
       bezoekJaar={bezoekJaar!}
       linkBron={linkBron!}
+      locale={locale}
     />
     <div class="affiliate-block__inner">
       <span class="affiliate-block__icon" aria-hidden="true">{label.icon}</span>
