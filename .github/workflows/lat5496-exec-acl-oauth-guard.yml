@@ -320,6 +320,26 @@ jobs:
             echo "=== nog 'unreachable' in de laatste cyclus? ==="
             docker logs --tail 400 paperclip-monitor-1 2>&1 | grep -ci 'oauth guard unreachable'
 
+            # Nul oauth-guard regels kan twee dingen betekenen: de guard draait nog niet
+            # (cyclus van 15 min), OF de draaiende monitor kent runGuard helemaal niet.
+            # Die twee moet je uit elkaar kunnen houden, anders lees je stilte als succes.
+            echo "=== logt de monitor uberhaupt, en sinds wanneer? ==="
+            docker inspect -f 'monitor started={{.State.StartedAt}} restarts={{.RestartCount}}' paperclip-monitor-1 2>&1
+            echo "regels in de log: $(docker logs paperclip-monitor-1 2>&1 | wc -l)"
+            echo "--- eerste 3 regels:"; docker logs paperclip-monitor-1 2>&1 | head -3
+            echo "--- laatste 8 regels:"; docker logs --tail 8 paperclip-monitor-1 2>&1
+
+            echo "=== kent de DRAAIENDE monitor.js runGuard? (code, niet log) ==="
+            for m in runGuard 'oauth guard' 'guard-refresh' GUARD_SCRIPT; do
+              printf '  %-16s -> ' "$m"
+              docker exec paperclip-monitor-1 sh -c \
+                "grep -rc -- '$m' /app/monitor.js 2>/dev/null || echo 0" 2>/dev/null || echo "(exec faalde)"
+            done
+            echo "--- welk bestand draait er eigenlijk:"
+            docker exec paperclip-monitor-1 sh -c \
+              'ls -la /app/monitor.js 2>/dev/null && sha256sum /app/monitor.js 2>/dev/null' 2>&1 \
+              || echo "(geen /app/monitor.js)"
+
             echo "LAT5496_VERIFY_KLAAR"
         run: |
           printf '%s\n' "$VERIFY" | ssh "$VPS" "bash -s"
