@@ -1,4 +1,29 @@
 services:
+  # Bespoke exec-allowlist proxy (LAT-2783).
+  # cos-bridge praat hier tegenaan i.p.v. tegen de rauwe docker.sock.
+  # Laat uitsluitend `docker exec` op paperclip-cos-1 door; create/start/run → 403.
+  # Zie exec-proxy/haproxy.cfg voor waarom tecnativa/docker-socket-proxy niet volstaat.
+  cos-exec-proxy:
+    container_name: paperclip-cos-exec-proxy-1
+    image: haproxy:3.0-alpine
+    restart: unless-stopped
+    # root is nodig om /var/run/docker.sock te kunnen lezen; de socket is :ro
+    # gemount en de allowlist bepaalt wat er daadwerkelijk doorheen kan.
+    user: root
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./exec-proxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    tmpfs:
+      - /run
+    networks:
+      - cos-internal
+    # Bewust geen ports: — alleen bereikbaar op het interne netwerk.
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:2375/_ping || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
   cos-bridge:
     container_name: paperclip-cos-bridge-1
     image: paperclip-cos-bridge:latest
@@ -6,12 +31,20 @@ services:
       context: .
       dockerfile: Dockerfile.bridge
     restart: unless-stopped
-    user: root
+    # LAT-2783: `user: root` en de rauwe `/var/run/docker.sock`-mount zijn hier
+    # bewust weg. De bridge draait als de non-root `cos`-user uit Dockerfile.bridge
+    # en bereikt Docker uitsluitend via cos-exec-proxy.
     env_file: .env.cos
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - DOCKER_HOST=tcp://cos-exec-proxy:2375
+    depends_on:
+      cos-exec-proxy:
+        condition: service_healthy
     networks:
+      # paperclip_default: outbound (Telegram long-polling)
       - paperclip_default
+      # cos-internal: bereikt cos-exec-proxy
+      - cos-internal
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3200/health || exit 1"]
       interval: 30s
@@ -21,3 +54,6 @@ services:
 networks:
   paperclip_default:
     external: true
+  # internal: true → geen outbound; enkel bridge ↔ exec-proxy.
+  cos-internal:
+    internal: true
