@@ -3,6 +3,8 @@
 //   - disk usage on /host >= 85% → notify severity=warn (critical vanaf 95%),
 //     herstel pas onder 82% (hysterese, LAT-5494)
 //   - container restarts > 3 in 1h → notify severity=critical
+//   - aandeel `failed` in agent_wakeup_requests over 15 min → notify
+//     severity=critical (LAT-5994, zie monitor/runfail.js)
 //
 // LAT-5123: de OAuth-exec-check (elke 15 min, POST /containers/{...}/exec op
 // de devops-proxy) is hier verwijderd. Dat pad kreeg altijd 403 — de ACL is
@@ -28,6 +30,14 @@ import http from "node:http";
 import https from "node:https";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { pgQuery } from "./pgclient.js";
+import {
+  classifyRunFailures,
+  formatRunFailureGroups,
+  formatRunFailureLine,
+  runFailureQueries,
+  toSample,
+} from "./runfail.js";
 
 const exec = promisify(execFile);
 
@@ -492,9 +502,112 @@ async function checkRestarts() {
   }
 }
 
+// --- LAT-5994: bewaker op run-mislukkingen ----------------------------------
+// Drempels en oordeel staan in monitor/runfail.js; hier alleen het ophalen en
+// het melden. De meting is een SELECT op agent_wakeup_requests — geen agent-run,
+// geen wake, geen checkout. Dat is het hele punt: de storing van 14-08 legde
+// elke agent-route plat, inclusief de OAuth-bewaker die sinds LAT-5123 als
+// routine draait, terwijl dit proces gewoon doorliep en zijn meldingen wél
+// afleverde.
+const runFailState = { blindStreak: 0, blindAlerted: false };
+// Drie mislukte metingen op rij (~15 min) betekent dat de bewaker zelf blind is,
+// en dat is dezelfde blinde vlek als de storing die hij moet zien.
+const RUN_FAILURE_BLIND_THRESHOLD = 3;
+
+async function fetchRunFailureSample(opts = {}) {
+  try {
+    const q = runFailureQueries(opts);
+    const [totals, groups] = await pgQuery([q.totals, q.groups]);
+    return toSample(totals.rows, groups.rows);
+  } catch (err) {
+    return { error: err.message };
+  }
+}
+
+async function checkRunFailures() {
+  const key = "run-failures";
+  const verdict = classifyRunFailures(await fetchRunFailureSample());
+
+  if (verdict.fault) {
+    runFailState.blindStreak += 1;
+    console.error(`[run-failure check error] ${verdict.fault} (${runFailState.blindStreak} op rij)`);
+    if (runFailState.blindStreak >= RUN_FAILURE_BLIND_THRESHOLD && !runFailState.blindAlerted) {
+      runFailState.blindAlerted = true;
+      await notify({
+        title: "Bewaker op run-mislukkingen kan niet meten",
+        body:
+          `De meting op agent_wakeup_requests faalde ${runFailState.blindStreak} keer op rij.\n\n` +
+          `Laatste fout: ${verdict.fault}\n\n` +
+          `Run-mislukkingen zijn nu onbewaakt (LAT-5994). Controleer PGHOST/PGUSER/PGDATABASE ` +
+          `in .env.cos en of paperclip-db-1 bereikbaar is vanaf paperclip-monitor-1.`,
+        severity: "warn",
+        alertKey: "run-failures-blind",
+      });
+    }
+    return;
+  }
+
+  if (runFailState.blindStreak > 0 && runFailState.blindAlerted) {
+    await notify({
+      title: "Bewaker op run-mislukkingen meet weer",
+      body: "De meting op agent_wakeup_requests werkt weer.",
+      severity: "info",
+      alertKey: "run-failures-blind",
+    });
+  }
+  runFailState.blindStreak = 0;
+  runFailState.blindAlerted = false;
+
+  // n wordt altijd gerapporteerd, ook (juist) bij weinig verkeer — een bewaker
+  // die bij n=2 niets zegt is niet groen, hij weet alleen niets.
+  console.log(`[${new Date().toISOString()}] ${formatRunFailureLine(verdict)}`);
+
+  // Onbepaald: te weinig verkeer voor een uitspraak. Niet vuren, maar ook niet
+  // wissen — anders knippert een storing die het verkeer zelf laat opdrogen
+  // heen en weer tussen alarm en herstel.
+  if (verdict.undetermined) return;
+
+  if (verdict.sev === 2) {
+    if (shouldFire(key)) {
+      const pct = (verdict.ratio * 100).toFixed(0);
+      await notify({
+        title: `${pct}% van de runs mislukt (${verdict.nfail}/${verdict.n} in ${verdict.windowMinutes} min)`,
+        body:
+          `Het aandeel status='failed' in agent_wakeup_requests staat op ${pct}% over de laatste ` +
+          `${verdict.windowMinutes} minuten (drempel 30% bij n>=5).\n\n` +
+          `Foutgroepen (cijfers genormaliseerd, grootste eerst):\n${formatRunFailureGroups(verdict)}\n\n` +
+          (verdict.shared
+            ? `EEN identieke fout raakt meerdere agents. Dat wijst op een gedeelde oorzaak — ` +
+              `credential, route of control-plane — niet op iets per-agent. Kijk daar eerst.\n\n`
+            : `De fouten verschillen per agent; een gedeelde credential is hier niet het ` +
+              `waarschijnlijkste spoor.\n\n`) +
+          `Achtergrond: LAT-5991 (incident 14-08, 100 van 106 runs dood op "Not logged in") en ` +
+          `LAT-5994 (deze bewaker).`,
+        severity: "critical",
+        alertKey: key,
+      });
+    }
+  } else if (clearCondition(key)) {
+    await notify({
+      title: "Run-mislukkingen terug onder de drempel",
+      body:
+        `Het aandeel mislukte runs is terug op ${(verdict.ratio * 100).toFixed(0)}% ` +
+        `(${verdict.nfail}/${verdict.n} over ${verdict.windowMinutes} min).`,
+      severity: "info",
+      alertKey: key,
+    });
+  }
+}
+
 async function runChecks() {
   console.log(`[${new Date().toISOString()}] running checks`);
-  await Promise.allSettled([checkDisk(), checkRestarts(), checkEdgeCacheStatus(), checkDeployFreshness()]);
+  await Promise.allSettled([
+    checkDisk(),
+    checkRestarts(),
+    checkEdgeCacheStatus(),
+    checkDeployFreshness(),
+    checkRunFailures(),
+  ]);
 }
 
 // Initial check after 30s startup grace, then every 5min
