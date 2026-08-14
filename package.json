@@ -27,6 +27,7 @@
     "test:ui-strings-cache": "node --test scripts/lat3319-ui-strings-cache.test.mjs",
     "test:asset-slot-scope": "node --test scripts/lat5157-asset-slot-scope.test.mjs",
     "test:reap-build-containers": "bash scripts/reap-build-containers.test.sh",
+    "test:cf-purge": "bash scripts/cf-purge.test.sh",
     "test:prod-build-gates": "node --test scripts/lat5526-prod-build-gates.test.mjs",
     "test:all": "node scripts/run-all-tests.mjs",
     "test": "npm run test:all",
