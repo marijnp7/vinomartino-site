@@ -1,5 +1,8 @@
 FROM node:20-alpine
 WORKDIR /app
-COPY package.json monitor.js ./
+# *.js, niet monitor.js: sinds LAT-5994 bestaat de monitor uit meer dan een
+# bestand (runfail.js, pgclient.js). Een COPY die er een mist geeft geen
+# build-fout maar een container die op ERR_MODULE_NOT_FOUND crasht.
+COPY package.json *.js ./
 USER node
 CMD ["node", "monitor.js"]
