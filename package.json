@@ -15,6 +15,7 @@
     "test:i18n-reizen-nareizen": "node --test scripts/i18n-reizen-nareizen.test.mjs",
     "test:i18n-crosslink-refs": "node --test scripts/i18n-crosslink-refs.test.mjs",
     "test:seizoenskalender": "node --test scripts/lat3209-seizoenskalender.test.mjs",
+    "test:newsletter-cta-attribution": "node --test scripts/lat2772-newsletter-cta-attribution.test.mjs",
     "test:cta-wine-retail": "node --test scripts/lat3726-cta-wine-retail.test.mjs",
     "test:beeld-herkomst": "node --test scripts/lat4776-beeld-herkomst.test.mjs",
     "test:og-default": "node --test scripts/lat4755-og-default.test.mjs",

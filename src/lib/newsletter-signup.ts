@@ -88,8 +88,15 @@ async function handleSubmit(form: HTMLFormElement): Promise<void> {
     const res = await fetch(action, { method: 'POST', body: data });
     const json = (await res.json().catch(() => null)) as { success?: boolean } | null;
     if (res.ok && json?.success) {
+      // LAT-2772 — de `data-plausible-cta` op de submit-knop was inert: die wordt
+      // alleen door de klik-delegatie in plausible.ts gelezen, en die matcht
+      // uitsluitend `a[href]`. Alle vier de formulieren (home, /de-brief/,
+      // langhe-PDF, seizoenskalender) vuurden daardoor één ononderscheidbare
+      // `newsletter_signup`. Geef het label mee als prop, zodat de bron in de
+      // Plausible-breakdown zichtbaar is naast alleen `path`.
       trackPlausible('newsletter_signup', {
         region_preference: regionValue(form),
+        cta_type: button?.dataset.plausibleCta || 'unknown',
         path: window.location.pathname,
       });
       showSuccess(form);
