@@ -44,6 +44,32 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Run bridge unit tests
+        # LAT-5444: services/cos-bridge/test/*.mjs bestond al sinds LAT-2799 maar
+        # werd door geen enkele workflow aangeroepen — vier tests die nooit iets
+        # gepoort hebben. Daardoor kon readControlPlaneDecision() een half jaar
+        # `data.decided_at` lezen terwijl de API `decidedAt` teruggeeft, zonder dat
+        # er ergens iets rood werd. De tests lezen de échte functies uit
+        # bridge/src/index.js (geen kopie), dus ze binden aan wat hier gedeployd
+        # wordt. Deze stap staat vóór elke SSH/rsync: rood = geen deploy.
+        run: |
+          shopt -s nullglob
+          tests=(services/cos-bridge/test/*.mjs)
+          if [ ${#tests[@]} -eq 0 ]; then
+            echo "::error::geen tests gevonden onder services/cos-bridge/test/ — verwacht er minstens één"
+            exit 1
+          fi
+          echo "gevonden: ${#tests[@]} test(s)"
+          failed=0
+          for t in "${tests[@]}"; do
+            echo "--- $t"
+            node "$t" || failed=1
+          done
+          if [ "$failed" -ne 0 ]; then
+            echo "::error::bridge-tests rood — deploy afgebroken vóór rsync naar de VPS"
+            exit 1
+          fi
+
       - name: Setup SSH agent
         uses: webfactory/ssh-agent@v0.9.0
         with:
