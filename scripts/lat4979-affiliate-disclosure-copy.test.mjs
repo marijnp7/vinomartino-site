@@ -121,7 +121,8 @@ test('elke key uit deze componenten heeft een EN-waarde die van NL verschilt', a
   // `datarij1Labels` wordt (nog) niet via ui.t() gelezen — de kaart rendert daar
   // de dataveldwaarden zelf. De key stond wel in de LAT-4979-opdracht, dus
   // expliciet los geasserteerd i.p.v. stilzwijgend ongedekt te blijven.
-  assert.equal(en.t('ui.proefnotitie.datarij1Labels'), 'Year / Winemaker / Appellation');
+  assert.equal(en.t('ui.proefnotitie.datarij1Labels'), 'Vintage / Producer / Appellation');
+  assert.equal(en.t('ui.proefnotitie.gedronkenLabel'), 'Drunk in');
 });
 
 test('de EN-disclosure bevat geen NL meer en luidt zoals goedgekeurd', async () => {
@@ -130,13 +131,23 @@ test('de EN-disclosure bevat geen NL meer en luidt zoals goedgekeurd', async () 
   assert.ok(directeLink, "geen blok met linkBron 'directe link' — de wijnhuis-marker-casus ontbreekt");
 
   const zin = disclosure(en, directeLink);
-  // Board-approval bee76a8a (Marijn, 2026-08-14), letterlijk.
-  assert.ok(
-    zin.endsWith('Booking via the direct link to the winery, VinoMartino earns a commission, same price for you.'),
-    `goedgekeurde EN-disclosure niet gevonden in: ${zin}`,
-  );
-  assert.equal(zin, `We visited ${directeLink.producent} in ${en.t(`ui.maand.${directeLink.bezoekMaand.toLowerCase()}`)} ${directeLink.bezoekJaar}. ` +
-    'Booking via the direct link to the winery, VinoMartino earns a commission, same price for you.');
+  // Vastgesteld door de CEO op LAT-4979 (2026-08-14), letterlijk. Board-approval
+  // bee76a8a maakte disclosure-copy R1-self-approvable; de Lead Editor mag deze
+  // zin dus aanscherpen — mits de drie M1-Optie-B-elementen intact blijven, en
+  // dan verhuist die formulering hierheen.
+  const GOEDGEKEURD =
+    'Booking via the direct link to the winery. VinoMartino receives a commission — your price is unchanged.';
+  assert.ok(zin.endsWith(GOEDGEKEURD), `goedgekeurde EN-disclosure niet gevonden in: ${zin}`);
+  assert.equal(zin, `We visited ${directeLink.producent} in ${en.t(`ui.maand.${directeLink.bezoekMaand.toLowerCase()}`)} ${directeLink.bezoekJaar}. ` + GOEDGEKEURD);
+
+  // De drie elementen die M1-Optie B verplicht stelt, in deze volgorde. Een
+  // herformulering die er één laat vallen is een compliance-regressie, geen
+  // stijlkeuze — daarom apart geasserteerd van de letterlijke tekst hierboven.
+  const i = (s) => zin.indexOf(s);
+  assert.ok(i('direct link to the winery') > 0, 'element 1 (mechanisme) ontbreekt');
+  assert.ok(i('receives a commission') > i('direct link to the winery'), 'element 2 (commissie) ontbreekt of staat voor element 1');
+  assert.ok(i('your price is unchanged') > i('receives a commission'), 'element 3 (geen meerprijs) ontbreekt of staat te vroeg');
+  assert.ok(!/\b(may|typically|usually|can)\b/.test(GOEDGEKEURD), 'voorbehoud in de disclosure — de CEO eiste een zin zonder hedging');
 
   // De gate-markers die deze regel op /en/ achterliet.
   for (const blok of ALLE_BLOKKEN) {

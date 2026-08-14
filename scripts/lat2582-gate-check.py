@@ -224,6 +224,12 @@ NL_NOUNS = {
     "oogst": "/artikelen/grower-champagne-2026-vroegste-oogst-bezoeken/",
     "streek": "/wijnhuizen/",
     "zuidelijke": "/artikelen/10-wijnhuizen-rhone-benchmark/",
+    # LAT-4979 -- de twaalfde marker, terug uit NL_NOUNS_PENDING. De laatste
+    # bron was de affiliate-disclosure van AffiliateBlockDisclosure.astro op 2
+    # artikelen; die rendert sinds PR #319 Engels. Voor het aanzetten gemeten op
+    # live prod met de find_nouns() van deze gate zelf: 0 van 278 /en/-pagina's
+    # tonen 'wijnhuis' nog in de zichtbare <main>-tekst (2026-08-14).
+    "wijnhuis": "/wijnhuizen/",
 }
 
 # Markers die de meting WEL als bruikbaar aanwees, maar die op /en/ nog vuurden
@@ -236,20 +242,17 @@ NL_NOUNS = {
 # te onderscheiden van een marker die nooit is overwogen, en dan verdwijnt de
 # bekende blinde vlek uit beeld. De gate print de inhoud bij elke run.
 NL_NOUNS_PENDING: dict[str, str] = {
-    # LAT-4911 -- 'wijnhuis' is op 129 van de 131 pagina's opgelost (het
-    # wijnhuis-template rendert nu Engels). Wat overblijft zijn 2 artikelen met
-    # de affiliate-disclosure van AffiliateBlockDisclosure.astro:
-    #   "Reservering via de directe link naar het wijnhuis, VinoMartino
-    #    ontvangt commissie, prijs voor jou identiek."
-    # Die zin is disclosure-copy onder de M1-Optie-B-regels; een EN-formulering
-    # vaststellen is een redactionele/compliance-keuze, geen technische. Dat
-    # ligt bij de Lead Editor in LAT-4979. Zodra die EN-tekst er is, krijgt het
-    # component een locale-prop en verhuist deze marker alsnog naar NL_NOUNS.
+    # Leeg sinds LAT-4979 (2026-08-14): 'wijnhuis' stond hier als laatste en is
+    # naar NL_NOUNS verhuisd nadat de EN-disclosure live ging. Alle twaalf
+    # markers staan nu aan.
     #
-    # Bewust hier en niet in NL_NOUNS: aanzetten zou de gate op ELKE PR rood
-    # zetten voor een bekende, belegde copy-vraag, en een gate die altijd rood
-    # staat leert iedereen hem te negeren.
-    "wijnhuis": "/wijnhuizen/",
+    # Deze dict blijft bestaan, en leeglaten is niet hetzelfde als weghalen: een
+    # marker die vandaag terecht op /en/ vuurt hoort hier, niet stil geschrapt.
+    # Een geschrapte marker is niet te onderscheiden van een marker die nooit is
+    # overwogen, en dan verdwijnt de blinde vlek uit beeld. Zet een marker hier
+    # alleen uit met een issue-id en een reden erbij -- een gate die altijd rood
+    # staat leert iedereen hem te negeren, maar een gate die stil markers
+    # uitzet meet niets.
 }
 
 NOUN_RE = {w: re.compile(r"\b" + re.escape(w) + r"\b") for w in NL_NOUNS}
@@ -1092,8 +1095,8 @@ def main() -> int:
         print(f"Nouns    : {total} /en/-pagina's met een los NL inhoudswoord")
         # Bekende blinde vlek, altijd zichtbaar -- zie NL_NOUNS_PENDING.
         if NL_NOUNS_PENDING:
-            print(f"  let op: {len(NL_NOUNS_PENDING)} marker(s) staan UIT zolang "
-                  f"LAT-4911 loopt; die leks worden hier niet geteld:")
+            print(f"  let op: {len(NL_NOUNS_PENDING)} marker(s) staan UIT; "
+                  f"die leks worden hier niet geteld:")
             for w, waar in NL_NOUNS_PENDING.items():
                 print(f"    {w}: {waar}")
         if not per_word:

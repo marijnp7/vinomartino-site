@@ -824,12 +824,18 @@ export const UI_STRING_EN: Record<string, string> = {
     // ProefnotitieKaart.astro — 'Uit de kelder' stond via UI_COPY hardcoded in het
     // component (LAT-4924 §3). EN-copy goedgekeurd door de Lead Editor.
     'ui.proefnotitie.kaartLabel': 'From the cellar',
-    // LAT-4979 — de resterende datalabels van dezelfde kaart. Lead Editor,
-    // definitief: 'Gedronken in' staat voor een plaats ("Gedronken in: Alba"),
-    // dus 'Drunk in', niet 'Vintage'.
+    // LAT-4979 — de resterende datalabels van dezelfde kaart. 'Gedronken in'
+    // staat voor een plaats ("Gedronken in: Alba"), dus 'Drunk in'. Bewust NIET
+    // 'Tasted in': wij houden geen formele proeverijen, en dat werkwoord claimt
+    // een autoriteit die we niet hebben (CEO-besluit 2026-08-14 op LAT-4979,
+    // zelfde redenering als het weghalen van de 'zelf gereisd'-badges).
     'ui.proefnotitie.gedronkenLabel': 'Drunk in',
     'ui.proefnotitie.prijsLabel': 'Price',
-    'ui.proefnotitie.datarij1Labels': 'Year / Winemaker / Appellation',
+    // 'Vintage', niet 'Year': vakterm op een fleskaart. Randvoorwaarde van dat
+    // besluit is dat het veld een oogstjaar draagt — `proefnotities[].jaar` is
+    // vrije tekst, en de enige waarde in Directus is "2017" (gemeten 2026-08-14).
+    // Komt er ooit een NV/blend in, val dan terug op 'Year / Producer / Appellation'.
+    'ui.proefnotitie.datarij1Labels': 'Vintage / Producer / Appellation',
     'wijnhuis.staynear.aria': 'Nearby places to stay',
     'wijnhuis.staynear.labelPrefix': 'Stay near',
     'wijnhuis.staynear.disclosure': 'Affiliate links · no extra cost to you',
@@ -846,11 +852,17 @@ export const UI_STRING_EN: Record<string, string> = {
     'artikelen.rubriek.wijn-tafel': 'Wine & food',
 
     // AffiliateBlockDisclosure.astro — LAT-4979. De reserveringszin is de
-    // disclosure zelf: goedgekeurd door Marijn op board-approval bee76a8a
-    // (2026-08-14), drieledig zoals NL (mechanisme / commissie / geen meerprijs).
-    // Dit is de laatste bron van de `wijnhuis`-gate-marker op /en/ (LAT-4911).
+    // disclosure zelf: drieledig zoals NL (mechanisme / commissie / geen
+    // meerprijs), in die volgorde. Dit is de laatste bron van de
+    // `wijnhuis`-gate-marker op /en/ (LAT-4911).
+    //
+    // Board-approval bee76a8a (Marijn, 2026-08-14) ging over de CATEGORIE, niet
+    // over deze zin: disclosure-copy is sindsdien R1-self-approvable. De
+    // formulering hieronder is de door de CEO vastgestelde eindstand van
+    // 2026-08-14 16:24Z; `receives a commission` / `your price is unchanged` is
+    // bewust actief en zonder voorbehoud (geen `may`, geen `typically`).
     'affiliate.blockDisclosure.bezoek': 'We visited {producent} in {maand} {jaar}.',
-    'affiliate.blockDisclosure.reservering': 'Booking via {bron}, VinoMartino earns a commission, same price for you.',
+    'affiliate.blockDisclosure.reservering': 'Booking via {bron}. VinoMartino receives a commission — your price is unchanged.',
     'affiliate.blockDisclosure.bron.directeLink': 'the direct link to the winery',
 
     'ui.maand.januari': 'January',
