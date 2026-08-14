@@ -18,6 +18,7 @@ services:
       - CALLBACK_PUBLIC_URL=http://paperclip-approval-bridge-1:3201
       - POLL_INTERVAL_MS=30000
       - LOG_LEVEL=info
+      - SOURCE_COMMIT=${SOURCE_COMMIT:-unknown}
     networks:
       - paperclip_default
 
