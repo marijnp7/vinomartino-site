@@ -136,27 +136,33 @@ jobs:
             NEEDLE=/containers/paperclip-paperclip-1/exec
             STAMP=$(date -u +%Y%m%dT%H%M%SZ)
 
-            echo "=== 0. lokaliseer de live config: precies EEN kandidaat met de LAT-2986 ACL ==="
-            # Bewust geen `grep -rl ... $(find)`: bij een lege find leest grep van stdin
-            # (de ssh-heredoc) en hangt of liegt. Per bestand toetsen dus.
-            MATCHES=$(find /opt /etc /srv /root -maxdepth 6 -name 'haproxy*.cfg' 2>/dev/null \
-                        | while IFS= read -r f; do
-                            grep -q 'p_exec_create_allowed' "$f" 2>/dev/null && printf '%s\n' "$f"
-                          done | sort -u)
-            N=$(printf '%s\n' "$MATCHES" | grep -c . )
-            echo "kandidaten ($N):"
-            printf '%s\n' "$MATCHES"
-            if [ "$N" != "1" ]; then
-              echo "::error::verwacht precies 1 configbestand met p_exec_create_allowed, gevonden $N; afgebroken, niets aangeraakt"
+            echo "=== 0. lokaliseer de live config via de mount van de container zelf ==="
+            # Gemeten in mode=diagnose (run 31802030015): de config staat NIET op een
+            # host-pad onder /opt|/etc|/srv|/root maar in een named volume
+            # (devops-proxy-broker-cfg), read-only gemount op /usr/local/etc/haproxy.
+            # Daarom niet zoeken maar afleiden: dit is per definitie het bestand dat de
+            # draaiende proxy inleest.
+            SRC=$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/usr/local/etc/haproxy"}}{{.Source}}{{end}}{{end}}' "$CTR" 2>/dev/null)
+            if [ -z "$SRC" ]; then
+              echo "::error::geen mount op /usr/local/etc/haproxy gevonden; afgebroken, niets aangeraakt"
               exit 1
             fi
-            CFG=$(printf '%s\n' "$MATCHES")
+            CFG="$SRC/haproxy.cfg"
             echo "CFG=$CFG"
+            if [ ! -f "$CFG" ]; then
+              echo "::error::$CFG bestaat niet; afgebroken, niets aangeraakt"
+              exit 1
+            fi
+            if ! grep -q 'p_exec_create_allowed' "$CFG"; then
+              echo "::error::$CFG draagt geen p_exec_create_allowed; afgebroken, niets aangeraakt"
+              exit 1
+            fi
 
-            echo "=== 0b. preconditie: de zes bekende allowlist-entries staan erin ==="
+            echo "=== 0b. preconditie: de acht gemeten allowlist-entries staan erin ==="
             MISS=0
-            for k in paperclip-devops-workspace-1 vinomartino-directus-1 paperclip-db-1 \
-                     resourcespace paperclip-vinomartino-prod-1 paperclip-vinomartino-preview-1; do
+            for k in paperclip-devops-workspace-1 paperclip-devops-workspace-2-1 \
+                     vinomartino-directus-1 paperclip-db-1 resourcespace resourcespace-db \
+                     paperclip-vinomartino-prod-1 paperclip-vinomartino-preview-1; do
               if grep -q "acl p_exec_create_allowed path_beg /containers/$k/exec" "$CFG"; then
                 echo "  ok: $k"
               else
@@ -248,6 +254,29 @@ jobs:
 
             if [ "$T_GUARD" != "201" ] || [ "$T_CTRL_OK" != "201" ] || [ "$T_CTRL_DENY" != "403" ]; then
               echo "::error::ACL-uitkomst niet zoals goedgekeurd; AUTOMATISCHE ROLLBACK"
+              ok=0
+            fi
+
+            echo "=== 5b. end-to-end: exec-create + exec-start, want dat is wat runGuard doet ==="
+            # De deny-regel op regel ~53 laat create, start en json door via drie APARTE
+            # ACL's. Alleen create toetsen bewijst dus niet dat de guard kan draaien.
+            EID=$(docker exec paperclip-devops-workspace-1 curl -s --max-time 5 \
+                    -X POST -H 'Content-Type: application/json' \
+                    -d '{"AttachStdout":true,"Cmd":["true"]}' \
+                    "http://paperclip-devops-proxy-1:2375/containers/paperclip-paperclip-1/exec" 2>/dev/null \
+                  | sed -n 's/.*"Id"[[:space:]]*:[[:space:]]*"\([a-f0-9]*\)".*/\1/p')
+            if [ -n "$EID" ]; then
+              SCODE=$(docker exec paperclip-devops-workspace-1 curl -s -o /dev/null -w '%{http_code}' \
+                        --max-time 10 -X POST -H 'Content-Type: application/json' \
+                        -d '{"Detach":false}' \
+                        "http://paperclip-devops-proxy-1:2375/exec/$EID/start" 2>/dev/null || echo 000)
+              echo "exec-start -> $SCODE (verwacht 200)"
+              if [ "$SCODE" != "200" ]; then
+                echo "::error::exec-create mag nu wel, maar exec-start niet; AUTOMATISCHE ROLLBACK"
+                ok=0
+              fi
+            else
+              echo "::error::geen exec-Id teruggekregen; AUTOMATISCHE ROLLBACK"
               ok=0
             fi
 
