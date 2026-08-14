@@ -124,6 +124,19 @@ def start_upstream(port):
 
         def do_DELETE(self):
             self._drain()
+            # De echte docker-engine antwoordt hier NIET uniform: een container
+            # geeft 204 No Content, een image geeft 200 met een JSON-lijst van
+            # {Untagged,Deleted}. Deze nepupstream gaf eerst overal 204, en dat
+            # verschil kwam pas op de echte broker aan het licht -- de
+            # deploy-gate eiste 204 en rolde een geslaagde image-delete terug
+            # (run 31817228920). Een fixture die niet doet wat het echte systeem
+            # doet, verbergt precies dit soort mismatch.
+            # Let op: de broker forwardt MET het /v1.51-versievoorvoegsel, dus
+            # dit moet een substring-check zijn, geen startswith.
+            if "/images/" in self.path.split("?")[0]:
+                self._send(200, [{"Untagged": "lat6001:tmp"},
+                                 {"Deleted": "sha256:deadbeef"}])
+                return
             self._send(204)
 
         def do_GET(self):
@@ -316,13 +329,13 @@ def run_suite(blob_path, up_port, br_port):
         # === LAT-6001 gat 3: image-opruimpad ===============================
         out["build met ?t= gaat door"] = (build("lat6001-gate:tmp"), 200)
         out["FIX: DELETE van zelfgebouwd image"] = (
-            call("DELETE", "/v1.51/images/lat6001-gate:tmp")[0], 204)
+            call("DELETE", "/v1.51/images/lat6001-gate:tmp")[0], 200)
         out["one-shot: 2e DELETE van dat image geweigerd"] = (
             call("DELETE", "/v1.51/images/lat6001-gate:tmp")[0], 403)
         # `-t foo` == `foo:latest`; beide spellingen moeten dezelfde tag zijn.
         build("lat6001-notag")
         out["impliciete :latest wordt genormaliseerd"] = (
-            call("DELETE", "/v1.51/images/lat6001-notag:latest")[0], 204)
+            call("DELETE", "/v1.51/images/lat6001-notag:latest")[0], 200)
         # RODE TEGENPROEVEN -- dit is waar het image-pad smal blijft.
         out["ROOD: DELETE nooit-gebouwd image geweigerd"] = (
             call("DELETE", "/v1.51/images/node:24")[0], 403)
