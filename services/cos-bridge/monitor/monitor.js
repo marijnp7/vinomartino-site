@@ -5,6 +5,9 @@
 //   - container restarts > 3 in 1h → notify severity=critical
 //   - aandeel `failed` in agent_wakeup_requests over 15 min → notify
 //     severity=critical (LAT-5994, zie monitor/runfail.js)
+//   - elke check die N cycli op rij alleen faults geeft (kon niet meten, geen
+//     verdict) → notify severity=warn — anders is een stille storing in de
+//     check zelf niet te onderscheiden van "alles gezond" (LAT-6063)
 //
 // LAT-5123: de OAuth-exec-check (elke 15 min, POST /containers/{...}/exec op
 // de devops-proxy) is hier verwijderd. Dat pad kreeg altijd 403 — de ACL is
@@ -120,6 +123,55 @@ function clearCondition(key) {
   conditionState.delete(key);
   return true;
 }
+
+// --- LAT-6063: dead-check-waakhond ------------------------------------------
+// Een fault is "ik kon het niet meten", niet "rood". checkEdgeCacheStatus()
+// en checkDeployFreshness() deden daarbij tot nu toe alleen console.error:
+// geen alarm, geen spoor buiten een containerlog die vanuit een
+// agent-container niet leesbaar is (`docker logs` op paperclip-monitor-1 geeft
+// "scoped broker: forbidden"). Blijft de fault staan — een GH-rate-limit kan
+// uren duren, een kapotte build-info.json weken — dan is die check stil
+// uitgeschakeld en niet te onderscheiden van "alles gezond".
+//
+// checkRunFailures() (LAT-5994, hierboven qua functievolgorde eronder) had dit
+// patroon al: een streak van opeenvolgende faults, één alarm zodra die de
+// drempel haalt, één herstelmelding zodra de check weer een echt verdict
+// geeft. deadCheckStep() generaliseert dat zodat het niet een derde keer apart
+// geschreven hoeft te worden — puur en zonder I/O, zelfde split als
+// shouldFire()/clearCondition() hierboven, zodat hij zonder netwerk of een
+// draaiende bridge te testen is.
+function deadCheckStep(state, verdict, threshold) {
+  if (verdict.fault) {
+    state.streak += 1;
+    const justAlarmed = state.streak >= threshold && !state.alerted;
+    if (justAlarmed) state.alerted = true;
+    return { action: justAlarmed ? "alarm" : "fault", streak: state.streak, fault: verdict.fault };
+  }
+  const wasAlerted = state.alerted;
+  state.streak = 0;
+  state.alerted = false;
+  return { action: wasAlerted ? "recover" : "ok" };
+}
+
+// name -> { streak, alerted }
+const deadCheckState = new Map();
+
+function getDeadCheckState(name) {
+  let s = deadCheckState.get(name);
+  if (!s) {
+    s = { streak: 0, alerted: false };
+    deadCheckState.set(name, s);
+  }
+  return s;
+}
+
+// N ruim boven de 5-min cyclus (12 cycli ≈ 60 min), zodat een voorbijgaande
+// GitHub-rate-limit of een CF-hikkel niet meteen alarmeert — de fault zelf
+// kan uren tot weken duren, dus vroeg alarmeren wint hier weinig en kost
+// ruis. checkRunFailures() gebruikt met opzet zijn eigen, kortere
+// RUN_FAILURE_BLIND_THRESHOLD hieronder: blindheid dáár is zelf al de
+// storing die de check moet zien.
+const DEAD_CHECK_THRESHOLD = 12;
 
 if (!HMAC_SECRET) {
   console.error("FATAL: APPROVAL_HMAC_SECRET not set");
@@ -328,9 +380,31 @@ async function checkEdgeCacheStatus() {
   const key = "edge-cache";
   const results = await fetchEdgeCacheStatuses();
   const verdict = classifyEdgeCacheStatuses(results);
+
+  const dead = deadCheckStep(getDeadCheckState("edge-cache"), verdict, DEAD_CHECK_THRESHOLD);
   if (verdict.fault) {
-    console.error(`[edge-cache check error] ${verdict.fault}`);
+    console.error(`[edge-cache check error] ${verdict.fault} (${dead.streak} op rij)`);
+    if (dead.action === "alarm") {
+      await notify({
+        title: `Edge-cache-check kan niet meten (${dead.streak}x op rij)`,
+        body:
+          `De meting voor edge-cache faalde ${dead.streak} keer op rij ` +
+          `(drempel ${DEAD_CHECK_THRESHOLD}, ~${(DEAD_CHECK_THRESHOLD * CHECK_INTERVAL_MS) / 60000} min).\n\n` +
+          `Laatste fout: ${verdict.fault}\n\n` +
+          `Cloudflare-cachedrift (LAT-2582-klasse) is nu onbewaakt (LAT-6063), niet "alles gezond".`,
+        severity: "warn",
+        alertKey: "edge-cache-blind",
+      });
+    }
     return;
+  }
+  if (dead.action === "recover") {
+    await notify({
+      title: "Edge-cache-check meet weer",
+      body: "De meting voor edge-cache geeft weer een echt verdict.",
+      severity: "info",
+      alertKey: "edge-cache-blind",
+    });
   }
   if (verdict.sev === 2) {
     if (shouldFire(key)) {
@@ -393,9 +467,31 @@ async function checkDeployFreshness() {
   const key = "deploy-freshness";
   const [live, lastDeploy] = await Promise.all([fetchLiveBuildInfo(), fetchLastSuccessfulDeploy()]);
   const verdict = classifyDeployFreshness(live, lastDeploy, Date.now());
+
+  const dead = deadCheckStep(getDeadCheckState("deploy-freshness"), verdict, DEAD_CHECK_THRESHOLD);
   if (verdict.fault) {
-    console.error(`[deploy-freshness check error] ${verdict.fault}`);
+    console.error(`[deploy-freshness check error] ${verdict.fault} (${dead.streak} op rij)`);
+    if (dead.action === "alarm") {
+      await notify({
+        title: `Deploy-freshness-check kan niet meten (${dead.streak}x op rij)`,
+        body:
+          `De meting voor deploy-freshness faalde ${dead.streak} keer op rij ` +
+          `(drempel ${DEAD_CHECK_THRESHOLD}, ~${(DEAD_CHECK_THRESHOLD * CHECK_INTERVAL_MS) / 60000} min).\n\n` +
+          `Laatste fout: ${verdict.fault}\n\n` +
+          `Stale content op de origin (los van Cloudflare) is nu onbewaakt (LAT-6063), niet "alles gezond".`,
+        severity: "warn",
+        alertKey: "deploy-freshness-blind",
+      });
+    }
     return;
+  }
+  if (dead.action === "recover") {
+    await notify({
+      title: "Deploy-freshness-check meet weer",
+      body: "De meting voor deploy-freshness geeft weer een echt verdict.",
+      severity: "info",
+      alertKey: "deploy-freshness-blind",
+    });
   }
   if (verdict.sev === 2) {
     if (shouldFire(key)) {
@@ -509,9 +605,10 @@ async function checkRestarts() {
 // elke agent-route plat, inclusief de OAuth-bewaker die sinds LAT-5123 als
 // routine draait, terwijl dit proces gewoon doorliep en zijn meldingen wél
 // afleverde.
-const runFailState = { blindStreak: 0, blindAlerted: false };
 // Drie mislukte metingen op rij (~15 min) betekent dat de bewaker zelf blind is,
-// en dat is dezelfde blinde vlek als de storing die hij moet zien.
+// en dat is dezelfde blinde vlek als de storing die hij moet zien. Bewust
+// lager dan DEAD_CHECK_THRESHOLD (LAT-6063): deze check bewaakt de hele vloot,
+// dus blindheid hier is zelf al urgent, anders dan een trage GH-rate-limit.
 const RUN_FAILURE_BLIND_THRESHOLD = 3;
 
 async function fetchRunFailureSample(opts = {}) {
@@ -528,15 +625,14 @@ async function checkRunFailures() {
   const key = "run-failures";
   const verdict = classifyRunFailures(await fetchRunFailureSample());
 
+  const dead = deadCheckStep(getDeadCheckState("run-failures"), verdict, RUN_FAILURE_BLIND_THRESHOLD);
   if (verdict.fault) {
-    runFailState.blindStreak += 1;
-    console.error(`[run-failure check error] ${verdict.fault} (${runFailState.blindStreak} op rij)`);
-    if (runFailState.blindStreak >= RUN_FAILURE_BLIND_THRESHOLD && !runFailState.blindAlerted) {
-      runFailState.blindAlerted = true;
+    console.error(`[run-failure check error] ${verdict.fault} (${dead.streak} op rij)`);
+    if (dead.action === "alarm") {
       await notify({
         title: "Bewaker op run-mislukkingen kan niet meten",
         body:
-          `De meting op agent_wakeup_requests faalde ${runFailState.blindStreak} keer op rij.\n\n` +
+          `De meting op agent_wakeup_requests faalde ${dead.streak} keer op rij.\n\n` +
           `Laatste fout: ${verdict.fault}\n\n` +
           `Run-mislukkingen zijn nu onbewaakt (LAT-5994). Controleer PGHOST/PGUSER/PGDATABASE ` +
           `in .env.cos en of paperclip-db-1 bereikbaar is vanaf paperclip-monitor-1.`,
@@ -547,7 +643,7 @@ async function checkRunFailures() {
     return;
   }
 
-  if (runFailState.blindStreak > 0 && runFailState.blindAlerted) {
+  if (dead.action === "recover") {
     await notify({
       title: "Bewaker op run-mislukkingen meet weer",
       body: "De meting op agent_wakeup_requests werkt weer.",
@@ -555,8 +651,6 @@ async function checkRunFailures() {
       alertKey: "run-failures-blind",
     });
   }
-  runFailState.blindStreak = 0;
-  runFailState.blindAlerted = false;
 
   // n wordt altijd gerapporteerd, ook (juist) bij weinig verkeer — een bewaker
   // die bij n=2 niets zegt is niet groen, hij weet alleen niets.
