@@ -1,0 +1,153 @@
+# LAT-5497 - haal Key2 (account-brede B2-sleutel) uit agent-bereik.
+#
+# Key2 (B2_ACCOUNT_ID/B2_ACCOUNT_KEY in /root/.agent-secrets/devops.env) heeft GEEN
+# bucket-pin en draagt deleteBuckets/deleteKeys/writeKeys/deleteFiles op alle drie de
+# buckets (live gemeten via b2_authorize_account). Die map is ro-gemount in
+# paperclip-devops-workspace-1, waar exec als root landt - dus elke agent die daar kan
+# exec'en kan vandaag elke backup-bucket wissen.
+#
+# Besluit: kaart a018dfd3 (goedgekeurd 2026-08-14). Uitvoering via deze route i.p.v.
+# wachten op een handmatige login: kaart 933eff00 - "goedkeuren en inloggen op de server
+# zijn twee aparte handelingen".
+#
+# Key2 wordt NIET ingetrokken bij Backblaze. Hij verhuist naar /root/lat5497-key2-custody/,
+# een pad dat in geen enkele container gemount is (gemeten: dws ziet van de host alleen
+# /opt/paperclip-cos rw en /root/.agent-secrets ro). Minten blijft dus host-side mogelijk.
+# Dat terugrolpad is niet cosmetisch: Backblaze toont een application key nooit een tweede
+# keer, dus verwijderen zonder kopie is onomkeerbaar.
+#
+# Het payload staat hier HARDCODED, niet als verwijzing naar
+# /opt/paperclip-cos/lat5497/lat5497-remove-key2.sh: dat pad is agent-schrijfbaar en dus
+# vervangbaar tussen stagen en draaien. Dispatch-inputs kunnen hier niets injecteren.
+#
+# Print nooit een sleutelwaarde - alleen namen, regelaantallen en bestandslijsten.
+
+name: LAT-5497 remove Key2 from agent reach
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'verify = alleen aflezen; apply = Key2 naar host-vault + uit /agent-secrets verwijderen'
+        required: true
+        default: verify
+        type: choice
+        options:
+          - verify
+          - apply
+
+concurrency:
+  group: lat5497-remove-key2
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          cat >> ~/.ssh/config <<EOF
+          Host $VPS_HOST
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+          EOF
+          cat "$GITHUB_WORKSPACE/ops/ssh-config-snippet" >> ~/.ssh/config
+          ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Verify (read-only)
+        if: inputs.mode == 'verify'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          VERIFY: |
+            set -uo pipefail
+            echo "=== devops.env (names only) ==="
+            sed -e 's/=.*/=<redacted>/' /root/.agent-secrets/devops.env
+            echo
+            echo "=== files ==="
+            ls -la /root/.agent-secrets/ | grep -i devops
+            echo
+            echo "=== residual Key2 lines ==="
+            grep -rlE '^(B2_ACCOUNT_ID|B2_ACCOUNT_KEY)=' /root/.agent-secrets/ 2>/dev/null || echo "(none)"
+            echo
+            echo "=== vault ==="
+            ls -la /root/lat5497-key2-custody/ 2>/dev/null || echo "(vault does not exist yet)"
+        run: |
+          printf '%s\n' "$VERIFY" | ssh "$VPS" "bash -s"
+
+      - name: Apply (move Key2 to host vault, remove from /agent-secrets)
+        if: inputs.mode == 'apply'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          APPLY: |
+            set -Eeuo pipefail
+
+            SEC=/root/.agent-secrets
+            ENVF="$SEC/devops.env"
+            BAK="$SEC/devops.env.bak-lat5501-20260814T121139"
+            VAULT=/root/lat5497-key2-custody
+
+            umask 077
+            install -d -m 700 "$VAULT"
+
+            echo "== before (names only) =="
+            sed -e 's/=.*/=<redacted>/' "$ENVF"
+
+            # 1. preserve Key2 OUTSIDE every bind mount (custody option 3)
+            if grep -qE '^(B2_ACCOUNT_ID|B2_ACCOUNT_KEY)=' "$ENVF"; then
+                grep -E '^(B2_ACCOUNT_ID|B2_ACCOUNT_KEY)=' "$ENVF" > "$VAULT/key2.env"
+                chmod 600 "$VAULT/key2.env"
+                cp -a "$ENVF" "$VAULT/devops.env.pre-lat5497"
+                echo "vault: key2.env written ($(wc -l < "$VAULT/key2.env") lines) + full pre-image kept"
+            else
+                echo "vault: Key2 already absent (idempotent re-run)"
+            fi
+
+            # 2. drop the two lines IN PLACE (preserve inode)
+            INO_BEFORE=$(stat -c %i "$ENVF")
+            python3 - "$ENVF" <<'PY'
+            import re, sys
+            p = sys.argv[1]
+            with open(p, 'r+') as f:
+                keep = [l for l in f if not re.match(r'^\s*(B2_ACCOUNT_ID|B2_ACCOUNT_KEY)\s*=', l)]
+                f.seek(0); f.writelines(keep); f.truncate()
+            PY
+            INO_AFTER=$(stat -c %i "$ENVF")
+            if [ "$INO_BEFORE" != "$INO_AFTER" ]; then
+                echo "FAIL: inode changed ($INO_BEFORE -> $INO_AFTER)"; exit 1
+            fi
+
+            # 3. the .bak beside it holds the SAME value -- that is the whole point
+            if [ -f "$BAK" ]; then
+                cp -a "$BAK" "$VAULT/$(basename "$BAK")"
+                shred -u "$BAK"
+                echo "bak: moved to vault and shredded from $SEC"
+            else
+                echo "bak: already gone (idempotent re-run)"
+            fi
+
+            # 4. verify
+            echo "== after (names only) =="
+            sed -e 's/=.*/=<redacted>/' "$ENVF"
+            echo "== residual Key2 anywhere under $SEC =="
+            if grep -rlE '^(B2_ACCOUNT_ID|B2_ACCOUNT_KEY)=' "$SEC" 2>/dev/null; then
+                echo "FAIL: Key2 still present in the agent-readable dir above"; exit 1
+            fi
+            echo "OK: no Key2 in $SEC"
+            echo "== vault (names only) =="
+            ls -la "$VAULT"
+        run: |
+          printf '%s\n' "$APPLY" | ssh "$VPS" "bash -s"
