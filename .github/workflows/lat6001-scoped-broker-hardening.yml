@@ -1,0 +1,415 @@
+# LAT-6001 — dispatch-only deploy van drie vervolgfixes op de scoped broker.
+#
+# WAT DIT REPAREERT — drie keer dezelfde soort fout als LAT-5348
+# 1. RACE. De grant in `_startable_ids` werd pas geregistreerd NADAT het
+#    201-antwoord al naar de client geschreven was. `wfile` is ongebufferd
+#    (wbufsize = 0), dus een client die meteen `start` stuurt — precies wat
+#    `docker compose up -d --build` doet — kan die registratie inhalen en een
+#    onterechte 403 krijgen. Gemeten: 1 op de 4 runs.
+# 2. DELETE-OP-NAAM. `_created_ids` bewaarde alleen het door docker
+#    teruggegeven Id, nooit de `?name=`. De CLI stuurt `DELETE
+#    /containers/<naam>`, dus het LAT-5360 zelfopruimpad was via de API wél en
+#    via de CLI (dus voor iedereen) níet bereikbaar. Gemeten live 2026-08-14:
+#    `docker rm -f lat4772-ctostart-11577` -> forbidden, DELETE op het Id van
+#    diezelfde container -> 204.
+# 3. GEEN IMAGE-ROUTE. `do_DELETE` kende alleen RE_CONTAINER_DELETE, dus elke
+#    verificatie die een `docker build` vereist liet per definitie een image
+#    achter (residu op dit moment: lat4772-ctocheck:tmp, 11,5 MB).
+#
+# GEEN NIEUWE HOST-TOEGANG — en dat wordt mechanisch bewezen
+# 1 en 2 laten de broker alleen ophouden met het weigeren van werk dat hij al
+# had geautoriseerd. 3 is een UITBREIDING en de enige regel hier die een nieuwe
+# handeling toestaat; hij is begrensd tot tags die deze broker zelf via /build
+# heeft aangemaakt EN die vlak vóór die build nog niet upstream bestonden. Die
+# bestaans-probe is het hele argument: /build is al vrij, dus zonder de probe
+# zou "verwijder wat je zelf bouwde" via clobber-then-delete een route naar elk
+# infra-image openen. De probe faalt CLOSED (een probe die fout gaat telt de tag
+# als reeds bestaand, dus niet-verwijderbaar). De CI-gate hieronder vergelijkt
+# HOST_BIND_ALLOWLIST, RO_ONLY_BINDS, RO_SAFE_BIND_OPTS, AUDITED_BINDS,
+# RESTART_ALLOWLIST en de VINO_BUILD_*-constanten per AST tussen live en nieuw;
+# elk verschil is een harde FAIL. Dat is sterker dan de regeltelling die
+# lat4772-scoped-broker-namestart.yml gebruikte, want het kijkt naar de waarden.
+#
+# BRON VAN DE DEPLOY — bewust het git-blob, niet een .proposed op de host
+# Zelfde redenering als lat4772/lat5382: `/opt/paperclip-cos/_lat3001/` is
+# schrijfbaar vanuit paperclip-devops-workspace-1, dus een host-pad hoort niet
+# in de deploy-keten. De blob komt uit deze repo en gaat over het GHA->VPS
+# SSH-kanaal van kaart 933eff00.
+#
+# LET OP bij het pushen: elk bestand onder .github/ EN onder ops/ op main
+# triggert een productie-release van vinomartino.com. Push met "[skip ci]" en
+# verifieer daarna per sha dat er 0 runs zijn aangemaakt:
+#   gh run list --repo marijnp7/vinomartino-site --limit 20 \
+#     --json databaseId,headSha,workflowName --jq '.[]|select(.headSha=="<sha>")'
+
+name: LAT-6001 scoped-broker race + name-delete + image-cleanup
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'diagnose = alleen lezen; deploy = schrijf nieuwe blob + restart + ACL-proef + opruimen'
+        required: true
+        default: diagnose
+        type: choice
+        options:
+          - diagnose
+          - deploy
+
+concurrency:
+  group: lat6001-scoped-broker-hardening
+  cancel-in-progress: false
+
+env:
+  # sha256 van ops/lat6001-scoped-broker.py (797 regels)
+  WANT: 86773d0615233e272abc7183a6b3a818331f8a9143cfba77e6b9469f76035113
+  # sha256 van de blob die NU live hoort te staan (resultaat van LAT-4772).
+  # Tegelijk het rollback-anker: wijkt live hiervan af, dan is de host in een
+  # onverwachte staat en breekt de deploy af zonder iets aan te raken.
+  LIVE_WANT: 2d7d4f3188b3656e8483163725bb59fd6fbbb558f9a3b9f65c9ab8d3383d84d4
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ------------------------------------------------------------ CI-gate
+      # Falsifieerbaar: de test moet ROOD zijn op de huidige live blob en GROEN
+      # op de nieuwe. De race is een venster van microseconden, dus die check
+      # verbreedt het venster met een injectie op één tekstueel anker dat in
+      # BEIDE blobs voorkomt, IDENTIEK toegepast, met een harde fout als het
+      # anker ergens ontbreekt. Live -> 403, nieuw -> 204. Zie de docstring van
+      # de test voor waarom dat geen zelf-match is.
+      - name: Regressietest (rood op live blob, groen op nieuwe blob)
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE"
+
+          echo "=== bron-hashes ==="
+          sha256sum ops/lat6001-scoped-broker.py ops/lat4772-scoped-broker.py
+
+          GOT=$(sha256sum ops/lat6001-scoped-broker.py | cut -d' ' -f1)
+          if [ "$GOT" != "$WANT" ]; then
+            echo "::error::ops/lat6001-scoped-broker.py ($GOT) wijkt af van WANT ($WANT)"
+            exit 1
+          fi
+          BASE=$(sha256sum ops/lat4772-scoped-broker.py | cut -d' ' -f1)
+          if [ "$BASE" != "$LIVE_WANT" ]; then
+            echo "::error::de rode basislijn is niet de live blob ($BASE != $LIVE_WANT)"
+            exit 1
+          fi
+
+          echo "=== diff live -> nieuw ==="
+          diff -u ops/lat4772-scoped-broker.py ops/lat6001-scoped-broker.py || true
+
+          # De AST-vergelijking van de ACL-constanten zit IN de test hieronder
+          # en is daar een harde FAIL. Dat is de scope-gate; een regeltelling
+          # zou hier alleen ruis geven, want het leeuwendeel van de diff is
+          # commentaar dat uitlegt waarom er niets verbreedt.
+          python3 ops/test_lat6001_broker_hardening.py \
+            ops/lat6001-scoped-broker.py \
+            ops/lat4772-scoped-broker.py
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          cat >> ~/.ssh/config <<EOF
+          Host $VPS_HOST
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+          EOF
+          cat "$GITHUB_WORKSPACE/ops/ssh-config-snippet" >> ~/.ssh/config
+          ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      # ---------------------------------------------------------- diagnose
+      - name: Diagnose (read-only)
+        if: inputs.mode == 'diagnose'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          DIAG: |
+            set -uo pipefail
+            D=/opt/paperclip-cos/_lat3001
+            WS=paperclip-devops-workspace-1
+            B=http://paperclip-devops-proxy-scoped-1:2375
+            echo "=== bestanden in $D ==="
+            ls -la "$D" || { echo "GEEN $D"; exit 1; }
+            echo "=== sha256 (bestandshashes, geen secretwaarden) ==="
+            sha256sum "$D"/scoped_broker.py* 2>&1
+            # Smalle --format: een kale 'docker inspect' print .Config.Env en
+            # dumpt dus de hele container-env in de workflow-log.
+            echo "=== containerstaat ==="
+            docker inspect -f 'status={{.State.Status}} started={{.State.StartedAt}} restarts={{.RestartCount}}' \
+              paperclip-devops-proxy-scoped-1
+            NAME=lat6001-diag-$$
+            echo "=== huidig gedrag ==="
+            RESP=$(docker exec "$WS" curl -s -w '\n%{http_code}' --max-time 10 \
+              -X POST -H 'Content-Type: application/json' \
+              -d '{"Image":"node:24","Cmd":["true"]}' \
+              "$B/containers/create?name=$NAME" 2>/dev/null || printf '\n000')
+            CODE=$(printf '%s' "$RESP" | tail -n1)
+            echo "create ?name=$NAME -> HTTP $CODE"
+            if [ "$CODE" = "201" ]; then
+              DN=$(docker exec "$WS" curl -s -o /dev/null -w '%{http_code}' --max-time 10 \
+                -X DELETE "$B/containers/$NAME" 2>/dev/null || echo 000)
+              echo "DELETE OP NAAM -> HTTP $DN (403 = gat 2, dat deze deploy repareert)"
+              CID=$(printf '%s' "$RESP" | head -n-1 \
+                | python3 -c 'import json,sys; print(json.load(sys.stdin).get("Id",""))' 2>/dev/null || echo '')
+              [ -n "$CID" ] && docker rm -f "$CID" >/dev/null 2>&1 && echo "  opgeruimd via host: $CID"
+            fi
+            RMI=$(docker exec "$WS" curl -s -o /dev/null -w '%{http_code}' --max-time 10 \
+              -X DELETE "$B/images/lat4772-ctocheck:tmp" 2>/dev/null || echo 000)
+            echo "DELETE image lat4772-ctocheck:tmp -> HTTP $RMI (403 = gat 3)"
+            echo "=== op te ruimen residu (LAT-6001 criterium 3) ==="
+            docker images --format '{{.Repository}}:{{.Tag}} {{.Size}}' \
+              | grep -E '^lat4772-ctocheck:tmp' || echo "(geen image-residu)"
+            docker ps -a --format '{{.Names}} {{.Status}}' \
+              | grep -E 'lat4772-cto|lat6001-' || echo "(geen container-residu)"
+        run: |
+          printf '%s\n' "$DIAG" | ssh "$VPS" "bash -s"
+
+      # ------------------------------------------------------------ deploy
+      - name: Blob naar de VPS kopiëren (nog niet promoten)
+        if: inputs.mode == 'deploy'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+        run: |
+          set -euo pipefail
+          # Aparte ssh-call: de deploy-stap hieronder gebruikt stdin zelf voor
+          # 'bash -s', dus daar kan de blob niet doorheen.
+          ssh "$VPS" "cat > /opt/paperclip-cos/_lat3001/scoped_broker.py.lat6001-incoming" \
+            < "$GITHUB_WORKSPACE/ops/lat6001-scoped-broker.py"
+          echo "gekopieerd; hash wordt host-side geverifieerd in de volgende stap"
+
+      - name: Deploy + herstart + ACL-proef + opruimen
+        if: inputs.mode == 'deploy'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          WANT_SHA: ${{ env.WANT }}
+          LIVE_SHA_WANT: ${{ env.LIVE_WANT }}
+        run: |
+          set -euo pipefail
+          cat > /tmp/lat6001-deploy.sh <<DEPLOYEOF
+          set -uo pipefail
+          D=/opt/paperclip-cos/_lat3001
+          LIVE="\$D/scoped_broker.py"
+          INCOMING="\$D/scoped_broker.py.lat6001-incoming"
+          BAK="\$D/scoped_broker.py.bak-lat6001-pre"
+          WANT=$WANT_SHA
+          LIVE_WANT=$LIVE_SHA_WANT
+          CTR=paperclip-devops-proxy-scoped-1
+          WS=paperclip-devops-workspace-1
+          B=http://paperclip-devops-proxy-scoped-1:2375
+          # node:24 draait deploy.yml zelf op deze host, dus het image staat er.
+          PROBE_IMAGE=node:24
+
+          echo "=== 0. preconditie: aangeleverde blob is exact de geteste blob ==="
+          [ -f "\$INCOMING" ] || { echo "::error::\$INCOMING ontbreekt"; exit 1; }
+          GOT=\$(sha256sum "\$INCOMING" | cut -d' ' -f1)
+          echo "incoming sha256 = \$GOT"
+          if [ "\$GOT" != "\$WANT" ]; then
+            echo "::error::aangeleverde blob wijkt af van \$WANT; afgebroken, niets aangeraakt"
+            exit 1
+          fi
+          echo "PRECONDITIE_OK"
+
+          echo "=== 0b. live is de verwachte LAT-4772-blob? (rollback-anker) ==="
+          LIVE_SHA=\$(sha256sum "\$LIVE" | cut -d' ' -f1)
+          echo "live=\$LIVE_SHA verwacht=\$LIVE_WANT"
+          if [ "\$LIVE_SHA" != "\$LIVE_WANT" ]; then
+            echo "::error::live wijkt af van de verwachte blob; onverwachte staat, afgebroken"
+            exit 1
+          fi
+          echo "ROLLBACK_OK"
+
+          echo "=== 0c. basislijn VOOR de herstart: de probe moet nu al groen zijn ==="
+          # Zonder deze basislijn bewijst een 000 na de herstart niets: dan kan
+          # het net zo goed betekenen dat de probe zelf nooit werkt.
+          PRE=\$(docker exec "\$WS" curl -s -o /dev/null -w '%{http_code}' --max-time 5 \
+                  "\$B/_ping" 2>/dev/null || echo 000)
+          echo "pre-restart probe_http=\$PRE"
+          if [ "\$PRE" = "000" ]; then
+            echo "::error::de probe is nu al dood; deploy afgebroken want de na-meting zou niets bewijzen"
+            exit 1
+          fi
+
+          echo "=== 1. backup van de huidige live blob ==="
+          cp "\$LIVE" "\$BAK"
+          sha256sum "\$BAK"
+
+          echo "=== 2. promote ==="
+          cp "\$INCOMING" "\$LIVE"
+
+          echo "=== 3. valideer VOOR herstart ==="
+          if ! python3 -m py_compile "\$LIVE"; then
+            echo "::error::py_compile faalde; terugrollen zonder herstart"
+            cp "\$BAK" "\$LIVE"; exit 1
+          fi
+          NEW=\$(sha256sum "\$LIVE" | cut -d' ' -f1)
+          echo "COMPILE_OK live sha256 na schrijven = \$NEW"
+          if [ "\$NEW" != "\$WANT" ]; then
+            echo "::error::hash na schrijven klopt niet; terugrollen zonder herstart"
+            cp "\$BAK" "\$LIVE"; exit 1
+          fi
+          echo "SHA_OK"
+
+          echo "=== 4. herstart ==="
+          docker restart "\$CTR"
+
+          # Liveness via HTTP-probe, niet via log-grep: op de draaiende, gezonde
+          # broker gaf 'docker logs --tail 5' nul regels (LAT-5247), dus een
+          # grep zou een geslaagde deploy terugrollen.
+          ok=0
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            sleep 3
+            ST=\$(docker inspect -f '{{.State.Status}}' "\$CTR")
+            CODE=\$(docker exec "\$WS" curl -s -o /dev/null -w '%{http_code}' --max-time 5 \
+                     "\$B/_ping" 2>/dev/null || echo 000)
+            echo "poging \$i: status=\$ST probe_http=\$CODE"
+            if [ "\$ST" = "running" ] && [ "\$CODE" != "000" ]; then ok=1; break; fi
+          done
+
+          # === 5. ACL-proef op de ECHTE, zojuist herstarte broker ===
+          # Groen EN rood, want alleen groen zou niet aantonen dat de grant smal
+          # is gebleven. Verdict is 403 vs NIET-403.
+          NAME=lat6001-deploychk-\$\$
+          IMG=lat6001-deploychk-\$\$:tmp
+          CRE=000; START_NAME=000; DEL_NAME=000
+          RED_START=000; RED_DEL=000; RED_RMI=000
+          IMG_BUILD=nvt; IMG_DEL=nvt
+          if [ "\$ok" = "1" ]; then
+            RESP=\$(docker exec "\$WS" curl -s -w '\n%{http_code}' --max-time 10 \
+              -X POST -H 'Content-Type: application/json' \
+              -d "{\"Image\":\"\$PROBE_IMAGE\",\"Cmd\":[\"true\"]}" \
+              "\$B/containers/create?name=\$NAME" 2>/dev/null || printf '\n000')
+            CRE=\$(printf '%s' "\$RESP" | tail -n1)
+            echo "create ?name=\$NAME -> HTTP \$CRE (moet 201)"
+
+            if [ "\$CRE" = "201" ]; then
+              # GAT 1: GEEN sleep hiertussen. Dit is precies de create/start
+              # zonder menselijke pauze die de race blootlegde.
+              START_NAME=\$(docker exec "\$WS" curl -s -o /dev/null -w '%{http_code}' --max-time 10 \
+                -X POST "\$B/containers/\$NAME/start" 2>/dev/null || echo 000)
+              echo "GROEN gat1: start OP NAAM direct na create -> HTTP \$START_NAME (moet 204)"
+
+              docker stop "\$NAME" >/dev/null 2>&1 || true
+              # GAT 2: opruimen OP NAAM via de broker, niet via het Id.
+              DEL_NAME=\$(docker exec "\$WS" curl -s -o /dev/null -w '%{http_code}' --max-time 10 \
+                -X DELETE "\$B/containers/\$NAME" 2>/dev/null || echo 000)
+              echo "GROEN gat2: DELETE OP NAAM -> HTTP \$DEL_NAME (moet 204)"
+              docker rm -f "\$NAME" >/dev/null 2>&1 || true
+            fi
+
+            # GAT 3: bouwen via de broker en het resultaat weer opruimen via de
+            # broker. Slaagt de build niet (bijv. buildkit), dan is dit
+            # ONBEPAALD -- geen rollback, want de twee container-fixes zijn dan
+            # nog steeds geverifieerd; wel luid in de log.
+            if docker exec -e DOCKER_BUILDKIT=0 "\$WS" sh -c \
+                 "T=\\\$(mktemp -d); printf 'FROM \$PROBE_IMAGE\nLABEL lat6001=probe\n' > \\\$T/Dockerfile; docker build -q -t \$IMG \\\$T" \
+                 >/dev/null 2>&1; then
+              IMG_BUILD=ok
+              IMG_DEL=\$(docker exec "\$WS" curl -s -o /dev/null -w '%{http_code}' --max-time 20 \
+                -X DELETE "\$B/images/\$IMG" 2>/dev/null || echo 000)
+              echo "GROEN gat3: DELETE zelfgebouwd image \$IMG -> HTTP \$IMG_DEL (moet 204)"
+              docker rmi -f "\$IMG" >/dev/null 2>&1 || true
+            else
+              IMG_BUILD=mislukt
+              echo "ONBEPAALD gat3: de build via de broker slaagde niet; het groene"
+              echo "  image-pad is hier NIET aangetoond. De rode tegenproef hieronder"
+              echo "  draait wel en blijft hard."
+            fi
+
+            # === RODE TEGENPROEVEN ===
+            # Zonder deze zou een veel te brede uitbreiding er groen uitzien.
+            RED_START=\$(docker exec "\$WS" curl -s -o /dev/null -w '%{http_code}' --max-time 10 \
+              -X POST "\$B/containers/paperclip-db-1/start" 2>/dev/null || echo 000)
+            echo "ROOD: start paperclip-db-1 -> HTTP \$RED_START (moet 403)"
+            RED_DEL=\$(docker exec "\$WS" curl -s -o /dev/null -w '%{http_code}' --max-time 10 \
+              -X DELETE "\$B/containers/paperclip-db-1" 2>/dev/null || echo 000)
+            echo "ROOD: DELETE paperclip-db-1 op naam -> HTTP \$RED_DEL (moet 403)"
+            # DE belangrijkste rode proef van deze deploy: het image-pad mag
+            # NOOIT een image raken dat deze broker niet zelf heeft gebouwd.
+            RED_RMI=\$(docker exec "\$WS" curl -s -o /dev/null -w '%{http_code}' --max-time 10 \
+              -X DELETE "\$B/images/\$PROBE_IMAGE" 2>/dev/null || echo 000)
+            echo "ROOD: DELETE bestaand image \$PROBE_IMAGE -> HTTP \$RED_RMI (moet 403)"
+
+            if [ "\$CRE" != "201" ] || [ "\$START_NAME" != "204" ] || [ "\$DEL_NAME" != "204" ] \
+               || [ "\$RED_START" != "403" ] || [ "\$RED_DEL" != "403" ] || [ "\$RED_RMI" != "403" ]; then
+              echo "::error::ACL-proef mislukt (create=\$CRE start=\$START_NAME del_naam=\$DEL_NAME rood_start=\$RED_START rood_del=\$RED_DEL rood_rmi=\$RED_RMI)"
+              ok=0
+            fi
+            if [ "\$IMG_BUILD" = "ok" ] && [ "\$IMG_DEL" != "204" ]; then
+              echo "::error::image-opruimpad werkt niet (build ok maar delete=\$IMG_DEL)"
+              ok=0
+            fi
+          fi
+
+          if [ "\$ok" = "1" ]; then
+            echo "=== bezinkcheck: 10s later nog steeds op? ==="
+            sleep 10
+            ST2=\$(docker inspect -f '{{.State.Status}}' "\$CTR")
+            CODE2=\$(docker exec "\$WS" curl -s -o /dev/null -w '%{http_code}' --max-time 5 \
+                      "\$B/_ping" 2>/dev/null || echo 000)
+            echo "bezinken: status=\$ST2 probe_http=\$CODE2"
+            if [ "\$ST2" != "running" ] || [ "\$CODE2" = "000" ]; then ok=0; fi
+          fi
+
+          docker inspect -f 'status={{.State.Status}} started={{.State.StartedAt}} restarts={{.RestartCount}}' "\$CTR"
+
+          if [ "\$ok" != "1" ]; then
+            echo "::error::deploy niet schoon; AUTOMATISCHE ROLLBACK"
+            cp "\$BAK" "\$LIVE"
+            docker restart "\$CTR"
+            sleep 5
+            docker inspect -f 'na-rollback status={{.State.Status}}' "\$CTR"
+            exit 1
+          fi
+
+          # === 6. residu opruimen (LAT-6001 criterium 3) ===
+          # Bewust een expliciete namenlijst, geen filter: een docker-rmi op een
+          # patroon kan een image meenemen dat een draaiende container gebruikt.
+          # GEEN backticks in dit here-document, ook niet in commentaar: het is
+          # niet-gequote, dus bash voert ze uit bij het wegschrijven.
+          echo "=== 6. residu opruimen ==="
+          for I in lat4772-ctocheck:tmp lat6001-gate:tmp; do
+            if docker image inspect "\$I" >/dev/null 2>&1; then
+              docker rmi "\$I" >/dev/null 2>&1 && echo "  image verwijderd: \$I" \
+                || echo "  MISLUKT (nog in gebruik?): \$I"
+            else
+              echo "  al weg: \$I"
+            fi
+          done
+          for C in lat4772-ctostart-11577; do
+            if docker inspect -f '{{.Id}}' "\$C" >/dev/null 2>&1; then
+              docker rm -f "\$C" >/dev/null 2>&1 && echo "  container verwijderd: \$C" \
+                || echo "  MISLUKT: \$C"
+            else
+              echo "  al weg: \$C"
+            fi
+          done
+
+          echo "=== controle: residu daadwerkelijk weg ==="
+          if docker image inspect lat4772-ctocheck:tmp >/dev/null 2>&1; then
+            echo "::error::lat4772-ctocheck:tmp staat er nog"
+          else
+            echo "RESIDU_SCHOON (lat4772-ctocheck:tmp weg)"
+          fi
+
+          rm -f "\$INCOMING"
+          echo "=== EINDSTAAT ==="
+          sha256sum "\$LIVE"
+          echo "image-pad aangetoond: \$IMG_BUILD (delete=\$IMG_DEL)"
+          echo "DEPLOY_OK"
+          DEPLOYEOF
+          ssh "$VPS" "bash -s" < /tmp/lat6001-deploy.sh
