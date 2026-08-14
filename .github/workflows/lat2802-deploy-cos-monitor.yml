@@ -105,6 +105,19 @@ jobs:
               sed -e 's/github_pat_[A-Za-z0-9_]*/<redacted>/g' /tmp/lat2802-cfg.err
             fi
 
+            # LAT-5994: de enige plek waar te zien is of de bewaker op
+            # run-mislukkingen ECHT meet. `docker logs` op paperclip-monitor-1
+            # is via de scoped broker verboden, dus vanuit een agent-container
+            # is dit onzichtbaar; over dit SSH-kanaal niet. Zonder deze regels
+            # is "geen alarm" niet te onderscheiden van "draait niet" — precies
+            # het gat dat LAT-5991 openliet.
+            echo "=== bewaker run-mislukkingen: meet hij? (LAT-5994) ==="
+            docker logs --since 20m paperclip-monitor-1 2>&1 \
+              | grep -E 'runfail:|run-failure check error' \
+              | tail -8 \
+              | sed -e 's/github_pat_[A-Za-z0-9_]*/<redacted>/g' \
+              || echo "GEEN runfail-regel in 20 min — bewaker draait niet of logt niet"
+
             echo "=== bridge /notify aanwezig? (202/401 = aanwezig, 404 = niet gedeployed) ==="
             curl -s -o /dev/null -w 'ongetekende POST /notify -> HTTP %{http_code}\n' \
               -X POST http://localhost:3200/notify -d '{}'
