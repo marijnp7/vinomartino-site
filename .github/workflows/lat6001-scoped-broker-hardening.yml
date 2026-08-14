@@ -321,7 +321,14 @@ jobs:
               IMG_BUILD=ok
               IMG_DEL=\$(docker exec "\$WS" curl -s -o /dev/null -w '%{http_code}' --max-time 20 \
                 -X DELETE "\$B/images/\$IMG" 2>/dev/null || echo 000)
-              echo "GROEN gat3: DELETE zelfgebouwd image \$IMG -> HTTP \$IMG_DEL (moet 204)"
+              # LET OP: de docker-engine antwoordt hier NIET met 204. Een
+              # container-DELETE geeft 204 No Content, maar een image-DELETE
+              # geeft 200 met een JSON-lijst van {Untagged,Deleted}. De eerste
+              # versie van deze stap eiste 204 en rolde daardoor een geslaagde
+              # deploy terug (run 31817228920): de ACL was goed, de assertie
+              # niet. Beide worden nu geaccepteerd; de broker forwardt de
+              # upstream-status ongewijzigd, dus dit is puur een verwachting.
+              echo "GROEN gat3: DELETE zelfgebouwd image \$IMG -> HTTP \$IMG_DEL (moet 200 of 204)"
               docker rmi -f "\$IMG" >/dev/null 2>&1 || true
             else
               IMG_BUILD=mislukt
@@ -349,7 +356,7 @@ jobs:
               echo "::error::ACL-proef mislukt (create=\$CRE start=\$START_NAME del_naam=\$DEL_NAME rood_start=\$RED_START rood_del=\$RED_DEL rood_rmi=\$RED_RMI)"
               ok=0
             fi
-            if [ "\$IMG_BUILD" = "ok" ] && [ "\$IMG_DEL" != "204" ]; then
+            if [ "\$IMG_BUILD" = "ok" ] && [ "\$IMG_DEL" != "200" ] && [ "\$IMG_DEL" != "204" ]; then
               echo "::error::image-opruimpad werkt niet (build ok maar delete=\$IMG_DEL)"
               ok=0
             fi
