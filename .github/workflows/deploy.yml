@@ -103,7 +103,44 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # ── 0. Testpoort vóór elke deploy (LAT-4810) ─────────────────────────────
+  #
+  # tests.yml (LAT-4989) draait `npm run test:all` uitsluitend op
+  # `pull_request`. Elke andere weg naar productie — een directe push naar
+  # `main`, een `workflow_dispatch`-herpublicatie, een merge waarbij de
+  # PR-gate rood was maar niet-required (`mergeStateStatus: UNSTABLE`) —
+  # kwam daar niet langs. De guards waren dus detectors zonder executor:
+  # ze draaiden nergens op het pad dat daadwerkelijk deployt.
+  #
+  # Deze job is een kopie van tests.yml's recept (zelfde Node 24 + Python
+  # 3.12, zelfde `npm run test:all`) en de deploy-job hangt eraan via
+  # `needs`. Faalt één van de suites, dan wordt `deploy` OVERGESLAGEN en
+  # raakt er niets aan de VPS: geen build, geen dist-swap, geen nginx.
+  #
+  # Bewust GEEN `if:`-ontsnapping voor dispatch. Een herpublicatie tegen
+  # dezelfde repo-inhoud hoort dezelfde poort te passeren; een uitzondering
+  # hier is precies het gat dat dit issue dicht.
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: npm ci
+
+      - name: npm test (alle test:*-scripts via scripts/run-all-tests.mjs)
+        run: npm test
+
   deploy:
+    needs: tests
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment:
