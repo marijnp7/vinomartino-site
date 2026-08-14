@@ -207,21 +207,42 @@ jobs:
         # only 255 and never retry a genuine 1.
         run: |
           set -uo pipefail
+          # LAT-3407 / gemeten 2026-08-14: tijdens een rode run bereikte GEEN
+          # enkele runner-verbinding sshd -- het journal toont nul connects vanaf
+          # runner-IPs in het faalvenster, terwijl dezelfde Azure-IPs 9 min later
+          # wel gewoon binnenkomen. UFW/nftables staan open en tellen door. De
+          # blokkade zit dus upstream bij de hoster en is voorbijgaand.
+          #
+          # De oude lus was 3 pogingen, maar ops/ssh-config-snippet zet
+          # ConnectionAttempts 5 x ConnectTimeout 20 = ~100s per poging. Drie
+          # pogingen dekten daarmee ~4,5 min aaneengesloten. Dat bleek te kort.
+          # Hier overrulen we die twee opties bewust (1 connect, 15s) zodat een
+          # poging kort is, en spreiden we in plaats daarvan de LUS: 6 pogingen
+          # met oplopende backoff over ~8 min. Zelfde totale geduld, maar
+          # verdeeld over meer momenten in de tijd -- en dat is wat helpt bij een
+          # blokkade die komt en gaat, niet langer doorbijten op een dood moment.
+          #
+          # Blijft binnen de */15-cadans, dus een echt platte VPS gaat nog steeds
+          # binnen een tick luid rood. Alleen de flapper wordt weggefilterd.
           attempt=0
+          max_attempts=6
           while : ; do
             attempt=$(( attempt + 1 ))
             set +e
-            printf '%s\n' "$REMOTE_SCRIPT" | ssh -o ConnectTimeout=20 "$VPS" "bash -s"
+            printf '%s\n' "$REMOTE_SCRIPT" | ssh \
+              -o ConnectTimeout=15 \
+              -o ConnectionAttempts=1 \
+              "$VPS" "bash -s"
             rc=$?
             set -e
             if [ "$rc" -ne 255 ]; then
               exit "$rc"          # 0 = armed and ticking, 1 = real ASSERT_FAIL
             fi
-            echo "::warning::attempt ${attempt}: ssh transport failure (exit 255), not a watchdog verdict"
-            if [ "$attempt" -ge 3 ]; then break; fi
-            sleep 30
+            echo "::warning::attempt ${attempt}/${max_attempts}: ssh transport failure (exit 255), not a watchdog verdict"
+            if [ "$attempt" -ge "$max_attempts" ]; then break; fi
+            sleep $(( 20 + attempt * 20 ))
           done
-          echo "TRANSPORT_FAIL: could not reach the VPS over SSH in 3 attempts"
+          echo "TRANSPORT_FAIL: could not reach the VPS over SSH in ${max_attempts} attempts over ~8 min"
           exit 2                  # distinct from an assert failure on purpose
 
       # Backstop for the false-green above: if the scheduled run somehow skipped
