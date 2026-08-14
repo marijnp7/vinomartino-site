@@ -170,7 +170,14 @@ jobs:
             fi
             RMI=$(docker exec "$WS" curl -s -o /dev/null -w '%{http_code}' --max-time 10 \
               -X DELETE "$B/images/lat4772-ctocheck:tmp" 2>/dev/null || echo 000)
-            echo "DELETE image lat4772-ctocheck:tmp -> HTTP $RMI (403 = gat 3)"
+            # NB: 403 is hier NIET meer een bevinding. Sinds LAT-6001 live staat
+            # is 403 juist het CORRECTE antwoord voor elk image dat deze broker
+            # niet zelf heeft gebouwd -- dat is de rode tegenproef van het
+            # image-pad, niet een gat. Voor 2026-08-14 16:05 betekende het wel
+            # "geen image-route"; die aflezing is nu verlopen. Het groene bewijs
+            # (bouwen via de broker en het resultaat weer verwijderen) zit in de
+            # deploy-stap, niet hier: diagnose is read-only.
+            echo "DELETE image lat4772-ctocheck:tmp -> HTTP $RMI (403 = correct: niet zelf gebouwd)"
             echo "=== op te ruimen residu (LAT-6001 criterium 3) ==="
             docker images --format '{{.Repository}}:{{.Tag}} {{.Size}}' \
               | grep -E '^lat4772-ctocheck:tmp' || echo "(geen image-residu)"
