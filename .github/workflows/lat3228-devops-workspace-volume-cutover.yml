@@ -25,13 +25,14 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'diagnose = alleen lezen; cutover = daadwerkelijk fix-volume-v2.sh draaien'
+        description: 'diagnose = alleen lezen; cutover = daadwerkelijk fix-volume-v2.sh draaien; cleanup = -old container + anonieme volume opruimen (LAT-5601)'
         required: true
         default: diagnose
         type: choice
         options:
           - diagnose
           - cutover
+          - cleanup
 
 concurrency:
   group: lat3228-devops-workspace-volume-cutover
@@ -106,6 +107,51 @@ jobs:
               paperclip-devops-workspace-1
         run: |
           printf '%s\n' "$CUTOVER" | ssh "$VPS" "bash -s"
+
+      # ---------------------------------------------------------------- cleanup
+      - name: Cleanup fallback (-old container + anonieme volume)
+        if: inputs.mode == 'cleanup'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          CLEANUP: |
+            set -uo pipefail
+            CTR=paperclip-devops-workspace-1
+            OLD="${CTR}-old"
+            CTR2=paperclip-devops-workspace-2-1
+            ANON=6e70e905369b205ceebde64c2bc96dd8a204ddd7d10f43ecd7b36c659062ead1
+
+            echo "=== VOOR: df -h / ==="
+            df -h / | tail -1
+
+            echo "=== check: bestaat $OLD nog? ==="
+            docker inspect "$OLD" >/dev/null 2>&1 && echo "JA: $OLD bestaat" || echo "NEE: $OLD bestaat niet"
+
+            echo "=== check: mount van $CTR2 (mag NIET op $ANON staan) ==="
+            CTR2_VOL=$(docker inspect "$CTR2" --format '{{range .Mounts}}{{if eq .Destination "/paperclip"}}{{.Name}}{{end}}{{end}}' 2>&1)
+            echo "  $CTR2 /paperclip -> $CTR2_VOL"
+
+            echo "=== check: welke containers refereren nog aan $ANON? ==="
+            for c in $(docker ps -aq); do
+              docker inspect "$c" --format '{{.Name}} {{range .Mounts}}{{if eq .Name "'"$ANON"'"}}USES_ANON{{end}}{{end}}' 2>/dev/null | grep USES_ANON || true
+            done
+
+            if [ "$CTR2_VOL" = "$ANON" ]; then
+              echo "STOP: $CTR2 gebruikt nog de anonieme volume. Volume-rm NIET uitgevoerd."
+              exit 1
+            fi
+
+            if docker inspect "$OLD" >/dev/null 2>&1; then
+              echo "=== rm $OLD ==="
+              docker rm "$OLD"
+            fi
+
+            echo "=== volume rm (geen -f; weigert vanzelf als iets 'm nog gebruikt) ==="
+            docker volume rm "$ANON"
+
+            echo "=== NA: df -h / ==="
+            df -h / | tail -1
+        run: |
+          printf '%s\n' "$CLEANUP" | ssh "$VPS" "bash -s"
 
       # Rollback: de -old container blijft staan als fallback (zie script). Handmatig:
       #   docker stop paperclip-devops-workspace-1
