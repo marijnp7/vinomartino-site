@@ -59,6 +59,10 @@ const EDGE_CACHE_OK_STATUSES = new Set(["DYNAMIC", "BYPASS"]);
 const DEPLOY_STALE_THRESHOLD_MS = 20 * 60 * 1000;
 const GITHUB_REPO = process.env.GITHUB_REPO || "marijnp7/vinomartino-site";
 const GITHUB_WORKFLOW_FILE = process.env.GITHUB_WORKFLOW_FILE || "deploy.yml";
+// deploy.yml runs on pushes to both main (prod) and preview (staging) — the
+// freshness check must only compare against prod deploys, or a preview-only
+// deploy reads as prod going stale (LAT-3210 follow-up, caught on first live run).
+const GITHUB_DEPLOY_BRANCH = process.env.GITHUB_DEPLOY_BRANCH || "main";
 
 // --- LAT-2802: meldingsritme per conditie ----------------------------------
 // De oude vaste cooldown van 1u was even lang als de approval-timeout, en te
@@ -528,7 +532,7 @@ async function fetchLiveBuildInfo() {
 
 async function fetchLastSuccessfulDeploy() {
   const res = await fetchGet(
-    `https://api.github.com/repos/${GITHUB_REPO}/actions/workflows/${GITHUB_WORKFLOW_FILE}/runs?status=success&per_page=1`,
+    `https://api.github.com/repos/${GITHUB_REPO}/actions/workflows/${GITHUB_WORKFLOW_FILE}/runs?status=success&branch=${GITHUB_DEPLOY_BRANCH}&per_page=1`,
     { Accept: "application/vnd.github+json" }
   );
   if (!res || res.status !== 200) {

@@ -117,5 +117,20 @@ console.log("\nclassifyDeployFreshness");
   check("GitHub Actions onbereikbaar -> fault, geen sev", typeof ghDown.fault === "string" && ghDown.sev === undefined, JSON.stringify(ghDown));
 }
 
+console.log("\nfetchLastSuccessfulDeploy — branch-filter");
+{
+  // deploy.yml draait ook op preview (staging-deploys) — zonder branch-filter
+  // pikt de query de laatste geslaagde préview-run op en leest een gezonde
+  // prod als stale. Regressietest voor de 26-uur false positive die de
+  // watchdog zelf gaf op zijn eerste live cyclus na LAT-3210 (2026-08-14).
+  const fnStart = src.indexOf("async function fetchLastSuccessfulDeploy");
+  const fnSrc = src.slice(fnStart, src.indexOf("// Dom en zonder netwerk testbaar.", fnStart));
+  check(
+    "GH Actions-query filtert op branch",
+    /branch=\$\{GITHUB_DEPLOY_BRANCH\}/.test(fnSrc) || /[?&]branch=/.test(fnSrc),
+    fnSrc
+  );
+}
+
 console.log(`\n${failures === 0 ? "alle gevallen goed" : `${failures} FOUT(EN)`}`);
 process.exit(failures === 0 ? 0 : 1);
