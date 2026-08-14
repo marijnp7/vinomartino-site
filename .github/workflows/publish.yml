@@ -27,7 +27,46 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # ── 0. Testpoort vóór de preview-build (LAT-5526) ────────────────────────
+  #
+  # Restgat na LAT-4810/PR #312. Die PR hing `npm test` vóór `deploy.yml`,
+  # maar publish.yml is een tweede, volwaardige weg naar productie: het
+  # bouwt op de VPS (`node:24 … npm ci && npm run build`, Job 1) en
+  # promoveert daarna preview-dist → prod dist (Job 2). Dat pad draaide
+  # geen enkele `test:*`-suite — dezelfde defectklasse als LAT-4810: een
+  # guard die bestaat maar op dít pad niets afdwingt.
+  #
+  # Identiek recept aan deploy.yml's `tests`-job en aan tests.yml (Node 24
+  # + Python 3.12; Python is nodig voor `test:i18n-gate`). Faalt één suite,
+  # dan wordt `build-preview` OVERGESLAGEN: geen rsync naar de VPS, geen
+  # docker-build, geen preview-dist swap — en `promote-prod` hangt via
+  # `needs: build-preview` en wordt dus ook overgeslagen. Er raakt niets
+  # aan productie.
+  #
+  # Bewust GEEN `if:`-ontsnapping. publish.yml is `workflow_dispatch`-only
+  # en wordt door de Publiceer-knop getriggerd; juist dát pad hoort de poort
+  # te passeren, anders is de knop de bypass.
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: npm ci
+
+      - name: npm test (alle test:*-scripts via scripts/run-all-tests.mjs)
+        run: npm test
+
   build-preview:
+    needs: tests
     runs-on: ubuntu-latest
     timeout-minutes: 20
     outputs:
