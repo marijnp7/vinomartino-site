@@ -4,26 +4,54 @@
 // the visit month/year, and the link source. Required by M1-Optie B disclosure rules.
 
 import type { AffiliateLinkBron } from '../lib/affiliates';
+import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
 
 interface Props {
   producent: string;
   bezoekMaand: string;
   bezoekJaar: number;
   linkBron: AffiliateLinkBron;
+  /**
+   * LAT-4979 — deze regel stond hardgecodeerd in het Nederlands en was daarmee
+   * de laatste bron van de `wijnhuis`-gate-marker op /en/ (LAT-4911). NL is
+   * byte-identiek op DEFAULT_LOCALE; /en/ geeft "en" mee.
+   */
+  locale?: Locale;
 }
 
-const { producent, bezoekMaand, bezoekJaar, linkBron } = Astro.props;
+const { producent, bezoekMaand, bezoekJaar, linkBron, locale = DEFAULT_LOCALE } = Astro.props;
+const ui = await loadUiStrings(locale);
 
-const bronLabel: Record<typeof linkBron, string> = {
+// Booking.com en GetYourGuide zijn merknamen en blijven in elke taal staan;
+// alleen 'directe link' is copy en loopt daarom via de dictionary.
+const bronLabel: Record<AffiliateLinkBron, string> = {
   'Booking.com': 'Booking.com',
   'GetYourGuide': 'GetYourGuide',
-  'directe link': 'de directe link naar het wijnhuis',
+  'directe link': ui.t('affiliate.blockDisclosure.bron.directeLink'),
 };
+
+// `bezoekMaand` komt als NL-maandnaam met hoofdletter uit affiliates.ts. t()
+// geeft de key terug als hij onbekend is (bv. een typfout in de data); val dan
+// terug op het oude gedrag i.p.v. 'ui.maand.oktobr' te renderen.
+const maandKey = `ui.maand.${bezoekMaand.trim().toLowerCase()}`;
+const maandLabel = ui.t(maandKey);
+const maand = maandLabel === maandKey ? bezoekMaand.toLowerCase() : maandLabel;
+
+const bezoekZin = ui
+  .t('affiliate.blockDisclosure.bezoek')
+  .replace('{producent}', producent)
+  .replace('{maand}', maand)
+  .replace('{jaar}', String(bezoekJaar));
+
+const reserveringZin = ui
+  .t('affiliate.blockDisclosure.reservering')
+  .replace('{bron}', bronLabel[linkBron]);
 ---
 
 <p class="affiliate-block-disclosure">
-  Wij bezochten {producent} in {bezoekMaand.toLowerCase()} {bezoekJaar}.
-  Reservering via {bronLabel[linkBron]}, VinoMartino ontvangt commissie, prijs voor jou identiek.
+  {bezoekZin}
+  {reserveringZin}
 </p>
 
 <style>

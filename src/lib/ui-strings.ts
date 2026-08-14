@@ -304,6 +304,31 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'affiliate.disclosure.text': 'Deze pagina bevat affiliate-links. VinoMartino ontvangt een kleine vergoeding bij boekingen of aankopen via deze links, zonder extra kosten voor jou.',
     'affiliate.disclosure.meer': 'Meer informatie',
 
+    // AffiliateBlockDisclosure.astro — per-blok disclosure onder M1-Optie B
+    // (LAT-1029). Stond hardgecodeerd in het component en rendeerde daardoor NL
+    // op /en/; door de dictionary getrokken in LAT-4979. De NL-waarden zijn
+    // byte-identiek aan de literals die er stonden. Partnernamen (Booking.com,
+    // GetYourGuide) zijn merknamen en staan bewust niet in de dictionary.
+    'affiliate.blockDisclosure.bezoek': 'Wij bezochten {producent} in {maand} {jaar}.',
+    'affiliate.blockDisclosure.reservering': 'Reservering via {bron}, VinoMartino ontvangt commissie, prijs voor jou identiek.',
+    'affiliate.blockDisclosure.bron.directeLink': 'de directe link naar het wijnhuis',
+
+    // Maandnamen voor de bezoekregel hierboven. NL rendert kleingeschreven
+    // ("in oktober 2024"), Engels met hoofdletter ("in October 2024") — vandaar
+    // een dictionary-key i.p.v. een toLowerCase() in het component.
+    'ui.maand.januari': 'januari',
+    'ui.maand.februari': 'februari',
+    'ui.maand.maart': 'maart',
+    'ui.maand.april': 'april',
+    'ui.maand.mei': 'mei',
+    'ui.maand.juni': 'juni',
+    'ui.maand.juli': 'juli',
+    'ui.maand.augustus': 'augustus',
+    'ui.maand.september': 'september',
+    'ui.maand.oktober': 'oktober',
+    'ui.maand.november': 'november',
+    'ui.maand.december': 'december',
+
     // RelatedArticles.astro — cross-link-blok onderaan streek/wijnhuis/route/land.
     'ui.relatedArticles.title': 'Gerelateerde artikelen',
     'ui.relatedArticles.label': 'Artikelen',
@@ -799,6 +824,12 @@ export const UI_STRING_EN: Record<string, string> = {
     // ProefnotitieKaart.astro — 'Uit de kelder' stond via UI_COPY hardcoded in het
     // component (LAT-4924 §3). EN-copy goedgekeurd door de Lead Editor.
     'ui.proefnotitie.kaartLabel': 'From the cellar',
+    // LAT-4979 — de resterende datalabels van dezelfde kaart. Lead Editor,
+    // definitief: 'Gedronken in' staat voor een plaats ("Gedronken in: Alba"),
+    // dus 'Drunk in', niet 'Vintage'.
+    'ui.proefnotitie.gedronkenLabel': 'Drunk in',
+    'ui.proefnotitie.prijsLabel': 'Price',
+    'ui.proefnotitie.datarij1Labels': 'Year / Winemaker / Appellation',
     'wijnhuis.staynear.aria': 'Nearby places to stay',
     'wijnhuis.staynear.labelPrefix': 'Stay near',
     'wijnhuis.staynear.disclosure': 'Affiliate links · no extra cost to you',
@@ -813,6 +844,27 @@ export const UI_STRING_EN: Record<string, string> = {
     'artikelen.rubriek.verborgen-regio-s': 'Hidden regions',
     'artikelen.rubriek.proefnotities': 'Tasting notes',
     'artikelen.rubriek.wijn-tafel': 'Wine & food',
+
+    // AffiliateBlockDisclosure.astro — LAT-4979. De reserveringszin is de
+    // disclosure zelf: goedgekeurd door Marijn op board-approval bee76a8a
+    // (2026-08-14), drieledig zoals NL (mechanisme / commissie / geen meerprijs).
+    // Dit is de laatste bron van de `wijnhuis`-gate-marker op /en/ (LAT-4911).
+    'affiliate.blockDisclosure.bezoek': 'We visited {producent} in {maand} {jaar}.',
+    'affiliate.blockDisclosure.reservering': 'Booking via {bron}, VinoMartino earns a commission, same price for you.',
+    'affiliate.blockDisclosure.bron.directeLink': 'the direct link to the winery',
+
+    'ui.maand.januari': 'January',
+    'ui.maand.februari': 'February',
+    'ui.maand.maart': 'March',
+    'ui.maand.april': 'April',
+    'ui.maand.mei': 'May',
+    'ui.maand.juni': 'June',
+    'ui.maand.juli': 'July',
+    'ui.maand.augustus': 'August',
+    'ui.maand.september': 'September',
+    'ui.maand.oktober': 'October',
+    'ui.maand.november': 'November',
+    'ui.maand.december': 'December',
 };
 
 /** Resolver over de UI-dictionary: EN-value indien aanwezig, anders NL-default. */
