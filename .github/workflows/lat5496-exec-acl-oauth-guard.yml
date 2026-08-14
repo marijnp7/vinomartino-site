@@ -1,0 +1,301 @@
+# LAT-5496 — dispatch-only ACL-diff: paperclip-paperclip-1 toevoegen aan de LAT-2986
+# exec-allowlist van paperclip-devops-proxy-1, zodat de OAuth-bewaker weer ge-exec't kan
+# worden door paperclip-monitor-1.
+#
+# Goedgekeurd: kaart 76e466e7 ("ACL-diff: paperclip-paperclip-1 toevoegen aan LAT-2986
+# exec-allowlist (LAT-5496)", Marijn 2026-08-14 11:34:09Z). De recommendedAction van die
+# kaart beschrijft exact deze stappen: lokaliseer de live haproxy.cfg, pas de regel toe,
+# herstart paperclip-devops-proxy-1, verifieer met een herhaalde exec-create test plus
+# monitor-logs. De route (agent voert een al goedgekeurd VPS-commando zelf uit via het
+# bestaande GHA->VPS SSH-kanaal in plaats van een handmatige host-shell) is goedgekeurd
+# op kaart 933eff00 en eerder gebruikt in lat4750/lat5247/lat5382.
+#
+# Geen push-trigger. `mode` kiest alleen tussen drie vaste scripts; er wordt niets uit de
+# input in een commando geinterpoleerd.
+#
+# WAAROM AUTO-DISCOVERY VAN HET PAD: LAT-5496 liep vast omdat de live haproxy.cfg niet
+# vindbaar was binnen het bereik van paperclip-devops-workspace-1. Dit script zoekt het
+# pad daarom host-side op via de bind-mounts van de container zelf, en breekt af tenzij er
+# precies EEN kandidaat is die de zes bekende allowlist-entries bevat. Er wordt dus niets
+# op naam of op vertrouwen geschreven.
+#
+# LET OP bij het pushen: elk bestand onder .github/ op main triggert normaal een
+# productie-release van vinomartino.com (deploy.yml gebruikt paths-ignore en .github/**
+# staat daar bewust niet in). Daarom pushen met "[skip ci]".
+
+name: LAT-5496 exec-ACL OAuth-guard
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'diagnose = alleen lezen; patch = ACL-regel toevoegen + herstart; verify = monitor-logs nalezen'
+        required: true
+        default: diagnose
+        type: choice
+        options:
+          - diagnose
+          - patch
+          - verify
+
+concurrency:
+  group: lat5496-exec-acl
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          cat >> ~/.ssh/config <<EOF
+          Host $VPS_HOST
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+          EOF
+          cat "$GITHUB_WORKSPACE/ops/ssh-config-snippet" >> ~/.ssh/config
+          ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      # ---------------------------------------------------------------- diagnose
+      - name: Diagnose (read-only)
+        if: inputs.mode == 'diagnose'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          DIAG: |
+            set -uo pipefail
+            CTR=paperclip-devops-proxy-1
+
+            echo "=== containerstaat (nooit een kale docker inspect: die print .Config.Env) ==="
+            docker inspect -f 'status={{.State.Status}} image={{.Config.Image}} restarts={{.RestartCount}}' "$CTR" 2>&1
+
+            echo "=== compose-herkomst ==="
+            docker inspect -f 'project={{index .Config.Labels "com.docker.compose.project"}} service={{index .Config.Labels "com.docker.compose.service"}} configfiles={{index .Config.Labels "com.docker.compose.project.config_files"}}' "$CTR" 2>&1
+
+            echo "=== bind-mounts (bron:doel:rw) ==="
+            docker inspect -f '{{range .Mounts}}{{.Source}} -> {{.Destination}} rw={{.RW}}{{"\n"}}{{end}}' "$CTR" 2>&1
+
+            echo "=== kandidaat-configbestanden host-side ==="
+            find /opt /etc /srv /root -maxdepth 6 -name 'haproxy*.cfg' 2>/dev/null
+
+            echo "=== welke daarvan dragen de LAT-2986 exec-ACL? ==="
+            for f in $(find /opt /etc /srv /root -maxdepth 6 -name 'haproxy*.cfg' 2>/dev/null); do
+              if grep -q 'p_exec_create_allowed' "$f" 2>/dev/null; then
+                echo "--- TREFFER: $f (sha256 $(sha256sum "$f" | cut -d" " -f1))"
+                grep -n 'p_exec_create_allowed' "$f"
+                echo "--- bevat paperclip-paperclip-1 al?"
+                grep -c '/containers/paperclip-paperclip-1/exec' "$f"
+              fi
+            done
+
+            echo "=== ACL zoals de container hem NU geladen heeft (alleen de ACL-regels) ==="
+            docker exec "$CTR" sh -c 'grep -n "p_exec_create_allowed" /usr/local/etc/haproxy/haproxy.cfg' 2>&1 \
+              || echo "(geen shell/exec in de proxy-container, of ander configpad)"
+
+            echo "=== huidige ACL-uitkomst, gemeten (exec-create, niets gestart) ==="
+            for t in paperclip-paperclip-1 paperclip-devops-workspace-1 paperclip-monitor-1; do
+              CODE=$(docker exec paperclip-devops-workspace-1 curl -s -o /dev/null -w '%{http_code}' \
+                       --max-time 5 -X POST -H 'Content-Type: application/json' \
+                       -d '{"Cmd":["true"]}' "http://paperclip-devops-proxy-1:2375/containers/$t/exec" 2>/dev/null || echo 000)
+              echo "POST /containers/$t/exec -> $CODE"
+            done
+
+            echo "=== draait de guard-target en de monitor? ==="
+            docker inspect -f 'paperclip-paperclip-1 status={{.State.Status}}' paperclip-paperclip-1 2>&1
+            docker inspect -f 'paperclip-monitor-1  status={{.State.Status}}' paperclip-monitor-1 2>&1
+
+            echo "=== laatste oauth-guard regels uit de monitor (alleen die regels) ==="
+            docker logs --tail 2000 paperclip-monitor-1 2>&1 | grep -i 'oauth guard' | tail -10 \
+              || echo "(geen oauth-guard regels in de laatste 2000)"
+
+            echo "LAT5496_DIAG_KLAAR"
+        run: |
+          printf '%s\n' "$DIAG" | ssh "$VPS" "bash -s"
+
+      # ---------------------------------------------------------------- patch
+      - name: Patch ACL + herstart proxy
+        if: inputs.mode == 'patch'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          PATCH: |
+            set -uo pipefail
+            CTR=paperclip-devops-proxy-1
+            NEEDLE=/containers/paperclip-paperclip-1/exec
+            STAMP=$(date -u +%Y%m%dT%H%M%SZ)
+
+            echo "=== 0. lokaliseer de live config: precies EEN kandidaat met de LAT-2986 ACL ==="
+            # Bewust geen `grep -rl ... $(find)`: bij een lege find leest grep van stdin
+            # (de ssh-heredoc) en hangt of liegt. Per bestand toetsen dus.
+            MATCHES=$(find /opt /etc /srv /root -maxdepth 6 -name 'haproxy*.cfg' 2>/dev/null \
+                        | while IFS= read -r f; do
+                            grep -q 'p_exec_create_allowed' "$f" 2>/dev/null && printf '%s\n' "$f"
+                          done | sort -u)
+            N=$(printf '%s\n' "$MATCHES" | grep -c . )
+            echo "kandidaten ($N):"
+            printf '%s\n' "$MATCHES"
+            if [ "$N" != "1" ]; then
+              echo "::error::verwacht precies 1 configbestand met p_exec_create_allowed, gevonden $N; afgebroken, niets aangeraakt"
+              exit 1
+            fi
+            CFG=$(printf '%s\n' "$MATCHES")
+            echo "CFG=$CFG"
+
+            echo "=== 0b. preconditie: de zes bekende allowlist-entries staan erin ==="
+            MISS=0
+            for k in paperclip-devops-workspace-1 vinomartino-directus-1 paperclip-db-1 \
+                     resourcespace paperclip-vinomartino-prod-1 paperclip-vinomartino-preview-1; do
+              if grep -q "acl p_exec_create_allowed path_beg /containers/$k/exec" "$CFG"; then
+                echo "  ok: $k"
+              else
+                echo "  ONTBREEKT: $k"
+                MISS=1
+              fi
+            done
+            if [ "$MISS" != "0" ]; then
+              echo "::error::dit bestand draagt niet de verwachte LAT-2986 allowlist; afgebroken, niets aangeraakt"
+              exit 1
+            fi
+            echo "PRECONDITIE_OK"
+
+            echo "=== 0c. idempotent: staat de regel er al? ==="
+            if grep -q "$NEEDLE" "$CFG"; then
+              echo "regel bestaat al; niets te doen"
+              grep -n 'p_exec_create_allowed' "$CFG"
+              echo "LAT5496_PATCH_AL_AANWEZIG"
+              exit 0
+            fi
+
+            BAK="$CFG.bak-lat5496-$STAMP"
+            echo "=== 1. backup -> $BAK ==="
+            cp -p "$CFG" "$BAK"
+            sha256sum "$BAK"
+
+            echo "=== 2. voeg EEN regel toe, direct na de laatste bestaande allowlist-regel ==="
+            LAST=$(grep -n 'acl p_exec_create_allowed path_beg' "$CFG" | tail -1 | cut -d: -f1)
+            if [ -z "$LAST" ]; then
+              echo "::error::geen ankerregel gevonden; afgebroken"
+              exit 1
+            fi
+            echo "ankerregel = $LAST"
+            INDENT=$(sed -n "${LAST}p" "$CFG" | sed 's/[^ \t].*//')
+            awk -v n="$LAST" -v ind="$INDENT" -v needle="$NEEDLE" \
+              'NR==n{print; printf "%sacl p_exec_create_allowed path_beg %s\n", ind, needle; next} {print}' \
+              "$BAK" > "$CFG.new"
+            mv "$CFG.new" "$CFG"
+
+            echo "=== 2b. diff (exact 1 regel erbij?) ==="
+            diff "$BAK" "$CFG"
+            ADDED=$(diff "$BAK" "$CFG" | grep -c '^> ')
+            REMOVED=$(diff "$BAK" "$CFG" | grep -c '^< ')
+            echo "toegevoegd=$ADDED verwijderd=$REMOVED"
+            if [ "$ADDED" != "1" ] || [ "$REMOVED" != "0" ]; then
+              echo "::error::diff is niet exact +1/-0; terugrollen zonder herstart"
+              cp -p "$BAK" "$CFG"
+              exit 1
+            fi
+            echo "DIFF_OK"
+
+            echo "=== 3. haproxy-configcheck VOOR de herstart ==="
+            if ! docker exec "$CTR" haproxy -c -f /usr/local/etc/haproxy/haproxy.cfg 2>&1; then
+              echo "::error::haproxy -c faalde; terugrollen zonder herstart"
+              cp -p "$BAK" "$CFG"
+              exit 1
+            fi
+            echo "CONFIGCHECK_OK"
+
+            echo "=== 4. herstart ==="
+            docker restart "$CTR"
+
+            # Liveness wordt gemeten met een echte ACL-uitkomst, niet met een log-grep:
+            # deze proxy logt niets bij een gezonde start. Elke HTTP-status != 000 bewijst
+            # dat hij luistert.
+            ok=0
+            for i in 1 2 3 4 5 6 7 8 9 10; do
+              sleep 3
+              ST=$(docker inspect -f '{{.State.Status}}' "$CTR")
+              CODE=$(docker exec paperclip-devops-workspace-1 curl -s -o /dev/null -w '%{http_code}' \
+                       --max-time 5 -X POST -H 'Content-Type: application/json' -d '{"Cmd":["true"]}' \
+                       "http://paperclip-devops-proxy-1:2375/containers/paperclip-devops-workspace-1/exec" 2>/dev/null || echo 000)
+              echo "poging $i: status=$ST control_exec=$CODE"
+              if [ "$ST" = "running" ] && [ "$CODE" = "201" ]; then ok=1; break; fi
+            done
+
+            echo "=== 5. ACL-uitkomst na herstart (dit is de eigenlijke acceptatietest) ==="
+            probe() {
+              docker exec paperclip-devops-workspace-1 curl -s -o /dev/null -w '%{http_code}' \
+                --max-time 5 -X POST -H 'Content-Type: application/json' -d '{"Cmd":["true"]}' \
+                "http://paperclip-devops-proxy-1:2375/containers/$1/exec" 2>/dev/null || echo 000
+            }
+            T_GUARD=$(probe paperclip-paperclip-1)
+            T_CTRL_OK=$(probe paperclip-devops-workspace-1)
+            T_CTRL_DENY=$(probe paperclip-monitor-1)
+            echo "paperclip-paperclip-1        -> $T_GUARD   (verwacht 201, was 403)"
+            echo "paperclip-devops-workspace-1 -> $T_CTRL_OK (verwacht 201, ongewijzigd)"
+            echo "paperclip-monitor-1          -> $T_CTRL_DENY (verwacht 403: ACL NIET verbreed)"
+
+            if [ "$T_GUARD" != "201" ] || [ "$T_CTRL_OK" != "201" ] || [ "$T_CTRL_DENY" != "403" ]; then
+              echo "::error::ACL-uitkomst niet zoals goedgekeurd; AUTOMATISCHE ROLLBACK"
+              ok=0
+            fi
+
+            if [ "$ok" != "1" ]; then
+              cp -p "$BAK" "$CFG"
+              docker restart "$CTR"
+              sleep 5
+              docker inspect -f 'na-rollback status={{.State.Status}}' "$CTR"
+              echo "na-rollback guard-exec: $(probe paperclip-paperclip-1) (verwacht weer 403)"
+              exit 1
+            fi
+
+            echo "=== EINDSTAAT ==="
+            grep -n 'p_exec_create_allowed' "$CFG"
+            sha256sum "$CFG" "$BAK"
+            docker inspect -f 'status={{.State.Status}} started={{.State.StartedAt}} restarts={{.RestartCount}}' "$CTR"
+            echo "LAT5496_PATCH_OK"
+        run: |
+          printf '%s\n' "$PATCH" | ssh "$VPS" "bash -s"
+
+      # ---------------------------------------------------------------- verify
+      - name: Verify (monitor-logs nalezen)
+        if: inputs.mode == 'verify'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          VERIFY: |
+            set -uo pipefail
+
+            echo "=== ACL-uitkomst nu ==="
+            for t in paperclip-paperclip-1 paperclip-devops-workspace-1 paperclip-monitor-1; do
+              CODE=$(docker exec paperclip-devops-workspace-1 curl -s -o /dev/null -w '%{http_code}' \
+                       --max-time 5 -X POST -H 'Content-Type: application/json' -d '{"Cmd":["true"]}' \
+                       "http://paperclip-devops-proxy-1:2375/containers/$t/exec" 2>/dev/null || echo 000)
+              echo "POST /containers/$t/exec -> $CODE"
+            done
+
+            echo "=== oauth-guard regels uit de monitor (verwacht: rc=0 sev=0, geen 'unreachable') ==="
+            docker logs --tail 4000 paperclip-monitor-1 2>&1 | grep -i 'oauth guard' | tail -20 \
+              || echo "(geen oauth-guard regels gevonden)"
+
+            echo "=== nog 'unreachable' in de laatste cyclus? ==="
+            docker logs --tail 400 paperclip-monitor-1 2>&1 | grep -ci 'oauth guard unreachable'
+
+            echo "LAT5496_VERIFY_KLAAR"
+        run: |
+          printf '%s\n' "$VERIFY" | ssh "$VPS" "bash -s"
+
+      # Handmatige rollback (als de automatische hierboven zelf niet zou landen):
+      #   CFG=<pad uit de patch-log>   # bv. /opt/.../haproxy.cfg
+      #   cp -p "$CFG.bak-lat5496-<STAMP>" "$CFG"
+      #   docker restart paperclip-devops-proxy-1
