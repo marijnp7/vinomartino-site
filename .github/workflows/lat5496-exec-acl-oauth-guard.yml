@@ -37,6 +37,7 @@ on:
           - diagnose
           - patch
           - verify
+          - rollback
 
 concurrency:
   group: lat5496-exec-acl
@@ -344,7 +345,99 @@ jobs:
         run: |
           printf '%s\n' "$VERIFY" | ssh "$VPS" "bash -s"
 
-      # Handmatige rollback (als de automatische hierboven zelf niet zou landen):
-      #   CFG=<pad uit de patch-log>   # bv. /opt/.../haproxy.cfg
+      # ---------------------------------------------------------------- rollback
+      #
+      # WAAROM DIT BESTAAT (LAT-5496, 2026-08-14): de patch hierboven is uitgevoerd op
+      # goedgekeurde kaart 76e466e7 (11:34:09Z) en werkte, maar de consument bestond op dat
+      # moment al niet meer. PR #291 (a84a382, gemerged 11:43:01Z -- negen minuten NA de
+      # goedkeuring) heeft de hele OAuth-exec-route uit monitor.js verwijderd; de draaiende
+      # monitor bevat nul keer runGuard. De bewaking loopt sindsdien via routine
+      # cb2d0b46 (revisie 4, actief), die de guard IN-SESSION draait op het gedeelde
+      # /paperclip-volume en dus geen docker exec nodig heeft.
+      #
+      # Daarmee is de ACL-regel niet alleen nutteloos maar schadelijk: LAT-5119/LAT-3046
+      # hebben expliciet vastgelegd dat de haproxy-ACL op containernaam matcht en niet op
+      # Cmd, zodat ELKE exec-toegang tot paperclip-paperclip-1 volledige shell-exec op de
+      # credential-container is en de LAT-2986-hardening ondermijnt. Een rechtenverruiming
+      # zonder consument terugdraaien is geen nieuwe verruiming en vraagt geen kaart.
+      - name: Rollback ACL-regel (verwijder paperclip-paperclip-1 weer)
+        if: inputs.mode == 'rollback'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          ROLLBACK: |
+            set -uo pipefail
+            CTR=paperclip-devops-proxy-1
+            NEEDLE=/containers/paperclip-paperclip-1/exec
+            STAMP=$(date -u +%Y%m%dT%H%M%SZ)
+
+            SRC=$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/usr/local/etc/haproxy"}}{{.Source}}{{end}}{{end}}' "$CTR" 2>/dev/null)
+            [ -n "$SRC" ] || { echo "::error::geen configmount gevonden"; exit 1; }
+            CFG="$SRC/haproxy.cfg"
+            echo "CFG=$CFG"
+
+            if ! grep -q "$NEEDLE" "$CFG"; then
+              echo "regel staat er niet (meer); niets te doen"
+              grep -n 'p_exec_create_allowed' "$CFG"
+              echo "LAT5496_ROLLBACK_AL_WEG"
+              exit 0
+            fi
+
+            BAK="$CFG.bak-lat5496-rollback-$STAMP"
+            cp -p "$CFG" "$BAK"
+
+            grep -v "acl p_exec_create_allowed path_beg $NEEDLE" "$BAK" > "$CFG.new"
+            mv "$CFG.new" "$CFG"
+
+            echo "=== diff (exact 1 regel eraf?) ==="
+            diff "$BAK" "$CFG"
+            ADDED=$(diff "$BAK" "$CFG" | grep -c '^> ')
+            REMOVED=$(diff "$BAK" "$CFG" | grep -c '^< ')
+            echo "toegevoegd=$ADDED verwijderd=$REMOVED"
+            if [ "$ADDED" != "0" ] || [ "$REMOVED" != "1" ]; then
+              echo "::error::diff is niet exact +0/-1; terugzetten zonder herstart"
+              cp -p "$BAK" "$CFG"
+              exit 1
+            fi
+
+            if ! docker exec "$CTR" haproxy -c -f /usr/local/etc/haproxy/haproxy.cfg 2>&1; then
+              echo "::error::haproxy -c faalde; terugzetten zonder herstart"
+              cp -p "$BAK" "$CFG"
+              exit 1
+            fi
+            echo "CONFIGCHECK_OK"
+
+            docker restart "$CTR"
+            probe() {
+              docker exec paperclip-devops-workspace-1 curl -s -o /dev/null -w '%{http_code}' \
+                --max-time 5 -X POST -H 'Content-Type: application/json' -d '{"Cmd":["true"]}' \
+                "http://paperclip-devops-proxy-1:2375/containers/$1/exec" 2>/dev/null || echo 000
+            }
+            ok=0
+            for i in 1 2 3 4 5 6 7 8 9 10; do
+              sleep 3
+              ST=$(docker inspect -f '{{.State.Status}}' "$CTR")
+              C=$(probe paperclip-devops-workspace-1)
+              echo "poging $i: status=$ST control_exec=$C"
+              if [ "$ST" = "running" ] && [ "$C" = "201" ]; then ok=1; break; fi
+            done
+
+            G=$(probe paperclip-paperclip-1)
+            W=$(probe paperclip-devops-workspace-1)
+            echo "paperclip-paperclip-1        -> $G (verwacht weer 403)"
+            echo "paperclip-devops-workspace-1 -> $W (verwacht 201, ongewijzigd)"
+            if [ "$ok" != "1" ] || [ "$G" != "403" ] || [ "$W" != "201" ]; then
+              echo "::error::rollback-uitkomst niet zoals verwacht"
+              exit 1
+            fi
+
+            echo "=== EINDSTAAT ==="
+            grep -n 'p_exec_create_allowed' "$CFG"
+            sha256sum "$CFG"
+            echo "LAT5496_ROLLBACK_OK"
+        run: |
+          printf '%s\n' "$ROLLBACK" | ssh "$VPS" "bash -s"
+
+      # Handmatige rollback (als bovenstaande mode zelf niet zou landen):
+      #   CFG=/var/lib/docker/volumes/devops-proxy-broker-cfg/_data/haproxy.cfg
       #   cp -p "$CFG.bak-lat5496-<STAMP>" "$CFG"
       #   docker restart paperclip-devops-proxy-1
