@@ -42,7 +42,7 @@ const ui = await loadUiStrings(locale);
           placeholder={ui.t('newsletter.footer.emailPlaceholder')}
           required
         />
-        <button type="submit">{ui.t('newsletter.footer.submit')}</button>
+        <button type="submit" data-plausible-cta="footer_signup">{ui.t('newsletter.footer.submit')}</button>
       </div>
 
       <NewsletterRegionField id="nl-footer-region" defaultRegion={defaultRegion} locale={locale} />
