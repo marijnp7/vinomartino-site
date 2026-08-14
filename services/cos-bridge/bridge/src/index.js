@@ -84,6 +84,14 @@ const {
   CONTENT_WRITER_AGENT_ID = "",
   // Anthropic API key for the intent classifier Haiku call.
   ANTHROPIC_API_KEY = "",
+  // LAT-3715 (Marijn, 2026-08-10): de default-klok op een board-kaart is 4 uur.
+  // LAT-5297: die beslissing landde alléén in scripts/request-approval.sh. Iedere
+  // andere indiener droeg zijn eigen hardcode — de approval-bridge sidecar 2700 s
+  // (de weg waar de meeste kaarten langs komen), request-approval.mjs 3600 s — en
+  // over álle kaarten sinds 08-10 kwam 14400 exact 0 keer voor. Eén /approval-
+  // endpoint is het enige punt waar élke kaart langsgaat, dus het beleid hoort
+  // hier en niet bij N indieners.
+  APPROVAL_DEFAULT_TIMEOUT_SECONDS = "14400",
 } = process.env;
 
 // Maps @<slug> mentions to Paperclip agent IDs.
@@ -121,6 +129,8 @@ const QSTART = Number(QUIET_HOURS_START);
 const QEND = Number(QUIET_HOURS_END);
 const QUIET_DEFER_ON = QUIET_DEFER !== "0";
 const FLUSH_CHUNK = Math.max(1, Number(QUIET_FLUSH_CHUNK) || 8);
+// Ondergrens 60 s zodat een kapotte env de klok niet op 0 zet (0 = direct timeout).
+const DEFAULT_TIMEOUT_S = Math.max(60, Number(APPROVAL_DEFAULT_TIMEOUT_SECONDS) || 14400);
 const QUIET_REPEAT_H = Math.max(0, Number(QUIET_REPEAT_WINDOW_HOURS) || 0);
 const RESUBMIT_WINDOW_H = Math.max(0, Number(RESUBMIT_WINDOW_HOURS) || 0);
 const RESUBMIT_MAX = Math.max(0, Number(RESUBMIT_LIMIT) || 0);
@@ -967,12 +977,30 @@ async function handleApprovalPost(req, body) {
     body: proposalBody,
     plain_summary = null,
     urgency = "normal",
-    timeout_seconds = 14400,
+    timeout_seconds: timeout_seconds_requested = DEFAULT_TIMEOUT_S,
     callback_url = null,
     run_id = null,
     issue_id = null,
     alert_key = null,
   } = payload;
+
+  // LAT-5297 — beleidsvloer, geen plafond. Een indiener mag de klok langer
+  // zetten (`--timeout`), korter niet: elke waarde onder het board-besluit die
+  // we in de praktijk zien is een vergeten hardcode (2700 in de sidecar, 3600 in
+  // request-approval.mjs), nooit een bewuste keuze. Een te korte klok kost een
+  // besluit — 44 % van Marijns échte antwoorden komt ná 1 uur binnen, en wat in
+  // dat gat als `timeout` wegschrijft voedt ook nog de herindien-rem.
+  const timeout_seconds = Math.max(
+    Number(timeout_seconds_requested) || DEFAULT_TIMEOUT_S,
+    DEFAULT_TIMEOUT_S
+  );
+  if (Number(timeout_seconds_requested) !== timeout_seconds) {
+    log.info(
+      { request_id, agent, requested: timeout_seconds_requested, applied: timeout_seconds },
+      "approval timeout raised to board default (LAT-3715)"
+    );
+  }
+
   if (!request_id || !agent || !title || !proposalBody) {
     return {
       status: 400,
@@ -1629,7 +1657,7 @@ async function terminateApprovalTimeout(row) {
   // De timeout is een uitspraak over de wachttijd van de run, niet een uitnodiging
   // om het nog eens te vragen.
   if (row.paperclip_issue_id) {
-    const mins = Math.round((row.timeout_seconds || 14400) / 60);
+    const mins = Math.round((row.timeout_seconds || DEFAULT_TIMEOUT_S) / 60);
     const body = JSON.stringify({
       status: "blocked",
       comment:
@@ -1708,7 +1736,7 @@ async function flushDeferredApprovals() {
   if (frozen.length) {
     await q(
       `UPDATE cos.actions
-          SET timeout_at = NOW() + (COALESCE(timeout_seconds, 14400) || ' seconds')::interval,
+          SET timeout_at = NOW() + (COALESCE(timeout_seconds, ${DEFAULT_TIMEOUT_S}) || ' seconds')::interval,
               deferred_until = NULL
         WHERE id = ANY($1::bigint[]) AND decision IS NULL`,
       [frozen.map((r) => r.id)]
@@ -1797,7 +1825,7 @@ async function flushDeferredApprovals() {
     `UPDATE cos.actions
         SET pushed_at = NOW(),
             deferred_until = NULL,
-            timeout_at = NOW() + (COALESCE(timeout_seconds, 14400) || ' seconds')::interval
+            timeout_at = NOW() + (COALESCE(timeout_seconds, ${DEFAULT_TIMEOUT_S}) || ' seconds')::interval
       WHERE id = ANY($1::bigint[]) AND decision IS NULL`,
     [flushed]
   );
