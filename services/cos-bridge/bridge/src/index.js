@@ -1850,7 +1850,14 @@ async function readControlPlaneDecision(requestId) {
   const data = await res.json().catch(() => null);
   const decision = data && CONTROL_PLANE_DECISION[data.status];
   if (!decision) return null;
-  return { decision, decidedAt: data.decided_at || null };
+  // LAT-5444 — GET /api/approvals/:id serialiseert camelCase (`decidedAt`), niet
+  // snake_case. `data.decided_at` was daarom altijd undefined. Gevolg, gemeten met
+  // ops/lat5444-guard-canary.py: het pre-write pad schreef de juiste beslissing maar
+  // stempelde COALESCE(NULL, NOW()) — de sweep-tick in plaats van het board-moment —
+  // en reconcileStaleTimeouts(), dat op `resolved.decidedAt` gate't, viel op élke rij
+  // door zijn `continue` en corrigeerde er in totaal nul. snake_case blijft als
+  // fallback staan voor het geval een andere caller die vorm levert.
+  return { decision, decidedAt: data.decidedAt || data.decided_at || null };
 }
 
 // ---- timeout-watcher: markeer expired pending requests als 'timeout' + fire callbacks ----
