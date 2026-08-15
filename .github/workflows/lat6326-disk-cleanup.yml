@@ -1,0 +1,164 @@
+# LAT-6326 — schijf / staat op 85% (drempel 85%). Auto-cleanup via
+# /root/paperclip-housekeeping.sh apply is al geprobeerd en bracht het niet onder de
+# drempel. Geen enkele docker-cleanup-route (rm/rmi/prune) is bereikbaar via de
+# scoped broker of de directe proxy vanuit een agent-container — dat is bedoeld
+# (deny-by-default, geen DELETE/PUT, geen prune-route). Dit workflow gebruikt
+# hetzelfde GHA->VPS SSH-kanaal als lat3214-docker-log-rotation.yml (kaart-patroon
+# 932321e7 / 933eff00) — een volwaardige host-shell buiten de docker-proxy om.
+#
+# Drie modes, oplopend risico:
+#   measure       — alleen lezen: volledige du-breakdown (root, docker volumes,
+#                   overlay2, buildcache) + docker ps -a --size + images. Geen wijziging.
+#   apply-safe    — verwijdert ALLEEN met naam genoemde, niet-draaiende
+#                   build/test-containers (Created/Exited, geen compose-project-label)
+#                   + `docker container prune -f` (raakt uitsluitend gestopte
+#                   containers) + `docker image prune -f` (uitsluitend dangling,
+#                   ongetagde images) + `docker builder prune -f` (buildcache,
+#                   herbouwbaar). Raakt GEEN named volume, GEEN draaiende container,
+#                   GEEN data.
+#   verify        — alleen lezen: df erna, ter bevestiging.
+#
+# UITDRUKKELIJK NIET IN DIT BESTAND: verwijderen van named volumes, images die nog
+# door een draaiende container gebruikt worden, of enige `docker system prune -a`
+# zonder de dangling-only vlag. Dat is een apart voorstel met eigen Marijn-gate.
+
+name: LAT-6326 disk cleanup
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'measure = alleen meten; apply-safe = ongebruikte containers/dangling images/buildcache opruimen; verify = alleen aflezen'
+        required: true
+        default: measure
+        type: choice
+        options:
+          - measure
+          - apply-safe
+          - verify
+
+concurrency:
+  group: lat6326-disk-cleanup
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          cat >> ~/.ssh/config <<EOF
+          Host $VPS_HOST
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+          EOF
+          cat "$GITHUB_WORKSPACE/ops/ssh-config-snippet" >> ~/.ssh/config
+          ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      # ---------------------------------------------------------------- measure
+      - name: Measure (read-only)
+        if: inputs.mode == 'measure'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          MEASURE: |
+            set -uo pipefail
+            echo "=== df ==="
+            df -h /
+            echo
+            echo "=== top-level du op / (max-depth 1, x-dev) ==="
+            du -xh --max-depth=1 / 2>/dev/null | sort -rh | head -25
+            echo
+            echo "=== docker volumes, grootste 25 ==="
+            du -sh /var/lib/docker/volumes/* 2>/dev/null | sort -rh | head -25
+            echo
+            echo "=== overlay2 totaal ==="
+            du -sh /var/lib/docker/overlay2 2>/dev/null
+            echo
+            echo "=== buildkit cache totaal ==="
+            du -sh /var/lib/docker/buildkit 2>/dev/null
+            du -sh /var/lib/docker/containers/*/  2>/dev/null | sort -rh | head -5
+            echo
+            echo "=== containers incl. gestopte, met grootte ==="
+            docker ps -a --size --format 'table {{.Names}}\t{{.Status}}\t{{.Size}}'
+            echo
+            echo "=== images ==="
+            docker images --format 'table {{.Repository}}:{{.Tag}}\t{{.Size}}'
+            echo
+            echo "=== dangling images ==="
+            docker images -f dangling=true
+            echo
+            echo "=== journal ==="
+            journalctl --disk-usage 2>&1 || true
+            echo
+            echo "=== apt cache ==="
+            du -sh /var/cache/apt 2>/dev/null || true
+        run: |
+          printf '%s\n' "$MEASURE" | ssh "$VPS" "bash -s"
+
+      # ---------------------------------------------------------------- apply-safe
+      - name: Apply safe cleanup (no volumes, no running containers, no in-use images)
+        if: inputs.mode == 'apply-safe'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          APPLY: |
+            set -uo pipefail
+            echo "=== df BEFORE ==="
+            df -h /
+            echo
+
+            echo "=== met naam genoemde niet-draaiende build/test containers verwijderen ==="
+            for c in stupefied_albattani infallible_taussig quizzical_yalow romantic_meninsky quirky_davinci lat6010-delete-c-d lat6010-cleanup probe-6732 probe-11697; do
+              state=$(docker inspect -f '{{.State.Status}}' "$c" 2>/dev/null || echo "absent")
+              if [ "$state" = "running" ]; then
+                echo "  SKIP $c (running, niet aanraken)"
+                continue
+              fi
+              if [ "$state" = "absent" ]; then
+                echo "  SKIP $c (bestaat niet meer)"
+                continue
+              fi
+              docker rm -f "$c" && echo "  removed $c (was: $state)" || echo "  FAILED to remove $c"
+            done
+            echo
+
+            echo "=== docker container prune (uitsluitend gestopte containers) ==="
+            docker container prune -f
+            echo
+
+            echo "=== docker image prune (uitsluitend dangling/ongetagde images) ==="
+            docker image prune -f
+            echo
+
+            echo "=== docker builder prune (buildcache, herbouwbaar) ==="
+            docker builder prune -f
+            echo
+
+            echo "=== df AFTER ==="
+            df -h /
+        run: |
+          printf '%s\n' "$APPLY" | ssh "$VPS" "bash -s"
+
+      # ---------------------------------------------------------------- verify
+      - name: Verify (read-only)
+        if: inputs.mode == 'verify'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          VERIFY: |
+            set -uo pipefail
+            df -h /
+        run: |
+          printf '%s\n' "$VERIFY" | ssh "$VPS" "bash -s"
