@@ -76,12 +76,18 @@ const EN_PRESENT_EXACT_PATHS: readonly string[] = ['/reizen-nareizen/'];
 // Gezondheidsraad-advies van 25 juni 2026 en de behandeling daarvan in de Tweede
 // Kamer — Nederlandse beleidscontext zonder zinvol EN-equivalent.
 //
+// `/artikelen/de-stille-wijnkeuze/` blijft om dezelfde reden bewust NL-only
+// (redactionele beslissing Lead Editor, LAT-6137): Martins persoonlijke
+// overweging na hetzelfde Gezondheidsraad-advies, bewust stil en persoonlijk van
+// register — geen vertaalstuk en geen advies dat internationaal overdraagbaar is.
+//
 // Twee effecten, allebei bewust: EN-links hiernaartoe blijven op het kale NL-pad
 // staan (expliciete taalwissel i.p.v. een harde 404), en de i18n-nl-gate
 // (LAT-4912) telt het pad niet meer als dekkingsgat. Komt er ooit tóch een
 // EN-versie, haal het pad hier weg — één plek, geen sweep.
 const EN_MISSING_EXACT_PATHS: readonly string[] = [
     '/artikelen/ik-weet-het-ik-drink-toch-wijn/',
+    '/artikelen/de-stille-wijnkeuze/',
 ];
 
 // Padvergelijking die zowel `/x/` als `/x` accepteert; sitemap-URLs dragen een
