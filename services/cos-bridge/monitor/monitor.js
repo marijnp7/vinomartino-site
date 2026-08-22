@@ -226,51 +226,12 @@ function postSigned(path, payloadObj, label) {
   });
 }
 
-// TIJDELIJK VANGNET — mag weg vanaf 2026-08-22 (30 dagen na deploy, LAT-2802).
-//
-// Het venster waarvoor dit bedoeld is, is bij constructie leeg: de bridge gaat
-// eerst en de monitor daarna, dus de monitor draait nooit met /notify tegen een
-// bridge die /notify nog niet kent. Wat dit wél dekt is een rollback van de
-// bridge terwijl de nieuwe monitor blijft staan — de enige volgorde waarin een
-// melding anders stilletjes in een 404 verdwijnt. Dat is een goede reden om het
-// te hebben en een betere reden om het daarna echt te verwijderen.
-async function approvalFallback({ title, body, severity, alertKey }) {
-  const payload = {
-    // Uniek per poging, niet afgeleid van de conditie: /approval dedupt op
-    // request_id, dus een stabiele sleutel zou de tweede terugval als
-    // "200 duplicate" afdoen en er zou daarna nooit meer iets uitgaan.
-    request_id: newRequestId("notify-fallback"),
-    agent: "DevOps Monitor",
-    title,
-    body,
-    // Severity meenemen in plaats van alles op critical zetten. Vast op
-    // critical zou van elke schijf-drempel weer een pauze-doorbrekende approval
-    // mét knoppen maken — precies het gedrag dat LAT-2802 weghaalt, maar luider.
-    urgency: severity === "critical" ? "critical" : "normal",
-    timeout_seconds: 3600,
-    // LAT-5494/LAT-2909: zonder alert_key bundelt de bridge op een hash van
-    // title+body, en die drift mee met de byte-tellers in df-output — elke
-    // meting krijgt zo een andere bundle_key en de ochtenddigest krijgt één
-    // regel per meting in plaats van één regel per storing. Met alert_key
-    // bundelt de bridge (vanaf de LAT-5317-reconciliatie) op de KLASSE van de
-    // storing. Op een bridge zonder die reconciliatie wordt dit veld genegeerd
-    // — onschadelijk, geen gedragsverandering totdat de deploy live is.
-    ...(alertKey ? { alert_key: alertKey } : {}),
-  };
-  console.error(
-    `[notify fallback] /notify gaf 404 — teruggevallen op /approval ` +
-      `(bridge draait een versie zonder /notify) title="${title}"`
-  );
-  return postSigned("/approval", payload, "approval fallback");
-}
-
 async function notify({ title, body, severity = "info", alertKey = null }) {
   const res = await postSigned(
     "/notify",
     { request_id: newRequestId(), agent: "DevOps Monitor", title, body, severity },
     "notify sent"
   );
-  if (res.status === 404) return approvalFallback({ title, body, severity, alertKey });
   return res;
 }
 
