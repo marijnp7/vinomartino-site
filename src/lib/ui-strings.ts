@@ -824,6 +824,9 @@ export const UI_STRING_EN: Record<string, string> = {
     // ProefnotitieKaart.astro — 'Uit de kelder' stond via UI_COPY hardcoded in het
     // component (LAT-4924 §3). EN-copy goedgekeurd door de Lead Editor.
     'ui.proefnotitie.kaartLabel': 'From the cellar',
+    // EerstDitBoeken.astro — 'Eerst dit boeken' stond via UI_COPY hardcoded in het
+    // component (LAT-7703), exact dezelfde bug als hierboven.
+    'ui.eerstDitBoeken.heading': 'Book these first',
     // LAT-4979 — de resterende datalabels van dezelfde kaart. 'Gedronken in'
     // staat voor een plaats ("Gedronken in: Alba"), dus 'Drunk in'. Bewust NIET
     // 'Tasted in': wij houden geen formele proeverijen, en dat werkwoord claimt
