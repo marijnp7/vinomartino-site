@@ -17,7 +17,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'diagnose = alleen lezen; recreate = up -d op het image; cutover = GH_TOKEN omhangen naar v4 + force-recreate'
+        description: 'diagnose = alleen lezen; recreate = up -d op het image; cutover = GH_TOKEN omhangen naar v4 + force-recreate; verify-expiry = alleen credential_expiry_check.py draaien'
         required: true
         default: diagnose
         type: choice
@@ -25,6 +25,7 @@ on:
           - diagnose
           - recreate
           - cutover
+          - verify-expiry
 
 concurrency:
   group: lat4750-recreate-publish-dispatcher
@@ -307,6 +308,23 @@ jobs:
           # `ps` op de runner en niet in `ps` op de VPS. De rest van stdin is het script.
           { printf '%s\n' "$V4"; printf '%s\n' "$CUTOVER"; } \
             | ssh "$VPS" 'IFS= read -r V4; export V4; bash -s'
+
+      # ---------------------------------------------------------------- verify-expiry
+      # LAT-8075 stap 4: bevestigt dat de GEZAGHEBBENDE kopie van credential_expiry_check.py
+      # (op de host, niet een agent-container-replica van /agent-secrets) v4 herkent zonder
+      # finding. Alleen lezen, geen writes. De runner print JSON met fingerprints/hashes,
+      # nooit de tokenwaarde zelf -- dat is al hoe het script zelf is gebouwd.
+      - name: Verify credential-expiry (read-only)
+        if: inputs.mode == 'verify-expiry'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          VERIFY: |
+            set -uo pipefail
+            SCRIPT=/opt/paperclip-cos/lat3211/credential_expiry_check.py
+            [ -f "$SCRIPT" ] || { echo "::error::$SCRIPT ontbreekt"; exit 1; }
+            python3 "$SCRIPT"
+        run: |
+          printf '%s\n' "$VERIFY" | ssh "$VPS" "bash -s"
 
       # Rollback is bewust handmatig, zodat een rode container inspecteerbaar blijft:
       #   docker tag sha256:673fed8d9375f6d8765af26c3b7a9f1d445f1ce804624cb3742864ec0ef60158 \
