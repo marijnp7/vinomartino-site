@@ -322,7 +322,10 @@ jobs:
             set -uo pipefail
             SCRIPT=/opt/paperclip-cos/lat3211/credential_expiry_check.py
             [ -f "$SCRIPT" ] || { echo "::error::$SCRIPT ontbreekt"; exit 1; }
-            python3 "$SCRIPT"
+            # Zonder LAT3211_SECRETS_DIR valt de runner terug op /agent-secrets, een
+            # container-relatief pad dat op de kale host niet bestaat -- dan meet hij
+            # niets (results = "not_mounted_here") in plaats van de gezaghebbende kopie.
+            LAT3211_SECRETS_DIR=/root/.agent-secrets python3 "$SCRIPT"
         run: |
           printf '%s\n' "$VERIFY" | ssh "$VPS" "bash -s"
 
