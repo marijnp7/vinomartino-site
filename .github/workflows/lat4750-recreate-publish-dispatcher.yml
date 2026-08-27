@@ -17,13 +17,14 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'diagnose = alleen lezen; recreate = daadwerkelijk up -d'
+        description: 'diagnose = alleen lezen; recreate = up -d op het image; cutover = GH_TOKEN omhangen naar v4 + force-recreate'
         required: true
         default: diagnose
         type: choice
         options:
           - diagnose
           - recreate
+          - cutover
 
 concurrency:
   group: lat4750-recreate-publish-dispatcher
@@ -78,6 +79,14 @@ jobs:
               fi
             done
 
+            echo "=== welk GH_TOKEN draagt het host-bestand? (alleen de hash) ==="
+            sed -n 's/^GH_TOKEN=//p' /root/.agent-secrets/github-publish.env \
+              | head -1 | tr -d '\r\n' \
+              | sed -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'\$/\1/" \
+              | sha256sum | cut -c1-16 | sed 's/^/GH_TOKEN sha256(16)=/'
+            echo "keys: $(sed -n 's/^\([A-Za-z_][A-Za-z0-9_]*\)=.*/\1/p' \
+              /root/.agent-secrets/github-publish.env | paste -sd, -)"
+
             echo "=== compose-validatie (geen output, alleen exitcode) ==="
             # --quiet is essentieel: `docker compose config` zonder --quiet kan env_file
             # expanderen naar environment: en zou GH_TOKEN in dit workflow-log zetten.
@@ -123,13 +132,20 @@ jobs:
             # paperclip-devops-workspace-1, niet op de host (gemeten in mode=diagnose).
             # Daarom een afgeleide overlay met het host-pad. Eerst bewijzen dat het om
             # exact hetzelfde bestand gaat: hash vergelijken, nooit de waarde printen.
-            echo "=== env-bestand identiek aan de agent-kant? ==="
-            H=$(sha256sum /root/.agent-secrets/github-publish.env | cut -c1-16)
-            echo "host sha256(16)=$H"
-            if [ "$H" != "b679e6d0288755b3" ]; then
-              echo "::error::env-bestand wijkt af van wat de agent-kant ziet; afgebroken"
-              exit 1
-            fi
+            # LAT-8075: waarde-gebaseerd, niet whole-file. De bestandshash schuift bij
+            # elke cutover mee (en stond hier eerst hardgecodeerd op b679e6d0288755b3);
+            # de token-identiteit is de invariant waar deze stap echt om geeft.
+            echo "=== draagt het env-bestand een bekend GH_TOKEN? ==="
+            H=$(sed -n 's/^GH_TOKEN=//p' /root/.agent-secrets/github-publish.env \
+                | head -1 | tr -d '\r\n' \
+                | sed -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'\$/\1/" \
+                | sha256sum | cut -c1-16)
+            echo "GH_TOKEN sha256(16)=$H"
+            case "$H" in
+              88eda9ddba26d5f0) echo "token=v1 (verloopt 2026-09-04)" ;;
+              2fe4c9c5469826aa) echo "token=v4 (verloopt 2026-11-02)" ;;
+              *) echo "::error::GH_TOKEN is geen bekende versie; afgebroken"; exit 1 ;;
+            esac
 
             echo "=== afgeleide overlay met host-pad ==="
             sed 's#/agent-secrets/github-publish.env#/root/.agent-secrets/github-publish.env#' \
@@ -180,6 +196,117 @@ jobs:
             docker volume rm lat4750verify_state 2>/dev/null || true
         run: |
           printf '%s\n' "$RECREATE" | ssh "$VPS" "bash -s"
+
+      # ---------------------------------------------------------------- cutover
+      # LAT-8075: hangt GH_TOKEN in /root/.agent-secrets/github-publish.env om van v1
+      # (verloopt 2026-09-04) naar v4 (2026-11-02) en recreeert de dispatcher, omdat
+      # compose env_file alleen bij *create* expandeert -- `docker restart` leest hem niet.
+      - name: Cutover GH_TOKEN naar v4
+        if: inputs.mode == 'cutover'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          V4: ${{ secrets.GH_TOKEN_VINOMARTINO_V4 }}
+          CUTOVER: |
+            set -euo pipefail
+            F=/root/.agent-secrets/github-publish.env
+            TS=$(date -u +%Y%m%dT%H%M%SZ)
+
+            fp()     { printf '%s' "$1" | sha256sum | cut -c1-16; }
+            tokval() { sed -n 's/^GH_TOKEN=//p' "$1" | head -1 | tr -d '\r\n' \
+                       | sed -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'$/\1/"; }
+            keys()   { sed -n 's/^\([A-Za-z_][A-Za-z0-9_]*\)=.*/\1/p' "$1" | paste -sd, -; }
+
+            [ -f "$F" ]        || { echo "::error::$F ontbreekt"; exit 1; }
+            [ -n "${V4:-}" ]   || { echo "::error::secret GH_TOKEN_VINOMARTINO_V4 is leeg"; exit 1; }
+            [ "$(fp "$V4")" = "2fe4c9c5469826aa" ] \
+              || { echo "::error::secret-waarde is niet v4; afgebroken zonder te schrijven"; exit 1; }
+
+            echo "=== VOOR ==="
+            OLD_KEYS=$(keys "$F"); OLD_LINES=$(wc -l < "$F")
+            OLD=$(fp "$(tokval "$F")")
+            echo "keys=$OLD_KEYS regels=$OLD_LINES"
+            echo "whole-file sha256(16)=$(sha256sum "$F" | cut -c1-16)"
+            echo "GH_TOKEN sha256(16)=$OLD"
+
+            if [ "$OLD" = "2fe4c9c5469826aa" ]; then
+              echo "Al op v4 -- schrijfstap overgeslagen, wel recreeren."
+            elif [ "$OLD" != "88eda9ddba26d5f0" ]; then
+              echo "::error::onbekend huidig GH_TOKEN; afgebroken zonder te schrijven"; exit 1
+            else
+              echo "=== BACK-UP ==="
+              cp -a "$F" "$F.bak-lat8072-$TS"
+              stat -c '%A %U:%G %n' "$F.bak-lat8072-$TS"
+
+              echo "=== SCHRIJVEN (alleen de GH_TOKEN-regel; overige keys blijven staan) ==="
+              # De waarde gaat via ENVIRON naar awk -- nooit via argv, nooit naar stdout.
+              T=$(mktemp)
+              GH_V4="$V4" awk '
+                /^GH_TOKEN=/ && !seen { print "GH_TOKEN=" ENVIRON["GH_V4"]; seen=1; next }
+                { print }
+              ' "$F" > "$T"
+              cat "$T" > "$F"          # in place: eigenaar, mode en inode blijven van het origineel
+              rm -f "$T"
+              chmod 600 "$F"
+
+              echo "=== NA ==="
+              NEW_KEYS=$(keys "$F"); NEW_LINES=$(wc -l < "$F")
+              NEW=$(fp "$(tokval "$F")")
+              echo "keys=$NEW_KEYS regels=$NEW_LINES"
+              echo "whole-file sha256(16)=$(sha256sum "$F" | cut -c1-16)"
+              echo "GH_TOKEN sha256(16)=$NEW"
+
+              if [ "$NEW" != "2fe4c9c5469826aa" ] \
+                 || [ "$NEW_KEYS" != "$OLD_KEYS" ] || [ "$NEW_LINES" != "$OLD_LINES" ]; then
+                echo "::error::verificatie faalde -- terugrollen naar $F.bak-lat8072-$TS"
+                cat "$F.bak-lat8072-$TS" > "$F"; chmod 600 "$F"
+                echo "teruggerold naar GH_TOKEN sha256(16)=$(fp "$(tokval "$F")")"
+                exit 1
+              fi
+              echo "SCHRIJVEN_OK"
+            fi
+
+            echo "=== FORCE-RECREATE (env_file expandeert alleen bij create) ==="
+            cd /opt/paperclip-cos
+            SRC=lat920/docker-compose.publish-dispatcher.yml
+            OVR=/opt/paperclip-cos/lat920/docker-compose.publish-dispatcher.hostpath.yml
+            sed 's#/agent-secrets/github-publish.env#/root/.agent-secrets/github-publish.env#' \
+              "$SRC" > "$OVR"
+            if grep -v '^[[:space:]]*#' "$OVR" | grep -q '/agent-secrets/'; then
+              echo "::error::actieve regel wijst nog naar /agent-secrets/; afgebroken"; exit 1
+            fi
+            # --quiet: zonder dat kan compose env_file expanderen en GH_TOKEN in dit log zetten.
+            docker compose -p paperclip-cos --project-directory /opt/paperclip-cos \
+              -f docker-compose.cos.yml -f "$OVR" config --quiet
+            docker compose -p paperclip-cos --project-directory /opt/paperclip-cos \
+              -f docker-compose.cos.yml -f "$OVR" up -d --force-recreate publish-dispatcher
+            docker inspect -f 'ctr_image={{.Image}} created={{.Created}} status={{.State.Status}}' \
+              paperclip-publish-dispatcher-1
+
+            echo "=== wat ziet de CONTAINER nu echt? (het bewijs dat telt) ==="
+            docker exec paperclip-publish-dispatcher-1 node -e \
+              'const c=require("crypto");const t=process.env.GH_TOKEN||"";
+               console.log("CTR_GH_TOKEN_FP="+(t?c.createHash("sha256").update(t).digest("hex").slice(0,16):"LEEG"));
+               console.log("CTR_GH_TOKEN_LEN="+t.length)'
+
+            ok=0
+            for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
+              if docker exec paperclip-publish-dispatcher-1 node -e "
+                fetch('http://127.0.0.1:3202/health')
+                  .then(async r=>{console.log('LAT8075_HTTP='+r.status);
+                                  console.log('LAT8075_BODY='+await r.text());
+                                  process.exit(0)})
+                  .catch(e=>{console.log('LAT8075_WACHT='+e.message);process.exit(1)})"; then
+                ok=1; break
+              fi
+              sleep 5
+            done
+            [ "$ok" = "1" ] || { echo "::error::/health gaf binnen 60s geen antwoord"; exit 1; }
+            echo "CUTOVER_OK"
+        run: |
+          # V4 reist als eerste stdin-regel, niet als argv: zo staat de waarde niet in
+          # `ps` op de runner en niet in `ps` op de VPS. De rest van stdin is het script.
+          { printf '%s\n' "$V4"; printf '%s\n' "$CUTOVER"; } \
+            | ssh "$VPS" 'IFS= read -r V4; export V4; bash -s'
 
       # Rollback is bewust handmatig, zodat een rode container inspecteerbaar blijft:
       #   docker tag sha256:673fed8d9375f6d8765af26c3b7a9f1d445f1ce804624cb3742864ec0ef60158 \
