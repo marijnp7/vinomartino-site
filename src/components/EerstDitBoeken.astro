@@ -8,19 +8,28 @@
  * Data-driven uit het Directus JSON-veld `eerst_dit_boeken` (articles). Rendert
  * niets als de lijst leeg is (graceful degrade).
  */
-import { UI_COPY } from '../lib/ui-copy';
 import type { EerstDitBoekenItem } from '../lib/articles';
+import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
 
 interface Props {
   items: EerstDitBoekenItem[];
+  /**
+   * LAT-7703 — de blok-kop kwam rechtstreeks uit de kale copy-module (UI_COPY)
+   * en rendeerde daarom Nederlands op /en/. De key bestond al in de dictionary;
+   * de bedrading ontbrak. Zelfde fix als ProefnotitieKaart.astro (LAT-4911).
+   */
+  locale?: Locale;
 }
 
-const { items } = Astro.props;
+const { items, locale = DEFAULT_LOCALE } = Astro.props;
+const ui = await loadUiStrings(locale);
+const heading = ui.t('ui.eerstDitBoeken.heading');
 const rows = (items ?? []).filter((i) => i && (i.naam || i.handeling));
 ---
 {rows.length > 0 && (
-  <aside class="eerst-dit-boeken" aria-label={UI_COPY.eerstDitBoekenHeading}>
-    <h2 class="edb__heading">{UI_COPY.eerstDitBoekenHeading}</h2>
+  <aside class="eerst-dit-boeken" aria-label={heading}>
+    <h2 class="edb__heading">{heading}</h2>
     <ol class="edb__list">
       {rows.map((row) => (
         <li class="edb__item">

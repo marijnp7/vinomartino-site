@@ -234,7 +234,7 @@ if (article.faqSchema) {
         <ProefnotitieKaart proefnotities={article.proefnotities} locale={locale} />
 
         {/* LAT-2112 — "Eerst dit boeken": praktisch afsluitblok van reisartikelen. */}
-        <EerstDitBoeken items={article.eerstDitBoeken} />
+        <EerstDitBoeken items={article.eerstDitBoeken} locale={locale} />
 
         {article.slug === 'langhe-piemonte-4-dagen-route' && (
           <LangheCaptureBlock variant="a" locale={locale} />

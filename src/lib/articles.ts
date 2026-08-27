@@ -295,7 +295,13 @@ import { localizeRecords, localizeNestedRefs } from './directus-i18n';
 // LAT-2921 — cta_blocks (CtaStructure, zie src/lib/cta-blocks.ts) draagt de aside-/
 // vergelijkings-/afsluitcopy; tags is de zichtbare tag-chip-lijst (JSON string-array).
 // Beide ontbraken hier terwijl de kolommen al bestaan op landen/streken.
-const ARTICLES_TRANSLATABLE = ['title', 'description', 'body', 'meta_title', 'meta_description', 'hero_alt', 'cta_blocks', 'tags'];
+// LAT-7703 — proefnotities + eerst_dit_boeken zijn gestructureerde JSON-blobs met
+// leestekst (proefnotitie, boekingshandeling) die op /en/ rauw NL rendeerden: de
+// kolommen stonden niet in deze lijst, dus mapArticle() las altijd de NL-basis.
+// Zelfde deep-merge-semantiek als cta_blocks (zie mergeTranslatedValue in
+// directus-i18n.ts): de EN-blob draagt bewust alleen de tekst-keys, zodat
+// etiket_foto/prijs/jaar/tijdshorizon uit de NL-basis behouden blijven.
+const ARTICLES_TRANSLATABLE = ['title', 'description', 'body', 'meta_title', 'meta_description', 'hero_alt', 'cta_blocks', 'tags', 'proefnotities', 'eerst_dit_boeken'];
 
 async function downloadArticleAsset(assetId: string, directusUrl: string, token: string): Promise<string | null> {
     if (!assertAssetAllowed(assetId)) return null; // LAT-2361: blokkeer fout-gekoppelde/gedeelde beelden ook in artikel-hero's
