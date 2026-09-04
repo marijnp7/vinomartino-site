@@ -1,0 +1,221 @@
+# LAT-8816 / LAT-8809 fase A: scheduled detect-only backup-wedge watchdog,
+# plus a structurally gated (not yet built) arm path for a future fase B.
+#
+# Binding design constraints from the CTO on LAT-8862 (both implemented below):
+#
+#   Beperking 1 -- the schedule trigger can never reach `arm`.
+#   The `detect` job's `if:` only matches `schedule` or an explicit
+#   `workflow_dispatch` with `inputs.mode == 'detect'`. The `arm` job's `if:`
+#   requires BOTH `github.event_name == 'workflow_dispatch'` AND
+#   `inputs.mode == 'arm'` AND a separate required confirmation input
+#   (`inputs.confirm_arm` must equal the literal phrase below) -- the
+#   lat4998-arm-watchdog.yml pattern (LAT-4998/LAT-3204). On a `schedule`
+#   event the `inputs` context is not populated at all, so `inputs.mode` and
+#   `inputs.confirm_arm` are both '' -- there is no default/fallback value
+#   that could make either condition true. A `guard` job asserts the
+#   scheduled run actually took the detect path and nothing else ran, so a
+#   workflow-syntax mistake that accidentally widened one of the `if:`
+#   conditions fails loudly instead of silently going green.
+#
+#   Beperking 2 -- the detector's two inputs are injectable, not hardcoded.
+#   lat8809-backup-wedge-watchdog.py already takes --fd-dir/--backup-dir/--log
+#   (also settable via BACKUP_WEDGE_FD_DIR/BACKUP_WEDGE_BACKUP_DIR/
+#   BACKUP_LOG_PATH env vars). This workflow passes them through as repo
+#   variables with production defaults instead of inlining the paths, and the
+#   fixture suite (ops/lat8862-wedge-watchdog-fixtures-test.py, run in CI on
+#   every push to this file) exercises the script end-to-end against
+#   synthetic fixtures -- including the 09-03 16:36 poisoned-log regression --
+#   without touching the real /proc/1/fd or data/backups/.
+#
+# Fase B is deliberately NOT implemented here: LAT-8816's own scope keeps the
+# restart step closed, and LAT-8862 withdrew the old ">= 2 true positives"
+# threshold in favour of (1) this fixture suite green, (2) >= 7 days
+# detect-only with zero false positives, (3) the one natural true positive
+# (the ongoing 09-03 wedge) correctly detected. The `arm` job below is a
+# structural placeholder that proves unreachability from `schedule` now, so
+# landing the real restart step later is additive (new steps inside an
+# already-gated job) instead of a redesign. It intentionally fails today --
+# there is nothing to arm yet.
+#
+# Reuses the existing GHA->VPS SSH channel (webfactory/ssh-agent +
+# secrets.VPS_SSH_PRIVATE_KEY), the same one deploy-cos.yml and
+# lat4998-arm-watchdog.yml already use. Adds no new secret and no new reach.
+# The remote script runs the detector inside the `paperclip-paperclip-1`
+# container (the app's own PID 1, matching --fd-dir /proc/1/fd's meaning) via
+# `docker exec`, per lat8809-backup-wedge-watchdog.py's non-canonical-volume
+# guard.
+#
+# Vereiste secrets: VPS_HOST, VPS_USER, VPS_SSH_PRIVATE_KEY (same as deploy-cos.yml)
+# Optionele repo variables (Beperking 2 -- injectable, defaults match prod):
+#   LAT8816_FD_DIR, LAT8816_BACKUP_DIR, LAT8816_LOG_PATH,
+#   LAT8816_WEDGE_THRESHOLD_MINUTES, LAT8816_COVERAGE_RED_THRESHOLD_HOURS
+
+name: LAT-8816 Backup Wedge Watchdog (detect/arm)
+
+on:
+  schedule:
+    - cron: '17,47 * * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'detect = run the detect-only check (also runs automatically on schedule, no restart). arm = NOT YET BUILT -- fase B restart step does not exist; this option exists only to prove the arm-gate is unreachable from schedule ahead of building it.'
+        required: true
+        type: choice
+        default: detect
+        options:
+          - detect
+          - arm
+      confirm_arm:
+        description: 'Required only for mode=arm: must be exactly "ARM-LAT-8816-FASE-B" to proceed. Ignored for mode=detect.'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lat8816-backup-wedge-watchdog
+  cancel-in-progress: false
+
+jobs:
+  fixtures:
+    # Runs the Beperking-2 fixture suite on every trigger, including
+    # `schedule`, so a fixture regression is visible on the same cadence as
+    # the evidence window this issue is measuring, not just on manual pushes.
+    # lat8809-backup-wedge-watchdog.py and its fixture suite live on the
+    # paperclip_home volume (/paperclip/ops), not in this git repo, so this
+    # runs them inside paperclip-paperclip-1 over the same SSH channel as
+    # `detect` -- that validates the actual deployed script, not a possibly
+    # stale copy checked into git. All fixture data is synthetic and written
+    # under /tmp inside the container; nothing here touches real
+    # /proc/1/fd or production data/backups/.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          cat >> ~/.ssh/config <<EOF
+          Host $VPS_HOST
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+          EOF
+          ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Run LAT-8862 fixture suite against the live detector script
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+        run: |
+          set -uo pipefail
+          ssh -o ConnectTimeout=20 "$VPS" \
+            "docker exec paperclip-paperclip-1 python3 /paperclip/ops/lat8862-wedge-watchdog-fixtures-test.py"
+
+  detect:
+    needs: fixtures
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Beperking 1: the ONLY path a `schedule` event can take. `inputs` is not
+    # populated on `schedule`, so this does not and cannot rely on the
+    # `mode` input's default value -- the condition is explicit about the
+    # event type itself.
+    if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.mode == 'detect') }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          cat >> ~/.ssh/config <<EOF
+          Host $VPS_HOST
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+          EOF
+          cat "$GITHUB_WORKSPACE/ops/ssh-config-snippet" >> ~/.ssh/config
+          ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: detect -- run the wedge watchdog inside paperclip-paperclip-1, detect-only, no restart
+        id: detect
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          # Beperking 2: injectable, not hardcoded -- repo vars override these
+          # defaults so the same workflow can point at a different
+          # fd-dir/backup-dir/log without editing this file.
+          FD_DIR: ${{ vars.LAT8816_FD_DIR || '/proc/1/fd' }}
+          BACKUP_DIR: ${{ vars.LAT8816_BACKUP_DIR || '/paperclip/instances/default/data/backups' }}
+          LOG_PATH: ${{ vars.LAT8816_LOG_PATH || '/paperclip/instances/default/logs/server.log' }}
+          WEDGE_THRESHOLD_MIN: ${{ vars.LAT8816_WEDGE_THRESHOLD_MINUTES || '75' }}
+          COVERAGE_RED_HOURS: ${{ vars.LAT8816_COVERAGE_RED_THRESHOLD_HOURS || '12' }}
+        run: |
+          set -uo pipefail
+          REMOTE_SCRIPT=$(cat <<EOF
+          set -uo pipefail
+          docker exec \
+            -e BACKUP_WEDGE_FD_DIR="$FD_DIR" \
+            -e BACKUP_WEDGE_BACKUP_DIR="$BACKUP_DIR" \
+            -e BACKUP_LOG_PATH="$LOG_PATH" \
+            -e BACKUP_WEDGE_THRESHOLD_MINUTES="$WEDGE_THRESHOLD_MIN" \
+            -e BACKUP_COVERAGE_RED_THRESHOLD_HOURS="$COVERAGE_RED_HOURS" \
+            paperclip-paperclip-1 \
+            python3 /paperclip/ops/lat8809-backup-wedge-watchdog.py
+          echo "EXIT=\$?"
+          EOF
+          )
+          printf '%s\n' "$REMOTE_SCRIPT" | ssh -o ConnectTimeout=20 "$VPS" "bash -s"
+
+      # Never let a scheduled run silently do nothing: if `detect` above did
+      # not actually execute and produce a verdict, that is itself a finding
+      # (same "guard" pattern as lat4998-arm-watchdog.yml / LAT-5004).
+      - name: guard -- a scheduled run must have produced a verdict
+        if: ${{ always() && github.event_name == 'schedule' }}
+        run: |
+          echo "detect step outcome: ${{ steps.detect.outcome }}"
+          if [ "${{ steps.detect.outcome }}" == "skipped" ]; then
+            echo "GUARD_FAIL: scheduled run did not execute the detect step at all"
+            exit 1
+          fi
+
+  arm:
+    needs: fixtures
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Beperking 1: workflow_dispatch ONLY, with an explicit confirmation
+    # input in addition to mode=='arm'. `schedule` events cannot satisfy
+    # `github.event_name == 'workflow_dispatch'`, full stop -- there is no
+    # fallback/default path into this job from a schedule event.
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'arm' && inputs.confirm_arm == 'ARM-LAT-8816-FASE-B' }}
+    steps:
+      - name: guard -- assert this job never runs off a schedule event
+        run: |
+          if [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
+            echo "GUARD_FAIL: arm ran on event '${{ github.event_name }}', not workflow_dispatch"
+            exit 1
+          fi
+
+      - name: fase B not built yet
+        run: |
+          echo "Fase B (the restart step) is deliberately not implemented."
+          echo "LAT-8862's evidence threshold for requesting the arm marijn-kaart:"
+          echo "  1) this fixture suite green (see the fixtures job above)"
+          echo "  2) >= 7 days of scheduled detect-only runs with zero false positives"
+          echo "  3) the one natural true positive (the 09-03 wedge) correctly detected"
+          echo "See LAT-8816 / LAT-8862 for status. This job exists only to prove"
+          echo "the arm-gate is structurally unreachable from the schedule trigger"
+          echo "ahead of that evidence being complete."
+          exit 1
