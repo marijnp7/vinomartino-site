@@ -25,14 +25,32 @@
 # Fase A (dit bestand, nu): mode=detect. Alleen lezen, GEEN docker restart of
 # kill, waar dan ook in dit bestand. Elke rode/onbekende run faalt de GHA-job
 # bewust (zie "detect"-stap) zodat de Actions-geschiedenis zelf het
-# true/false-positive-grootboek is voor de DoD op LAT-8809 (>= 2 bevestigde
-# true positives, 0 false positives).
+# true/false-positive-grootboek is voor de fase B-drempel (zie de
+# LAT-8862-correctie hieronder -- de oude ">= 2 TP"-drempel is ingetrokken).
 #
-# Fase B (arm + restart-stap): blijft dicht tot die DoD gehaald is. `mode:
-# arm` bestaat al als keuze (zodat bestand + restart-stap straks samen onder
-# EEN marijn-kaart landen, i.p.v. twee losse trajecten), maar de stap
-# hieronder doet niets dan hard falen met uitleg -- er is geen restart-pad in
-# dit bestand.
+# Fase B (arm + restart-stap): blijft dicht. `mode: arm` bestaat al als keuze
+# (zodat bestand + restart-stap straks samen onder EEN marijn-kaart landen),
+# maar de stap hieronder doet niets dan hard falen met uitleg -- er is geen
+# restart-pad in dit bestand.
+#
+# BIJGEWERKT op CTO-besluit LAT-8862 (bindende ontwerpbeperkingen, moest
+# landen voor verdere bouw):
+#   Beperking 1 -- `arm` is nu workflow_dispatch-only MET een aparte required
+#     bevestigingsinput (`confirm_arm`, moet letterlijk matchen), niet alleen
+#     `inputs.mode == 'arm'`. Op een `schedule`-event is `inputs.*` leeg, dus
+#     geen van beide voorwaarden kan ooit waar zijn -- geen pad, ook niet via
+#     fallback of lege input. lat4998-arm-watchdog.yml-patroon.
+#   Beperking 2 -- de detector-inputs (fd-tabel, backups-dir) zijn nu
+#     injecteerbaar via env vars i.p.v. hardcoded in de remote-script; de
+#     nieuwe fixture-suite (ops/lat8862-wedge-watchdog-fixtures-test.py)
+#     draait op elke trigger, incl. schedule, tegen synthetische fixtures.
+#   Drempel-correctie -- de oude ">= 2 bevestigde true positives" is
+#     ingetrokken. Nieuwe drempel om de arm-kaart aan te vragen: (1) de
+#     fixture-suite groen inclusief de 09-03-regressie, (2) >= 7 dagen
+#     detect-only met 0 false positives, (3) de ene natuurlijke true positive
+#     (de lopende 09-03-wedge) correct gedetecteerd. Het bewijsvenster start
+#     bij de EERSTE geslaagde scheduled detect-run, niet bij het sluiten van
+#     LAT-8809 (dat staat al done maar heeft nooit periodiek gedraaid).
 #
 # Cadans: uren-schaal, want de escalatiedrempel in het script is 12u
 # (--coverage-red-threshold-hours, default). GHA-cron jitter (15+ min) is
@@ -42,6 +60,9 @@
 # Vereiste secrets: VPS_HOST, VPS_USER, VPS_SSH_PRIVATE_KEY (zelfde als
 # deploy-cos.yml / lat4998-arm-watchdog.yml -- geen nieuw secret, geen nieuw
 # bereik).
+# Optionele repo variables (Beperking 2 -- injecteerbaar, defaults = prod):
+#   LAT8816_FD_DIR, LAT8816_BACKUP_DIR, LAT8816_LOG_PATH,
+#   LAT8816_WEDGE_THRESHOLD_MINUTES, LAT8816_COVERAGE_RED_THRESHOLD_HOURS
 
 name: LAT-8816 Backup-wedge watchdog
 
@@ -51,13 +72,17 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'detect = read-only fase A-run (fd-scan + coverage-check via ops/lat8809-backup-wedge-watchdog.py, geen restart). arm = fase B, nog niet geimplementeerd (blijft dicht tot de fase A-DoD op LAT-8809 gehaald is).'
+        description: 'detect = read-only fase A-run (fd-scan + coverage-check via ops/lat8809-backup-wedge-watchdog.py, geen restart). arm = NOG NIET GEBOUWD -- bestaat alleen om te bewijzen dat het pad onbereikbaar is vanaf schedule; vereist ook confirm_arm.'
         required: true
         type: choice
         default: detect
         options:
           - detect
           - arm
+      confirm_arm:
+        description: 'Alleen voor mode=arm: moet exact "ARM-LAT-8816-FASE-B" zijn. Genegeerd voor mode=detect.'
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -94,6 +119,21 @@ jobs:
           cat "$GITHUB_WORKSPACE/ops/ssh-config-snippet" >> ~/.ssh/config
           ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
 
+      # Beperking 2 (LAT-8862): validates the actual deployed detector +
+      # the silent-log-forces-unknown fix against 5 synthetic fixtures
+      # (incl. the 09-03 16:36 poisoned-log regression) before trusting its
+      # output below. Runs every trigger, including schedule, so a
+      # regression here is visible on the same cadence as the evidence
+      # window this workflow is building.
+      - name: fixtures -- LAT-8862 fixture suite against the live detector script
+        id: fixtures
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+        run: |
+          set -uo pipefail
+          ssh -o ConnectTimeout=20 "$VPS" \
+            "docker exec paperclip-paperclip-1 python3 /paperclip/ops/lat8862-wedge-watchdog-fixtures-test.py"
+
       # Runs on both a manual dispatch (mode=detect) and every scheduled fire.
       # On a `schedule` event `inputs.*` is not populated, so the condition
       # must check event_name too -- same reasoning as lat4998's `verify` step.
@@ -102,6 +142,13 @@ jobs:
         if: ${{ github.event_name == 'schedule' || inputs.mode == 'detect' }}
         env:
           VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          # Beperking 2: injecteerbaar, niet hardcoded -- repo vars overriden
+          # deze prod-defaults zonder dit bestand te wijzigen.
+          FD_DIR: ${{ vars.LAT8816_FD_DIR || '/proc/1/fd' }}
+          BACKUP_DIR: ${{ vars.LAT8816_BACKUP_DIR || '/paperclip/instances/default/data/backups' }}
+          LOG_PATH: ${{ vars.LAT8816_LOG_PATH || '/paperclip/instances/default/logs/server.log' }}
+          WEDGE_THRESHOLD_MIN: ${{ vars.LAT8816_WEDGE_THRESHOLD_MINUTES || '75' }}
+          COVERAGE_RED_HOURS: ${{ vars.LAT8816_COVERAGE_RED_THRESHOLD_HOURS || '12' }}
           REMOTE_SCRIPT: |
             set -uo pipefail
             CONTAINER=paperclip-paperclip-1
@@ -116,7 +163,13 @@ jobs:
             fi
             echo "--- detector output ---"
             set +e
-            OUT=$(docker exec "$CONTAINER" python3 "$SCRIPT" 2>&1)
+            OUT=$(docker exec \
+              -e BACKUP_WEDGE_FD_DIR="$FD_DIR" \
+              -e BACKUP_WEDGE_BACKUP_DIR="$BACKUP_DIR" \
+              -e BACKUP_LOG_PATH="$LOG_PATH" \
+              -e BACKUP_WEDGE_THRESHOLD_MINUTES="$WEDGE_THRESHOLD_MIN" \
+              -e BACKUP_COVERAGE_RED_THRESHOLD_HOURS="$COVERAGE_RED_HOURS" \
+              "$CONTAINER" python3 "$SCRIPT" 2>&1)
             rc=$?
             set -e
             echo "$OUT"
@@ -161,12 +214,23 @@ jobs:
           echo "TRANSPORT_FAIL: could not reach the VPS over SSH in 3 attempts"
           exit 255
 
+      # Beperking 1 (LAT-8862): workflow_dispatch-only EN een aparte required
+      # bevestigingsinput, niet alleen mode==arm. Op schedule is inputs.* leeg
+      # (geen fallback/default kan hier waar maken), dus de event_name-check
+      # is hier defense-in-depth bovenop wat inputs.* al garandeert.
       - name: arm -- fase B, nog niet geimplementeerd
-        if: ${{ inputs.mode == 'arm' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'arm' && inputs.confirm_arm == 'ARM-LAT-8816-FASE-B' }}
         run: |
+          if [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
+            echo "GUARD_FAIL: arm liep op event '${{ github.event_name }}', niet workflow_dispatch"; exit 1
+          fi
           echo "::error::fase B (arm + restart-stap) is nog niet gebouwd -- dit bestand bevat geen restart-pad."
-          echo "DoD om fase B te openen (LAT-8809): >= 2 bevestigde true positives EN 0 false positives op fase A (mode: detect)."
-          echo "Zie de Actions-geschiedenis van deze workflow (mode: detect) voor de lopende telling, en LAT-8816/LAT-8809 voor de status."
+          echo "Nieuwe drempel om de arm-kaart aan te vragen (LAT-8862, trekt de oude '>= 2 TP' in):"
+          echo "  1) de fixture-suite groen (zie de fixtures-stap hierboven), incl. de 09-03-regressie"
+          echo "  2) >= 7 dagen scheduled detect-only met 0 false positives"
+          echo "  3) de ene natuurlijke true positive (de 09-03-wedge) correct gedetecteerd"
+          echo "Bewijsvenster start bij de EERSTE geslaagde scheduled detect-run, niet bij het sluiten van LAT-8809."
+          echo "Zie LAT-8816/LAT-8862 voor status."
           exit 1
 
       # Backstop: als de scheduled trigger de detect-stap om wat voor reden
