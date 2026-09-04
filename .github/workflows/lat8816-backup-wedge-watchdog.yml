@@ -1,0 +1,183 @@
+# Fase A/B van de backup-wedge watchdog (LAT-8816), CTO-besluit op LAT-8815.
+#
+# Waarom een GHA scheduled workflow en geen Paperclip-routine of host-cron
+# (volledige redenering: LAT-8815, comment "CTO-antwoord: fase B-cadans"):
+#   - Deze watchdog bewaakt PID 1 -- het serverproces waarin een Paperclip-
+#     routine zelf draait. Een bewaker die met zijn doelwit omvalt is geen
+#     bewaker.
+#   - `coalesce_if_active`/`skip_missed` laten routine-fires stil vallen; een
+#     watchdog mag nooit stil kunnen falen.
+#   - Routine-naam en cronExpression lopen aantoonbaar uiteen (LAT-7303) --
+#     onwenselijk voor iets waarvan de cadans het hele contract is.
+#   - Host-cron is bewezen bereikbaar maar kan de herstart niet uitvoeren via
+#     de al goedgekeurde weg zonder een tweede privilege-grant.
+#   Reuses het al goedgekeurde GHA->VPS SSH-kanaal (kaart 933eff00), zelfde
+#   patroon als lat4998-arm-watchdog.yml (LAT-3204/LAT-4998).
+#
+# Waarom `docker exec paperclip-paperclip-1 ...` en niet direct op de host:
+#   ops/lat8809-backup-wedge-watchdog.py ankert op /proc/1/fd -- dat moet het
+#   PID 1 van de control-plane-container zijn (het serverproces), niet het
+#   PID 1 van de VPS-host zelf. `docker exec` op `paperclip-paperclip-1` deelt
+#   diens PID-namespace, dus /proc/1/fd is daar de juiste, ongepatchte
+#   waarheid. /paperclip in die container is de canonieke `paperclip_home`-
+#   volume (rw), bevestigd in ops/LAT-3705-hermeting-2026-08-14.md.
+#
+# Fase A (dit bestand, nu): mode=detect. Alleen lezen, GEEN docker restart of
+# kill, waar dan ook in dit bestand. Elke rode/onbekende run faalt de GHA-job
+# bewust (zie "detect"-stap) zodat de Actions-geschiedenis zelf het
+# true/false-positive-grootboek is voor de DoD op LAT-8809 (>= 2 bevestigde
+# true positives, 0 false positives).
+#
+# Fase B (arm + restart-stap): blijft dicht tot die DoD gehaald is. `mode:
+# arm` bestaat al als keuze (zodat bestand + restart-stap straks samen onder
+# EEN marijn-kaart landen, i.p.v. twee losse trajecten), maar de stap
+# hieronder doet niets dan hard falen met uitleg -- er is geen restart-pad in
+# dit bestand.
+#
+# Cadans: uren-schaal, want de escalatiedrempel in het script is 12u
+# (--coverage-red-threshold-hours, default). GHA-cron jitter (15+ min) is
+# daartegen irrelevant. Elke 2 uur geeft ruim marge vóór de drempel zonder
+# nodeloos vaak een SSH-sessie tegen de VPS te openen.
+#
+# Vereiste secrets: VPS_HOST, VPS_USER, VPS_SSH_PRIVATE_KEY (zelfde als
+# deploy-cos.yml / lat4998-arm-watchdog.yml -- geen nieuw secret, geen nieuw
+# bereik).
+
+name: LAT-8816 Backup-wedge watchdog
+
+on:
+  schedule:
+    - cron: '13 */2 * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'detect = read-only fase A-run (fd-scan + coverage-check via ops/lat8809-backup-wedge-watchdog.py, geen restart). arm = fase B, nog niet geimplementeerd (blijft dicht tot de fase A-DoD op LAT-8809 gehaald is).'
+        required: true
+        type: choice
+        default: detect
+        options:
+          - detect
+          - arm
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lat8816-backup-wedge-watchdog
+  cancel-in-progress: false
+
+jobs:
+  watchdog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          cat >> ~/.ssh/config <<EOF
+          Host $VPS_HOST
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+          EOF
+          cat "$GITHUB_WORKSPACE/ops/ssh-config-snippet" >> ~/.ssh/config
+          ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      # Runs on both a manual dispatch (mode=detect) and every scheduled fire.
+      # On a `schedule` event `inputs.*` is not populated, so the condition
+      # must check event_name too -- same reasoning as lat4998's `verify` step.
+      - name: detect -- fase A read-only fd-scan + coverage-check (no restart)
+        id: detect
+        if: ${{ github.event_name == 'schedule' || inputs.mode == 'detect' }}
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          REMOTE_SCRIPT: |
+            set -uo pipefail
+            CONTAINER=paperclip-paperclip-1
+            SCRIPT=/paperclip/ops/lat8809-backup-wedge-watchdog.py
+            echo "--- host clock (UTC) ---"; date -u +%FT%TZ
+            echo "--- container reachable? ---"
+            docker inspect -f '{{.State.Status}}' "$CONTAINER" || { echo "TRANSPORT_FAIL: container $CONTAINER not inspectable"; exit 2; }
+            echo "--- python3 present in container? ---"
+            if ! docker exec "$CONTAINER" sh -c 'command -v python3' >/dev/null 2>&1; then
+              echo "ASSERT_FAIL: python3 not found in $CONTAINER -- cannot run the detector"
+              exit 1
+            fi
+            echo "--- detector output ---"
+            set +e
+            OUT=$(docker exec "$CONTAINER" python3 "$SCRIPT" 2>&1)
+            rc=$?
+            set -e
+            echo "$OUT"
+            echo "DETECT_RC=$rc"
+            case "$rc" in
+              0) echo "VERDICT=green (geen wedge)" ;;
+              1) echo "VERDICT=red -- restart-worthy per CTO-besluit LAT-8808, maar fase A doet GEEN restart" ;;
+              2) echo "VERDICT=yellow -- gedegradeerd (6-uurlijkse tier dekt nog), niet restart-worthy" ;;
+              3) echo "VERDICT=unknown -- geen betrouwbaar signaal, DIT IS GEEN GREEN" ;;
+              *) echo "VERDICT=unexpected_exit_code" ;;
+            esac
+            # green(0) en yellow(2) laten de job slagen (informationeel, niet
+            # actionable per CTO-besluit). red(1), unknown(3) en elke
+            # onverwachte code laten de job FALEN, bewust: de Actions-
+            # geschiedenis van deze workflow is het true/false-positive-
+            # grootboek voor de fase A-DoD op LAT-8809.
+            if [ "$rc" -eq 0 ] || [ "$rc" -eq 2 ]; then
+              exit 0
+            fi
+            exit "$rc"
+        # ssh's eigen exit 255 = transport-fout (measured ~20% rate op dit
+        # kanaal, LAT-5004), geen verdict. Retry alleen op 255; een echte
+        # detector-exitcode (0/1/2/3) of REMOTE_SCRIPT's eigen 2/1 wordt nooit
+        # geretried, om een rode meting niet stil te laten verdwijnen achter
+        # een toevallige tweede poging.
+        run: |
+          set -uo pipefail
+          attempt=0
+          while : ; do
+            attempt=$(( attempt + 1 ))
+            set +e
+            printf '%s\n' "$REMOTE_SCRIPT" | ssh -o ConnectTimeout=20 "$VPS" "bash -s"
+            rc=$?
+            set -e
+            if [ "$rc" -ne 255 ]; then
+              exit "$rc"
+            fi
+            echo "::warning::attempt ${attempt}: ssh transport failure (exit 255), not a watchdog verdict"
+            if [ "$attempt" -ge 3 ]; then break; fi
+            sleep 30
+          done
+          echo "TRANSPORT_FAIL: could not reach the VPS over SSH in 3 attempts"
+          exit 255
+
+      - name: arm -- fase B, nog niet geimplementeerd
+        if: ${{ inputs.mode == 'arm' }}
+        run: |
+          echo "::error::fase B (arm + restart-stap) is nog niet gebouwd -- dit bestand bevat geen restart-pad."
+          echo "DoD om fase B te openen (LAT-8809): >= 2 bevestigde true positives EN 0 false positives op fase A (mode: detect)."
+          echo "Zie de Actions-geschiedenis van deze workflow (mode: detect) voor de lopende telling, en LAT-8816/LAT-8809 voor de status."
+          exit 1
+
+      # Backstop: als de scheduled trigger de detect-stap om wat voor reden
+      # dan ook overslaat, moet dat luid zijn -- anders rapporteert de job
+      # green zonder ooit iets gemeten te hebben. Zelfde patroon als lat4998's
+      # "guard"-stap.
+      - name: guard -- een scheduled run moet echt gedetecteerd hebben
+        if: ${{ always() && github.event_name == 'schedule' }}
+        run: |
+          echo "detect step outcome: ${{ steps.detect.outcome }}"
+          if [ "${{ steps.detect.outcome }}" == "skipped" ]; then
+            echo "GUARD_FAIL: scheduled run sloeg de detect-stap over (outcome=skipped) -- dit had nooit mogen gebeuren"
+            exit 1
+          fi
