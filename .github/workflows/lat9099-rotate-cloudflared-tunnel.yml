@@ -1,0 +1,332 @@
+# LAT-9099 — roteer TunnelSecret van cloudflared-tunnel paperclip-lat56 (dispatch-only, VPS SSH-kanaal).
+#
+# Achtergrond: dagelijkse LAT-3643-sweep (run-issue LAT-9097) vond de TunnelSecret van tunnel
+# `paperclip-lat56` (1c7cc695-b494-4f65-a182-00bd7afb4991) in platte tekst op /paperclip, aantoonbaar
+# sinds 2026-08-16. Deze tunnel front deploy-hook.vinomartino.com en approval.vinomartino.com naar
+# cos-bridge:3200 — het approval-kanaal waarlangs Marijns ja/nee binnenkomt. Een TunnelSecret is per
+# tunnel vast: roteren = nieuwe tunnel + cutover + oude tunnel verwijderen. Een nieuw
+# credentials-bestand voor dezelfde tunnel-ID verandert niets aan de blootgestelde waarde.
+#
+# Route: hetzelfde GHA->VPS SSH-kanaal als lat3228/lat4750/lat2802/lat5226 (LAT-5144) — draait op de
+# host, buiten elke container om.
+#
+# `mode` kiest alleen tussen vaste, niet-geinterpoleerde scripts:
+#   diagnose = alleen lezen. Dumpt container-labels/compose-info van het huidige cloudflared,
+#              eventuele lokale config.yml, de remote ingress-config + DNS-records via de CF API.
+#              Print NOOIT een secret-waarde, wel tunnel-IDs, hostnames en sha256(8) van bestanden.
+#   cutover  = maakt een NIEUWE tunnel (paperclip-lat56-v2) + credentials-bestand (secret verlaat de
+#              host nooit), kopieert de ingress-config, start een tweede cloudflared-container naast
+#              de oude, wijst de twee CNAME's om naar de nieuwe tunnel, en verifieert beide
+#              hostnames. Verwijdert of stopt de OUDE tunnel/container NIET — dat is een aparte stap
+#              zodat er een terugweg is als iets niet klopt.
+#   rollback = wijst de twee CNAME's terug naar de oude tunnel en stopt de nieuwe container. Alleen
+#              zinvol zolang `cleanup` nog niet gedraaid heeft (oude tunnel bestaat dan nog).
+#   cleanup  = pas draaien NA handmatige/agent-verificatie dat cutover goed is: her-verifieert beide
+#              hostnames, stopt+verwijdert de OUDE container, verwijdert de OUDE tunnel via de CF
+#              API (de eigenlijke mitigatie — de gelekte waarde is pas machteloos als de oude tunnel
+#              weg is), en verwijdert het oude credentials-bestand van de host.
+#
+# LET OP bij het pushen: elk bestand onder .github/ op main triggert normaal een productie-release
+# van vinomartino.com (deploy.yml gebruikt paths-ignore en .github/** staat daar bewust niet in).
+# Pushen met "[skip ci]" en daarna verifieren met
+#   gh run list --repo marijnp7/vinomartino-site --branch main --limit 5
+
+name: LAT-9099 rotate cloudflared tunnel paperclip-lat56
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'diagnose (alleen lezen) / cutover / rollback / cleanup (verwijdert oude tunnel)'
+        required: true
+        default: diagnose
+        type: choice
+        options:
+          - diagnose
+          - cutover
+          - rollback
+          - cleanup
+
+concurrency:
+  group: lat9099-rotate-cloudflared-tunnel
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          cat >> ~/.ssh/config <<EOF
+          Host $VPS_HOST
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+          EOF
+          cat "$GITHUB_WORKSPACE/ops/ssh-config-snippet" >> ~/.ssh/config
+          ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      # ---------------------------------------------------------------- diagnose
+      - name: Diagnose (read-only, geen enkele write)
+        if: inputs.mode == 'diagnose'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          DIAG: |
+            set -uo pipefail
+            OLD_TUNNEL_ID="1c7cc695-b494-4f65-a182-00bd7afb4991"
+
+            echo "=== container ==="
+            C=$(docker ps -a --format '{{.Names}}' | grep -i cloudflared | head -1)
+            [ -n "$C" ] || { echo "::error::geen container met 'cloudflared' in de naam gevonden"; exit 1; }
+            echo "container=$C"
+            docker inspect -f 'image={{.Image}} status={{.State.Status}} network={{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}}' "$C"
+            docker inspect -f 'cmd={{json .Config.Cmd}} entrypoint={{json .Config.Entrypoint}}' "$C"
+            echo "mounts:"
+            docker inspect -f '{{range .Mounts}}{{.Source}} -> {{.Destination}} ({{.Mode}}){{"\n"}}{{end}}' "$C"
+
+            echo "=== compose labels ==="
+            WD=$(docker inspect -f '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' "$C")
+            PROJ=$(docker inspect -f '{{ index .Config.Labels "com.docker.compose.project" }}' "$C")
+            SERVICE=$(docker inspect -f '{{ index .Config.Labels "com.docker.compose.service" }}' "$C")
+            CFGFILES=$(docker inspect -f '{{ index .Config.Labels "com.docker.compose.project.config_files" }}' "$C")
+            echo "working_dir=$WD project=$PROJ service=$SERVICE config_files=$CFGFILES"
+
+            echo "=== lokale config.yml (indien gemount) ==="
+            for m in $(docker inspect -f '{{range .Mounts}}{{.Source}}{{"\n"}}{{end}}' "$C"); do
+              case "$m" in
+                *.yml|*.yaml)
+                  echo "--- $m ---"
+                  cat "$m" 2>/dev/null || echo "(niet leesbaar vanaf host)"
+                  ;;
+              esac
+            done
+
+            echo "=== credentials-bestand ==="
+            for f in /root/.agent-secrets/cloudflared-tunnel.json; do
+              if [ -f "$f" ]; then
+                echo "$f bestaat, mode=$(stat -c '%a %U:%G' "$f"), sha256(8)=$(sha256sum "$f" | cut -c1-8)"
+              else
+                echo "$f bestaat niet"
+              fi
+            done
+
+            echo "=== Cloudflare API: tunnel + ingress + DNS (geen secrets in deze calls) ==="
+            set -a; source /root/.agent-secrets/cloudflare.env; set +a
+            echo "--- tunnel details ---"
+            curl -s -H "Authorization: Bearer $CF_API_TOKEN" \
+              "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/cfd_tunnel/$OLD_TUNNEL_ID" \
+              | python3 -c 'import json,sys; d=json.load(sys.stdin)["result"]; print({k:d.get(k) for k in ("id","name","status","conns_active_at")})'
+            echo "--- ingress config ---"
+            curl -s -H "Authorization: Bearer $CF_API_TOKEN" \
+              "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/cfd_tunnel/$OLD_TUNNEL_ID/configurations" \
+              | python3 -m json.tool
+            for host in deploy-hook.vinomartino.com approval.vinomartino.com; do
+              echo "--- dns: $host ---"
+              curl -s -H "Authorization: Bearer $CF_API_TOKEN" \
+                "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records?name=$host" \
+                | python3 -c 'import json,sys; r=json.load(sys.stdin)["result"]; print([{"id":x["id"],"type":x["type"],"content":x["content"],"proxied":x["proxied"]} for x in r])'
+              echo "--- live status: $host ---"
+              curl -s -o /dev/null -w 'http_code=%{http_code}\n' "https://$host"
+            done
+        run: |
+          printf '%s\n' "$DIAG" | ssh "$VPS" "bash -s"
+
+      # ---------------------------------------------------------------- cutover
+      - name: Cutover naar nieuwe tunnel (oude blijft draaien)
+        if: inputs.mode == 'cutover'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          CUTOVER: |
+            set -euo pipefail
+            OLD_TUNNEL_ID="1c7cc695-b494-4f65-a182-00bd7afb4991"
+            NEW_NAME="paperclip-lat56-v2"
+            HOSTS="deploy-hook.vinomartino.com approval.vinomartino.com"
+
+            OLDC=$(docker ps -a --format '{{.Names}}' | grep -i cloudflared | head -1)
+            [ -n "$OLDC" ] || { echo "::error::geen bestaande cloudflared-container gevonden — afgebroken"; exit 1; }
+            IMG=$(docker inspect -f '{{.Config.Image}}' "$OLDC")
+            NET=$(docker inspect -f '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{end}}' "$OLDC")
+            [ -n "$IMG" ] && [ -n "$NET" ] || { echo "::error::kon image/netwerk van $OLDC niet bepalen — afgebroken"; exit 1; }
+            echo "bron-container=$OLDC image=$IMG netwerk=$NET"
+
+            set -a; source /root/.agent-secrets/cloudflare.env; set +a
+
+            echo "=== nieuwe tunnel aanmaken ==="
+            TUNNEL_SECRET=$(openssl rand -base64 32)
+            RESP=$(curl -s -X POST -H "Authorization: Bearer $CF_API_TOKEN" -H "Content-Type: application/json" \
+              "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/cfd_tunnel" \
+              -d "$(python3 -c 'import json,sys,os; print(json.dumps({"name": os.environ["NEW_NAME"], "tunnel_secret": os.environ["TUNNEL_SECRET"]}))')")
+            NEW_ID=$(printf '%s' "$RESP" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["result"]["id"] if d.get("success") else "")')
+            if [ -z "$NEW_ID" ]; then
+              echo "::error::tunnel-create mislukt"
+              printf '%s' "$RESP" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("errors"))'
+              unset TUNNEL_SECRET
+              exit 1
+            fi
+            echo "nieuwe tunnel-id=$NEW_ID"
+
+            CREDS="/root/.agent-secrets/cloudflared-tunnel.json.new"
+            python3 -c 'import json,os
+creds={"AccountTag": os.environ["CF_ACCOUNT_ID"], "TunnelSecret": os.environ["TUNNEL_SECRET"], "TunnelID": os.environ["NEW_ID"]}
+with open(os.environ["CREDS"], "w") as f:
+    json.dump(creds, f)
+'
+            chmod 600 "$CREDS"; chown root:root "$CREDS"
+            unset TUNNEL_SECRET
+            echo "credentials geschreven: $CREDS sha256(8)=$(sha256sum "$CREDS" | cut -c1-8) mode=$(stat -c '%a %U:%G' "$CREDS")"
+
+            echo "=== ingress-config overzetten ==="
+            OLDCFG=$(curl -s -H "Authorization: Bearer $CF_API_TOKEN" \
+              "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/cfd_tunnel/$OLD_TUNNEL_ID/configurations" \
+              | python3 -c 'import json,sys; d=json.load(sys.stdin); print(json.dumps(d["result"]["config"]))')
+            PUTRESP=$(curl -s -X PUT -H "Authorization: Bearer $CF_API_TOKEN" -H "Content-Type: application/json" \
+              "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/cfd_tunnel/$NEW_ID/configurations" \
+              -d "$(python3 -c 'import json,os; print(json.dumps({"config": json.loads(os.environ["OLDCFG"])}))')")
+            OK=$(printf '%s' "$PUTRESP" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("success"))')
+            [ "$OK" = "True" ] || { echo "::error::ingress-config PUT mislukt: $PUTRESP"; exit 1; }
+            echo "ingress-config overgezet naar $NEW_ID"
+
+            echo "=== nieuwe connector-container starten naast de oude ==="
+            NEWC="paperclip-cloudflared-lat56-v2"
+            docker rm -f "$NEWC" >/dev/null 2>&1 || true
+            docker run -d --name "$NEWC" --restart unless-stopped --network "$NET" \
+              -v "$CREDS:/etc/cloudflared/creds.json:ro" \
+              "$IMG" tunnel --no-autoupdate --credentials-file /etc/cloudflared/creds.json run "$NEW_ID"
+            sleep 5
+            docker inspect -f 'status={{.State.Status}}' "$NEWC"
+
+            echo "=== DNS omzetten ==="
+            for host in $HOSTS; do
+              RID=$(curl -s -H "Authorization: Bearer $CF_API_TOKEN" \
+                "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records?name=$host" \
+                | python3 -c 'import json,sys; r=json.load(sys.stdin)["result"]; print(r[0]["id"] if r else "")')
+              [ -n "$RID" ] || { echo "::error::geen DNS-record gevonden voor $host"; exit 1; }
+              UPD=$(curl -s -X PATCH -H "Authorization: Bearer $CF_API_TOKEN" -H "Content-Type: application/json" \
+                "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records/$RID" \
+                -d "$(python3 -c 'import json,os; print(json.dumps({"content": os.environ["NEW_ID"] + ".cfargotunnel.com"}))')")
+              OK=$(printf '%s' "$UPD" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("success"))')
+              [ "$OK" = "True" ] || { echo "::error::DNS-update mislukt voor $host: $UPD"; exit 1; }
+              echo "$host -> $NEW_ID.cfargotunnel.com (record $RID)"
+            done
+
+            echo "=== wachten op propagatie + verifieren ==="
+            sleep 15
+            for host in $HOSTS; do
+              CODE=$(curl -s -o /dev/null -w '%{http_code}' "https://$host")
+              echo "$host http_code=$CODE (302 van CF Access is OK, geen storing)"
+            done
+
+            echo "NIEUWE TUNNEL_ID=$NEW_ID"
+            echo "cutover klaar. Verifieer bovenstaande statuscodes handmatig/via agent, dispatch daarna mode=cleanup."
+            echo "Bij een probleem: dispatch mode=rollback (zet DNS terug, oude tunnel bestaat nog)."
+        run: |
+          printf '%s\n' "$CUTOVER" | ssh "$VPS" "bash -s"
+
+      # ---------------------------------------------------------------- rollback
+      - name: Rollback naar oude tunnel
+        if: inputs.mode == 'rollback'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          ROLLBACK: |
+            set -euo pipefail
+            OLD_TUNNEL_ID="1c7cc695-b494-4f65-a182-00bd7afb4991"
+            HOSTS="deploy-hook.vinomartino.com approval.vinomartino.com"
+            set -a; source /root/.agent-secrets/cloudflare.env; set +a
+
+            for host in $HOSTS; do
+              RID=$(curl -s -H "Authorization: Bearer $CF_API_TOKEN" \
+                "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records?name=$host" \
+                | python3 -c 'import json,sys; r=json.load(sys.stdin)["result"]; print(r[0]["id"] if r else "")')
+              [ -n "$RID" ] || { echo "::error::geen DNS-record gevonden voor $host"; exit 1; }
+              UPD=$(curl -s -X PATCH -H "Authorization: Bearer $CF_API_TOKEN" -H "Content-Type: application/json" \
+                "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records/$RID" \
+                -d "$(python3 -c 'import json,os; print(json.dumps({"content": os.environ["OLD_TUNNEL_ID"] + ".cfargotunnel.com"}))')")
+              OK=$(printf '%s' "$UPD" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("success"))')
+              [ "$OK" = "True" ] || { echo "::error::DNS-rollback mislukt voor $host: $UPD"; exit 1; }
+              echo "$host teruggezet naar $OLD_TUNNEL_ID.cfargotunnel.com"
+            done
+
+            docker stop paperclip-cloudflared-lat56-v2 >/dev/null 2>&1 || true
+            sleep 10
+            for host in $HOSTS; do
+              CODE=$(curl -s -o /dev/null -w '%{http_code}' "https://$host")
+              echo "$host http_code=$CODE"
+            done
+        run: |
+          printf '%s\n' "$ROLLBACK" | ssh "$VPS" "bash -s"
+
+      # ---------------------------------------------------------------- cleanup
+      - name: Cleanup — verwijder oude tunnel (eigenlijke mitigatie)
+        if: inputs.mode == 'cleanup'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          CLEANUP: |
+            set -euo pipefail
+            OLD_TUNNEL_ID="1c7cc695-b494-4f65-a182-00bd7afb4991"
+            HOSTS="deploy-hook.vinomartino.com approval.vinomartino.com"
+            set -a; source /root/.agent-secrets/cloudflare.env; set +a
+
+            echo "=== her-verificatie voor delete ==="
+            for host in $HOSTS; do
+              CODE=$(curl -s -o /dev/null -w '%{http_code}' "https://$host")
+              echo "$host http_code=$CODE"
+              case "$CODE" in
+                2*|3*) ;;
+                *) echo "::error::$host geeft $CODE — cleanup afgebroken, oude tunnel blijft bestaan"; exit 1 ;;
+              esac
+            done
+
+            echo "=== DNS wijst nu naar de nieuwe tunnel? ==="
+            for host in $HOSTS; do
+              CUR=$(curl -s -H "Authorization: Bearer $CF_API_TOKEN" \
+                "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records?name=$host" \
+                | python3 -c 'import json,sys; r=json.load(sys.stdin)["result"]; print(r[0]["content"] if r else "")')
+              echo "$host -> $CUR"
+              case "$CUR" in
+                "$OLD_TUNNEL_ID"*) echo "::error::$host wijst nog naar de OUDE tunnel — cleanup afgebroken"; exit 1 ;;
+              esac
+            done
+
+            OLDC=$(docker ps -a --format '{{.Names}}' | grep -i cloudflared | grep -v lat56-v2 | head -1)
+            if [ -n "$OLDC" ]; then
+              echo "stop+verwijder oude container $OLDC"
+              docker stop "$OLDC" >/dev/null 2>&1 || true
+              docker rm "$OLDC" >/dev/null 2>&1 || true
+            fi
+
+            echo "=== oude tunnel verwijderen via CF API ==="
+            DEL=$(curl -s -X DELETE -H "Authorization: Bearer $CF_API_TOKEN" \
+              "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/cfd_tunnel/$OLD_TUNNEL_ID")
+            OK=$(printf '%s' "$DEL" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("success"))')
+            [ "$OK" = "True" ] || { echo "::error::tunnel-delete mislukt: $DEL"; exit 1; }
+            echo "oude tunnel $OLD_TUNNEL_ID verwijderd"
+
+            echo "=== oude credentials-bestand verwijderen ==="
+            rm -f /root/.agent-secrets/cloudflared-tunnel.json
+            if [ -f /root/.agent-secrets/cloudflared-tunnel.json.new ]; then
+              mv /root/.agent-secrets/cloudflared-tunnel.json.new /root/.agent-secrets/cloudflared-tunnel.json
+              echo "nieuw credentials-bestand hernoemd naar de canonieke naam"
+            fi
+            ls -la /root/.agent-secrets/ | grep cloudflared
+
+            NEWC="paperclip-cloudflared-lat56-v2"
+            if docker ps --format '{{.Names}}' | grep -q "^${NEWC}$"; then
+              docker rename "$NEWC" paperclip-cloudflared-1 2>/dev/null || echo "rename overgeslagen (naam mogelijk al in gebruik)"
+            fi
+
+            echo "rotatie compleet: oude tunnel weg, credentials-bestand vervangen."
+        run: |
+          printf '%s\n' "$CLEANUP" | ssh "$VPS" "bash -s"
