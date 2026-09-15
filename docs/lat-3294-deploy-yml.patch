@@ -1,0 +1,33 @@
+--- a/.github/workflows/deploy.yml
++++ b/.github/workflows/deploy.yml
+@@ -30,6 +30,13 @@
+ 
+ name: Deploy VinoMartino
+ 
++# LAT-3294: laat de gekozen target zien in de Actions-runlijst, niet
++# alleen in het log — een groene run zonder zichtbaar doel is precies
++# hoe defect 1 onopgemerkt bleef.
++run-name: >-
++  Deploy VinoMartino → ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.target || (github.ref == 'refs/heads/main' && 'production' || 'preview') }}
++  (${{ github.event_name }}, ${{ github.actor }})
++
+ on:
+   push:
+     branches: [preview, main]
+@@ -104,6 +111,16 @@
+             target="preview"
+           fi
+ 
++          # LAT-3294: een workflow_dispatch op main met (default) target=preview
++          # loopt groen af zonder dat productie ooit beweegt — de elif hierboven
++          # is onbereikbaar voor dispatch-events, dus alleen deze expliciete
++          # check vangt de combinatie. main hoort bij production; wie preview
++          # wil deployen dispatcht vanaf de preview-branch.
++          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.ref }}" = "refs/heads/main" ] && [ "$target" = "preview" ]; then
++            echo "::error::Dispatch op refs/heads/main met target=preview geeft een misleidende groene run — preview hoort bij de preview-branch. Draai opnieuw met -f target=production, of dispatch vanaf preview. (LAT-3294)"
++            exit 1
++          fi
++
+           if [ "$target" = "production" ]; then
+             dist_dir="/root/vinomartino-site/dist"
+             container="paperclip-vinomartino-prod-1"

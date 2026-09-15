@@ -1,0 +1,613 @@
+# ─────────────────────────────────────────────────────────────────────────
+# LAT-3294 — VOLLEDIGE eindversie van .github/workflows/deploy.yml
+#
+# Dit is GEEN actieve workflow (bewust .txt, en docs/** staat in paths-ignore).
+# Agent-tokens krijgen 403 op .github/workflows/*, dus dit bestand bestaat
+# zodat de wijziging zonder diff-lezen toe te passen is:
+#
+#   1. open .github/workflows/deploy.yml in de GitHub web-editor op branch
+#      fix/lat-3294-deploy-target-guard
+#   2. selecteer alles, plak de inhoud hieronder (vanaf de regel na deze
+#      header) er overheen
+#   3. commit op dezelfde branch, merge PR #249
+#
+# Geverifieerd: parst als YAML (11 steps, ongewijzigd t.o.v. main op de twee
+# LAT-3294-blokken na), en de run-name-expressie is op alle 5 event/ref/target
+# -combinaties nagerekend tegen GitHub's expression-semantiek.
+# ─────────────────────────────────────────────────────────────────────────
+# LAT-89 — auto-deploy pipeline voor vinomartino-site
+#
+# Architectuur: VPS-side build.
+#   1. GHA checkt code uit
+#   2. GHA rsynct src (zonder node_modules/dist) naar /srv/vino-builds/<run_id>/
+#   3. VPS bouwt daar (npm ci + npm run build) — heeft direct toegang tot
+#      Directus binnen het Docker-netwerk, geen CF Access secrets in GHA nodig
+#   4. Atomic swap: nieuwe dist/ wordt verplaatst naar definitieve locatie,
+#      oude wordt bewaard als .old-<ts> (laatste 3 als rollback)
+#   5. nginx reload in de juiste container
+#
+# Branches:
+#   • preview → /root/vinomartino-site/preview-dist (paperclip-vinomartino-preview-1)
+#   • main    → /root/vinomartino-site/dist          (paperclip-vinomartino-prod-1)
+#
+# Deploy-posture (LAT-1368, board-besluit Optie 2):
+#   main → prod is AUTO-DEPLOY. Een merge naar `main` triggert direct build +
+#   atomic DIST-swap + nginx-reload + smoke-test, ZONDER approval-pauze aan de
+#   prod-zijde. Een gefaalde build aborteert de swap (prod blijft op de oude dist).
+#   De menselijke gate zit in de PR-review + merge (R2-governance), niet hier.
+#   Er is GEEN required-reviewers gate op de `production` environment.
+#
+#   LAT-2844: die gate toetst alleen het juiste als de merge óók echt over
+#   de site gaat. Een push die uitsluitend niet-site-bestanden raakt
+#   (services/, docs/, directus/, losse .md) releaset daarom niet meer mee
+#   — zie de `paths-ignore` bij `on.push` hieronder.
+#
+# Vereiste secrets (slechts 3):
+#   VPS_HOST, VPS_USER, VPS_SSH_PRIVATE_KEY
+
+name: Deploy VinoMartino
+
+# LAT-3294: laat de gekozen target zien in de Actions-runlijst, niet
+# alleen in het log — een groene run zonder zichtbaar doel is precies
+# hoe defect 1 onopgemerkt bleef.
+run-name: >-
+  Deploy VinoMartino → ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.target || (github.ref == 'refs/heads/main' && 'production' || 'preview') }}
+  (${{ github.event_name }}, ${{ github.actor }})
+
+on:
+  push:
+    branches: [preview, main]
+    # ── Wanneer deployt een push? (LAT-2844) ───────────────────────────
+    #
+    # Een push naar `main` is een PRODUCTIE-RELEASE. De build haalt content
+    # op uit Directus op het moment van draaien, dus wat er live gaat is
+    # NIET af te leiden uit de diff van de commit. Daarom deployt een push
+    # die uitsluitend niet-site-bestanden raakt niet meer mee.
+    #
+    # Bewust een DENYLIST (`paths-ignore`), geen allowlist (`paths`):
+    # een nieuw toegevoegd site-pad deployt dan vanzelf mee. Bij een
+    # allowlist zou een vergeten pad een STILLE niet-deploy opleveren —
+    # dat is de duurdere fout. Fail-open dus.
+    #
+    # NIET in deze lijst, en dat is opzet:
+    #   • nginx-*.conf, htpasswd, docker-compose.vinomartino-*.yml
+    #     → stap 7 synct deze naar /root/vinomartino-site/ op de VPS.
+    #       Wegfilteren betekent dat een nginx-wijziging de VPS nooit
+    #       bereikt.
+    #   • scripts/**  → scripts/verify-build.sh is de dist-completeness
+    #       gate uit stap 6 (LAT-1014).
+    #   • .github/**  → een wijziging aan deze workflow hoort zichzelf
+    #       één keer echt uit te voeren.
+    #
+    # Moet je de site herpubliceren tegen de HUIDIGE Directus-inhoud
+    # zonder code-wijziging? Dat is een expliciete actie, geen neveneffect
+    # van een merge:
+    #   gh workflow run deploy.yml --repo marijnp7/vinomartino-site \
+    #     --ref main -f target=production
+    paths-ignore:
+      - "services/**" # cos-bridge — draait op de VPS, niet in de site
+      - "docs/**" # runbooks en documentatie
+      - "directus/**" # schema/bootstrap-scripts, geen build-input
+      - "*.md" # losse .md's in de repo-root (niet src/**/*.md)
+      - "docker-compose.directus.yml"
+      - "docker-compose.site.yml"
+      - "docker-compose.site-preview.yml"
+      - ".gitignore"
+      - ".dockerignore"
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Doel (preview of production)"
+        required: true
+        default: preview
+        type: choice
+        options: [preview, production]
+
+concurrency:
+  group: vinomartino-write
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: ${{ github.ref == 'refs/heads/main' && 'production' || 'preview' }}
+      url: ${{ github.ref == 'refs/heads/main' && 'https://vinomartino.com' || 'https://preview.vinomartino.com' }}
+
+    steps:
+      # ── 1. Bepaal doel-omgeving ──────────────────────────────────────────
+      - name: Determine target environment
+        id: env
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            target="${{ github.event.inputs.target }}"
+          elif [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            target="production"
+          else
+            target="preview"
+          fi
+
+          # LAT-3294: een workflow_dispatch op main met (default) target=preview
+          # loopt groen af zonder dat productie ooit beweegt — de elif hierboven
+          # is onbereikbaar voor dispatch-events, dus alleen deze expliciete
+          # check vangt de combinatie. main hoort bij production; wie preview
+          # wil deployen dispatcht vanaf de preview-branch.
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.ref }}" = "refs/heads/main" ] && [ "$target" = "preview" ]; then
+            echo "::error::Dispatch op refs/heads/main met target=preview geeft een misleidende groene run — preview hoort bij de preview-branch. Draai opnieuw met -f target=production, of dispatch vanaf preview. (LAT-3294)"
+            exit 1
+          fi
+
+          if [ "$target" = "production" ]; then
+            dist_dir="/root/vinomartino-site/dist"
+            container="paperclip-vinomartino-prod-1"
+          else
+            dist_dir="/root/vinomartino-site/preview-dist"
+            container="paperclip-vinomartino-preview-1"
+          fi
+
+          echo "target=$target"       >> "$GITHUB_OUTPUT"
+          echo "dist_dir=$dist_dir"   >> "$GITHUB_OUTPUT"
+          echo "container=$container" >> "$GITHUB_OUTPUT"
+          echo "::notice::Deploying to $target → $dist_dir ($container)"
+
+      # ── 2. Code ophalen ───────────────────────────────────────────────────
+      # NB: geen prod-side approval-pauze; main -> prod is auto-deploy
+      # (LAT-1368). De menselijke gate is PR-review/merge (R2); de `production`
+      # environment heeft GEEN required reviewers. Build + atomic swap lopen
+      # direct door; een gefaalde build aborteert de swap.
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── 4. SSH-key in agent ──────────────────────────────────────────────
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          cat >> ~/.ssh/config <<EOF
+          Host $VPS_HOST
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+          EOF
+          # Best-effort host-key prefetch; non-fataal als netwerk flakey is
+          ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      # ── 5. Sync src naar VPS staging ─────────────────────────────────────
+      - name: Sync source to VPS staging
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          STAGE: /srv/vino-builds/${{ github.run_id }}
+        run: |
+          ssh "$VPS" "mkdir -p '$STAGE'"
+          rsync -avz --delete \
+            --exclude=node_modules \
+            --exclude=dist \
+            --exclude=preview-dist \
+            --exclude=.git \
+            --exclude='*.old-*' \
+            --exclude='deploy-key-github-actions*' \
+            ./ "$VPS:$STAGE/"
+
+      # ── 6. Build op VPS ──────────────────────────────────────────────────
+      #
+      # We kopiëren .env uit de bestaande site-folder zodat DIRECTUS_URL en
+      # DIRECTUS_TOKEN beschikbaar zijn tijdens de build. Geen secrets nodig
+      # in GHA — Directus zit achter CF Access en is alleen vanaf de VPS
+      # bereikbaar via het Docker-netwerk. Script wordt via stdin verstuurd
+      # zodat we geen bash heredoc binnen YAML hoeven te jongleren.
+      - name: Build on VPS
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          STAGE: /srv/vino-builds/${{ github.run_id }}
+          GIT_SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_NUMBER: ${{ github.run_number }}
+          TARGET: ${{ steps.env.outputs.target }}
+          BUILD_SCRIPT: |
+            set -euo pipefail
+            cd "$STAGE"
+            if [ -f /root/vinomartino-site/.env ]; then
+              cp /root/vinomartino-site/.env .env
+            fi
+            # LAT-1112: preview-builds include draft items so Marijn can
+            # review status=draft entries on preview.vinomartino.com before
+            # promote-to-production. Productie krijgt deze env-var NIET en
+            # blijft daarom alleen `status=published` serveren.
+            if [ "$TARGET" = "preview" ]; then
+              DRAFTS_ENV="-e DIRECTUS_INCLUDE_DRAFTS=1"
+            else
+              DRAFTS_ENV=""
+            fi
+            # Build altijd in docker met --network directus_directus_net,
+            # anders kan de host de container-DNS `vinomartino-directus-1`
+            # niet resolven en valt de build silently terug op lokale
+            # markdown-bestanden zonder hero_image (LAT-896 follow-up).
+            #
+            # LAT-1014: capture full build output zodat we kunnen detecteren
+            # of Astro silently faalde op getStaticPaths. Astro exit'te 0 in
+            # LAT-1011 ondanks Directus 403 — alleen het log onthult dat.
+            # LAT-1768: production content preflight runs BEFORE astro build.
+            # It hard-fails (blocks deploy) if Directus env is missing or a core
+            # live content type returns too few published rows. In preview the
+            # DRAFTS_ENV flag makes the preflight warn-only. --env-file-if-exists
+            # loads DIRECTUS_URL/TOKEN from the copied .env into the node process.
+            set +e
+            docker run --rm --network directus_directus_net \
+              $DRAFTS_ENV \
+              -v "$STAGE":/app -w /app \
+              node:24 bash -c "npm ci && node --env-file-if-exists=.env scripts/preflight-content.mjs && npm run build && node scripts/check-rendered-content.mjs && node --test scripts/check-affiliate-links.test.mjs && node scripts/check-affiliate-links.mjs" 2>&1 | tee build.log
+            build_rc=${PIPESTATUS[0]}
+            set -e
+            if [ "$build_rc" -ne 0 ]; then
+              echo "::error::astro build exit $build_rc"
+              exit "$build_rc"
+            fi
+            # LAT-1014: fail-fast op getStaticPaths-errors die Astro
+            # zwaluwt. Match exact de regels die LAT-1011 produceerde.
+            if grep -E '(\[ERROR\] \[build\] Failed to call getStaticPaths|Failed to call getStaticPaths)' build.log >/dev/null 2>&1; then
+              echo "::error::Astro logde een getStaticPaths-error maar exit'te 0 — pipeline faalt expliciet (LAT-1014)"
+              grep -nE '(\[ERROR\]|Failed to call getStaticPaths)' build.log | head -30
+              exit 1
+            fi
+            # LAT-910: write build-fingerprint into dist/ so smoke-test
+            # downstream can verify served bytes matchen deze run. Zonder
+            # dit kan een silently-mislukte rsync naar DIST groene runs
+            # opleveren terwijl prod oude content blijft serveren.
+            printf '{"sha":"%s","runId":"%s","runNumber":"%s","builtAt":"%s"}\n' \
+              "$GIT_SHA" "$RUN_ID" "$RUN_NUMBER" "$(date -u +%FT%TZ)" \
+              > dist/build-info.json
+            echo "dist/build-info.json:"
+            cat dist/build-info.json
+            ls -la dist/
+            # LAT-1014: dist-completeness gate. Hard-fail als verplichte
+            # index-pagina's ontbreken of het HTML-aantal onder drempel
+            # ligt.
+            bash scripts/verify-build.sh dist
+        run: |
+          printf '%s\n' "$BUILD_SCRIPT" \
+            | ssh "$VPS" "STAGE='$STAGE' GIT_SHA='$GIT_SHA' RUN_ID='$RUN_ID' RUN_NUMBER='$RUN_NUMBER' TARGET='$TARGET' bash -s"
+
+      # ── 7. Sync inhoud + config naar DIST + container reload ─────────────
+      #
+      # BELANGRIJK: we mogen DIST zelf niet hernoemen of vervangen, want de
+      # nginx-container heeft hem via bind-mount aan een vaste inode hangen.
+      # `mv` zou de container losrukken van zijn mount → 500.
+      #
+      # Daarom: rsync overschrijft de inhoud van DIST in-place. De inode
+      # blijft gelijk, de mount blijft geldig. Als rollback maken we eerst
+      # een hardlink-snapshot (kost ~0 schijfruimte).
+      #
+      # Config-files (nginx, htpasswd, docker-compose) worden ook gesynct
+      # vanuit staging naar /root/vinomartino-site/ zodat repo en VPS in
+      # sync blijven. nginx -t valideert de config vóór reload; bij falen
+      # worden config-files teruggerold.
+      - name: Sync to DIST + config + reload
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          STAGE: /srv/vino-builds/${{ github.run_id }}
+          DIST: ${{ steps.env.outputs.dist_dir }}
+          CONTAINER: ${{ steps.env.outputs.container }}
+          SWAP_SCRIPT: |
+            set -euo pipefail
+            SITE_ROOT="/root/vinomartino-site"
+            mkdir -p "$DIST"
+
+            # Hardlink-snapshot voor rollback (cp -al, geen disk-overhead)
+            BACKUP="${DIST}.old-$(date +%s)"
+            cp -al "$DIST" "$BACKUP" 2>/dev/null || cp -a "$DIST" "$BACKUP"
+
+            # Inhoud overschrijven, DIST-directory zelf raken we niet aan
+            # LAT-910: itemize-changes zodat we in de GHA-log kunnen zien
+            # dat rsync daadwerkelijk bestanden heeft gekopieerd. Stats
+            # voor explicit copy-count.
+            rsync -a --delete --stats --itemize-changes "$STAGE/dist/" "$DIST/" \
+              | tail -n 30
+            echo "DIST inhoud na rsync:"
+            ls -la "$DIST/" | head -20
+            if [ -f "$DIST/build-info.json" ]; then
+              echo "DIST/build-info.json:"
+              cat "$DIST/build-info.json"
+            else
+              echo "::error::build-info.json ontbreekt in DIST na rsync — build heeft hem niet geschreven"
+              exit 1
+            fi
+
+            # Config-files syncen naar site-root (LAT-779)
+            CONFIG_FILES="nginx-prod.conf nginx-preview.conf htpasswd docker-compose.vinomartino-prod.yml docker-compose.vinomartino-preview.yml"
+            for f in $CONFIG_FILES; do
+              if [ -f "$STAGE/$f" ]; then
+                [ -f "$SITE_ROOT/$f" ] && cp "$SITE_ROOT/$f" "$SITE_ROOT/$f.bak"
+                cp "$STAGE/$f" "$SITE_ROOT/$f"
+              fi
+            done
+
+            # Valideer nginx config vóór reload
+            if ! docker exec "$CONTAINER" nginx -t 2>&1; then
+              echo "::error::nginx -t failed — config rollback"
+              for f in $CONFIG_FILES; do
+                [ -f "$SITE_ROOT/$f.bak" ] && mv "$SITE_ROOT/$f.bak" "$SITE_ROOT/$f"
+              done
+              exit 1
+            fi
+
+            # Opruimen .bak files na geslaagde validatie
+            for f in $CONFIG_FILES; do
+              rm -f "$SITE_ROOT/$f.bak"
+            done
+
+            # Stage opruimen
+            rm -rf "$STAGE"
+
+            # Houd alleen de laatste 3 backups
+            ls -1dt "${DIST}".old-* 2>/dev/null | tail -n +4 | xargs -r rm -rf
+
+            # nginx hot reload — container bind-mount blijft geldig
+            docker exec "$CONTAINER" nginx -s reload \
+              || docker restart "$CONTAINER"
+        run: |
+          printf '%s\n' "$SWAP_SCRIPT" \
+            | ssh "$VPS" "DIST='$DIST' STAGE='$STAGE' CONTAINER='$CONTAINER' bash -s"
+
+      # ── 7b. Drift check: live container vs compose spec ──────────────────
+      #
+      # LAT-914: tijdens LAT-909 incident bleek `paperclip-vinomartino-prod-1`
+      # te draaien vanuit een self-baked image (geen bind-mounts) terwijl
+      # docker-compose.vinomartino-prod.yml bind-mounts beschrijft. De rsync+
+      # nginx-reload flow werkt dan stilletjes mis: dist/ wordt geüpdatet maar
+      # de container serveert nog uit baked content. Smoke-test (LAT-910)
+      # ving het uiteindelijk via SHA-mismatch, maar pas nadat content al uren
+      # stale was.
+      #
+      # Deze step verifieert dat de live container matcht met de spec uit
+      # docker-compose.vinomartino-prod.yml (image, mounts, network, traefik
+      # labels, restart policy). Alleen voor productie — preview heeft geen
+      # SLA en geen externe traffic.
+      #
+      # LAT-1409: deze step is nu DETECTIE-ONLY en non-fataal. De vroegere
+      # auto-reconcile (`docker compose up -d --force-recreate`) is verwijderd:
+      # hij markeerde elke geslaagde content-deploy als failed (false
+      # failure-mails) en veroorzaakte een prod-outage (522) toen de
+      # force-recreate mislukte (LAT-1382). Drift wordt nu enkel als warning
+      # gelogd; container-recreate doe je handmatig via het runbook.
+      #
+      # Runbook voor handmatige recovery: docs/runbooks/vinomartino-prod-recreate.md
+      - name: Drift check prod container vs compose spec (detect-only, LAT-1409)
+        if: steps.env.outputs.target == 'production'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          CONTAINER: ${{ steps.env.outputs.container }}
+          DRIFT_SCRIPT: |
+            set -euo pipefail
+            cd /root/vinomartino-site
+
+            COMPOSE_FILE="docker-compose.vinomartino-prod.yml"
+            SERVICE="vinomartino-prod"
+            EXPECTED_IMAGE="nginx:alpine"
+            EXPECTED_NETWORK="paperclip_default"
+            EXPECTED_RESTART="unless-stopped"
+            EXPECTED_BINDS=$(cat <<EOF
+            /root/vinomartino-site/dist:/usr/share/nginx/html:ro
+            /root/vinomartino-site/nginx-prod.conf:/etc/nginx/conf.d/default.conf:ro
+            /root/vinomartino-site/htpasswd:/etc/nginx/.htpasswd:ro
+            EOF
+            )
+            EXPECTED_LABELS=$(cat <<'EOF'
+            traefik.enable=true
+            traefik.http.routers.vinomartino.entrypoints=websecure
+            traefik.http.routers.vinomartino.rule=Host(`vinomartino.com`) || Host(`www.vinomartino.com`)
+            traefik.http.routers.vinomartino.tls.certresolver=letsencrypt
+            traefik.http.services.vinomartino.loadbalancer.server.port=80
+            EOF
+            )
+
+            inspect_drift() {
+              local drift=()
+              if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then
+                echo "container_missing"
+                return 0
+              fi
+
+              local actual_image
+              actual_image=$(docker inspect "$CONTAINER" --format '{{.Config.Image}}')
+              [ "$actual_image" = "$EXPECTED_IMAGE" ] || drift+=("image=$actual_image (verwacht $EXPECTED_IMAGE)")
+
+              local actual_binds
+              actual_binds=$(docker inspect "$CONTAINER" --format '{{range .Mounts}}{{if eq .Type "bind"}}{{.Source}}:{{.Destination}}:{{if .RW}}rw{{else}}ro{{end}}{{"\n"}}{{end}}{{end}}' | sed '/^$/d' | sort)
+              local expected_sorted
+              expected_sorted=$(printf '%s\n' "$EXPECTED_BINDS" | sed '/^$/d' | sort)
+              if [ "$actual_binds" != "$expected_sorted" ]; then
+                drift+=("binds mismatch")
+                drift+=("  actual:")
+                while IFS= read -r line; do [ -n "$line" ] && drift+=("    $line"); done <<<"$actual_binds"
+                drift+=("  expected:")
+                while IFS= read -r line; do [ -n "$line" ] && drift+=("    $line"); done <<<"$expected_sorted"
+              fi
+
+              if ! docker inspect "$CONTAINER" --format '{{range $k, $v := .NetworkSettings.Networks}}{{$k}}{{"\n"}}{{end}}' | grep -qx "$EXPECTED_NETWORK"; then
+                drift+=("network ontbreekt: $EXPECTED_NETWORK")
+              fi
+
+              local actual_labels
+              actual_labels=$(docker inspect "$CONTAINER" --format '{{range $k,$v := .Config.Labels}}{{$k}}={{$v}}{{"\n"}}{{end}}')
+              while IFS= read -r label; do
+                [ -z "$label" ] && continue
+                if ! grep -Fxq "$label" <<<"$actual_labels"; then
+                  drift+=("label ontbreekt: $label")
+                fi
+              done <<<"$EXPECTED_LABELS"
+
+              local rp
+              rp=$(docker inspect "$CONTAINER" --format '{{.HostConfig.RestartPolicy.Name}}')
+              [ "$rp" = "$EXPECTED_RESTART" ] || drift+=("restart=$rp (verwacht $EXPECTED_RESTART)")
+
+              if [ ${#drift[@]} -eq 0 ]; then
+                echo "ok"
+              else
+                printf '%s\n' "${drift[@]}"
+              fi
+            }
+
+            result=$(inspect_drift)
+
+            # LAT-1409: deze stap is bewust DETECTIE-ONLY en strikt non-fataal.
+            # Op dit punt is de content-deploy (rsync dist + nginx reload, stap 7)
+            # al geslaagd; drift t.o.v. de compose-spec is enkel informatief.
+            # De auto `docker compose up -d --force-recreate` is VERWIJDERD omdat
+            # hij (a) overbodig is voor content-deploys — een draaiende nginx
+            # serveert de ge-rsyncte dist/ direct, de container hoeft niet
+            # herbouwd — en (b) een echte prod-outage (522) veroorzaakte toen de
+            # force-recreate mislukte (LAT-1382). Hij markeerde bovendien elke
+            # geslaagde deploy als failed (false failure-mails, LAT-914/LAT-1409).
+            # Echte container-recreate gebeurt nu handmatig via het runbook:
+            # docs/runbooks/vinomartino-prod-recreate.md
+            if [ "$result" = "ok" ]; then
+              echo "::notice::Container $CONTAINER in sync met $COMPOSE_FILE"
+            elif [ "$result" = "container_missing" ]; then
+              echo "::warning::Container $CONTAINER bestaat niet — handmatige recreate via runbook (LAT-1409, geen auto-reconcile)"
+            else
+              echo "::warning::Drift gedetecteerd voor $CONTAINER vs $COMPOSE_FILE (informatief, non-fataal — LAT-1409):"
+              echo "$result" | sed 's/^/  /'
+              echo "::warning::Geen auto-reconcile. Beoordeel handmatig; recreate indien nodig via docs/runbooks/vinomartino-prod-recreate.md (zie LAT-1382)"
+            fi
+            exit 0
+        run: |
+          printf '%s\n' "$DRIFT_SCRIPT" \
+            | ssh "$VPS" "CONTAINER='$CONTAINER' bash -s"
+
+      # ── 8. Smoke test ────────────────────────────────────────────────────
+      # Retry-loop omdat nginx een paar seconden nodig heeft om warm te zijn
+      # na de reload. Eerste request kan transient 500/502 geven.
+      #
+      # LAT-910: voor productie checken we /build-info.json zodat we
+      # garanderen dat de net-gepushte SHA daadwerkelijk geserveerd wordt.
+      # Het oude `/vinomartino/nl/` smoke-pad volgde 301 → / via -L en gaf
+      # daardoor altijd 200, óók als rsync-naar-DIST silently mislukte.
+      - name: Smoke test
+        env:
+          GIT_SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+        run: |
+          if [ "${{ steps.env.outputs.target }}" = "preview" ]; then
+            # LAT-1112: preview.vinomartino.com zit achter Cloudflare Access
+            # (Google-login). Een publieke curl krijgt daardoor een 302 naar de
+            # CF-loginpagina i.p.v. de echte nginx-preview respons, waardoor de
+            # X-Robots-Tag-assertie altijd faalt. We testen daarom rechtstreeks
+            # tegen de preview-origin op de VPS — de container publiceert op
+            # 0.0.0.0:8090 (docker-compose.vinomartino-preview.yml) — zodat we
+            # de werkelijke nginx-preview.conf output zien, langs CF Access heen.
+            ORIGIN="http://localhost:8090/?cb=${RUN_ID}"
+
+            code="000"
+            for attempt in 1 2 3 4 5; do
+              code=$(ssh "$VPS" "curl -sS -o /dev/null -w '%{http_code}' \
+                --max-time 15 -H 'Cache-Control: no-cache' '$ORIGIN'" || echo "000")
+              echo "Attempt $attempt: GET $ORIGIN (via VPS) → HTTP $code"
+              if [ "$code" = "200" ]; then break; fi
+              sleep 4
+            done
+
+            [ "$code" = "200" ] || { echo "::error::Preview-origin smoke-test faalde na 5 pogingen ($code) — preview-container draait niet of serveert geen homepage (LAT-1112)"; exit 1; }
+
+            # LAT-1112: preview moet altijd X-Robots-Tag: noindex meesturen,
+            # ook op 200/404/redirect. `always` in nginx-preview.conf zorgt dat
+            # de header universeel zit; we checken op de homepage als
+            # representative voor de nginx-config.
+            headers=$(ssh "$VPS" "curl -sSI --max-time 15 -H 'Cache-Control: no-cache' '$ORIGIN'" || true)
+            echo "$headers"
+            if ! printf '%s\n' "$headers" | grep -i '^x-robots-tag:.*noindex' >/dev/null; then
+              echo "::error::Preview mist X-Robots-Tag: noindex op homepage — nginx-preview.conf check (LAT-1112)"
+              exit 1
+            fi
+            echo "::notice::Preview smoke-test OK — origin 200 + X-Robots-Tag noindex aanwezig (langs CF Access)"
+          fi
+
+          if [ "${{ steps.env.outputs.target }}" = "production" ]; then
+            URL="https://vinomartino.com/?cb=${RUN_ID}"
+            INFO_URL="https://vinomartino.com/build-info.json?cb=${RUN_ID}"
+
+            code="000"
+            for attempt in 1 2 3 4 5; do
+              code=$(curl -sS -o /dev/null -w "%{http_code}" \
+                -H 'Cache-Control: no-cache' --max-time 15 "$URL" || echo "000")
+              echo "Attempt $attempt: GET $URL → HTTP $code"
+              if [ "$code" = "200" ]; then break; fi
+              sleep 4
+            done
+
+            [ "$code" = "200" ] || { echo "::error::Productie smoke-test faalde na 5 pogingen ($code)"; exit 1; }
+
+            # LAT-1112: regressie-guard. Productie mag NOOIT X-Robots-Tag
+            # noindex meesturen — als iemand per ongeluk een noindex-regel
+            # in nginx-prod.conf laat sluipen, vangen we dat hier op voordat
+            # Google de site uitsluit.
+            prod_headers=$(curl -sSI --max-time 15 -H 'Cache-Control: no-cache' "$URL" || true)
+            if printf '%s\n' "$prod_headers" | grep -i '^x-robots-tag:.*noindex' >/dev/null; then
+              echo "::error::Productie homepage stuurt X-Robots-Tag: noindex — nginx-prod.conf is per ongeluk noindex gemarkeerd (LAT-1112 regressie)"
+              echo "$prod_headers"
+              exit 1
+            fi
+
+            # LAT-1014: download de homepage echt en eis dat de body > 10 KB
+            # is. Een 200 met een 4 KB Astro 404-fallback is óók "groen"
+            # voor de status-code-check hierboven; pas een size-check vangt
+            # de LAT-1011 failure mode.
+            body_bytes=$(curl -fsS --max-time 15 -H 'Cache-Control: no-cache' "$URL" | wc -c | tr -d ' ')
+            echo "Homepage body size: $body_bytes bytes"
+            if [ "${body_bytes:-0}" -lt 10240 ]; then
+              echo "::error::Productie homepage is $body_bytes bytes (drempel: 10240) — waarschijnlijk een 404/SSR-stub (LAT-1014)"
+              exit 1
+            fi
+
+            # Verifieer dat productie de net-gebouwde SHA serveert. We doen
+            # dit via een cache-buster query + no-cache header zodat een
+            # eventuele Cloudflare-edge-cache het resultaat niet vertroebelt.
+            served_sha=""
+            for attempt in 1 2 3 4 5; do
+              served_sha=$(curl -fsS --max-time 10 \
+                -H 'Cache-Control: no-cache' \
+                "$INFO_URL" 2>/dev/null \
+                | python3 -c 'import json,sys;print(json.load(sys.stdin).get("sha",""))' 2>/dev/null \
+                || echo "")
+              echo "Attempt $attempt: build-info.sha = '$served_sha' (verwacht: $GIT_SHA)"
+              if [ "$served_sha" = "$GIT_SHA" ]; then break; fi
+              sleep 4
+            done
+
+            if [ "$served_sha" != "$GIT_SHA" ]; then
+              echo "::error::Productie serveert SHA '$served_sha' maar workflow draait '$GIT_SHA' — rsync naar DIST is mislukt of CDN cachet stale content (LAT-910)"
+              echo "INFO_URL: $INFO_URL"
+              curl -sS --max-time 10 -H 'Cache-Control: no-cache' "$INFO_URL" || true
+              exit 1
+            fi
+            echo "::notice::Smoke-test OK — productie serveert correcte build $served_sha"
+          fi
+
+      - name: Done
+        run: echo "::notice::Deploy naar ${{ steps.env.outputs.target }} voltooid (${{ github.sha }})"
+
+      # ── 9. Staging-cleanup (altijd) ──────────────────────────────────────
+      # LAT-1326: de `rm -rf "$STAGE"` in stap 7 wordt alleen bereikt op het
+      # success-pad. Faalt de build of de SSH-sync (zie de historie van
+      # transient SSH-timeouts), dan blijft /srv/vino-builds/<run_id> staan —
+      # mét een volledige node_modules omdat `npm ci` in de bind-mount draait.
+      # Per gefaalde run lekt dat honderden MB en vult de VPS-schijf.
+      # Deze always()-stap ruimt de huidige run altijd op en pruimt verweesde
+      # stages ouder dan 1 dag (1440 min). `|| true` zodat een falende cleanup
+      # de run-status niet maskeert.
+      - name: Cleanup VPS staging
+        if: always()
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          STAGE: /srv/vino-builds/${{ github.run_id }}
+        run: |
+          ssh -o StrictHostKeyChecking=accept-new "$VPS" \
+            "rm -rf '$STAGE'; find /srv/vino-builds -mindepth 1 -maxdepth 1 -type d -mmin +1440 -exec rm -rf {} + 2>/dev/null; df -h / | tail -1" \
+            || echo "::warning::Staging-cleanup overgeslagen (SSH niet beschikbaar)"
