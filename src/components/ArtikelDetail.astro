@@ -60,9 +60,12 @@ const ui = await loadUiStrings(locale);
 const dateLocale = locale === 'en' ? 'en-GB' : 'nl-NL';
 
 const hasReisjunkRoundup = accRoundups.length > 0;
-const accommodationBlock = getAffiliateBlock(article.slug, 'accommodation');
-const activity = getAffiliateBlock(article.slug, 'activity');
-const sidebarBlock = getAffiliateBlock(article.slug, 'sidebar');
+// LAT-10472: de affiliate-copy (description + ctaLabel) leeft als literal in
+// affiliates.ts, niet in de ui-strings-dictionary. Zonder `locale` hier lekte de
+// NL-tekst ongewijzigd door naar /en/, ook al kreeg AffiliatePlaceholder de locale.
+const accommodationBlock = getAffiliateBlock(article.slug, 'accommodation', locale);
+const activity = getAffiliateBlock(article.slug, 'activity', locale);
+const sidebarBlock = getAffiliateBlock(article.slug, 'sidebar', locale);
 
 // Resolve Directus booking_url + CJ wrapper for accommodation/sidebar blocks.
 const [accommodationHref, sidebarHref] = await Promise.all([
