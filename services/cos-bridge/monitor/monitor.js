@@ -425,6 +425,21 @@ function classifyDeployFreshness(live, lastDeploy, now) {
   if (live.error) return { fault: live.error };
   if (lastDeploy.error) return { fault: lastDeploy.error };
   if (live.sha === lastDeploy.sha) return { sev: 0 };
+  // LAT-7014: de GitHub-index kan een volledig verouderde pagina teruggeven
+  // (gemeten 18-09-2026: 1 van 6 identieke calls gaf runs 1076..988 terug, met
+  // 1081 t/m 1077 afwezig). Zo'n antwoord kan alleen OUDER zijn dan de
+  // werkelijkheid, nooit nieuwer. build-info.json draagt zelf het run_number van
+  // de build die live staat, dus is GitHub's run_number niet hoger dan dat van
+  // live, dan loopt productie niet achter en is dit een stale antwoord.
+  const liveRunNumber = Number(live.runNumber);
+  const deployRunNumber = Number(lastDeploy.runNumber);
+  if (
+    Number.isFinite(liveRunNumber) &&
+    Number.isFinite(deployRunNumber) &&
+    deployRunNumber <= liveRunNumber
+  ) {
+    return { sev: 0 };
+  }
   const completedMs = Date.parse(lastDeploy.completedAt);
   if (Number.isNaN(completedMs)) return { fault: "laatste deploy: completedAt niet parseerbaar" };
   const ageMs = now - completedMs;
