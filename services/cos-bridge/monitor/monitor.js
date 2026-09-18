@@ -396,7 +396,7 @@ async function fetchLiveBuildInfo() {
 
 async function fetchLastSuccessfulDeploy() {
   const res = await fetchGet(
-    `https://api.github.com/repos/${GITHUB_REPO}/actions/workflows/${GITHUB_WORKFLOW_FILE}/runs?status=success&branch=${GITHUB_DEPLOY_BRANCH}&per_page=1`,
+    `https://api.github.com/repos/${GITHUB_REPO}/actions/workflows/${GITHUB_WORKFLOW_FILE}/runs?status=success&branch=${GITHUB_DEPLOY_BRANCH}&per_page=10`,
     { Accept: "application/vnd.github+json" }
   );
   if (!res || res.status !== 200) {
@@ -404,7 +404,16 @@ async function fetchLastSuccessfulDeploy() {
   }
   let parsed;
   try { parsed = JSON.parse(res.body); } catch { return { error: "GitHub Actions: onleesbare JSON" }; }
-  const run = parsed && Array.isArray(parsed.workflow_runs) ? parsed.workflow_runs[0] : undefined;
+  // LAT-7014: NIET workflow_runs[0]. De GitHub-index is eventually consistent en
+  // geeft bij dezelfde query soms een weken-oude run vooraan terug (gemeten
+  // 18-09-2026: 7 van 8 identieke calls gaven run 1076 van 07-09 terug i.p.v. de
+  // echte laatste, 1081 van 17-09). Dat leverde ~50 false-positive/herstel-paren
+  // per dag op. run_number is monotoon en kan niet liegen, dus kies het maximum.
+  const runs = parsed && Array.isArray(parsed.workflow_runs) ? parsed.workflow_runs : [];
+  const run = runs.reduce(
+    (best, r) => (typeof r.run_number === "number" && (!best || r.run_number > best.run_number) ? r : best),
+    undefined
+  );
   if (!run || typeof run.head_sha !== "string") return { error: "GitHub Actions: geen geslaagde runs gevonden" };
   return { sha: run.head_sha, completedAt: run.updated_at, runNumber: run.run_number };
 }
@@ -422,6 +431,13 @@ function classifyDeployFreshness(live, lastDeploy, now) {
   if (ageMs < DEPLOY_STALE_THRESHOLD_MS) return { sev: 0 }; // deploy loopt waarschijnlijk nog
   return { sev: 2, ageMs, liveSha: live.sha, deploySha: lastDeploy.sha };
 }
+
+// LAT-7014: een critical pas na 2 sev-2-metingen op rij (~10 min). Een enkele
+// scheve GitHub-respons haalt die drempel niet en wordt dus nooit een push.
+// Los van conditionState/deadCheckState gehouden: die twee gaan over backoff
+// en over blindheid, dit gaat over bevestiging van een rood verdict.
+let deployFreshnessSev2Streak = 0;
+const DEPLOY_FRESHNESS_CONFIRM = 2;
 
 async function checkDeployFreshness() {
   const key = "deploy-freshness";
@@ -453,7 +469,17 @@ async function checkDeployFreshness() {
       alertKey: "deploy-freshness-blind",
     });
   }
+  if (verdict.sev !== 2) deployFreshnessSev2Streak = 0;
+
   if (verdict.sev === 2) {
+    deployFreshnessSev2Streak += 1;
+    if (deployFreshnessSev2Streak < DEPLOY_FRESHNESS_CONFIRM) {
+      console.error(
+        `[deploy-freshness] sev2 gezien (${deployFreshnessSev2Streak}/${DEPLOY_FRESHNESS_CONFIRM}), ` +
+        `wacht op bevestiging in de volgende cyclus voor er iets uitgaat`
+      );
+      return;
+    }
     if (shouldFire(key)) {
       const ageMin = Math.round(verdict.ageMs / 60000);
       await notify({
