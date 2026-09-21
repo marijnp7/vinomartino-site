@@ -1,0 +1,128 @@
+# LAT-11058 — dispatch-only restart van paperclip-paperclip-1 om de LAT-11056
+# pool-deadlock-fix (LAT-3635 §4) te laden.
+#
+# Goedgekeurd: kaart 9f5d2fc3 (de patch + restart-beslissing zelf, incl. het afbreken van
+# lopende agent-runs als geaccepteerd risico) + d2a1308d (dit workflow-mechanisme, apart
+# gegated per R2 punt 1 — een workflow-bestand staat zelf altijd op de gate-lijst, ook als
+# de onderliggende actie al goedgekeurd is; zie kaart 933eff00).
+#
+# Geen push-trigger. `mode` kiest alleen tussen twee vaste scripts; er wordt niets uit de
+# input in een commando geinterpoleerd. `restart`, NOOIT `recreate`: de patch leeft in de
+# overlayfs-writable-layer van de container (/app is geen bind mount); een recreate gooit
+# hem weg. Zie /paperclip/ops/lat11056/README.md voor de volledige achtergrond.
+#
+# LET OP bij het pushen: elk bestand onder .github/ op main triggert normaal een
+# productie-release van vinomartino.com (deploy.yml gebruikt paths-ignore en .github/**
+# staat daar bewust niet in). Daarom pushen met "[skip ci]" en daarna verifieren met
+#   gh run list --repo marijnp7/vinomartino-site --branch main --limit 5
+
+name: LAT-11058 restart paperclip-paperclip-1
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'diagnose = alleen lezen; restart = daadwerkelijk docker restart'
+        required: true
+        default: diagnose
+        type: choice
+        options:
+          - diagnose
+          - restart
+
+concurrency:
+  group: lat11058-paperclip-restart
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          cat >> ~/.ssh/config <<EOF
+          Host $VPS_HOST
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+          EOF
+          cat "$GITHUB_WORKSPACE/ops/ssh-config-snippet" >> ~/.ssh/config
+          ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      # ---------------------------------------------------------------- diagnose
+      - name: Diagnose (read-only)
+        if: inputs.mode == 'diagnose'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          DIAG: |
+            set -uo pipefail
+            CTR=paperclip-paperclip-1
+
+            echo "=== restart-policy + huidige staat (smalle --format, nooit een kale inspect) ==="
+            docker inspect -f 'name={{.Name}} restart={{.HostConfig.RestartPolicy.Name}} maxretry={{.HostConfig.RestartPolicy.MaximumRetryCount}} status={{.State.Status}} started={{.State.StartedAt}} restarts={{.RestartCount}}' "$CTR"
+
+            echo "=== patch-check vooraf (moet nu al 25/25 zijn, staat op schijf) ==="
+            docker exec "$CTR" python3 /paperclip/ops/lat11056/apply-pool-deadlock-fix.py --check | tail -5
+
+            echo "=== health-poort ==="
+            curl -s -o /dev/null -w 'http=%{http_code}\n' --max-time 5 http://localhost:3100/ || true
+        run: |
+          printf '%s\n' "$DIAG" | ssh "$VPS" "bash -s"
+
+      # ---------------------------------------------------------------- restart
+      - name: Restart en verifieer patch geladen
+        if: inputs.mode == 'restart'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          RESTART: |
+            set -euo pipefail
+            CTR=paperclip-paperclip-1
+
+            echo "=== VOOR: restart-policy vastleggen ==="
+            docker inspect -f 'restart={{.HostConfig.RestartPolicy.Name}} status={{.State.Status}} started={{.State.StartedAt}}' "$CTR"
+
+            echo "=== RESTART (nooit recreate — writable layer blijft staan) ==="
+            docker restart "$CTR"
+
+            echo "=== wachten tot hij weer antwoordt ==="
+            ok=0
+            for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
+              sleep 3
+              CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://localhost:3100/ || echo 000)
+              echo "poging $i: http=$CODE"
+              if [ "$CODE" != "000" ]; then ok=1; break; fi
+            done
+            [ "$ok" = "1" ] || { echo "::error::poort 3100 antwoordt niet binnen 36s na restart"; exit 1; }
+
+            echo "=== (a) patch nog aanwezig na restart? moet 25/25 zijn ==="
+            set +e
+            docker exec "$CTR" python3 /paperclip/ops/lat11056/apply-pool-deadlock-fix.py --check | tail -5
+            PATCH_OK=${PIPESTATUS[0]}
+            set -e
+
+            echo "=== (b) PID 1 gestart NA de bestands-mtime (sluit 'oude code draait nog' uit) ==="
+            docker exec "$CTR" bash -c "stat -c '%Y %n' /app/server/dist/services/issues.js /app/packages/db/src/client.ts; ps -o lstart= -p 1"
+
+            docker inspect -f 'NA: restart={{.HostConfig.RestartPolicy.Name}} status={{.State.Status}} started={{.State.StartedAt}} restarts={{.RestartCount}}' "$CTR"
+
+            if [ "$PATCH_OK" != "0" ]; then
+              echo "::error::patch-check faalde na restart (niet 25/25) — container is vermoedelijk GERECREEERD, niet geherstart. Herstel: python3 /paperclip/ops/lat11056/apply-pool-deadlock-fix.py --apply, daarna opnieuw restarten."
+              exit 1
+            fi
+
+            echo "LAT11058_RESTART_OK"
+        run: |
+          printf '%s\n' "$RESTART" | ssh "$VPS" "bash -s"
