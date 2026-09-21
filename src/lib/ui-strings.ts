@@ -713,6 +713,21 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
  * nog geen EN-values heeft.  Volgorde in t(): Directus → UI_STRING_EN → UI_STRING_DEFAULTS.
  */
 export const UI_STRING_EN: Record<string, string> = {
+  // LAT-10472 — affiliate-blok chrome + fallback-CTA's. Deze keys worden pas
+  // gebruikt als een AffiliateBlockConfig géén eigen ctaLabel/description meegeeft;
+  // zonder EN-waarde viel de render terug op de NL-default en lekte die naar /en/.
+  'affiliate.block.accommodation.title': 'Where to sleep',
+  'affiliate.block.accommodation.desc': 'Book the same place we stayed',
+  'affiliate.block.accommodation.cta': 'Check availability',
+  'affiliate.block.activity.title': 'Activities & tours',
+  'affiliate.block.activity.desc': 'Book the tasting or tour we did ourselves',
+  'affiliate.block.activity.cta': 'Book this experience',
+  'affiliate.block.sidebar.title': 'Book your trip',
+  'affiliate.block.sidebar.desc': 'Plan the trip we made',
+  'affiliate.block.sidebar.cta': 'Plan your trip',
+  'ui.cta.primary.fallbackCta': 'Check availability',
+  'ui.cta.comparison.fallbackCta': 'View',
+  'ui.cta.closing.fallbackCta': 'Plan your visit',
     // LAT-4776 — beeld-niveau §7-disclosure (BeeldHerkomst.astro). De
     // machineleesbare marker zit in het data-attribuut, niet in deze copy, dus
     // de detector blijft ook op /en/-pagina's werken als deze zin verandert.

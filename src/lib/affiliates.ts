@@ -25,6 +25,12 @@ export interface AffiliateBlockConfig {
   accommodationId?: number; // voor Booking.com entries — resolved from Directus at build time
   ctaLabel?: string;
   description?: string;
+  /** LAT-10472 — EN-tegenhangers van de editorial copy hierboven. Zonder deze
+   *  velden lekt de NL-literal ongewijzigd door naar /en/ (de component krijgt
+   *  wél een `locale`, maar deze strings komen uit dit config-bestand, niet uit
+   *  de ui-strings-dictionary of de Directus-vertaaloverlay). */
+  ctaLabelEn?: string;
+  descriptionEn?: string;
 }
 
 // CJ Booking.com deeplink (LAT-923 → LAT-1400 → LAT-2251).
@@ -199,6 +205,7 @@ export const AFFILIATE_BLOCKS: Record<string, AffiliateBlockConfig[]> = {
       linkBron: 'directe link',
       href: 'https://www.produttoridelbarbaresco.com',
       ctaLabel: 'Plan je bezoek',
+      ctaLabelEn: 'Plan your visit',
     },
     {
       location: 'accommodation',
@@ -208,7 +215,9 @@ export const AFFILIATE_BLOCKS: Record<string, AffiliateBlockConfig[]> = {
       linkBron: 'Booking.com',
       accommodationId: 11,
       ctaLabel: 'Bekijk beschikbaarheid',
+      ctaLabelEn: 'Check availability',
       description: 'Modern boutique-hotel boven de Langhe bij La Morra, €140 per nacht. Panoramisch uitzicht over de wijngaarden.',
+      descriptionEn: 'Modern boutique hotel above the Langhe near La Morra, €140 per night. Panoramic views across the vineyards.',
     },
     {
       location: 'sidebar',
@@ -218,7 +227,9 @@ export const AFFILIATE_BLOCKS: Record<string, AffiliateBlockConfig[]> = {
       linkBron: 'Booking.com',
       accommodationId: 12,
       ctaLabel: 'Bekijk beschikbaarheid',
+      ctaLabelEn: 'Check availability',
       description: 'Historisch palazzo in het centrum van Alba, €135 per nacht. Beste vertrekpunt voor de restaurantavonden.',
+      descriptionEn: 'Historic palazzo in the centre of Alba, €135 per night. The best base for the restaurant evenings.',
     },
   ],
 
@@ -237,6 +248,7 @@ export const AFFILIATE_BLOCKS: Record<string, AffiliateBlockConfig[]> = {
       linkBron: 'directe link',
       href: 'https://www.capezzana.it/visita-e-degustazioni/',
       ctaLabel: 'Reserveer proeverij',
+      ctaLabelEn: 'Book a tasting',
     },
     {
       location: 'accommodation',
@@ -246,7 +258,10 @@ export const AFFILIATE_BLOCKS: Record<string, AffiliateBlockConfig[]> = {
       linkBron: 'Booking.com',
       accommodationId: 1,
       ctaLabel: 'Bekijk beschikbaarheid',
+      ctaLabelEn: 'Check availability',
       description: "Vier kamers boven het Eroica Caffè op het domein van Barone Ricasoli. Wij liepen er 's ochtends door de wijngaarden naar de kasteelmuren.",
+      // EN-copy spiegelt accommodations_translations/214 (why_regel EN).
+      descriptionEn: 'Four rooms above the Eroica Caffè on the estate of Barone Ricasoli. We walked through the vineyards to the castle walls there in the morning.',
     },
   ],
 
@@ -260,6 +275,7 @@ export const AFFILIATE_BLOCKS: Record<string, AffiliateBlockConfig[]> = {
       linkBron: 'directe link',
       href: 'https://www.produttoridelbarbaresco.com',
       ctaLabel: 'Plan je bezoek',
+      ctaLabelEn: 'Plan your visit',
     },
   ],
 };
@@ -271,6 +287,25 @@ export function getAffiliateBlocks(slug: string): AffiliateBlockConfig[] {
 export function getAffiliateBlock(
   slug: string,
   location: AffiliateLocation,
+  locale: Locale = 'nl',
 ): AffiliateBlockConfig | undefined {
-  return getAffiliateBlocks(slug).find((b) => b.location === location);
+  const block = getAffiliateBlocks(slug).find((b) => b.location === location);
+  return block ? localizeAffiliateBlock(block, locale) : undefined;
+}
+
+// LAT-10472 — kies de copy-variant die bij de locale hoort. NL blijft
+// byte-identiek (zelfde velden, zelfde waarden); voor 'en' schuiven de
+// `*En`-velden over `ctaLabel`/`description` heen. Ontbreekt een EN-waarde,
+// dan blijft de NL-literal staan — dat is zichtbaar voor de i18n-gate en dus
+// opspoorbaar, in tegenstelling tot een stille lege string.
+export function localizeAffiliateBlock(
+  block: AffiliateBlockConfig,
+  locale: Locale,
+): AffiliateBlockConfig {
+  if (locale !== 'en') return block;
+  return {
+    ...block,
+    ctaLabel: block.ctaLabelEn ?? block.ctaLabel,
+    description: block.descriptionEn ?? block.description,
+  };
 }
