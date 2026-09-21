@@ -101,7 +101,8 @@ jobs:
             ok=0
             for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
               sleep 3
-              CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://localhost:3100/ || echo 000)
+              CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://localhost:3100/ 2>/dev/null)
+              CODE="${CODE:-000}"
               echo "poging $i: http=$CODE"
               if [ "$CODE" != "000" ]; then ok=1; break; fi
             done
@@ -114,7 +115,10 @@ jobs:
             set -e
 
             echo "=== (b) PID 1 gestart NA de bestands-mtime (sluit 'oude code draait nog' uit) ==="
-            docker exec "$CTR" bash -c "stat -c '%Y %n' /app/server/dist/services/issues.js /app/packages/db/src/client.ts; ps -o lstart= -p 1"
+            # Geen 'ps' in dit image (gemeten LAT-11058) - /proc/1's mtime is de betrouwbare
+            # ps-vrije proxy voor PID1-starttijd; die directory wordt aangemaakt bij process-start
+            # en verandert daarna niet meer.
+            docker exec "$CTR" bash -c "stat -c '%Y %n' /app/server/dist/services/issues.js /app/packages/db/src/client.ts /proc/1"
 
             docker inspect -f 'NA: restart={{.HostConfig.RestartPolicy.Name}} status={{.State.Status}} started={{.State.StartedAt}} restarts={{.RestartCount}}' "$CTR"
 
