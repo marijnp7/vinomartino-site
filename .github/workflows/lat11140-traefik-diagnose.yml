@@ -1,0 +1,183 @@
+# LAT-11140 — read-only diagnose van de Cloudflare->origin-leg voor vinomartino.com
+#
+# Aanleiding: prod geeft 522/526 op de edge terwijl de origin (paperclip-vinomartino-prod-1)
+# rechtstreeks op container-IP gewoon 200 geeft (zie LAT-11140). Verdachte is traefik
+# (de gedeelde reverse-proxy / TLS-terminator) of zijn ACME-store. Geen bestaande workflow
+# raakt traefik of de ACME-store aan, vandaar dit nieuwe bestand.
+#
+# ROUTE. Zelfde GHA->VPS SSH-kanaal als lat3052/lat3214/lat5145 (kaart 933eff00), dezelfde
+# ssh-config-snippet en dezelfde secrets (VPS_SSH_PRIVATE_KEY/VPS_HOST/VPS_USER). Deze
+# workflow zelf gaat via de Marijn-gate voor de merge (R2, punt 1: elk workflow-bestand),
+# niet omdat de actie erin risicovol is.
+#
+# ALLEEN LEZEN. Er is precies één mode: diagnose. Geen restart, geen ACME-renewal, geen
+# schrijfactie op de host. Als de diagnose een fix aanwijst (bv. traefik herstarten, ACME
+# forceren), komt dat in een aparte workflow/PR met zijn eigen goedkeuringskaart -- zelfde
+# patroon als lat3052 (route-kaart apart van actie-kaart).
+#
+# SECRET-HYGIENE. acme.json bevat naast het certificaat ook de private key. Dit script
+# decodeert en toont uitsluitend het `Certificate`-veld via `openssl x509`; het `Key`-veld
+# wordt nooit gelezen, gedecodeerd of geprint.
+
+name: LAT-11140 traefik/ACME diagnose (vinomartino)
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'diagnose = alleen lezen (traefik state/mounts/logs, ACME-certmetadata, directe TLS-handshake op host:443)'
+        required: true
+        default: diagnose
+        type: choice
+        options:
+          - diagnose
+
+concurrency:
+  group: lat11140-traefik-diagnose
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          cat >> ~/.ssh/config <<EOF
+          Host $VPS_HOST
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+          EOF
+          cat "$GITHUB_WORKSPACE/ops/ssh-config-snippet" >> ~/.ssh/config
+          ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      # =================================================================== diagnose
+      - name: Diagnose (read-only)
+        if: inputs.mode == 'diagnose'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+        run: |
+          set -euo pipefail
+          # Volledig gequote heredoc: niets uit `inputs` bereikt een commando.
+          cat > /tmp/lat11140-diag.sh <<'DIAGEOF'
+          set -uo pipefail
+          CTR=traefik-traefik-1
+          DOMAIN=vinomartino.com
+
+          echo "=== 0. gereedschap ==="
+          for B in docker openssl curl jq; do
+            command -v "$B" >/dev/null 2>&1 && echo "  $B: aanwezig" || echo "  $B: ONTBREEKT"
+          done
+
+          echo
+          echo "=== 1. leeft de container, en sinds wanneer ==="
+          docker inspect -f 'status={{.State.Status}} gestart={{.State.StartedAt}} restarts={{.RestartCount}} health={{if .State.Health}}{{.State.Health.Status}}{{else}}(geen healthcheck){{end}}' "$CTR" 2>&1 || echo "::error::container $CTR niet gevonden"
+
+          echo
+          echo "=== 2. mounts (ACME-store, config) ==="
+          docker inspect -f '{{range .Mounts}}{{.Source}} -> {{.Destination}} rw={{.RW}}{{println}}{{end}}' "$CTR" 2>&1
+
+          echo
+          echo "=== 3. poorten ==="
+          docker inspect -f '{{range $p, $b := .NetworkSettings.Ports}}{{$p}} -> {{$b}}{{println}}{{end}}' "$CTR" 2>&1
+
+          echo
+          echo "=== 4. laatste 200 regels traefik-log, plus gefilterd op error/warn/acme/certificate/tls ==="
+          docker logs "$CTR" --tail 200 2>&1 | tail -200
+          echo "--- gefilterd (laatste 2000 regels doorzocht) ---"
+          docker logs "$CTR" --tail 2000 2>&1 | grep -iE 'error|warn|acme|certificate|tls' | tail -80 || echo "(geen matches)"
+
+          echo
+          echo "=== 5. ACME-store: welk certificaat heeft traefik voor $DOMAIN? (nooit het Key-veld) ==="
+          ACMEFILE=$(docker exec "$CTR" sh -c 'find / -xdev -maxdepth 5 -iname "acme.json" 2>/dev/null | head -1' 2>&1 || true)
+          echo "acme.json-pad in container: ${ACMEFILE:-(niet gevonden)}"
+          if [ -n "${ACMEFILE:-}" ] && [[ "$ACMEFILE" == /* ]]; then
+            docker exec "$CTR" sh -c "cat '$ACMEFILE'" 2>/dev/null > /tmp/acme.json || echo "::warning::kon acme.json niet lezen"
+            if [ -s /tmp/acme.json ]; then
+              echo "acme.json grootte: $(wc -c < /tmp/acme.json) bytes"
+              echo "resolvers in acme.json: $(jq -r 'keys | join(\", \")' /tmp/acme.json 2>&1)"
+              CERT_B64=$(jq -r --arg d "$DOMAIN" '
+                [.. | objects | select(has("Certificates") or has("certificates"))
+                 | (.Certificates // .certificates // [])[]]
+                | map(select(((.Domain.Main // .domain.main // "") | ascii_downcase) == ($d | ascii_downcase)))
+                | .[0] | (.Certificate // .certificate) // empty
+              ' /tmp/acme.json 2>/dev/null || true)
+              if [ -n "$CERT_B64" ]; then
+                echo "$CERT_B64" | base64 -d > /tmp/cert.der 2>/dev/null || echo "::warning::base64-decode van certificaat faalde"
+                if [ -s /tmp/cert.der ]; then
+                  echo "--- certificaat dat traefik voor $DOMAIN heeft opgeslagen ---"
+                  openssl x509 -inform der -in /tmp/cert.der -noout -subject -issuer -dates 2>&1 || \
+                    openssl x509 -in /tmp/cert.der -noout -subject -issuer -dates 2>&1
+                fi
+              else
+                echo "::warning::geen Certificates-entry voor $DOMAIN gevonden in acme.json"
+              fi
+              rm -f /tmp/acme.json /tmp/cert.der
+            fi
+          else
+            echo "::warning::geen acme.json op de gebruikelijke plek gevonden -- mogelijk ander cert-mechanisme of andere ACME-store-locatie"
+          fi
+
+          echo
+          echo "=== 6. traefik-labels van routers/services (dynamische config, alle containers) ==="
+          for c in $(docker ps --format '{{.Names}}'); do
+            LABELS=$(docker inspect -f '{{range $k, $v := .Config.Labels}}{{$k}}={{$v}}{{println}}{{end}}' "$c" 2>/dev/null | grep -i traefik || true)
+            if [ -n "$LABELS" ]; then
+              echo "--- $c ---"
+              echo "$LABELS"
+            fi
+          done
+
+          echo
+          echo "=== 7. directe TLS-handshake op de host zoals Cloudflare hem ziet (SNI=$DOMAIN, poort 443) ==="
+          PUBIP=$(curl -s --max-time 5 https://ifconfig.me 2>/dev/null || echo "")
+          echo "host-publieke-ip (self-report): ${PUBIP:-onbekend}"
+          echo "--- handshake via 127.0.0.1:443 ---"
+          timeout 10 openssl s_client -connect 127.0.0.1:443 -servername "$DOMAIN" -showcerts </dev/null 2>&1 \
+            | awk '/BEGIN CERTIFICATE/{c++} c==1' > /tmp/edge-local.pem || true
+          if [ -s /tmp/edge-local.pem ]; then
+            openssl x509 -in /tmp/edge-local.pem -noout -subject -issuer -dates 2>&1
+          else
+            echo "::error::handshake op 127.0.0.1:443 leverde geen certificaat op (connect-fout of timeout)"
+          fi
+          rm -f /tmp/edge-local.pem
+          if [ -n "${PUBIP:-}" ]; then
+            echo "--- handshake via publiek IP $PUBIP:443 ---"
+            timeout 10 openssl s_client -connect "$PUBIP:443" -servername "$DOMAIN" -showcerts </dev/null 2>&1 \
+              | awk '/BEGIN CERTIFICATE/{c++} c==1' > /tmp/edge-pub.pem || true
+            if [ -s /tmp/edge-pub.pem ]; then
+              openssl x509 -in /tmp/edge-pub.pem -noout -subject -issuer -dates 2>&1
+            else
+              echo "::error::handshake op $PUBIP:443 leverde geen certificaat op (connect-fout of timeout)"
+            fi
+            rm -f /tmp/edge-pub.pem
+          fi
+
+          echo
+          echo "=== 8. bereikt traefik de vinomartino-prod-container intern? ==="
+          docker exec "$CTR" sh -c 'wget -qO- --timeout=5 http://paperclip-vinomartino-prod-1/ 2>&1 | head -c 200; echo' 2>&1 || \
+            echo "::warning::wget vanuit traefik naar paperclip-vinomartino-prod-1 faalde of ontbreekt in de image"
+
+          echo
+          echo "=== DIAGNOSE KLAAR ==="
+          DIAGEOF
+          ssh "$VPS" "bash -s" < /tmp/lat11140-diag.sh
