@@ -1,0 +1,239 @@
+# LAT-11172 — synchroniseer DIRECTUS_TOKEN in /root/vinomartino-site/.env met de
+# waarde die Directus zélf draagt, via het GHA->VPS SSH-kanaal.
+#
+# HET PROBLEEM (gemeten 2026-09-22, CTO)
+# `directus-token-content-writer` (Paperclip-secret 826fe765-…) kreeg op
+# 2026-09-21 08:04:45Z **versie 3** (fingerprint f669902a…). Die nieuwe waarde is
+# doorgezet naar `directus_users.token` van content-agent@vinomartino.com — de DB
+# draagt nu exact f669902a… (len 36). Wat NIET is meegegaan is
+# `/root/vinomartino-site/.env` op de VPS, en dat is precies het bestand dat
+# deploy.yml stap 6 in de build-container kopieert. Vanaf de eerste deploy ná die
+# rotatie faalt daarom `preflight-content.mjs` met HTTP 401 INVALID_CREDENTIALS op
+# alle vier de collecties (runs 35694329697 en 35697467481).
+#
+# De LAT-1768-preflight doet hier exact zijn werk: hij weigert te bouwen op een
+# kapotte content-toegang. Repareren doen we aan de credential-kant, niet door de
+# gate te verzwakken.
+#
+# WAAROM DIT BESTAND BESTAAT — en niet een script in /paperclip
+# `/root/vinomartino-site/.env` staat op de host, buiten elke container. De
+# docker-socket-proxy staat `POST /containers/create` niet toe (403), geen
+# langlevende container mount die map, en de scoped broker weigert `inspect` op
+# `vinomartino-*`. Het GHA->VPS SSH-kanaal is de enige route met root op de host.
+#
+# WAAROM DE WAARDE NERGENS HEEN REIST  <-- het echte ontwerp van dit bestand
+# De nieuwe tokenwaarde wordt op de VPS uit `directus_users` gelezen en op de VPS
+# in `.env` geschreven. Hij komt dus NIET in een workflow-input, NIET in een
+# GHA-secret, NIET in een agent-transcript en NIET in een ticket. Dat is dezelfde
+# keuze als in ops/lat4747-sync-directus-content-writer-token.sh: de waarde blijft
+# waar hij al is. Gevolgen voor dit bestand:
+#   * elke tokenwaarde gaat via **stdin**, nooit via argv of `-e VAR=`. `docker
+#     exec -e T=<waarde>` zou de waarde in de argv van het host-proces zetten en
+#     daarmee leesbaar maken voor iedere /proc-lezer op de host (LAT-11040).
+#   * het script print uitsluitend sha256-prefixes, lengtes en HTTP-codes.
+#   * de her-schrijf van .env gebeurt in python met de waarde in de env van dat
+#     ene proces, niet geinterpoleerd in een `sed`-expressie — een token met een
+#     `/` of `&` erin zou daar stil corrupt uitkomen.
+#
+# IDEMPOTENT. `apply` schrijft alleen als de .env-hash afwijkt van de DB-hash en
+# meldt anders "stond al goed". Twee keer draaien is dus een no-op. Er wordt eerst
+# een timestamped backup naast het bestand gelegd.
+#
+# `mode` kiest tussen vaste scripts; er wordt niets uit de input in een commando
+# geinterpoleerd.
+#
+# GOEDKEURING — de route is gedekt door kaart 933eff00 (2026-08-12 06:29:24Z:
+# goedkeuren en inloggen op de server zijn twee aparte handelingen, een agent mag
+# een al goedgekeurd VPS-commando zelf via dit CI-kanaal uitvoeren), hergebruikt
+# in lat5145-swapfile.yml, lat3052-htpasswd-rotate.yml,
+# lat4750-recreate-publish-dispatcher.yml en lat5247-scoped-broker-restart.yml.
+# De handeling zelf is productieherstel: alle VinoMartino-deploys staan stil.
+#
+# LET OP bij het pushen: elk bestand onder .github/ op main triggert normaal een
+# productie-release (deploy.yml gebruikt paths-ignore en .github/** staat daar
+# bewust niet in). Push met "[skip ci]".
+
+name: LAT-11172 sync build DIRECTUS_TOKEN (VPS .env)
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'diagnose = alleen lezen (hashes + HTTP-codes); apply = .env bijwerken + terugtoetsen; verify = read-back, faalt als de build-token geen 200 geeft'
+        required: true
+        default: diagnose
+        type: choice
+        options:
+          - diagnose
+          - apply
+          - verify
+
+concurrency:
+  group: lat11172-sync-build-directus-token
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          cat >> ~/.ssh/config <<EOF
+          Host $VPS_HOST
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+          EOF
+          cat "$GITHUB_WORKSPACE/ops/ssh-config-snippet" >> ~/.ssh/config
+          ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Sync build token
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          MODE: ${{ inputs.mode }}
+        run: |
+          ssh "$VPS" "MODE='$MODE' bash -s" <<'REMOTE'
+          set -euo pipefail
+
+          ENVF=/root/vinomartino-site/.env
+          CTR=vinomartino-directus-1
+          EMAIL=content-agent@vinomartino.com
+          MODE="${MODE:-diagnose}"
+
+          sha16() { printf '%s' "$1" | sha256sum | cut -c1-16; }
+
+          if [ ! -f "$ENVF" ]; then
+            echo "::error::$ENVF bestaat niet — deploy.yml stap 6 kan hem dus ook niet kopieren"
+            exit 2
+          fi
+
+          # ── waarde uit .env, zonder hem te printen ────────────────────────────
+          # `tail -1` omdat een dubbele regel in .env door dotenv als laatste-wint
+          # wordt gelezen; we moeten dezelfde regel meten die de build ziet.
+          ENV_TOK=$(sed -n 's/^[[:space:]]*DIRECTUS_TOKEN=//p' "$ENVF" | tail -1 | tr -d '"'"'"'\r')
+          ENV_URL=$(sed -n 's/^[[:space:]]*DIRECTUS_URL=//p'   "$ENVF" | tail -1 | tr -d '"'"'"'\r')
+          echo "mode                    = $MODE"
+          echo ".env pad                = $ENVF (mode $(stat -c %a "$ENVF"), $(wc -l < "$ENVF") regels)"
+          echo ".env DIRECTUS_URL       = ${ENV_URL:-<leeg>}"
+          if [ -z "$ENV_TOK" ]; then
+            echo ".env DIRECTUS_TOKEN     = <ONTBREEKT>"
+          else
+            echo ".env DIRECTUS_TOKEN     sha16=$(sha16 "$ENV_TOK") len=${#ENV_TOK}"
+          fi
+
+          # ── waarde uit directus_users, gelezen binnen de Directus-container ──
+          # Die container heeft node, pg en zijn EIGEN DB_*-env; de DB-credentials
+          # verlaten hem dus niet. Het pg-pad is een pnpm-store-pad met de versie
+          # erin: globben, niet pinnen, anders breekt dit op de volgende bump.
+          PGPATH=$(docker exec "$CTR" sh -lc 'ls -d /directus/node_modules/.pnpm/pg@*/node_modules/pg 2>/dev/null | head -1')
+          if [ -z "$PGPATH" ]; then
+            echo "::error::pg-module niet gevonden in $CTR"
+            exit 3
+          fi
+          echo "pg-module               = $PGPATH"
+
+          read_db_token() {
+            docker exec -e PGPATH="$PGPATH" -e SYNC_EMAIL="$EMAIL" "$CTR" node -e '
+              const {Client}=require(process.env.PGPATH);
+              (async()=>{
+                const c=new Client({host:process.env.DB_HOST,port:+process.env.DB_PORT||5432,
+                  user:process.env.DB_USER,password:process.env.DB_PASSWORD,database:process.env.DB_DATABASE});
+                await c.connect();
+                const r=await c.query("select token from directus_users where email=$1",[process.env.SYNC_EMAIL]);
+                await c.end();
+                if(r.rowCount!==1||!r.rows[0].token){process.stderr.write("rowCount="+r.rowCount+"\n");process.exit(4);}
+                process.stdout.write(r.rows[0].token);
+              })().catch(e=>{process.stderr.write("ERR "+e.message+"\n");process.exit(5)});'
+          }
+          DB_TOK=$(read_db_token)
+          echo "db  $EMAIL sha16=$(sha16 "$DB_TOK") len=${#DB_TOK}"
+
+          # ── probe: precies de call die preflight-content.mjs doet ─────────────
+          # Token gaat via stdin, niet via argv — anders staat hij in /proc van de
+          # host. 127.0.0.1:8055 binnen de container is dezelfde Directus-instantie
+          # als DIRECTUS_URL vanaf het docker-netwerk, en omzeilt CF Access.
+          probe() {
+            printf '%s' "$1" | docker exec -i "$CTR" node -e '
+              let t="";process.stdin.on("data",d=>t+=d).on("end",()=>{
+                fetch("http://127.0.0.1:8055/items/landen?limit=0&meta=filter_count&filter[status][_eq]=published",
+                  {headers:{Authorization:"Bearer "+t.trim()}})
+                  .then(r=>console.log(r.status)).catch(()=>console.log("ERR"));});'
+          }
+          ENV_CODE=$([ -n "$ENV_TOK" ] && probe "$ENV_TOK" || echo "n/a")
+          DB_CODE=$(probe "$DB_TOK")
+          echo "probe .env-token /items/landen -> HTTP $ENV_CODE  (401 = dit is de storing)"
+          echo "probe db-token   /items/landen -> HTTP $DB_CODE   (200 verwacht)"
+
+          if [ "$DB_CODE" != "200" ]; then
+            echo "::error::de token in directus_users geeft zelf geen 200 ($DB_CODE) — .env bijwerken lost dan niets op. Stop; dit is een rol/permissie-probleem, geen sync-probleem."
+            exit 6
+          fi
+
+          if [ "$MODE" = "diagnose" ]; then
+            echo "(diagnose: niets gewijzigd)"
+            exit 0
+          fi
+
+          if [ "$MODE" = "verify" ]; then
+            if [ "$ENV_CODE" = "200" ] && [ "$(sha16 "$ENV_TOK")" = "$(sha16 "$DB_TOK")" ]; then
+              echo "GROEN: .env-token == db-token en geeft HTTP 200"
+              exit 0
+            fi
+            echo "::error::verify ROOD — .env-token code=$ENV_CODE, hash-match=$([ "$(sha16 "$ENV_TOK")" = "$(sha16 "$DB_TOK")" ] && echo true || echo false)"
+            exit 7
+          fi
+
+          # ── apply ────────────────────────────────────────────────────────────
+          if [ "$(sha16 "$ENV_TOK")" = "$(sha16 "$DB_TOK")" ]; then
+            echo "UPDATE overgeslagen: .env stond al gelijk aan de db-token (idempotent)"
+          else
+            BAK="${ENVF}.bak-lat11172-$(date -u +%Y%m%dT%H%M%SZ)"
+            cp -a "$ENVF" "$BAK"
+            echo "backup                  = $BAK"
+            LINES_BEFORE=$(wc -l < "$ENVF")
+            # Waarde via de env van dit ene python-proces; niet in een sed-expressie
+            # (een `/` of `&` in de token zou daar stil corrupt uitkomen) en niet in argv.
+            NEW_TOK="$DB_TOK" ENVF="$ENVF" python3 -c '
+          import os
+          p=os.environ["ENVF"]; new=os.environ["NEW_TOK"]
+          with open(p) as f: lines=f.read().splitlines(True)
+          out=[]; n=0
+          for l in lines:
+              if l.lstrip().startswith("DIRECTUS_TOKEN="):
+                  out.append("DIRECTUS_TOKEN="+new+"\n"); n+=1
+              else:
+                  out.append(l)
+          if n==0:
+              out.append("DIRECTUS_TOKEN="+new+"\n"); n=-1
+          with open(p,"w") as f: f.write("".join(out))
+          print("regels vervangen        = "+("toegevoegd (ontbrak)" if n==-1 else str(n)))
+          '
+            echo ".env regels voor/na     = $LINES_BEFORE / $(wc -l < "$ENVF")"
+            echo ".env mode na            = $(stat -c %a "$ENVF")"
+          fi
+
+          # ── terugtoetsen: lees .env opnieuw van schijf, niet uit de var ───────
+          NEW_ENV_TOK=$(sed -n 's/^[[:space:]]*DIRECTUS_TOKEN=//p' "$ENVF" | tail -1 | tr -d '"'"'"'\r')
+          NEW_CODE=$(probe "$NEW_ENV_TOK")
+          echo "GROEN-1 .env-hash == db-hash        -> $([ "$(sha16 "$NEW_ENV_TOK")" = "$(sha16 "$DB_TOK")" ] && echo true || echo false) (verwacht true)"
+          echo "GROEN-2 .env-token /items/landen    -> HTTP $NEW_CODE (verwacht 200)"
+          echo "ROOD    .env-token == oude waarde   -> $([ "$(sha16 "$NEW_ENV_TOK")" = "$(sha16 "${ENV_TOK:-x}")" ] && echo true || echo false) (verwacht false tenzij al goed)"
+          if [ "$NEW_CODE" != "200" ] || [ "$(sha16 "$NEW_ENV_TOK")" != "$(sha16 "$DB_TOK")" ]; then
+            echo "::error::apply ROOD — .env is niet werkend bijgewerkt"
+            exit 8
+          fi
+          echo "apply GROEN — de volgende deploy-build kan de preflight halen"
+          REMOTE
