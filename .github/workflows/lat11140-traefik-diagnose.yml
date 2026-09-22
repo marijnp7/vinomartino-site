@@ -10,14 +10,29 @@
 # workflow zelf gaat via de Marijn-gate voor de merge (R2, punt 1: elk workflow-bestand),
 # niet omdat de actie erin risicovol is.
 #
-# ALLEEN LEZEN. Er is precies één mode: diagnose. Geen restart, geen ACME-renewal, geen
-# schrijfactie op de host. Als de diagnose een fix aanwijst (bv. traefik herstarten, ACME
-# forceren), komt dat in een aparte workflow/PR met zijn eigen goedkeuringskaart -- zelfde
-# patroon als lat3052 (route-kaart apart van actie-kaart).
+# ALLEEN LEZEN (oorspronkelijk). Er was precies één mode: diagnose. Zie de UPDATE hieronder
+# voor de modes die er sindsdien bij kwamen -- `restart` is de enige schrijfactie in dit
+# bestand, expliciet als zodanig benoemd.
 #
 # SECRET-HYGIENE. acme.json bevat naast het certificaat ook de private key. Dit script
 # decodeert en toont uitsluitend het `Certificate`-veld via `openssl x509`; het `Key`-veld
 # wordt nooit gelezen, gedecodeerd of geprint.
+#
+# UPDATE (zelfde dag). `diagnose` liep: traefik draait sinds 2026-07-24 zonder restart,
+# routing-labels kloppen, maar ACME-renewal voor vinomartino.com faalt AL DAGELIJKS sinds
+# minstens 2026-09-01 met exact dezelfde 522 op de HTTP-01-challenge (dus dit is geen
+# nieuw probleem van vandaag). Beslissender: een TLS-handshake op 127.0.0.1:443 **op de
+# VPS zelf** kreeg geen certificaat terug -- dat is origin-side, los van Cloudflare. Twee
+# nieuwe modes:
+#   - diagnose2 (alleen lezen)  : NetworkMode, poort-bindings, luisterende sockets (ss),
+#     de traefik-compose (entrypoint-config) en een lokale poort-80-check, om vast te
+#     stellen OF en WAAROM traefik niet luistert.
+#   - restart (schrijft)        : herstart alleen de traefik-container (geen ACME-force,
+#     geen configwijziging) en toetst daarna terug, zowel lokaal (SSH) als van buitenaf
+#     via de GHA-runner zelf (normale egress, dus een echte "bezoeker"-meting -- dat is
+#     de externe fetch die LAT-11140 stap 3 vraagt). Blijft in dezelfde Marijn-gate
+#     -- workflow-bestand -- maar `restart` is de eerste échte productie-runtime-actie
+#     in dit bestand en dus expliciet als aparte, herkenbare stap benoemd in de PR/kaart.
 
 name: LAT-11140 traefik/ACME diagnose (vinomartino)
 
@@ -25,12 +40,14 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'diagnose = alleen lezen (traefik state/mounts/logs, ACME-certmetadata, directe TLS-handshake op host:443)'
+        description: 'diagnose = alleen lezen; diagnose2 = uitgebreide netwerk/poort-diagnose (alleen lezen); restart = herstart traefik-traefik-1 + terugtoets (schrijft)'
         required: true
         default: diagnose
         type: choice
         options:
           - diagnose
+          - diagnose2
+          - restart
 
 concurrency:
   group: lat11140-traefik-diagnose
@@ -50,6 +67,17 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
+
+      # Runner-side: dit draait op een normale GHA-runner met gewone egress -- dus
+      # letterlijk hoe een bezoeker vinomartino.com ziet, via de echte Cloudflare-route.
+      # Geen SSH nodig. Draait bij elke mode, zodat elke run een voor/na-referentiepunt heeft.
+      - name: Externe check (zoals een bezoeker, via de runner's eigen egress)
+        run: |
+          set -uo pipefail
+          for path in / /build-info.json; do
+            CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "https://vinomartino.com$path" 2>&1 || echo 000)
+            echo "https://vinomartino.com$path -> HTTP $CODE"
+          done
 
       - name: Setup SSH agent
         uses: webfactory/ssh-agent@v0.9.0
@@ -181,3 +209,106 @@ jobs:
           echo "=== DIAGNOSE KLAAR ==="
           DIAGEOF
           ssh "$VPS" "bash -s" < /tmp/lat11140-diag.sh
+
+      # ================================================================== diagnose2
+      - name: Diagnose2 - netwerk/poorten (read-only)
+        if: inputs.mode == 'diagnose2'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+        run: |
+          set -euo pipefail
+          cat > /tmp/lat11140-diag2.sh <<'DIAG2EOF'
+          set -uo pipefail
+          CTR=traefik-traefik-1
+
+          echo "=== a. NetworkMode + poort-bindings (ruw) ==="
+          docker inspect -f 'NetworkMode={{.HostConfig.NetworkMode}}' "$CTR" 2>&1
+          echo "PortBindings:"
+          docker inspect -f '{{json .HostConfig.PortBindings}}' "$CTR" 2>&1
+          echo "Networks:"
+          docker inspect -f '{{range $k, $v := .NetworkSettings.Networks}}{{$k}} ip={{$v.IPAddress}}{{println}}{{end}}' "$CTR" 2>&1
+
+          echo
+          echo "=== b. luistert er iets op 80/443 op de host? ==="
+          if command -v ss >/dev/null 2>&1; then
+            ss -tlnp 2>&1 | (grep -E ':(80|443)\b' || echo "(niets gevonden op 80/443)")
+          else
+            netstat -tlnp 2>&1 | (grep -E ':(80|443)\b' || echo "(niets gevonden op 80/443, netstat)")
+          fi
+
+          echo
+          echo "=== c. wat draait er in de container (entrypoint-flags zichtbaar in argv)? ==="
+          docker top "$CTR" -o pid,cmd 2>&1
+
+          echo
+          echo "=== d. traefik-compose (entrypoint/poort-config, geen secrets verwacht) ==="
+          CF=$(docker inspect -f '{{index .Config.Labels "com.docker.compose.project.config_files"}}' "$CTR" 2>/dev/null || true)
+          echo "config_files label: ${CF:-(geen)}"
+          if [ -n "${CF:-}" ] && [ -f "$CF" ]; then
+            cat "$CF"
+          else
+            echo "::warning::compose-bestand niet op het verwachte pad gevonden"
+          fi
+
+          echo
+          echo "=== e. lokale poort-80-check (HTTP-01-challenge-pad, geen TLS) ==="
+          curl -s -o /dev/null -w 'lokaal poort 80 (Host: vinomartino.com) -> HTTP %{http_code}\n' --max-time 5 \
+            -H 'Host: vinomartino.com' http://127.0.0.1/.well-known/acme-challenge/lat11140-probe 2>&1 || \
+            echo "lokaal poort 80 -> geen verbinding (connect-fout of timeout)"
+
+          echo
+          echo "=== DIAGNOSE2 KLAAR ==="
+          DIAG2EOF
+          ssh "$VPS" "bash -s" < /tmp/lat11140-diag2.sh
+
+      # ======================================================================= restart
+      # De enige schrijfactie in dit bestand: herstart alleen traefik-traefik-1 (geen
+      # ACME-force, geen configwijziging, geen aanraken van andere containers). Volledig
+      # reversibel -- een restart die niet helpt laat de storing in dezelfde staat.
+      - name: Restart traefik + terugtoets
+        if: inputs.mode == 'restart'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+        run: |
+          set -euo pipefail
+          cat > /tmp/lat11140-restart.sh <<'RESTARTEOF'
+          set -uo pipefail
+          CTR=traefik-traefik-1
+
+          echo "=== voor de herstart ==="
+          docker inspect -f 'status={{.State.Status}} gestart={{.State.StartedAt}} restarts={{.RestartCount}}' "$CTR" 2>&1
+
+          echo
+          echo "=== docker restart $CTR ==="
+          docker restart "$CTR"
+          sleep 8
+          docker inspect -f 'status={{.State.Status}} gestart={{.State.StartedAt}} restarts={{.RestartCount}}' "$CTR" 2>&1
+
+          echo
+          echo "=== lokale terugtoets: TLS-handshake op 127.0.0.1:443 (SNI=vinomartino.com) ==="
+          timeout 10 openssl s_client -connect 127.0.0.1:443 -servername vinomartino.com -showcerts </dev/null 2>&1 \
+            | awk '/BEGIN CERTIFICATE/{c++} c==1' > /tmp/edge-restart.pem || true
+          if [ -s /tmp/edge-restart.pem ]; then
+            openssl x509 -in /tmp/edge-restart.pem -noout -subject -issuer -dates 2>&1
+          else
+            echo "::error::handshake op 127.0.0.1:443 leverde nog steeds geen certificaat op"
+          fi
+          rm -f /tmp/edge-restart.pem
+
+          echo
+          echo "=== recente traefik-logs na herstart ==="
+          sleep 5
+          docker logs "$CTR" --tail 60 2>&1
+          echo "=== RESTART KLAAR ==="
+          RESTARTEOF
+          ssh "$VPS" "bash -s" < /tmp/lat11140-restart.sh
+
+      - name: Externe terugtoets na restart (runner-egress)
+        if: inputs.mode == 'restart'
+        run: |
+          set -uo pipefail
+          sleep 5
+          for path in / /build-info.json; do
+            CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "https://vinomartino.com$path" 2>&1 || echo 000)
+            echo "NA restart: https://vinomartino.com$path -> HTTP $CODE"
+          done
