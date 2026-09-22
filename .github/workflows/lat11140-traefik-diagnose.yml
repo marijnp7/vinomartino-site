@@ -50,6 +50,23 @@
 #     80), maakt een backup, en herstart traefik via `docker compose up -d` zodat de
 #     nieuwe command-line ook echt geladen wordt. Bij falen: backup terugzetten +
 #     `docker compose up -d` opnieuw. Raakt geen ACME-store, geen andere container.
+#
+# UPDATE 3 (zelfde dag, na diagnose3). `diagnose3` gaf **MATCH**: het gebonden IP IS het
+# huidige publieke IPv4-adres en een geldig lokaal interface-adres. De hypothese uit
+# UPDATE 2 klopt dus niet -- `fix` is NIET gedraaid, want het zou niets veranderen aan de
+# bereikbaarheid. Drie onafhankelijke externe metingen (CTO origineel, GHA-runner, en een
+# derde onafhankelijke fetch) bevestigen alle drie een echte 522 -- de storing is dus
+# nog steeds reëel, maar traefik zelf (bind, routing, entrypoints) is structureel gezond.
+# De resterende hypothese: een firewall TUSSEN internet en de VM (host-iptables/ufw, of
+# een cloud-provider-niveau firewall bij Hostinger, buiten SSH-bereik) blokkeert 80/443
+# van buitenaf terwijl 22 (SSH) gewoon doorkomt. Eén nieuwe mode:
+#   - diagnose4 (alleen lezen)  : dumpt host-iptables/ufw-regels voor 80/443, EN laat de
+#     GHA-runner zelf (een normale externe client) een directe TCP/TLS-verbinding met het
+#     publieke IP proberen -- via `--resolve`, dus zonder DNS/Cloudflare ertussen. Als dat
+#     van buitenaf ook faalt terwijl SSH (poort 22) het hele issue lang al werkt, is dat
+#     vrijwel doorslaggevend bewijs voor een edge-firewall buiten het bereik van deze
+#     workflow -- en dus geen `fix`-taak meer, maar een escalatie naar wie de
+#     Hostinger-firewall/cloud-panel beheert.
 
 name: LAT-11140 traefik/ACME diagnose (vinomartino)
 
@@ -57,7 +74,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'diagnose/diagnose2 = alleen lezen; restart = herstart traefik (schrijft); diagnose3 = vergelijk gebonden IP met huidig publiek IP (alleen lezen); fix = herschrijf websecure-bind naar :443 + herstart (schrijft)'
+        description: 'diagnose/diagnose2/diagnose3/diagnose4 = alleen lezen; restart/fix = productie-mutatie'
         required: true
         default: diagnose
         type: choice
@@ -67,6 +84,7 @@ on:
           - restart
           - diagnose3
           - fix
+          - diagnose4
 
 concurrency:
   group: lat11140-traefik-diagnose
@@ -456,3 +474,88 @@ jobs:
             CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "https://vinomartino.com$path" 2>&1 || echo 000)
             echo "NA fix: https://vinomartino.com$path -> HTTP $CODE"
           done
+
+      # ================================================================= diagnose4
+      - name: Diagnose4a - host-firewall + gebonden IP ophalen (read-only)
+        id: diag4
+        if: inputs.mode == 'diagnose4'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+        run: |
+          set -euo pipefail
+          cat > /tmp/lat11140-diag4.sh <<'DIAG4EOF'
+          set -uo pipefail
+          CTR=traefik-traefik-1
+
+          echo "=== a. host-firewall-regels voor 80/443 ==="
+          if command -v iptables >/dev/null 2>&1; then
+            echo "--- iptables INPUT (gefilterd op 80/443) ---"
+            iptables -L INPUT -n -v 2>&1 | grep -E 'dpt:(80|443)|Chain INPUT' || echo "(geen specifieke 80/443-regels gevonden)"
+          fi
+          if command -v nft >/dev/null 2>&1; then
+            echo "--- nft ruleset (gefilterd op 80/443) ---"
+            nft list ruleset 2>&1 | grep -E 'dport (80|443)|table|chain' || echo "(geen nft-regels gevonden of geen rechten)"
+          fi
+          if command -v ufw >/dev/null 2>&1; then
+            echo "--- ufw status ---"
+            ufw status verbose 2>&1 || echo "(ufw niet actief of geen rechten)"
+          fi
+
+          echo
+          echo "=== b. gebonden websecure-IP (machine-leesbaar, voor de volgende stap) ==="
+          BOUND=$(docker inspect -f '{{json .Args}}' "$CTR" 2>/dev/null \
+            | tr ',' '\n' | grep -o 'entrypoints.websecure.address=[^"]*' \
+            | sed 's/.*address=//; s/:443$//')
+          if [ -z "${BOUND:-}" ]; then
+            echo "::error::kon het gebonden IP niet bepalen"
+            exit 1
+          fi
+          echo "LAT11140_BOUND_IP=$BOUND"
+
+          echo
+          echo "=== DIAGNOSE4A KLAAR ==="
+          DIAG4EOF
+          OUT=$(ssh "$VPS" "bash -s" < /tmp/lat11140-diag4.sh)
+          echo "$OUT"
+          BOUND_IP=$(echo "$OUT" | grep '^LAT11140_BOUND_IP=' | tail -1 | cut -d= -f2-)
+          if [ -z "${BOUND_IP:-}" ]; then
+            echo "::error::kon het gebonden IP niet uit de SSH-output halen"
+            exit 1
+          fi
+          echo "bound_ip=$BOUND_IP" >> "$GITHUB_OUTPUT"
+
+      # Deze stap draait op de runner zelf (normale externe client, geen SSH) en verbindt
+      # RECHTSTREEKS met het origin-IP -- DNS en Cloudflare volledig omzeild via
+      # `--resolve`/`-connect`. Zo isoleren we "is de VM van buitenaf bereikbaar op 80/443"
+      # van "heeft Cloudflare specifiek een probleem".
+      - name: Diagnose4b - directe verbinding van buitenaf (DNS/Cloudflare omzeild)
+        if: inputs.mode == 'diagnose4'
+        run: |
+          set -uo pipefail
+          BOUND_IP="${{ steps.diag4.outputs.bound_ip }}"
+          if [ -z "$BOUND_IP" ]; then
+            echo "::error::geen bound_ip beschikbaar van de vorige stap"
+            exit 1
+          fi
+
+          echo "--- directe TLS-handshake naar het origin-IP op poort 443 (SNI=vinomartino.com) ---"
+          timeout 10 openssl s_client -connect "$BOUND_IP:443" -servername vinomartino.com -showcerts </dev/null 2>&1 \
+            | awk '/BEGIN CERTIFICATE/{c++} c==1' > /tmp/direct.pem || true
+          if [ -s /tmp/direct.pem ]; then
+            echo "VERDICT poort 443: BEREIKBAAR van buitenaf (rechtstreeks IP, zonder Cloudflare) -- certificaat ontvangen:"
+            openssl x509 -in /tmp/direct.pem -noout -subject -issuer -dates 2>&1
+          else
+            echo "VERDICT poort 443: NIET bereikbaar van buitenaf (rechtstreeks IP) -- connect-fout of timeout"
+          fi
+          rm -f /tmp/direct.pem
+
+          echo
+          echo "--- directe HTTP-request naar poort 80 (HTTP-01-challenge-pad) ---"
+          CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 --resolve "vinomartino.com:80:$BOUND_IP" \
+            "http://vinomartino.com/.well-known/acme-challenge/lat11140-probe" 2>&1 || echo 000)
+          echo "rechtstreeks IP, poort 80 -> HTTP $CODE"
+          if [ "$CODE" = "000" ]; then
+            echo "VERDICT poort 80: NIET bereikbaar van buitenaf (rechtstreeks IP) -- connect-fout of timeout"
+          else
+            echo "VERDICT poort 80: BEREIKBAAR van buitenaf (rechtstreeks IP) -- kreeg HTTP $CODE terug"
+          fi
