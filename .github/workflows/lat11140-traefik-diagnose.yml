@@ -33,6 +33,23 @@
 #     de externe fetch die LAT-11140 stap 3 vraagt). Blijft in dezelfde Marijn-gate
 #     -- workflow-bestand -- maar `restart` is de eerste échte productie-runtime-actie
 #     in dit bestand en dus expliciet als aparte, herkenbare stap benoemd in de PR/kaart.
+#
+# UPDATE 2 (zelfde dag, na diagnose2). `diagnose2` liet zien: traefik's `web`-entrypoint
+# (poort 80) luistert unscoped op `:80` (alle interfaces) en antwoordt lokaal prima. Het
+# `websecure`-entrypoint (poort 443) is daarentegen HARDCODED gebonden aan één specifiek
+# IP-adres in de compose-command (`--entrypoints.websecure.address=<IP>:443`) -- en die
+# waarde matcht exact een van onze workflow-secrets (GitHub maskeert hem automatisch in
+# de run-log). `restart` alleen lost dit niet op: dat herstart hetzelfde proces met
+# dezelfde, mogelijk verouderde, command-line -- het compose-bestand wordt niet herlezen.
+# Twee nieuwe modes:
+#   - diagnose3 (alleen lezen)  : vergelijkt het gebonden IP met het huidige publieke
+#     IPv4-adres en met de lokale interface-adressen, ZONDER de waarde zelf te printen
+#     (alleen MATCH/MISMATCH) -- bevestigt of het inderdaad een verouderd/vreemd adres is.
+#   - fix (schrijft)            : herschrijft alleen de `--entrypoints.websecure.address=`
+#     regel in het compose-bestand naar `:443` (unscoped, zelfde patroon als `web`/poort
+#     80), maakt een backup, en herstart traefik via `docker compose up -d` zodat de
+#     nieuwe command-line ook echt geladen wordt. Bij falen: backup terugzetten +
+#     `docker compose up -d` opnieuw. Raakt geen ACME-store, geen andere container.
 
 name: LAT-11140 traefik/ACME diagnose (vinomartino)
 
@@ -40,7 +57,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'diagnose = alleen lezen; diagnose2 = uitgebreide netwerk/poort-diagnose (alleen lezen); restart = herstart traefik-traefik-1 + terugtoets (schrijft)'
+        description: 'diagnose/diagnose2 = alleen lezen; restart = herstart traefik (schrijft); diagnose3 = vergelijk gebonden IP met huidig publiek IP (alleen lezen); fix = herschrijf websecure-bind naar :443 + herstart (schrijft)'
         required: true
         default: diagnose
         type: choice
@@ -48,6 +65,8 @@ on:
           - diagnose
           - diagnose2
           - restart
+          - diagnose3
+          - fix
 
 concurrency:
   group: lat11140-traefik-diagnose
@@ -311,4 +330,129 @@ jobs:
           for path in / /build-info.json; do
             CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "https://vinomartino.com$path" 2>&1 || echo 000)
             echo "NA restart: https://vinomartino.com$path -> HTTP $CODE"
+          done
+
+      # ================================================================= diagnose3
+      - name: Diagnose3 - is het gebonden IP verouderd? (read-only, print geen waarden)
+        if: inputs.mode == 'diagnose3'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+        run: |
+          set -euo pipefail
+          cat > /tmp/lat11140-diag3.sh <<'DIAG3EOF'
+          set -uo pipefail
+          CTR=traefik-traefik-1
+
+          # Gebonden IP uit de eigen command-line halen, nooit apart printen.
+          BOUND=$(docker inspect -f '{{json .Args}}' "$CTR" 2>/dev/null \
+            | tr ',' '\n' | grep -o 'entrypoints.websecure.address=[^"]*' \
+            | sed 's/.*address=//; s/:443$//')
+          if [ -z "${BOUND:-}" ]; then
+            echo "::error::kon het gebonden websecure-IP niet uit de command-line halen"
+            exit 1
+          fi
+
+          CURRENT4=$(curl -4 -s --max-time 5 https://ifconfig.me 2>/dev/null || echo "")
+          echo "huidig publiek IPv4 (via ifconfig.me -4): ${CURRENT4:-onbekend}"
+
+          echo
+          if [ -n "${CURRENT4:-}" ] && [ "$BOUND" = "$CURRENT4" ]; then
+            echo "VERDICT: MATCH -- het gebonden websecure-IP is het huidige publieke IPv4-adres"
+          else
+            echo "VERDICT: MISMATCH -- het gebonden websecure-IP is NIET het huidige publieke IPv4-adres"
+          fi
+
+          echo
+          echo "=== is het gebonden IP uberhaupt een lokaal interface-adres? ==="
+          if ip -4 addr show scope global 2>/dev/null | grep -qF "$BOUND"; then
+            echo "gebonden IP staat op een lokale interface (nog steeds geldig als lokaal adres)"
+          else
+            echo "gebonden IP staat op GEEN ENKELE lokale interface -- dit adres bestaat hier niet (meer)"
+          fi
+
+          echo
+          echo "=== ter vergelijking: alle huidige lokale IPv4-adressen (geen secrets) ==="
+          ip -4 addr show scope global 2>&1 | grep -oP '(?<=inet\s)\d+(\.\d+){3}' || echo "(geen)"
+
+          echo
+          echo "=== DIAGNOSE3 KLAAR ==="
+          DIAG3EOF
+          ssh "$VPS" "bash -s" < /tmp/lat11140-diag3.sh
+
+      # ======================================================================== fix
+      # De tweede schrijfactie in dit bestand: herschrijft ALLEEN de
+      # `--entrypoints.websecure.address=` regel naar `:443` (unscoped, zelfde patroon
+      # als de al werkende `web`-entrypoint op poort 80). Maakt eerst een backup. Raakt
+      # geen ACME-store, geen andere regel, geen andere container.
+      - name: Fix - websecure-bind naar :443 + herstart
+        if: inputs.mode == 'fix'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+        run: |
+          set -euo pipefail
+          cat > /tmp/lat11140-fix.sh <<'FIXEOF'
+          set -euo pipefail
+          CTR=traefik-traefik-1
+          CF=/docker/traefik/docker-compose.yml
+          TS=$(date -u +%Y%m%dT%H%M%SZ)
+          BAK="$CF.bak-lat11140-$TS"
+
+          [ -f "$CF" ] || { echo "::error::$CF ontbreekt"; exit 1; }
+          cp "$CF" "$BAK"
+          chmod 644 "$BAK"
+          echo "backup: $BAK"
+
+          if ! grep -q 'entrypoints\.websecure\.address=' "$CF"; then
+            echo "::error::geen entrypoints.websecure.address-regel gevonden in $CF -- niets gewijzigd"
+            exit 1
+          fi
+
+          sed -i -E 's/^([[:space:]]*-[[:space:]]*--entrypoints\.websecure\.address=).*/\1:443/' "$CF"
+
+          echo "--- regel na wijziging ---"
+          grep 'entrypoints\.websecure\.address=' "$CF"
+
+          cd /docker/traefik
+          echo
+          echo "=== docker compose up -d (herlaadt command-line uit het bestand) ==="
+          if docker compose version >/dev/null 2>&1; then
+            docker compose up -d
+          else
+            docker-compose up -d
+          fi
+          sleep 8
+          docker inspect -f 'status={{.State.Status}} gestart={{.State.StartedAt}} restarts={{.RestartCount}}' "$CTR" 2>&1
+
+          echo
+          echo "=== lokale terugtoets: TLS-handshake op 127.0.0.1:443 (SNI=vinomartino.com) ==="
+          timeout 10 openssl s_client -connect 127.0.0.1:443 -servername vinomartino.com -showcerts </dev/null 2>&1 \
+            | awk '/BEGIN CERTIFICATE/{c++} c==1' > /tmp/edge-fix.pem || true
+          if [ -s /tmp/edge-fix.pem ]; then
+            echo "SUCCES: certificaat ontvangen op 127.0.0.1:443"
+            openssl x509 -in /tmp/edge-fix.pem -noout -subject -issuer -dates 2>&1
+          else
+            echo "::error::handshake op 127.0.0.1:443 leverde nog steeds geen certificaat op -- terugrollen"
+            cp "$BAK" "$CF"
+            docker compose up -d 2>/dev/null || docker-compose up -d
+            echo "teruggerold naar $BAK"
+            exit 1
+          fi
+          rm -f /tmp/edge-fix.pem
+
+          echo
+          echo "=== recente traefik-logs na fix ==="
+          sleep 5
+          docker logs "$CTR" --tail 60 2>&1
+          echo "=== FIX KLAAR (backup: $BAK) ==="
+          FIXEOF
+          ssh "$VPS" "bash -s" < /tmp/lat11140-fix.sh
+
+      - name: Externe terugtoets na fix (runner-egress)
+        if: inputs.mode == 'fix'
+        run: |
+          set -uo pipefail
+          sleep 5
+          for path in / /build-info.json; do
+            CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "https://vinomartino.com$path" 2>&1 || echo 000)
+            echo "NA fix: https://vinomartino.com$path -> HTTP $CODE"
           done
