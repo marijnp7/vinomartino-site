@@ -67,6 +67,31 @@
 #     vrijwel doorslaggevend bewijs voor een edge-firewall buiten het bereik van deze
 #     workflow -- en dus geen `fix`-taak meer, maar een escalatie naar wie de
 #     Hostinger-firewall/cloud-panel beheert.
+#
+# UPDATE 4 (zelfde dag, na diagnose4) -- ROOT CAUSE GEVONDEN. `ufw status verbose` toont
+# `22/tcp ALLOW IN Anywhere` en `443/tcp ALLOW IN Anywhere`, maar **poort 80 ontbreekt
+# volledig** uit de allow-lijst (default policy: `deny (incoming)`). De directe
+# buitenaf-test bevestigt het: poort 443 is prima bereikbaar van buitenaf (rechtstreeks
+# IP, om Cloudflare heen) -- MAAR het certificaat dat het serveert heeft
+# `notAfter=Sep 21 2026 18:30:55 GMT`, dus is **sinds gisteren verlopen**. Poort 80 is
+# van buitenaf onbereikbaar (bevestigt de ufw-bevinding).
+#
+# Sluitend verhaal: ACME's HTTP-01-uitdaging (poort 80) kon al weken niet meer van
+# buitenaf worden gevalideerd omdat ufw die poort nooit heeft toegelaten (vandaar de
+# dagelijkse renewal-fouten sinds minstens 2026-09-01 in de traefik-log). Het laatst
+# geldige certificaat (uitgegeven 23 juni, 90 dagen geldig) is daardoor gisteren
+# verlopen zonder vervanging -- en Cloudflare's Full(-strict)-mode verwerpt een origin
+# met een verlopen certificaat, wat zowel 526 als (via een falende TLS-handshake) 522
+# kan opleveren. Poort 443 zelf, de routing en traefik's proces zijn dus de hele tijd al
+# gezond geweest; het ontbrekende ufw-permit op poort 80 is de daadwerkelijke oorzaak.
+# Eén nieuwe mode:
+#   - fix-firewall (schrijft)  : `ufw allow 80/tcp` (permanent, geen tijdelijke/rollback-
+#     regel nodig -- een TLS-server zonder poort 80 open is sowieso non-standaard zolang
+#     hij ACME/HTTP-01 gebruikt), daarna traefik herstarten zodat de eerstvolgende ACME-
+#     renewal-poging meteen loopt in plaats van op de volgende geplande cyclus te wachten,
+#     en tot 90s pollen op een nieuw (niet-verlopen) certificaat -- lokaal via SSH én
+#     extern via de GHA-runner's eigen egress (de externe fetch die LAT-11140 vraagt).
+#     Raakt geen andere ufw-regel, geen andere container.
 
 name: LAT-11140 traefik/ACME diagnose (vinomartino)
 
@@ -74,7 +99,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'diagnose/diagnose2/diagnose3/diagnose4 = alleen lezen; restart/fix = productie-mutatie'
+        description: 'diagnose/diagnose2/diagnose3/diagnose4 = alleen lezen; restart/fix/fix-firewall = productie-mutatie'
         required: true
         default: diagnose
         type: choice
@@ -85,6 +110,7 @@ on:
           - diagnose3
           - fix
           - diagnose4
+          - fix-firewall
 
 concurrency:
   group: lat11140-traefik-diagnose
@@ -559,3 +585,81 @@ jobs:
           else
             echo "VERDICT poort 80: BEREIKBAAR van buitenaf (rechtstreeks IP) -- kreeg HTTP $CODE terug"
           fi
+
+      # ============================================================= fix-firewall
+      # De daadwerkelijke remediation: opent poort 80 in ufw (permanent -- een
+      # TLS-server die ACME/HTTP-01 gebruikt hoort die poort sowieso open te hebben,
+      # dit is geen tijdelijke/riskante wijziging) en herstart traefik zodat de
+      # eerstvolgende ACME-renewal-poging meteen loopt. Raakt geen andere ufw-regel,
+      # geen ACME-store rechtstreeks, geen ander compose-bestand.
+      - name: Fix-firewall - poort 80 openen + ACME-renewal forceren
+        if: inputs.mode == 'fix-firewall'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+        run: |
+          set -euo pipefail
+          cat > /tmp/lat11140-fixfw.sh <<'FIXFWEOF'
+          set -uo pipefail
+          CTR=traefik-traefik-1
+
+          echo "=== ufw: poort 80 toestaan ==="
+          ufw status verbose 2>&1 | grep -E '80/tcp' && echo "(let op: 80/tcp stond blijkbaar al toe)"
+          ufw allow 80/tcp
+          if ! ufw status verbose 2>&1 | grep -q '80/tcp'; then
+            echo "::error::80/tcp staat nog niet in ufw status na 'ufw allow 80/tcp'"
+            exit 1
+          fi
+          echo "ufw-regel voor 80/tcp toegevoegd/bevestigd."
+          ufw status verbose 2>&1 | grep -E '(22|80|443)/tcp'
+
+          echo
+          echo "=== traefik herstarten zodat de ACME-poging meteen opnieuw loopt ==="
+          docker restart "$CTR"
+          sleep 5
+
+          echo
+          echo "=== pollen op een niet-verlopen certificaat (max 90s) ==="
+          DEADLINE=$(( $(date +%s) + 90 ))
+          SUCCESS=0
+          while [ "$(date +%s)" -lt "$DEADLINE" ]; do
+            CERT=$(timeout 8 openssl s_client -connect 127.0.0.1:443 -servername vinomartino.com -showcerts </dev/null 2>&1 \
+              | awk '/BEGIN CERTIFICATE/{c++} c==1')
+            if [ -n "$CERT" ]; then
+              NOTAFTER=$(echo "$CERT" | openssl x509 -noout -enddate 2>/dev/null | cut -d= -f2)
+              if [ -n "${NOTAFTER:-}" ]; then
+                EXP_EPOCH=$(date -d "$NOTAFTER" +%s 2>/dev/null || echo 0)
+                NOW_EPOCH=$(date +%s)
+                if [ "$EXP_EPOCH" -gt "$NOW_EPOCH" ]; then
+                  echo "SUCCES: certificaat is geldig, notAfter=$NOTAFTER"
+                  echo "$CERT" | openssl x509 -noout -subject -issuer -dates 2>&1
+                  SUCCESS=1
+                  break
+                fi
+                echo "certificaat nog steeds verlopen (notAfter=$NOTAFTER) -- opnieuw proberen..."
+              fi
+            else
+              echo "nog geen certificaat via lokale handshake -- opnieuw proberen..."
+            fi
+            sleep 5
+          done
+
+          if [ "$SUCCESS" != "1" ]; then
+            echo "::warning::binnen 90s nog geen niet-verlopen certificaat gezien. De ufw-regel blijft staan (dat is de permanente, correcte fix) -- traefik's ACME-cyclus kan iets langer duren dan deze poll. Recente logs hieronder."
+          fi
+
+          echo
+          echo "=== recente traefik-logs (acme/certificate/error) ==="
+          docker logs "$CTR" --tail 400 2>&1 | grep -iE 'acme|certificate|error' | tail -60 || echo "(geen matches)"
+          echo "=== FIX-FIREWALL KLAAR ==="
+          FIXFWEOF
+          ssh "$VPS" "bash -s" < /tmp/lat11140-fixfw.sh
+
+      - name: Externe terugtoets na fix-firewall (runner-egress)
+        if: inputs.mode == 'fix-firewall'
+        run: |
+          set -uo pipefail
+          sleep 5
+          for path in / /build-info.json; do
+            CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "https://vinomartino.com$path" 2>&1 || echo 000)
+            echo "NA fix-firewall: https://vinomartino.com$path -> HTTP $CODE"
+          done
