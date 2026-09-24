@@ -35,9 +35,8 @@ registerHooks({
   },
 });
 
-const { collectNestedRefs, localizeRefsBySlug, localizeNestedRefs } = await import(
-  '../src/lib/directus-i18n.ts'
-);
+const { collectNestedRefs, localizeRefsBySlug, localizeNestedRefs, dropUntranslatedNestedRefs } =
+  await import('../src/lib/directus-i18n.ts');
 
 const ENV = { url: 'http://directus.test', token: 't', configured: true, includeDrafts: false };
 
@@ -229,6 +228,120 @@ test('de overlay wordt per (collectie, junction, locale, velden) gememoïseerd',
   } finally {
     stub.restore();
   }
+});
+
+// --- LAT-11009: artikelkaarten zonder EN-vertaling verbergen ----------------
+// De zachte overlay hierboven liet een artikel zonder vertaalrij met zijn
+// NL-titel staan. Op een /en/-pagina is dat een NL-lek én een dode link: dat
+// artikel heeft geen /en/artikelen/<slug>/ (applyTranslationGuard hanteert exact
+// dezelfde voorwaarde). Gemeten op prod: 7 /en/-pagina's rood op `nl-nouns`.
+
+test('dropUntranslated verwijdert precies de refs zonder vertaalrij', async () => {
+  const stub = stubDirectus({
+    index: [
+      { id: '1', slug: 'etna-lavabodem' },
+      { id: '2', slug: 'puglia-waar-slapen' },
+    ],
+    translations: [{ articles_id: '1', title: 'Etna lava soils and taste' }],
+  });
+  try {
+    const records = [
+      {
+        related_articles: [
+          { articles_id: { slug: 'etna-lavabodem', title: 'Etna: lavabodem en smaak' } },
+          { articles_id: { slug: 'puglia-waar-slapen', title: 'Waar slapen in Puglia' } },
+          { articles_id: 99 }, // kale id: geen label, mapper slaat 'm toch over
+        ],
+      },
+    ];
+    await localizeNestedRefs(records, 'related_articles', 'articles_id', {
+      env: ENV,
+      collection: 'articles-drop',
+      junction: 'articles_translations',
+      parentIdField: 'articles_id',
+      fields: ['title'],
+      locale: 'en',
+      dropUntranslated: true,
+    });
+    const kept = records[0].related_articles;
+    assert.equal(kept.length, 2, 'de onvertaalde kaart moet weg, de kale id mag blijven');
+    assert.equal(kept[0].articles_id.title, 'Etna lava soils and taste');
+    assert.equal(kept[1].articles_id, 99);
+    assert.equal(
+      JSON.stringify(kept).includes('Waar slapen in Puglia'),
+      false,
+      'geen NL-titel meer in de EN-refs',
+    );
+  } finally {
+    stub.restore();
+  }
+});
+
+test('dropUntranslated is een no-op op NL en zonder de vlag', async () => {
+  const stub = stubDirectus({
+    index: [{ id: '1', slug: 'a' }],
+    translations: [{ articles_id: '1', title: 'A (EN)' }],
+  });
+  try {
+    const mk = () => [{ related_articles: [{ articles_id: { slug: 'b', title: 'B NL' } }] }];
+    const base = {
+      env: ENV,
+      collection: 'articles-drop-noop',
+      junction: 'articles_translations',
+      parentIdField: 'articles_id',
+      fields: ['title'],
+    };
+
+    const nl = mk();
+    await localizeNestedRefs(nl, 'related_articles', 'articles_id', { ...base, locale: 'nl', dropUntranslated: true });
+    assert.equal(nl[0].related_articles.length, 1, 'NL blijft byte-identiek');
+
+    const enSoft = mk();
+    await localizeNestedRefs(enSoft, 'related_articles', 'articles_id', { ...base, locale: 'en' });
+    assert.equal(enSoft[0].related_articles.length, 1, 'zonder de vlag blijft het gedrag zacht');
+  } finally {
+    stub.restore();
+  }
+});
+
+test('een falende overlay-fetch laat ALLE refs staan (fail-open)', async () => {
+  // Een kapotte index/permissie mag nooit stilletjes elk cross-linkblok op /en/
+  // legen — dan verdwijnt er content zonder dat iemand het merkt.
+  const stub = stubDirectus({ failIndex: true });
+  try {
+    const records = [{ related_articles: [{ articles_id: { slug: 'x', title: 'X NL' } }] }];
+    const dropped = await dropUntranslatedNestedRefs(records, 'related_articles', 'articles_id', {
+      env: ENV,
+      collection: 'articles-drop-fail',
+      junction: 'articles_translations',
+      parentIdField: 'articles_id',
+      fields: ['title'],
+      locale: 'en',
+      dropUntranslated: true,
+    });
+    assert.equal(dropped, 0);
+    assert.equal(records[0].related_articles.length, 1);
+  } finally {
+    stub.restore();
+  }
+});
+
+test('elke artikel-cross-link in de loaders draagt dropUntranslated', () => {
+  // Dit is de laag die voorkomt dat een nieuwe/gewijzigde loader de NL-titel
+  // opnieuw op /en/ zet. Scope: refs die naar `articles` wijzen — díe collectie
+  // bouwt per vertaalrij wel/geen /en/-pagina.
+  const misses = [];
+  for (const file of LOADERS) {
+    const src = readFileSync(new URL(`../src/lib/${file}`, import.meta.url), 'utf8');
+    const calls = [...src.matchAll(/localizeNestedRefs\(\s*\w+,\s*'([a-z_]+)',\s*'([a-z_]+)',\s*\{([\s\S]*?)\n\s*\}\)/g)];
+    for (const [, listField, , opts] of calls) {
+      if (!/collection:\s*'articles'/.test(opts)) continue;
+      if (!/dropUntranslated:\s*true/.test(opts)) {
+        misses.push(`${file}: ${listField} wijst naar articles zonder dropUntranslated`);
+      }
+    }
+  }
+  assert.deepEqual(misses, []);
 });
 
 // --- Statische guard -------------------------------------------------------

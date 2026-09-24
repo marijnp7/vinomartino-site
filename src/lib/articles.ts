@@ -628,6 +628,10 @@ async function loadFromDirectus(url: string, token: string, locale: Locale): Pro
             parentIdField: 'articles_id',
             fields: ['title'],
             locale,
+            // LAT-11009 — een artikel zonder EN-vertaling heeft geen
+            // /en/artikelen/<slug>/-pagina (applyTranslationGuard); zijn kaart
+            // zou op /en/ een NL-titel tonen en naar een 404 linken.
+            dropUntranslated: true,
         }),
         localizeNestedRefs(data, 'meer_over', 'related_articles_id', {
             env: readDirectusEnv(),
@@ -636,6 +640,10 @@ async function loadFromDirectus(url: string, token: string, locale: Locale): Pro
             parentIdField: 'articles_id',
             fields: ['title'],
             locale,
+            // LAT-11009 — een artikel zonder EN-vertaling heeft geen
+            // /en/artikelen/<slug>/-pagina (applyTranslationGuard); zijn kaart
+            // zou op /en/ een NL-titel tonen en naar een 404 linken.
+            dropUntranslated: true,
         }),
     ]);
     const items = await Promise.all(

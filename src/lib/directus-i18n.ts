@@ -195,6 +195,12 @@ export interface NestedRefOverlayOptions {
      */
     fields: string[];
     locale: Locale;
+    /**
+     * LAT-11009 — verwijder op een niet-standaard locale de cross-link-rijen
+     * waarvan het doel GEEN vertaalrij heeft, i.p.v. ze met hun NL-label te
+     * laten staan. Zie `dropUntranslatedNestedRefs` voor het waarom.
+     */
+    dropUntranslated?: boolean;
 }
 
 const slugOverlayCache = new Map<string, Promise<Map<string, Record<string, unknown>>>>();
@@ -310,6 +316,77 @@ export function collectNestedRefs(
     return out;
 }
 
+/**
+ * LAT-11009 — gooi op een niet-standaard locale de junction-rijen weg waarvan
+ * het doel geen vertaalrij heeft.
+ *
+ * `localizeRefsBySlug` is bewust ZACHT: een ref zonder vertaling houdt z'n
+ * NL-label. Voor een gejoinde parent-naam (LAT-2697) is dat de juiste keuze —
+ * daar verandert alleen een woord in een zin. Voor een teaser-KAART is het de
+ * verkeerde: de kaart is dan volledig NL op een /en/-pagina, en hij linkt naar
+ * een pagina die niet bestaat. `applyTranslationGuard` hanteert exact dezelfde
+ * voorwaarde ("geen vertaalrij → geen /en/-pagina"), dus een ref zonder
+ * vertaalrij heeft per definitie geen EN-doel om heen te wijzen.
+ *
+ * Gemeten (LAT-11004/LAT-11368, gate in sitemap-modus tegen prod): 7 `/en/`-
+ * pagina's rood op `nl-nouns` puur door deze kaarten, en dat gate't ook
+ * ongerelateerde PR's rood (PR #343). Zelfde regel als LAT-4733 voor
+ * gedepubliceerde entiteiten: liever geen kaart dan een kaart die nergens
+ * heen gaat.
+ *
+ * Faalt de overlay-fetch, dan blijft ALLES staan (fail-open, met warning) —
+ * een kapotte index mag nooit stilletjes elk cross-linkblok op /en/ legen.
+ * Een overlay die succesvol LEEG terugkomt is géén fout maar een antwoord:
+ * er zijn dan nul EN-doelen en dus nul kaarten om te tonen.
+ *
+ * Retourneert het aantal verwijderde rijen (buildlog-bewijs).
+ */
+export async function dropUntranslatedNestedRefs(
+    records: Array<Record<string, unknown> | null | undefined>,
+    listField: string,
+    refField: string,
+    opts: NestedRefOverlayOptions,
+): Promise<number> {
+    if (opts.locale === DEFAULT_LOCALE) return 0;
+    let bySlug: Map<string, Record<string, unknown>>;
+    try {
+        bySlug = await fetchSlugKeyedOverlay(opts);
+    } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn(
+            `[i18n] drop-untranslated ${opts.collection}.${listField} (${opts.locale}) faalde: ${msg} — alle refs blijven staan.`,
+        );
+        return 0;
+    }
+    let dropped = 0;
+    for (const rec of records) {
+        if (!rec) continue;
+        const list = rec[listField];
+        if (!Array.isArray(list)) continue;
+        const kept = list.filter((row) => {
+            if (!row || typeof row !== 'object') return true;
+            const junction = row as Record<string, unknown>;
+            const inner = junction[refField];
+            const target = inner && typeof inner === 'object' ? (inner as Record<string, unknown>) : junction;
+            // Geen slug = een kale junction-id: draagt geen label dat kan lekken
+            // en wordt verderop door de mapper toch al overgeslagen.
+            const slug = target.slug ? String(target.slug) : '';
+            if (!slug) return true;
+            return bySlug.has(slug);
+        });
+        if (kept.length !== list.length) {
+            dropped += list.length - kept.length;
+            rec[listField] = kept;
+        }
+    }
+    if (dropped > 0) {
+        console.log(
+            `[i18n] ${listField} (${opts.locale}): ${dropped} cross-link(s) zonder vertaling verborgen (LAT-11009).`,
+        );
+    }
+    return dropped;
+}
+
 /** Gemaksfunctie: verzamel geneste refs + overlay ze in één stap. */
 export async function localizeNestedRefs(
     records: Array<Record<string, unknown> | null | undefined>,
@@ -319,6 +396,9 @@ export async function localizeNestedRefs(
 ): Promise<void> {
     if (opts.locale === DEFAULT_LOCALE) return;
     await localizeRefsBySlug(collectNestedRefs(records, listField, refField), opts);
+    // LAT-11009 — na de overlay, want de fetch is gememoïseerd: de drop kost
+    // geen extra query.
+    if (opts.dropUntranslated) await dropUntranslatedNestedRefs(records, listField, refField, opts);
 }
 
 /**
