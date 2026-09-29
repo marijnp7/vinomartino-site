@@ -23,6 +23,15 @@ test('geverifieerde slug → a_aid + chan', () => {
   assert.equal(ctaTrackPartner(link), 'discovercars');
 });
 
+test('france/reims (Champagne-stuk) → a_aid + chan', () => {
+  const link = { partner: 'discovercars', dest: 'france/reims' };
+  assert.equal(ctaLinkAvailable(link), true);
+  assert.equal(
+    resolveCtaHref(link, 'cta-comparison-huurauto-champagne'),
+    'https://www.discovercars.com/france/reims?a_aid=vinomartino&chan=cta-comparison-huurauto-champagne',
+  );
+});
+
 test('fail-closed: onbekende of geraden slug geeft geen link', () => {
   for (const dest of [undefined, '', 'italy/florence', 'italy-mainland/siena', 'https://evil.example/x']) {
     const link = { partner: 'discovercars', dest };
