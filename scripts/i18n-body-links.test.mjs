@@ -30,7 +30,7 @@ const { renderEnrichedRouteBody } = await import('../src/lib/route-body.ts');
 const BODY = [
   'Lees ook [de Rhône in drie dagen](/artikelen/van-macon-naar-aix-rhone-route/).',
   'En [slapen in de Langhe](/accommodaties/langhe-piemonte/) of [de streek](/streken/langhe-piemonte/#kaart).',
-  'Boek via [Booking](https://booking.com/x) of mail [ons](mailto:hoi@vinomartino.com).',
+  'Boek via [Partner](https://example.org/x) of mail [ons](mailto:hoi@vinomartino.com).',
   'De [nareis](/reizen-nareizen/langhe-piemonte/) bestaat alleen in het NL.',
   'Download de [kaart](/images/langhe.png) en het [feed](/rss.xml).',
   '![De Langhe](/images/langhe.png)',
@@ -52,7 +52,7 @@ test('EN: hash en query blijven achter het gelokaliseerde pad staan', async () =
 
 test('EN: externe, mailto, hash-only, assets en NL-only families blijven ongemoeid', async () => {
   const html = await markdownToHtml(BODY, { locale: 'en' });
-  assert.match(html, /href="https:\/\/booking\.com\/x"/);
+  assert.match(html, /href="https:\/\/example\.org\/x"/);
   assert.match(html, /href="mailto:hoi@vinomartino\.com"/);
   assert.match(html, /href="#intro"/);
   assert.match(html, /href="\/rss\.xml"/);
@@ -88,7 +88,9 @@ test('verrijkte route-body: interne links volgen dezelfde localisatie', async ()
   };
   const en = await renderEnrichedRouteBody(md, { ...ctx, locale: 'en' });
   assert.match(en.html, /href="\/en\/streken\/langhe-piemonte\/"/);
-  assert.match(en.html, /href="https:\/\/booking\.com\/searchresults\?ss=Barolo"/);
+  // LAT-11947: kale booking.com-links in de body lopen via de CJ-klik met subID n14-body.
+  assert.match(en.html, /href="https:\/\/www\.kqzyfj\.com\/click-[^"]*booking\.com[^"]*sid=n14-body"/);
+  assert.match(en.html, /rel="[^"]*sponsored/);
 
   const nl = await renderEnrichedRouteBody(md, ctx);
   assert.match(nl.html, /href="\/streken\/langhe-piemonte\/"/);
