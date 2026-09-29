@@ -1,0 +1,106 @@
+# LAT-12058 — read-only: draait /root/gp/inv.py op de vinomartino preview-dist
+#
+# Aanleiding: LAT-12056 stap 5 vraagt om inv.py (beeldgrootte/AVIF-inventarisatie)
+# tegen de dist/ van de lat12054-dam-credits-c2pa-picture preview-build te draaien,
+# vóór merge+deploy van #370. Geen bestaande workflow doet een generieke host-check
+# op preview-dist; vandaar dit nieuwe bestand (R2 gate-set punt 1: elk workflow-
+# bestand gaat via Marijn, ook een read-only check).
+#
+# ROUTE. Zelfde GHA->VPS SSH-kanaal als lat11140/lat3052/lat5145 (kaart 933eff00),
+# dezelfde ssh-config-snippet en dezelfde secrets (VPS_SSH_PRIVATE_KEY/VPS_HOST/
+# VPS_USER). Volledig gequote heredoc: niets uit `inputs` bereikt een shell-commando.
+#
+# SCOPE. Eén mode: check (alleen lezen). Vast pad naar preview-dist
+# (/root/vinomartino-site/preview-dist, bevestigd in deploy.yml regel 180) en vast
+# pad naar het script (/root/gp/inv.py, zoals in LAT-12058 beschreven). Geen writes,
+# geen container-restart, geen compose-actie.
+
+name: LAT-12058 inv.py check (vinomartino preview-dist)
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'check = alleen lezen (inv.py tegen preview-dist)'
+        required: true
+        default: check
+        type: choice
+        options:
+          - check
+
+concurrency:
+  group: lat12058-inv-check
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          cat >> ~/.ssh/config <<EOF
+          Host $VPS_HOST
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+          EOF
+          cat "$GITHUB_WORKSPACE/ops/ssh-config-snippet" >> ~/.ssh/config
+          ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      # =================================================================== check
+      - name: inv.py tegen preview-dist (read-only)
+        if: inputs.mode == 'check'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+        run: |
+          set -euo pipefail
+          cat > /tmp/lat12058-inv-check.sh <<'CHECKEOF'
+          set -uo pipefail
+          DIST=/root/vinomartino-site/preview-dist
+          SCRIPT=/root/gp/inv.py
+
+          echo "=== 0. gereedschap ==="
+          for B in python3; do
+            command -v "$B" >/dev/null 2>&1 && echo "  $B: aanwezig" || echo "  $B: ONTBREEKT"
+          done
+
+          echo "=== 1. paden ==="
+          if [ -d "$DIST" ]; then
+            echo "  $DIST: aanwezig ($(find "$DIST" -type f | wc -l) bestanden)"
+          else
+            echo "  $DIST: ONTBREEKT"
+          fi
+          if [ -f "$SCRIPT" ]; then
+            echo "  $SCRIPT: aanwezig"
+          else
+            echo "  $SCRIPT: ONTBREEKT"
+          fi
+
+          echo "=== 2. inv.py output ==="
+          if [ -f "$SCRIPT" ] && [ -d "$DIST" ]; then
+            python3 "$SCRIPT" "$DIST"
+          else
+            echo "  overgeslagen: script of dist ontbreekt, zie sectie 1"
+          fi
+          CHECKEOF
+          scp /tmp/lat12058-inv-check.sh "$VPS:/tmp/lat12058-inv-check.sh"
+          ssh "$VPS" "bash /tmp/lat12058-inv-check.sh; rm -f /tmp/lat12058-inv-check.sh"
