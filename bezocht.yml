@@ -1,0 +1,30 @@
+# De elf streken die Marijn zelf bezocht heeft.
+# Bron: src/lib/bezochte-streken.ts (LAT-11950).
+# Wijzigen vereist board-akkoord (GROEISTRATEGIE_VINOMARTINO.md, randvoorwaarden).
+# Dit bestand stuurt zowel de badge als de authenticiteits-lint (LAT-12028).
+streken:
+  - Loire
+  - Bourgogne
+  - Champagne
+  - Provence
+  - Mosel
+  - Piemonte
+  - Toscane
+  - Kaapregio
+  - Veneto
+  - Alto Adige
+  - Slowakije
+
+# Engelse exoniemen (voor /en/-pagina's).
+streken_en:
+  - Loire
+  - Burgundy
+  - Champagne
+  - Provence
+  - Mosel
+  - Piedmont
+  - Tuscany
+  - Cape Winelands
+  - Veneto
+  - Alto Adige
+  - Slovakia
