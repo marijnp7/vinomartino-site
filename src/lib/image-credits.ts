@@ -12,6 +12,12 @@ export interface ImageCredit {
     licenseLabel: string;
     /** Canonieke licentie-URL voor de deeplink op het label. */
     licenseUrl: string;
+    /**
+     * CC BY(-SA) 4.0 §3(a)(1)(B) eist dat een bewerking als zodanig wordt aangeduid.
+     * Elke accommodatie-/streekfoto gaat door `gradeBuffer` (Warm-preset) en wordt
+     * bijgesneden: zet dit op true en de kaart toont `adaptationNoteFor(locale)`.
+     */
+    adapted?: boolean;
 }
 
 // LAT-4911 — licentielabels komen uit de basis-collectie (`streken.hero_credit`),
@@ -27,6 +33,25 @@ const LICENSE_LABEL_EN: Record<string, string> = {
 export function licenseLabelFor(label: string, locale: string): string {
     if (locale === 'nl') return label;
     return LICENSE_LABEL_EN[label.trim()] ?? label;
+}
+
+const ADAPTATION_NOTE: Record<string, string> = {
+    nl: 'kleur en uitsnede bewerkt',
+    en: 'colour-graded and cropped',
+};
+
+/** Bewerkingsaanduiding voor CC-beelden met `adapted: true`, in `locale` (val terug op EN). */
+export function adaptationNoteFor(locale: string): string {
+    return ADAPTATION_NOTE[locale] ?? ADAPTATION_NOTE.en;
+}
+
+/**
+ * Accommodatiefoto's staan self-hosted als `/images/accommodaties/<file-uuid>.<ext>`;
+ * de bestandsnaam is het Directus file-UUID waarop CREDITS gesleuteld is.
+ */
+export function fileIdFromAccommodatiePath(src: string | null | undefined): string | null {
+    const m = src?.match(/\/images\/accommodaties\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\./i);
+    return m ? m[1].toLowerCase() : null;
 }
 
 const CC_BY_SA_40 = 'https://creativecommons.org/licenses/by-sa/4.0/';
@@ -85,6 +110,23 @@ const CREDITS: Record<string, ImageCredit> = {
         author: '© Michael bx / Wikimedia Commons',
         licenseLabel: 'CC BY-SA 3.0',
         licenseUrl: CC_BY_SA_30,
+    },
+    // LAT-12024 Rioja-overnachten (Wikimedia Commons, eigen werk van de fotograaf). Beide
+    // gaan door `gradeBuffer` (Warm-preset) en de kaart snijdt bij: dat is een bewerking,
+    // dus `adapted: true` (verplichte wijzigingsaanduiding bij CC BY-SA 4.0).
+    // Hotel Marqués de Riscal (accommodations 306).
+    '78956639-bb76-4851-9a74-b43c2fab1b77': {
+        author: '© Roderich Kahn / Wikimedia Commons',
+        licenseLabel: 'CC BY-SA 4.0',
+        licenseUrl: CC_BY_SA_40,
+        adapted: true,
+    },
+    // Hotel Calle Mayor, Logroño (accommodations 300).
+    '680c8deb-7ef4-4e68-990e-98c333170969': {
+        author: '© Vanbasten 23 / Wikimedia Commons',
+        licenseLabel: 'CC BY-SA 3.0',
+        licenseUrl: CC_BY_SA_30,
+        adapted: true,
     },
 };
 
