@@ -108,7 +108,7 @@ const modifiedTime = article.updatedAt || article.pubDate;
 const rhoneMap = splitBodyForRhoneMap(article.bodyHtml, article.slug, locale);
 
 // LAT-1687: verplichte beeldcredit (bv. Wikimedia Commons CC BY-SA) bij de hero.
-const heroCredit = getImageCredit(article.heroImageId);
+const heroCredit = await getImageCredit(article.heroImageId);
 
 // LAT-1118: TOC alleen op langere stukken (>= 3 h2-koppen); korte artikelen
 // blijven schoon. Volledig afgeleid uit de koppen, geen handmatig onderhoud.
@@ -170,7 +170,7 @@ if (article.faqSchema) {
         <BeeldHerkomst fileId={article.heroImageId} src={article.heroImage} locale={locale} />
         {heroCredit && (
           <figcaption class="article-hero-credit">
-            {heroCredit.author}, <a href={heroCredit.licenseUrl} rel="license noopener" target="_blank">{licenseLabelFor(heroCredit.licenseLabel, locale)}</a>
+            {heroCredit.author && <>{heroCredit.author}, </>}<a href={heroCredit.licenseUrl} rel="license noopener" target="_blank">{licenseLabelFor(heroCredit.licenseLabel, locale)}</a>{heroCredit.sourceUrl && <> — <a href={heroCredit.sourceUrl} rel="noopener" target="_blank">{heroCredit.sourceLabel ? `via ${heroCredit.sourceLabel}` : 'via bron'}</a></>}
           </figcaption>
         )}
       </figure>

@@ -29,7 +29,8 @@ import { currencyForLand, formatNightlyPrice } from '../lib/currency';
 import { streekSchema, streekMetaTitle, streekMetaDescription, breadcrumbSchema } from '../lib/seo';
 import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
 import { loadUiStrings } from '../lib/ui-strings';
-import { licenseLabelFor } from '../lib/image-credits';
+import { getImageCredit, licenseLabelFor } from '../lib/image-credits';
+import { assetIdFromSrc } from '../lib/synthetic-images';
 
 interface Props {
   entry: Streek;
@@ -45,6 +46,9 @@ interface Props {
 }
 
 const { entry, wijnhuizen, routes, accRoundup, locale = DEFAULT_LOCALE, alternates } = Astro.props;
+
+// LAT-12054: `streken.hero_credit` houdt voorrang; ontbreekt het, dan komt de naamsvermelding uit de DAM.
+const damHeroCredit = entry.heroCredit ? null : await getImageCredit(assetIdFromSrc(entry.heroImage));
 
 // LAT-2704 — interne hrefs locale-aware; NL blijft byte-identiek.
 const lh = (href: string) => localizeHref(href, locale);
@@ -328,6 +332,11 @@ const hasFactBox = Boolean(
               {entry.heroCredit.sourceUrl && (
                 <> — <a href={entry.heroCredit.sourceUrl} rel="noopener" target="_blank">{ui.t('streek.hero.bron')}</a></>
               )}
+            </figcaption>
+          )}
+          {damHeroCredit && (
+            <figcaption class="streek-hero-credit">
+              {damHeroCredit.author && <>{damHeroCredit.author} — </>}<a href={damHeroCredit.licenseUrl} rel="license noopener" target="_blank">{licenseLabelFor(damHeroCredit.licenseLabel, locale)}</a>{damHeroCredit.sourceUrl && <> — <a href={damHeroCredit.sourceUrl} rel="noopener" target="_blank">{ui.t('streek.hero.bron')}</a></>}
             </figcaption>
           )}
         </figure>

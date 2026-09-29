@@ -115,7 +115,7 @@ const {
 const altText = fotoAlt || naam;
 const hasNumber = n != null;
 const showMedia = Boolean(foto) || !hideMediaWhenEmpty;
-const credit = foto ? getImageCredit(fotoId ?? fileIdFromAccommodatiePath(foto)) : null;
+const credit = foto ? await getImageCredit(fotoId ?? fileIdFromAccommodatiePath(foto), { adapted: true }) : null;
 ---
 
 <article
@@ -132,7 +132,8 @@ const credit = foto ? getImageCredit(fotoId ?? fileIdFromAccommodatiePath(foto))
       )}
       {credit && (
         <p class="poi-card__credit">
-          {credit.author} — <a href={credit.licenseUrl} rel="license noopener" target="_blank">{licenseLabelFor(credit.licenseLabel, locale)}</a>
+          {credit.author && <>{credit.author} — </>}<a href={credit.licenseUrl} rel="license noopener" target="_blank">{licenseLabelFor(credit.licenseLabel, locale)}</a>
+          {credit.sourceUrl && <> — <a href={credit.sourceUrl} rel="noopener" target="_blank">{credit.sourceLabel ? `via ${credit.sourceLabel}` : 'via bron'}</a></>}
           {credit.adapted && <> ({adaptationNoteFor(locale)})</>}
         </p>
       )}
