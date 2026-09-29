@@ -3,7 +3,7 @@
 // 2–3 opties (bv. tiers slim_geboekt / prijs_kwaliteit / pure_luxe), elk met een
 // eigen "waarom dit logisch is". Data-driven uit Directus (cta_blocks.comparison).
 // Meer dan 3 opties wordt afgekapt — geen banner-wand.
-import { resolveCtaHref, ctaTrackPartner, loadCtaWineRetail, type CtaComparisonData } from '../lib/cta-blocks';
+import { resolveCtaHref, ctaLinkAvailable, ctaTrackPartner, loadCtaWineRetail, type CtaComparisonData } from '../lib/cta-blocks';
 import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
 import { loadUiStrings } from '../lib/ui-strings';
 
@@ -19,7 +19,7 @@ const { data, sid, locale = DEFAULT_LOCALE } = Astro.props;
 const lh = (href: string) => localizeHref(href, locale);
 const ui = await loadUiStrings(locale);
 const placement = 'cta-comparison';
-const options = (data?.options ?? []).slice(0, 3);
+const options = (data?.options ?? []).filter((opt) => ctaLinkAvailable(opt.link)).slice(0, 3);
 // LAT-3726 — wijnretail-config uit Directus; alleen geladen bij een wine-retail-CTA.
 const wineRetail = await loadCtaWineRetail(options.map((opt) => opt.link));
 ---

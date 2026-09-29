@@ -35,3 +35,14 @@ test('rood: affiliate-links zonder disclosure', () => {
   assert.equal(r.status, 1);
   assert.match(r.stdout, /disclosure ontbreekt/);
 });
+
+test('Sunny Cars-CTA is fail-closed op de TradeTracker-ids in alle drie de CTA-componenten', async () => {
+  const { readFileSync } = await import('node:fs');
+  const root = new URL('../src/', import.meta.url);
+  const lib = readFileSync(new URL('lib/cta-blocks.ts', root), 'utf8');
+  assert.match(lib, /export function ctaLinkAvailable/);
+  assert.match(lib, /link\.partner !== 'sunny-cars' \|\| sunnyCarsIds\(\) !== null/);
+  for (const c of ['CtaPrimary', 'CtaComparison', 'CtaClosing']) {
+    assert.match(readFileSync(new URL(`components/${c}.astro`, root), 'utf8'), /ctaLinkAvailable\(/, c);
+  }
+});
