@@ -162,8 +162,12 @@ export interface Streek {
 // LAT-1098: reverse M2M `streken.related_articles` → `articles_id.{slug,title}`.
 // Same shape-tolerant mapping as articles.mapRelatedRefs (duplicated to avoid
 // import cycle on the shared mapper).
+// LAT-12046: filter artikelen met pub_date in de toekomst (zelfde guard als
+// de paginabuild in loadArticles). Zo worden dode links in het related-blok
+// voorkomen tot de publicatiedatum bereikt is.
 function mapRelatedArticles(val: unknown): RelatedRef[] {
     if (!Array.isArray(val)) return [];
+    const now = new Date();
     const out: RelatedRef[] = [];
     for (const row of val) {
         if (!row || typeof row !== 'object') continue;
@@ -174,6 +178,8 @@ function mapRelatedArticles(val: unknown): RelatedRef[] {
         const slug = inner.slug ? String(inner.slug) : '';
         const name = inner.title ? String(inner.title) : slug;
         if (!slug) continue;
+        // Skip articles scheduled for a future pub_date.
+        if (inner.pub_date && new Date(String(inner.pub_date)) > now) continue;
         out.push({ slug, name: normalizeEmDashes(name) });
     }
     return out;
@@ -623,7 +629,7 @@ async function fetchStrekenItems(url: string, token: string): Promise<Record<str
     // stabiele relations-tier — een scalar-veld op streken, net als gyg_tours.
     // Op de hogere POI/facts-tiers zou het als collateral sneuvelen wanneer
     // eten/activiteiten 403'en, en de verplichte credit zou dan nooit laden.
-    const withRelations = `${withOg},related_articles.articles_id.slug,related_articles.articles_id.title,cta_blocks,accom_cta_blocks,waar_slapen_intro,zelf_gereisd,bezoekjaar,gyg_tours,hero_credit`;  // LAT-2252: gyg_tours + LAT-2427: hero_credit rijden mee op withRelations (withGyg/withBl10/withFacts 403en op eten/activiteiten en vallen terug)
+    const withRelations = `${withOg},related_articles.articles_id.slug,related_articles.articles_id.title,related_articles.articles_id.pub_date,cta_blocks,accom_cta_blocks,waar_slapen_intro,zelf_gereisd,bezoekjaar,gyg_tours,hero_credit`;  // LAT-2252: gyg_tours + LAT-2427: hero_credit rijden mee op withRelations (withGyg/withBl10/withFacts 403en op eten/activiteiten en vallen terug)
     // LAT-2451: card_blurb (homepage hero-streken kaart-blurb) als eigen tier BOVEN
     // withRelations. Bewust NIET in de withRelations-constante: bestaat card_blurb nog
     // niet in Directus (DevOps moet het veld aanmaken), dan zou de withRelations-retry
