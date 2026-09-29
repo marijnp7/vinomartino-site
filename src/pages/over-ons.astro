@@ -2,6 +2,7 @@
 import SiteLayout from '../layouts/SiteLayout.astro';
 import { organizationSchema, breadcrumbSchema } from '../lib/seo';
 import { readDirectusEnv, directusSignal } from '../lib/directus-config';
+import { BEZOCHTE_STREKEN } from '../lib/bezochte-streken';
 
 const schema = [
   organizationSchema(),
@@ -19,8 +20,8 @@ const rules = [
   },
   {
     n: '02',
-    h: 'Affiliate alleen voor wat ik zelf heb getest',
-    d: 'Als een artikel een boekingslink bevat, heb ik die plek bezocht. We ontvangen commissie bij een boeking, de prijs blijft gelijk. Welke wijnhuizen en accommodaties in aanmerking komen voor een link, bepaal ik op basis van bezoekdocumentatie, niet op basis van wie er om vraagt.',
+    h: 'Een boekingslink zegt niet dat ik er was',
+    d: 'Boekingslinks staan onder beide soorten gidsen. Draagt het artikel het label Zelf gereisd, dan sliep of proefde ik daar zelf. Bij een Redactiegids komt de selectie uit primaire bronnen en lokale kennis, zonder eigen bezoek, en dat staat bovenaan het stuk. We ontvangen commissie bij een boeking, de prijs blijft gelijk. Welke wijnhuizen en accommodaties in aanmerking komen voor een link, bepaal ik op de inhoud, niet op wie erom vraagt.',
   },
   {
     n: '03',
@@ -29,19 +30,9 @@ const rules = [
   },
 ];
 
-const visited = [
-  'Loire',
-  'Bourgogne',
-  'Champagne',
-  'Provence',
-  'Mosel',
-  'Piemonte',
-  'Toscane',
-  'Kaapregio',
-  'Veneto',
-  'Alto Adige',
-  'Slowakije',
-];
+// LAT-11950: één bron voor de lijst van elf, gedeeld met de header en
+// /auteurs/marijn/. Uitbreiden is een merkclaim en gaat via het board.
+const visited = BEZOCHTE_STREKEN;
 
 // LAT-1987: twee eigen foto's van Marijn uit de DAM, gekoppeld via Directus-bestanden.
 // 694f2a29… = DAM ref 1240 (Calmont, Ediger); dfaff3d0… = DAM ref 816 (uitkijkpunt over het dal).
@@ -73,7 +64,7 @@ const fotoUitkijk = await fetchOverOnsFoto('dfaff3d0-675b-48db-acc8-893263eaf06d
 
 <SiteLayout
   title="Over VinoMartino: Marijn & Sophie"
-  description="Marijn (internationaal Martino) schrijft over wijnreizen vanuit eigen bezoek. Affiliate alleen voor plekken die we zelf hebben getest. Geen advertorials."
+  description="Marijn (internationaal Martino) schrijft over wijnreizen. Elf streken bezocht hij zelf, de rest is Redactiegids en zegt dat er ook bij. Geen advertorials."
   schema={schema}
   activeNav="over-ons"
   alternates={{ nl: '/over-ons/', en: '/en/over-ons/' }}
@@ -88,7 +79,7 @@ const fotoUitkijk = await fetchOverOnsFoto('dfaff3d0-675b-48db-acc8-893263eaf06d
         </p>
         <p class="lede">
           Ik heb een wijnkoelkast die altijd gevuld is en eigenlijk veel te weinig plek heeft.
-          Meerdere keren per jaar rij ik een smalle Fiat door Piemontese wijngaardpaden, of Siciliaanse, of Portugese, afhankelijk van het seizoen.
+          Meerdere keren per jaar rij ik een smalle Fiat door Piemontese wijngaardpaden, of Toscaanse, of die van de Loire, afhankelijk van het seizoen.
           Ik probeer steeds nieuwe wijngebieden te ontdekken en schrijf op wat ik daar vond.
         </p>
         <p class="lede">
@@ -105,7 +96,7 @@ const fotoUitkijk = await fetchOverOnsFoto('dfaff3d0-675b-48db-acc8-893263eaf06d
     <div class="container container-narrow">
       <p>
         VinoMartino begon als een notitieboekje. Na elke reis verzamelde ik aantekeningen: de wijnmaker die ons op woensdagmiddag zijn kelderrand
-        liet proeven, het agriturismo met drie streepjes mobiel bereik waar ik toch uitstekend sliep, de Carricante die ik pas thuis begreep.
+        liet proeven, het agriturismo met drie streepjes mobiel bereik waar ik toch uitstekend sliep, de Lagrein die ik pas thuis begreep.
         Op een gegeven moment was het notitieboekje zo vol dat het nuttig begon te worden voor anderen die dezelfde reizen plannen. Dat is dit.
       </p>
       <p>
@@ -157,13 +148,15 @@ const fotoUitkijk = await fetchOverOnsFoto('dfaff3d0-675b-48db-acc8-893263eaf06d
   <section class="visited">
     <div class="container">
       <span class="kicker kicker-rust">Bezochte streken</span>
-      <h2>{visited.length}+ streken sinds 2019</h2>
+      <h2>Elf streken zelf bezocht sinds 2019</h2>
       <div class="visited-list">
         {visited.map((v) => (
           <span class="visited-item">{v}</span>
         ))}
-        <span class="visited-more">… en meer</span>
       </div>
+      <p class="visited-note">
+        Dit is de hele lijst. Over alle andere streken op de site schrijven we als Redactiegids, zonder ooggetuigeclaim.
+      </p>
       {fotoUitkijk && (
         <figure class="over-figure">
           <img
@@ -369,16 +362,21 @@ const fotoUitkijk = await fetchOverOnsFoto('dfaff3d0-675b-48db-acc8-893263eaf06d
     flex-wrap: wrap;
     gap: 0.5rem 1.25rem;
   }
-  .visited-item,
-  .visited-more {
+  .visited-item {
     font-family: var(--font-display);
     font-size: 1.375rem;
     font-weight: 500;
     color: var(--color-text);
   }
-  .visited-more {
-    font-style: italic;
-    opacity: 0.6;
+  /* LAT-11950: verving de "… en meer"-uitsmijter, die de lijst van elf weer
+     open trok. De lijst is nu uitputtend en de noot zegt dat ook. */
+  .visited-note {
+    margin: 1.5rem 0 0;
+    max-width: 60ch;
+    font-size: 0.9375rem;
+    line-height: 1.6;
+    color: var(--color-text);
+    opacity: 0.75;
   }
 
   .contact {
