@@ -10,7 +10,7 @@ function makeHtml(body, badge = '') {
   return `<!doctype html><html><head><title>Test</title></head><body>${badge}${body}</body></html>`;
 }
 
-function runLint(dir, lenient = true) {
+function runLint(dir, lenient = false) {
   const args = [
     '--input-type=module',
     '--eval',

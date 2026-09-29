@@ -249,13 +249,11 @@ console.log(JSON.stringify({
   lenient: LENIENT,
 }, null, 2));
 
-const fatalViolations = LENIENT
-  ? violations.filter((v) => !['f'].includes(v.rule))
-  : violations;
-
+// Met --lenient: alleen rapporteren, nooit blokkeren (exit 0).
+// Zonder --lenient: elke overtreding blokkeert (exit 1).
 violations.slice(0, 80).forEach((v) => console.log(`[${v.rule}] ${v.rel}: ${v.detail}`));
 if (violations.length > 80) console.log(`… en ${violations.length - 80} meer`);
 
-if (fatalViolations.length > 0) {
+if (!LENIENT && violations.length > 0) {
   process.exit(1);
 }
