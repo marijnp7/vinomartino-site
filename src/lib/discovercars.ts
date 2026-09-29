@@ -11,6 +11,7 @@ export const VERIFIED_DISCOVERCARS_DEST: readonly string[] = [
   'italy-mainland/florence/flr',
   'italy-mainland/pisa',
   'italy-mainland/pisa/psa',
+  'france/reims',
 ];
 
 export function discoverCarsDestVerified(dest: string | undefined): dest is string {
