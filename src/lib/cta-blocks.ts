@@ -81,6 +81,19 @@ export type CtaPartner =
 // LAT-2576 — taal: EN-pagina's krijgen de Engelse storefront (`/en`-pad-prefix,
 // browser-geverifieerd). De TradeTracker-`u`-doel-URL wordt gelokaliseerd vóór de
 // wrap; NL blijft de prefixloze .nl-bestemming.
+function sunnyCarsIds(): { campaign: string; affiliate: string } | null {
+  const campaign = (process.env['TRADETRACKER_SUNNYCARS_CAMPAIGN'] || '').trim();
+  const affiliate = (process.env['TRADETRACKER_AFFILIATE_ID'] || '').trim();
+  return campaign && affiliate ? { campaign, affiliate } : null;
+}
+
+/** LAT-11947: fail-closed. Een Sunny Cars-CTA rendert alleen met beide TradeTracker-ids;
+ *  zonder ids verschijnt het blok niet (geen kale link naar sunnycars.nl). */
+export function ctaLinkAvailable(link: CtaLink | null | undefined): boolean {
+  if (!link) return false;
+  return link.partner !== 'sunny-cars' || sunnyCarsIds() !== null;
+}
+
 function buildSunnyCarsHref(link: CtaLink, sid: string, locale: Locale = 'nl'): string {
   const dest = applySunnyCarsLocale(
     (link.bookingUrl && link.bookingUrl.trim())
@@ -88,15 +101,15 @@ function buildSunnyCarsHref(link: CtaLink, sid: string, locale: Locale = 'nl'): 
       : SUNNYCARS_DEFAULT_DEST[locale],
     locale,
   );
-  const campaign = (process.env['TRADETRACKER_SUNNYCARS_CAMPAIGN'] || '').trim();
-  const affiliate = (process.env['TRADETRACKER_AFFILIATE_ID'] || '').trim();
-  if (!campaign || !affiliate) return dest;
+  const ids = sunnyCarsIds();
+  if (!ids) return dest;
+  const { campaign, affiliate } = ids;
   try {
     const u = new URL('https://tc.tradetracker.net/');
     u.searchParams.set('c', campaign);
     u.searchParams.set('m', '12');
     u.searchParams.set('a', affiliate);
-    u.searchParams.set('r', `cta-${sid}`);
+    u.searchParams.set('r', `n14-cta-${sid}`);
     u.searchParams.set('u', dest);
     return u.toString();
   } catch {

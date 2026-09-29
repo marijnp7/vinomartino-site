@@ -24,6 +24,7 @@
 
 import type { Locale } from './i18n';
 import { GYG_LOCALE_PATH, applyBookingLocale } from './affiliate-locale';
+import { buildCjBookingLink } from './affiliates';
 
 export type AffiliateType =
   | 'hotels'
@@ -127,7 +128,10 @@ function buildBookingAwinLink(label: string, query?: string, bookingUrl?: string
   // affiliate-wrapper. Zodra AWIN_AFFID via env gezet is (post-sign-up) keert de
   // echte Awin-wrapper vanzelf terug. Fail-closed affiliate-linkguard blijft groen
   // omdat een kale booking.com-search geen aid/label draagt.
-  if (AWIN_AFFID === AWIN_AFFID_PLACEHOLDER) return target;
+  // LAT-11947: kaal terugvallen lekte 12 Booking-links zonder attributie. De CJ-klik
+  // (kqzyfj) is het enige actieve Booking-netwerk, dus wrap daar, met een eigen subID
+  // (`n14-`) zodat Strategy deze eerder ongetelde klikken apart telt.
+  if (AWIN_AFFID === AWIN_AFFID_PLACEHOLDER) return buildCjBookingLink(target, `n14-${label}`, locale);
   const u = new URL('https://www.awin1.com/cread.php');
   u.searchParams.set('awinmid', AWIN_BOOKING_MID);
   u.searchParams.set('awinaffid', AWIN_AFFID);
