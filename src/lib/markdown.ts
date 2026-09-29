@@ -1,4 +1,5 @@
 import { DEFAULT_LOCALE, localizeHref, type Locale } from './i18n';
+import { buildCjBookingLink } from './affiliates';
 
 interface MarkdownOptions {
   stripFirstH1?: boolean;
@@ -202,6 +203,7 @@ export async function mdastToHtmlWithToc(
   // draait ná de sanitize (de allowlist bepaalt welke href overleeft) en is een
   // no-op op NL, zodat de NL-HTML byte-identiek blijft.
   localizeHastLinks(rawHast as HastParent, options.locale ?? DEFAULT_LOCALE);
+  wrapBookingHastLinks(rawHast as HastParent, options.locale ?? DEFAULT_LOCALE);
   return { html: toHtml(rawHast as Parameters<typeof toHtml>[0]), toc };
 }
 
@@ -358,6 +360,24 @@ export function localizeHastLinks(parent: HastParent, locale: Locale): void {
       }
     }
     localizeHastLinks(node as HastParent, locale);
+  }
+}
+
+// LAT-11947: een kale booking.com-link in de redactionele body lekte attributie. Wrap ze
+// bij het renderen door de CJ-klik (eigen subID `n14-body`) en markeer ze als gesponsord.
+export function wrapBookingHastLinks(parent: HastParent, locale: Locale): void {
+  if (!Array.isArray(parent.children)) return;
+  for (const node of parent.children) {
+    if (node.type === 'element' && node.tagName?.toLowerCase() === 'a') {
+      const href = node.properties?.href;
+      if (typeof href === 'string' && /^https?:\/\/(www\.)?booking\.com\//i.test(href)) {
+        const cur = node.properties?.rel;
+        const rel = new Set((Array.isArray(cur) ? cur.join(' ') : String(cur ?? '')).split(/\s+/).filter(Boolean));
+        rel.add('sponsored'); rel.add('nofollow');
+        node.properties = { ...node.properties, href: buildCjBookingLink(href, 'n14-body', locale), rel: [...rel].join(' ') };
+      }
+    }
+    wrapBookingHastLinks(node as HastParent, locale);
   }
 }
 

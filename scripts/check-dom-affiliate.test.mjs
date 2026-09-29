@@ -46,3 +46,10 @@ test('Sunny Cars-CTA is fail-closed op de TradeTracker-ids in alle drie de CTA-c
     assert.match(readFileSync(new URL(`components/${c}.astro`, root), 'utf8'), /ctaLinkAvailable\(/, c);
   }
 });
+
+test('markdown-renderer wrapt kale booking.com-links via CJ met eigen subID', async () => {
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('../src/lib/markdown.ts', import.meta.url), 'utf8');
+  assert.match(src, /wrapBookingHastLinks\(rawHast as HastParent/);
+  assert.match(src, /buildCjBookingLink\(href, 'n14-body', locale\)/);
+});
