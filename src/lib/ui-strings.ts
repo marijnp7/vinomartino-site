@@ -185,9 +185,13 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'header.utility.tagline': 'Wijnreizen met karakter',
     'header.nav.aria': 'Hoofdnavigatie',
     'header.ontdek.trigger': 'Ontdek',
-    'header.ontdek.promoKicker': 'Zelf gereisd',
-    'header.ontdek.promoTitle': 'Met liefde geselecteerd',
-    'header.ontdek.promoBody': 'Elke landengids hier komt voort uit een eigen wijnreis: geen bureautips, maar streken, telers en flessen die we zelf bezochten en proefden.',
+    // LAT-11950: het promoblok claimde eigen bezoek voor élke landengids. Dat
+    // klopt voor elf streken (src/lib/bezochte-streken.ts); de rest is
+    // Redactiegids. De claim staat sitebreed in de header, dus hij moet het
+    // onderscheid zelf noemen.
+    'header.ontdek.promoKicker': 'Zelf gereisd of Redactiegids',
+    'header.ontdek.promoTitle': 'Elke gids zegt waar hij vandaan komt',
+    'header.ontdek.promoBody': 'Elf streken bezocht ik zelf, van de Loire tot de Kaap: daar staat wat ik proefde en wie er inschonk. De andere gidsen zijn Redactiegids, gebouwd op primaire bronnen en lokale kennis, zonder ooggetuigeclaim.',
     'header.ontdek.alleLanden': 'Alle landen',
     'header.search.openAria': 'Zoeken openen',
     'header.search.label': 'Zoeken',
@@ -713,6 +717,14 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
  * nog geen EN-values heeft.  Volgorde in t(): Directus → UI_STRING_EN → UI_STRING_DEFAULTS.
  */
 export const UI_STRING_EN: Record<string, string> = {
+  // LAT-11950 — het promoblok in "Ontdek" claimde eigen bezoek voor élke
+  // landengids, ook op /en/. Deze keys stonden alleen in UI_STRING_DEFAULTS, dus
+  // /en/ kreeg de Nederlandse zin; met de herschrijving krijgt /en/ nu ook de
+  // juiste claim in het Engels. Lijst van elf: src/lib/bezochte-streken.ts.
+  'header.ontdek.promoKicker': 'Been there or Editorial guide',
+  'header.ontdek.promoTitle': 'Every guide says where it comes from',
+  'header.ontdek.promoBody': 'Eleven regions I visited myself, from the Loire to the Cape: those pages carry what I tasted and who poured it. The other guides are editorial, built on primary sources and local knowledge, with no eyewitness claim.',
+
   // LAT-10472 — affiliate-blok chrome + fallback-CTA's. Deze keys worden pas
   // gebruikt als een AffiliateBlockConfig géén eigen ctaLabel/description meegeeft;
   // zonder EN-waarde viel de render terug op de NL-default en lekte die naar /en/.

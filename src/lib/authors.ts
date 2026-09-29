@@ -29,23 +29,29 @@ export const AUTHORS: readonly Author[] = [
     tagline: 'Wijnreiziger. Amsterdam.',
     taglineEn: 'Wine traveller. Amsterdam.',
     bio:
-      "Marijn is de schrijver achter VinoMartino. Hij reist zes tot acht keer per jaar naar wijnregio's door Europa, altijd rechtstreeks naar de bron: bij de wijnmaker zelf, met een afspraak die hij twee weken van tevoren heeft gemaakt en een notitieboekje dat zelden ver weg is.\n\n" +
+      "Marijn is de schrijver achter VinoMartino. Hij reist zes tot acht keer per jaar naar wijnregio's, bijna altijd in Europa, altijd rechtstreeks naar de bron: bij de wijnmaker zelf, met een afspraak die hij twee weken van tevoren heeft gemaakt en een notitieboekje dat zelden ver weg is.\n\n" +
       "Jaren van gestructureerd proeven en aantekeningen geven hem de achtergrond om te proeven. Zijn oogmerk is schrijven, niet scoren. Een fles van €18 op een winterterras in Verona kan hem even enthousiast maken als een premier cru, zolang de context klopt.\n\n" +
       "Internationale wijnmakers noemen hem Martino, een bijnaam die bleef hangen en de merknaam werd. Thuis heet hij gewoon Marijn, en woont hij in Amsterdam met zijn vriendin Sophie en een wijnkoelkast voor tachtig flessen die zelden vol staat.",
     bioEn:
-      "Marijn is the writer behind VinoMartino. He travels six to eight times a year to wine regions across Europe, always straight to the source: visiting the winemaker directly, with an appointment made two weeks in advance and a notebook that is rarely out of reach.\n\n" +
+      "Marijn is the writer behind VinoMartino. He travels six to eight times a year to wine regions, almost always in Europe, always straight to the source: visiting the winemaker directly, with an appointment made two weeks in advance and a notebook that is rarely out of reach.\n\n" +
       "Years of structured tasting and note-taking give him the background to taste with precision. His aim is to write, not to score. An eighteen-euro bottle on a winter terrace in Verona can excite him as much as a premier cru, as long as the context is right.\n\n" +
       "International winemakers call him Martino, a nickname that stuck and became the brand name. At home he goes by Marijn, and lives in Amsterdam with his girlfriend Sophie and a wine fridge for eighty bottles that is rarely full.",
+    // LAT-11950: "Bereisde streken" claimde zeven streken waar Marijn niet is
+    // geweest (Priorat, Etna, Wachau, Burgenland, Douro, Lisboa, Pfalz) en liet
+    // er zes weg die hij wel bezocht. De lijst is nu exact die van elf uit
+    // src/lib/bezochte-streken.ts, met de deelstreken alleen waar ze kloppen.
     regions: [
+      'Loire',
+      'Bourgogne',
+      'Champagne (grower-producenten)',
+      'Provence',
+      'Mosel',
       'Piemonte: Barolo, Barbaresco, Roero',
       'Toscane: Bolgheri, Montalcino, Carmignano, Val di Cornia',
-      'Bourgogne',
-      'Mosel en Pfalz',
-      'Priorat en Montsant',
-      'Etna',
-      'Champagne (grower-producenten)',
-      'Wachau en Burgenland',
-      'Douro en Lisboa',
+      'Kaapregio',
+      'Veneto',
+      'Alto Adige',
+      'Slowakije',
     ],
     instagramHandle: '@vinomartino.travel',
     portrait: '/images/auteurs/marijn.svg',
