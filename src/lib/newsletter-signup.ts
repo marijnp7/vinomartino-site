@@ -1,8 +1,8 @@
 // LAT-2452: nieuwsbriefformulieren posten via fetch() i.p.v. een native
 // target="_blank"-submit (die opende een tab met rauwe MailerLite-JSON en voelde
 // kapot). Eén gedelegeerde submit-handler dekt elk [data-newsletter-signup]-form,
-// toont inline succes/fout en vuurt het Plausible-event newsletter_signup.
-import { trackPlausible } from './plausible';
+// toont inline succes/fout en vuurt het site_events-event newsletter_signup.
+import { trackEvent } from './site-events';
 
 const SUCCESS_MESSAGE = 'Check je inbox — de Langhe-reisplanner komt eraan.';
 const ERROR_MESSAGE =
@@ -88,17 +88,9 @@ async function handleSubmit(form: HTMLFormElement): Promise<void> {
     const res = await fetch(action, { method: 'POST', body: data });
     const json = (await res.json().catch(() => null)) as { success?: boolean } | null;
     if (res.ok && json?.success) {
-      // LAT-2772 — de `data-plausible-cta` op de submit-knop was inert: die wordt
-      // alleen door de klik-delegatie in plausible.ts gelezen, en die matcht
-      // uitsluitend `a[href]`. Alle vier de formulieren (home, /de-brief/,
-      // langhe-PDF, seizoenskalender) vuurden daardoor één ononderscheidbare
-      // `newsletter_signup`. Geef het label mee als prop, zodat de bron in de
-      // Plausible-breakdown zichtbaar is naast alleen `path`.
-      trackPlausible('newsletter_signup', {
-        region_preference: regionValue(form),
-        cta_type: button?.dataset.plausibleCta || 'unknown',
-        path: window.location.pathname,
-      });
+      // LAT-2772 / LAT-11948: het formulierlabel (data-cta-id) reist mee als cta_id,
+      // zodat de bron van de aanmelding zichtbaar is in site_events.
+      trackEvent('newsletter_signup', { cta_id: button?.dataset.ctaId || 'unknown' });
       showSuccess(form);
       return;
     }

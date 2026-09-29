@@ -9,42 +9,36 @@ const d = await loadClicksDashboard();
 const generated = new Date(d.generatedAt).toLocaleString('nl-NL', { dateStyle: 'medium', timeStyle: 'short' });
 const hasData = d.status === 'ok';
 const topN = <T,>(arr: T[], n = 15): T[] => arr.slice(0, n);
-const plausibleBase = 'https://plausible.io/vinomartino.com';
 const launchMetrics = [
   {
     metric: 'Bezoekersgroei',
-    source: 'Visitors + Top Sources',
+    source: 'site_events: pageview per sessie_hash',
     target: 'Dagelijkse groei na promotie',
     action: 'Beste bron verdubbelen; zwakke bron pauzeren of andere hook testen.',
-    href: plausibleBase,
   },
   {
     metric: 'Campagnes',
-    source: 'UTM Campaigns',
+    source: 'site_events: utm_campaign',
     target: 'Elke promotie heeft verkeer met utm_campaign',
     action: 'Ontbreekt UTM-data: link aanpassen voordat je opnieuw deelt.',
-    href: `${plausibleBase}?period=7d`,
   },
   {
     metric: 'Nieuwsbrief',
-    source: 'Goal: newsletter_signup',
+    source: 'site_events: newsletter_signup',
     target: 'Minimaal enkele aanmeldingen per promotiedag',
     action: 'Veel bezoekers maar weinig signups: CTA/positie op /de-brief aanscherpen.',
-    href: `${plausibleBase}?goal=newsletter_signup&period=7d`,
   },
   {
     metric: 'Affiliate intent',
-    source: 'Goal: affiliate_click',
+    source: 'site_events: cta_click (affiliate)',
     target: 'Clicks per regio/partner zichtbaar',
     action: 'Veel regioverkeer maar geen clicks: affiliateblokken hoger of relevanter maken.',
-    href: `${plausibleBase}?goal=affiliate_click&period=7d`,
   },
   {
     metric: 'Regio-interesse',
-    source: 'Goal: region_selected',
+    source: 'site_events: cta_click op streekpagina's',
     target: 'Promotie stuurt naar concrete regio-keuzes',
     action: 'Topregio gebruiken voor volgende content en affiliate-prioriteit.',
-    href: `${plausibleBase}?goal=region_selected&period=7d`,
   },
 ];
 const eur = (n: number): string => new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR' }).format(n || 0);
@@ -74,10 +68,9 @@ const pct = (n: number): string => new Intl.NumberFormat('nl-NL', { style: 'perc
           <div>
             <h2 id="launch-title" class="launch__title">Dagelijkse launch-check</h2>
             <p class="launch__meta">
-              Gebruik Plausible voor live groei en dit dashboard voor de eigen affiliate-click snapshot.
+              Bezoeken, CTA-klikken en aanmeldingen staan in de Directus-collectie site_events (filter is_internal = false); dit dashboard toont de affiliate-click snapshot.
             </p>
           </div>
-          <a class="launch__link" href={plausibleBase} target="_blank" rel="noopener">Open Plausible</a>
         </div>
         <table class="tbl tbl--launch">
           <thead>
@@ -92,7 +85,7 @@ const pct = (n: number): string => new Intl.NumberFormat('nl-NL', { style: 'perc
             {launchMetrics.map((m) => (
               <tr>
                 <td><strong>{m.metric}</strong></td>
-                <td><a href={m.href} target="_blank" rel="noopener">{m.source}</a></td>
+                <td>{m.source}</td>
                 <td>{m.target}</td>
                 <td>{m.action}</td>
               </tr>

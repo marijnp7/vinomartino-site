@@ -2,8 +2,8 @@
 //
 // Waarom deze test bestaat.
 //
-// `data-plausible-cta` op een submit-knop was **inert**. Het attribuut wordt
-// alleen gelezen door de klik-delegatie in `src/lib/plausible.ts`, en die matcht
+// `data-cta-id` op een submit-knop was **inert**. Het attribuut wordt
+// alleen gelezen door de klik-delegatie in `src/lib/site-events.ts (voorheen plausible.ts)`, en die matcht
 // uitsluitend `a[href]` — een `<button type="submit">` valt daar per definitie
 // buiten. Alle nieuwsbriefformulieren (home, footer, /de-brief/, langhe-PDF,
 // seizoenskalender) vuurden daardoor via `newsletter-signup.ts` één
@@ -56,7 +56,7 @@ function newsletterFormBlocks(source) {
   return blocks;
 }
 
-test('elke submit-knop in een nieuwsbriefformulier draagt data-plausible-cta', () => {
+test('elke submit-knop in een nieuwsbriefformulier draagt data-cta-id', () => {
   const offenders = [];
   let formsSeen = 0;
 
@@ -67,7 +67,7 @@ test('elke submit-knop in een nieuwsbriefformulier draagt data-plausible-cta', (
     for (const block of newsletterFormBlocks(source)) {
       formsSeen += 1;
       for (const match of block.matchAll(/<button\b[^>]*>/g)) {
-        if (!/\bdata-plausible-cta\s*=\s*["'][^"']+["']/.test(match[0])) {
+        if (!/\bdata-cta-id\s*=\s*["'][^"']+["']/.test(match[0])) {
           offenders.push(`${path.relative(root, file)}: ${match[0]}`);
         }
       }
@@ -77,14 +77,14 @@ test('elke submit-knop in een nieuwsbriefformulier draagt data-plausible-cta', (
   // Zonder deze ondergrens zou een hernoemd attribuut de hele scan leegmaken en
   // de test alsnog groen laten worden — nul gevonden formulieren bewijst niets.
   assert.ok(formsSeen >= 5, `verwachtte >= 5 nieuwsbriefformulieren, vond ${formsSeen}`);
-  assert.deepEqual(offenders, [], `submit-knoppen zonder data-plausible-cta:\n${offenders.join('\n')}`);
+  assert.deepEqual(offenders, [], `submit-knoppen zonder data-cta-id:\n${offenders.join('\n')}`);
 });
 
-test('de submit-handler zet het knoplabel in de newsletter_signup-props', () => {
+test('de submit-handler zet het knoplabel in de newsletter_signup-aanroep', () => {
   const source = readFileSync(path.join(root, 'src/lib/newsletter-signup.ts'), 'utf8');
 
-  const call = source.indexOf("trackPlausible('newsletter_signup'");
-  assert.notEqual(call, -1, "geen trackPlausible('newsletter_signup')-aanroep gevonden");
+  const call = source.indexOf("trackEvent('newsletter_signup'");
+  assert.notEqual(call, -1, "geen trackEvent('newsletter_signup')-aanroep gevonden");
 
   const end = source.indexOf('});', call);
   assert.notEqual(end, -1, 'newsletter_signup-aanroep niet afgesloten');
@@ -92,8 +92,8 @@ test('de submit-handler zet het knoplabel in de newsletter_signup-props', () => 
 
   assert.match(
     props,
-    /dataset\.plausibleCta/,
-    'de newsletter_signup-props lezen data-plausible-cta niet — het label van de ' +
+    /dataset\.ctaId/,
+    'de newsletter_signup-aanroep lezen data-cta-id niet — het label van de ' +
       'knop komt dan nergens aan en elk formulier blijft ononderscheidbaar',
   );
 });

@@ -60,7 +60,7 @@ const schema = [
             placeholder="je@adres.nl"
             required
           />
-          <button type="submit" data-plausible-cta="newsletter_signup">Stuur me de brief</button>
+          <button type="submit" data-cta-id="newsletter_signup">Stuur me de brief</button>
         </div>
         <NewsletterRegionField id="ml-region" />
       </form>
@@ -68,7 +68,7 @@ const schema = [
       <p class="follow">
         Al nieuwsgierig? Volg Marijn alvast op
         <a href={INSTAGRAM_URL} target="_blank" rel="noopener">Instagram</a>{SUBSTACK_URL ? (
-          <>, of lees de brieven online op <a href={SUBSTACK_URL} target="_blank" rel="noopener" data-plausible-cta="substack_link">Substack</a></>
+          <>, of lees de brieven online op <a href={SUBSTACK_URL} target="_blank" rel="noopener" data-cta-id="substack_link">Substack</a></>
         ) : null}, daar verschijnen de eerste verhalen.
       </p>
     </div>
