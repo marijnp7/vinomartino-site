@@ -12,6 +12,12 @@ export interface ImageCredit {
     licenseLabel: string;
     /** Canonieke licentie-URL voor de deeplink op het label. */
     licenseUrl: string;
+    /**
+     * CC BY(-SA) 4.0 §3(a)(1)(B) eist dat een bewerking als zodanig wordt aangeduid.
+     * Elke accommodatie-/streekfoto gaat door `gradeBuffer` (Warm-preset) en wordt
+     * bijgesneden: zet dit op true en de kaart toont `adaptationNoteFor(locale)`.
+     */
+    adapted?: boolean;
 }
 
 // LAT-4911 — licentielabels komen uit de basis-collectie (`streken.hero_credit`),
@@ -27,6 +33,25 @@ const LICENSE_LABEL_EN: Record<string, string> = {
 export function licenseLabelFor(label: string, locale: string): string {
     if (locale === 'nl') return label;
     return LICENSE_LABEL_EN[label.trim()] ?? label;
+}
+
+const ADAPTATION_NOTE: Record<string, string> = {
+    nl: 'kleur en uitsnede bewerkt',
+    en: 'colour-graded and cropped',
+};
+
+/** Bewerkingsaanduiding voor CC-beelden met `adapted: true`, in `locale` (val terug op EN). */
+export function adaptationNoteFor(locale: string): string {
+    return ADAPTATION_NOTE[locale] ?? ADAPTATION_NOTE.en;
+}
+
+/**
+ * Accommodatiefoto's staan self-hosted als `/images/accommodaties/<file-uuid>.<ext>`;
+ * de bestandsnaam is het Directus file-UUID waarop CREDITS gesleuteld is.
+ */
+export function fileIdFromAccommodatiePath(src: string | null | undefined): string | null {
+    const m = src?.match(/\/images\/accommodaties\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\./i);
+    return m ? m[1].toLowerCase() : null;
 }
 
 const CC_BY_SA_40 = 'https://creativecommons.org/licenses/by-sa/4.0/';

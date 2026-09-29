@@ -5,8 +5,8 @@
 // foto (4:3), naam, tier-badge, één cursieve waarom-regel, knop "Bekijk & boek"
 // en de vaste disclosure-microcopy als voetregel. De reisjunk-datavorm (plaats,
 // laag/hoog-prijs) wordt hier op het gestandaardiseerde kaart-contract gemapt.
-// Foto's komen rechten-bewust uit DAM; ontbreekt er één, dan rendert SmartImg
-// (in PoiCard) een nette placeholder.
+// Foto's komen rechten-bewust uit DAM; ontbreekt er één, dan rendert de kaart
+// zonder beeld (LAT-12024, LAT-2174-afweging als bij wijnhuizen).
 
 import type { AccommodatieKaart } from '../lib/accommodaties';
 import { accommodatieBookingHref } from '../lib/accommodaties';
@@ -61,6 +61,7 @@ else if (hoog) prijs = `${ui.t('stay.price.upToPrefix')} ${hoog} ${perNight}`;
     foto: kaart.foto ?? null,
     fotoAlt: altText,
     fotoTheme: 'winery',
+    hideMediaWhenEmpty: true,
     badge: tierLabel,
     whyRegel: kaart.whyRegel ?? kaart.beschrijving,
     prijs,

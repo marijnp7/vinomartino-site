@@ -15,6 +15,7 @@
 import SmartImg from './SmartImg.astro';
 import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
 import { loadUiStrings } from '../lib/ui-strings';
+import { adaptationNoteFor, fileIdFromAccommodatiePath, getImageCredit, licenseLabelFor } from '../lib/image-credits';
 
 export type PoiCardTheme = 'winery' | 'vineyard' | 'cellar' | 'region' | 'bottle';
 
@@ -25,6 +26,11 @@ export interface PoiCardData {
   color?: string;
   naam: string;
   foto?: string | null;
+  /**
+   * LAT-12024 — Directus file-UUID van `foto`, sleutel voor de beeldcredit
+   * (`getImageCredit`). Leeg = afgeleid uit het `/images/accommodaties/<uuid>.<ext>`-pad.
+   */
+  fotoId?: string | null;
   fotoAlt?: string | null;
   fotoTheme?: PoiCardTheme;
   /**
@@ -86,6 +92,7 @@ const {
   color = 'var(--burgundy, #5A1A1F)',
   naam,
   foto = null,
+  fotoId = null,
   fotoAlt = null,
   fotoTheme = 'region',
   badge = null,
@@ -108,6 +115,7 @@ const {
 const altText = fotoAlt || naam;
 const hasNumber = n != null;
 const showMedia = Boolean(foto) || !hideMediaWhenEmpty;
+const credit = foto ? getImageCredit(fotoId ?? fileIdFromAccommodatiePath(foto)) : null;
 ---
 
 <article
@@ -121,6 +129,12 @@ const showMedia = Boolean(foto) || !hideMediaWhenEmpty;
       <SmartImg src={foto ?? undefined} alt={altText} theme={fotoTheme} class="poi-card__img" />
       {hasNumber && (
         <span class="poi-card__num" style={`background:${color}`}>{n}</span>
+      )}
+      {credit && (
+        <p class="poi-card__credit">
+          {credit.author} — <a href={credit.licenseUrl} rel="license noopener" target="_blank">{licenseLabelFor(credit.licenseLabel, locale)}</a>
+          {credit.adapted && <> ({adaptationNoteFor(locale)})</>}
+        </p>
       )}
     </div>
   )}
@@ -200,6 +214,21 @@ const showMedia = Boolean(foto) || !hideMediaWhenEmpty;
     height: 100%;
     object-fit: cover;
   }
+  /* LAT-12024 — verplichte CC-credit, discreet onderaan de kaartfoto (zoals .streek-hero-credit). */
+  .poi-card__credit {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    margin: 0;
+    padding: 0.2rem 0.5rem;
+    font-family: var(--font-mono, monospace);
+    font-size: 0.5625rem;
+    line-height: 1.3;
+    color: #fff;
+    background: rgba(0, 0, 0, 0.55);
+  }
+  .poi-card__credit a { color: #fff; text-decoration: underline; }
   .poi-card__num {
     position: absolute;
     top: 0.6rem;
