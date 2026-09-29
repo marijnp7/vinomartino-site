@@ -59,12 +59,14 @@ function mapRelatedArticles(val: unknown): RelatedRef[] {
         const slug = inner.slug ? String(inner.slug) : '';
         const name = inner.title ? String(inner.title) : slug;
         if (!slug) continue;
+        if (!isRelatedArticleLive(inner)) continue;
         out.push({ slug, name: normalizeEmDashes(name) });
     }
     return out;
 }
 
 import { markdownToHtml as renderMarkdown, normalizeEmDashes } from './markdown';
+import { isRelatedArticleLive } from './related-article-live';
 import { hasRouteDirectives, renderEnrichedRouteBody } from './route-body';
 import { loadUiStrings } from './ui-strings';
 import { buildBookingSearchLink, resolveAccommodationHref } from './affiliates';
@@ -264,7 +266,7 @@ async function fetchRoutesItems(url: string, token: string): Promise<Record<stri
     const baseFields = 'id,slug,title,description,body,duration,transport,style,highlights,stops,hero_image,status,meta_title,meta_description';
     const withOg = `${baseFields},og_image`;
     // LAT-1098: reverse-relation via M2M articles.related_routes (junction `articles_routes`).
-    const withRelations = `${withOg},related_articles.articles_id.slug,related_articles.articles_id.title`;
+    const withRelations = `${withOg},related_articles.articles_id.slug,related_articles.articles_id.title,related_articles.articles_id.pub_date,related_articles.articles_id.status`;
     // LAT-1199: canonieke M2O streek_id (LAT-1198). Additieve top-tier; bij 400/403
     // (veld/permissie ontbreekt) valt de bestaande keten terug zonder streek_id en
     // levert de M2M-junction (loadRouteStreekJunction) de mapping alsnog.

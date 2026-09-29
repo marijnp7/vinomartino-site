@@ -49,12 +49,14 @@ function mapRelatedArticles(val: unknown): RelatedRef[] {
         const slug = inner.slug ? String(inner.slug) : '';
         const name = inner.title ? String(inner.title) : slug;
         if (!slug) continue;
+        if (!isRelatedArticleLive(inner)) continue;
         out.push({ slug, name: normalizeEmDashes(name) });
     }
     return out;
 }
 
 import { markdownToHtml as renderMarkdown, normalizeEmDashes } from './markdown';
+import { isRelatedArticleLive } from './related-article-live';
 
 // LAT-2819: locale erdoorheen zodat interne links in de redactionele body
 // locale-aware worden (no-op op NL).
@@ -181,7 +183,7 @@ async function fetchWijnhuizenItems(url: string, token: string): Promise<Record<
     const baseFields = 'id,slug,name,description,body,address,website,established,hectares,biodynamisch,winemaker,grapes,hero_image,status,meta_title,meta_description,streek_id.id,streek_id.name,streek_id.slug';
     const withOg = `${baseFields},og_image`;
     // LAT-1098: reverse-relation via M2M articles.related_wijnhuizen.
-    const withRelations = `${withOg},related_articles.articles_id.slug,related_articles.articles_id.title`;
+    const withRelations = `${withOg},related_articles.articles_id.slug,related_articles.articles_id.title,related_articles.articles_id.pub_date,related_articles.articles_id.status`;
     // LAT-1784/LAT-1795: cta_blocks als hoogste tier; degradeert zacht naar de
     // bestaande fallback als veld/permissie ontbreekt (CTA's renderen dan niets).
     const withCta = `${withRelations},cta_blocks`;
