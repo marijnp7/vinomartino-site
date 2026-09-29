@@ -142,7 +142,7 @@ jobs:
   deploy:
     needs: tests
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45 # LAT-12060: vangnet voor de eerste koude cache-build, niet de fix
     environment:
       name: ${{ github.ref == 'refs/heads/main' && 'production' || 'preview' }}
       url: ${{ github.ref == 'refs/heads/main' && 'https://vinomartino.com' || 'https://preview.vinomartino.com' }}
@@ -277,6 +277,10 @@ jobs:
             # review status=draft entries on preview.vinomartino.com before
             # promote-to-production. Productie krijgt deze env-var NIET en
             # blijft daarom alleen `status=published` serveren.
+            # LAT-12060: de variant-cache moet de per-run STAGE én `npm ci`
+            # overleven (npm ci wist node_modules/.cache). Key is sha1-per-bron,
+            # dus delen tussen preview en productie is veilig.
+            mkdir -p /srv/vino-image-cache
             if [ "$TARGET" = "preview" ]; then
               DRAFTS_ENV="-e DIRECTUS_INCLUDE_DRAFTS=1"
             else
@@ -317,7 +321,9 @@ jobs:
             docker run --rm --name "vino-build-$RUN_ID" \
               --network directus_directus_net \
               $DRAFTS_ENV \
-              -v "$STAGE":/app -w /app \
+              -v "$STAGE":/app \
+              -v /srv/vino-image-cache:/image-cache -e IMAGE_VARIANT_CACHE=/image-cache \
+              -w /app \
               node:24 bash -c "npm ci && node --env-file-if-exists=.env scripts/preflight-content.mjs && npm run build && node scripts/check-rendered-content.mjs && node --test scripts/check-affiliate-links.test.mjs && node scripts/check-affiliate-links.mjs" 2>&1 | tee build.log
             build_rc=${PIPESTATUS[0]}
             set -e
