@@ -5,6 +5,7 @@ import SearchDialog from '../components/SearchDialog.astro';
 import { DEFAULT_LOCALE, HTML_LANG, OG_LOCALE, HREFLANG, type Locale } from '../lib/i18n';
 import { getPublicImageDimensions } from '../lib/og-image-dimensions';
 import { isRasterImageFormat } from '../lib/og-image-format';
+import { PINTEREST_DOMAIN_VERIFY } from '../data/pinterest-claim';
 import '../styles/tokens.css';
 
 type OgType = 'website' | 'article' | 'profile' | 'place';
@@ -107,6 +108,7 @@ const articleTags = article?.tags?.filter((tag): tag is string => Boolean(tag &&
     <title>{pageTitle}</title>
     {description && <meta name="description" content={description} />}
     {noindex && <meta name="robots" content="noindex, nofollow" />}
+    {PINTEREST_DOMAIN_VERIFY && <meta name="p:domain_verify" content={PINTEREST_DOMAIN_VERIFY} />}
     <meta property="og:title" content={pageTitle} />
     <meta property="og:site_name" content="VinoMartino" />
     <meta property="og:type" content={resolvedOgType} />
