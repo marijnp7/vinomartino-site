@@ -174,12 +174,14 @@ function mapRelatedArticles(val: unknown): RelatedRef[] {
         const slug = inner.slug ? String(inner.slug) : '';
         const name = inner.title ? String(inner.title) : slug;
         if (!slug) continue;
+        if (!isRelatedArticleLive(inner)) continue;
         out.push({ slug, name: normalizeEmDashes(name) });
     }
     return out;
 }
 
 import { markdownToHtml as renderMarkdown, normalizeEmDashes } from './markdown';
+import { isRelatedArticleLive } from './related-article-live';
 import { heroImageAllowed } from './hero-credit-guard';
 
 // LAT-2819: locale erdoorheen zodat interne links in de redactionele body
@@ -623,7 +625,7 @@ async function fetchStrekenItems(url: string, token: string): Promise<Record<str
     // stabiele relations-tier — een scalar-veld op streken, net als gyg_tours.
     // Op de hogere POI/facts-tiers zou het als collateral sneuvelen wanneer
     // eten/activiteiten 403'en, en de verplichte credit zou dan nooit laden.
-    const withRelations = `${withOg},related_articles.articles_id.slug,related_articles.articles_id.title,cta_blocks,accom_cta_blocks,waar_slapen_intro,zelf_gereisd,bezoekjaar,gyg_tours,hero_credit`;  // LAT-2252: gyg_tours + LAT-2427: hero_credit rijden mee op withRelations (withGyg/withBl10/withFacts 403en op eten/activiteiten en vallen terug)
+    const withRelations = `${withOg},related_articles.articles_id.slug,related_articles.articles_id.title,related_articles.articles_id.pub_date,related_articles.articles_id.status,cta_blocks,accom_cta_blocks,waar_slapen_intro,zelf_gereisd,bezoekjaar,gyg_tours,hero_credit`;  // LAT-2252: gyg_tours + LAT-2427: hero_credit rijden mee op withRelations (withGyg/withBl10/withFacts 403en op eten/activiteiten en vallen terug)
     // LAT-2451: card_blurb (homepage hero-streken kaart-blurb) als eigen tier BOVEN
     // withRelations. Bewust NIET in de withRelations-constante: bestaat card_blurb nog
     // niet in Directus (DevOps moet het veld aanmaken), dan zou de withRelations-retry

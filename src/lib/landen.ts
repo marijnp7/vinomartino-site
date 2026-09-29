@@ -1,4 +1,5 @@
 import { localizeHastLinks, normalizeEmDashes } from './markdown';
+import { isRelatedArticleLive } from './related-article-live';
 import type { RelatedRef } from './articles';
 import { getCtaStructure, type CtaStructure } from './cta-blocks';
 import type { FaqItem } from './seo';
@@ -83,6 +84,7 @@ function mapRelatedArticles(val: unknown): RelatedRef[] {
         const slug = inner.slug ? String(inner.slug) : '';
         const name = inner.title ? String(inner.title) : slug;
         if (!slug) continue;
+        if (!isRelatedArticleLive(inner)) continue;
         out.push({ slug, name: normalizeEmDashes(name) });
     }
     return out;
@@ -335,7 +337,7 @@ async function fetchLandenItems(url: string, token: string): Promise<Record<stri
     const baseFields = 'id,slug,name,description,body,continent,capital,climate,main_grapes,wine_history,best_time_to_visit,hero_image,status,meta_title,meta_description';
     const withSeoMeta = `${baseFields},og_image,wijnstreken.name,wijnstreken.slug`;
     // LAT-1098: reverse-relation via M2M articles.related_landen.
-    const withRelations = `${withSeoMeta},related_articles.articles_id.slug,related_articles.articles_id.title`;
+    const withRelations = `${withSeoMeta},related_articles.articles_id.slug,related_articles.articles_id.title,related_articles.articles_id.pub_date,related_articles.articles_id.status`;
     // LAT-1760: proefprofiel + praktische tips. Richste tier; valt bij 400 (veld
     // bestaat nog niet) zacht terug op withRelations, zodat de build NIET breekt
     // zolang DevOps de Directus-velden landen.druiven/landen.practical nog moet
