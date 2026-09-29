@@ -96,7 +96,7 @@ function buildSunnyCarsHref(link: CtaLink, sid: string, locale: Locale = 'nl'): 
     u.searchParams.set('c', campaign);
     u.searchParams.set('m', '12');
     u.searchParams.set('a', affiliate);
-    u.searchParams.set('r', `cta-${sid}`);
+    u.searchParams.set('r', `n14-cta-${sid}`);
     u.searchParams.set('u', dest);
     return u.toString();
   } catch {
