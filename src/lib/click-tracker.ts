@@ -9,7 +9,7 @@ export interface AffiliateClickPayload {
   context: string;
   path: string;
   referrer_host: string | null;
-  /** LAT-11947: SubID van de plaatsing, uit de uitgaande href (CJ sid, TradeTracker r, GYG cmp, Stay22 campaign). */
+  /** LAT-11947: SubID van de plaatsing, uit de uitgaande href (CJ sid, TradeTracker r, GYG cmp, Stay22 campaign, DiscoverCars chan). */
   subid: string;
   /** LAT-11947: eerste externe referrer (alleen hostnaam) van deze sessie, uit sessionStorage. */
   first_referrer_host: string | null;
@@ -52,7 +52,7 @@ function getFirstReferrerHost(): string | null {
 export function subidFromHref(href: string): string {
   try {
     const p = new URL(href, window.location.href).searchParams;
-    return p.get('sid') || p.get('r') || p.get('cmp') || p.get('campaign') || '';
+    return p.get('sid') || p.get('r') || p.get('cmp') || p.get('campaign') || p.get('chan') || '';
   } catch {
     return '';
   }

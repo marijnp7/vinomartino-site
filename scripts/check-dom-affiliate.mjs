@@ -27,6 +27,7 @@ export function classify(href) {
   const h = u.hostname.toLowerCase().replace(/^www\./, '');
   if (TRACK_HOSTS.some((d) => has(h, d))) return { partner: h.includes('tradetracker') ? 'tradetracker' : 'cj', ok: true };
   if (has(h, 'sunnycars.nl') || has(h, 'sunnycars.com')) return { partner: 'sunnycars', ok: false, why: 'Sunny Cars zonder TradeTracker' };
+  if (has(h, 'discovercars.com')) return u.searchParams.get('a_aid') === 'vinomartino' && u.searchParams.get('chan') ? { partner: 'discovercars', ok: true } : { partner: 'discovercars', ok: false, why: 'DiscoverCars zonder a_aid=vinomartino/chan' };
   if (has(h, 'booking.com')) return { partner: 'booking', ok: false, why: 'Booking direct zonder CJ-hop' };
   if (has(h, 'getyourguide.com')) return u.searchParams.get('partner_id') ? { partner: 'gyg', ok: true } : { partner: 'gyg', ok: false, why: 'GYG zonder partner_id' };
   if (has(h, 'stay22.com')) return u.searchParams.get('aid') ? { partner: 'stay22', ok: true } : { partner: 'stay22', ok: false, why: 'Stay22 zonder aid' };
