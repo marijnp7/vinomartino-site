@@ -1,4 +1,5 @@
 import { localizeHastLinks, normalizeEmDashes } from './markdown';
+import { isRelatedArticleLive } from './related-article-live';
 import type { RelatedRef } from './articles';
 import { getCtaStructure, type CtaStructure } from './cta-blocks';
 import type { FaqItem } from './seo';

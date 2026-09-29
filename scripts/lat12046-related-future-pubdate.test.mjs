@@ -22,6 +22,7 @@ test('zonder pub_date of status: fail-open; niet-published valt af', () => {
 test('alle vier de loaders passen de guard toe en halen pub_date+status op', () => {
   for (const f of ['streken', 'wijnhuizen', 'routes', 'landen']) {
     const src = readFileSync(new URL(`../src/lib/${f}.ts`, import.meta.url), 'utf8');
+    assert.match(src, /import \{ isRelatedArticleLive \} from '\.\/related-article-live'/, `${f}: import ontbreekt`);
     assert.match(src, /isRelatedArticleLive\(inner\)/, `${f}: guard ontbreekt`);
     assert.match(src, /related_articles\.articles_id\.pub_date,related_articles\.articles_id\.status/, `${f}: velden ontbreken`);
   }
