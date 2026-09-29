@@ -2,6 +2,7 @@
 import SiteLayout from '../../layouts/SiteLayout.astro';
 import { organizationSchema, breadcrumbSchema } from '../../lib/seo';
 import { readDirectusEnv, directusSignal } from '../../lib/directus-config';
+import { VISITED_REGIONS_EN } from '../../lib/bezochte-streken';
 
 const schema = [
   organizationSchema(),
@@ -19,8 +20,8 @@ const rules = [
   },
   {
     n: '02',
-    h: 'Affiliate links only for places I\'ve tested myself',
-    d: 'If an article contains a booking link, I\'ve visited that place. We receive a commission on a booking; the price stays the same. Which wineries and accommodations qualify for a link is based on visit documentation, not on who asks for it.',
+    h: 'A booking link does not mean I was there',
+    d: 'Booking links appear under both kinds of guide. If the article carries the Been there label, I slept or tasted there myself. In an editorial guide the selection comes from primary sources and local knowledge, without a visit of my own, and the article says so at the top. We receive a commission on a booking; the price stays the same. Which wineries and accommodations qualify for a link is decided on the merits, not on who asks for it.',
   },
   {
     n: '03',
@@ -29,19 +30,9 @@ const rules = [
   },
 ];
 
-const visited = [
-  'Loire',
-  'Burgundy',
-  'Champagne',
-  'Provence',
-  'Mosel',
-  'Piedmont',
-  'Tuscany',
-  'Cape Winelands',
-  'Veneto',
-  'Alto Adige',
-  'Slovakia',
-];
+// LAT-11950: één bron voor de lijst van elf, gedeeld met de header, /over-ons/
+// en /auteurs/marijn/. Uitbreiden is een merkclaim en gaat via het board.
+const visited = VISITED_REGIONS_EN;
 
 // LAT-1987: twee eigen foto's van Marijn uit de DAM, gekoppeld via Directus-bestanden.
 // 694f2a29… = DAM ref 1240 (Calmont, Ediger); dfaff3d0… = DAM ref 816 (uitkijkpunt over het dal).
@@ -73,7 +64,7 @@ const fotoUitkijk = await fetchOverOnsFoto('dfaff3d0-675b-48db-acc8-893263eaf06d
 
 <SiteLayout
   title="About VinoMartino: Marijn & Sophie"
-  description="Marijn (internationally known as Martino) writes about wine travel based on first-hand visits. Affiliate links only for places we've actually been. No advertorials."
+  description="Marijn (internationally known as Martino) writes about wine travel. Eleven regions he visited himself; the rest are editorial guides and say so. No advertorials."
   schema={schema}
   activeNav="over-ons"
   locale="en"
@@ -85,11 +76,11 @@ const fotoUitkijk = await fetchOverOnsFoto('dfaff3d0-675b-48db-acc8-893263eaf06d
         <span class="kicker kicker-vine">About VinoMartino</span>
         <h1>Hi, I'm <em>Marijn</em></h1>
         <p class="lede">
-          Among winemakers from Piedmont to the Cape, people quickly started calling me "Martino" — that nickname stuck. It even became the name of this site: VinoMartino. So internationally I'm Martino, at home just Marijn.
+          Among winemakers from Piedmont to the Cape, people quickly started calling me "Martino", and that nickname stuck. It even became the name of this site: VinoMartino. So internationally I'm Martino, at home just Marijn.
         </p>
         <p class="lede">
           I have a wine fridge that's always full and honestly never quite big enough.
-          Several times a year I drive a compact Fiat through Piedmontese vineyard lanes — or Sicilian, or Portuguese, depending on the season.
+          Several times a year I drive a compact Fiat through Piedmontese vineyard lanes, or Tuscan ones, or those of the Loire, depending on the season.
           I keep discovering new wine regions and write down what I find.
         </p>
         <p class="lede">
@@ -105,13 +96,13 @@ const fotoUitkijk = await fetchOverOnsFoto('dfaff3d0-675b-48db-acc8-893263eaf06d
   <section class="intro">
     <div class="container container-narrow">
       <p>
-        VinoMartino started as a notebook. After every trip I collected notes: the winemaker who let us taste through his cellar on a Wednesday afternoon, the agriturismo with three bars of mobile signal where I still slept brilliantly, the Carricante I only understood once I was home. At some point the notebook was full enough to be useful to others planning the same journeys. That's this.
+        VinoMartino started as a notebook. After every trip I collected notes: the winemaker who let us taste through his cellar on a Wednesday afternoon, the agriturismo with three bars of mobile signal where I still slept brilliantly, the Lagrein I only understood once I was home. At some point the notebook was full enough to be useful to others planning the same journeys. That's this.
       </p>
       <p>
         Sophie sometimes comes along and only reads all of this once it's online.
       </p>
       <p>
-        Some pieces go deeper than others — that depends on the trip and what caught my attention. I share experiences and try to give people enough information to plan their own great journeys. If you have something to share that helps others, there is an option to publish a contribution on the site.
+        Some pieces go deeper than others, depending on the trip and what caught my attention. I share experiences and try to give people enough information to plan their own great journeys. If you have something to share that helps others, there is an option to publish a contribution on the site.
       </p>
       <p>
         And even though wine is at the centre: most of these regions are worth visiting even without a single winery. The wine is the reason to go, not the only one.
@@ -156,13 +147,15 @@ const fotoUitkijk = await fetchOverOnsFoto('dfaff3d0-675b-48db-acc8-893263eaf06d
   <section class="visited">
     <div class="container">
       <span class="kicker kicker-rust">Visited regions</span>
-      <h2>{visited.length}+ regions since 2019</h2>
+      <h2>Eleven regions visited in person since 2019</h2>
       <div class="visited-list">
         {visited.map((v) => (
           <span class="visited-item">{v}</span>
         ))}
-        <span class="visited-more">… and more</span>
       </div>
+      <p class="visited-note">
+        That is the whole list. Every other region on the site is an editorial guide, written without an eyewitness claim.
+      </p>
       {fotoUitkijk && (
         <figure class="over-figure">
           <img
@@ -368,16 +361,21 @@ const fotoUitkijk = await fetchOverOnsFoto('dfaff3d0-675b-48db-acc8-893263eaf06d
     flex-wrap: wrap;
     gap: 0.5rem 1.25rem;
   }
-  .visited-item,
-  .visited-more {
+  .visited-item {
     font-family: var(--font-display);
     font-size: 1.375rem;
     font-weight: 500;
     color: var(--color-text);
   }
-  .visited-more {
-    font-style: italic;
-    opacity: 0.6;
+  /* LAT-11950: verving de "… and more"-uitsmijter, die de lijst van elf weer
+     open trok. De lijst is nu uitputtend en de noot zegt dat ook. */
+  .visited-note {
+    margin: 1.5rem 0 0;
+    max-width: 60ch;
+    font-size: 0.9375rem;
+    line-height: 1.6;
+    color: var(--color-text);
+    opacity: 0.75;
   }
 
   .contact {
