@@ -321,6 +321,7 @@ const usedCats = sections.map((s) => s.key);
 
 <script>
   import 'leaflet/dist/leaflet.css';
+  import { addBaseLayer } from '../lib/map-base';
 
   type Pin = {
     n: number; naam: string; category: string; label: string; color: string;
@@ -335,9 +336,6 @@ const usedCats = sections.map((s) => s.key);
     return leafletPromise;
   }
 
-  const TILE = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
-  const ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>';
-
   function esc(s: string): string {
     return s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string));
   }
@@ -351,9 +349,9 @@ const usedCats = sections.map((s) => s.key);
     const L = await loadLeaflet();
     const map = L.map(canvas, {
       scrollWheelZoom: false, zoomControl: false, dragging: false,
-      doubleClickZoom: false, attributionControl: false, keyboard: false,
+      doubleClickZoom: false, attributionControl: true, keyboard: false,
     });
-    L.tileLayer(TILE, { subdomains: 'abcd', maxZoom: 19, attribution: ATTR }).addTo(map);
+    await addBaseLayer(map);
     map.setView([lat, lng], 6);
     const icon = L.divIcon({
       className: '',
@@ -376,7 +374,7 @@ const usedCats = sections.map((s) => s.key);
 
     const L = await loadLeaflet();
     const map = L.map(canvas, { scrollWheelZoom: false, zoomControl: true, attributionControl: true });
-    L.tileLayer(TILE, { subdomains: 'abcd', maxZoom: 19, attribution: ATTR }).addTo(map);
+    await addBaseLayer(map);
 
     const markersByN = new Map<number, any>();
     const latlngs: [number, number][] = [];

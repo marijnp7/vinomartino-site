@@ -217,6 +217,7 @@ const mapData = {
 
 <script>
   import 'leaflet/dist/leaflet.css';
+  import { addBaseLayer } from '../lib/map-base';
 
   type AccPin = {
     n: number; naam: string; tier: string; tierLabel: string; color: string;
@@ -261,12 +262,7 @@ const mapData = {
       attributionControl: true,
     });
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-      subdomains: 'abcd',
-      maxZoom: 19,
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-    }).addTo(map);
+    await addBaseLayer(map);
 
     const markersByN = new Map<number, any>();
     const latlngs: [number, number][] = [];
