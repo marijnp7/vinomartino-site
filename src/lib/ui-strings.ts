@@ -144,7 +144,7 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'land.section.strekenVanPrefix': 'De streken van',
     'land.link.alleStreken': 'Alle streken →',
     'land.section.topWijnhuizen': 'Top wijnhuizen',
-    'land.section.topWijnhuizenTitle': 'Adressen die we zelf bezochten',
+    'land.section.topWijnhuizenTitle': 'Wijnhuizen die een bezoek waard zijn',
     'land.link.alleWijnhuizen': 'Alle wijnhuizen →',
     'land.section.druiven': 'Druiven',
     'land.section.druivenTitle': 'Wat je hier proeft',
@@ -467,10 +467,10 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     // AffiliatePlaceholder.astro (LAT-1029) — per-type affiliate-blok chrome
     // (titel/omschrijving/cta). De icon-emoji staat in de component (taal-neutraal).
     'affiliate.block.accommodation.title': 'Waar slapen',
-    'affiliate.block.accommodation.desc': 'Boek dezelfde plek waar wij verbleven',
+    'affiliate.block.accommodation.desc': 'Boek een verblijf in deze streek',
     'affiliate.block.accommodation.cta': 'Bekijk beschikbaarheid',
     'affiliate.block.activity.title': 'Activiteiten & tours',
-    'affiliate.block.activity.desc': 'Boek de proeverij of tour die we zelf deden',
+    'affiliate.block.activity.desc': 'Boek een proeverij of tour in deze streek',
     'affiliate.block.activity.cta': 'Boek deze ervaring',
     'affiliate.block.flight.title': 'Vluchten vergelijken',
     'affiliate.block.flight.desc': 'Vind de goedkoopste vlucht',
@@ -517,7 +517,7 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'streken.index.tier2.desc': 'Zorgvuldig samengesteld op basis van primaire bronnen en lokale kennis, gegroepeerd per land.',
     'streken.index.overig': 'Overig',
     'streken.index.empty.title': 'De gidsen zijn onderweg',
-    'streken.index.empty.descPre': 'Piemonte, Etna, Bourgogne, Mosel en Priorat staan bovenaan de lijst. Ik schrijf ze liever goed dan snel, begin ondertussen bij de ',
+    'streken.index.empty.descPre': 'Piemonte, Etna, Bourgogne en de Mosel staan bovenaan de lijst. Ik schrijf ze liever goed dan snel, begin ondertussen bij de ',
     'streken.index.empty.descLink': 'artikelen',
     'streken.index.empty.descPost': '.',
 
@@ -729,10 +729,11 @@ export const UI_STRING_EN: Record<string, string> = {
   // gebruikt als een AffiliateBlockConfig géén eigen ctaLabel/description meegeeft;
   // zonder EN-waarde viel de render terug op de NL-default en lekte die naar /en/.
   'affiliate.block.accommodation.title': 'Where to sleep',
-  'affiliate.block.accommodation.desc': 'Book the same place we stayed',
+  'affiliate.block.accommodation.desc': 'Book a place to stay in this region',
+  'land.section.topWijnhuizenTitle': 'Wineries worth a visit',
   'affiliate.block.accommodation.cta': 'Check availability',
   'affiliate.block.activity.title': 'Activities & tours',
-  'affiliate.block.activity.desc': 'Book the tasting or tour we did ourselves',
+  'affiliate.block.activity.desc': 'Book a tasting or tour in this region',
   'affiliate.block.activity.cta': 'Book this experience',
   'affiliate.block.sidebar.title': 'Book your trip',
   'affiliate.block.sidebar.desc': 'Plan the trip we made',
@@ -763,7 +764,7 @@ export const UI_STRING_EN: Record<string, string> = {
     'streken.index.tier2.desc': 'Carefully compiled from primary sources and local knowledge, grouped by country.',
     'streken.index.overig': 'Other',
     'streken.index.empty.title': 'The guides are on their way',
-    'streken.index.empty.descPre': 'Piedmont, Etna, Burgundy, Mosel and Priorat are at the top of the list. I\'d rather write them well than fast — in the meantime, start with the ',
+    'streken.index.empty.descPre': 'Piedmont, Etna, Burgundy and the Mosel are at the top of the list. I would rather write them well than fast, so start with the ',
     'streken.index.empty.descLink': 'articles',
     'streken.index.empty.descPost': '.',
 

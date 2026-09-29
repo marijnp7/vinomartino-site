@@ -17,18 +17,18 @@ interface Props {
   tier?: string | null;
 }
 
-const { rubriek, tier } = Astro.props;
+const { rubriek } = Astro.props;
 const value = (rubriek ?? '').trim();
 const label = value ? (UI_COPY.rubrieken[value] ?? value) : '';
-const tierValue = (tier ?? '').trim();
-const showTier = tierValue === '1' || tierValue === '2';
+// LAT-12016: de Tier-signatuur is een INTERN redactielabel (toegekend door de Lead
+// Editor) en hoort niet in de gerenderde pagina. Hij stond zichtbaar als "Tier 1" /
+// "Tier 2" op 3 NL-artikelen plus hun EN-vertalingen (groei-audit 2026-09-28,
+// bijlage S1 bevinding 5). Het veld `tier` blijft in Directus staan voor redactie;
+// alleen het renderen vervalt. Prop blijft in de signatuur zodat aanroepers niet breken.
 ---
 {label && (
   <div class="rubriek-signatuur" title={UI_COPY.rubriekSignatuurTitle}>
     <span class="rubriek-signatuur__label">{label}</span>
-    {showTier && (
-      <span class="rubriek-signatuur__tier">{UI_COPY.tierPrefix} {tierValue}</span>
-    )}
   </div>
 )}
 
