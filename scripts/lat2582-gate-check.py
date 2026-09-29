@@ -216,7 +216,7 @@ NL_NOUNS = {
     "appellatie": "/streken/bourgogne/",
     "appellaties": "/artikelen/10-wijnhuizen-rhone-benchmark/",
     "bezienswaardigheid": "/wijnroutes/",
-    "domein": "/streken/rioja/",
+    "domein": "/streken/bourgogne/",  # rioja had geen domein meer na content-update sept 2026
     "kaart": "/artikelen/10-wijnhuizen-rhone-benchmark/",
     "kelder": "/artikelen/waar-slapen-langhe-piemonte/",
     "ligging": "/accommodaties/bourgogne/",
