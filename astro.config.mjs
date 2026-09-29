@@ -53,6 +53,8 @@ export default defineConfig({
         // LAT-1853/LAT-2457: keyword-cannibalisatie 301's; canonical is de doel-slug.
         page !== 'https://vinomartino.com/artikelen/een-week-in-piemonte-barolo-barbaresco-en-alles-daartussenin/' &&
         page !== 'https://vinomartino.com/artikelen/langhe-vier-dagen-route/' &&
+        // LAT-11952: EN-verblijfspagina samengevoegd, nginx 301t; alleen de EN-URL, NL blijft canoniek.
+        page !== 'https://vinomartino.com/en/artikelen/overnachten-langhe-barolo-agriturismi/' &&
         // LAT-2769, herstel via LAT-3071: de 7 persona-auteurspagina's (NL + EN)
         // 301'en naar /over-ons/ via nginx-prod.conf en horen niet meer in de
         // sitemap. /auteurs/, /en/auteurs/ en de twee marijn-pagina's blijven staan.
