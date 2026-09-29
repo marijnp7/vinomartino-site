@@ -1,0 +1,19 @@
+# Plaatsen per bezochte streek waarvan eigen foto's in ResourceSpace bestaan.
+# De Design Lead vult dit bestand via issue LAT-12028 (taak 0.12).
+# Alleen plaatsen MET foto staan hier; plaatsen zonder foto schrijft de site in gidsstem.
+# Vul per streek een lijst van plaatsnamen in (exact zoals ze in de tekst verschijnen).
+#
+# Bron: ResourceSpace-bestandstitel, GPS-tag of beschrijving (taak 0.11).
+# Uitbreiding: neem alleen plaatsen op waarvoor een foto van Marijn in ResourceSpace staat.
+
+Loire: []
+Bourgogne: []
+Champagne: []
+Provence: []
+Mosel: []
+Piemonte: []
+Toscane: []
+Kaapregio: []
+Veneto: []
+Alto Adige: []
+Slowakije: []
