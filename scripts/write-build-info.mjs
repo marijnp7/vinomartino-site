@@ -7,7 +7,7 @@
 // geen .git); lokaal valt het terug op `git rev-parse HEAD`.
 
 import { execSync } from 'node:child_process';
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 
 function gitSha() {
   try {
@@ -25,6 +25,15 @@ const info = {
   runNumber: process.env.RUN_NUMBER || '0',
   builtAt: new Date().toISOString().replace(/\.\d+Z$/, 'Z'),
 };
+
+// LAT-11988: uitkomst van scripts/lint-pins.mjs (item- en overtredingsaantal van /pins.xml).
+if (existsSync('dist/pins-lint.json')) {
+  try {
+    info.pins = JSON.parse(readFileSync('dist/pins-lint.json', 'utf8'));
+  } catch {
+    info.pins = { error: 'pins-lint.json onleesbaar' };
+  }
+}
 
 if (!existsSync('dist')) mkdirSync('dist', { recursive: true });
 writeFileSync('dist/build-info.json', JSON.stringify(info) + '\n');
