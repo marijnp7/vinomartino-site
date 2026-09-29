@@ -48,3 +48,14 @@ test('hideMediaWhenEmpty staat aan voor overnachten (StreekKaart en Accommodatie
   assert.match(src('../src/components/StreekKaart.astro'), /hideMediaWhenEmpty: it\.category === 'wijnhuizen' \|\| it\.category === 'overnachten'/);
   assert.match(src('../src/components/AccommodatieKaart.astro'), /hideMediaWhenEmpty: true/);
 });
+
+test('de twee Rioja-hotelfoto\'s hebben een CC BY-SA-credit met bewerkingsaanduiding', () => {
+  const riscal = getImageCredit('78956639-bb76-4851-9a74-b43c2fab1b77');
+  assert.equal(riscal?.author, '© Roderich Kahn / Wikimedia Commons');
+  assert.equal(riscal?.licenseLabel, 'CC BY-SA 4.0');
+  assert.equal(riscal?.adapted, true);
+  const mayor = getImageCredit('680c8deb-7ef4-4e68-990e-98c333170969');
+  assert.equal(mayor?.author, '© Vanbasten 23 / Wikimedia Commons');
+  assert.equal(mayor?.licenseLabel, 'CC BY-SA 3.0');
+  assert.equal(mayor?.adapted, true);
+});

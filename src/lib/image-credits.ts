@@ -111,6 +111,23 @@ const CREDITS: Record<string, ImageCredit> = {
         licenseLabel: 'CC BY-SA 3.0',
         licenseUrl: CC_BY_SA_30,
     },
+    // LAT-12024 Rioja-overnachten (Wikimedia Commons, eigen werk van de fotograaf). Beide
+    // gaan door `gradeBuffer` (Warm-preset) en de kaart snijdt bij: dat is een bewerking,
+    // dus `adapted: true` (verplichte wijzigingsaanduiding bij CC BY-SA 4.0).
+    // Hotel Marqués de Riscal (accommodations 306).
+    '78956639-bb76-4851-9a74-b43c2fab1b77': {
+        author: '© Roderich Kahn / Wikimedia Commons',
+        licenseLabel: 'CC BY-SA 4.0',
+        licenseUrl: CC_BY_SA_40,
+        adapted: true,
+    },
+    // Hotel Calle Mayor, Logroño (accommodations 300).
+    '680c8deb-7ef4-4e68-990e-98c333170969': {
+        author: '© Vanbasten 23 / Wikimedia Commons',
+        licenseLabel: 'CC BY-SA 3.0',
+        licenseUrl: CC_BY_SA_30,
+        adapted: true,
+    },
 };
 
 export function getImageCredit(fileId: string | null | undefined): ImageCredit | null {
