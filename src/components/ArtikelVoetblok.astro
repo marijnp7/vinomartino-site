@@ -62,7 +62,7 @@ const heeftInhoud = heeftHoortBij || Boolean(hotel);
       )}
 
       {hotel && (
-        <a href={lh(hotel.href)} class="voetblok__hotel" data-plausible-cta="voetblok_hotel">
+        <a href={lh(hotel.href)} class="voetblok__hotel" data-cta-id="voetblok_hotel">
           <span class="voetblok__hotel-kicker">{ui.t('voetblok.hotel.kicker')}</span>
           <span class="voetblok__hotel-label">{ui.t('voetblok.hotel.labelPre')}{' '}{hotel.streekName}</span>
           <span class="voetblok__hotel-arrow" aria-hidden="true">&rarr;</span>

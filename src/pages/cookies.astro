@@ -34,7 +34,7 @@ const datum = "30 juni 2026";
         <thead><tr><th>Script / verbinding</th><th>Wat het doet</th><th>Zet een cookie?</th></tr></thead>
         <tbody>
           <tr><td>Stay22 <code>letmeallez.js</code> (van <code>scripts.stay22.com</code>)</td><td>Herschrijft accommodatielinks client-side zodat ze via Stay22 lopen; kan een overlay tonen</td><td><strong>Nee</strong>, maakt een netwerkverbinding, maar plaatst géén tracking-/attributiecookie bij laden</td></tr>
-          <tr><td>Plausible Analytics (van <code>plausible.io</code>)</td><td>Cookieloze bezoekersstatistieken; slaat geen persoonsgegevens of IP-adressen op</td><td><strong>Nee</strong>, plaatst geen cookies en gebruikt geen lokale opslag</td></tr>
+          <tr><td>Eigen bezoekersstatistieken (<code>/api/events</code> op vinomartino.com)</td><td>Cookieloze telling van paginaweergaven, klikken en aanmeldingen; slaat geen persoonsgegevens of IP-adressen op</td><td><strong>Nee</strong>, plaatst geen cookies; gebruikt alleen een willekeurige tabblad-code in sessionStorage die verdwijnt als je het tabblad sluit</td></tr>
         </tbody>
       </table>
 

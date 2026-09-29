@@ -35,7 +35,7 @@ const datum = "30 June 2026";
         <thead><tr><th>Script / connection</th><th>What it does</th><th>Sets a cookie?</th></tr></thead>
         <tbody>
           <tr><td>Stay22 <code>letmeallez.js</code> (from <code>scripts.stay22.com</code>)</td><td>Rewrites accommodation links client-side so they run via Stay22; may display an overlay</td><td><strong>No</strong>, makes a network connection but places no tracking/attribution cookie on load</td></tr>
-          <tr><td>Plausible Analytics (from <code>plausible.io</code>)</td><td>Cookie-free visitor statistics; stores no personal data or IP addresses</td><td><strong>No</strong>, places no cookies and uses no local storage</td></tr>
+          <tr><td>First-party visitor statistics (<code>/api/events</code> on vinomartino.com)</td><td>Cookie-free count of page views, clicks and sign-ups; stores no personal data or IP addresses</td><td><strong>No</strong>, places no cookies; uses only a random tab code in sessionStorage that disappears when you close the tab</td></tr>
         </tbody>
       </table>
 

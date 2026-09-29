@@ -2,7 +2,6 @@
 // POSTs a small JSON beacon to /api/clicks/affiliate (nginx → Directus `affiliate_clicks`).
 // Picks up any element marked [data-affiliate-track] via delegated click — works for the
 // LAT-1029 AffiliateBlock today and any future affiliate <a> we annotate.
-import { trackPlausible } from './plausible';
 
 export interface AffiliateClickPayload {
   placement: string;
@@ -71,26 +70,6 @@ function buildPayload(el: HTMLElement, anchor: HTMLAnchorElement | null): Affili
   };
 }
 
-function sendPlausible(el: HTMLElement, anchor: HTMLAnchorElement | null): void {
-  const context = el.dataset.affiliateContext || '';
-  const region = context.includes('-') ? context.slice(context.indexOf('-') + 1) : '';
-  let domain = '';
-  if (anchor?.href) {
-    try { domain = new URL(anchor.href).hostname; } catch { /* ignore */ }
-  }
-  trackPlausible('affiliate_click', {
-    label: context,
-    affiliate_partner: el.dataset.affiliatePartner || '',
-    region,
-    placement: el.dataset.affiliatePlacement || '',
-    affiliate_url_domain: domain,
-    // LAT-2019: CTA-herkomst op de bestaande goal, bv. 'bekijk-boek' voor de
-    // Overnachten-component. Leeg = weggefilterd door cleanProps.
-    cta: el.dataset.cta || '',
-    path: window.location.pathname,
-  });
-}
-
 function send(payload: AffiliateClickPayload): void {
   const body = JSON.stringify(payload);
   if (navigator.sendBeacon) {
@@ -127,8 +106,6 @@ export function initAffiliateTracker(): void {
     if (!target) return;
     const trackEl = target.closest<HTMLElement>('[data-affiliate-track]');
     if (!trackEl) return;
-    const anchor = target.closest<HTMLAnchorElement>('a[href]');
-    send(buildPayload(trackEl, anchor));
-    sendPlausible(trackEl, anchor);
+    send(buildPayload(trackEl, target.closest<HTMLAnchorElement>('a[href]')));
   }, { capture: true });
 }
