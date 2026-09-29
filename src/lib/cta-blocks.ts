@@ -21,6 +21,7 @@ import { buildAffiliateLink, type AffiliateType, type AffiliatePartner } from '.
 import { buildBookingSearchLink, buildCjBookingLink } from './affiliates';
 import type { Locale } from './i18n';
 import { SUNNYCARS_DEFAULT_DEST, applySunnyCarsLocale } from './affiliate-locale';
+import { buildDiscoverCarsHref, discoverCarsDestVerified } from './discovercars';
 import { loadWineRetailPartner, type WineRetailPartner } from './wine-retail';
 
 // LAT-3726 — de wijnretail-partner komt uit de Directus-singleton, net als op de
@@ -69,7 +70,8 @@ export type CtaPartner =
   | 'booking-awin'
   | 'booking-direct'
   | 'wine-retail'
-  | 'sunny-cars';
+  | 'sunny-cars'
+  | 'discovercars';
 
 // LAT-1782 — Sunny Cars (autohuur) loopt buiten de booking/GYG-netwerken. De
 // affiliate-deeplink draait via TradeTracker; campagne-id's volgen uit de M&G
@@ -91,6 +93,7 @@ function sunnyCarsIds(): { campaign: string; affiliate: string } | null {
  *  zonder ids verschijnt het blok niet (geen kale link naar sunnycars.nl). */
 export function ctaLinkAvailable(link: CtaLink | null | undefined): boolean {
   if (!link) return false;
+  if (link.partner === 'discovercars') return discoverCarsDestVerified(link.dest);
   return link.partner !== 'sunny-cars' || sunnyCarsIds() !== null;
 }
 
@@ -129,6 +132,8 @@ export interface CtaLink {
   /** Expliciete booking.com-property-URL (alleen als die in Directus staat).
    *  Wordt at-render via buildCjBookingLink onthopt + ge-aid. */
   bookingUrl?: string;
+  /** Alleen `discovercars`: pad uit VERIFIED_DISCOVERCARS_DEST (LAT-12032), bv. `south-africa/cape-town`. */
+  dest?: string;
   /** Knoptekst. Default per component. */
   label?: string;
 }
@@ -222,6 +227,8 @@ export function resolveCtaHref(
       return buildWineRetailHref(link.query ?? '', sid, wineRetail);
     case 'sunny-cars':
       return buildSunnyCarsHref(link, sid, locale);
+    case 'discovercars':
+      return buildDiscoverCarsHref(link.dest ?? '', sid) ?? '';
     case 'booking-direct':
     default:
       // aid-818285-norm: expliciete property-URL → onthopt+ge-aid; anders een
@@ -249,6 +256,8 @@ export function ctaTrackPartner(link: CtaLink, wineRetail?: WineRetailPartner | 
       return wineRetail?.trackerPartner || 'grapedistrict';
     case 'sunny-cars':
       return 'sunnycars';
+    case 'discovercars':
+      return 'discovercars';
     default:
       return 'unknown';
   }
