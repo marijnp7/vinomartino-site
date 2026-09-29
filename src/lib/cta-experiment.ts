@@ -1,12 +1,8 @@
 // LAT-1843 — Meetfundament voor de CTA A/B-test op de Italië-hub (LAT-1842).
 // Wijst elke bezoeker stabiel (localStorage) 50/50 toe aan variant 'early' of
-// 'late' en vuurt bij een klik op een hub-CTA het variant-specifieke Plausible-
-// event `cta_click_early` / `cta_click_late` — bovenop de bestaande affiliate-/
-// cta-events. Vendor = Plausible (CEO-besluit LAT-1843: geen GA4).
+// 'late'. De klik zelf meet site-events.ts (LAT-11948): cta_id = '<plaatsing>:<variant>'.
 // Scope: alleen actief binnen een [data-cta-experiment]-container; de Italië-hub
 // zet die marker, andere pagina's niet → no-op elders.
-import { trackPlausible } from './plausible';
-
 export type CtaVariant = 'early' | 'late';
 
 const STORAGE_KEY = 'vm_cta_ab_variant';
@@ -43,22 +39,5 @@ export function initCtaExperiment(): void {
     // Exposeer de variant voor LAT-1842 (plaatsing vroeg vs. laat) + CSS/QA.
     container.dataset.ctaVariant = variant;
 
-    container.addEventListener(
-      'click',
-      (event) => {
-        const target = event.target as HTMLElement | null;
-        const anchor = target?.closest<HTMLAnchorElement>('a[href]');
-        if (!anchor || !container.contains(anchor)) return;
-
-        trackPlausible(variant === 'early' ? 'cta_click_early' : 'cta_click_late', {
-          variant,
-          placement: anchor.dataset.affiliatePlacement || 'hub-cta',
-          label: anchor.textContent?.trim().slice(0, 80) || '',
-          path: window.location.pathname,
-          target_path: anchor.getAttribute('href') || '',
-        });
-      },
-      { capture: true },
-    );
   });
 }
