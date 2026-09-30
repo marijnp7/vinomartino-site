@@ -3,7 +3,7 @@
  * Draait optimize-images op een tijdelijke dist/ met echte JPG's.
  */
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -13,13 +13,13 @@ import { optimizeDist, rewriteHtml, widthsFor, MAX_BYTES } from './optimize-imag
 const workDir = mkdtempSync(join(tmpdir(), 'lat12054-picture-'));
 test.after(() => rmSync(workDir, { recursive: true, force: true }));
 
-async function noisyJpeg(w, h) {
+async function noisyJpeg(w, h, amp = 24) {
     // Verloop met matige ruis: zwaar genoeg voor >400 KB bij q95, maar comprimeert als een echte foto.
     const raw = Buffer.alloc(w * h * 3);
     for (let y = 0; y < h; y++) {
         for (let x = 0; x < w; x++) {
             const i = (y * w + x) * 3;
-            const noise = (((x * 73856093) ^ (y * 19349663)) >>> 0) % 24;
+            const noise = (((x * 73856093) ^ (y * 19349663)) >>> 0) % amp;
             raw[i] = ((x * 255) / w + noise) & 255;
             raw[i + 1] = ((y * 255) / h + noise) & 255;
             raw[i + 2] = (((x + y) * 128) / (w + h) + noise) & 255;
@@ -86,4 +86,28 @@ test('een hero met class *hero* maar zonder loading-attribuut wordt eager + fetc
     assert.match(html, /class="article-hero-img"[^>]*loading="eager" fetchpriority="high"/);
     assert.match(html, /alt="y"[^>]*loading="lazy"/);
     assert.equal((html.match(/fetchpriority/g) || []).length, 1, 'maar één hero per pagina');
+});
+
+test('een detailrijk beeld landt in alle formaten <= 400 KB (geen stille waarschuwing) en een te zwaar cache-item wordt opnieuw gecodeerd', async () => {
+    const dist = join(workDir, 'dist-detail');
+    const cache = join(workDir, 'cache-detail');
+    mkdirSync(join(dist, 'images'), { recursive: true });
+    mkdirSync(cache, { recursive: true });
+    const src = await noisyJpeg(1800, 1200, 140);
+    writeFileSync(join(dist, 'images', 'detail-1.jpg'), src);
+    writeFileSync(join(dist, 'index.html'), '<img src="/images/detail-1.jpg" alt="d">');
+
+    const r = await optimizeDist(dist, cache);
+    assert.deepEqual(r.oversize, [], 'geen enkele variant boven 400 KB');
+    for (const f of ['detail-1.jpg', 'detail-1.w1600.webp', 'detail-1.w1600.avif', 'detail-1.w640.webp', 'detail-1.w1024.jpg']) {
+        assert.ok(statSync(join(dist, 'images', f)).size <= MAX_BYTES, `${f} <= 400 KB`);
+    }
+
+    // Cache uit een oudere, kortere ladder (te zwaar) mag niet blijven hangen.
+    const key = readdirSync(cache).find((n) => n.endsWith('.1600.webp'));
+    writeFileSync(join(cache, key), Buffer.alloc(MAX_BYTES + 1024));
+    writeFileSync(join(dist, 'images', 'detail-1.jpg'), src); // de eerste pass overschreef de bron; zelfde hash terug
+    const again = await optimizeDist(dist, cache);
+    assert.deepEqual(again.oversize, []);
+    assert.ok(statSync(join(cache, key)).size <= MAX_BYTES, 'te zware cache-entry vervangen');
 });

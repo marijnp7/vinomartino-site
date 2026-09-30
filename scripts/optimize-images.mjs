@@ -24,7 +24,7 @@ import sharp from 'sharp';
 
 export const WIDTHS = [640, 1024, 1600];
 export const MAX_BYTES = 400 * 1024;
-const QUALITIES = { jpg: [78, 70, 62, 54, 46], webp: [74, 66, 58, 50, 42], avif: [50, 44, 38, 32, 26] };
+const QUALITIES = { jpg: [78, 70, 62, 54, 46, 42, 38, 34], webp: [74, 66, 58, 50, 42, 36, 30, 24, 18, 12], avif: [50, 44, 38, 32, 26] };
 
 function walk(dir, pred, out = []) {
     for (const name of readdirSync(dir)) {
@@ -60,7 +60,10 @@ async function encode(pipeline, fmt) {
 
 async function variant(srcBuf, hash, cacheDir, w, fmt) {
     const c = join(cacheDir, `${hash}.${w}.${fmt}`);
-    if (existsSync(c)) return readFileSync(c);
+    if (existsSync(c)) {
+        const cached = readFileSync(c);
+        if (cached.length <= MAX_BYTES) return cached; // te zware cache-items (oudere, kortere ladder) opnieuw coderen
+    }
     const out = await encode(sharp(srcBuf).rotate().resize({ width: w, withoutEnlargement: true }), fmt);
     writeFileSync(c, out);
     return out;
