@@ -66,11 +66,13 @@ test('hideMediaWhenEmpty staat aan voor overnachten (StreekKaart en Accommodatie
 
 test('de twee Rioja-hotelfoto\'s hebben een CC BY-SA-credit met bewerkingsaanduiding', async () => {
   const riscal = await getImageCredit(RISCAL, { adapted: true });
-  assert.equal(riscal?.author, '© Roderich Kahn / Wikimedia Commons');
+  assert.equal(riscal?.author, '© Roderich Kahn');
+  assert.equal(riscal?.sourceLabel, 'Wikimedia Commons');
   assert.equal(riscal?.licenseLabel, 'CC BY-SA 4.0');
   assert.equal(riscal?.adapted, true);
   const mayor = await getImageCredit(MAYOR, { adapted: true });
-  assert.equal(mayor?.author, '© Vanbasten 23 / Wikimedia Commons');
+  assert.equal(mayor?.author, '© Vanbasten 23');
+  assert.equal(mayor?.sourceLabel, 'Wikimedia Commons');
   assert.equal(mayor?.licenseLabel, 'CC BY-SA 3.0');
   assert.equal(mayor?.adapted, true);
 });

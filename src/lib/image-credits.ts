@@ -71,17 +71,59 @@ for (const v of ['2.0', '3.0', '4.0']) {
 const HERKOMST_RE =
     /^\s*(?:Foto:\s*)?(.+?),\s*CC\s*BY[^,]*?,\s*via\s+(.+?)\.?\s*Bron:\s*(https?:\/\/\S+?)\s*$/is;
 
+// LAT-12110 — `herkomst` is een vrij tekstveld en draagt in de praktijk méér dan de
+// attributie: een redactionele caption vóór of achter de credit, een LAT-verwijzing,
+// een keywords-dump. Die caption is Nederlands, en sinds de credits datagedreven zijn
+// lekte hij als fotograafnaam door op /en/ — de i18n-nl gate zag drie Nederlandse
+// zinnen op /en/accommodaties/rioja/, /en/streken/rioja/ en het Rioja-artikel.
+//
+// Het label waarmee de maker wordt ingeleid ("Foto:", "Credit:", "©"). Alles vóór het
+// LAATSTE label is aanloop en hoort niet in de naam. Zonder colon is het geen label —
+// dat houdt de fotograaf die écht "Foto Fitti" heet intact.
+const MAKER_LABEL_G = /(?:©|\(c\)|\b(?:Foto|Photo|Beeld|Afbeelding|Auteur|Author|Credit)\s*:)\s*/gi;
+/** Staart na de naam: bronnaam, licentie of URL, achter een scheider of "via". */
+const MAKER_TAIL_RE = /\s+(?:[/|]|[—–])\s+[\s\S]*$|\s+via\s+[\s\S]*$|,?\s*CC\s*BY[\s\S]*$/i;
+
+/**
+ * Haalt de makersnaam uit een kandidaat-fragment. De regels zijn **structureel**,
+ * niet lexicaal: een naam staat achter het laatste label, bevat geen zinsgrens en is
+ * kort. Bewust geen NL-woordenlijst — die zou de i18n-gate dupliceren en alleen
+ * Nederlands proza tegenhouden, terwijl elke caption hier fout is.
+ *
+ * Levert de kandidaat geen naam op, dan is `''` het eerlijke antwoord: de kaart toont
+ * dan alleen het licentielabel. Dat is minder dan CC BY §3(a)(1) vraagt, maar een
+ * caption als naamsvermelding presenteren is een *onjuiste* attributie en dus erger.
+ * Zulke bestanden horen in de herkomst-opschoning (LAT-12069-lijn), niet hier.
+ */
+function makerFromCandidate(candidate: string): string {
+    let maker = candidate;
+
+    // 1. Alles tot en met het laatste maker-label weggooien.
+    let labelEnd = 0;
+    for (const m of maker.matchAll(MAKER_LABEL_G)) labelEnd = m.index + m[0].length;
+    maker = maker.slice(labelEnd);
+
+    // 2. Alleen de eerste zin: een caption die ná de credit staat valt zo af.
+    maker = maker.split(/(?<=[.!?])\s+(?=\S)/)[0] ?? '';
+
+    // 3. Staart (bron/licentie/URL) en interpunctie eraf.
+    maker = maker.replace(MAKER_TAIL_RE, '').replace(/[\s.,;:|/([-]+$/, '').trim();
+
+    // 4. Wat hierna nog lang is, is proza en geen naam.
+    if (!maker || maker.split(/\s+/).length > 6) return '';
+    if (/^CC[\s-]?BY/i.test(maker)) return '';
+    return maker;
+}
+
 /** Splitst een `herkomst`-tekst in maker, bronnaam en bron-URL; tolerant voor afwijkende vormen. */
 export function parseHerkomst(herkomst: string): { maker: string; sourceLabel: string | null; sourceUrl: string | null } {
     const text = herkomst.replace(/\s+/g, ' ').trim();
     const m = HERKOMST_RE.exec(text);
-    if (m) return { maker: m[1].trim(), sourceLabel: m[2].trim().replace(/\.$/, ''), sourceUrl: m[3] };
+    if (m) {
+        return { maker: makerFromCandidate(m[1]), sourceLabel: m[2].trim().replace(/\.$/, ''), sourceUrl: m[3] };
+    }
     const url = /https?:\/\/\S+/.exec(text)?.[0]?.replace(/[.,;]+$/, '') ?? null;
-    const maker = text
-        .replace(/\bBron:\s*https?:\/\/\S+/i, '')
-        .replace(/^Foto:\s*/i, '')
-        .replace(/[\s.,;]+$/, '')
-        .trim();
+    const maker = makerFromCandidate(text.replace(/\bBron:\s*https?:\/\/\S+/i, '').replace(/[\s.,;]+$/, ''));
     return { maker, sourceLabel: null, sourceUrl: url };
 }
 
