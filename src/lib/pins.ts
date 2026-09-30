@@ -36,6 +36,47 @@ export const PIN_CLUSTERS: readonly PinCluster[] = [
     { id: 'loire', lang: 'nl', streekMatch: ['loire'] },
 ];
 
+/**
+ * LAT-12109 (groeiplan zet 5, week 40): kant-en-klare pinbeelden uit het DAM
+ * (Directus `/files`, 1000x1500, synthetisch met zichtbare disclosure). Een batch
+ * neemt op één werkdag de plekken van de rotatie over; `slug` is de NL-slug van
+ * het artikel (Champagne verwijst naar de EN-pagina met dezelfde slug). Deze
+ * artikelen doen niet meer mee aan de gewone rotatie: het DAM-beeld is het enige.
+ * Burgenland en Priorat staan niet in PIN_CLUSTERS en volgen de standaardtaal NL.
+ */
+export interface PinDamPin {
+    articleId: number;
+    slug: string;
+    lang: PinLang;
+    fileId: string;
+}
+
+export interface PinDamBatch {
+    day: string;
+    pins: readonly PinDamPin[];
+}
+
+export const PIN_DAM_BATCHES: readonly PinDamBatch[] = [
+    {
+        day: '2026-09-30',
+        pins: [
+            { articleId: 139, slug: 'champagne-overnachten-reims-epernay', lang: 'en', fileId: '32d9d6ee-098d-46d0-a9f6-9f8e10aa00a6' },
+            { articleId: 141, slug: 'champagnehuizen-bezoeken-met-of-zonder-tour', lang: 'en', fileId: 'ff1fb993-121c-4388-8562-d0805c764cd2' },
+            { articleId: 142, slug: 'kleine-champagnehuizen-bezoeken-proeverij-boeken', lang: 'en', fileId: '33d28f07-344c-49fc-9818-31ae256848ed' },
+            { articleId: 136, slug: 'burgenland-blaufrankisch-route-twee-dagen', lang: 'nl', fileId: '66621cf9-9805-4180-8c4b-29be97a9705d' },
+            { articleId: 131, slug: 'priorat-licorella-route-gratallops-torroja', lang: 'nl', fileId: 'd0b9f126-adc4-4c8c-9cb5-e7d49f93da33' },
+        ],
+    },
+];
+
+export const PIN_DAM_SLUGS: ReadonlySet<string> = new Set(PIN_DAM_BATCHES.flatMap((b) => b.pins.map((p) => p.slug)));
+
+/** Een dag: eerst de DAM-pins, daarna de rotatie tot `perDay` plekken gevuld zijn. */
+export function composeDay<T>(dam: T[], rotationPicks: T[], perDay = PINS_PER_WEEKDAY): T[] {
+    const head = dam.slice(0, perDay);
+    return [...head, ...rotationPicks.slice(0, perDay - head.length)];
+}
+
 export interface PinSource {
     slug: string;
     title: string;
@@ -170,8 +211,8 @@ export function pinUrl(lang: PinLang, slug: string): string {
     return u.toString();
 }
 
-export function pinImageUrl(lang: PinLang, slug: string): string {
-    return `${SITE}/pins/${lang}/${slug}.jpg`;
+export function pinImageUrl(lang: PinLang, slug: string, ext: 'jpg' | 'png' = 'jpg'): string {
+    return `${SITE}/pins/${lang}/${slug}.${ext}`;
 }
 
 export interface PinItem {
@@ -183,6 +224,8 @@ export interface PinItem {
     link: string;
     image: string;
     imageBytes: number;
+    /** Standaard image/jpeg; DAM-pins zijn PNG en gaan ongewijzigd de feed in. */
+    imageMime?: string;
     date: Date;
 }
 
@@ -211,8 +254,8 @@ export function renderFeed(items: PinItem[], builtAt: Date): string {
                 `      <guid isPermaLink="false">pin-${ymd(it.date)}-${it.lang}-${xmlEscape(it.slug)}</guid>`,
                 `      <pubDate>${pub.toUTCString()}</pubDate>`,
                 `      <description>${xmlEscape(it.description)}</description>`,
-                `      <enclosure url="${xmlEscape(it.image)}" length="${it.imageBytes}" type="image/jpeg" />`,
-                `      <media:content url="${xmlEscape(it.image)}" medium="image" type="image/jpeg" width="1000" height="1500" />`,
+                `      <enclosure url="${xmlEscape(it.image)}" length="${it.imageBytes}" type="${it.imageMime ?? 'image/jpeg'}" />`,
+                `      <media:content url="${xmlEscape(it.image)}" medium="image" type="${it.imageMime ?? 'image/jpeg'}" width="1000" height="1500" />`,
                 '    </item>',
             ].join('\n');
         })
