@@ -27,6 +27,7 @@
     "test:cta-wine-retail": "node --test scripts/lat3726-cta-wine-retail.test.mjs",
     "test:beeld-herkomst": "node --test scripts/lat4776-beeld-herkomst.test.mjs",
     "test:beeld-credits": "node --test scripts/lat12054-beeld-credits.test.mjs",
+    "test:herkomst-shapes": "node --test scripts/lat12110-herkomst-shapes.test.mjs",
     "test:c2pa": "node --test scripts/lat12054-c2pa.test.mjs",
     "test:picture": "node --test scripts/lat12054-picture.test.mjs",
     "test:og-default": "node --test scripts/lat4755-og-default.test.mjs",
