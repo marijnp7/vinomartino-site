@@ -97,6 +97,17 @@ on:
         required: false
         default: false
         type: boolean
+  schedule:
+    # LAT-12122: geen enkele trigger draaide op de dag dat een vooruit
+    # geplande `pub_date` aanbreekt — de build-filter (src/lib/articles.ts,
+    # `pub_date <= $NOW`) is server-side correct, maar zonder cron wordt hij
+    # pas geëvalueerd bij de eerstvolgende toevallige push of dispatch.
+    # Cron is UTC; 02:00 UTC ligt ruim na 00:00 lokaal (Europe/Amsterdam,
+    # zowel CET als CEST) én ruim na de datumwissel op de Directus-server
+    # waar het filter tegen vergelijkt. `schedule` heeft geen inputs, dus
+    # target=auto in stap 1 hierboven volgt de ref — die is voor een
+    # scheduled run de default branch (main) → production.
+    - cron: "0 2 * * *"
 
 concurrency:
   group: vinomartino-write
