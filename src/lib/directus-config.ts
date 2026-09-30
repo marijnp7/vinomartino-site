@@ -274,6 +274,23 @@ export function assetUrl(directusUrl: string, assetId: string): string {
     return `${directusUrl}/assets/${assetId}?${ASSET_TRANSFORM}`;
 }
 
+/**
+ * LAT-12116 — een DAM-asset die AL het eindbeeld IS, haal je zonder transform op.
+ *
+ * `assetUrl()` is gemaakt voor hero-foto's: 3-7 MB originelen die naar 1600px
+ * JPEG moeten. Op een goedgekeurde Pinterest-pin (png 1000x1500) doet diezelfde
+ * transform precies het verkeerde: `width=1600` zonder hoogte schaalt hem OP naar
+ * 1600x2400 en `format=jpg` hertranscodeert hem naar JPEG. `buildDamPins` keurde
+ * het resultaat daarna af op zijn eigen formaateis (png 1000x1500), dus vielen
+ * alle vijf pins van zet 5 stil uit `/pins.xml` terwijl de bestanden in Directus
+ * exact klopten. De diagnose wees eerst de assets aan; het was de ophaalroute.
+ *
+ * Een pin is een eindbeeld: byte-voor-byte de feed in, nooit hertranscoderen.
+ */
+export function damAssetUrl(directusUrl: string, assetId: string): string {
+    return `${directusUrl}/assets/${assetId}`;
+}
+
 /** Directus query fragment selecting only publishable rows. */
 export function statusFilterQuery(env: DirectusEnv): string {
     return env.includeDrafts
