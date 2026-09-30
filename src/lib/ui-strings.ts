@@ -530,7 +530,7 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'landen.index.hero.h1': 'Wijnen & wijnstreken per land',
     'landen.index.hero.desc': 'De grote wijnlanden van Europa, per land de streken, druivenrassen, tradities en reistips die ertoe doen.',
     'landen.index.empty.title': 'Landengidsen komen eraan',
-    'landen.index.empty.descPre': "We werken aan uitgebreide wijnlandgidsen op basis van eigen bezoek aan de regio's.",
+    'landen.index.empty.descPre': 'We werken aan uitgebreide wijnlandgidsen. Begin ondertussen bij de ',
     'landen.index.empty.descLink': '',
     'landen.index.empty.descPost': '',
 
