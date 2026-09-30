@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os';
 import sharp from 'sharp';
 import { join } from 'node:path';
 import { loadArticles, type Article } from './articles';
-import { assetUrl, readDirectusEnv, withAssetSlot } from './directus-config';
+import { damAssetUrl, readDirectusEnv, withAssetSlot } from './directus-config';
 import { creditRequiredForAsset } from './hero-credit-guard';
 import { getImageCredit } from './image-credits';
 import { isSyntheticImage, loadSyntheticImageIds } from './synthetic-images';
@@ -177,7 +177,10 @@ async function buildDamPins(
             if (!env.configured) { skip('dam: geen Directus'); console.warn(`${tag} uit de feed: Directus niet geconfigureerd`); continue; }
             try {
                 const buf = await withAssetSlot(async () => {
-                    const res = await fetch(assetUrl(env.url, p.fileId), {
+                    // LAT-12116: damAssetUrl, NIET assetUrl. Zie de toelichting daar:
+                    // de hero-transform schaalt deze pin op naar jpeg 1600x2400 en de
+                    // formaatcheck hieronder keurde hem dan af.
+                    const res = await fetch(damAssetUrl(env.url, p.fileId), {
                         headers: { Authorization: `Bearer ${env.token}` },
                         signal: AbortSignal.timeout(20000),
                     });
