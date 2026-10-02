@@ -165,18 +165,23 @@ const ontdekPromo = {
           <kbd class="search-trigger-kbd" aria-hidden="true">⌘K</kbd>
         </button>
 
-        <button
-          class="cellar-toggle"
-          type="button"
-          aria-label={ui.t('header.cellar.enterAria')}
-          aria-pressed="false"
-          data-cellar-toggle
-        >
-          <span class="cellar-icon cellar-icon--enter" aria-hidden="true">🌙</span>
-          <span class="cellar-icon cellar-icon--exit" aria-hidden="true">☀️</span>
-          <span class="cellar-label cellar-label--enter">{ui.t('header.cellar.enterLabel')}</span>
-          <span class="cellar-label cellar-label--exit">{ui.t('header.cellar.exitLabel')}</span>
-        </button>
+        <span class="cellar-wrap">
+          <button
+            class="cellar-toggle"
+            type="button"
+            aria-label={ui.t('header.cellar.enterAria')}
+            aria-pressed="false"
+            data-cellar-toggle
+          >
+            <span class="cellar-icon cellar-icon--enter" aria-hidden="true">🌙</span>
+            <span class="cellar-icon cellar-icon--exit" aria-hidden="true">☀️</span>
+            <span class="cellar-label cellar-label--enter">{ui.t('header.cellar.enterLabel')}</span>
+            <span class="cellar-label cellar-label--exit">{ui.t('header.cellar.exitLabel')}</span>
+          </button>
+          <span class="cellar-tip" id="cellar-tip" role="tooltip" data-cellar-tip hidden>
+            {ui.t('header.cellar.tipText')}
+          </span>
+        </span>
 
         <button class="mobile-toggle" aria-label={ui.t('header.mobile.menuAria')} aria-expanded="false" aria-controls="mobile-menu">
           <span></span><span></span><span></span>
@@ -539,6 +544,48 @@ const ontdekPromo = {
     color: var(--gold);
     border-color: var(--gold);
   }
+  .cellar-wrap {
+    position: relative;
+    display: inline-flex;
+  }
+  .cellar-tip {
+    position: absolute;
+    top: calc(100% + 0.625rem);
+    right: 0;
+    z-index: 5;
+    box-sizing: border-box;
+    width: max-content;
+    max-width: min(16rem, calc(100vw - 2 * var(--gutter) - 3rem));
+    padding: 0.625rem 0.75rem;
+    background: var(--ink);
+    color: var(--paper);
+    font-family: var(--font-ui);
+    font-size: 0.8125rem;
+    line-height: 1.4;
+    letter-spacing: normal;
+    text-transform: none;
+    text-align: left;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+    opacity: 0;
+    transition: opacity var(--duration-base) var(--ease-out);
+  }
+  .cellar-tip[data-visible] { opacity: 1; }
+  .cellar-tip::before {
+    content: '';
+    position: absolute;
+    bottom: 100%;
+    right: 1.25rem;
+    border: 0.375rem solid transparent;
+    border-bottom-color: var(--ink);
+    border-top-width: 0;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .cellar-tip { transition: none; }
+  }
+  @media print {
+    .cellar-tip { display: none; }
+  }
   .cellar-icon { font-size: 0.75rem; }
 
   /* State-afhankelijk label + icoon: lichte modus nodigt uit "naar de kelder",
@@ -725,5 +772,45 @@ const ontdekPromo = {
 
   if (cellarToggle) {
     syncCellarLabel(document.documentElement.getAttribute('data-theme') === 'cellar');
+  }
+
+  // LAT-12300 — eerste-gebruik-tooltip. Eénmalig: de vlag wordt gezet bij tonen,
+  // zodat ook een timeout-sluiting niet terugkomt. Wie het thema al eens koos
+  // (vm-theme) of nu in cellar staat, kent de knop en krijgt niets.
+  const cellarTip = document.querySelector('[data-cellar-tip]') as HTMLElement | null;
+  if (cellarToggle && cellarTip) {
+    const TIP_KEY = 'vm-cellar-tip-seen';
+    let tipTimer: number | undefined;
+    let tipShowTimer: number | undefined;
+    const hideTip = () => {
+      window.clearTimeout(tipTimer);
+      window.clearTimeout(tipShowTimer);
+      cellarTip.removeAttribute('data-visible');
+      cellarTip.hidden = true;
+      cellarToggle.removeAttribute('aria-describedby');
+      document.removeEventListener('keydown', onTipKey);
+      document.removeEventListener('pointerdown', hideTip, true);
+    };
+    const onTipKey = (e: KeyboardEvent) => { if (e.key === 'Escape') hideTip(); };
+    let eligible = false;
+    try {
+      eligible =
+        !localStorage.getItem(TIP_KEY) &&
+        !localStorage.getItem('vm-theme') &&
+        document.documentElement.getAttribute('data-theme') !== 'cellar';
+    } catch (_) { /* localStorage geblokkeerd: niet tonen, we kunnen "eenmalig" niet garanderen */ }
+    if (eligible) {
+      tipShowTimer = window.setTimeout(() => {
+        try { localStorage.setItem(TIP_KEY, '1'); } catch (_) { return; }
+        cellarToggle.setAttribute('aria-describedby', cellarTip.id);
+        cellarTip.hidden = false;
+        window.requestAnimationFrame(() => cellarTip.setAttribute('data-visible', ''));
+        document.addEventListener('keydown', onTipKey);
+        document.addEventListener('pointerdown', hideTip, true);
+        tipTimer = window.setTimeout(hideTip, 10000);
+      }, 1500);
+      cellarTip.addEventListener('click', hideTip);
+      cellarToggle.addEventListener('click', hideTip);
+    }
   }
 </script>

@@ -198,6 +198,7 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'header.cellar.enterAria': 'Ga naar de kelder (donkere modus)',
     'header.cellar.enterLabel': 'Naar de kelder',
     'header.cellar.exitLabel': 'Naar buiten',
+    'header.cellar.tipText': 'Te fel voor je ogen? Lees in de donkere kelder-modus.',
     'header.mobile.menuAria': 'Menu openen',
     'header.mobile.ontdekHeader': 'Kies je bestemming',
     'header.mobile.ontdekSubhead': 'Ontdek een wijnregio',
@@ -702,6 +703,9 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
  * nog geen EN-values heeft.  Volgorde in t(): Directus → UI_STRING_EN → UI_STRING_DEFAULTS.
  */
 export const UI_STRING_EN: Record<string, string> = {
+  // LAT-12300 — eerste-gebruik-tooltip bij de kelder-toggle.
+  'header.cellar.tipText': 'Too bright? Read in dark cellar mode.',
+
   // LAT-11950 — het promoblok in "Ontdek" claimde eigen bezoek voor élke
   // landengids, ook op /en/. Deze keys stonden alleen in UI_STRING_DEFAULTS, dus
   // /en/ kreeg de Nederlandse zin; met de herschrijving krijgt /en/ nu ook de

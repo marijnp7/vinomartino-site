@@ -1,0 +1,56 @@
+# LAT-12300 / pakket C — C4: productie-verificatie van de kelder-tooltip.
+# CI-only, ephemeer Playwright (zie lat2735-mobile-overflow-baseline.yml voor de reden).
+# Draait op verzoek ná de deploy; exit 1 bij een gefaalde controle.
+
+name: Cellar tooltip verify (C4)
+
+on:
+  workflow_dispatch:
+    inputs:
+      site:
+        description: "Te toetsen site"
+        required: false
+        default: "https://vinomartino.com"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cellar-tip-verify
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      VERIFY_SITE: ${{ github.event.inputs.site || 'https://vinomartino.com' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install Playwright + chromium
+        run: |
+          npm install --no-save playwright@1.58.2
+          npx playwright install --with-deps chromium
+      - name: Verify
+        run: node scripts/lat12300-cellar-tip-verify.mjs | tee cellar-tip-verify.json
+      - name: Samenvatting
+        if: always()
+        run: |
+          python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          try:
+              d=json.load(open('cellar-tip-verify.json'))
+          except Exception:
+              print('Geen rapport.'); raise SystemExit
+          print(f"**{d['total']-d['failed']}/{d['total']} geslaagd** op {d['site']}\n")
+          for r in d['results']:
+              print(f"- {'PASS' if r['pass'] else 'FAIL'} {r['name']}" + (f" ({r['detail']})" if r.get('detail') else ''))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cellar-tip-verify
+          path: cellar-tip-verify.json
