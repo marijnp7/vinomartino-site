@@ -17,9 +17,13 @@
 #   - /root/vinomartino-site/.env            -> DIRECTUS_URL + DIRECTUS_TOKEN
 #     (hetzelfde bestand dat deploy.yml's "Build on VPS"-stap al kopieert en
 #     leest, bewezen werkend, read-only query op de articles-collection)
-#   - /opt/paperclip-cos/.env.publish-dispatcher -> GH_TOKEN met actions:write
-#     (hetzelfde bestand dat de bestaande dispatcher al gebruikt om publish.yml
-#     te dispatchen; actions:write is repo-breed, dus ook geldig voor deploy.yml)
+#   - /root/.agent-secrets/github-publish.env -> GH_TOKEN met actions:write
+#     (zelfde bestand en dezelfde token als LAT-4666/LAT-5144 al bevestigden
+#     voor workflow_dispatch; sha256(16)=2fe4c9c5469826aa, enige key = GH_TOKEN.
+#     .env.publish-dispatcher zelf is NIET bruikbaar: die draagt alleen
+#     GH_TOKEN_FILE (een pad, geen inline waarde, LAT-12199 diagnose-run
+#     36825630720) en is de credential van de bestaande dispatcher-service
+#     zelf — expres niet aangeraakt, dit blijft puur additief)
 #
 # Elke poll (15 min): vraag het meest recente artikel met
 # status=published AND pub_date<=$NOW op (dezelfde filter als
@@ -90,7 +94,7 @@ jobs:
           DIAG: |
             set -uo pipefail
             echo "=== credential-bestanden (alleen aanwezigheid + mode, nooit inhoud) ==="
-            for f in /root/vinomartino-site/.env /opt/paperclip-cos/.env.publish-dispatcher; do
+            for f in /root/vinomartino-site/.env /root/.agent-secrets/github-publish.env; do
               if [ -e "$f" ]; then
                 echo "AANWEZIG $(stat -c '%A %U:%G %n' "$f")"
               else
@@ -101,8 +105,8 @@ jobs:
             echo "=== keys in /root/vinomartino-site/.env (nooit waarden) ==="
             sed -n 's/^\([A-Za-z_][A-Za-z0-9_]*\)=.*/\1/p' /root/vinomartino-site/.env 2>/dev/null | paste -sd, -
 
-            echo "=== keys in .env.publish-dispatcher (nooit waarden) ==="
-            sed -n 's/^\([A-Za-z_][A-Za-z0-9_]*\)=.*/\1/p' /opt/paperclip-cos/.env.publish-dispatcher 2>/dev/null | paste -sd, -
+            echo "=== keys in github-publish.env (nooit waarden) ==="
+            sed -n 's/^\([A-Za-z_][A-Za-z0-9_]*\)=.*/\1/p' /root/.agent-secrets/github-publish.env 2>/dev/null | paste -sd, -
 
             echo "=== bestaat het directus_directus_net netwerk? ==="
             docker network inspect directus_directus_net >/dev/null 2>&1 \
@@ -125,7 +129,7 @@ jobs:
             set -euo pipefail
             cd /opt/paperclip-cos
 
-            for f in /root/vinomartino-site/.env /opt/paperclip-cos/.env.publish-dispatcher; do
+            for f in /root/vinomartino-site/.env /root/.agent-secrets/github-publish.env; do
               [ -e "$f" ] || { echo "ONTBREEKT $f, installatie afgebroken"; exit 1; }
             done
             docker network inspect directus_directus_net >/dev/null 2>&1 \
@@ -183,7 +187,7 @@ jobs:
                   - ./lat920/pubdate-poll:/poll:ro
                   - ./lat920/pubdate-poll-state:/state
                   - /root/vinomartino-site/.env:/site-env/.env:ro
-                  - /opt/paperclip-cos/.env.publish-dispatcher:/gh-env/.env:ro
+                  - /root/.agent-secrets/github-publish.env:/gh-env/.env:ro
             networks:
               directus_directus_net:
                 external: true
