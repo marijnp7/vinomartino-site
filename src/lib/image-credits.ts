@@ -119,6 +119,7 @@ const CREDITS: Record<string, ImageCredit> = {
         author: '© Matteo Aresca 05 / Wikimedia Commons',
         licenseLabel: 'CC BY-SA 4.0',
         licenseUrl: CC_BY_SA_40,
+        adapted: true,
     },
     // LAT-12024 Rioja-overnachten (Wikimedia Commons, eigen werk van de fotograaf). Beide
     // gaan door `gradeBuffer` (Warm-preset) en de kaart snijdt bij: dat is een bewerking,
