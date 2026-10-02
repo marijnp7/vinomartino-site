@@ -1,0 +1,120 @@
+# LAT-7344 — verplaats backup-pins van de hoofdschijf naar B2.
+# Besluit: board-approval f1b3ad4c-da63-4597-9f4f-a27a5ca0e5c7 (Marijn, 2026-10-02): pin-offload
+# naar B2 uitvoeren, upload vóór verwijderen, sha-check vóór unlink.
+# Zelfde GHA->VPS SSH-kanaal als lat6686-volume-cleanup.yml / lat6326-disk-cleanup.yml — nodig
+# omdat `docker run` (create+start) via de scoped docker-proxy "forbidden" is; dit script host-shell
+# draait, buiten de proxy om, en mount uitsluitend de named volume paperclip_home (rw) +
+# /opt/paperclip-cos/directus-backup (ro, voor de B2-sleutel) in een wegwerp-container.
+#
+# Script is NIET input-gestuurd: het voert precies ops/lat7344-pin-b2-offload.py uit, dat zelf
+# alleen bestanden in /paperclip/backup-pins aanraakt (upload -> dubbele sha1-verify -> pas dan
+# unlink). Geen ander pad, geen named volume buiten paperclip_home, geen draaiende container.
+#
+# Drie modes:
+#   measure   — alleen lezen: --dry-run van het offload-script (toont wat zou gebeuren).
+#   apply     — echte upload + verify + unlink, zoals goedgekeurd.
+#   verify    — alleen lezen: pin-dir inhoud + manifest na apply.
+
+name: LAT-7344 pin B2 offload
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'measure = dry-run; apply = echte upload+unlink; verify = alleen aflezen'
+        required: true
+        default: measure
+        type: choice
+        options:
+          - measure
+          - apply
+          - verify
+
+concurrency:
+  group: lat7344-pin-b2-offload
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          cat >> ~/.ssh/config <<EOF
+          Host $VPS_HOST
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+          EOF
+          cat "$GITHUB_WORKSPACE/ops/ssh-config-snippet" >> ~/.ssh/config
+          ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      # ---------------------------------------------------------------- measure (dry-run)
+      - name: Measure / dry-run (no writes)
+        if: inputs.mode == 'measure'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          MEASURE: |
+            set -uo pipefail
+            echo "=== df ==="
+            df -h /
+            echo
+            echo "=== dry-run offload-script ==="
+            docker run --rm \
+              -v paperclip_home:/ph:ro \
+              -v /opt/paperclip-cos/directus-backup:/secrets:ro \
+              python:3-alpine \
+              sh -c 'set -a; . /secrets/backup.env; set +a; python3 /ph/ops/lat7344-pin-b2-offload.py --dry-run'
+        run: |
+          printf '%s\n' "$MEASURE" | ssh "$VPS" "bash -s"
+
+      # ---------------------------------------------------------------- apply
+      - name: Apply (upload to B2, verify, then unlink)
+        if: inputs.mode == 'apply'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          APPLY: |
+            set -uo pipefail
+            echo "=== df BEFORE ==="
+            df -h /
+            echo
+            echo "=== offload-script (apply) ==="
+            docker run --rm \
+              -v paperclip_home:/ph \
+              -v /opt/paperclip-cos/directus-backup:/secrets:ro \
+              python:3-alpine \
+              sh -c 'set -a; . /secrets/backup.env; set +a; python3 /ph/ops/lat7344-pin-b2-offload.py'
+            echo
+            echo "=== df AFTER ==="
+            df -h /
+        run: |
+          printf '%s\n' "$APPLY" | ssh "$VPS" "bash -s"
+
+      # ---------------------------------------------------------------- verify
+      - name: Verify (read-only)
+        if: inputs.mode == 'verify'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          VERIFY: |
+            set -uo pipefail
+            echo "=== df ==="
+            df -h /
+            echo
+            echo "=== pin-dir ==="
+            docker run --rm -v paperclip_home:/ph:ro python:3-alpine \
+              sh -c 'ls -la /ph/backup-pins; echo; echo "--- manifest ---"; cat /ph/backup-pins/.b2-offload-manifest.jsonl 2>/dev/null | tail -20'
+        run: |
+          printf '%s\n' "$VERIFY" | ssh "$VPS" "bash -s"
