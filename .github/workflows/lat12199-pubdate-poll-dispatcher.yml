@@ -139,7 +139,11 @@ jobs:
 
             cat > lat920/pubdate-poll/poll.sh <<'POLLEOF'
             #!/bin/sh
-            set -eu
+            # Expres GEEN `set -e`: elke cyclus moet altijd zijn eigen uitkomst loggen,
+            # ook bij een mislukte curl, anders is een stille hang niet te onderscheiden
+            # van "niets nieuws" (LAT-12199, eerste install draaide muisstil door precies
+            # dit verschil niet te loggen).
+            set -u
             STATE_FILE=/state/pubdate-state.json
             GH_REPO="marijnp7/vinomartino-site"
             GH_WORKFLOW="deploy.yml"
@@ -149,25 +153,39 @@ jobs:
             [ -f /gh-env/.env ] && . /gh-env/.env
             set +a
 
+            echo "$(date -u +%FT%TZ) poll.sh gestart, DIRECTUS_URL key aanwezig: $([ -n "${DIRECTUS_URL:-}" ] && echo ja || echo nee), GH_TOKEN key aanwezig: $([ -n "${GH_TOKEN:-}" ] && echo ja || echo nee)"
+
             while true; do
-              RESP=$(curl -fsS -H "Authorization: Bearer $DIRECTUS_TOKEN" \
-                "$DIRECTUS_URL/items/articles?filter[status][_eq]=published&filter[pub_date][_lte]=\$NOW&fields=id,pub_date&sort=-pub_date&limit=1" \
-                2>/dev/null || echo '{}')
-              MAX_ID=$(printf '%s' "$RESP" | jq -r '.data[0].id // empty' 2>/dev/null || true)
-              MAX_PUBDATE=$(printf '%s' "$RESP" | jq -r '.data[0].pub_date // empty' 2>/dev/null || true)
+              HTTP_CODE=$(curl -s -o /tmp/resp.json -w '%{http_code}' \
+                -H "Authorization: Bearer ${DIRECTUS_TOKEN:-}" \
+                "${DIRECTUS_URL:-}/items/articles?filter[status][_eq]=published&filter[pub_date][_lte]=\$NOW&fields=id,pub_date&sort=-pub_date&limit=1" \
+                2>/tmp/curl.err)
+              RESP=$(cat /tmp/resp.json 2>/dev/null)
+              MAX_ID=$(printf '%s' "$RESP" | jq -r '.data[0].id // empty' 2>/dev/null)
+              MAX_PUBDATE=$(printf '%s' "$RESP" | jq -r '.data[0].pub_date // empty' 2>/dev/null)
 
               LAST_ID=""
-              [ -f "$STATE_FILE" ] && LAST_ID=$(jq -r '.lastDispatchedId // empty' "$STATE_FILE" 2>/dev/null || true)
+              if [ -f "$STATE_FILE" ]; then
+                LAST_ID=$(jq -r '.lastDispatchedId // empty' "$STATE_FILE" 2>/dev/null)
+              fi
 
-              if [ -n "$MAX_ID" ] && [ "$MAX_ID" != "$LAST_ID" ]; then
+              echo "$(date -u +%FT%TZ) poll: directus_http=$HTTP_CODE max_id=${MAX_ID:-leeg} max_pubdate=${MAX_PUBDATE:-leeg} last_id=${LAST_ID:-leeg}"
+
+              if [ "$HTTP_CODE" != "200" ]; then
+                echo "$(date -u +%FT%TZ) directus-query mislukt (http=$HTTP_CODE), curl-stderr: $(cat /tmp/curl.err 2>/dev/null)"
+              elif [ -n "$MAX_ID" ] && [ "$MAX_ID" != "$LAST_ID" ]; then
                 echo "$(date -u +%FT%TZ) nieuw artikel over pub_date-grens: id=$MAX_ID pub_date=$MAX_PUBDATE -> dispatch deploy.yml"
-                curl -fsS -X POST \
-                  -H "Authorization: Bearer $GH_TOKEN" \
+                DISPATCH_CODE=$(curl -s -o /tmp/dispatch.json -w '%{http_code}' -X POST \
+                  -H "Authorization: Bearer ${GH_TOKEN:-}" \
                   -H "Accept: application/vnd.github+json" \
                   "https://api.github.com/repos/$GH_REPO/actions/workflows/$GH_WORKFLOW/dispatches" \
-                  -d "{\"ref\":\"main\",\"inputs\":{\"target\":\"production\"}}" \
-                  && printf '{"lastDispatchedId":"%s","lastDispatchedAt":"%s"}\n' "$MAX_ID" "$(date -u +%FT%TZ)" > "$STATE_FILE" \
-                  || echo "$(date -u +%FT%TZ) dispatch mislukt, geen state-update, volgende poll probeert opnieuw"
+                  -d "{\"ref\":\"main\",\"inputs\":{\"target\":\"production\"}}")
+                echo "$(date -u +%FT%TZ) dispatch http=$DISPATCH_CODE"
+                if [ "$DISPATCH_CODE" = "204" ]; then
+                  printf '{"lastDispatchedId":"%s","lastDispatchedAt":"%s"}\n' "$MAX_ID" "$(date -u +%FT%TZ)" > "$STATE_FILE"
+                else
+                  echo "$(date -u +%FT%TZ) dispatch mislukt, geen state-update, volgende poll probeert opnieuw"
+                fi
               fi
               sleep 900
             done
