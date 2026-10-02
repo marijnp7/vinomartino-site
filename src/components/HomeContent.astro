@@ -4,7 +4,7 @@ import ZelfGereisdBadge from '../components/ZelfGereisdBadge.astro';
 import Briefkaart from '../components/Briefkaart.astro';
 import HomeRoutesMap from '../components/HomeRoutesMap.astro';
 import DiscoverMapEurope from '../components/DiscoverMapEurope.astro';
-import NewsletterRegionField from '../components/NewsletterRegionField.astro';
+import SubstackCta from '../components/SubstackCta.astro';
 import { loadArticles } from '../lib/articles';
 import { loadRoutes } from '../lib/routes';
 import { loadStreken } from '../lib/streken';
@@ -34,13 +34,6 @@ const ui = await loadUiStrings(locale);
 const syntheticIds = await loadSyntheticImageIds();
 const herkomst = (src: string | null | undefined) => syntheticImageAttrs(syntheticIds, null, src);
 const dateLocale = locale === 'en' ? 'en-GB' : 'nl-NL';
-
-// LAT-2008 (VIS-BL-09) — De Brief inline op de homepage. Zelfde MailerLite-
-// capture als /de-brief/ (LAT-1631, form-ID door Marijn bevestigd), override via
-// PUBLIC_MAILERLITE_FORM_ACTION zodat homepage en briefpagina niet divergeren.
-const BRIEF_FORM_ACTION =
-  import.meta.env.PUBLIC_MAILERLITE_FORM_ACTION ||
-  'https://assets.mailerlite.com/jsonp/2415940/forms/189828746131277541/subscribe';
 
 // LAT-1848: render altijd de gecanoniseerde auteursnaam uit het auteur-record
 // (bv. "Marijn") i.p.v. het ruwe Directus author-veld (dat nog "Martin" kan zijn).
@@ -424,27 +417,9 @@ function formatDate(value?: string | null) {
         <p>
           {ui.t('home.brief.body')}
         </p>
-        <form
-          class="brief-signup"
-          action={BRIEF_FORM_ACTION}
-          method="post"
-          target="_blank"
-          data-newsletter-signup
-        >
-          <div class="brief-signup__row">
-            <label for="brief-email" class="visually-hidden">{ui.t('home.brief.emailLabel')}</label>
-            <input
-              id="brief-email"
-              type="email"
-              name="fields[email]"
-              autocomplete="email"
-              placeholder={ui.t('home.brief.emailPlaceholder')}
-              required
-            />
-            <button type="submit" class="btn btn-primary" data-cta-id="newsletter_signup">{ui.t('home.brief.submit')}</button>
-          </div>
-          <NewsletterRegionField id="brief-region" locale={locale} />
-        </form>
+        <div class="brief-signup">
+          <SubstackCta placement="home-brief" ctaId="newsletter_signup" label={ui.t('home.brief.submit')} />
+        </div>
       </Briefkaart>
     </div>
   </section>

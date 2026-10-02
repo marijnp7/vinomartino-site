@@ -1,0 +1,38 @@
+---
+import { substackSubscribeUrl } from '../lib/social';
+
+interface Props {
+  /** utm_campaign: de plek op de site. */
+  placement: string;
+  label: string;
+  /** Behoudt de bestaande cta_click-attributie (site-events). */
+  ctaId: string;
+}
+
+const { placement, label, ctaId } = Astro.props;
+const href = substackSubscribeUrl(placement);
+---
+
+{href && (
+  <a class="substack-cta" href={href} target="_blank" rel="noopener" data-cta-id={ctaId}>{label}</a>
+)}
+
+<style>
+  .substack-cta {
+    display: inline-block;
+    background: var(--color-primary);
+    color: var(--color-bg);
+    padding: 0.75rem 1.25rem;
+    font-family: var(--font-ui);
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  .substack-cta:hover,
+  .substack-cta:focus-visible {
+    background: var(--color-primary-hover, var(--color-primary));
+  }
+</style>
