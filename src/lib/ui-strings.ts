@@ -757,13 +757,13 @@ export const UI_STRING_EN: Record<string, string> = {
     'langhe.capture.a.koptekst': 'More from the Langhe in your inbox',
     'langhe.capture.a.body': 'This article gives you the essentials. Want more: where we tasted, which wineries stayed with us and what a trip like this costs? That is in The Letter, which Marijn writes every two weeks.',
     'langhe.capture.a.ctaText': 'Subscribe to The Letter',
-    'langhe.capture.a.subCopy': 'Every two weeks you\'ll also receive The Brief: about wine, travel, and the people behind it. Unsubscribe anytime.',
+    'langhe.capture.a.subCopy': 'Every two weeks you\'ll also receive The Letter: about wine, travel, and the people behind it. Unsubscribe anytime.',
 
     // LangheCaptureBlock.astro — Langhe capture (variant c = homepage-style).
     'langhe.capture.c.koptekst': 'Start with Piedmont',
     'langhe.capture.c.body': 'If you want to know where to begin in the Langhe: in The Letter I write about routes, wineries and what it costs, from personal experience.',
     'langhe.capture.c.ctaText': 'Subscribe to The Letter',
-    'langhe.capture.c.subCopy': 'Every two weeks The Brief follows: about wine and travel from personal experience.',
+    'langhe.capture.c.subCopy': 'Every two weeks The Letter follows: about wine and travel from personal experience.',
 
     // RhoneMap.astro — kaart-chrome (LAT-4909). `rhonemap.aria.mapPre` is in
     // Directus geseed (LAT-2848) maar had nog geen code-level fallback: bij een

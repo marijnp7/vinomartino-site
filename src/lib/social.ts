@@ -14,6 +14,9 @@
  * Rolverdeling (besluit Marijn 2026-10-02, LAT-12309): MailerLite is losgekoppeld;
  * Substack is het enige nieuwsbriefkanaal. Elke "De brief"-CTA op de site is een
  * link naar de Substack-aanmeldpagina met UTM (zie substackSubscribeUrl).
+ * Let op: PUBLIC_SUBSTACK_URL expliciet leeg = geen enkele aanmeldroute op de
+ * hele site (SubstackCta rendert niets); de var is dus een stille kill-switch
+ * voor de nieuwsbrief, niet alleen voor de footerlink.
  */
 
 function resolve(envValue: string | undefined, fallback: string): string {
