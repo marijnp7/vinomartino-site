@@ -128,6 +128,13 @@ const CREDITS: Record<string, ImageCredit> = {
         licenseUrl: CC_BY_SA_30,
         adapted: true,
     },
+    // Produttori del Barbaresco hero (DAM-1696, Wikimedia Commons) — LAT-12298
+    '10948025-1d1f-45ae-9973-a13507c02787': {
+        author: '© Matteo Aresca 05 / Wikimedia Commons',
+        licenseLabel: 'CC BY-SA 4.0',
+        licenseUrl: CC_BY_SA_40,
+        adapted: true,
+    },
 };
 
 export function getImageCredit(fileId: string | null | undefined): ImageCredit | null {
