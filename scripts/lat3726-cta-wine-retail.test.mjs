@@ -76,18 +76,14 @@ function stubDirectus(row) {
   };
 }
 
-test('zonder config blijft het huidige hardcoded gedrag intact', async () => {
+test('zonder config rendert een wine-retail-CTA niet (fail-closed, geen kaal grapedistrict-pad)', async () => {
   const cta = await loadModule('src/lib/cta-blocks.ts', 'cta-blocks');
   const link = { partner: 'wine-retail', query: 'Barolo' };
 
-  // Geen partner meegegeven → de oude fallback, ongewijzigd.
-  const href = cta.resolveCtaHref(link, 'cta-primary-langhe', 'nl');
-  assert.match(href, /^https:\/\/www\.grapedistrict\.nl\/search\?q=Barolo$/);
-  assert.equal(cta.ctaTrackPartner(link), 'grapedistrict');
-
-  // Een lege/uitgezette singleton levert null en mag hetzelfde opleveren.
-  assert.equal(cta.resolveCtaHref(link, 'cta-primary-langhe', 'nl', null), href);
-  assert.equal(cta.ctaTrackPartner(link, null), 'grapedistrict');
+  assert.equal(cta.ctaLinkAvailable(link, 'nl', null), false);
+  assert.equal(cta.ctaLinkAvailable(link), false);
+  assert.equal(cta.resolveCtaHref(link, 'cta-primary-langhe', 'nl', null), '');
+  assert.equal(cta.ctaTrackPartner(link, null), 'wine-retail');
 });
 
 test('loadCtaWineRetail fetcht alleen bij een wine-retail-CTA', async () => {
@@ -136,6 +132,52 @@ test('met config leveren beide wijnretail-paden dezelfde URL en hetzelfde label'
 
     // Geen grapedistrict-restant meer zodra de singleton gevuld is.
     assert.doesNotMatch(ctaHref, /grapedistrict/);
+  } finally {
+    stub.restore();
+  }
+});
+
+const DAISYCON_ROW = {
+  actief: true,
+  naam: 'Wijnkring',
+  search_template: 'https://bdt9.net/c/?si=18166&li=1786408&wi=433764&ws={sid}&dl=search%3Fq%3D{q2}',
+  tracker_partner: 'wijnkring',
+};
+
+test('Wijnkring: NL-only, sub-id per streek/plaatsing, zoekterm 2x gecodeerd binnen dl=', async () => {
+  const stub = stubDirectus(DAISYCON_ROW);
+  try {
+    const cta = await loadModule('src/lib/cta-blocks.ts', 'cta-blocks');
+    const wine = await loadModule('src/lib/wine-retail.ts', 'wine-retail');
+    const link = { partner: 'wine-retail', query: 'Benanti & Co' };
+
+    // EN: geen config laden, geen link, geen CTA.
+    assert.equal(await cta.loadCtaWineRetail([link], 'en'), null);
+    assert.equal(stub.calls(), 0);
+    assert.equal(await wine.wineRetailLink('Benanti', 'en', 'etna__x'), null);
+    assert.equal(cta.ctaLinkAvailable(link, 'en', null), false);
+
+    const partner = await cta.loadCtaWineRetail([link], 'nl');
+    assert.equal(cta.ctaLinkAvailable(link, 'nl', partner), true);
+
+    // Sub-id: `<streek-slug>__<plaatsing>`, diakrieten weg.
+    assert.equal(wine.wineRetailSubId('Côtes du Rhône', 'wijnhuis-wijnretail'), 'cotes-du-rhone__wijnhuis-wijnretail');
+    assert.equal(wine.wineRetailSubId('', 'cta-primary'), 'onbekend__cta-primary');
+
+    const href = cta.resolveCtaHref(link, 'cta-closing-etna', 'nl', partner);
+    assert.equal(
+      href,
+      'https://bdt9.net/c/?si=18166&li=1786408&wi=433764&ws=etna__cta-closing&dl=search%3Fq%3DBenanti%2520%2526%2520Co',
+    );
+    // Na een keer decoderen van dl (wat Daisycon doet) staat er een geldig, 1x gecodeerd pad.
+    const dl = new URL(href).searchParams.get('dl');
+    assert.equal(dl, 'search?q=Benanti%20%26%20Co');
+    assert.equal(new URL('https://www.wijnkring.nl/' + dl).searchParams.get('q'), 'Benanti & Co');
+    assert.equal(new URL(href).searchParams.get('ws'), 'etna__cta-closing');
+
+    const balk = await wine.wineRetailLink('Benanti & Co', 'nl', wine.wineRetailSubId('Etna', 'cta-closing'));
+    assert.equal(balk.href, href);
+    assert.equal(balk.partner, 'wijnkring');
   } finally {
     stub.restore();
   }

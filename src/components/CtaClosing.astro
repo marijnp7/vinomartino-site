@@ -19,11 +19,12 @@ const lh = (href: string) => localizeHref(href, locale);
 const ui = await loadUiStrings(locale);
 const placement = 'cta-closing';
 // LAT-3726 — wijnretail-config uit Directus; alleen geladen bij een wine-retail-CTA.
-const wineRetail = await loadCtaWineRetail([data?.link]);
-const href = data && ctaLinkAvailable(data.link) ? resolveCtaHref(data.link, `${placement}-${sid}`, locale, wineRetail) : '';
+const wineRetail = await loadCtaWineRetail([data?.link], locale);
+const available = !!data && ctaLinkAvailable(data.link, locale, wineRetail);
+const href = data && available ? resolveCtaHref(data.link, `${placement}-${sid}`, locale, wineRetail) : '';
 ---
 
-{data && ctaLinkAvailable(data.link) && (
+{data && available && (
   <aside class="vm-cta vm-cta--closing" aria-label={ui.t('ui.cta.closing.aria')}>
     {data.heading && <h3 class="vm-cta__heading">{data.heading}</h3>}
     <p class="vm-cta__recommendation">{data.recommendation}</p>

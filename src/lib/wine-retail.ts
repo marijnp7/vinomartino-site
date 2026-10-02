@@ -19,6 +19,35 @@
 // CTA-copy is een COPY-GATE: definitieve tekst via Lead Editor + Martin-check.
 
 import { readDirectusEnv, fetchDirectusCollection } from './directus-config';
+import type { Locale } from './i18n';
+
+/** Wijnkring levert alleen in NL (Daisycon-toelating 2026-09-30): elders geen link. */
+export function wineRetailAllowedFor(locale: Locale): boolean {
+  return locale === 'nl';
+}
+
+/** Streek + plaatsing → Daisycon `ws`-sub-id (`<streek-slug>__<plaatsing>`, zelfde conventie als CJ). */
+export function wineRetailSubId(streek: string, plaatsing: string): string {
+  const slug = streek
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return `${slug || 'onbekend'}__${plaatsing}`.slice(0, 100);
+}
+
+/**
+ * Vul een partner-template. `{q}` = zoekterm 1x gecodeerd. `{q2}` = 2x gecodeerd, voor
+ * een zoekterm binnen een gecodeerde `dl=`-parameter (Daisycon). `{sid}` = sub-id.
+ */
+export function fillWineRetailTemplate(template: string, query: string, sid: string): string {
+  const q = encodeURIComponent(query.trim());
+  return template
+    .split('{q2}').join(encodeURIComponent(q))
+    .split('{q}').join(q)
+    .split('{sid}').join(encodeURIComponent(sid));
+}
 
 export interface WineRetailPartner {
   /** Partner-naam, bv. 'Grandcrux' of 'Wijnvoordeel'. */
@@ -58,9 +87,9 @@ export function partnerFromRow(row: WineRetailRow | null | undefined): WineRetai
   const searchTemplate = trimmedString(row.search_template);
   const trackerPartner = trimmedString(row.tracker_partner);
   if (!naam || !searchTemplate || !trackerPartner) return null;
-  if (!searchTemplate.includes('{q}')) {
+  if (!searchTemplate.includes('{q}') && !searchTemplate.includes('{q2}')) {
     console.warn(
-      `[wine-retail] ${WINE_RETAIL_COLLECTION}.search_template mist de {q}-placeholder — link overgeslagen (LAT-3493).`,
+      `[wine-retail] ${WINE_RETAIL_COLLECTION}.search_template mist de {q}/{q2}-placeholder — link overgeslagen (LAT-3493).`,
     );
     return null;
   }
@@ -128,11 +157,15 @@ export interface WineRetailLink {
  * Retourneert null wanneer er (nog) geen programma is geconfigureerd, zodat de
  * aanroeper de slot simpelweg niet rendert.
  */
-export async function wineRetailLink(producent: string): Promise<WineRetailLink | null> {
-  if (!producent.trim()) return null;
+export async function wineRetailLink(
+  producent: string,
+  locale: Locale = 'nl',
+  sid = '',
+): Promise<WineRetailLink | null> {
+  if (!producent.trim() || !wineRetailAllowedFor(locale)) return null;
   const partner = await loadWineRetailPartner();
   if (!partner) return null;
-  const href = partner.searchTemplate.replace('{q}', encodeURIComponent(producent.trim()));
+  const href = fillWineRetailTemplate(partner.searchTemplate, producent, sid);
   return {
     href,
     partner: partner.trackerPartner,
