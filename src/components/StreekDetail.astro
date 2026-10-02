@@ -59,15 +59,6 @@ const pageUrl = new URL(`${localePrefix}/streken/${entry.slug}/`, Astro.site ?? 
 // per-accommodatie valuta (acc.valuta) wint als bron over de land-default.
 const streekValuta = currencyForLand(entry.landSlug);
 
-// LAT-2436: preselecteer de regiovraag in de nieuwsbrief-footer wanneer de streek
-// overeenkomt met een van de 4 MailerLite-routing-regio's (region_preference).
-const streekRegio = `${entry.slug} ${entry.landSlug ?? ''}`.toLowerCase();
-const newsletterRegion: 'Piemonte' | 'Toscane' | 'Alsace' | null =
-  /piemonte|langhe/.test(streekRegio) ? 'Piemonte'
-  : /toscane|toscana/.test(streekRegio) ? 'Toscane'
-  : /alsace|elzas/.test(streekRegio) ? 'Alsace'
-  : null;
-
 // LAT-1199: verticale kruimel Land → Streek.
 const hasParentLand = Boolean(entry.landSlug && entry.country);
 // LAT-1607: de afgesproken 3x3x3 gouden-standaard (LAT-1413/LAT-1599) wint.
@@ -470,7 +461,7 @@ const hasFactBox = Boolean(
     <AffiliateDisclosure locale={locale} />
   </article>
 
-  <NewsletterFooter defaultRegion={newsletterRegion} locale={locale} />
+  <NewsletterFooter locale={locale} />
 </SiteLayout>
 
 <style>

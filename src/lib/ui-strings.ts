@@ -278,9 +278,7 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'home.brief.dateline': 'De Brief · elke twee weken',
     'home.brief.heading': 'Elke twee weken een brief. Geen lijstjes.',
     'home.brief.body': 'Een persoonlijke brief van Marijn: wat we recent dronken, waar we waren, en welke fles ons opviel. Geen affiliate-deals, geen nieuwsbriefformule.',
-    'home.brief.emailLabel': 'E-mailadres',
-    'home.brief.emailPlaceholder': 'je@adres.nl',
-    'home.brief.submit': 'Stuur me de brief',
+    'home.brief.submit': 'Schrijf je in voor de brief',
 
     // Streek-feitenblok (StreekFeitenblok.astro, LAT-2009). Rij-labels + kop; de
     // tier-badge hergebruikt de bestaande `ui.badge.*`-keys.
@@ -377,25 +375,14 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'stay.price.fromPrefix': 'vanaf',
     'stay.price.upToPrefix': 'tot',
 
-    // NewsletterFooter.astro (LAT-2436) — MailerLite artikel/streek-footer. Merk-
-    // naam "VinoMartino" en de MailerLite-veldwaarden blijven ongewijzigd.
+    // NewsletterFooter.astro (LAT-2436) — artikel/streek-footer; CTA naar Substack
+    // (LAT-12309). Merknaam "VinoMartino" blijft ongewijzigd.
     'newsletter.footer.kicker': 'De brief · nieuwsbrief van VinoMartino',
     'newsletter.footer.heading': 'Wijnreisverhalen in je inbox',
-    'newsletter.footer.lede': 'Een paar keer per jaar stuurt Marijn een echte brief: over een wijnmaker die we net bezochten, een regio die opnieuw onze aandacht trok, een fles die indruk maakte. Vertel ons welke regio je het meest boeit, dan sturen we je verhalen op maat.',
-    'newsletter.footer.emailLabel': 'E-mailadres',
-    'newsletter.footer.emailPlaceholder': 'je@adres.nl',
-    'newsletter.footer.submit': 'Stuur me De brief',
-    'newsletter.footer.fineprint': 'Je ontvangt een e-mail om je aanmelding te bevestigen. Afmelden kan altijd, met één klik.',
+    'newsletter.footer.lede': 'Een paar keer per jaar stuurt Marijn een echte brief: over een wijnmaker die we net bezochten, een regio die opnieuw onze aandacht trok, een fles die indruk maakte.',
+    'newsletter.footer.submit': 'Schrijf je in voor De brief',
+    'newsletter.footer.fineprint': 'Aanmelden gaat via Substack: je ontvangt een e-mail om je aanmelding te bevestigen. Afmelden kan altijd, met één klik.',
 
-    // NewsletterRegionField.astro (LAT-2452) — gedeeld regio-keuzeveld. Alleen
-    // display-tekst; de MailerLite `value`-opties blijven literal.
-    'newsletter.region.label': 'Welke wijnregio interesseert jou het meest?',
-    'newsletter.region.optional': '(optioneel)',
-    // LAT-3209: op een lead-magnet-landingspagina is de regiokeuze verplicht,
-    // want die bepaalt welke versie de lezer krijgt. Zelfde veld, andere status.
-    'newsletter.region.required': '(verplicht)',
-    'newsletter.region.placeholder': 'Maak een keuze…',
-    'newsletter.region.optionOther': 'Een andere regio',
 
     // StreekKaart.astro (LAT-1592) — "de geld-pagina" dubbele kaart + POI-lijst.
     // introPrefix/introSuffix omsluiten de {streek}{, land}-interpolatie; de
@@ -680,16 +667,14 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     // LAT-2868 — LangheCaptureBlock (Langhe-PDF lead magnet). Stond als hardcoded
     // NL-`variants` in src/components/LangheCaptureBlock.astro; nu dictionary-driven
     // zodat de /en/-artikelpagina de EN-overlay krijgt (seed: ui-strings-en-lat2832).
-    'langhe.capture.a.koptekst': 'De volledige reisplanner als PDF',
-    'langhe.capture.a.body': 'Dit artikel geeft de kern. Als je de route daadwerkelijk rijdt, is er meer: telefoonnummers voor de wijnhuizen, openingstijden per seizoen, en een overzicht van wat elke dag kost. Dat staat in de compacte Langhe-PDF die ik stuur naar iedereen die zich aanmeldt voor De Brief.',
-    'langhe.capture.a.ctaText': 'Stuur me de Langhe-PDF',
+    'langhe.capture.a.koptekst': 'Meer uit de Langhe in je inbox',
+    'langhe.capture.a.body': 'Dit artikel geeft de kern. Wil je meer: waar we proefden, welke wijnhuizen ons bijbleven en wat zo’n reis kost? Dat staat in De Brief, die Marijn elke twee weken schrijft.',
+    'langhe.capture.a.ctaText': 'Schrijf je in voor De brief',
     'langhe.capture.a.subCopy': 'Elke twee weken ontvang je ook De Brief: over wijn, reizen en de mensen erachter. Uitschrijven kan altijd.',
     'langhe.capture.c.koptekst': 'Begin met Piemonte',
-    'langhe.capture.c.body': 'Als je wilt weten waar te beginnen in de Langhe: ik schreef een compacte reisplanner. Route, wijnhuizen, hotels, budget. Aanmelden voor De Brief, en hij is meteen van jou.',
-    'langhe.capture.c.ctaText': 'Stuur me de Langhe-PDF',
+    'langhe.capture.c.body': 'Wil je weten waar te beginnen in de Langhe? In De Brief schrijf ik over routes, wijnhuizen en wat het kost, vanuit eigen ervaring.',
+    'langhe.capture.c.ctaText': 'Schrijf je in voor De brief',
     'langhe.capture.c.subCopy': 'Elke twee weken volgt De Brief: over wijn en reizen vanuit eigen ervaring.',
-    'langhe.capture.email.label': 'E-mailadres',
-    'langhe.capture.email.placeholder': 'je@adres.nl',
 
     // LAT-2921 — HubBacklink (pillar-hub terugverwijzing, src/lib/hub-backlinks.ts).
     // Stond als hardcoded NL-`label` op het HubDef-target; nu dictionary-driven
@@ -768,21 +753,17 @@ export const UI_STRING_EN: Record<string, string> = {
     'streken.index.empty.descLink': 'articles',
     'streken.index.empty.descPost': '.',
 
-    // LangheCaptureBlock.astro — PDF lead magnet (variant a = mid-article).
-    'langhe.capture.a.koptekst': 'The complete travel planner as a PDF',
-    'langhe.capture.a.body': 'This article gives you the essentials. If you actually drive the route, there is more: phone numbers for the wineries, seasonal opening hours, and a daily cost breakdown. All of that is in the compact Langhe PDF I send to everyone who signs up for The Brief.',
-    'langhe.capture.a.ctaText': 'Send me the Langhe PDF',
-    'langhe.capture.a.subCopy': 'Every two weeks you\'ll also receive The Brief: about wine, travel, and the people behind it. Unsubscribe anytime.',
+    // LangheCaptureBlock.astro — Langhe capture (variant a = mid-article).
+    'langhe.capture.a.koptekst': 'More from the Langhe in your inbox',
+    'langhe.capture.a.body': 'This article gives you the essentials. Want more: where we tasted, which wineries stayed with us and what a trip like this costs? That is in The Letter, which Marijn writes every two weeks.',
+    'langhe.capture.a.ctaText': 'Subscribe to The Letter',
+    'langhe.capture.a.subCopy': 'Every two weeks you\'ll also receive The Letter: about wine, travel, and the people behind it. Unsubscribe anytime.',
 
-    // LangheCaptureBlock.astro — PDF lead magnet (variant c = homepage-style).
+    // LangheCaptureBlock.astro — Langhe capture (variant c = homepage-style).
     'langhe.capture.c.koptekst': 'Start with Piedmont',
-    'langhe.capture.c.body': 'If you want to know where to begin in the Langhe: I wrote a compact travel planner. Route, wineries, hotels, budget. Sign up for The Brief and it\'s yours immediately.',
-    'langhe.capture.c.ctaText': 'Send me the Langhe PDF',
-    'langhe.capture.c.subCopy': 'Every two weeks The Brief follows: about wine and travel from personal experience.',
-
-    // LangheCaptureBlock.astro — gedeeld e-mail veld.
-    'langhe.capture.email.label': 'Email address',
-    'langhe.capture.email.placeholder': 'your@email.com',
+    'langhe.capture.c.body': 'If you want to know where to begin in the Langhe: in The Letter I write about routes, wineries and what it costs, from personal experience.',
+    'langhe.capture.c.ctaText': 'Subscribe to The Letter',
+    'langhe.capture.c.subCopy': 'Every two weeks The Letter follows: about wine and travel from personal experience.',
 
     // RhoneMap.astro — kaart-chrome (LAT-4909). `rhonemap.aria.mapPre` is in
     // Directus geseed (LAT-2848) maar had nog geen code-level fallback: bij een
