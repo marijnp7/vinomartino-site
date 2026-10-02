@@ -38,7 +38,7 @@ const stayLabel = region
 
 // LAT-3493 — config komt uit de Directus-singleton `wine_retail_partner`
 // (gecachet per build), niet meer uit een hardcoded const.
-const retail = await wineRetailLink(naam);
+const retail = await wineRetailLink(naam, locale, `wijnhuis-${slug}`);
 ---
 
 <aside class="wh-staynear" data-wh-staynear hidden aria-label={ui.t('wijnhuis.staynear.aria')}>

@@ -22,7 +22,12 @@ import { buildBookingSearchLink, buildCjBookingLink } from './affiliates';
 import type { Locale } from './i18n';
 import { SUNNYCARS_DEFAULT_DEST, applySunnyCarsLocale } from './affiliate-locale';
 import { buildDiscoverCarsHref, discoverCarsDestVerified } from './discovercars';
-import { loadWineRetailPartner, type WineRetailPartner } from './wine-retail';
+import {
+  loadWineRetailPartner,
+  fillWineRetailTemplate,
+  wineRetailAvailableFor,
+  type WineRetailPartner,
+} from './wine-retail';
 
 // LAT-3726 — de wijnretail-partner komt uit de Directus-singleton, net als op de
 // wijnhuis-onderbalk (LAT-3493). Dit bestand had een eigen hardcoded
@@ -45,7 +50,7 @@ function buildWineRetailHref(
   context: string,
   partner?: WineRetailPartner | null,
 ): string {
-  if (partner) return partner.searchTemplate.replace('{q}', encodeURIComponent(query.trim()));
+  if (partner) return fillWineRetailTemplate(partner.searchTemplate, query, context);
   const base = 'https://www.grapedistrict.nl';
   const affiliateId = (process.env['GRAPEDISTRICT_AFFILIATE_ID'] || '').trim();
   if (!affiliateId) return `${base}/search?q=${encodeURIComponent(query)}`;
@@ -91,8 +96,10 @@ function sunnyCarsIds(): { campaign: string; affiliate: string } | null {
 
 /** LAT-11947: fail-closed. Een Sunny Cars-CTA rendert alleen met beide TradeTracker-ids;
  *  zonder ids verschijnt het blok niet (geen kale link naar sunnycars.nl). */
-export function ctaLinkAvailable(link: CtaLink | null | undefined): boolean {
+export function ctaLinkAvailable(link: CtaLink | null | undefined, locale: Locale): boolean {
   if (!link) return false;
+  // LAT-12311 NL-gate: wijnretail levert alleen in NL, ook met `actief` aan.
+  if (link.partner === 'wine-retail') return wineRetailAvailableFor(locale);
   if (link.partner === 'discovercars') return discoverCarsDestVerified(link.dest);
   return link.partner !== 'sunny-cars' || sunnyCarsIds() !== null;
 }
@@ -190,7 +197,9 @@ export interface CtaStructure {
  */
 export async function loadCtaWineRetail(
   links: Array<CtaLink | null | undefined>,
+  locale: Locale,
 ): Promise<WineRetailPartner | null> {
+  if (!wineRetailAvailableFor(locale)) return null;
   if (!links.some((link) => link?.partner === 'wine-retail')) return null;
   return loadWineRetailPartner();
 }
@@ -224,7 +233,7 @@ export function resolveCtaHref(
       }).href;
     }
     case 'wine-retail':
-      return buildWineRetailHref(link.query ?? '', sid, wineRetail);
+      return wineRetailAvailableFor(locale) ? buildWineRetailHref(link.query ?? '', sid, wineRetail) : '';
     case 'sunny-cars':
       return buildSunnyCarsHref(link, sid, locale);
     case 'discovercars':

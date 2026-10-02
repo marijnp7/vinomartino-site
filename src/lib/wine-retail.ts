@@ -23,7 +23,9 @@ import { readDirectusEnv, fetchDirectusCollection } from './directus-config';
 export interface WineRetailPartner {
   /** Partner-naam, bv. 'Grandcrux' of 'Wijnvoordeel'. */
   naam: string;
-  /** Affiliate-zoek-URL-basis; {q} wordt vervangen door de zoekterm. */
+  /** Affiliate-zoek-URL-basis. Placeholders: {q} = zoekterm (1x gecodeerd), {q2} = zoekterm
+   *  dubbel gecodeerd (voor een bestemming binnen een gecodeerde `dl=`-parameter, LAT-12311),
+   *  {sid} = sub-id `<placement>-<regio>` voor commissie-attributie. */
   searchTemplate: string;
   /** Partner-id voor de cookieless click-tracker. */
   trackerPartner: string;
@@ -58,9 +60,9 @@ export function partnerFromRow(row: WineRetailRow | null | undefined): WineRetai
   const searchTemplate = trimmedString(row.search_template);
   const trackerPartner = trimmedString(row.tracker_partner);
   if (!naam || !searchTemplate || !trackerPartner) return null;
-  if (!searchTemplate.includes('{q}')) {
+  if (!searchTemplate.includes('{q}') && !searchTemplate.includes('{q2}')) {
     console.warn(
-      `[wine-retail] ${WINE_RETAIL_COLLECTION}.search_template mist de {q}-placeholder — link overgeslagen (LAT-3493).`,
+      `[wine-retail] ${WINE_RETAIL_COLLECTION}.search_template mist de {q}/{q2}-placeholder — link overgeslagen (LAT-3493).`,
     );
     return null;
   }
@@ -117,6 +119,25 @@ export function loadWineRetailPartner(): Promise<WineRetailPartner | null> {
   return partnerPromise;
 }
 
+/**
+ * Vul de placeholders van `search_template`. Eén functie voor het CTA-pad én de
+ * wijnhuis-onderbalk, zodat beide byte-identieke URL's opleveren (LAT-3726).
+ * Vervanging via functie: een `$`-patroon in de waarde mag nooit als
+ * replace-patroon werken. `{sid}` leeg → lege waarde (parameter blijft dan leeg).
+ */
+export function fillWineRetailTemplate(template: string, query: string, sid = ''): string {
+  const q = encodeURIComponent(query.trim());
+  return template
+    .replaceAll('{q2}', () => encodeURIComponent(q))
+    .replaceAll('{q}', () => q)
+    .replaceAll('{sid}', () => encodeURIComponent(sid.trim()));
+}
+
+/** NL-gate (LAT-12311): wijnretail levert alleen in NL; nergens anders een link. */
+export function wineRetailAvailableFor(locale: string): boolean {
+  return locale === 'nl';
+}
+
 export interface WineRetailLink {
   href: string;
   partner: string;
@@ -128,11 +149,16 @@ export interface WineRetailLink {
  * Retourneert null wanneer er (nog) geen programma is geconfigureerd, zodat de
  * aanroeper de slot simpelweg niet rendert.
  */
-export async function wineRetailLink(producent: string): Promise<WineRetailLink | null> {
+export async function wineRetailLink(
+  producent: string,
+  locale: string,
+  sid = '',
+): Promise<WineRetailLink | null> {
+  if (!wineRetailAvailableFor(locale)) return null;
   if (!producent.trim()) return null;
   const partner = await loadWineRetailPartner();
   if (!partner) return null;
-  const href = partner.searchTemplate.replace('{q}', encodeURIComponent(producent.trim()));
+  const href = fillWineRetailTemplate(partner.searchTemplate, producent, sid);
   return {
     href,
     partner: partner.trackerPartner,

@@ -96,15 +96,15 @@ test('loadCtaWineRetail fetcht alleen bij een wine-retail-CTA', async () => {
     const cta = await loadModule('src/lib/cta-blocks.ts', 'cta-blocks');
 
     // Geen wijnretail in dit blok → geen Directus-fetch.
-    assert.equal(await cta.loadCtaWineRetail([{ partner: 'booking-direct' }, undefined, null]), null);
+    assert.equal(await cta.loadCtaWineRetail([{ partner: 'booking-direct' }, undefined, null], 'nl'), null);
     assert.equal(stub.calls(), 0);
 
-    const partner = await cta.loadCtaWineRetail([{ partner: 'booking-direct' }, { partner: 'wine-retail' }]);
+    const partner = await cta.loadCtaWineRetail([{ partner: 'booking-direct' }, { partner: 'wine-retail' }], 'nl');
     assert.equal(partner?.trackerPartner, 'wijnvoordeel');
     assert.equal(stub.calls(), 1);
 
     // Tweede aanroep komt uit de build-cache: nog steeds één fetch.
-    await cta.loadCtaWineRetail([{ partner: 'wine-retail' }]);
+    await cta.loadCtaWineRetail([{ partner: 'wine-retail' }], 'nl');
     assert.equal(stub.calls(), 1);
   } finally {
     stub.restore();
@@ -119,10 +119,10 @@ test('met config leveren beide wijnretail-paden dezelfde URL en hetzelfde label'
 
     const producent = 'Giacomo Conterno';
     const link = { partner: 'wine-retail', query: producent };
-    const partner = await cta.loadCtaWineRetail([link]);
+    const partner = await cta.loadCtaWineRetail([link], 'nl');
 
     const ctaHref = cta.resolveCtaHref(link, 'cta-closing-langhe', 'nl', partner);
-    const balkLink = await wine.wineRetailLink(producent);
+    const balkLink = await wine.wineRetailLink(producent, 'nl');
 
     // Dit is de hele reden voor het ticket: één partner, één URL-vorm.
     assert.equal(ctaHref, balkLink.href);
@@ -139,6 +139,69 @@ test('met config leveren beide wijnretail-paden dezelfde URL en hetzelfde label'
   } finally {
     stub.restore();
   }
+});
+
+// LAT-12311 — Wijnkring levert alleen in NL: op EN geen link, ook met actief=true.
+test('NL-gate: op en geen wijnretail-link, geen Directus-fetch, CTA degradeert naar niets', async () => {
+  const stub = stubDirectus(PARTNER_ROW);
+  try {
+    const cta = await loadModule('src/lib/cta-blocks.ts', 'cta-blocks');
+    const wine = await loadModule('src/lib/wine-retail.ts', 'wine-retail');
+    const link = { partner: 'wine-retail', query: 'Benanti' };
+
+    assert.equal(await wine.wineRetailLink('Benanti', 'en'), null);
+    assert.equal(await cta.loadCtaWineRetail([link], 'en'), null);
+    assert.equal(stub.calls(), 0);
+
+    // De CTA-componenten renderen alleen bij ctaLinkAvailable: dat is de degradatie.
+    assert.equal(cta.ctaLinkAvailable(link, 'en'), false);
+    assert.equal(cta.ctaLinkAvailable(link, 'nl'), true);
+    // Defensief: ook rechtstreeks resolven geeft nooit de legacy-fallback op EN.
+    assert.equal(cta.resolveCtaHref(link, 'cta-primary-x', 'en', null), '');
+
+    // NL werkt nog.
+    assert.notEqual(await wine.wineRetailLink('Benanti', 'nl'), null);
+  } finally {
+    stub.restore();
+  }
+});
+
+test('{sid} wordt gevuld met placement-regio, in beide paden gelijk', async () => {
+  const stub = stubDirectus({
+    ...PARTNER_ROW,
+    search_template: 'https://ds1.example/c/?li=L&dl=https%3A%2F%2Fshop.example%2F%3Fq%3D{q2}&ws={sid}',
+  });
+  try {
+    const cta = await loadModule('src/lib/cta-blocks.ts', 'cta-blocks');
+    const wine = await loadModule('src/lib/wine-retail.ts', 'wine-retail');
+    const link = { partner: 'wine-retail', query: 'Benanti' };
+    const partner = await cta.loadCtaWineRetail([link], 'nl');
+    const a = cta.resolveCtaHref(link, 'wijnhuis-benanti', 'nl', partner);
+    const b = (await wine.wineRetailLink('Benanti', 'nl', 'wijnhuis-benanti')).href;
+    assert.equal(a, b);
+    assert.match(a, /&ws=wijnhuis-benanti$/);
+    // Zonder sid blijft de template geldig: lege waarde, geen letterlijke "{sid}".
+    assert.doesNotMatch((await wine.wineRetailLink('Benanti', 'nl')).href, /\{sid\}/);
+  } finally {
+    stub.restore();
+  }
+});
+
+test('{q2} codeert dubbel; & % + en spatie breken de dl=-parameter niet', async () => {
+  const wine = await loadModule('src/lib/wine-retail.ts', 'wine-retail');
+  const t = 'https://x.example/c/?dl=https%3A%2F%2Fshop.example%2F%3Fq%3D{q2}';
+  for (const q of ['Benanti & Co', '100% Nero', 'A+B', 'Giacomo Conterno', 'a=b?c#d$&']) {
+    const href = wine.fillWineRetailTemplate(t, q);
+    const u = new URL(href);
+    // Eén laag decoderen (zoals Daisycon met dl=) geeft de bestemming met q nog 1x gecodeerd...
+    const dl = u.searchParams.get('dl');
+    assert.equal(new URL(dl).searchParams.get('q'), q, `roundtrip ${q}`);
+    // ... en de buitenste URL heeft precies één dl-parameter, geen weggelekte & of #.
+    assert.equal([...u.searchParams.keys()].join(','), 'dl', q);
+    assert.equal(u.hash, '', q);
+  }
+  // {q} blijft enkelvoudig en ongewijzigd.
+  assert.equal(wine.fillWineRetailTemplate('u?q={q}', 'Benanti & Co'), 'u?q=Benanti%20%26%20Co');
 });
 
 test.after(() => rmSync(workDir, { recursive: true, force: true }));
