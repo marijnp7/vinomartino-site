@@ -211,8 +211,12 @@ jobs:
                 external: true
             COMPOSEEOF
 
+            # --force-recreate: poll.sh/compose-inhoud wordt via een bind mount geleverd, dus
+            # een inhoudswijziging zonder config-wijziging laat `up -d` een no-op doen (LAT-12199,
+            # install-run 37065512487 draaide stilletjes door op het oude script). Expliciet
+            # forceren is de enige manier om een poll.sh-update ook echt te laten landen.
             docker compose -f docker-compose.cos.yml -f lat920/docker-compose.publish-dispatcher.yml \
-              -f lat920/docker-compose.publish-dispatcher.pubdate-poll.yml up -d pubdate-poll
+              -f lat920/docker-compose.publish-dispatcher.pubdate-poll.yml up -d --force-recreate pubdate-poll
 
             sleep 5
             echo "=== staat na install ==="
