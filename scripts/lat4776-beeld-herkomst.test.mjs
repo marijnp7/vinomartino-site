@@ -405,4 +405,10 @@ test('het Produttori-hero (LAT-12298) heeft een attributie-entry (CC BY-SA 4.0)'
     assert.ok(c, 'BY-SA eist attributie; zonder entry staat het beeld live zonder de verplichte vermelding');
     assert.match(c.author, /Matteo Aresca 05/);
     assert.equal(c.licenseLabel, 'CC BY-SA 4.0');
+    assert.equal(c.adapted, true, 'gradeBuffer + 1600px-resize is een bewerking; CC BY-SA 4.0 §3(a)(1)(B) eist de aanduiding (LAT-12304)');
+});
+
+test('het wijnhuis-template rendert de bewerkingsaanduiding bij adapted-credits (LAT-12304)', () => {
+    const src = readFileSync('src/components/pages/WijnhuisPageContent.astro', 'utf8');
+    assert.match(src, /heroCredit\.adapted[^\n]*adaptationNoteFor\(locale\)/);
 });
