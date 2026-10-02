@@ -183,4 +183,17 @@ test('Wijnkring: NL-only, sub-id per streek/plaatsing, zoekterm 2x gecodeerd bin
   }
 });
 
+// LAT-12315 — testgevallen overgenomen uit #389: speciale tekens breken de dl=-parameter niet.
+test('{q2} codeert dubbel; & % + # en spatie breken de dl=-parameter niet', async () => {
+  const wine = await loadModule('src/lib/wine-retail.ts', 'wine-retail');
+  const t = 'https://x.example/c/?dl=https%3A%2F%2Fshop.example%2F%3Fq%3D{q2}';
+  for (const q of ['Benanti & Co', '100% Nero', 'A+B', 'Giacomo Conterno', 'a=b?c#d$&']) {
+    const u = new URL(wine.fillWineRetailTemplate(t, q, 'x__y'));
+    assert.equal(new URL(u.searchParams.get('dl')).searchParams.get('q'), q, `roundtrip ${q}`);
+    assert.equal([...u.searchParams.keys()].join(','), 'dl', q);
+    assert.equal(u.hash, '', q);
+  }
+  assert.equal(wine.fillWineRetailTemplate('u?q={q}', 'Benanti & Co', 'x__y'), 'u?q=Benanti%20%26%20Co');
+});
+
 test.after(() => rmSync(workDir, { recursive: true, force: true }));
