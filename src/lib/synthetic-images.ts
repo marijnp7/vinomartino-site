@@ -73,16 +73,34 @@ export function fileMetaIsSynthetic(file: DirectusFileMeta): boolean {
     );
 }
 
+/**
+ * LAT-12302 — herkomst-slot op hero-koppelingen. Een DAM-omschrijving die met deze
+ * marker begint, zegt: dit beeld heeft onbekende herkomst en mag nergens als hero
+ * (LAT-4738/LAT-12298). Een lege `hero_image` draagt zelf geen reden, dus een
+ * gap-filler die lege velden vult zet verwijderde beelden terug; de marker op het
+ * BESTAND is het enige dat zo'n sweep overleeft.
+ */
+export const HERO_BLOCK_MARKER_RE = /\[NIET KOPPELEN ALS HERO/i;
+
+export function fileMetaIsHeroBlocked(file: Pick<DirectusFileMeta, 'title' | 'description'>): boolean {
+    return HERO_BLOCK_MARKER_RE.test(`${file.title ?? ''}\n${file.description ?? ''}`);
+}
+
+interface FileMetaSets {
+    synthetic: ReadonlySet<string>;
+    heroBlocked: ReadonlySet<string>;
+}
+
 // Eén fetch per build: `loadSyntheticImageIds()` wordt door elke detailpagina
 // aangeroepen (honderden keren) en /files?limit=-1 is ~765 rijen.
-let cache: Promise<ReadonlySet<string>> | null = null;
+let cache: Promise<FileMetaSets> | null = null;
 
 /** Alleen voor tests — gooit de memoisatie weg. */
 export function resetSyntheticImageCache(): void {
     cache = null;
 }
 
-async function fetchSyntheticImageIds(env: DirectusEnv): Promise<ReadonlySet<string>> {
+async function fetchSyntheticImageIds(env: DirectusEnv): Promise<FileMetaSets> {
     const url = `${env.url}/files?limit=-1&fields=${FILE_FIELDS}`;
     const res = await fetchDirectusCollection('loadSyntheticImages', url, {
         headers: { Authorization: `Bearer ${env.token}` },
@@ -100,7 +118,7 @@ async function fetchSyntheticImageIds(env: DirectusEnv): Promise<ReadonlySet<str
             env,
             body.slice(0, 200),
         );
-        return new Set();
+        return { synthetic: new Set(), heroBlocked: new Set() };
     }
 
     const json = await res.json();
@@ -117,15 +135,16 @@ async function fetchSyntheticImageIds(env: DirectusEnv): Promise<ReadonlySet<str
             env,
             'query gaf 0 bestanden — dat is een kapotte fields/permissie-situatie, geen lege DAM',
         );
-        return new Set();
+        return { synthetic: new Set(), heroBlocked: new Set() };
     }
 
+    const heroBlocked = new Set(files.filter(fileMetaIsHeroBlocked).map((f) => String(f.id).toLowerCase()));
     const synthetic = new Set(files.filter(fileMetaIsSynthetic).map((f) => String(f.id).toLowerCase()));
     console.log(
         `[loadSyntheticImages] ${synthetic.size}/${files.length} DAM-bestanden aangemerkt als AI/synthetisch ` +
             `(LAT-4776, zelfde regex als lat4745-synth-inventory.mjs).`,
     );
-    return synthetic;
+    return { synthetic, heroBlocked };
 }
 
 /**
@@ -133,6 +152,32 @@ async function fetchSyntheticImageIds(env: DirectusEnv): Promise<ReadonlySet<str
  * gegenereerd of anderszins synthetisch zijn. Gememoiseerd per build.
  */
 export function loadSyntheticImageIds(): Promise<ReadonlySet<string>> {
+    return loadFileMetaSets().then((sets) => sets.synthetic);
+}
+
+/** Set van `directus_files.id` (lowercase) met de `[NIET KOPPELEN ALS HERO`-marker. */
+export function loadHeroBlockedIds(): Promise<ReadonlySet<string>> {
+    return loadFileMetaSets().then((sets) => sets.heroBlocked);
+}
+
+/**
+ * Laat de build luid falen als een hero (of og-beeld) een geblokkeerd bestand is.
+ * Bewust een throw en geen stil weglaten: stil weglaten maakt de koppeling
+ * onzichtbaar en de gap-filler probeert hem de volgende sweep opnieuw.
+ */
+export async function assertHeroNotBlocked(owner: string, fileId: string | null | undefined): Promise<void> {
+    if (!fileId) return;
+    const blocked = await loadHeroBlockedIds();
+    if (blocked.has(String(fileId).toLowerCase())) {
+        throw new Error(
+            `[heroBlock] ${owner} gebruikt ${fileId} als hero, maar de DAM-omschrijving draagt ` +
+                `"[NIET KOPPELEN ALS HERO" (herkomst onbekend, LAT-4738/LAT-12298). Zet hero_image op null ` +
+                `of kies een beeld met geverifieerde herkomst; forceer geen AI-render als vervanger.`,
+        );
+    }
+}
+
+function loadFileMetaSets(): Promise<FileMetaSets> {
     if (!cache) {
         const env = readDirectusEnv();
         assertDirectusConfigured('loadSyntheticImages', env);
