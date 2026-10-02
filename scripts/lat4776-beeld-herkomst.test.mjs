@@ -367,3 +367,42 @@ test('een mislukte load blijft niet in de cache plakken', async () => {
         assert.equal(mod.isSyntheticImage(ids, ART92_HERO.id), true, 'een gecachete mislukking zou de disclosure de rest van de build uitzetten');
     });
 });
+
+// ── LAT-12302: herkomst-slot op hero-koppelingen ─────────────────────────────
+const GEBLOKKEERD = {
+    id: 'ccd7ac8a-0700-4454-98ae-5b890871e60a',
+    title: 'Gaja Barbaresco',
+    description: '[NIET KOPPELEN ALS HERO — HERKOMST ONBEKEND, LAT-4738/LAT-12298] eerdere omschrijving',
+    tags: null,
+    filename_download: 'gaja.jpg',
+};
+
+test('de hero-blokmarker matcht alleen op het bestand dat hem draagt', async () => {
+    const mod = await loadSynth();
+    assert.equal(mod.fileMetaIsHeroBlocked(GEBLOKKEERD), true);
+    assert.equal(mod.fileMetaIsHeroBlocked(ECHTE_FOTO), false);
+});
+
+test('assertHeroNotBlocked laat de build falen op een geblokkeerde hero, niet op een gewone', async () => {
+    await withDirectusEnv(async () => {
+        const mod = await loadSynth();
+        stubFetch(() => jsonResponse([GEBLOKKEERD, ECHTE_FOTO]));
+        await assert.rejects(() => mod.assertHeroNotBlocked('wijnhuizen/x hero_image', GEBLOKKEERD.id.toUpperCase()), /NIET KOPPELEN ALS HERO/);
+        await mod.assertHeroNotBlocked('wijnhuizen/x hero_image', ECHTE_FOTO.id);
+        await mod.assertHeroNotBlocked('wijnhuizen/x hero_image', null);
+    });
+});
+
+test('de wijnhuizen-loader roept het hero-slot aan voor hero_image én og_image', () => {
+    const src = readFileSync('src/lib/wijnhuizen.ts', 'utf8');
+    assert.match(src, /assertHeroNotBlocked\(`[^`]*hero_image`, r\.hero_image/);
+    assert.match(src, /assertHeroNotBlocked\(`[^`]*og_image`, r\.og_image/);
+});
+
+test('het Produttori-hero (LAT-12298) heeft een attributie-entry (CC BY-SA 4.0)', async () => {
+    const { getImageCredit } = await loadModule('image-credits', 'src/lib/image-credits.ts');
+    const c = getImageCredit('10948025-1d1f-45ae-9973-a13507c02787');
+    assert.ok(c, 'BY-SA eist attributie; zonder entry staat het beeld live zonder de verplichte vermelding');
+    assert.match(c.author, /Matteo Aresca 05/);
+    assert.equal(c.licenseLabel, 'CC BY-SA 4.0');
+});

@@ -111,6 +111,15 @@ const CREDITS: Record<string, ImageCredit> = {
         licenseLabel: 'CC BY-SA 3.0',
         licenseUrl: CC_BY_SA_30,
     },
+    // LAT-12298 produttori-del-barbaresco hero — het dorp Barbaresco (CN) met de
+    // parochiekerk San Giovanni Battista (File:Barbaresco (CN).jpg, eigen werk 2020-05-09).
+    // CC BY-SA 4.0 staat bewerken toe, dus de Meegereisd-Warm grading mag; de
+    // attributie is verplicht en staat daarom hier.
+    '10948025-1d1f-45ae-9973-a13507c02787': {
+        author: '© Matteo Aresca 05 / Wikimedia Commons',
+        licenseLabel: 'CC BY-SA 4.0',
+        licenseUrl: CC_BY_SA_40,
+    },
     // LAT-12024 Rioja-overnachten (Wikimedia Commons, eigen werk van de fotograaf). Beide
     // gaan door `gradeBuffer` (Warm-preset) en de kaart snijdt bij: dat is een bewerking,
     // dus `adapted: true` (verplichte wijzigingsaanduiding bij CC BY-SA 4.0).
