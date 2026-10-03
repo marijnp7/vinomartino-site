@@ -95,9 +95,43 @@ export function unwrapCjRedirect(raw: string): string {
   }
 }
 
+// Booking-properties die niet (meer) bestaan. Booking stuurt deze /hotel/-slugs door naar
+// een zoeklijst, waardoor de nachtelijke affiliate-check (LAT-2532) elke dag rood werd.
+// Browsercheck 03-10-2026 via Bookings eigen autocomplete: alleen Burg Schwarzenstein
+// staat er nog, onder een andere slug. De overige zes hebben geen listing; die gaan naar
+// een expliciete zoekopdracht op hun plaats, dan landt de bezoeker tenminste bewust op
+// de juiste bestemming. Data in Directus moet nog worden rechtgezet; deze lijst vangt het
+// op het enige punt waar elke Booking-link langskomt.
+const BOOKING_PROPERTY_OVERRIDES: Record<string, { url: string } | { zoek: string }> = {
+  '/hotel/de/burg-schwarzenstein': { url: 'https://www.booking.com/hotel/de/relais-amp-chateaux-burg-schwarzenstein.html' },
+  '/hotel/ge/hestia-wine-and-view-telavi-kakheti-georgia': { zoek: 'Telavi, Kakheti, Georgia' },
+  '/hotel/it/dei-trulli': { zoek: 'Alberobello, Apulia, Italy' },
+  '/hotel/it/sole-in-ogliastra': { zoek: 'Jerzu, Sardinia, Italy' },
+  '/hotel/pt/herdade-dos-grous': { zoek: 'Albernoa, Alentejo, Portugal' },
+  '/hotel/sk/vinarsky': { zoek: 'Pezinok, Slovakia' },
+  '/hotel/sk/kastiel-palffy': { zoek: 'Svätý Jur, Slovakia' },
+};
+
+/** Kale booking.com-URL vervangen als de property in BOOKING_PROPERTY_OVERRIDES staat. */
+export function applyBookingOverride(bookingUrl: string): string {
+  try {
+    const u = new URL(bookingUrl);
+    if (!/(^|\.)booking\.com$/i.test(u.hostname)) return bookingUrl;
+    const key = u.pathname.replace(/(\.[a-z]{2}(-[a-z]{2})?)?\.html$/i, '');
+    const o = BOOKING_PROPERTY_OVERRIDES[key];
+    if (!o) return bookingUrl;
+    if ('url' in o) return o.url;
+    const z = new URL('https://www.booking.com/searchresults.html');
+    z.searchParams.set('ss', o.zoek);
+    return z.toString();
+  } catch {
+    return bookingUrl;
+  }
+}
+
 export function buildCjBookingLink(plainBookingUrl: string, sid: string, locale: Locale = 'nl'): string {
   // Pel een eventuele bestaande CJ-hop af, normaliseer naar de schone property-deeplink.
-  const direct = unwrapCjRedirect(plainBookingUrl);
+  const direct = applyBookingOverride(unwrapCjRedirect(plainBookingUrl));
   try {
     const u = new URL(direct);
     // Strip de oude Booking-eigen affiliate-params: CJ hangt zelf zijn attributie aan
