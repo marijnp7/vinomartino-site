@@ -115,3 +115,102 @@ test('schone pagina: geen overtredingen', () => {
     assert.equal(exit, 0);
   });
 });
+
+// --- LAT-12376: HARDE REGEL 57 herzien: [bron: marijn YYYY-MM-DD] naast [bron: RS-id] ---
+// Regel b/f draaien alleen met een gevulde plaatsen.yml, dus draai in een tempdir met fixtures.
+const LINT = join(process.cwd(), 'scripts/lint-authenticiteit.mjs');
+const ZG = '<span class="badge">Zelf gereisd</span>';
+const GIDS = '<span class="badge">Redactiegids</span>';
+
+function runZg(body, badge = ZG) {
+  const root = join(tmpdir(), `lat12376-${Math.random().toString(36).slice(2)}`);
+  const dist = join(root, 'dist');
+  mkdirSync(dist, { recursive: true });
+  writeFileSync(join(root, 'plaatsen.yml'), 'Loire:\n  - Chinon\n  - Saumur\n', 'utf8');
+  writeFileSync(join(root, 'bezocht.yml'), 'streken:\n  - Loire\n', 'utf8');
+  writeFileSync(join(dist, 'index.html'), makeHtml(body, badge), 'utf8');
+  try {
+    const res = spawnSync(process.execPath, [LINT, 'dist'], { encoding: 'utf8', cwd: root });
+    return { exit: res.status ?? 1, out: res.stdout + res.stderr };
+  } finally { rmSync(root, { recursive: true, force: true }); }
+}
+
+test('regel f: claim met [bron: RS-id] is geldig (ongewijzigd)', () => {
+  const { exit, out } = runZg('<p>We sliepen in Chinon. [bron: RS-1234]</p>');
+  assert.equal(exit, 0, out);
+});
+
+test('regel f: claim met [bron: marijn YYYY-MM-DD] is geldig', () => {
+  const { exit, out } = runZg('<p>We sliepen in Chinon. [bron: marijn 2026-10-03]</p>');
+  assert.equal(exit, 0, out);
+});
+
+test('regel f: markering is niet hoofdlettergevoelig en staat ook binnen de zin', () => {
+  const { exit, out } = runZg('<p>We aten in Saumur [Bron: Marijn 2026-09-30] en bleven slapen.</p>');
+  assert.equal(exit, 0, out);
+});
+
+test('regel f: marijn-bron met place buiten plaatsen.yml is ook geldig (geen foto nodig)', () => {
+  const { exit, out } = runZg('<p>Ik zag Azay-le-Rideau in de ochtendmist. [bron: marijn 2026-10-03]</p>');
+  assert.equal(exit, 0, out);
+});
+
+test('regel f: data-bron="marijn YYYY-MM-DD" op het element is geldig', () => {
+  const { exit, out } = runZg('<p data-bron="marijn 2026-10-03">We dronken in Chinon een Cabernet Franc.</p>');
+  assert.equal(exit, 0, out);
+});
+
+test('regel f: claim zonder markering blijft een overtreding', () => {
+  const { exit, out } = runZg('<p>We sliepen in Chinon.</p>');
+  assert.match(out, /\[f\]/);
+  assert.equal(exit, 1);
+});
+
+test('regel f: marijn zonder datum is ongeldig', () => {
+  const { exit, out } = runZg('<p>We sliepen in Chinon. [bron: marijn]</p>');
+  assert.match(out, /\[f\]/);
+  assert.equal(exit, 1);
+});
+
+test('regel f: onmogelijke datum en NL-datumnotatie zijn ongeldig', () => {
+  for (const bron of ['marijn 2026-13-45', 'marijn 2026-02-30', 'marijn 3-10-2026']) {
+    const { exit, out } = runZg(`<p>We sliepen in Chinon. [bron: ${bron}]</p>`);
+    assert.match(out, /\[f\]/, bron);
+    assert.equal(exit, 1, bron);
+  }
+});
+
+test('regel f: andere bronnen dan RS-id of marijn zijn ongeldig', () => {
+  const { exit, out } = runZg('<p>We sliepen in Chinon. [bron: internet]</p>');
+  assert.match(out, /\[f\]/);
+  assert.equal(exit, 1);
+});
+
+test('regel f: marker ver weg (ander deel van de pagina) dekt de claim niet', () => {
+  const vulling = '<p>' + 'Neutrale tekst over de streek. '.repeat(30) + '</p>';
+  const { exit, out } = runZg(`<p>We sliepen in Chinon.</p>${vulling}<p>Ander stuk. [bron: marijn 2026-10-03]</p>`);
+  assert.match(out, /\[f\]/);
+  assert.equal(exit, 1);
+});
+
+test('regel f: marker bij sentence op lange pagina wordt gevonden (offset-bug)', () => {
+  const kop = '<nav>' + '<a href="/x">menu</a>'.repeat(80) + '</nav>';
+  const { exit, out } = runZg(`${kop}<p>We sliepen in Chinon. [bron: marijn 2026-10-03]</p>`);
+  assert.equal(exit, 0, out);
+});
+
+test('ik-stem mening zonder bezoekclaim blokkeert niet (Zelf gereisd)', () => {
+  const { exit, out } = runZg('<p>Hier zou ik slapen. Dit huis staat bovenaan mijn lijst. Ik zou dit overslaan.</p>');
+  assert.equal(exit, 0, out);
+});
+
+test('ik-stem mening zonder bezoekclaim blokkeert niet (Redactiegids)', () => {
+  const { exit, out } = runZg('<p>Hier zou ik slapen. Dit huis staat bovenaan mijn lijst. Ik zou dit overslaan.</p>', GIDS);
+  assert.equal(exit, 0, out);
+});
+
+test('bezoekclaim op Redactiegids blijft een overtreding (regel a), ook met marijn-bron', () => {
+  const { exit, out } = runZg('<p>We sliepen in Chinon. [bron: marijn 2026-10-03]</p>', GIDS);
+  assert.match(out, /\[a\]/);
+  assert.equal(exit, 1);
+});
