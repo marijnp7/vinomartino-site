@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# LAT-12405: no-op touch om i18n-nl-gate.yml te triggeren als SSH-tunnel-bewijs.
 """i18n launch-gate voor de Engelse (/en/) kant van vinomartino.com.
 
 De gate meet vijf onafhankelijke dimensies. Elke dimensie heeft een eigen bit in
