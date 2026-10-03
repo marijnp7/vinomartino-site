@@ -194,3 +194,37 @@ export function deriveStopsGeoFromItinerary(itinerary: RouteItinerary): RouteSto
     }
     return out;
 }
+
+/**
+ * Bezoekduur voor weergave. De itinerary-JSON draagt vrije NL-tekst ("1,5 uur",
+ * "avondeten"); een EN-vertaling ontbreekt vaak, waardoor /en/ "Allow 1,5 uur."
+ * toonde en de i18n-gate (nl-nouns) rood werd. Bekende vormen worden hier naar
+ * het Engels omgezet; een kaal getal is minuten. Onbekende NL-tekst op /en/ geeft
+ * null, zodat de zin wegvalt in plaats van half-Nederlands te renderen.
+ */
+const EN_DUUR_WOORDEN: Record<string, string> = {
+    avondeten: 'dinner',
+    diner: 'dinner',
+    lunch: 'lunch',
+    wandeling: 'a walk',
+    'halve dag': 'half a day',
+    'hele dag': 'a full day',
+};
+
+export function localizeDuur(duur: string | null, locale: string): string | null {
+    if (!duur) return null;
+    const s = duur.trim();
+    if (/^\d+$/.test(s)) return `${s} min`;
+    if (locale === 'nl') return s;
+    const uur = s.match(/^(\d+(?:[.,]\d+)?)\s*(?:uur|u)$/i);
+    if (uur) {
+        const n = Number(uur[1].replace(',', '.'));
+        if (n === 1) return 'an hour';
+        if (n === 1.5) return 'an hour and a half';
+        return `${String(n)} hours`;
+    }
+    const woord = EN_DUUR_WOORDEN[s.toLowerCase()];
+    if (woord) return woord;
+    if (/\b(uur|minuten|ongeveer|dag|avond|middag|ochtend)\b/i.test(s)) return null;
+    return s;
+}

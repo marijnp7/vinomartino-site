@@ -9,7 +9,7 @@ import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
 // werken zonder itinerary-data (graceful degrade, nul regressie).
 
 import PoiCard, { type PoiCardData } from './PoiCard.astro';
-import { deriveStopsGeoFromItinerary, type RouteItinerary, type ItineraryStop } from '../lib/route-itinerary';
+import { deriveStopsGeoFromItinerary, localizeDuur, type RouteItinerary, type ItineraryStop } from '../lib/route-itinerary';
 import type { RouteStopKind } from '../lib/routes';
 import { loadUiStrings } from '../lib/ui-strings';
 
@@ -98,7 +98,7 @@ function stopToPoi(stop: ItineraryStop, pin: CardPin): PoiCardData {
     badge: KIND_LABEL[stop.kind],
     whyRegel: stop.why,
     // LAT-4911 — stonden als kale NL-literals op de 11 /en/wijnroutes/-pagina's.
-    beschrijving: stop.duur ? ui.t('route.stop.duur').replace('{duur}', stop.duur) : null,
+    beschrijving: localizeDuur(stop.duur, locale) ? ui.t('route.stop.duur').replace('{duur}', localizeDuur(stop.duur, locale) as string) : null,
     detailUrl,
     cta: ui.t('route.leesPortret'),
     n: pin.n,
@@ -151,7 +151,7 @@ function stopToPoi(stop: ItineraryStop, pin: CardPin): PoiCardData {
                 naam: d.overnachting.naam,
                 foto: d.overnachting.foto,
                 fotoTheme: 'region',
-                badge: 'Overnachting',
+                badge: ui.t('route.stop.overnachting'),
                 boeklink: d.overnachting.boekbaar ? bookHref : null,
                 cta: ui.t('streekkaart.cta.overnachten'),
                 partner: 'stay22',
