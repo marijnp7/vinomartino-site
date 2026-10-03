@@ -563,7 +563,7 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'wijnroutes.index.meta.description': 'Doorloop de mooiste wijnroutes ter wereld, van de steile Etna-noordflank tot de kronkelende Mosel. Praktische routes voor wijnliefhebbers die zelf op pad gaan.',
     'wijnroutes.index.hero.label': 'Wijnroutes',
     'wijnroutes.index.hero.h1': 'Gids voor wijnreizen',
-    'wijnroutes.index.hero.desc': 'Routes die ik zelf heb gereden, met de Fiat Panda, de trein, soms met een koffer te veel. Dagindelingen, slaapadressen en de producenten die het waard zijn om twee weken vooruit voor te bellen.',
+    'wijnroutes.index.hero.desc': 'Routes door wijnstreken: dagindelingen, slaapadressen en de producenten die het waard zijn om twee weken vooruit voor te bellen.',
     'wijnroutes.index.map.title': 'Alle routes op de kaart',
     'wijnroutes.index.empty.title': 'Routes zijn onderweg',
     'wijnroutes.index.empty.descPre': 'Langhe, Etna, Mosel en Wachau staan als eerste op de planning. Intussen: de ',
