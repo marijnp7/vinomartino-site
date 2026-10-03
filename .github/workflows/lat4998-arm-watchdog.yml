@@ -27,8 +27,37 @@ on:
   # construction and adds no moving part to the VPS, so the regress
   # ("who watches the watcher's watcher?") terminates at a third party whose
   # liveness we do not maintain.
-  schedule:
-    - cron: '*/15 * * * *'
+  #
+  # LAT-8165 (2026-08-28): the `schedule:` trigger below was REMOVED. It was
+  # never actually the detector it claimed to be: measured `*/15` delivery
+  # over 17+ days (LAT-5039/5107/5738/5940/6045/6670) ranged 19-55% of due
+  # slots, and on 2026-08-28 the newest `schedule`-event run was 728 minutes
+  # (12.1h) old with the workflow still `active` and GitHub Actions itself
+  # reporting all-systems-operational. That is not a `*/15`-specific problem:
+  # `affiliate-links-nightly.yml`'s once-a-day `schedule` cron on this same
+  # repo drifted from its 03:15 UTC nominal time to 14:11-15:21 UTC on
+  # consecutive days in the same window. GitHub is not reliably delivering
+  # `schedule` events to this repo at ANY declared cadence right now — so a
+  # lower cron number is retuning a threshold against a moving, unreliable
+  # target rather than fixing the fault.
+  #
+  # `workflow_dispatch` is unaffected by this: it is an explicit API-triggered
+  # run, not a queued `schedule` event, and every dispatched `verify` in the
+  # affected window completed promptly and correctly (100% success on the
+  # watchdog assertion itself; LAT-8165 evidence). The Paperclip LAT-5004
+  # routine (`7 1,9,17 * * *`, i.e. every 8h) already dispatches `verify` via
+  # `workflow_dispatch` and has proven reliable on ITS OWN schedule (a
+  # Paperclip routine cron, not a GitHub Actions `schedule` event) throughout
+  # the same window this file's `schedule` trigger was silently failing.
+  #
+  # Decision (LAT-8165, approved via board approval — see the issue for the
+  # approval link): stop pretending a GitHub Actions `schedule` event is the
+  # detector. The Paperclip-side routine's `workflow_dispatch` cadence IS the
+  # liveness proof now. Follow-up: the LAT-5004 consumer script currently
+  # still queries `gh run list --event schedule` to decide staleness; that
+  # logic is now checking a signal this file no longer emits and needs its
+  # own follow-up pass (tracked separately, do not let it silently see zero
+  # runs and read that as a permanent outage).
   workflow_dispatch:
     inputs:
       mode:

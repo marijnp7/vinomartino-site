@@ -1,4 +1,5 @@
 import type { RelatedRef } from './articles';
+import { assertHeroNotBlocked } from './synthetic-images';
 import { getCtaStructure, type CtaStructure } from './cta-blocks';
 
 // VIS-BL-03 (LAT-2002): vaste rij van (max) 3 portretbeelden onder de intro.
@@ -323,6 +324,8 @@ async function loadFromDirectus(url: string, token: string, locale: Locale): Pro
             if (streek && streek.name) r.streek_name = streek.name;
             if (streek && streek.slug) r.streek_slug = streek.slug;
             const bodyHtml = r.body ? await markdownToHtml(String(r.body), locale) : '';
+            await assertHeroNotBlocked(`wijnhuizen/${String(r.slug ?? r.id)} hero_image`, r.hero_image ? String(r.hero_image) : null);
+            await assertHeroNotBlocked(`wijnhuizen/${String(r.slug ?? r.id)} og_image`, r.og_image ? String(r.og_image) : null);
             const heroImagePath = r.hero_image
                 ? await downloadAsset(String(r.hero_image), url, token)
                 : null;

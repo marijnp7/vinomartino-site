@@ -10,6 +10,7 @@ import sharp from 'sharp';
 import {
   clusterOf, interleaveByCluster, lastWeekdays, lintText, pinUrl, renderFeed,
   selectForWeekday, feedTexts, truncateAtWord, weekdayNumber, PIN_CLUSTERS,
+  composeDay, pinImageUrl, PIN_DAM_BATCHES, PIN_DAM_SLUGS,
 } from '../src/lib/pins.ts';
 
 const src = (slug, streek, extra = {}) => ({
@@ -110,4 +111,92 @@ test('pincompositie: 1000x1500 en het tekstvlak bevat echt tekst (pixeltoets)', 
   assert.ok(Math.max(...panel.channels.map((c) => c.stdev)) > 8, 'tekstvlak is leeg');
   const photoTop = await region(0, 1000);
   assert.ok(photoTop.channels.every((c, i) => Math.abs(c.mean - [0x3a, 0x6b, 0x35][i]) < 12), `foto gewijzigd: ${photoTop.channels.map((c) => c.mean)}`);
+});
+
+test('LAT-12109: DAM-batch neemt plekken van de rotatie over, 5 per dag blijft', () => {
+  const b = PIN_DAM_BATCHES[0];
+  assert.equal(b.pins.length, 5);
+  assert.deepEqual(b.pins.map((p) => p.articleId), [139, 141, 142, 136, 131]);
+  assert.equal(new Set(b.pins.map((p) => p.fileId)).size, 5);
+  assert.ok(!b.pins.some((p) => ['5d096786-28f6-431b-a38a-0842120a2970', 'a8eb13f3-2b62-404b-a81c-5aefaaff3204'].includes(p.fileId)));
+  assert.ok(b.pins.every((p) => PIN_DAM_SLUGS.has(p.slug)));
+  assert.deepEqual(b.pins.filter((p) => p.lang === 'en').map((p) => p.articleId), [139, 141, 142]);
+  assert.equal(composeDay([1, 2, 3, 4, 5], ['a', 'b', 'c', 'd', 'e']).length, 5);
+  assert.deepEqual(composeDay([1, 2], ['a', 'b', 'c', 'd', 'e']), [1, 2, 'a', 'b', 'c']);
+  assert.deepEqual(composeDay([], ['a', 'b']), ['a', 'b']);
+});
+
+test('LAT-12109: DAM-item in de feed: PNG-enclosure, media:content 1000x1500, lint-schoon', () => {
+  const items = [{
+    lang: 'en', slug: 'champagne-overnachten-reims-epernay', clusterId: 'dam', title: 'Where to stay in Champagne', description: 'Reims or Epernay?',
+    link: pinUrl('en', 'champagne-overnachten-reims-epernay'), image: pinImageUrl('en', 'champagne-overnachten-reims-epernay', 'png'),
+    imageBytes: 138162, imageMime: 'image/png', date: new Date(Date.UTC(2026, 8, 30)),
+  }];
+  const xml = renderFeed(items, new Date(Date.UTC(2026, 8, 30, 12)));
+  assert.match(xml, /<enclosure url="https:\/\/vinomartino.com\/pins\/en\/champagne-overnachten-reims-epernay.png" length="138162" type="image\/png" \/>/);
+  assert.match(xml, /<media:content url="[^"]+\.png" medium="image" type="image\/png" width="1000" height="1500" \/>/);
+  assert.match(xml, /utm_source=pinterest&amp;utm_medium=social&amp;utm_campaign=pins-feed&amp;utm_content=en-champagne-overnachten/);
+  assert.equal(feedTexts(xml).flatMap((t) => lintText(t)).length, 0);
+});
+
+// LAT-12116 — de regressie die zet 5 stil uit de feed hield. buildDamPins haalde
+// de pin op via `assetUrl()`, de hero-transform van LAT-1770. Die schaalde de
+// goedgekeurde png 1000x1500 op naar jpeg 1600x2400, waarna buildDamPins zijn
+// eigen formaateis niet meer haalde en alle vijf pins stil wegvielen. De bestanden
+// in Directus klopten de hele tijd; de ophaalroute niet.
+//
+// Deze test draait tegen een stub-Directus die de transform net zo toepast als de
+// echte (sharp met dezelfde parameters), zodat hij de bug reproduceert in plaats
+// van de broncode te lezen.
+test('LAT-12116: DAM-pin komt ongetransformeerd binnen (png 1000x1500, niet jpeg 1600x2400)', async () => {
+  const { createServer } = await import('node:http');
+  const { assetUrl, damAssetUrl, ASSET_TRANSFORM } = await import('../src/lib/directus-config.ts');
+
+  const original = await sharp({
+    create: { width: 1000, height: 1500, channels: 3, background: { r: 120, g: 20, b: 40 } },
+  }).png().toBuffer();
+
+  const server = createServer(async (req, res) => {
+    const u = new URL(req.url, 'http://x');
+    // Zelfde semantiek als Directus: width zonder height + format=jpg.
+    if (u.searchParams.get('format') === 'jpg') {
+      const w = Number(u.searchParams.get('width'));
+      const out = await sharp(original).resize({ width: w, fit: 'inside' }).jpeg({ quality: 75 }).toBuffer();
+      res.writeHead(200, { 'content-type': 'image/jpeg' }).end(out);
+      return;
+    }
+    res.writeHead(200, { 'content-type': 'image/png' }).end(original);
+  });
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const id = PIN_DAM_BATCHES[0].pins[0].fileId;
+
+  try {
+    const grab = async (url) => sharp(Buffer.from(await (await fetch(url)).arrayBuffer())).metadata();
+
+    // Negatieve controle: de oude route faalt nog steeds op precies deze manier.
+    // Zonder deze arm zou de test ook groen zijn als sharp of de stub kapot was.
+    const viaHero = await grab(assetUrl(base, id));
+    assert.equal(viaHero.format, 'jpeg', 'hero-transform hoort nog te hertranscoderen');
+    assert.deepEqual([viaHero.width, viaHero.height], [1600, 2400], 'hero-transform hoort nog op te schalen');
+
+    // De route die buildDamPins moet gebruiken: exact het goedgekeurde eindbeeld.
+    const viaDam = await grab(damAssetUrl(base, id));
+    assert.equal(viaDam.format, 'png');
+    assert.deepEqual([viaDam.width, viaDam.height], [1000, 1500]);
+    assert.ok(!damAssetUrl(base, id).includes(ASSET_TRANSFORM), 'DAM-route mag de hero-transform niet dragen');
+  } finally {
+    await new Promise((r) => server.close(r));
+  }
+});
+
+// De feed-build mag de DAM-pin alleen via damAssetUrl ophalen. Deze toets is
+// bewust zwak (leest de bron) en staat er náást de gedrags-test hierboven: hij
+// vangt het geval dat iemand later terugvalt op assetUrl in dit ene codepad.
+test('LAT-12116: buildDamPins gebruikt damAssetUrl, niet assetUrl', async () => {
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(resolve(import.meta.dirname, '..', 'src', 'lib', 'pin-plan.ts'), 'utf8');
+  const dam = src.slice(src.indexOf('async function buildDamPins'));
+  assert.match(dam, /damAssetUrl\(env\.url, p\.fileId\)/);
+  assert.ok(!/fetch\(assetUrl\(/.test(dam), 'buildDamPins mag geen assetUrl-fetch doen');
 });

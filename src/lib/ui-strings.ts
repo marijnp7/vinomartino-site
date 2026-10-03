@@ -198,6 +198,7 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'header.cellar.enterAria': 'Ga naar de kelder (donkere modus)',
     'header.cellar.enterLabel': 'Naar de kelder',
     'header.cellar.exitLabel': 'Naar buiten',
+    'header.cellar.tipText': 'Te fel voor je ogen? Lees in de donkere kelder-modus.',
     'header.mobile.menuAria': 'Menu openen',
     'header.mobile.ontdekHeader': 'Kies je bestemming',
     'header.mobile.ontdekSubhead': 'Ontdek een wijnregio',
@@ -222,6 +223,8 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     // (component bypasst t() voor de standaardtaal), dus deze seeds raken NL niet;
     // ze zijn de T4-EN-spec + de EN-fallback wanneer een vertaling nog ontbreekt.
     'nav.ontdek': 'Ontdek',
+    'nav.reizen': 'Reizen',
+    'nav.wijnroutes': 'Wijnroutes',
     'nav.wijnhuizen': 'Wijnhuizen',
     'nav.accommodaties': 'Overnachten',
     'nav.artikelen': 'Artikelen',
@@ -278,9 +281,7 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'home.brief.dateline': 'De Brief · elke twee weken',
     'home.brief.heading': 'Elke twee weken een brief. Geen lijstjes.',
     'home.brief.body': 'Een persoonlijke brief van Marijn: wat we recent dronken, waar we waren, en welke fles ons opviel. Geen affiliate-deals, geen nieuwsbriefformule.',
-    'home.brief.emailLabel': 'E-mailadres',
-    'home.brief.emailPlaceholder': 'je@adres.nl',
-    'home.brief.submit': 'Stuur me de brief',
+    'home.brief.submit': 'Schrijf je in voor de brief',
 
     // Streek-feitenblok (StreekFeitenblok.astro, LAT-2009). Rij-labels + kop; de
     // tier-badge hergebruikt de bestaande `ui.badge.*`-keys.
@@ -377,25 +378,14 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'stay.price.fromPrefix': 'vanaf',
     'stay.price.upToPrefix': 'tot',
 
-    // NewsletterFooter.astro (LAT-2436) — MailerLite artikel/streek-footer. Merk-
-    // naam "VinoMartino" en de MailerLite-veldwaarden blijven ongewijzigd.
+    // NewsletterFooter.astro (LAT-2436) — artikel/streek-footer; CTA naar Substack
+    // (LAT-12309). Merknaam "VinoMartino" blijft ongewijzigd.
     'newsletter.footer.kicker': 'De brief · nieuwsbrief van VinoMartino',
     'newsletter.footer.heading': 'Wijnreisverhalen in je inbox',
-    'newsletter.footer.lede': 'Een paar keer per jaar stuurt Marijn een echte brief: over een wijnmaker die we net bezochten, een regio die opnieuw onze aandacht trok, een fles die indruk maakte. Vertel ons welke regio je het meest boeit, dan sturen we je verhalen op maat.',
-    'newsletter.footer.emailLabel': 'E-mailadres',
-    'newsletter.footer.emailPlaceholder': 'je@adres.nl',
-    'newsletter.footer.submit': 'Stuur me De brief',
-    'newsletter.footer.fineprint': 'Je ontvangt een e-mail om je aanmelding te bevestigen. Afmelden kan altijd, met één klik.',
+    'newsletter.footer.lede': 'Een paar keer per jaar stuurt Marijn een echte brief: over een wijnmaker die we net bezochten, een regio die opnieuw onze aandacht trok, een fles die indruk maakte.',
+    'newsletter.footer.submit': 'Schrijf je in voor De brief',
+    'newsletter.footer.fineprint': 'Aanmelden gaat via Substack: je ontvangt een e-mail om je aanmelding te bevestigen. Afmelden kan altijd, met één klik.',
 
-    // NewsletterRegionField.astro (LAT-2452) — gedeeld regio-keuzeveld. Alleen
-    // display-tekst; de MailerLite `value`-opties blijven literal.
-    'newsletter.region.label': 'Welke wijnregio interesseert jou het meest?',
-    'newsletter.region.optional': '(optioneel)',
-    // LAT-3209: op een lead-magnet-landingspagina is de regiokeuze verplicht,
-    // want die bepaalt welke versie de lezer krijgt. Zelfde veld, andere status.
-    'newsletter.region.required': '(verplicht)',
-    'newsletter.region.placeholder': 'Maak een keuze…',
-    'newsletter.region.optionOther': 'Een andere regio',
 
     // StreekKaart.astro (LAT-1592) — "de geld-pagina" dubbele kaart + POI-lijst.
     // introPrefix/introSuffix omsluiten de {streek}{, land}-interpolatie; de
@@ -530,7 +520,7 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'landen.index.hero.h1': 'Wijnen & wijnstreken per land',
     'landen.index.hero.desc': 'De grote wijnlanden van Europa, per land de streken, druivenrassen, tradities en reistips die ertoe doen.',
     'landen.index.empty.title': 'Landengidsen komen eraan',
-    'landen.index.empty.descPre': "We werken aan uitgebreide wijnlandgidsen op basis van eigen bezoek aan de regio's.",
+    'landen.index.empty.descPre': 'We werken aan uitgebreide wijnlandgidsen. Begin ondertussen bij de ',
     'landen.index.empty.descLink': '',
     'landen.index.empty.descPost': '',
 
@@ -573,7 +563,7 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'wijnroutes.index.meta.description': 'Doorloop de mooiste wijnroutes ter wereld, van de steile Etna-noordflank tot de kronkelende Mosel. Praktische routes voor wijnliefhebbers die zelf op pad gaan.',
     'wijnroutes.index.hero.label': 'Wijnroutes',
     'wijnroutes.index.hero.h1': 'Gids voor wijnreizen',
-    'wijnroutes.index.hero.desc': 'Routes die ik zelf heb gereden, met de Fiat Panda, de trein, soms met een koffer te veel. Dagindelingen, slaapadressen en de producenten die het waard zijn om twee weken vooruit voor te bellen.',
+    'wijnroutes.index.hero.desc': 'Routes door wijnstreken: dagindelingen, slaapadressen en de producenten die het waard zijn om twee weken vooruit voor te bellen.',
     'wijnroutes.index.map.title': 'Alle routes op de kaart',
     'wijnroutes.index.empty.title': 'Routes zijn onderweg',
     'wijnroutes.index.empty.descPre': 'Langhe, Etna, Mosel en Wachau staan als eerste op de planning. Intussen: de ',
@@ -650,20 +640,32 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     // LAT-2826 — "Reizen & nareizen"-listing. NL-copy is definitief vastgesteld
     // door de Lead Editor in de ticketomschrijving (Martino-voice goedgekeurd);
     // wijzig deze vier hero/meta-keys niet zonder redactie.
-    'reizen.breadcrumb.index': 'Reizen & nareizen',
-    'reizen.index.meta.title': 'Reizen & nareizen — wijnreizen van Martino | VinoMartino',
+    'reizen.breadcrumb.index': 'Reizen en nareizen',
+    // LAT-12365 (Marijn, 3 okt): titel/meta zonder "van Martino" en zonder gedachtestreepje (REGEL 58).
+    'reizen.index.meta.title': 'Reizen en nareizen | VinoMartino',
     'reizen.index.meta.description':
-        'Verslagen van wijnreizen door Europa en daarbuiten. Marijn reist, proeft en schrijft — na de reis, als het beter te vertellen is.',
-    'reizen.index.hero.label': 'Reizen & nareizen',
-    'reizen.index.hero.h1': 'Reizen & nareizen',
+        'Wijnreizen om na te reizen: nareizen die Marijn zelf maakte en wijnroutes door Europa, met dagindeling, wijnhuizen en slaapadressen.',
+    'reizen.index.hero.label': 'Reizen en nareizen',
+    'reizen.index.hero.h1': 'Reizen en nareizen',
     'reizen.index.hero.desc':
-        'Elke wijnreis eindigt op de terugreis. Soms in een propvolle intercity met een fles te veel in je rugzak, soms in een stiltecoupé met aantekeningen in een linnen boekje. Hier staan de verhalen die daarna pas goed op gang komen — als de geur van de kelder al verdwenen is maar het gevoel niet.',
+        'Elke wijnreis eindigt op de terugreis. Soms in een propvolle intercity met een fles te veel in je rugzak, soms in een stiltecoupé met aantekeningen in een linnen boekje. Hier staan de verhalen die daarna pas goed op gang komen, als de geur van de kelder al verdwenen is maar het gevoel niet. En de routes om zelf op pad te gaan.',
+    'reizen.index.nareizen.title': 'Nareizen',
+    'reizen.index.nareizen.intro': 'Reisgidsen en verhalen van reizen die Marijn zelf maakte.',
+    'reizen.index.routes.title': 'Wijnroutes',
+    'reizen.index.routes.intro': 'Alle routes op een rij, met dagindeling, wijnhuizen en slaapadressen. Het label laat zien of Marijn de route zelf reed of dat het een redactiegids is.',
+    'reizen.index.routes.allCta': 'Alle wijnroutes op de kaart',
+    'reizen.index.routes.moreCta': 'Bekijk de route',
+    'reizen.index.nareizen.emptyNote': 'Nareizen volgen: Marijn schrijft ze op na elke reis. Begin intussen bij de wijnroutes hieronder.',
+    'reizen.label.zelfGereisd': 'Zelf gereisd',
+    'reizen.label.redactiegids': 'Redactiegids',
+    'reizen.related.nareis.title': 'De nareis van deze streek',
+    'reizen.related.route.title': 'Wijnroutes door deze streek',
     'reizen.index.groupFallback': 'Onderweg',
     'reizen.index.readCta': 'Lees de nareis →',
     'reizen.index.empty.title': 'De nareizen zijn onderweg',
     'reizen.index.empty.descPre': 'Er staat nog geen verslag online. Begin intussen bij de ',
     'reizen.index.empty.descLink': 'wijnroutes',
-    'reizen.index.empty.descPost': ' — daar staat waar de reizen beginnen.',
+    'reizen.index.empty.descPost': ', daar staat waar de reizen beginnen.',
 
     // LAT-2826 — chrome van de pakket-/nareisdetailpagina. Stond als losse
     // NL-literals in src/pages/reizen-nareizen/[slug].astro; nu dictionary-driven
@@ -680,16 +682,14 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     // LAT-2868 — LangheCaptureBlock (Langhe-PDF lead magnet). Stond als hardcoded
     // NL-`variants` in src/components/LangheCaptureBlock.astro; nu dictionary-driven
     // zodat de /en/-artikelpagina de EN-overlay krijgt (seed: ui-strings-en-lat2832).
-    'langhe.capture.a.koptekst': 'De volledige reisplanner als PDF',
-    'langhe.capture.a.body': 'Dit artikel geeft de kern. Als je de route daadwerkelijk rijdt, is er meer: telefoonnummers voor de wijnhuizen, openingstijden per seizoen, en een overzicht van wat elke dag kost. Dat staat in de compacte Langhe-PDF die ik stuur naar iedereen die zich aanmeldt voor De Brief.',
-    'langhe.capture.a.ctaText': 'Stuur me de Langhe-PDF',
+    'langhe.capture.a.koptekst': 'Meer uit de Langhe in je inbox',
+    'langhe.capture.a.body': 'Dit artikel geeft de kern. Wil je meer: waar we proefden, welke wijnhuizen ons bijbleven en wat zo’n reis kost? Dat staat in De Brief, die Marijn elke twee weken schrijft.',
+    'langhe.capture.a.ctaText': 'Schrijf je in voor De brief',
     'langhe.capture.a.subCopy': 'Elke twee weken ontvang je ook De Brief: over wijn, reizen en de mensen erachter. Uitschrijven kan altijd.',
     'langhe.capture.c.koptekst': 'Begin met Piemonte',
-    'langhe.capture.c.body': 'Als je wilt weten waar te beginnen in de Langhe: ik schreef een compacte reisplanner. Route, wijnhuizen, hotels, budget. Aanmelden voor De Brief, en hij is meteen van jou.',
-    'langhe.capture.c.ctaText': 'Stuur me de Langhe-PDF',
+    'langhe.capture.c.body': 'Wil je weten waar te beginnen in de Langhe? In De Brief schrijf ik over routes, wijnhuizen en wat het kost, vanuit eigen ervaring.',
+    'langhe.capture.c.ctaText': 'Schrijf je in voor De brief',
     'langhe.capture.c.subCopy': 'Elke twee weken volgt De Brief: over wijn en reizen vanuit eigen ervaring.',
-    'langhe.capture.email.label': 'E-mailadres',
-    'langhe.capture.email.placeholder': 'je@adres.nl',
 
     // LAT-2921 — HubBacklink (pillar-hub terugverwijzing, src/lib/hub-backlinks.ts).
     // Stond als hardcoded NL-`label` op het HubDef-target; nu dictionary-driven
@@ -717,6 +717,9 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
  * nog geen EN-values heeft.  Volgorde in t(): Directus → UI_STRING_EN → UI_STRING_DEFAULTS.
  */
 export const UI_STRING_EN: Record<string, string> = {
+  // LAT-12300 — eerste-gebruik-tooltip bij de kelder-toggle.
+  'header.cellar.tipText': 'Too bright? Read in dark cellar mode.',
+
   // LAT-11950 — het promoblok in "Ontdek" claimde eigen bezoek voor élke
   // landengids, ook op /en/. Deze keys stonden alleen in UI_STRING_DEFAULTS, dus
   // /en/ kreeg de Nederlandse zin; met de herschrijving krijgt /en/ nu ook de
@@ -768,21 +771,17 @@ export const UI_STRING_EN: Record<string, string> = {
     'streken.index.empty.descLink': 'articles',
     'streken.index.empty.descPost': '.',
 
-    // LangheCaptureBlock.astro — PDF lead magnet (variant a = mid-article).
-    'langhe.capture.a.koptekst': 'The complete travel planner as a PDF',
-    'langhe.capture.a.body': 'This article gives you the essentials. If you actually drive the route, there is more: phone numbers for the wineries, seasonal opening hours, and a daily cost breakdown. All of that is in the compact Langhe PDF I send to everyone who signs up for The Brief.',
-    'langhe.capture.a.ctaText': 'Send me the Langhe PDF',
-    'langhe.capture.a.subCopy': 'Every two weeks you\'ll also receive The Brief: about wine, travel, and the people behind it. Unsubscribe anytime.',
+    // LangheCaptureBlock.astro — Langhe capture (variant a = mid-article).
+    'langhe.capture.a.koptekst': 'More from the Langhe in your inbox',
+    'langhe.capture.a.body': 'This article gives you the essentials. Want more: where we tasted, which wineries stayed with us and what a trip like this costs? That is in The Letter, which Marijn writes every two weeks.',
+    'langhe.capture.a.ctaText': 'Subscribe to The Letter',
+    'langhe.capture.a.subCopy': 'Every two weeks you\'ll also receive The Letter: about wine, travel, and the people behind it. Unsubscribe anytime.',
 
-    // LangheCaptureBlock.astro — PDF lead magnet (variant c = homepage-style).
+    // LangheCaptureBlock.astro — Langhe capture (variant c = homepage-style).
     'langhe.capture.c.koptekst': 'Start with Piedmont',
-    'langhe.capture.c.body': 'If you want to know where to begin in the Langhe: I wrote a compact travel planner. Route, wineries, hotels, budget. Sign up for The Brief and it\'s yours immediately.',
-    'langhe.capture.c.ctaText': 'Send me the Langhe PDF',
-    'langhe.capture.c.subCopy': 'Every two weeks The Brief follows: about wine and travel from personal experience.',
-
-    // LangheCaptureBlock.astro — gedeeld e-mail veld.
-    'langhe.capture.email.label': 'Email address',
-    'langhe.capture.email.placeholder': 'your@email.com',
+    'langhe.capture.c.body': 'If you want to know where to begin in the Langhe: in The Letter I write about routes, wineries and what it costs, from personal experience.',
+    'langhe.capture.c.ctaText': 'Subscribe to The Letter',
+    'langhe.capture.c.subCopy': 'Every two weeks The Letter follows: about wine and travel from personal experience.',
 
     // RhoneMap.astro — kaart-chrome (LAT-4909). `rhonemap.aria.mapPre` is in
     // Directus geseed (LAT-2848) maar had nog geen code-level fallback: bij een

@@ -16,6 +16,7 @@ import StreekKaart, { type StreekPoiInput } from './StreekKaart.astro';
 import StreekFeitenblok from './StreekFeitenblok.astro';
 import RouteMap from './RouteMap.astro';
 import TourCards from './TourCards.astro';
+import ReisCrossLinks from './ReisCrossLinks.astro';
 import ZelfGereisdBadge from './ZelfGereisdBadge.astro';
 import BeeldHerkomst from './BeeldHerkomst.astro';  // LAT-4776: §7-disclosure bij AI-beeld
 import NewsletterFooter from './NewsletterFooter.astro';
@@ -36,6 +37,8 @@ interface Props {
   entry: Streek;
   wijnhuizen: Wijnhuis[];
   routes: WijnRoute[];
+  /** LAT-12365: nareizen (reispakketten) van deze streek. */
+  nareizen?: { slug: string; titel: string; tagline?: string }[];
   accRoundup: AccommodatieRoundupData | null;
   /** LAT-2575: NL byte-identiek op DEFAULT_LOCALE; /en/ geeft "en" mee. */
   locale?: Locale;
@@ -45,7 +48,7 @@ interface Props {
   alternates?: Partial<Record<Locale, string>>;
 }
 
-const { entry, wijnhuizen, routes, accRoundup, locale = DEFAULT_LOCALE, alternates } = Astro.props;
+const { entry, wijnhuizen, routes, nareizen = [], accRoundup, locale = DEFAULT_LOCALE, alternates } = Astro.props;
 
 // LAT-12054: `streken.hero_credit` houdt voorrang; ontbreekt het, dan komt de naamsvermelding uit de DAM.
 const damHeroCredit = entry.heroCredit ? null : await getImageCredit(assetIdFromSrc(entry.heroImage));
@@ -62,15 +65,6 @@ const pageUrl = new URL(`${localePrefix}/streken/${entry.slug}/`, Astro.site ?? 
 // bedragen worden naar EUR geconverteerd voor weergave (board-besluit). Een
 // per-accommodatie valuta (acc.valuta) wint als bron over de land-default.
 const streekValuta = currencyForLand(entry.landSlug);
-
-// LAT-2436: preselecteer de regiovraag in de nieuwsbrief-footer wanneer de streek
-// overeenkomt met een van de 4 MailerLite-routing-regio's (region_preference).
-const streekRegio = `${entry.slug} ${entry.landSlug ?? ''}`.toLowerCase();
-const newsletterRegion: 'Piemonte' | 'Toscane' | 'Alsace' | null =
-  /piemonte|langhe/.test(streekRegio) ? 'Piemonte'
-  : /toscane|toscana/.test(streekRegio) ? 'Toscane'
-  : /alsace|elzas/.test(streekRegio) ? 'Alsace'
-  : null;
 
 // LAT-1199: verticale kruimel Land → Streek.
 const hasParentLand = Boolean(entry.landSlug && entry.country);
@@ -429,6 +423,8 @@ const hasFactBox = Boolean(
       </section>
     )}
 
+    <ReisCrossLinks nareizen={nareizen} locale={locale} />
+
     {/* LAT-2252 — gecureerde GetYourGuide-tours (activiteitenkanaal). Rendert
         alleen als er tours in Directus (streken.gyg_tours) staan. */}
     <TourCards streekSlug={entry.slug} streekName={entry.name} tours={entry.gygTours} locale={locale} />
@@ -479,7 +475,7 @@ const hasFactBox = Boolean(
     <AffiliateDisclosure locale={locale} />
   </article>
 
-  <NewsletterFooter defaultRegion={newsletterRegion} locale={locale} />
+  <NewsletterFooter locale={locale} />
 </SiteLayout>
 
 <style>

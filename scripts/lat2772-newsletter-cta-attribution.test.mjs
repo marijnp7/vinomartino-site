@@ -1,22 +1,10 @@
-// scripts/lat2772-newsletter-cta-attribution.test.mjs — LAT-2772
+// scripts/lat2772-newsletter-cta-attribution.test.mjs — LAT-2772, herschreven in LAT-12309
 //
-// Waarom deze test bestaat.
-//
-// `data-cta-id` op een submit-knop was **inert**. Het attribuut wordt
-// alleen gelezen door de klik-delegatie in `src/lib/site-events.ts (voorheen plausible.ts)`, en die matcht
-// uitsluitend `a[href]` — een `<button type="submit">` valt daar per definitie
-// buiten. Alle nieuwsbriefformulieren (home, footer, /de-brief/, langhe-PDF,
-// seizoenskalender) vuurden daardoor via `newsletter-signup.ts` één
-// ononderscheidbare `newsletter_signup`, en het label op de knop kwam nergens
-// aan. Dat is precies het soort "de hook staat er dus het werkt"-aanname waar
-// LAT-2772 al een keer op is stukgelopen.
-//
-// De test dekt de twee helften die samen de attributie dragen:
-//   1. de knop draagt een label       (anders is er niets om mee te geven)
-//   2. de submit-handler leest dat label en zet het in de event-props
-//      (anders draagt het label niets over)
-//
-// Eén helft groen is niet genoeg — vandaar twee losse asserts.
+// MailerLite is losgekoppeld (LAT-12309): elke "De brief"-CTA is nu een
+// <SubstackCta>-link. De klik-attributie loopt via `data-cta-id` op een
+// `a[href]` (site-events.ts: cta_click). Twee dingen mogen niet stuklopen:
+//   1. elke <SubstackCta> draagt een ctaId (anders is de klik niet te herleiden)
+//   2. er staat geen MailerLite-endpoint of -env-var meer in de broncode
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -26,74 +14,48 @@ import path from 'node:path';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-/** Alle .astro-bestanden onder src/, recursief. */
-function astroFiles(dir) {
+function files(dir, ext) {
   const out = [];
   for (const entry of readdirSync(dir)) {
     const full = path.join(dir, entry);
-    if (statSync(full).isDirectory()) out.push(...astroFiles(full));
-    else if (entry.endsWith('.astro')) out.push(full);
+    if (statSync(full).isDirectory()) out.push(...files(full, ext));
+    else if (ext.some((e) => entry.endsWith(e))) out.push(full);
   }
   return out;
 }
 
-/**
- * Knip elk `[data-newsletter-signup]`-formulier uit de bron: vanaf het attribuut
- * tot de eerstvolgende `</form>`. Buiten dat venster kijken we niet — een
- * zoekknop elders op de pagina hoort geen signup-label te dragen.
- */
-function newsletterFormBlocks(source) {
-  const blocks = [];
-  let from = 0;
-  for (;;) {
-    const start = source.indexOf('data-newsletter-signup', from);
-    if (start === -1) break;
-    const end = source.indexOf('</form>', start);
-    assert.notEqual(end, -1, 'formulier zonder afsluitende </form>');
-    blocks.push(source.slice(start, end));
-    from = end;
-  }
-  return blocks;
-}
-
-test('elke submit-knop in een nieuwsbriefformulier draagt data-cta-id', () => {
+test('elke <SubstackCta> draagt placement en ctaId', () => {
+  let seen = 0;
   const offenders = [];
-  let formsSeen = 0;
-
-  for (const file of astroFiles(path.join(root, 'src'))) {
+  for (const file of files(path.join(root, 'src'), ['.astro'])) {
     const source = readFileSync(file, 'utf8');
-    if (!source.includes('data-newsletter-signup')) continue;
-
-    for (const block of newsletterFormBlocks(source)) {
-      formsSeen += 1;
-      for (const match of block.matchAll(/<button\b[^>]*>/g)) {
-        if (!/\bdata-cta-id\s*=\s*["'][^"']+["']/.test(match[0])) {
-          offenders.push(`${path.relative(root, file)}: ${match[0]}`);
-        }
+    for (const m of source.matchAll(/<SubstackCta\b[^>]*\/>/g)) {
+      seen += 1;
+      if (!/\bplacement=/.test(m[0]) || !/\bctaId=/.test(m[0])) {
+        offenders.push(`${path.relative(root, file)}: ${m[0]}`);
       }
     }
   }
-
-  // Zonder deze ondergrens zou een hernoemd attribuut de hele scan leegmaken en
-  // de test alsnog groen laten worden — nul gevonden formulieren bewijst niets.
-  assert.ok(formsSeen >= 5, `verwachtte >= 5 nieuwsbriefformulieren, vond ${formsSeen}`);
-  assert.deepEqual(offenders, [], `submit-knoppen zonder data-cta-id:\n${offenders.join('\n')}`);
+  assert.ok(seen >= 6, `verwachtte >= 6 SubstackCta-plekken, vond ${seen}`);
+  assert.deepEqual(offenders, [], offenders.join('\n'));
 });
 
-test('de submit-handler zet het knoplabel in de newsletter_signup-aanroep', () => {
-  const source = readFileSync(path.join(root, 'src/lib/newsletter-signup.ts'), 'utf8');
+test('de Substack-link draagt UTM en wijst naar substack', () => {
+  const social = readFileSync(path.join(root, 'src/lib/social.ts'), 'utf8');
+  assert.match(social, /export function substackSubscribeUrl/);
+  for (const k of ['utm_source', 'utm_medium', 'utm_campaign']) {
+    assert.match(social, new RegExp(`searchParams\\.set\\('${k}'`), `${k} ontbreekt`);
+  }
+  assert.match(social, /vinomartino\.substack\.com/);
+});
 
-  const call = source.indexOf("trackEvent('newsletter_signup'");
-  assert.notEqual(call, -1, "geen trackEvent('newsletter_signup')-aanroep gevonden");
-
-  const end = source.indexOf('});', call);
-  assert.notEqual(end, -1, 'newsletter_signup-aanroep niet afgesloten');
-  const props = source.slice(call, end);
-
-  assert.match(
-    props,
-    /dataset\.ctaId/,
-    'de newsletter_signup-aanroep lezen data-cta-id niet — het label van de ' +
-      'knop komt dan nergens aan en elk formulier blijft ononderscheidbaar',
-  );
+test('geen MailerLite-endpoint of env-var meer in src/', () => {
+  const offenders = [];
+  for (const file of files(path.join(root, 'src'), ['.astro', '.ts'])) {
+    const source = readFileSync(file, 'utf8');
+    if (/assets\.mailerlite\.com|PUBLIC_MAILERLITE|data-newsletter-signup|fields\[email\]/.test(source)) {
+      offenders.push(path.relative(root, file));
+    }
+  }
+  assert.deepEqual(offenders, [], `MailerLite-resten:\n${offenders.join('\n')}`);
 });

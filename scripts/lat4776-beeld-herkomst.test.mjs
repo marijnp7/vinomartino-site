@@ -367,3 +367,55 @@ test('een mislukte load blijft niet in de cache plakken', async () => {
         assert.equal(mod.isSyntheticImage(ids, ART92_HERO.id), true, 'een gecachete mislukking zou de disclosure de rest van de build uitzetten');
     });
 });
+
+// ── LAT-12302: herkomst-slot op hero-koppelingen ─────────────────────────────
+const GEBLOKKEERD = {
+    id: 'ccd7ac8a-0700-4454-98ae-5b890871e60a',
+    title: 'Gaja Barbaresco',
+    description: '[NIET KOPPELEN ALS HERO — HERKOMST ONBEKEND, LAT-4738/LAT-12298] eerdere omschrijving',
+    tags: null,
+    filename_download: 'gaja.jpg',
+};
+
+test('de hero-blokmarker matcht alleen op het bestand dat hem draagt', async () => {
+    const mod = await loadSynth();
+    assert.equal(mod.fileMetaIsHeroBlocked(GEBLOKKEERD), true);
+    assert.equal(mod.fileMetaIsHeroBlocked(ECHTE_FOTO), false);
+});
+
+test('assertHeroNotBlocked laat de build falen op een geblokkeerde hero, niet op een gewone', async () => {
+    await withDirectusEnv(async () => {
+        const mod = await loadSynth();
+        stubFetch(() => jsonResponse([GEBLOKKEERD, ECHTE_FOTO]));
+        await assert.rejects(() => mod.assertHeroNotBlocked('wijnhuizen/x hero_image', GEBLOKKEERD.id.toUpperCase()), /NIET KOPPELEN ALS HERO/);
+        await mod.assertHeroNotBlocked('wijnhuizen/x hero_image', ECHTE_FOTO.id);
+        await mod.assertHeroNotBlocked('wijnhuizen/x hero_image', null);
+    });
+});
+
+test('de wijnhuizen-loader roept het hero-slot aan voor hero_image én og_image', () => {
+    const src = readFileSync('src/lib/wijnhuizen.ts', 'utf8');
+    assert.match(src, /assertHeroNotBlocked\(`[^`]*hero_image`, r\.hero_image/);
+    assert.match(src, /assertHeroNotBlocked\(`[^`]*og_image`, r\.og_image/);
+});
+
+test('een CC BY-SA 4.0 DAM-bestand (Produttori-hero, LAT-12298) krijgt maker + licentie als credit', async () => {
+    const { creditFromFileMeta } = await loadModule('image-credits', 'src/lib/image-credits.ts');
+    const c = creditFromFileMeta(
+        'cc-by-sa-4.0',
+        'Foto: Matteo Aresca 05, CC BY-SA 4.0, via Wikimedia Commons. Bron: https://commons.wikimedia.org/wiki/File:Barbaresco_(CN).jpg',
+    );
+    assert.ok(c, 'BY-SA eist attributie; zonder credit staat het beeld live zonder de verplichte vermelding');
+    assert.match(c.author, /Matteo Aresca 05/);
+    assert.equal(c.licenseLabel, 'CC BY-SA 4.0');
+});
+
+test('het wijnhuis-template markeert de hero als bewerkt (gradeBuffer + resize, LAT-12304)', () => {
+    const src = readFileSync('src/components/pages/WijnhuisPageContent.astro', 'utf8');
+    assert.match(src, /getImageCredit\(heroImageId, \{ adapted: true \}\)/, 'CC BY-SA 4.0 §3(a)(1)(B) eist de aanduiding');
+});
+
+test('het wijnhuis-template rendert de bewerkingsaanduiding bij adapted-credits (LAT-12304)', () => {
+    const src = readFileSync('src/components/pages/WijnhuisPageContent.astro', 'utf8');
+    assert.match(src, /heroCredit\.adapted[^\n]*adaptationNoteFor\(locale\)/);
+});

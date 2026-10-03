@@ -1,0 +1,226 @@
+# LAT-12199 — pub_date-poller naast paperclip-publish-dispatcher-1.
+#
+# Aanleiding: de nieuwe schedule-cron op deploy.yml ("0 2 * * *", PR #374) heeft
+# zijn eerste nacht niet gevuurd. Een zusworkflow met schedule-trigger
+# (affiliate-links-nightly.yml, "15 3 * * *") bewijst over 14 nachten dat GHA
+# `schedule:` in deze repo stelselmatig 4,5-6,5u te laat vuurt, met oplopende
+# vertraging — niet incidenteel. Marijn koos (board-approval 599f1071) voor het
+# alternatief dat hij zelf aandroeg: de publish-dispatcher laten pollen op een
+# pub_date-venster, in plaats van een tweede cron bovenop een bewezen
+# onbetrouwbaar triggertype.
+#
+# Ontwerp: een NIEUWE, kleine sidecar-container naast de bestaande
+# paperclip-publish-dispatcher-1, geen wijziging aan diens Node-broncode (die
+# leeft nergens in een repo die ik kan PR'en — alleen op de VPS onder
+# /opt/paperclip-cos). De sidecar hergebruikt twee al bestaande, al werkende
+# credential-bestanden op de host, zonder nieuwe secrets aan te maken:
+#   - /root/vinomartino-site/.env            -> DIRECTUS_URL + DIRECTUS_TOKEN
+#     (hetzelfde bestand dat deploy.yml's "Build on VPS"-stap al kopieert en
+#     leest, bewezen werkend, read-only query op de articles-collection)
+#   - /root/.agent-secrets/github-publish.env -> GH_TOKEN met actions:write
+#     (zelfde bestand en dezelfde token als LAT-4666/LAT-5144 al bevestigden
+#     voor workflow_dispatch; sha256(16)=2fe4c9c5469826aa, enige key = GH_TOKEN.
+#     .env.publish-dispatcher zelf is NIET bruikbaar: die draagt alleen
+#     GH_TOKEN_FILE (een pad, geen inline waarde, LAT-12199 diagnose-run
+#     36825630720) en is de credential van de bestaande dispatcher-service
+#     zelf — expres niet aangeraakt, dit blijft puur additief)
+#
+# Elke poll (15 min): vraag het meest recente artikel met
+# status=published AND pub_date<=$NOW op (dezelfde filter als
+# src/lib/articles.ts regel ~537). Verandert dat artikel (nieuw id/pub_date)
+# t.o.v. de laatst onthouden staat, dan is er net een pub_date-grens
+# overschreden: dispatch deploy.yml (target=production) via de GitHub REST
+# API, net als `gh workflow run deploy.yml --ref main -f target=production`.
+# Staat wordt bijgehouden in een bind-mounted bestand, dus een restart van de
+# sidecar dispatcht niet opnieuw voor een artikel dat al gedaan is.
+#
+# mode=diagnose is read-only en toont alleen bestand-aanwezigheid (nooit
+# waarden) en of het directus_directus_net-netwerk bestaat — bedoeld om vóór
+# mode=install de aannames in dit bestand tegen de echte hostconfiguratie te
+# toetsen. mode=install is idempotent: een herhaalde dispatch doet gewoon een
+# `up -d` op dezelfde service.
+
+name: LAT-12199 pub_date poll dispatcher
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "diagnose = alleen lezen, geen wijziging; install = sidecar (re)installeren"
+        required: true
+        default: diagnose
+        type: choice
+        options:
+          - diagnose
+          - install
+
+concurrency:
+  group: lat12199-pubdate-poll-dispatcher
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          cat >> ~/.ssh/config <<EOF
+          Host $VPS_HOST
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+          EOF
+          cat "$GITHUB_WORKSPACE/ops/ssh-config-snippet" >> ~/.ssh/config
+          ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      # ---------------------------------------------------------------- diagnose
+      - name: Diagnose (read-only)
+        if: inputs.mode == 'diagnose'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          DIAG: |
+            set -uo pipefail
+            echo "=== credential-bestanden (alleen aanwezigheid + mode, nooit inhoud) ==="
+            for f in /root/vinomartino-site/.env /root/.agent-secrets/github-publish.env; do
+              if [ -e "$f" ]; then
+                echo "AANWEZIG $(stat -c '%A %U:%G %n' "$f")"
+              else
+                echo "ONTBREEKT $f"
+              fi
+            done
+
+            echo "=== keys in /root/vinomartino-site/.env (nooit waarden) ==="
+            sed -n 's/^\([A-Za-z_][A-Za-z0-9_]*\)=.*/\1/p' /root/vinomartino-site/.env 2>/dev/null | paste -sd, -
+
+            echo "=== keys in github-publish.env (nooit waarden) ==="
+            sed -n 's/^\([A-Za-z_][A-Za-z0-9_]*\)=.*/\1/p' /root/.agent-secrets/github-publish.env 2>/dev/null | paste -sd, -
+
+            echo "=== bestaat het directus_directus_net netwerk? ==="
+            docker network inspect directus_directus_net >/dev/null 2>&1 \
+              && echo "AANWEZIG" || echo "ONTBREEKT"
+
+            echo "=== draait paperclip-publish-dispatcher-1? ==="
+            docker inspect -f 'status={{.State.Status}}' paperclip-publish-dispatcher-1 2>&1
+
+            echo "=== bestaat de sidecar al? ==="
+            docker inspect -f 'status={{.State.Status}}' paperclip-pubdate-poll-1 2>&1 || echo "nog niet geinstalleerd"
+        run: |
+          printf '%s\n' "$DIAG" | ssh "$VPS" "bash -s"
+
+      # ------------------------------------------------------------------ install
+      - name: Install pub_date-poll sidecar
+        if: inputs.mode == 'install'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          INSTALL: |
+            set -euo pipefail
+            cd /opt/paperclip-cos
+
+            for f in /root/vinomartino-site/.env /root/.agent-secrets/github-publish.env; do
+              [ -e "$f" ] || { echo "ONTBREEKT $f, installatie afgebroken"; exit 1; }
+            done
+            docker network inspect directus_directus_net >/dev/null 2>&1 \
+              || { echo "directus_directus_net ontbreekt, installatie afgebroken"; exit 1; }
+
+            mkdir -p lat920/pubdate-poll lat920/pubdate-poll-state
+
+            cat > lat920/pubdate-poll/poll.sh <<'POLLEOF'
+            #!/bin/sh
+            # Expres GEEN `set -e`: elke cyclus moet altijd zijn eigen uitkomst loggen,
+            # ook bij een mislukte curl, anders is een stille hang niet te onderscheiden
+            # van "niets nieuws" (LAT-12199, eerste install draaide muisstil door precies
+            # dit verschil niet te loggen).
+            set -u
+            STATE_FILE=/state/pubdate-state.json
+            GH_REPO="marijnp7/vinomartino-site"
+            GH_WORKFLOW="deploy.yml"
+
+            set -a
+            [ -f /site-env/.env ] && . /site-env/.env
+            [ -f /gh-env/.env ] && . /gh-env/.env
+            set +a
+
+            echo "$(date -u +%FT%TZ) poll.sh gestart, DIRECTUS_URL key aanwezig: $([ -n "${DIRECTUS_URL:-}" ] && echo ja || echo nee), GH_TOKEN key aanwezig: $([ -n "${GH_TOKEN:-}" ] && echo ja || echo nee)"
+
+            while true; do
+              HTTP_CODE=$(curl -s -o /tmp/resp.json -w '%{http_code}' \
+                -H "Authorization: Bearer ${DIRECTUS_TOKEN:-}" \
+                "${DIRECTUS_URL:-}/items/articles?filter[status][_eq]=published&filter[pub_date][_lte]=\$NOW&fields=id,pub_date&sort=-pub_date&limit=1" \
+                2>/tmp/curl.err)
+              RESP=$(cat /tmp/resp.json 2>/dev/null)
+              MAX_ID=$(printf '%s' "$RESP" | jq -r '.data[0].id // empty' 2>/dev/null)
+              MAX_PUBDATE=$(printf '%s' "$RESP" | jq -r '.data[0].pub_date // empty' 2>/dev/null)
+
+              LAST_ID=""
+              if [ -f "$STATE_FILE" ]; then
+                LAST_ID=$(jq -r '.lastDispatchedId // empty' "$STATE_FILE" 2>/dev/null)
+              fi
+
+              echo "$(date -u +%FT%TZ) poll: directus_http=$HTTP_CODE max_id=${MAX_ID:-leeg} max_pubdate=${MAX_PUBDATE:-leeg} last_id=${LAST_ID:-leeg}"
+
+              if [ "$HTTP_CODE" != "200" ]; then
+                echo "$(date -u +%FT%TZ) directus-query mislukt (http=$HTTP_CODE), curl-stderr: $(cat /tmp/curl.err 2>/dev/null)"
+              elif [ -n "$MAX_ID" ] && [ "$MAX_ID" != "$LAST_ID" ]; then
+                echo "$(date -u +%FT%TZ) nieuw artikel over pub_date-grens: id=$MAX_ID pub_date=$MAX_PUBDATE -> dispatch deploy.yml"
+                DISPATCH_CODE=$(curl -s -o /tmp/dispatch.json -w '%{http_code}' -X POST \
+                  -H "Authorization: Bearer ${GH_TOKEN:-}" \
+                  -H "Accept: application/vnd.github+json" \
+                  "https://api.github.com/repos/$GH_REPO/actions/workflows/$GH_WORKFLOW/dispatches" \
+                  -d "{\"ref\":\"main\",\"inputs\":{\"target\":\"production\"}}")
+                echo "$(date -u +%FT%TZ) dispatch http=$DISPATCH_CODE"
+                if [ "$DISPATCH_CODE" = "204" ]; then
+                  printf '{"lastDispatchedId":"%s","lastDispatchedAt":"%s"}\n' "$MAX_ID" "$(date -u +%FT%TZ)" > "$STATE_FILE"
+                else
+                  echo "$(date -u +%FT%TZ) dispatch mislukt, geen state-update, volgende poll probeert opnieuw"
+                fi
+              fi
+              sleep 900
+            done
+            POLLEOF
+            chmod +x lat920/pubdate-poll/poll.sh
+
+            cat > lat920/docker-compose.publish-dispatcher.pubdate-poll.yml <<'COMPOSEEOF'
+            services:
+              pubdate-poll:
+                image: alpine:3.20
+                container_name: paperclip-pubdate-poll-1
+                restart: unless-stopped
+                entrypoint: ["/bin/sh", "-c", "apk add --no-cache curl jq >/dev/null 2>&1 && exec /poll/poll.sh"]
+                networks:
+                  - directus_directus_net
+                volumes:
+                  - ./lat920/pubdate-poll:/poll:ro
+                  - ./lat920/pubdate-poll-state:/state
+                  - /root/vinomartino-site/.env:/site-env/.env:ro
+                  - /root/.agent-secrets/github-publish.env:/gh-env/.env:ro
+            networks:
+              directus_directus_net:
+                external: true
+            COMPOSEEOF
+
+            # --force-recreate: poll.sh/compose-inhoud wordt via een bind mount geleverd, dus
+            # een inhoudswijziging zonder config-wijziging laat `up -d` een no-op doen (LAT-12199,
+            # install-run 37065512487 draaide stilletjes door op het oude script). Expliciet
+            # forceren is de enige manier om een poll.sh-update ook echt te laten landen.
+            docker compose -f docker-compose.cos.yml -f lat920/docker-compose.publish-dispatcher.yml \
+              -f lat920/docker-compose.publish-dispatcher.pubdate-poll.yml up -d --force-recreate pubdate-poll
+
+            sleep 5
+            echo "=== staat na install ==="
+            docker inspect -f 'status={{.State.Status}} restarting={{.State.Restarting}}' paperclip-pubdate-poll-1
+            docker logs --tail 20 paperclip-pubdate-poll-1 2>&1 | sed -e 's/Bearer [^"]*/Bearer <redacted>/g'
+        run: |
+          printf '%s\n' "$INSTALL" | ssh "$VPS" "bash -s"

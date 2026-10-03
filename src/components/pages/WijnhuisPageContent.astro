@@ -3,7 +3,7 @@ import SmartImg from '../SmartImg.astro';
 import BeeldHerkomst from '../BeeldHerkomst.astro';  // LAT-4776: §7-disclosure bij AI-beeld
 import AffiliatePlaceholder from '../AffiliatePlaceholder.astro';
 import AffiliateDisclosure from '../AffiliateDisclosure.astro';
-import { getImageCredit, licenseLabelFor } from '../../lib/image-credits';
+import { adaptationNoteFor, getImageCredit, licenseLabelFor } from '../../lib/image-credits';
 import { DEFAULT_LOCALE, type Locale, localizeHref } from '../../lib/i18n';
 import { loadUiStrings } from '../../lib/ui-strings';
 
@@ -86,7 +86,7 @@ const drieluikBeelden = drieluik.filter((b) => b && b.src);
 
 // LAT-2478: verplichte beeldcredit (bv. Wikimedia Commons CC BY-SA) bij de hero,
 // gesleuteld op het Directus file-UUID. Null → geen figcaption (bv. AI-eigen werk).
-const heroCredit = await getImageCredit(heroImageId);
+const heroCredit = await getImageCredit(heroImageId, { adapted: true });
 ---
 
 <!-- ── HERO ──────────────────────────────────────────── -->
@@ -165,7 +165,7 @@ const heroCredit = await getImageCredit(heroImageId);
       <BeeldHerkomst fileId={heroImageId} src={heroImage} locale={locale} variant="inline" />
       {heroCredit && (
         <figcaption class="wh-hero__credit">
-          {heroCredit.author && <>{heroCredit.author}, </>}<a href={heroCredit.licenseUrl} rel="license noopener" target="_blank">{licenseLabelFor(heroCredit.licenseLabel, locale)}</a>{heroCredit.sourceUrl && <> — <a href={heroCredit.sourceUrl} rel="noopener" target="_blank">{heroCredit.sourceLabel ? `via ${heroCredit.sourceLabel}` : 'via bron'}</a></>}
+          {heroCredit.author && <>{heroCredit.author}, </>}<a href={heroCredit.licenseUrl} rel="license noopener" target="_blank">{licenseLabelFor(heroCredit.licenseLabel, locale)}</a>{heroCredit.sourceUrl && <> — <a href={heroCredit.sourceUrl} rel="noopener" target="_blank">{heroCredit.sourceLabel ? `via ${heroCredit.sourceLabel}` : 'via bron'}</a></>}{heroCredit.adapted && <> ({adaptationNoteFor(locale)})</>}
         </figcaption>
       )}
     </figure>

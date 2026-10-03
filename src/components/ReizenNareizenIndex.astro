@@ -1,5 +1,5 @@
 ---
-// LAT-2826 — gedeeld "Reizen & nareizen"-overzicht (listing-index). De NL-route
+// LAT-2826 / LAT-12365 — gedeeld "Reizen en nareizen"-overzicht (hub: nareizen + wijnroutes) (listing-index). De NL-route
 // (/reizen-nareizen/) en de /en/-tegenhanger renderen dit component; `locale`
 // stuurt de loader (no-translation-guard) en de UI-dictionary. NL is de
 // canonieke render; EN toont alléén vertaalde pakketten (of de empty-state).
@@ -15,6 +15,7 @@
 import SiteLayout from '../layouts/SiteLayout.astro';
 import SmartImg from '../components/SmartImg.astro';
 import { loadReispakketten, type ReisPakket } from '../lib/reispakketten';
+import { loadRoutes } from '../lib/routes';
 import { organizationSchema, breadcrumbSchema } from '../lib/seo';
 import { loadUiStrings } from '../lib/ui-strings';
 import { DEFAULT_LOCALE, localizePath, type Locale } from '../lib/i18n';
@@ -28,6 +29,8 @@ const { locale = DEFAULT_LOCALE, alternates } = Astro.props;
 const ui = await loadUiStrings(locale);
 
 const entries = await loadReispakketten(locale);
+// LAT-12365: de hub toont ook alle gepubliceerde wijnroutes, direct onder de nareizen.
+const routes = await loadRoutes(locale);
 
 // Reverse chronologisch. `pub_date` is optioneel in Directus; pakketten zonder
 // datum zakken naar onderen i.p.v. de kop te kapen (NaN-sortering).
@@ -62,10 +65,10 @@ const schema = [
   title={ui.t('reizen.index.meta.title')}
   description={ui.t('reizen.index.meta.description')}
   schema={schema}
-  activeNav="wijnroutes"
+  activeNav="reizen"
   locale={locale}
   alternates={alternates}
-  noindex={groups.length === 0}
+  noindex={groups.length === 0 && routes.length === 0}
 >
   <section class="hero-sm">
     <div class="container">
@@ -75,17 +78,19 @@ const schema = [
     </div>
   </section>
 
-  <section class="section container">
-    {groups.length > 0 ? (
-      groups.map((group) => (
+  {groups.length > 0 && (
+    <section class="section container" id="nareizen">
+      <h2 class="reizen-block__title">{ui.t('reizen.index.nareizen.title')}</h2>
+      <p class="reizen-block__intro">{ui.t('reizen.index.nareizen.intro')}</p>
+      {groups.map((group) => (
         <div class="reis-group">
-          <h2 class="reis-group__title">
+          <h3 class="reis-group__title">
             {group.streekSlug ? (
               <a href={localizePath(`/streken/${group.streekSlug}/`, locale)}>{group.naam}</a>
             ) : (
               group.naam
             )}
-          </h2>
+          </h3>
           <div class="grid">
             {group.items.map((entry) => (
               <a href={localizePath(`/reizen-nareizen/${entry.slug}/`, locale)} class="card card-link">
@@ -94,7 +99,7 @@ const schema = [
                 </div>
                 <div class="card-body">
                   {group.naam && <span class="card-regio">{group.naam}</span>}
-                  <h3 class="card-title">{entry.titel}</h3>
+                  <h4 class="card-title">{entry.titel}</h4>
                   {(entry.tagline || entry.metaDescription) && (
                     <p class="card-desc">{entry.tagline || entry.metaDescription}</p>
                   )}
@@ -104,16 +109,48 @@ const schema = [
             ))}
           </div>
         </div>
-      ))
-    ) : (
+      ))}
+    </section>
+  )}
+
+  {routes.length > 0 && (
+    <section class:list={['section', 'container', groups.length > 0 && 'reizen-block--after']} id="wijnroutes">
+      <h2 class="reizen-block__title">{ui.t('reizen.index.routes.title')}</h2>
+      <p class="reizen-block__intro">{ui.t('reizen.index.routes.intro')}</p>
+      {groups.length === 0 && <p class="reizen-block__note">{ui.t('reizen.index.nareizen.emptyNote')}</p>}
+      <div class="grid">
+        {routes.map((route) => (
+          <a href={localizePath(`/wijnroutes/${route.slug}/`, locale)} class="card card-link">
+            <div class:list={['card-img-wrap', !route.heroImage && 'is-empty']}>
+              <SmartImg src={route.heroImage || undefined} alt={route.title} theme="region" class="card-img" />
+            </div>
+            <div class="card-body">
+              <span class:list={['card-regio', route.zelfGereisd && 'card-regio--zelf']}>
+                {route.zelfGereisd ? ui.t('reizen.label.zelfGereisd') : ui.t('reizen.label.redactiegids')}
+              </span>
+              <h3 class="card-title">{route.title}</h3>
+              {route.description && <p class="card-desc">{route.description}</p>}
+              <span class="card-cta">{ui.t('reizen.index.routes.moreCta')} &rarr;</span>
+            </div>
+          </a>
+        ))}
+      </div>
+      <p class="reizen-block__more">
+        <a href={localizePath('/wijnroutes/', locale)}>{ui.t('reizen.index.routes.allCta')} &rarr;</a>
+      </p>
+    </section>
+  )}
+
+  {groups.length === 0 && routes.length === 0 && (
+    <section class="section container">
       <div class="empty-state">
         <h2>{ui.t('reizen.index.empty.title')}</h2>
         <p>
           {ui.t('reizen.index.empty.descPre')}<a href={localizePath('/wijnroutes/', locale)}>{ui.t('reizen.index.empty.descLink')}</a>{ui.t('reizen.index.empty.descPost')}
         </p>
       </div>
-    )}
-  </section>
+    </section>
+  )}
 </SiteLayout>
 
 <style>
@@ -139,6 +176,31 @@ const schema = [
     max-width: 44rem;
     margin-inline: auto;
   }
+  .reizen-block__title {
+    font-family: var(--font-display);
+    font-size: 2rem;
+    font-weight: 400;
+    font-style: italic;
+    color: var(--ink);
+  }
+  .reizen-block__intro,
+  .reizen-block__note {
+    font-family: var(--font-body);
+    color: var(--inkSoft);
+    margin: var(--space-2) 0 var(--space-6);
+    max-width: 44rem;
+  }
+  .reizen-block--after { padding-top: 0; }
+  .reizen-block__more { margin-top: var(--space-6); }
+  .reizen-block__more a {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--burgundy);
+    text-decoration: none;
+  }
+  .card-regio--zelf { background: var(--burgundy); color: var(--paper); }
   .reis-group + .reis-group {
     margin-top: var(--space-12);
     padding-top: var(--space-8);
@@ -146,7 +208,7 @@ const schema = [
   }
   .reis-group__title {
     font-family: var(--font-display);
-    font-size: 1.5rem;
+    font-size: 1.25rem;
     font-weight: 500;
     font-style: italic;
     color: var(--ink);

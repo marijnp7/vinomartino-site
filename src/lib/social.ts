@@ -11,9 +11,12 @@
  * preview-/testbuilds; een expliciet lege env-var betekent nog steeds
  * "verberg dit kanaal", zodat het zonder code-wijziging uit kan.
  *
- * Rolverdeling (besluit Marijn 2026-07-17): MailerLite = funnel (primaire CTA
- * "De brief"), Substack = discovery/tweede lijn. Substack krijgt dus een
- * footer-link en een vermelding, geen eigen aanmeldformulier.
+ * Rolverdeling (besluit Marijn 2026-10-02, LAT-12309): MailerLite is losgekoppeld;
+ * Substack is het enige nieuwsbriefkanaal. Elke "De brief"-CTA op de site is een
+ * link naar de Substack-aanmeldpagina met UTM (zie substackSubscribeUrl).
+ * Let op: PUBLIC_SUBSTACK_URL expliciet leeg = geen enkele aanmeldroute op de
+ * hele site (SubstackCta rendert niets); de var is dus een stille kill-switch
+ * voor de nieuwsbrief, niet alleen voor de footerlink.
  */
 
 function resolve(envValue: string | undefined, fallback: string): string {
@@ -34,3 +37,16 @@ export const SUBSTACK_URL = resolve(
   import.meta.env.PUBLIC_SUBSTACK_URL,
   'https://vinomartino.substack.com/',
 );
+
+/**
+ * Aanmeldlink naar Substack met UTM; `placement` wordt utm_campaign zodat per
+ * plek op de site meetbaar is. Leeg als het kanaal bewust verborgen is.
+ */
+export function substackSubscribeUrl(placement: string): string {
+  if (!SUBSTACK_URL) return '';
+  const url = new URL('subscribe', SUBSTACK_URL);
+  url.searchParams.set('utm_source', 'vinomartino.travel');
+  url.searchParams.set('utm_medium', 'website');
+  url.searchParams.set('utm_campaign', placement);
+  return url.toString();
+}

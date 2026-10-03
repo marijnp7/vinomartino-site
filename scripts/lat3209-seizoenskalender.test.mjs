@@ -3,14 +3,13 @@
 // De pagina mag NIET publiek bereikbaar zijn zolang de PDF geblokkeerd is
 // (LAT-2684/LAT-2318). Die eigenschap is verspreid over vier bestanden en is
 // precies het soort ding dat een latere, goedbedoelde refactor stilletjes
-// opheft. Deze test bewaakt de drie sluitingen plus het verplicht-veld-gedrag:
+// opheft. Deze test bewaakt de drie sluitingen plus de Substack-CTA:
 //
 //   1. de route wordt niet gegenereerd zonder SEIZOENSKALENDER_ENABLED=1
 //   2. een lege/ontbrekende Directus-rij levert geen pagina op en geen
 //      fallback-copy
 //   3. de route staat nergens gelinkt en zit niet in de sitemap
-//   4. `region_preference` wordt op dit form altijd meegestuurd (geen
-//      "verwijder leeg veld"-bypass zoals bij de artikel-footer-form)
+//   4. aanmelden gaat via Substack (LAT-12309; het MailerLite-regioveld is weg)
 //
 // Geen nieuwe dependency: dezelfde resolve-hook als de andere tests hier, zodat
 // Node de TS-bronnen rechtstreeks leest.
@@ -260,34 +259,18 @@ test('de route staat niet in nav_items-seed of footer', () => {
 });
 
 // --------------------------------------------------------------------------
-// 4 — region_preference is verplicht op dit form
+// 4 — aanmelden gaat via Substack (LAT-12309; MailerLite is losgekoppeld)
 // --------------------------------------------------------------------------
 
-test('het regioveld kan required gerenderd worden en het form gebruikt dat', () => {
-  const field = read('src/components/NewsletterRegionField.astro');
-  assert.match(field, /required\?: boolean/, 'prop bestaat');
-  assert.match(field, /required=\{required\}/, 'attribuut komt op de select terecht');
-  assert.match(field, /required = false/, 'default blijft optioneel voor de artikel-footer-form');
-
+test('de seizoenskalender-form is een Substack-CTA, geen MailerLite-form', () => {
   const form = read('src/components/SeizoenskalenderForm.astro');
-  assert.match(form, /required=\{true\}/, 'de seizoenskalender-form zet het veld op verplicht');
-  assert.match(form, /194582697828418830/, 'post naar de Seizoenskalender-form van MailerLite');
-  assert.match(
-    form,
-    /PUBLIC_MAILERLITE_SEIZOENSKALENDER_FORM_ACTION/,
-    'endpoint blijft overschrijfbaar via env',
-  );
+  assert.match(form, /<SubstackCta[^>]*placement="seizoenskalender"/);
+  assert.doesNotMatch(form, /mailerlite|<form/i);
   assert.match(
     form,
     /newsletter\.footer\.lede/,
     'frequentiebelofte komt uit de gedeelde ui-string, niet uit nieuwe copy',
   );
-});
-
-test('de "verwijder leeg veld"-bypass geldt niet voor een required regioveld', () => {
-  const src = read('src/lib/newsletter-signup.ts');
-  assert.match(src, /const regionRequired = Boolean\(regionSelect\?\.required\)/);
-  assert.match(src, /if \(!region && !regionRequired\) data\.delete\(REGION_FIELD\)/);
 });
 
 test('geen em-dashes in de publieke copy van de seed', () => {

@@ -1,0 +1,12 @@
+{
+  "_comment": "LAT-12309 — EN-copy na het loskoppelen van MailerLite: aanmelden gaat via Substack, regio-routing en Langhe-PDF-belofte vervallen. Draaien met --force (overschrijft de bestaande EN-rijen). De oude keys newsletter.region.*, *.emailLabel/emailPlaceholder blijven ongebruikt in Directus staan.",
+  "newsletter.footer.lede": "A few times a year, Marijn writes a proper letter: about a winemaker we just visited, a region that caught our attention again, a bottle that made an impression.",
+  "newsletter.footer.submit": "Subscribe to The Letter",
+  "newsletter.footer.fineprint": "You subscribe through Substack: you will receive an email to confirm your subscription. Unsubscribe any time, with one click.",
+  "home.brief.submit": "Subscribe to The Letter",
+  "langhe.capture.a.koptekst": "More from the Langhe in your inbox",
+  "langhe.capture.a.body": "This article covers the essentials. Want more: where we tasted, which wineries stayed with us and what a trip like this costs? That is in The Letter, which Marijn writes every two weeks.",
+  "langhe.capture.a.ctaText": "Subscribe to The Letter",
+  "langhe.capture.c.body": "Want to know where to begin in the Langhe? In The Letter I write about routes, wineries and what it costs, from personal experience.",
+  "langhe.capture.c.ctaText": "Subscribe to The Letter"
+}

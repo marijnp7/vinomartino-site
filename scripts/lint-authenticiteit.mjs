@@ -10,9 +10,12 @@
  *   d  Geen em-dash/en-dash als gedachtestreep en geen spatie-koppelteken-spatie in
  *      titels en lopende tekst (bereiken als "80-125" blijven toegestaan).
  *   e  Alleen "Marijn", nooit "Martin", nooit "WSET 4".
- *   f  Op Zelf-gereisd-pagina's: elke ooggetuige-zin draagt [bron: RS-<id>]; ontbreekt
- *      die markering, dan is dat een lint-overtreding (het blokkeert de build niet in
- *      --lenient; zonder --lenient is het een fatale fout).
+ *   f  Op Zelf-gereisd-pagina's: elke ooggetuige-zin draagt [bron: RS-<id>] OF
+ *      [bron: marijn YYYY-MM-DD] (HARDE REGEL 57, herzien 2026-10-03), ook als
+ *      data-bron="..." met dezelfde waarde; ontbreekt die markering, dan is dat een
+ *      lint-overtreding (het blokkeert de build niet in --lenient; zonder --lenient is
+ *      het een fatale fout). Een zin met geldige markering is ook vrij van regel b.
+ *      Meningen zonder bezoekclaim ("hier zou ik slapen") zijn geen ooggetuige-zin.
  *   g  Geen "Sophie" in FAQ-blokken.
  *
  * Gebruik:
@@ -86,6 +89,25 @@ function innerText(html) {
 function extractTitle(html) {
   const m = html.match(/<title[^>]*>([^<]*)<\/title>/i);
   return m ? m[1] : '';
+}
+
+// Geldige markering: RS-<id> of "marijn YYYY-MM-DD" (echte kalenderdatum).
+function isGeldigeBron(waarde) {
+  const v = waarde.trim();
+  if (/^RS-[A-Za-z0-9_-]+$/i.test(v)) return true;
+  const m = v.match(/^marijn\s+(\d{4})-(\d{2})-(\d{2})$/i);
+  if (!m) return false;
+  const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
+  return d.getUTCFullYear() === +m[1] && d.getUTCMonth() === +m[2] - 1 && d.getUTCDate() === +m[3];
+}
+
+function heeftGeldigeBron(tekst) {
+  return [...tekst.matchAll(/\[bron:\s*([^\]]*)\]/gi)].some((m) => isGeldigeBron(m[1]));
+}
+
+// data-bron="..." wordt als zichtbare [bron: ...] voor de tekstvergelijking geplaatst.
+function metBronAttributen(html) {
+  return html.replace(/<([a-z][^>]*?)\sdata-bron="([^"]*)"([^>]*)>/gi, '<$1$3> [bron: $2] ');
 }
 
 function isZelfGereisd(html) {
@@ -211,24 +233,20 @@ for await (const file of walk(DIST)) {
   }
 
   if (zg && ALLE_PLAATSEN.length > 0) {
-    // b: Zelf gereisd — ooggetuige-zinnen alleen over bekende plaatsen
-    // Simpele benadering: zinnen met eerste persoon VT op pagina's buiten de plaatsenlijst
-    const vtZinnen = text.match(/[^.!?]*\b(ik|we|wij)\s+(sliep|sliepen|at|aten|proefde[n]?|bezocht[e]?|dronk|dronken|zag|zagen)\b[^.!?]*/gi) || [];
-    for (const zin of vtZinnen) {
+    // b + f: ooggetuige-zinnen (eerste persoon VT = bezoekclaim). Meningen als "hier zou ik
+    // slapen" matchen niet. Een geldige bron-markering (RS-id of marijn datum) is het bewijs
+    // en maakt de zin vrij van b en f.
+    const bronText = innerText(metBronAttributen(html));
+    const vtRx = /[^.!?]*\b(ik|we|wij)\s+(sliep|sliepen|at|aten|proefde[n]?|bezocht[e]?|dronk|dronken|zag|zagen)\b[^.!?]*/gi;
+    for (const m of bronText.matchAll(vtRx)) {
+      const zin = m[0];
+      const venster = bronText.slice(Math.max(0, m.index - 200), m.index + zin.length + 200);
+      if (heeftGeldigeBron(venster)) continue;
       const heeftPlaats = ALLE_PLAATSEN.some((p) => zin.toLowerCase().includes(p.toLowerCase()));
       if (!heeftPlaats) {
         report(rel, 'b', `ooggetuige-zin zonder bekende plaats: "…${zin.trim().slice(0, 120)}…"`);
       }
-    }
-
-    // f: [bron: RS-id] markering per ooggetuige-zin
-    for (const zin of vtZinnen) {
-      const idx = text.indexOf(zin.slice(0, 40));
-      const window = html.slice(Math.max(0, idx - 200), idx + zin.length + 200);
-      if (!/\[bron:\s*RS-[^\]]+\]/i.test(window)) {
-        const verb = LENIENT ? report : (r, rule, d) => violations.push({ rel, rule, detail: d });
-        report(rel, 'f', `ooggetuige-zin zonder [bron: RS-id]: "…${zin.trim().slice(0, 100)}…"`);
-      }
+      report(rel, 'f', `ooggetuige-zin zonder [bron: RS-id] of [bron: marijn YYYY-MM-DD]: "…${zin.trim().slice(0, 100)}…"`);
     }
   }
 

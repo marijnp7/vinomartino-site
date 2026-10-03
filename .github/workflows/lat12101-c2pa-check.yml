@@ -1,0 +1,202 @@
+# LAT-12101 — read-only: bewijst de C2PA exit-1-wiring (4b) en de
+# ALLOW_CONTENT_DEGRADE key-aanwezigheid (4c) op de VPS-host.
+#
+# Aanleiding: LAT-12056 stap 4b/4c vereisen dat scripts/check-c2pa.mjs met
+# BEIDE preview-relax-vars (DIRECTUS_INCLUDE_DRAFTS, ALLOW_CONTENT_DEGRADE)
+# leeg draait tegen /root/vinomartino-site, en een key-only grep op
+# ALLOW_CONTENT_DEGRADE in /root/vinomartino-site/.env. Geen bestaande
+# workflow in dit repo dekt dit; vandaar dit nieuwe bestand (R2 gate-set
+# punt 1: elk workflow-bestand gaat via Marijn, ook read-only). Goedgekeurd
+# via kaart 81509e67 op 2026-10-02: "Akkoord: nieuw workflow-bestand mag als
+# PR worden aangeboden. Merge blijft een aparte gate."
+#
+# ROUTE. Zelfde GHA->VPS SSH-kanaal als lat12058/lat11140/lat3052/lat5145
+# (kaart 933eff00-patroon), dezelfde ssh-config-snippet en dezelfde secrets
+# (VPS_SSH_PRIVATE_KEY/VPS_HOST/VPS_USER). Volledig gequote heredoc: niets
+# uit `inputs` bereikt een shell-commando.
+#
+# SCOPE. Twee modi, allebei alleen lezen:
+#   check4b — draait scripts/check-c2pa.mjs in /root/vinomartino-site eerst
+#     tegen een scratch-dir met een UUID-bestandsnaam (verwacht exit 1 als er
+#     een matchende niet-synthetische Directus-asset met C2PA-bytes bestaat,
+#     anders exit 0/2 — beide worden gelogd, niet geforceerd), daarna tegen
+#     de echte public/images/ (verwacht exit 0; een lijst gaat ongewijzigd
+#     naar Marijn/Atelier, deze workflow wijzigt nooit synthetisch-vlaggen).
+#   check4c — grept alleen de KEY-naam ALLOW_CONTENT_DEGRADE in
+#     /root/vinomartino-site/.env, nooit de waarde (HARDE REGEL secrets).
+# Geen writes, geen restart, geen compose-actie, geen interpolatie van
+# inputs in shell-commando's, geen mutatie van de Directus-DAM.
+
+name: LAT-12101 C2PA exit-1 + ALLOW_CONTENT_DEGRADE key-check (vinomartino)
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'check4b = C2PA exit-1-bewijs; check4c = ALLOW_CONTENT_DEGRADE key-check'
+        required: true
+        default: check4b
+        type: choice
+        options:
+          - check4b
+          - check4c
+
+concurrency:
+  group: lat12101-c2pa-check
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          cat >> ~/.ssh/config <<EOF
+          Host $VPS_HOST
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+          EOF
+          cat "$GITHUB_WORKSPACE/ops/ssh-config-snippet" >> ~/.ssh/config
+          ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      # ============================================================ check4b
+      - name: C2PA exit-1-bewijs (read-only)
+        if: inputs.mode == 'check4b'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+        run: |
+          set -euo pipefail
+          cat > /tmp/lat12101-check4b.sh <<'CHECKEOF'
+          set -uo pipefail
+          SITE=/root/vinomartino-site
+          SCRATCH="/tmp/c2pa-probe-$$-${GITHUB_RUN_ID:-manual}"
+
+          echo "=== 0. gereedschap ==="
+          for B in node python3 curl; do
+            command -v "$B" >/dev/null 2>&1 && echo "  $B: aanwezig" || echo "  $B: ONTBREEKT"
+          done
+
+          if [ ! -d "$SITE" ] || [ ! -f "$SITE/scripts/check-c2pa.mjs" ]; then
+            echo "=== 1. paden ==="
+            echo "  $SITE of scripts/check-c2pa.mjs ONTBREEKT — kan niet verder."
+            exit 2
+          fi
+          cd "$SITE"
+
+          echo "=== 1. env (alleen key-aanwezigheid, nooit waarden) ==="
+          for K in DIRECTUS_URL DIRECTUS_TOKEN DIRECTUS_INCLUDE_DRAFTS ALLOW_CONTENT_DEGRADE; do
+            grep -qc "^${K}=" .env 2>/dev/null && echo "  $K: gezet in .env" || echo "  $K: niet gezet in .env"
+          done
+
+          echo "=== 2. zoek een niet-synthetische DAM-asset met een C2PA/JUMBF-manifest ==="
+          set -a; . ./.env; set +a
+          CANDIDATE_JSON=$(env -u DIRECTUS_INCLUDE_DRAFTS -u ALLOW_CONTENT_DEGRADE node - <<'NODEEOF'
+          (async () => {
+          const url = (process.env.DIRECTUS_URL || '').replace(/\/$/, '');
+          const token = process.env.DIRECTUS_TOKEN || '';
+          const SCAN_BYTES = 400 * 1024;
+          const MAX_CANDIDATES = 150;
+          if (!url || !token) { console.log(JSON.stringify({ error: 'no-directus-env' })); process.exit(0); }
+          const res = await fetch(`${url}/files?limit=-1&fields=id,synthetisch,filename_download,title,description,tags`, {
+            headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(60000),
+          });
+          if (!res.ok) { console.log(JSON.stringify({ error: `files-http-${res.status}` })); process.exit(0); }
+          const files = (await res.json()).data || [];
+          const SYNTH_RE = /synthetisch|synthetic|ai-render|ai render|ai-gegenereerd|ai gegenereerd|midjourney|dall-?e|stable diffusion|gpt-image|vinomartino \/ atelier/i;
+          const nonSynthetic = files.filter(f => f.synthetisch !== true &&
+            !SYNTH_RE.test(JSON.stringify([f.title, f.description, f.tags, f.filename_download])));
+          let scanned = 0;
+          for (const f of nonSynthetic.slice(0, MAX_CANDIDATES)) {
+            scanned++;
+            try {
+              const r = await fetch(`${url}/assets/${f.id}`, {
+                headers: { Authorization: `Bearer ${token}`, Range: `bytes=0-${SCAN_BYTES - 1}` },
+                signal: AbortSignal.timeout(15000),
+              });
+              if (!r.ok) continue;
+              const chunks = [];
+              let total = 0;
+              for await (const chunk of r.body) { chunks.push(chunk); total += chunk.length; if (total >= SCAN_BYTES) break; }
+              if (r.body.cancel) await r.body.cancel().catch(() => {});
+              const head = Buffer.concat(chunks).subarray(0, SCAN_BYTES);
+              if (head.includes('c2pa') || head.includes('jumb')) {
+                console.log(JSON.stringify({ id: f.id, scanned }));
+                process.exit(0);
+              }
+            } catch {}
+          }
+          console.log(JSON.stringify({ error: 'no-candidate-found', scanned, pool: nonSynthetic.length }));
+          })();
+          NODEEOF
+          )
+          echo "  kandidaat-scan resultaat: $CANDIDATE_JSON"
+          CANDIDATE_ID=$(printf '%s' "$CANDIDATE_JSON" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("id",""))' 2>/dev/null || true)
+
+          if [ -z "$CANDIDATE_ID" ]; then
+            echo "=== 3. geen kandidaat-UUID gevonden in de DAM-scan ==="
+            echo "  Geen exit-1-bewijs mogelijk zonder een bestaande niet-synthetische asset met C2PA-bytes."
+            echo "  Dit is zelf een bevinding (zie approval-risico 81509e67), geen scriptfout."
+          else
+            echo "=== 3. exit-1-pad: scratch-dir met kandidaat $CANDIDATE_ID ==="
+            mkdir -p "$SCRATCH"
+            touch "$SCRATCH/${CANDIDATE_ID}.jpg"
+            echo "  scratch-dir: $SCRATCH"
+            set +e
+            env -u DIRECTUS_INCLUDE_DRAFTS -u ALLOW_CONTENT_DEGRADE node scripts/check-c2pa.mjs --images-dir "$SCRATCH"
+            FAILPATH_EXIT=$?
+            set -e
+            echo "  FAILPATH_EXIT=$FAILPATH_EXIT (verwacht: 1)"
+            rm -rf "$SCRATCH"
+          fi
+
+          echo "=== 4. controlepad: echte public/images/ (verwacht exit 0) ==="
+          set +e
+          env -u DIRECTUS_INCLUDE_DRAFTS -u ALLOW_CONTENT_DEGRADE node scripts/check-c2pa.mjs --images-dir public/images
+          REALPATH_EXIT=$?
+          set -e
+          echo "  REALPATH_EXIT=$REALPATH_EXIT (0 = schoon; anders: lijst hierboven, niet zelf wijzigen -- naar Marijn/Atelier)"
+          CHECKEOF
+          scp /tmp/lat12101-check4b.sh "$VPS:/tmp/lat12101-check4b.sh"
+          ssh "$VPS" "bash /tmp/lat12101-check4b.sh; rm -f /tmp/lat12101-check4b.sh"
+
+      # ============================================================ check4c
+      - name: ALLOW_CONTENT_DEGRADE key-check (read-only, geen waarde)
+        if: inputs.mode == 'check4c'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+        run: |
+          set -euo pipefail
+          cat > /tmp/lat12101-check4c.sh <<'CHECKEOF'
+          set -uo pipefail
+          ENVFILE=/root/vinomartino-site/.env
+          echo "=== ALLOW_CONTENT_DEGRADE key-aanwezigheid (nooit de waarde) ==="
+          if [ -f "$ENVFILE" ]; then
+            COUNT=$(grep -c '^ALLOW_CONTENT_DEGRADE=' "$ENVFILE" || true)
+            [ -z "$COUNT" ] && COUNT=0
+            echo "  ALLOW_CONTENT_DEGRADE=... regels in .env: $COUNT"
+          else
+            echo "  $ENVFILE ONTBREEKT"
+          fi
+          CHECKEOF
+          scp /tmp/lat12101-check4c.sh "$VPS:/tmp/lat12101-check4c.sh"
+          ssh "$VPS" "bash /tmp/lat12101-check4c.sh; rm -f /tmp/lat12101-check4c.sh"

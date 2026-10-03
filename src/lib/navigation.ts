@@ -20,6 +20,8 @@ export interface NavItem {
 // gewenste set en snoeit afwijkende rijen weg.
 const FALLBACK_ITEMS: NavItem[] = [
     { label: 'Ontdek', href: '/ontdek/', key: 'ontdek', order: 5 },
+    { label: 'Reizen', href: '/reizen-nareizen/', key: 'reizen', order: 25 },
+    { label: 'Wijnroutes', href: '/wijnroutes/', key: 'wijnroutes', order: 27 },
     { label: 'Wijnhuizen', href: '/wijnhuizen/', key: 'wijnhuizen', order: 30 },
     { label: 'Overnachten', href: '/accommodaties/', key: 'accommodaties', order: 35 },
     { label: 'Artikelen', href: '/artikelen/', key: 'artikelen', order: 50 },
