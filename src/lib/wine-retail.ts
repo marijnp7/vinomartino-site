@@ -169,7 +169,7 @@ export async function wineRetailLink(
   return {
     href,
     partner: partner.trackerPartner,
-    // COPY-GATE: definitieve CTA via Lead Editor + Martin-check.
-    label: `Koop wijnen van ${producent.trim()} bij ${partner.naam}`,
+    // CTA goedgekeurd door Lead Editor, LAT-12377.
+    label: `Wijnen van ${producent.trim()} zoeken bij ${partner.naam}`,
   };
 }
