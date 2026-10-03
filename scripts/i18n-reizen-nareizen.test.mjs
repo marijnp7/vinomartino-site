@@ -46,18 +46,18 @@ const EN_SEED = JSON.parse(src('../directus/data/ui-strings-en-lat2826.json'));
 test('de redactionele NL-copy staat letterlijk in de dictionary', async () => {
   const ui = await loadUiStrings('nl');
 
-  assert.equal(ui.t('reizen.index.hero.h1'), 'Reizen & nareizen');
+  assert.equal(ui.t('reizen.index.hero.h1'), 'Reizen en nareizen');
   assert.equal(
     ui.t('reizen.index.hero.desc'),
-    'Elke wijnreis eindigt op de terugreis. Soms in een propvolle intercity met een fles te veel in je rugzak, soms in een stiltecoupé met aantekeningen in een linnen boekje. Hier staan de verhalen die daarna pas goed op gang komen — als de geur van de kelder al verdwenen is maar het gevoel niet.',
+    'Elke wijnreis eindigt op de terugreis. Soms in een propvolle intercity met een fles te veel in je rugzak, soms in een stiltecoupé met aantekeningen in een linnen boekje. Hier staan de verhalen die daarna pas goed op gang komen, als de geur van de kelder al verdwenen is maar het gevoel niet. En de routes om zelf op pad te gaan.',
   );
   assert.equal(
     ui.t('reizen.index.meta.title'),
-    'Reizen & nareizen — wijnreizen van Martino | VinoMartino',
+    'Reizen en nareizen | VinoMartino',
   );
   assert.equal(
     ui.t('reizen.index.meta.description'),
-    'Verslagen van wijnreizen door Europa en daarbuiten. Marijn reist, proeft en schrijft — na de reis, als het beter te vertellen is.',
+    'Wijnreizen om na te reizen: nareizen die Marijn zelf maakte en wijnroutes door Europa, met dagindeling, wijnhuizen en slaapadressen.',
   );
 });
 
@@ -101,12 +101,12 @@ test('de EN-seed draagt de door de redactie vastgestelde copy (LAT-2835)', () =>
   // concept via een re-seed of een fresh bootstrap terugkruipt.
   assert.equal(
     EN_SEED['reizen.index.hero.desc'],
-    'Every wine journey ends on the way home. Sometimes in a packed intercity with a bottle too many in your backpack, sometimes in a quiet carriage with notes in a linen notebook. These are the stories that only really take shape afterwards — once the smell of the cellar has faded but the feeling has not.',
+    'Every wine journey ends on the way home. Sometimes in a packed intercity with a bottle too many in your backpack, sometimes in a quiet carriage with notes in a linen notebook. These are the stories that only really take shape afterwards, once the smell of the cellar has faded but the feeling has not. And the routes to set out on yourself.',
   );
-  assert.equal(EN_SEED['reizen.index.hero.h1'], 'Travels & afterwards');
+  assert.equal(EN_SEED['reizen.index.hero.h1'], 'Travels and afterwards');
   assert.equal(
     EN_SEED['reizen.index.meta.title'],
-    "Travels & afterwards — Martino's wine journeys | VinoMartino",
+    'Travels and afterwards | VinoMartino',
   );
 
   // De afgekeurde conceptwendingen mogen nergens meer in de seed staan.

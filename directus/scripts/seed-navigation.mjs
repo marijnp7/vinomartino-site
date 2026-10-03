@@ -5,8 +5,10 @@
  * LAT-1032: this list is now AUTHORITATIVE. It matches the curated topnav set
  * (was hardcoded onder LAT-1591) exactly, zodat het CMS-gedreven pad in
  * src/lib/navigation.ts identiek rendert aan de vorige hardcoded nav — geen
- * regressie. Landen/Streken/Wijnroutes zijn BEWUST geen nav-tabs (die leven in
- * de /ontdek-atlas-hub); oude rijen met die keys worden gesnoeid.
+ * regressie. Landen/Streken zijn BEWUST geen nav-tabs (die leven in de
+ * /ontdek-atlas-hub); oude rijen met die keys worden gesnoeid. LAT-12365: Reizen
+ * (de live rij, key 'reizen') stond ten onrechte niet in deze lijst, en Wijnroutes
+ * is op verzoek van Marijn wél een eigen nav-item (14 routes, anders onvindbaar).
  *
  * Idempotent: upsert by `key`, insert if missing, en prune elke nav_items-rij
  * met een key die niet in deze lijst staat.
@@ -31,6 +33,8 @@ const headers = {
 
 const items = [
   { key: 'ontdek', label: 'Ontdek', href: '/ontdek/', order: 5 },
+  { key: 'reizen', label: 'Reizen', href: '/reizen-nareizen/', order: 25 },
+  { key: 'wijnroutes', label: 'Wijnroutes', href: '/wijnroutes/', order: 27 },
   { key: 'wijnhuizen', label: 'Wijnhuizen', href: '/wijnhuizen/', order: 30 },
   { key: 'accommodaties', label: 'Overnachten', href: '/accommodaties/', order: 35 },
   { key: 'artikelen', label: 'Artikelen', href: '/artikelen/', order: 50 },

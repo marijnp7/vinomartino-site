@@ -1,0 +1,105 @@
+---
+// LAT-12365 — cross-links tussen streek, wijnroute en nareis. Eén blok, drie
+// gebruikers: streekpagina (nareizen), routepagina (nareizen van dezelfde streek)
+// en nareispagina (routes van dezelfde streek). Rendert niets bij een lege lijst.
+import { loadUiStrings } from '../lib/ui-strings';
+import { DEFAULT_LOCALE, localizePath, type Locale } from '../lib/i18n';
+
+interface Props {
+  nareizen?: { slug: string; titel: string; tagline?: string }[];
+  routes?: { slug: string; title: string; description?: string; zelfGereisd?: boolean }[];
+  locale?: Locale;
+}
+
+const { nareizen = [], routes = [], locale = DEFAULT_LOCALE } = Astro.props;
+const ui = await loadUiStrings(locale);
+---
+
+{(nareizen.length > 0 || routes.length > 0) && (
+  <section class="section container reis-crosslinks">
+    {nareizen.length > 0 && (
+      <div class="reis-crosslinks__group">
+        <h2 class="reis-crosslinks__title">{ui.t('reizen.related.nareis.title')}</h2>
+        <ul class="reis-crosslinks__list">
+          {nareizen.map((n) => (
+            <li>
+              <a href={localizePath(`/reizen-nareizen/${n.slug}/`, locale)}>
+                <span class="reis-crosslinks__name">{n.titel}</span>
+                {n.tagline && <span class="reis-crosslinks__desc">{n.tagline}</span>}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    )}
+    {routes.length > 0 && (
+      <div class="reis-crosslinks__group">
+        <h2 class="reis-crosslinks__title">{ui.t('reizen.related.route.title')}</h2>
+        <ul class="reis-crosslinks__list">
+          {routes.map((r) => (
+            <li>
+              <a href={localizePath(`/wijnroutes/${r.slug}/`, locale)}>
+                <span class="reis-crosslinks__name">{r.title}</span>
+                <span class="reis-crosslinks__label">{r.zelfGereisd ? ui.t('reizen.label.zelfGereisd') : ui.t('reizen.label.redactiegids')}</span>
+                {r.description && <span class="reis-crosslinks__desc">{r.description}</span>}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    )}
+  </section>
+)}
+
+<style>
+  .reis-crosslinks__group + .reis-crosslinks__group { margin-top: var(--space-8); }
+  .reis-crosslinks__title {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-weight: 500;
+    font-style: italic;
+    color: var(--ink);
+    margin-bottom: var(--space-4);
+  }
+  .reis-crosslinks__list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: var(--space-4);
+  }
+  .reis-crosslinks__list a {
+    display: block;
+    height: 100%;
+    padding: var(--space-4);
+    border: 1px solid var(--rule);
+    color: inherit;
+    text-decoration: none;
+  }
+  .reis-crosslinks__list a:hover { border-color: var(--burgundy); }
+  .reis-crosslinks__name {
+    display: block;
+    font-family: var(--font-display);
+    font-size: 1.125rem;
+    color: var(--ink);
+  }
+  .reis-crosslinks__label {
+    display: inline-block;
+    margin-top: var(--space-2);
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    background: var(--paperDeep);
+    color: var(--inkSoft);
+    padding: 0.2rem 0.5rem;
+  }
+  .reis-crosslinks__desc {
+    display: block;
+    margin-top: var(--space-2);
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: var(--inkSoft);
+  }
+</style>

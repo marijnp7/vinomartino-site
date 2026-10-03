@@ -10,6 +10,7 @@
 // NL-literals nu in de UI-dictionary zodat /en/ ze kan overlayen.
 import SiteLayout from '../layouts/SiteLayout.astro';
 import AccommodatieKaart from '../components/AccommodatieKaart.astro';
+import ReisCrossLinks from '../components/ReisCrossLinks.astro';
 import type { ReisPakket } from '../lib/reispakketten';
 import { wijnrouteSchema, breadcrumbSchema } from '../lib/seo';
 import { loadUiStrings } from '../lib/ui-strings';
@@ -20,11 +21,13 @@ interface Props {
   landSlug: string;
   landName: string;
   streekName: string;
+  /** LAT-12365: wijnroutes van dezelfde streek. */
+  routes?: { slug: string; title: string; description?: string; zelfGereisd?: boolean }[];
   locale?: Locale;
   alternates?: Partial<Record<Locale, string>>;
 }
 
-const { entry, landSlug, landName, streekName, locale = DEFAULT_LOCALE, alternates } = Astro.props;
+const { entry, landSlug, landName, streekName, routes = [], locale = DEFAULT_LOCALE, alternates } = Astro.props;
 const ui = await loadUiStrings(locale);
 
 const pagePath = localizePath(`/reizen-nareizen/${entry.slug}/`, locale);
@@ -138,6 +141,7 @@ const metaTitle = entry.metaTitle || `${entry.titel}${ui.t('reizen.detail.metaTi
       )}
     </div>
   </article>
+  <ReisCrossLinks routes={routes} locale={locale} />
 </SiteLayout>
 
 <style>
