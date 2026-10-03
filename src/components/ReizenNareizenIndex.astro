@@ -52,6 +52,10 @@ for (const entry of sorted) {
   else groups.push({ key, naam, streekSlug: entry.streekSlug, items: [entry] });
 }
 
+// LAT-12431: de eerste twee kaarten in DOM-volgorde staan boven de vouw; die laden
+// eager met hoge prioriteit, de rest blijft lazy.
+const eagerEntries = new Set(groups.flatMap((g) => g.items).slice(0, 2));
+
 const schema = [
   organizationSchema(),
   breadcrumbSchema([
@@ -95,7 +99,15 @@ const schema = [
             {group.items.map((entry) => (
               <a href={localizePath(`/reizen-nareizen/${entry.slug}/`, locale)} class="card card-link">
                 <div class:list={['card-img-wrap', !entry.heroImage && 'is-empty']}>
-                  <SmartImg src={entry.heroImage || undefined} alt={entry.titel} theme="region" class="card-img" />
+                  <SmartImg
+                    src={entry.heroImage || undefined}
+                    alt={entry.titel}
+                    theme="region"
+                    class="card-img"
+                    width={480}
+                    loading={eagerEntries.has(entry) ? 'eager' : 'lazy'}
+                    fetchpriority={eagerEntries.has(entry) ? 'high' : undefined}
+                  />
                 </div>
                 <div class="card-body">
                   {group.naam && <span class="card-regio">{group.naam}</span>}
@@ -122,7 +134,7 @@ const schema = [
         {routes.map((route) => (
           <a href={localizePath(`/wijnroutes/${route.slug}/`, locale)} class="card card-link">
             <div class:list={['card-img-wrap', !route.heroImage && 'is-empty']}>
-              <SmartImg src={route.heroImage || undefined} alt={route.title} theme="region" class="card-img" />
+              <SmartImg src={route.heroImage || undefined} alt={route.title} theme="region" class="card-img" width={480} />
             </div>
             <div class="card-body">
               <span class:list={['card-regio', route.zelfGereisd && 'card-regio--zelf']}>

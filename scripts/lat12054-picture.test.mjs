@@ -111,3 +111,11 @@ test('een detailrijk beeld landt in alle formaten <= 400 KB (geen stille waarsch
     assert.deepEqual(again.oversize, []);
     assert.ok(statSync(join(cache, key)).size <= MAX_BYTES, 'te zware cache-entry vervangen');
 });
+
+test('LAT-12431: een eager kaartbeeld met width krijgt kaart-sizes, geen 1200px hero-sizes', () => {
+    const info = new Map([['/images/routes/k.jpg', { widths: [640, 1024, 1600] }]]);
+    const { html } = rewriteHtml('<img src="/images/routes/k.jpg" alt="k" class="card-img" width="480" loading="eager" fetchpriority="high">', info);
+    assert.match(html, /sizes="\(min-width: 768px\) 480px, 100vw"/);
+    assert.match(html, /loading="eager"/);
+    assert.match(html, /fetchpriority="high"/);
+});
