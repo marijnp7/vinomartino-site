@@ -46,7 +46,9 @@ function timestamp(entry: ReisPakket): number {
   return Number.isNaN(t) ? -Infinity : t;
 }
 const sorted = [...entries].sort((a, b) => timestamp(b) - timestamp(a) || a.titel.localeCompare(b.titel));
-const [featured, ...restNareizen] = sorted;
+// Feature volgens het goedgekeurde ontwerp: de Mosel-nareis (Marijn zelf in beeld); anders de nieuwste.
+const featured = sorted.find((e) => e.streekSlug.startsWith('mosel')) ?? sorted[0];
+const restNareizen = sorted.filter((e) => e !== featured);
 
 // Koppeling nareis <-> route via de gedeelde streek (geen nieuw Directus-veld nodig).
 function routeFor(entry: ReisPakket) {
@@ -301,7 +303,7 @@ const schema = [
     position: relative; min-height: clamp(420px, 62vh, 640px); display: flex; align-items: flex-end;
     color: #fff; background: var(--burgundyDark, #3D1115); overflow: hidden;
   }
-  .rz-hero :global(.rz-hero__img) { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 55%; }
+  .rz-hero :global(.rz-hero__img) { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 78%; }
   .rz-hero::before { content: ""; position: absolute; inset: 0; z-index: 1; background: linear-gradient(180deg, rgba(31,12,14,0) 0%, rgba(31,12,14,.05) 35%, rgba(31,12,14,.78) 100%); }
   .rz-hero__in { position: relative; z-index: 2; padding-bottom: clamp(2rem, 5vw, 4rem); padding-top: var(--space-12); }
   .rz-mono { display: block; font-size: 0.6875rem; letter-spacing: 0.18em; color: var(--gold, #E5C99B); margin-bottom: var(--space-3); }
