@@ -8,6 +8,7 @@
 // links blijven NL-absoluut tot de aparte link-localisatie-pas (scope #3).
 import RouteDetail from '../../../components/RouteDetail.astro';
 import { loadRoutes, type WijnRoute } from '../../../lib/routes';
+import { loadReispakketten } from '../../../lib/reispakketten';
 import { loadStreken } from '../../../lib/streken';
 import { loadWijnhuizen, type Wijnhuis } from '../../../lib/wijnhuizen';
 import { loadAccommodatieRoundupsByStreek } from '../../../lib/accommodaties-loader';
@@ -17,6 +18,7 @@ const EN = 'en' as const;
 
 export async function getStaticPaths() {
   const [entries, streken, wijnhuizen, accRoundupsByStreek] = await Promise.all([loadRoutes('en'), loadStreken('en'), loadWijnhuizen('en'), loadAccommodatieRoundupsByStreek('en')]);
+  const pakketten = await loadReispakketten('en');
   const streekBySlug = new Map(streken.map(s => [s.slug, s]));
   const wijnhuizenByStreek = new Map<string, Wijnhuis[]>();
   for (const wh of wijnhuizen) {
@@ -49,6 +51,9 @@ export async function getStaticPaths() {
           ? routeWijnhuizen
           : (entry.streekSlug ? (wijnhuizenByStreek.get(entry.streekSlug) ?? []) : []),
         staysRoundup,
+        nareizen: entry.streekSlug
+          ? pakketten.filter(p => p.streekSlug === entry.streekSlug).map(p => ({ slug: p.slug, titel: p.titel, tagline: p.tagline }))
+          : [],
         // Deze route bestaat per definitie alleen voor EN-vertaalde routes.
         alternates: { nl: `/wijnroutes/${entry.slug}/`, en: `/en/wijnroutes/${entry.slug}/` },
       },
@@ -56,10 +61,11 @@ export async function getStaticPaths() {
   });
 }
 
-const { entry, streekName, landSlug, landName, wijnhuizen, staysRoundup, alternates } = Astro.props as {
+const { entry, streekName, landSlug, landName, wijnhuizen, staysRoundup, nareizen, alternates } = Astro.props as {
+  nareizen: { slug: string; titel: string; tagline?: string }[];
   entry: WijnRoute; streekName: string; landSlug: string; landName: string; wijnhuizen: Wijnhuis[];
   staysRoundup: AccommodatieRoundupData | null; alternates: Record<string, string>;
 };
 ---
 
-<RouteDetail entry={entry} streekName={streekName} landSlug={landSlug} landName={landName} wijnhuizen={wijnhuizen} staysRoundup={staysRoundup} locale={EN} alternates={alternates} />
+<RouteDetail entry={entry} streekName={streekName} landSlug={landSlug} landName={landName} wijnhuizen={wijnhuizen} staysRoundup={staysRoundup} nareizen={nareizen} locale={EN} alternates={alternates} />

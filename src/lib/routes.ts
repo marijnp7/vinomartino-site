@@ -31,6 +31,8 @@ export interface WijnRoute {
     transport: string;
     style: string;
     streekSlug: string;
+    // routes.zelf_gereisd: true = door Marijn zelf gereden, false = redactiegids.
+    zelfGereisd: boolean;
     highlights: string[];
     stops: string[];
     stopsGeo: RouteStopGeo[];
@@ -246,6 +248,7 @@ function mapRoute(
         transport: String(r.transport || ''),
         style: String(r.style || ''),
         streekSlug: '',
+        zelfGereisd: false,
         highlights: parseJsonField(r.highlights),
         stops: parseJsonField(r.stops),
         stopsGeo,
@@ -430,10 +433,38 @@ async function loadRouteStreekJunction(url: string, token: string): Promise<Map<
     return map;
 }
 
+// LAT-12365: routes.zelf_gereisd los opgehaald (fail-soft, zoals de junction) zodat een
+// ontbrekend veld of ontbrekende leesrechten de fallback-keten van fetchRoutesItems niet
+// verlengt. Onbekend = false = "Redactiegids" (nooit ten onrechte "Zelf gereisd" claimen).
+async function loadRouteZelfGereisd(url: string, token: string): Promise<Map<number, boolean>> {
+    const map = new Map<number, boolean>();
+    try {
+        const res = await fetchDirectusCollection(
+            'loadRoutes',
+            `${url}/items/routes?limit=-1&fields=id,zelf_gereisd`,
+            { headers: { Authorization: `Bearer ${token}` } },
+        );
+        if (!res.ok) {
+            console.warn(`[loadRoutes] routes.zelf_gereisd niet leesbaar (HTTP ${res.status}); alle routes tellen als redactiegids.`);
+            return map;
+        }
+        const json = await res.json();
+        for (const row of (json.data || []) as Record<string, unknown>[]) {
+            const rid = Number(row.id);
+            if (rid) map.set(rid, row.zelf_gereisd === true);
+        }
+    } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn(`[loadRoutes] routes.zelf_gereisd fetch faalde: ${msg}`);
+    }
+    return map;
+}
+
 async function loadFromDirectus(url: string, token: string, locale: Locale): Promise<WijnRoute[]> {
-    const [raw, junction] = await Promise.all([
+    const [raw, junction, zelfGereisd] = await Promise.all([
         fetchRoutesItems(url, token),
         loadRouteStreekJunction(url, token),
+        loadRouteZelfGereisd(url, token),
     ]);
     const data = await localizeRecords(raw, {
         env: readDirectusEnv(),
@@ -473,6 +504,7 @@ async function loadFromDirectus(url: string, token: string, locale: Locale): Pro
                 ? String((r.streek_id as Record<string, unknown>).slug || '')
                 : '';
             route.streekSlug = m2o || junction.get(Number(r.id)) || '';
+            route.zelfGereisd = zelfGereisd.get(Number(r.id)) === true;
             return route;
         }),
     );
