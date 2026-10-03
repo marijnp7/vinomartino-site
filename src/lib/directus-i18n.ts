@@ -33,6 +33,11 @@ export interface TranslationOverlayOptions {
     /** Vertaalbare veldnamen (identiek aan de parent-veldnamen). */
     fields: string[];
     locale: Locale;
+    /**
+     * LAT-12359 — leestekst-blokken (JSON) waarvoor een lege vertaling het blok
+     * VERBERGT in plaats van de NL-basis te tonen. Moet een subset van `fields` zijn.
+     */
+    hideWhenUntranslated?: readonly string[];
 }
 
 /**
@@ -109,6 +114,22 @@ export function mergeTranslatedValue(base: unknown, overlay: unknown): unknown {
     return overlay;
 }
 
+/** True zodra de waarde (diep) minstens één niet-lege string bevat. */
+export function hasTranslatedText(v: unknown): boolean {
+    if (typeof v === 'string') return v.trim() !== '';
+    if (Array.isArray(v)) return v.some(hasTranslatedText);
+    if (v && typeof v === 'object') return Object.values(v as Record<string, unknown>).some(hasTranslatedText);
+    return false;
+}
+
+function hasBaseContent(v: unknown): boolean {
+    if (v === null || v === undefined) return false;
+    if (typeof v === 'string') return v.trim() !== '' && v.trim() !== '[]' && v.trim() !== '{}';
+    if (Array.isArray(v)) return v.length > 0;
+    if (typeof v === 'object') return Object.keys(v as object).length > 0;
+    return true;
+}
+
 /**
  * No-translation-guard + overlay. Voor de standaardtaal keert dit de records
  * ongewijzigd terug. Voor een niet-standaard locale worden alléén records met
@@ -120,6 +141,7 @@ export function applyTranslationGuard<T extends Record<string, unknown>>(
     overlay: Map<string, Record<string, unknown>>,
     locale: Locale,
     recordIdKey = 'id',
+    hideWhenUntranslated: readonly string[] = [],
 ): T[] {
     if (locale === DEFAULT_LOCALE) return records;
     const out: T[] = [];
@@ -130,6 +152,14 @@ export function applyTranslationGuard<T extends Record<string, unknown>>(
         const merged: Record<string, unknown> = { ...r };
         for (const [f, v] of Object.entries(translated)) {
             merged[f] = mergeTranslatedValue(r[f], v);
+        }
+        // LAT-12359 — lege vertaling → blok weg i.p.v. NL-terugval op /en/.
+        for (const f of hideWhenUntranslated) {
+            if (hasTranslatedText(translated[f])) continue;
+            if (hasBaseContent(r[f])) {
+                console.warn(`[i18n] ${locale}-vertaling van '${f}' is leeg (record ${key}) — blok verborgen op ${locale}-pagina`);
+            }
+            merged[f] = null;
         }
         out.push(merged as T);
     }
@@ -411,7 +441,7 @@ export async function localizeRecords<T extends Record<string, unknown>>(
 ): Promise<T[]> {
     if (opts.locale === DEFAULT_LOCALE) return records;
     const overlay = await fetchTranslationOverlay(opts);
-    return applyTranslationGuard(records, overlay, opts.locale, recordIdKey);
+    return applyTranslationGuard(records, overlay, opts.locale, recordIdKey, opts.hideWhenUntranslated);
 }
 
 /**

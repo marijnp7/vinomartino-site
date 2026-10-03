@@ -303,6 +303,8 @@ import { localizeRecords, localizeNestedRefs } from './directus-i18n';
 // etiket_foto/prijs/jaar/tijdshorizon uit de NL-basis behouden blijven.
 const ARTICLES_TRANSLATABLE = ['title', 'description', 'body', 'meta_title', 'meta_description', 'hero_alt', 'cta_blocks', 'tags', 'proefnotities', 'eerst_dit_boeken'];
 
+const ARTICLES_HIDE_WHEN_UNTRANSLATED = ['eerst_dit_boeken', 'proefnotities', 'cta_blocks'] as const;
+
 async function downloadArticleAsset(assetId: string, directusUrl: string, token: string): Promise<string | null> {
     if (!assertAssetAllowed(assetId)) return null; // LAT-2361: blokkeer fout-gekoppelde/gedeelde beelden ook in artikel-hero's
     const { writeFileSync, mkdirSync, existsSync } = await import('node:fs');
@@ -589,6 +591,9 @@ async function loadFromDirectus(url: string, token: string, locale: Locale): Pro
         parentIdField: 'articles_id',
         fields: ARTICLES_TRANSLATABLE,
         locale,
+        // LAT-12359 — lege EN-vertaling van een leestekst-blok verbergt het blok
+        // (zelfde patroon als related_articles, LAT-11009) i.p.v. NL te tonen.
+        hideWhenUntranslated: ARTICLES_HIDE_WHEN_UNTRANSLATED,
     });
     // LAT-2829 — de cross-linkblokken onder een artikel (streken/routes/landen +
     // artikel→artikel) laden hun label via een geneste M2M-hop op de doelcollectie.
