@@ -4,6 +4,7 @@
 // (no-translation-guard) en de UI-dictionary. NL byte-identiek via NL-defaults.
 import SiteLayout from '../layouts/SiteLayout.astro';
 import SmartImg from '../components/SmartImg.astro';
+import ZelfGereisdBadge from '../components/ZelfGereisdBadge.astro';
 import HomeRoutesMap from '../components/HomeRoutesMap.astro';
 import { loadRoutes } from '../lib/routes';
 import { organizationSchema, breadcrumbSchema } from '../lib/seo';
@@ -62,6 +63,7 @@ const schema = [
                 {entry.transport && <span class="card-transport">{entry.transport}</span>}
                 {entry.style && <span class="card-style">{entry.style}</span>}
               </div>
+              <div class="card-badge"><ZelfGereisdBadge visited={entry.zelfGereisd} locale={locale} /></div>
               <h2 class="card-title">{entry.title}</h2>
               {entry.description && <p class="card-desc">{entry.description}</p>}
               {entry.highlights && entry.highlights.length > 0 && (
@@ -155,6 +157,7 @@ const schema = [
     padding: 0.2rem 0.5rem;
     border-radius: 1px;
   }
+  .card-badge { margin-bottom: var(--space-2); }
   .card-title {
     font-family: var(--font-display);
     font-size: 1.25rem;
