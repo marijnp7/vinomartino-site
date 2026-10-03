@@ -37,7 +37,8 @@ const regioNaam = regio || roundup.regio || streekSlug;
 const regioHref = lh(`/accommodaties/${streekSlug}/`);
 ---
 
-{kaarten.length > 0 && (
+{/* 3 okt: accommodatiepagina en teaserteksten zijn NL-only; op /en/ niet renderen. */}
+{locale === DEFAULT_LOCALE && kaarten.length > 0 && (
   <aside class:list={['stays-teaser', `stays-teaser--${placement}`]} data-context={context}>
     <span class="stays-teaser__kicker">Slapen in de buurt</span>
     <h3 class="stays-teaser__title">Verblijven in {regioNaam}</h3>

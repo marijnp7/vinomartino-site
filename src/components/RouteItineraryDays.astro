@@ -39,7 +39,8 @@ function fmtRijtijd(min: number): string {
 
 const totaalRijtijd = itinerary.days.reduce((sum, d) => sum + (d.rijtijdMin ?? 0), 0);
 
-const bookHref = boekbaar && streekSlug ? `/accommodaties/${streekSlug}/` : null;
+// 3 okt: /accommodaties/ bestaat alleen in het NL; op /en/ geen NL-link of NL-knop tonen (gate nl-links/nl-nouns).
+const bookHref = boekbaar && streekSlug && locale === DEFAULT_LOCALE ? `/accommodaties/${streekSlug}/` : null;
 
 // LAT-4911 — stonden als kale NL-literals en renderden daardoor Nederlands op de
 // 11 /en/wijnroutes/-pagina's ('Wijnhuis' 4-7x per pagina, 'Bezienswaardigheid' op 8).
