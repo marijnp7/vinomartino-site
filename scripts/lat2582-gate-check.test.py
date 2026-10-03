@@ -264,6 +264,16 @@ class TestExactNlOnlyPath(unittest.TestCase):
             "/artikelen/ik-weet-het-ik-drink-toch-wijn", NL_ONLY, self.EXACT))
 
 
+class TestNounsCredits(unittest.TestCase):
+    def test_loose_nl_label_is_still_caught(self):
+        raw = page(body="<figcaption>Foto: CRDO Ribera del Duero</figcaption>")
+        self.assertIn("foto", gate.find_nouns(raw))
+
+    def test_maker_name_after_copyright_is_not_a_leak(self):
+        raw = page(body="<small>© Foto Fitti, CC BY-SA 3.0 — via Wikimedia Commons</small>")
+        self.assertNotIn("foto", gate.find_nouns(raw))
+
+
 class TestPrefixLoading(unittest.TestCase):
     def test_prefixes_come_from_i18n_ts(self):
         # Drift tussen de gate en src/lib/i18n.ts is stil en gevaarlijk: hij

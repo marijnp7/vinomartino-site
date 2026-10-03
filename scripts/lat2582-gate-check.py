@@ -458,7 +458,11 @@ def find_nouns(raw: str):
     low = flat.lower()
     out = {}
     for word, rx in NOUN_RE.items():
-        spans = [m.start() for m in rx.finditer(low)]
+        # Een woord direct na "©" is een makersnaam in een beeldcredit
+        # ("© Foto Fitti, CC BY-SA 3.0"), geen vertaallek. CC BY eist dat die
+        # naam letterlijk blijft staan, dus hij hoort hier niet te vuren.
+        spans = [m.start() for m in rx.finditer(low)
+                 if "©" not in low[max(0, m.start() - 3):m.start()]]
         if spans:
             out[word] = [flat[max(0, i - 45):i + len(word) + 45].strip()
                          for i in spans[:3]]
