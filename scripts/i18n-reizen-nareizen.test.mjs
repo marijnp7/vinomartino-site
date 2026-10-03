@@ -46,10 +46,11 @@ const EN_SEED = JSON.parse(src('../directus/data/ui-strings-en-lat2826.json'));
 test('de redactionele NL-copy staat letterlijk in de dictionary', async () => {
   const ui = await loadUiStrings('nl');
 
-  assert.equal(ui.t('reizen.index.hero.h1'), 'Reizen en nareizen');
+  // LAT-12451: hero-copy vervangen door de ontwerpcopy die Marijn goedkeurde (kaart 626eaf09).
+  assert.equal(ui.t('reizen.index.hero.h1'), 'Eerst het verhaal. Dan de route.');
   assert.equal(
     ui.t('reizen.index.hero.desc'),
-    'Elke wijnreis eindigt op de terugreis. Soms in een propvolle intercity met een fles te veel in je rugzak, soms in een stiltecoupé met aantekeningen in een linnen boekje. Hier staan de verhalen die daarna pas goed op gang komen, als de geur van de kelder al verdwenen is maar het gevoel niet. En de routes om zelf op pad te gaan.',
+    'Nareizen zijn de reizen die Marijn zelf maakte, met alle omwegen. Routes zijn de dagindelingen om het na te doen.',
   );
   assert.equal(
     ui.t('reizen.index.meta.title'),

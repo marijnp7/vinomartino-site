@@ -14,8 +14,13 @@
 // reispakketten-vertalingen in Directus staan.
 import SiteLayout from '../layouts/SiteLayout.astro';
 import SmartImg from '../components/SmartImg.astro';
+import AccommodatieKaart from '../components/AccommodatieKaart.astro';
+import HomeRoutesMap from '../components/HomeRoutesMap.astro';
+import NewsletterFooter from '../components/NewsletterFooter.astro';
 import { loadReispakketten, type ReisPakket } from '../lib/reispakketten';
 import { loadRoutes } from '../lib/routes';
+import { loadStreken } from '../lib/streken';
+import { routeDagen, dagenBucket, routeWijnhuizen, routeLand, orderRoutes } from '../lib/reizen-hub';
 import { organizationSchema, breadcrumbSchema } from '../lib/seo';
 import { loadUiStrings } from '../lib/ui-strings';
 import { DEFAULT_LOCALE, localizePath, type Locale } from '../lib/i18n';
@@ -29,8 +34,10 @@ const { locale = DEFAULT_LOCALE, alternates } = Astro.props;
 const ui = await loadUiStrings(locale);
 
 const entries = await loadReispakketten(locale);
-// LAT-12365: de hub toont ook alle gepubliceerde wijnroutes, direct onder de nareizen.
+// LAT-12365: de hub toont ook alle gepubliceerde wijnroutes. LAT-12451: redesign.
 const routes = await loadRoutes(locale);
+const streken = await loadStreken(locale);
+const landByStreek = new Map(streken.filter((s) => s.country).map((s) => [s.slug, s.country]));
 
 // Reverse chronologisch. `pub_date` is optioneel in Directus; pakketten zonder
 // datum zakken naar onderen i.p.v. de kop te kapen (NaN-sortering).
@@ -39,22 +46,41 @@ function timestamp(entry: ReisPakket): number {
   return Number.isNaN(t) ? -Infinity : t;
 }
 const sorted = [...entries].sort((a, b) => timestamp(b) - timestamp(a) || a.titel.localeCompare(b.titel));
+const [featured, ...restNareizen] = sorted;
 
-// Groepeer per bestemming. De volgorde van de groepen volgt uit het nieuwste
-// item per groep, zodat de pagina als geheel reverse-chronologisch blijft lezen.
-const groupFallback = ui.t('reizen.index.groupFallback');
-const groups: { key: string; naam: string; streekSlug: string; items: ReisPakket[] }[] = [];
-for (const entry of sorted) {
-  const naam = entry.streekName || groupFallback;
-  const key = entry.streekSlug || naam;
-  const existing = groups.find((g) => g.key === key);
-  if (existing) existing.items.push(entry);
-  else groups.push({ key, naam, streekSlug: entry.streekSlug, items: [entry] });
+// Koppeling nareis <-> route via de gedeelde streek (geen nieuw Directus-veld nodig).
+function routeFor(entry: ReisPakket) {
+  return entry.streekSlug ? routes.find((r) => r.streekSlug === entry.streekSlug) : undefined;
 }
 
-// LAT-12431: de eerste twee kaarten in DOM-volgorde staan boven de vouw; die laden
-// eager met hoge prioriteit, de rest blijft lazy.
-const eagerEntries = new Set(groups.flatMap((g) => g.items).slice(0, 2));
+// Hero: het Langhe-pakketbeeld (eigen foto), anders het nieuwste pakket met beeld.
+const heroEntry =
+  sorted.find((e) => e.streekSlug.startsWith('langhe') && e.heroImage) ?? sorted.find((e) => e.heroImage);
+
+const enriched = orderRoutes(routes).map((route) => {
+  const dagen = routeDagen(route);
+  return {
+    route,
+    dagen,
+    bucket: dagenBucket(dagen),
+    wijnhuizen: routeWijnhuizen(route),
+    land: routeLand(route, landByStreek),
+  };
+});
+const zelfRoutes = enriched.filter((r) => r.route.zelfGereisd);
+const redactieRoutes = enriched.filter((r) => !r.route.zelfGereisd);
+const landen = [...new Set(enriched.map((r) => r.land).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'nl'));
+const buckets = (['1-2', '3-4', '5+'] as const).filter((b) => enriched.some((r) => r.bucket === b));
+const bucketLabel = (b: string) => ui.t(`reizen.chip.dagen.${b}`);
+
+// LAT-12431: de eerste kaarten in DOM-volgorde staan boven de vouw; die laden eager.
+// Band "Slapen waar wij sliepen": alleen accommodaties mét booking_url (CJ-wrapper in
+// AccommodatieKaart); zonder data blijft de band verborgen.
+const slaap = [
+  ...new Map(
+    sorted.flatMap((e) => e.accommodaties).filter((a) => a.bookingUrl).map((a) => [a.slug, a] as const),
+  ).values(),
+].slice(0, 3);
 
 const schema = [
   organizationSchema(),
@@ -72,90 +98,156 @@ const schema = [
   activeNav="reizen"
   locale={locale}
   alternates={alternates}
-  noindex={groups.length === 0 && routes.length === 0}
+  noindex={sorted.length === 0 && routes.length === 0}
 >
-  <section class="hero-sm">
-    <div class="container">
-      <span class="section-label">{ui.t('reizen.index.hero.label')}</span>
+  <header class="rz-hero">
+    {heroEntry?.heroImage && (
+      <SmartImg src={heroEntry.heroImage} alt="" class="rz-hero__img" width={1600} loading="eager" fetchpriority="high" />
+    )}
+    <div class="container rz-hero__in">
+      <span class="rz-mono">{ui.t('reizen.index.hero.label')}</span>
       <h1>{ui.t('reizen.index.hero.h1')}</h1>
-      <p class="hero-desc">{ui.t('reizen.index.hero.desc')}</p>
+      <p>{ui.t('reizen.index.hero.desc')}</p>
+      <div class="rz-btns">
+        {sorted.length > 0 && <a class="rz-btn" href="#nareizen">{ui.t('reizen.index.hero.ctaStories')}</a>}
+        {routes.length > 0 && <a class="rz-btn rz-btn--ghost" href="#wijnroutes">{ui.t('reizen.index.hero.ctaRoutes')}</a>}
+      </div>
     </div>
-  </section>
+  </header>
 
-  {groups.length > 0 && (
-    <section class="section container" id="nareizen">
-      <h2 class="reizen-block__title">{ui.t('reizen.index.nareizen.title')}</h2>
-      <p class="reizen-block__intro">{ui.t('reizen.index.nareizen.intro')}</p>
-      {groups.map((group) => (
-        <div class="reis-group">
-          <h3 class="reis-group__title">
-            {group.streekSlug ? (
-              <a href={localizePath(`/streken/${group.streekSlug}/`, locale)}>{group.naam}</a>
-            ) : (
-              group.naam
-            )}
-          </h3>
-          <div class="grid">
-            {group.items.map((entry) => (
-              <a href={localizePath(`/reizen-nareizen/${entry.slug}/`, locale)} class="card card-link">
-                <div class:list={['card-img-wrap', !entry.heroImage && 'is-empty']}>
-                  <SmartImg
-                    src={entry.heroImage || undefined}
-                    alt={entry.titel}
-                    theme="region"
-                    class="card-img"
-                    width={480}
-                    loading={eagerEntries.has(entry) ? 'eager' : 'lazy'}
-                    fetchpriority={eagerEntries.has(entry) ? 'high' : undefined}
-                  />
+  {featured && (
+    <section class="rz-sec container" id="nareizen">
+      <div class="rz-sh">
+        <div>
+          <span class="rz-kick">{ui.t('reizen.index.nareizen.kicker')}</span>
+          <h2>{ui.t('reizen.index.nareizen.title')}</h2>
+        </div>
+        <p>{ui.t('reizen.index.nareizen.intro')}</p>
+      </div>
+      {(() => {
+        const r = routeFor(featured);
+        return (
+          <div class="rz-feat">
+            <a class="rz-feat__img" href={localizePath(`/reizen-nareizen/${featured.slug}/`, locale)} tabindex="-1" aria-hidden="true">
+              <SmartImg src={featured.heroImage || undefined} alt="" width={960} loading="eager" />
+              {featured.streekName && <span class="rz-tag">{featured.streekName}</span>}
+            </a>
+            <div class="rz-feat__txt">
+              <span class="rz-kick">{ui.t('reizen.index.nareizen.newest')}{featured.streekName ? ` · ${featured.streekName}` : ''}</span>
+              <h3>{featured.titel}</h3>
+              {(featured.tagline || featured.metaDescription) && <p>{featured.tagline || featured.metaDescription}</p>}
+              <div class="rz-two">
+                <a class="rz-btn" href={localizePath(`/reizen-nareizen/${featured.slug}/`, locale)}>{ui.t('reizen.index.readStory')}</a>
+                {r && <a class="rz-lnk" href={localizePath(`/wijnroutes/${r.slug}/`, locale)}>{ui.t('reizen.index.driveRoute')}</a>}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+      {restNareizen.length > 0 && (
+        <div class="rz-sub">
+          {restNareizen.map((entry) => {
+            const r = routeFor(entry);
+            return (
+              <article class="rz-n">
+                <a class="rz-ph" href={localizePath(`/reizen-nareizen/${entry.slug}/`, locale)} tabindex="-1" aria-hidden="true">
+                  <SmartImg src={entry.heroImage || undefined} alt="" width={480} />
+                  {entry.streekName && <span class="rz-tag">{entry.streekName}</span>}
+                </a>
+                <div class="rz-nb">
+                  <span class="rz-kick">{ui.t('reizen.index.nareizen.kickerCard')}{entry.streekName ? ` · ${entry.streekName}` : ''}</span>
+                  <h4><a href={localizePath(`/reizen-nareizen/${entry.slug}/`, locale)}>{entry.titel}</a></h4>
+                  {(entry.tagline || entry.metaDescription) && <p>{entry.tagline || entry.metaDescription}</p>}
+                  <div class="rz-links">
+                    <a class="rz-lnk" href={localizePath(`/reizen-nareizen/${entry.slug}/`, locale)}>{ui.t('reizen.index.readStory')}</a>
+                    {r && <a class="rz-lnk rz-lnk--soft" href={localizePath(`/wijnroutes/${r.slug}/`, locale)}>{ui.t('reizen.index.driveRoute')}</a>}
+                  </div>
                 </div>
-                <div class="card-body">
-                  {group.naam && <span class="card-regio">{group.naam}</span>}
-                  <h4 class="card-title">{entry.titel}</h4>
-                  {(entry.tagline || entry.metaDescription) && (
-                    <p class="card-desc">{entry.tagline || entry.metaDescription}</p>
-                  )}
-                  <span class="card-cta">{ui.t('reizen.index.readCta')}</span>
-                </div>
-              </a>
-            ))}
+              </article>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  )}
+
+  {slaap.length > 0 && (
+    <section class="rz-sleep">
+      <div class="container">
+        <span class="rz-kick">{ui.t('reizen.index.sleep.kicker')}</span>
+        <h2>{ui.t('reizen.index.sleep.title')}</h2>
+        <p class="rz-sleep__intro">{ui.t('reizen.index.sleep.intro')}</p>
+        <div class="rz-sleep__grid">
+          {slaap.map((kaart) => <AccommodatieKaart kaart={kaart} context="reizen-nareizen" locale={locale} />)}
+        </div>
+      </div>
+    </section>
+  )}
+
+  {routes.length > 0 && (
+    <section class="rz-sec container" id="wijnroutes">
+      <div class="rz-sh">
+        <div>
+          <span class="rz-kick">{ui.t('reizen.index.routes.kicker')}</span>
+          <h2>{ui.t('reizen.index.routes.title')}</h2>
+        </div>
+        <p>{ui.t('reizen.index.routes.intro')}</p>
+      </div>
+
+      <HomeRoutesMap routes={routes} title={ui.t('reizen.index.map.title')} locale={locale} />
+      <p class="rz-more"><a href={localizePath('/wijnroutes/', locale)}>{ui.t('reizen.index.routes.allCta')} &rarr;</a></p>
+
+      <div class="rz-chips" data-rz-chips role="group" aria-label={ui.t('reizen.chip.aria')}>
+        <span class="rz-chips__lbl">{ui.t('reizen.chip.land')}</span>
+        <button type="button" class="rz-chip is-on" data-kind="land" data-val="" aria-pressed="true">{ui.t('reizen.chip.all')}</button>
+        {landen.map((l) => <button type="button" class="rz-chip" data-kind="land" data-val={l} aria-pressed="false">{l}</button>)}
+        <span class="rz-chips__sep" aria-hidden="true"></span>
+        <span class="rz-chips__lbl">{ui.t('reizen.chip.dagen')}</span>
+        <button type="button" class="rz-chip is-on" data-kind="dagen" data-val="" aria-pressed="true">{ui.t('reizen.chip.all')}</button>
+        {buckets.map((b) => <button type="button" class="rz-chip" data-kind="dagen" data-val={b} aria-pressed="false">{bucketLabel(b)}</button>)}
+      </div>
+      <p class="rz-empty" data-rz-empty hidden>{ui.t('reizen.chip.empty')}</p>
+
+      {[
+        { key: 'zelf', title: ui.t('reizen.index.group.zelf'), sub: ui.t('reizen.index.group.zelfSub'), list: zelfRoutes },
+        { key: 'redactie', title: ui.t('reizen.index.group.redactie'), sub: ui.t('reizen.index.group.redactieSub'), list: redactieRoutes },
+      ].filter((g) => g.list.length > 0).map((g, gi) => (
+        <div class="rz-group" data-rz-group>
+          <div class="rz-gh"><h3>{g.title}</h3><span>{g.sub}</span></div>
+          <div class="rz-grid">
+            {g.list.map(({ route, dagen, bucket, wijnhuizen, land }, i) => {
+              const eager = gi === 0 && i < 4;
+              const meta = [
+                dagen ? `${dagen} ${dagen === 1 ? ui.t('reizen.meta.dag') : ui.t('reizen.meta.dagen')}` : '',
+                land,
+                wijnhuizen ? `${wijnhuizen} ${ui.t('reizen.meta.wijnhuizen')}` : '',
+              ].filter(Boolean);
+              return (
+                <a href={localizePath(`/wijnroutes/${route.slug}/`, locale)} class="rz-card" data-rz-card data-land={land} data-dagen={bucket ?? ''}>
+                  <div class="rz-ph">
+                    <SmartImg src={route.heroImage || undefined} alt={route.title} theme="region" width={480} loading={eager ? 'eager' : 'lazy'} fetchpriority={eager && i < 2 ? 'high' : undefined} />
+                    <span class:list={['rz-badge', !route.zelfGereisd && 'rz-badge--soft']}>
+                      {route.zelfGereisd ? ui.t('reizen.label.zelfGereisd') : ui.t('reizen.label.redactiegids')}
+                    </span>
+                  </div>
+                  <div class="rz-cb">
+                    <h4>{route.title}</h4>
+                    {meta.length > 0 && <div class="rz-meta">{meta.map((m) => <span>{m}</span>)}</div>}
+                    {route.description && <p>{route.description}</p>}
+                    <span class="rz-cta">{ui.t('reizen.index.routes.moreCta')} &rarr;</span>
+                  </div>
+                </a>
+              );
+            })}
           </div>
         </div>
       ))}
     </section>
   )}
 
-  {routes.length > 0 && (
-    <section class:list={['section', 'container', groups.length > 0 && 'reizen-block--after']} id="wijnroutes">
-      <h2 class="reizen-block__title">{ui.t('reizen.index.routes.title')}</h2>
-      <p class="reizen-block__intro">{ui.t('reizen.index.routes.intro')}</p>
-      {groups.length === 0 && <p class="reizen-block__note">{ui.t('reizen.index.nareizen.emptyNote')}</p>}
-      <div class="grid">
-        {routes.map((route) => (
-          <a href={localizePath(`/wijnroutes/${route.slug}/`, locale)} class="card card-link">
-            <div class:list={['card-img-wrap', !route.heroImage && 'is-empty']}>
-              <SmartImg src={route.heroImage || undefined} alt={route.title} theme="region" class="card-img" width={480} />
-            </div>
-            <div class="card-body">
-              <span class:list={['card-regio', route.zelfGereisd && 'card-regio--zelf']}>
-                {route.zelfGereisd ? ui.t('reizen.label.zelfGereisd') : ui.t('reizen.label.redactiegids')}
-              </span>
-              <h3 class="card-title">{route.title}</h3>
-              {route.description && <p class="card-desc">{route.description}</p>}
-              <span class="card-cta">{ui.t('reizen.index.routes.moreCta')} &rarr;</span>
-            </div>
-          </a>
-        ))}
-      </div>
-      <p class="reizen-block__more">
-        <a href={localizePath('/wijnroutes/', locale)}>{ui.t('reizen.index.routes.allCta')} &rarr;</a>
-      </p>
-    </section>
-  )}
-
-  {groups.length === 0 && routes.length === 0 && (
+  {sorted.length === 0 && routes.length === 0 && (
     <section class="section container">
-      <div class="empty-state">
+      <div class="rz-emptystate">
         <h2>{ui.t('reizen.index.empty.title')}</h2>
         <p>
           {ui.t('reizen.index.empty.descPre')}<a href={localizePath('/wijnroutes/', locale)}>{ui.t('reizen.index.empty.descLink')}</a>{ui.t('reizen.index.empty.descPost')}
@@ -163,159 +255,127 @@ const schema = [
       </div>
     </section>
   )}
+
+  <div class="rz-news"><NewsletterFooter locale={locale} /></div>
 </SiteLayout>
 
+<script>
+  // LAT-12451: client-side filter op land en duur. Kaarten worden alleen verborgen
+  // (hidden), nooit uit de DOM gehaald; de chipbalk heeft vaste hoogte, dus de laadstand
+  // verschuift niet. Zonder JS blijven alle kaarten zichtbaar.
+  const bar = document.querySelector<HTMLElement>('[data-rz-chips]');
+  if (bar) {
+    const sel: Record<string, string> = { land: '', dagen: '' };
+    const cards = [...document.querySelectorAll<HTMLElement>('[data-rz-card]')];
+    const groups = [...document.querySelectorAll<HTMLElement>('[data-rz-group]')];
+    const empty = document.querySelector<HTMLElement>('[data-rz-empty]');
+    bar.addEventListener('click', (ev) => {
+      const btn = (ev.target as HTMLElement).closest<HTMLButtonElement>('.rz-chip');
+      if (!btn) return;
+      const kind = btn.dataset.kind as string;
+      sel[kind] = btn.dataset.val || '';
+      bar.querySelectorAll<HTMLButtonElement>(`.rz-chip[data-kind="${kind}"]`).forEach((b) => {
+        const on = b === btn;
+        b.classList.toggle('is-on', on);
+        b.setAttribute('aria-pressed', String(on));
+      });
+      let shown = 0;
+      for (const c of cards) {
+        const ok = (!sel.land || c.dataset.land === sel.land) && (!sel.dagen || c.dataset.dagen === sel.dagen);
+        c.hidden = !ok;
+        if (ok) shown++;
+      }
+      for (const g of groups) g.hidden = !g.querySelector('[data-rz-card]:not([hidden])');
+      if (empty) empty.hidden = shown > 0;
+    });
+  }
+</script>
+
 <style>
-  .hero-sm {
-    background: var(--paperDeep);
-    padding: var(--space-12) 0 var(--space-8);
-    text-align: center;
-  }
-  .hero-sm h1 {
-    font-family: var(--font-display);
-    font-size: clamp(2rem, 1.6rem + 1.5vw, 3rem);
-    font-weight: 400;
-    font-style: italic;
-    color: var(--ink);
-    margin-top: var(--space-3);
-  }
-  .hero-desc {
-    font-family: var(--font-body);
-    font-size: 1rem;
-    line-height: 1.7;
-    color: var(--inkSoft);
-    margin-top: var(--space-3);
-    max-width: 44rem;
-    margin-inline: auto;
-  }
-  .reizen-block__title {
-    font-family: var(--font-display);
-    font-size: 2rem;
-    font-weight: 400;
-    font-style: italic;
-    color: var(--ink);
-  }
-  .reizen-block__intro,
-  .reizen-block__note {
-    font-family: var(--font-body);
-    color: var(--inkSoft);
-    margin: var(--space-2) 0 var(--space-6);
-    max-width: 44rem;
-  }
-  .reizen-block--after { padding-top: 0; }
-  .reizen-block__more { margin-top: var(--space-6); }
-  .reizen-block__more a {
+  .rz-mono, .rz-kick, .rz-chips__lbl, .rz-badge, .rz-tag, .rz-cta {
     font-family: var(--font-mono);
-    font-size: 0.6875rem;
-    letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: var(--burgundy);
-    text-decoration: none;
   }
-  .card-regio--zelf { background: var(--burgundy); color: var(--paper); }
-  .reis-group + .reis-group {
-    margin-top: var(--space-12);
-    padding-top: var(--space-8);
-    border-top: 1px solid var(--rule);
+  .rz-kick { display: block; font-size: 0.6875rem; letter-spacing: 0.18em; color: var(--rust, #A14F2A); margin-bottom: var(--space-2); }
+  .rz-hero {
+    position: relative; min-height: clamp(420px, 62vh, 640px); display: flex; align-items: flex-end;
+    color: #fff; background: var(--burgundyDark, #3D1115); overflow: hidden;
   }
-  .reis-group__title {
-    font-family: var(--font-display);
-    font-size: 1.25rem;
-    font-weight: 500;
-    font-style: italic;
-    color: var(--ink);
-    margin-bottom: var(--space-5);
-  }
-  .reis-group__title a {
-    color: inherit;
-    text-decoration: none;
-  }
-  .reis-group__title a:hover { text-decoration: underline; }
-  .grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-    gap: var(--space-6);
-  }
-  /* LAT-1118 (M5-hardening): geen horizontale overflow op smalle telefoons. */
-  @media (max-width: 420px) {
-    .grid { grid-template-columns: 1fr; }
-  }
-  .card-link {
-    text-decoration: none;
-    color: inherit;
-    display: block;
-  }
-  .card-img-wrap {
-    aspect-ratio: 16 / 11;
-    overflow: hidden;
-    background: var(--paperShade);
-  }
-  /* LAT-2455: geen beeld → compacte branded band i.p.v. loze reuzenvlak op mobiel. */
-  .card-img-wrap.is-empty {
-    aspect-ratio: auto;
-    height: clamp(96px, 26vw, 140px);
-  }
-  .card-img-wrap :global(img),
-  .card-img-wrap :global(.smart-img-placeholder) {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    transition: transform var(--duration-image) var(--ease-out);
-  }
-  .card-link:hover .card-img-wrap :global(img) { transform: scale(1.03); }
-  .card-body { padding: 1.25rem; }
-  .card-regio {
-    display: inline-block;
-    font-family: var(--font-mono);
-    font-size: 0.5625rem;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    background: var(--paperDeep);
-    color: var(--inkSoft);
-    padding: 0.2rem 0.5rem;
-    border-radius: 1px;
-    margin-bottom: var(--space-2);
-  }
-  .card-title {
-    font-family: var(--font-display);
-    font-size: 1.25rem;
-    font-weight: 500;
-    color: var(--ink);
-    margin-bottom: var(--space-2);
-    line-height: 1.25;
-  }
-  .card-desc {
-    font-family: var(--font-body);
-    font-size: 0.875rem;
-    color: var(--inkSoft);
-    line-height: 1.5;
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    margin-bottom: var(--space-3);
-  }
-  .card-cta {
-    font-family: var(--font-mono);
-    font-size: 0.6875rem;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--burgundy);
-  }
-  .empty-state {
-    text-align: center;
-    padding: var(--space-16) var(--space-4);
-  }
-  .empty-state h2 {
-    font-family: var(--font-display);
-    font-size: 1.75rem;
-    font-weight: 400;
-    font-style: italic;
-    color: var(--ink);
-    margin-bottom: var(--space-3);
-  }
-  .empty-state p {
-    font-size: 1rem;
-    color: var(--inkSoft);
+  .rz-hero :global(.rz-hero__img) { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 55%; }
+  .rz-hero::before { content: ""; position: absolute; inset: 0; z-index: 1; background: linear-gradient(180deg, rgba(31,12,14,0) 0%, rgba(31,12,14,.05) 35%, rgba(31,12,14,.78) 100%); }
+  .rz-hero__in { position: relative; z-index: 2; padding-bottom: clamp(2rem, 5vw, 4rem); padding-top: var(--space-12); }
+  .rz-mono { display: block; font-size: 0.6875rem; letter-spacing: 0.18em; color: var(--gold, #E5C99B); margin-bottom: var(--space-3); }
+  .rz-hero h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(2.5rem, 1.4rem + 5vw, 5.25rem); line-height: 0.98; letter-spacing: -0.02em; max-width: 18ch; color: #fff; }
+  .rz-hero p { font-family: var(--font-body); font-size: clamp(1rem, 0.9rem + 0.5vw, 1.375rem); line-height: 1.45; max-width: 40rem; margin: var(--space-4) 0 var(--space-5); color: #f6efe0; }
+  .rz-btns { display: flex; gap: 0.875rem; flex-wrap: wrap; }
+  .rz-btn { display: inline-block; font-family: var(--font-ui, var(--font-body)); font-weight: 500; font-size: 0.9375rem; padding: 0.9rem 1.5rem; border-radius: 2px; background: var(--burgundy); color: #fff; border: 1px solid var(--burgundy); text-decoration: none; }
+  .rz-btn--ghost { background: transparent; border-color: rgba(255,255,255,.7); }
+  .rz-sec { padding-block: clamp(2.75rem, 6vw, 4.5rem); }
+  .rz-sh { display: flex; justify-content: space-between; align-items: flex-end; gap: var(--space-6); margin-bottom: var(--space-6); }
+  .rz-sh h2, .rz-sleep h2 { font-family: var(--font-display); font-weight: 400; font-size: clamp(2.25rem, 1.6rem + 2.5vw, 3.25rem); line-height: 1; letter-spacing: -0.02em; color: var(--ink); }
+  .rz-sh p { max-width: 27rem; color: var(--inkSoft); font-size: 1rem; }
+  .rz-feat { display: grid; grid-template-columns: 60fr 40fr; background: var(--paperDeep); border: 1px solid var(--rule); }
+  .rz-feat__img { position: relative; display: block; min-height: 540px; overflow: hidden; }
+  .rz-feat__img :global(img), .rz-feat__img :global(.smart-img-placeholder) { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .rz-feat__txt { padding: clamp(1.5rem, 3vw, 2.5rem); display: flex; flex-direction: column; justify-content: center; }
+  .rz-feat h3 { font-family: var(--font-display); font-weight: 400; font-size: clamp(1.75rem, 1.2rem + 1.8vw, 2.75rem); line-height: 1.05; letter-spacing: -0.015em; margin: var(--space-2) 0 var(--space-4); color: var(--ink); }
+  .rz-feat p { color: var(--inkSoft); }
+  .rz-two { display: flex; gap: 1.375rem; align-items: center; margin-top: var(--space-5); flex-wrap: wrap; }
+  .rz-lnk { color: var(--burgundy); border-bottom: 1px solid var(--burgundy); padding-bottom: 1px; text-decoration: none; font-family: var(--font-ui, var(--font-body)); font-weight: 500; font-size: 0.8125rem; }
+  .rz-lnk--soft { color: var(--inkSoft); border-bottom-color: var(--rule); }
+  .rz-sub { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-5); margin-top: var(--space-5); }
+  .rz-n { background: var(--paperDeep); border: 1px solid var(--rule); }
+  .rz-ph { position: relative; display: block; aspect-ratio: 4 / 3; overflow: hidden; background: var(--paperShade); }
+  .rz-ph :global(img), .rz-ph :global(.smart-img-placeholder) { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .rz-tag { position: absolute; right: 12px; top: 14px; background: rgba(31,26,22,.62); color: #fff; font-size: 0.6875rem; letter-spacing: 0.12em; padding: 5px 9px; border-radius: 2px; }
+  .rz-feat__img .rz-tag { right: auto; left: 14px; }
+  .rz-nb { padding: 1.25rem 1.375rem 1.5rem; }
+  .rz-nb h4 { font-family: var(--font-display); font-weight: 400; font-size: 1.6875rem; line-height: 1.1; margin: var(--space-2) 0; }
+  .rz-nb h4 a { color: var(--ink); text-decoration: none; }
+  .rz-nb p { font-size: 0.9375rem; color: var(--inkSoft); }
+  .rz-links { display: flex; gap: 1.125rem; flex-wrap: wrap; margin-top: var(--space-3); }
+  .rz-sleep { background: var(--paperDeep); padding-block: clamp(2.25rem, 5vw, 3.5rem); border-block: 1px solid var(--rule); }
+  .rz-sleep__intro { color: var(--inkSoft); max-width: 36rem; margin: var(--space-2) 0 var(--space-5); }
+  .rz-sleep__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--space-5); }
+  .rz-more { margin: var(--space-4) 0 var(--space-6); }
+  .rz-more a { font-family: var(--font-mono); font-size: 0.6875rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--burgundy); text-decoration: none; }
+  .rz-chips { display: flex; gap: 0.625rem; align-items: center; flex-wrap: wrap; margin-bottom: var(--space-6); min-height: 2.75rem; }
+  .rz-chips__lbl { font-size: 0.6875rem; letter-spacing: 0.14em; color: var(--faint, var(--inkSoft)); }
+  .rz-chips__sep { width: 1px; height: 24px; background: var(--rule); margin: 0 0.5rem; }
+  .rz-chip { font: inherit; font-family: var(--font-ui, var(--font-body)); font-size: 0.875rem; padding: 0.5rem 0.9375rem; border: 1px solid var(--rule); border-radius: 99px; background: transparent; color: var(--ink); cursor: pointer; white-space: nowrap; }
+  .rz-chip.is-on { background: var(--burgundy); border-color: var(--burgundy); color: #fff; }
+  .rz-empty { color: var(--inkSoft); margin-bottom: var(--space-5); }
+  .rz-group + .rz-group { margin-top: var(--space-10, 3.5rem); }
+  .rz-gh { display: flex; align-items: baseline; gap: var(--space-4); flex-wrap: wrap; margin-bottom: var(--space-4); }
+  .rz-gh h3 { font-family: var(--font-display); font-weight: 400; font-size: 2.125rem; color: var(--ink); }
+  .rz-gh span { font-size: 0.8125rem; color: var(--faint, var(--inkSoft)); }
+  .rz-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-5); }
+  .rz-card { display: flex; flex-direction: column; background: var(--paper); border: 1px solid var(--rule); color: inherit; text-decoration: none; }
+  .rz-card[hidden], .rz-group[hidden] { display: none; }
+  .rz-card .rz-ph { aspect-ratio: 4 / 3; }
+  .rz-card:hover .rz-ph :global(img) { transform: scale(1.03); }
+  .rz-ph :global(img) { transition: transform var(--duration-image) var(--ease-out); }
+  .rz-badge { position: absolute; left: 14px; top: 14px; background: var(--burgundy); color: #fff; font-size: 0.6875rem; letter-spacing: 0.1em; padding: 7px 11px; border-radius: 2px; }
+  .rz-badge--soft { background: rgba(250,245,233,.92); color: var(--inkSoft); }
+  .rz-cb { padding: 1.125rem 1.25rem 1.25rem; display: flex; flex-direction: column; flex: 1; }
+  .rz-cb h4 { font-family: var(--font-display); font-weight: 400; font-size: 1.5625rem; line-height: 1.1; margin-bottom: var(--space-2); color: var(--ink); }
+  .rz-meta { display: flex; flex-wrap: wrap; gap: 4px 0; font-size: 0.75rem; color: var(--inkSoft); margin-bottom: var(--space-2); }
+  .rz-meta span + span::before { content: ""; display: inline-block; width: 3px; height: 3px; border-radius: 50%; background: var(--rule); margin: 0 9px 2px; }
+  .rz-cb p { font-size: 0.90625rem; color: var(--inkSoft); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: var(--space-3); }
+  .rz-cta { margin-top: auto; padding-top: var(--space-2); font-size: 0.6875rem; letter-spacing: 0.1em; color: var(--burgundy); }
+  .rz-news { padding-bottom: var(--space-12); }
+  .rz-emptystate { text-align: center; padding: var(--space-16) var(--space-4); }
+  .rz-emptystate h2 { font-family: var(--font-display); font-size: 1.75rem; font-weight: 400; font-style: italic; color: var(--ink); margin-bottom: var(--space-3); }
+  .rz-emptystate p { color: var(--inkSoft); }
+  @media (max-width: 1100px) { .rz-grid { grid-template-columns: repeat(2, 1fr); } .rz-sub { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 700px) {
+    .rz-sh { flex-direction: column; align-items: flex-start; gap: var(--space-2); }
+    .rz-feat { grid-template-columns: 1fr; }
+    .rz-feat__img { min-height: 0; aspect-ratio: 4 / 3; }
+    .rz-sub, .rz-grid { grid-template-columns: 1fr; }
+    .rz-btns { flex-direction: column; } .rz-btn { text-align: center; }
+    .rz-chips { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 6px; }
+    .rz-chips > * { flex: none; }
+    .rz-gh h3 { font-size: 1.75rem; }
   }
 </style>
