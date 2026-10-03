@@ -170,7 +170,11 @@ jobs:
               # tokenwaarde naar stderr, en dat belandt in `docker logs` (zichtbaar in de GHA-
               # run-log). CURL_EXIT (hieronder) geeft genoeg signaal (DNS/connect/timeout) zonder
               # een secret te loggen.
-              curl -s -o /tmp/resp.json -w '%{http_code}' \
+              # `-g`/--globoff is verplicht: curl interpreteert `[` en `]` in een URL default als
+              # range-globbing, en Directus' eigen filtersyntax (filter[status][_eq]=...) bestaat
+              # juist uit die tekens. Zonder -g gaf dit curl_exit=3 (CURLE_URL_MALFORMAT), reden
+              # waarom elke poll tot nu toe faalde (LAT-12199, install-run 37114138205).
+              curl -sg -o /tmp/resp.json -w '%{http_code}' \
                 -H "Authorization: Bearer ${DIRECTUS_TOKEN:-}" \
                 "${DIRECTUS_URL:-}/items/articles?filter[status][_eq]=published&filter[pub_date][_lte]=\$NOW&fields=id,pub_date&sort=-pub_date&limit=1" \
                 >/tmp/http_code.txt 2>/tmp/curl.err
