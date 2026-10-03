@@ -399,13 +399,20 @@ test('de wijnhuizen-loader roept het hero-slot aan voor hero_image én og_image'
     assert.match(src, /assertHeroNotBlocked\(`[^`]*og_image`, r\.og_image/);
 });
 
-test('het Produttori-hero (LAT-12298) heeft een attributie-entry (CC BY-SA 4.0)', async () => {
-    const { getImageCredit } = await loadModule('image-credits', 'src/lib/image-credits.ts');
-    const c = getImageCredit('10948025-1d1f-45ae-9973-a13507c02787');
-    assert.ok(c, 'BY-SA eist attributie; zonder entry staat het beeld live zonder de verplichte vermelding');
+test('een CC BY-SA 4.0 DAM-bestand (Produttori-hero, LAT-12298) krijgt maker + licentie als credit', async () => {
+    const { creditFromFileMeta } = await loadModule('image-credits', 'src/lib/image-credits.ts');
+    const c = creditFromFileMeta(
+        'cc-by-sa-4.0',
+        'Foto: Matteo Aresca 05, CC BY-SA 4.0, via Wikimedia Commons. Bron: https://commons.wikimedia.org/wiki/File:Barbaresco_(CN).jpg',
+    );
+    assert.ok(c, 'BY-SA eist attributie; zonder credit staat het beeld live zonder de verplichte vermelding');
     assert.match(c.author, /Matteo Aresca 05/);
     assert.equal(c.licenseLabel, 'CC BY-SA 4.0');
-    assert.equal(c.adapted, true, 'gradeBuffer + 1600px-resize is een bewerking; CC BY-SA 4.0 §3(a)(1)(B) eist de aanduiding (LAT-12304)');
+});
+
+test('het wijnhuis-template markeert de hero als bewerkt (gradeBuffer + resize, LAT-12304)', () => {
+    const src = readFileSync('src/components/pages/WijnhuisPageContent.astro', 'utf8');
+    assert.match(src, /getImageCredit\(heroImageId, \{ adapted: true \}\)/, 'CC BY-SA 4.0 §3(a)(1)(B) eist de aanduiding');
 });
 
 test('het wijnhuis-template rendert de bewerkingsaanduiding bij adapted-credits (LAT-12304)', () => {

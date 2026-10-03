@@ -153,7 +153,7 @@ jobs:
   deploy:
     needs: tests
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45 # LAT-12060: vangnet voor de eerste koude cache-build, niet de fix
     environment:
       name: ${{ github.ref == 'refs/heads/main' && 'production' || 'preview' }}
       url: ${{ github.ref == 'refs/heads/main' && 'https://vinomartino.com' || 'https://preview.vinomartino.com' }}
@@ -214,13 +214,25 @@ jobs:
       - name: Configure SSH
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
         run: |
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
+          # LAT-3437: transport via de Cloudflare Tunnel (ssh.vinomartino.com),
+          # niet via inbound poort 22. VPS_HOST/VPS_USER/VPS_SSH_PRIVATE_KEY
+          # blijven gelden; alleen de ProxyCommand is nieuw (ops/cf-ssh-proxy.sh).
+          [ -n "$CF_ACCESS_CLIENT_ID" ] && [ -n "$CF_ACCESS_CLIENT_SECRET" ] \
+            || { echo "::error::CF_ACCESS_CLIENT_ID/SECRET ontbreken (LAT-3437)"; exit 1; }
+          umask 077
+          printf 'CF_ACCESS_CLIENT_ID=%s\nCF_ACCESS_CLIENT_SECRET=%s\n' \
+            "$CF_ACCESS_CLIENT_ID" "$CF_ACCESS_CLIENT_SECRET" > ~/.ssh/cf-access.env
+          umask 022
           cat >> ~/.ssh/config <<EOF
           Host $VPS_HOST
             StrictHostKeyChecking accept-new
             UserKnownHostsFile ~/.ssh/known_hosts
+            ProxyCommand bash $GITHUB_WORKSPACE/ops/cf-ssh-proxy.sh
           EOF
           # LAT-3769/LAT-3910: keepalive- en timeout-opties staan in
           # ops/ssh-config-snippet, buiten .github/workflows/, zodat toekomstige
@@ -228,8 +240,8 @@ jobs:
           # Hard falen als het bestand ontbreekt: stil zonder keepalive draaien
           # is precies de bug die dit oplost.
           cat "$GITHUB_WORKSPACE/ops/ssh-config-snippet" >> ~/.ssh/config
-          # Best-effort host-key prefetch; non-fataal als netwerk flakey is
-          ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+          # LAT-3437: geen ssh-keyscan meer — die deed een directe connect naar
+          # poort 22. accept-new pint de host key bij de eerste tunnel-sessie.
 
       # ── 5. Sync src naar VPS staging ─────────────────────────────────────
       - name: Sync source to VPS staging
@@ -288,6 +300,11 @@ jobs:
             # review status=draft entries on preview.vinomartino.com before
             # promote-to-production. Productie krijgt deze env-var NIET en
             # blijft daarom alleen `status=published` serveren.
+            # LAT-12060: de variant-cache moet de per-run STAGE én `npm ci`
+            # overleven (npm ci wist node_modules/.cache). Key is sha1-per-bron,
+            # dus delen tussen preview en productie is veilig.
+            mkdir -p /srv/vino-image-cache
+            echo "[image-cache] voor build: $(find /srv/vino-image-cache -type f | wc -l) bestanden, $(du -sh /srv/vino-image-cache | cut -f1)"
             if [ "$TARGET" = "preview" ]; then
               DRAFTS_ENV="-e DIRECTUS_INCLUDE_DRAFTS=1"
             else
@@ -328,7 +345,9 @@ jobs:
             docker run --rm --name "vino-build-$RUN_ID" \
               --network directus_directus_net \
               $DRAFTS_ENV \
-              -v "$STAGE":/app -w /app \
+              -v "$STAGE":/app \
+              -v /srv/vino-image-cache:/image-cache -e IMAGE_VARIANT_CACHE=/image-cache \
+              -w /app \
               node:24 bash -c "npm ci && node --env-file-if-exists=.env scripts/preflight-content.mjs && npm run build && node scripts/check-rendered-content.mjs && node --test scripts/check-affiliate-links.test.mjs && node scripts/check-affiliate-links.mjs" 2>&1 | tee build.log
             build_rc=${PIPESTATUS[0]}
             set -e
