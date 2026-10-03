@@ -195,13 +195,22 @@ jobs:
         # detector-exitcode (0/1/2/3) of REMOTE_SCRIPT's eigen 2/1 wordt nooit
         # geretried, om een rode meting niet stil te laten verdwijnen achter
         # een toevallige tweede poging.
+        #
+        # FD_DIR/BACKUP_DIR/LOG_PATH/WEDGE_THRESHOLD_MIN/COVERAGE_RED_HOURS
+        # zijn env vars van DEZE stap op de GHA-runner -- ssh forwardt die
+        # niet vanzelf naar de remote shell. REMOTE_SCRIPT leest ze als
+        # gewone shell-vars ($FD_DIR), dus moeten ze expliciet als
+        # VAR=waarde-prefix op het remote commando staan, anders knalt
+        # `set -u` daar op "unbound variable" (gemeten op de eerste
+        # post-merge dispatch, run 37065538674). printf %q quote't veilig.
         run: |
           set -uo pipefail
+          REMOTE_ENV="FD_DIR=$(printf '%q' "$FD_DIR") BACKUP_DIR=$(printf '%q' "$BACKUP_DIR") LOG_PATH=$(printf '%q' "$LOG_PATH") WEDGE_THRESHOLD_MIN=$(printf '%q' "$WEDGE_THRESHOLD_MIN") COVERAGE_RED_HOURS=$(printf '%q' "$COVERAGE_RED_HOURS")"
           attempt=0
           while : ; do
             attempt=$(( attempt + 1 ))
             set +e
-            printf '%s\n' "$REMOTE_SCRIPT" | ssh -o ConnectTimeout=20 "$VPS" "bash -s"
+            printf '%s\n' "$REMOTE_SCRIPT" | ssh -o ConnectTimeout=20 "$VPS" "$REMOTE_ENV bash -s"
             rc=$?
             set -e
             if [ "$rc" -ne 255 ]; then
