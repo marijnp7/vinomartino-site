@@ -86,7 +86,7 @@ const drieluikBeelden = drieluik.filter((b) => b && b.src);
 
 // LAT-2478: verplichte beeldcredit (bv. Wikimedia Commons CC BY-SA) bij de hero,
 // gesleuteld op het Directus file-UUID. Null → geen figcaption (bv. AI-eigen werk).
-const heroCredit = getImageCredit(heroImageId);
+const heroCredit = await getImageCredit(heroImageId, { adapted: true });
 ---
 
 <!-- ── HERO ──────────────────────────────────────────── -->
@@ -165,7 +165,7 @@ const heroCredit = getImageCredit(heroImageId);
       <BeeldHerkomst fileId={heroImageId} src={heroImage} locale={locale} variant="inline" />
       {heroCredit && (
         <figcaption class="wh-hero__credit">
-          {heroCredit.author}, <a href={heroCredit.licenseUrl} rel="license noopener" target="_blank">{licenseLabelFor(heroCredit.licenseLabel, locale)}</a>{heroCredit.adapted && <> ({adaptationNoteFor(locale)})</>}
+          {heroCredit.author && <>{heroCredit.author}, </>}<a href={heroCredit.licenseUrl} rel="license noopener" target="_blank">{licenseLabelFor(heroCredit.licenseLabel, locale)}</a>{heroCredit.sourceUrl && <> — <a href={heroCredit.sourceUrl} rel="noopener" target="_blank">{heroCredit.sourceLabel ? `via ${heroCredit.sourceLabel}` : 'via bron'}</a></>}{heroCredit.adapted && <> ({adaptationNoteFor(locale)})</>}
         </figcaption>
       )}
     </figure>

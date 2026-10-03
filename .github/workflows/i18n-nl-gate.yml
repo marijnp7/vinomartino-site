@@ -123,13 +123,24 @@ jobs:
       - name: Configure SSH
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
         run: |
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
+          # LAT-3437: transport via de Cloudflare Tunnel (ssh.vinomartino.com),
+          # niet via inbound poort 22.
+          [ -n "$CF_ACCESS_CLIENT_ID" ] && [ -n "$CF_ACCESS_CLIENT_SECRET" ] \
+            || { echo "::error::CF_ACCESS_CLIENT_ID/SECRET ontbreken (LAT-3437)"; exit 1; }
+          umask 077
+          printf 'CF_ACCESS_CLIENT_ID=%s\nCF_ACCESS_CLIENT_SECRET=%s\n' \
+            "$CF_ACCESS_CLIENT_ID" "$CF_ACCESS_CLIENT_SECRET" > ~/.ssh/cf-access.env
+          umask 022
           cat >> ~/.ssh/config <<EOF
           Host $VPS_HOST
             StrictHostKeyChecking accept-new
             UserKnownHostsFile ~/.ssh/known_hosts
+            ProxyCommand bash $GITHUB_WORKSPACE/ops/cf-ssh-proxy.sh
           EOF
           # LAT-4943: dezelfde keepalive/retry-opties als deploy.yml. Deze
           # workflow is ná LAT-3769/LAT-3910 aangemaakt en miste het snippet,
@@ -140,7 +151,6 @@ jobs:
           # moment groen bleef. Hard falen als het bestand ontbreekt — stil
           # zonder keepalive draaien is precies de bug die dit oplost.
           cat "$GITHUB_WORKSPACE/ops/ssh-config-snippet" >> ~/.ssh/config
-          ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
 
       - name: Sync PR source to VPS scratch staging
         env:
@@ -209,10 +219,29 @@ jobs:
             # Best-effort; sourcen, niet uitvoeren. Zie het script voor de rest.
             if [ -f scripts/vps-build-lock.sh ]; then . scripts/vps-build-lock.sh; fi
             docker rm -f "vino-gate-pr-$RUN_ID" >/dev/null 2>&1 || true
+            # LAT-12128: `npm run build:vinomartino` (kale `astro build`), niet
+            # `npm run build`. De volle chain hangt sinds LAT-12054 ook
+            # `node scripts/optimize-images.mjs` aan vast: her-encodeert elk
+            # dist-beeld naar AVIF/WebP/JPG × 3 breedtes, zonder voortgangs-log
+            # tot de allerlaatste regel. De IMAGE_VARIANT_CACHE-memoisatie
+            # (sha1-keyed, node_modules/.cache/vm-image-variants) helpt hier
+            # niets: elke run doet `npm ci` in een verse container, dus de
+            # cache is altijd leeg. Gemeten op runs 36676915952 (attempt 1 en
+            # 2, head dda5cf6) en 36673825740 (head vóór de fix): de astro
+            # build + lint-postbuild-stappen ronden ruim binnen budget af, en
+            # dan valt de output stil tot de `timeout-minutes: 30` hem killt
+            # — attempt 2 zelfs met een lock-wachttijd van 0s, dus geen
+            # concurrente-build-verklaring. `--dist`-scans in
+            # scripts/lat2582-gate-check.py lezen alleen `dist/en/**/*.html`
+            # als platte tekst; niets uit de lint-/optimize-postbuild-keten
+            # (build-info.json, gekopieerde public/images/*, geoptimaliseerde
+            # varianten) is nodig voor een nl-nouns-verdict. Deploy.yml blijft
+            # op de volle `build` — productie moet wél de geoptimaliseerde
+            # varianten serveren.
             docker run --rm --name "vino-gate-pr-$RUN_ID" \
               --network directus_directus_net \
               -v "$STAGE":/app -w /app \
-              node:24 bash -c "npm ci && npm run build" 2>&1 | tee build.log
+              node:24 bash -c "npm ci && npm run build:vinomartino" 2>&1 | tee build.log
             build_rc=${PIPESTATUS[0]}
             if [ "$build_rc" -ne 0 ]; then
               echo "::error::astro build exit $build_rc"
