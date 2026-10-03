@@ -6,6 +6,7 @@
 // de per-locale loaders in getStaticPaths. Op DEFAULT_LOCALE geeft t() de
 // bestaande NL-copy byte-identiek terug (nul NL-regressie); /en/ overlayt EN.
 import SiteLayout from '../layouts/SiteLayout.astro';
+import ReisCrossLinks from './ReisCrossLinks.astro';
 import RelatedArticles from './RelatedArticles.astro';
 import HubBacklink from './HubBacklink.astro';
 import RouteMap from './RouteMap.astro';
@@ -29,13 +30,15 @@ interface Props {
   landName: string;
   wijnhuizen: Wijnhuis[];
   staysRoundup: AccommodatieRoundupData | null;
+  /** LAT-12365: nareizen (reispakketten) van dezelfde streek. */
+  nareizen?: { slug: string; titel: string; tagline?: string }[];
   /** LAT-2638: NL byte-identiek op DEFAULT_LOCALE; /en/ geeft "en" mee. */
   locale?: Locale;
   /** LAT-2638: pad-URLs van de tegenhanger per taal voor hreflang. */
   alternates?: Partial<Record<Locale, string>>;
 }
 
-const { entry, streekName, landSlug, landName, wijnhuizen, staysRoundup, locale = DEFAULT_LOCALE, alternates } = Astro.props;
+const { entry, streekName, landSlug, landName, wijnhuizen, staysRoundup, nareizen = [], locale = DEFAULT_LOCALE, alternates } = Astro.props;
 
 // LAT-2704 — interne hrefs locale-aware; NL blijft byte-identiek.
 const lh = (href: string) => localizeHref(href, locale);
@@ -241,6 +244,8 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
     </div>
 
     <RelatedArticles items={entry.relatedArticles} locale={locale} />
+
+    <ReisCrossLinks nareizen={nareizen} locale={locale} />
 
     <HubBacklink type="route" slug={entry.slug} locale={locale} />
 

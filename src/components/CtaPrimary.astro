@@ -20,12 +20,13 @@ const lh = (href: string) => localizeHref(href, locale);
 const ui = await loadUiStrings(locale);
 const placement = 'cta-primary';
 // LAT-3726 — wijnretail-config uit Directus; alleen geladen bij een wine-retail-CTA.
-const wineRetail = await loadCtaWineRetail([data?.link]);
-const href = data && ctaLinkAvailable(data.link) ? resolveCtaHref(data.link, `${placement}-${sid}`, locale, wineRetail) : '';
+const wineRetail = await loadCtaWineRetail([data?.link], locale);
+const available = !!data && ctaLinkAvailable(data.link, locale, wineRetail);
+const href = data && available ? resolveCtaHref(data.link, `${placement}-${sid}`, locale, wineRetail) : '';
 const label = data?.link.label ?? ui.t('ui.cta.primary.fallbackCta');
 ---
 
-{data && ctaLinkAvailable(data.link) && (
+{data && available && (
   <aside class="vm-cta vm-cta--primary" aria-label={ui.t('ui.cta.primary.aria')}>
     {data.heading && <h3 class="vm-cta__heading">{data.heading}</h3>}
     <a

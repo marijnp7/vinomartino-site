@@ -6,6 +6,7 @@
 // levert dit nul paden op — dat is bewust (404 i.p.v. NL-lek onder /en/).
 import ReisPakketDetail from '../../../components/ReisPakketDetail.astro';
 import { loadReispakketten, type ReisPakket } from '../../../lib/reispakketten';
+import { loadRoutes } from '../../../lib/routes';
 import { loadStreken } from '../../../lib/streken';
 
 const EN = 'en' as const;
@@ -14,7 +15,7 @@ export async function getStaticPaths() {
   // Astro draait getStaticPaths in een geïsoleerde scope: alleen imports zijn
   // hier zichtbaar, frontmatter-consts als EN niet. Vandaar de literal 'en',
   // net als in de andere /en/-routes.
-  const [pakketten, streken] = await Promise.all([loadReispakketten('en'), loadStreken('en')]);
+  const [pakketten, streken, routes] = await Promise.all([loadReispakketten('en'), loadStreken('en'), loadRoutes('en')]);
   const streekBySlug = new Map(streken.map((s) => [s.slug, s]));
   return pakketten.map((entry) => {
     const streek = entry.streekSlug ? streekBySlug.get(entry.streekSlug) : undefined;
@@ -25,6 +26,9 @@ export async function getStaticPaths() {
         landSlug: streek?.landSlug ?? '',
         landName: streek?.country ?? '',
         streekName: entry.streekName || streek?.name || '',
+        routes: entry.streekSlug
+          ? routes.filter((r) => r.streekSlug === entry.streekSlug).map((r) => ({ slug: r.slug, title: r.title, description: r.description, zelfGereisd: r.zelfGereisd }))
+          : [],
         alternates: {
           nl: `/reizen-nareizen/${entry.slug}/`,
           en: `/en/reizen-nareizen/${entry.slug}/`,
@@ -34,7 +38,8 @@ export async function getStaticPaths() {
   });
 }
 
-const { entry, landSlug, landName, streekName, alternates } = Astro.props as {
+const { entry, landSlug, landName, streekName, routes, alternates } = Astro.props as {
+  routes: { slug: string; title: string; description?: string; zelfGereisd?: boolean }[];
   entry: ReisPakket;
   landSlug: string;
   landName: string;
@@ -48,6 +53,7 @@ const { entry, landSlug, landName, streekName, alternates } = Astro.props as {
   landSlug={landSlug}
   landName={landName}
   streekName={streekName}
+  routes={routes}
   locale={EN}
   alternates={alternates}
 />

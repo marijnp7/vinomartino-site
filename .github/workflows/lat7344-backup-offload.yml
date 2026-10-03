@@ -1,0 +1,305 @@
+# LAT-7344 — pin-offload naar B2 + archiefcompressie.
+# Content-beslissing al goedgekeurd door Marijn via board-approval
+# f1b3ad4c-da63-4597-9f4f-a27a5ca0e5c7 (2026-10-02), met als expliciete voorwaarde:
+# "Eerst een restore-dry-run van een gecomprimeerd archief bewijzen voordat lokale
+# kopieen verwijderd worden." Dit bestand is zelf nog steeds gate-set item 1
+# (workflow-files) onder R2 en gaat dus OOK apart naar Marijn, los van de
+# content-beslissing — zie memory lat6686-exec-stream-demux-and-volume-write-gate.
+#
+# Zelfde SSH-kanaal/host-native-docker-patroon als lat6686-volume-cleanup.yml.
+# Nodig omdat de scoped docker-proxy geen enkele bulk-bestandsoverdracht toestaat
+# (exec-only, geen /archive PUT/GET — 403) en pins ~348MB/stuk zijn: te groot om
+# via base64-in-exec-JSON te relayen binnen een redelijke run.
+#
+# Vier modes, oplopend risico. Paden zijn NIET input-gestuurd (vast in het script):
+#   measure         — alleen lezen: du op data/backups + backup-pins (paperclip_home) en
+#                      op de twee archiefmappen (volume 6e70e905...), df.
+#   offload-pins    — upload élke *.sql.gz in backup-pins/ naar B2 bucket
+#                      paperclip-directus-backups, prefix pins/, met de bestaande
+#                      write-capable sleutel uit backup.env. Verifieert B2's
+#                      teruggegeven sha1 tegen de lokale sha1 VOORDAT het lokale
+#                      bestand wordt verwijderd. Eén mismatch of fout op een bestand
+#                      stopt de hele run (geen partial-delete-risico).
+#   compress-archive — comprimeert .claude/projects.archief-2026-07-22 en
+#                      projects.archief-24-07-avond (volume 6e70e905...) naar één
+#                      tar.gz, pakt die daarna weer UIT in een scratch-map en
+#                      vergelijkt sha256 van elk bestand tegen het origineel
+#                      (restore-dry-run, de Marijn-voorwaarde). Verwijdert de
+#                      originele mappen ALLEEN als elk bestand matcht.
+#   verify          — alleen lezen: bevestigt resultaat van de laatste apply-mode, df.
+
+name: LAT-7344 backup offload
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'measure / offload-pins / compress-archive / verify'
+        required: true
+        default: measure
+        type: choice
+        options:
+          - measure
+          - offload-pins
+          - compress-archive
+          - verify
+
+concurrency:
+  group: lat7344-backup-offload
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          cat >> ~/.ssh/config <<EOF
+          Host $VPS_HOST
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+          EOF
+          cat "$GITHUB_WORKSPACE/ops/ssh-config-snippet" >> ~/.ssh/config
+          ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      # ---------------------------------------------------------------- measure
+      - name: Measure (read-only)
+        if: inputs.mode == 'measure'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          MEASURE: |
+            set -uo pipefail
+            VOL6E=6e70e905369b205ceebde64c2bc96dd8a204ddd7d10f43ecd7b36c659062ead1
+            echo "=== df ==="
+            df -h /
+            echo
+            echo "=== paperclip_home: data/backups + backup-pins ==="
+            docker run --rm -v paperclip_home:/dst:ro alpine sh -c '
+              du -sh -c /dst/instances/default/data/backups /dst/backup-pins 2>/dev/null
+              echo "--- pins ---"
+              ls -la /dst/backup-pins/*.sql.gz 2>/dev/null
+            '
+            echo
+            echo "=== volume 6e70e905 (archiefmappen) ==="
+            docker run --rm -v "$VOL6E":/dst:ro alpine sh -c '
+              for p in .claude/projects.archief-2026-07-22 .claude/projects.archief-24-07-avond; do
+                if [ -e "/dst/$p" ]; then
+                  echo "EXISTS $p  $(du -sh "/dst/$p" 2>/dev/null | cut -f1)"
+                else
+                  echo "ABSENT $p"
+                fi
+              done
+            '
+        run: |
+          printf '%s\n' "$MEASURE" | ssh "$VPS" "bash -s"
+
+      # ---------------------------------------------------------------- offload-pins
+      - name: Offload pins to B2 (rw on paperclip_home, ro on backup.env)
+        if: inputs.mode == 'offload-pins'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          OFFLOAD: |
+            set -uo pipefail
+            echo "=== df BEFORE ==="
+            df -h /
+            echo
+
+            docker run --rm \
+              -v paperclip_home:/dst \
+              -v /opt/paperclip-cos/directus-backup/backup.env:/backup.env:ro \
+              python:3.12-alpine sh -c '
+            python3 - <<"PYEOF"
+            import json, base64, hashlib, os, sys, urllib.request, urllib.parse
+
+            def envfile(p):
+                d = {}
+                for line in open(p):
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        k, v = line.split("=", 1)
+                        d[k] = v.strip().strip("\"").strip("'"'"'")
+                return d
+
+            bk = envfile("/backup.env")
+            key_id = bk["B2_BACKUP_KEY_ID"]
+            app_key = bk["B2_BACKUP_APPLICATION_KEY"]
+            bucket = bk["B2_BUCKET"]
+
+            def post(url, tok, data):
+                r = urllib.request.Request(url, data=json.dumps(data).encode())
+                r.add_header("Authorization", tok)
+                r.add_header("Content-Type", "application/json")
+                return json.load(urllib.request.urlopen(r, timeout=120))
+
+            a = urllib.request.Request("https://api.backblazeb2.com/b2api/v3/b2_authorize_account")
+            basic = base64.b64encode((key_id + ":" + app_key).encode()).decode()
+            a.add_header("Authorization", "Basic " + basic)
+            auth = json.load(urllib.request.urlopen(a, timeout=60))
+            tok = auth["authorizationToken"]
+            api = auth["apiInfo"]["storageApi"]["apiUrl"]
+            storage = auth["apiInfo"]["storageApi"]
+            bid = storage["bucketId"]
+            if storage.get("bucketName") != bucket:
+                print("ABORT: scoped key is pinned to %r, verwacht %r" % (storage.get("bucketName"), bucket))
+                sys.exit(1)
+
+            pin_dir = "/dst/backup-pins"
+            files = sorted(f for f in os.listdir(pin_dir) if f.endswith(".sql.gz"))
+            if not files:
+                print("Geen pins gevonden onder %s" % pin_dir)
+                sys.exit(0)
+
+            failures = []
+            for fn in files:
+                path = os.path.join(pin_dir, fn)
+                size = os.path.getsize(path)
+                h = hashlib.sha1()
+                with open(path, "rb") as fh:
+                    while True:
+                        chunk = fh.read(8 * 1024 * 1024)
+                        if not chunk:
+                            break
+                        h.update(chunk)
+                sha1 = h.hexdigest()
+
+                uu = post(api + "/b2api/v3/b2_get_upload_url", tok, {"bucketId": bid})
+                upload_url, upload_auth = uu["uploadUrl"], uu["authorizationToken"]
+                fname = "pins/" + fn
+
+                with open(path, "rb") as fh:
+                    r = urllib.request.Request(upload_url, data=fh.read())
+                r.add_header("Authorization", upload_auth)
+                r.add_header("Content-Type", "b2/x-auto")
+                r.add_header("Content-Length", str(size))
+                r.add_header("X-Bz-File-Name", urllib.parse.quote(fname))
+                r.add_header("X-Bz-Content-Sha1", sha1)
+                try:
+                    resp = json.load(urllib.request.urlopen(r, timeout=300))
+                except Exception as e:
+                    print("FAIL upload %s: %s" % (fn, e))
+                    failures.append(fn)
+                    continue
+
+                ok = (resp.get("contentSha1") == sha1 and resp.get("contentLength") == size)
+                print("%s upload=%s b2_sha1=%s local_sha1=%s bytes=%d match=%s"
+                      % (fn, "ok" if ok else "MISMATCH", resp.get("contentSha1"), sha1, size, ok))
+                if not ok:
+                    failures.append(fn)
+                    continue
+
+                os.remove(path)
+                print("  removed local %s after verified upload" % path)
+
+            if failures:
+                print("FAILURES (local files kept): %s" % ", ".join(failures))
+                sys.exit(1)
+            print("Alle pins geverifieerd geupload en lokaal verwijderd.")
+            PYEOF
+            '
+            echo
+            echo "=== df AFTER ==="
+            df -h /
+        run: |
+          printf '%s\n' "$OFFLOAD" | ssh "$VPS" "bash -s"
+
+      # ---------------------------------------------------------------- compress-archive
+      - name: Compress archive with restore-dry-run proof (rw on volume 6e70e905)
+        if: inputs.mode == 'compress-archive'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          COMPRESS: |
+            set -uo pipefail
+            VOL6E=6e70e905369b205ceebde64c2bc96dd8a204ddd7d10f43ecd7b36c659062ead1
+            echo "=== df BEFORE ==="
+            df -h /
+            echo
+
+            docker run --rm -v "$VOL6E":/dst alpine sh -c '
+              set -eu
+              cd /dst
+              for p in .claude/projects.archief-2026-07-22 .claude/projects.archief-24-07-avond; do
+                if [ ! -e "$p" ]; then echo "ABSENT $p, skip"; fi
+              done
+
+              echo "--- tar ---"
+              tar czf /dst/.claude/lat7344-archief.tar.gz \
+                .claude/projects.archief-2026-07-22 .claude/projects.archief-24-07-avond
+              ls -la /dst/.claude/lat7344-archief.tar.gz
+
+              echo "--- restore-dry-run: uitpakken + sha256 vergelijken ---"
+              rm -rf /tmp/lat7344-restore-check
+              mkdir -p /tmp/lat7344-restore-check
+              tar xzf /dst/.claude/lat7344-archief.tar.gz -C /tmp/lat7344-restore-check
+
+              mismatch=0
+              for p in .claude/projects.archief-2026-07-22 .claude/projects.archief-24-07-avond; do
+                orig_sum=$(find "/dst/$p" -type f -exec sha256sum {} \; | sed "s#/dst/##" | sort)
+                restored_sum=$(find "/tmp/lat7344-restore-check/$p" -type f -exec sha256sum {} \; | sed "s#/tmp/lat7344-restore-check/##" | sort)
+                if [ "$orig_sum" != "$restored_sum" ]; then
+                  echo "MISMATCH in $p"
+                  mismatch=1
+                else
+                  n=$(echo "$orig_sum" | wc -l)
+                  echo "OK $p ($n bestanden, sha256 matcht na uitpakken)"
+                fi
+              done
+              rm -rf /tmp/lat7344-restore-check
+
+              if [ "$mismatch" = "1" ]; then
+                echo "ABORT: restore-dry-run faalde, originelen blijven staan, tarball blijft ook staan voor onderzoek"
+                exit 1
+              fi
+
+              echo "--- restore-dry-run geslaagd, originelen verwijderen ---"
+              rm -rf .claude/projects.archief-2026-07-22 .claude/projects.archief-24-07-avond
+              echo "klaar: $(du -sh /dst/.claude/lat7344-archief.tar.gz | cut -f1) tarball, originelen weg"
+            '
+            echo
+            echo "=== df AFTER ==="
+            df -h /
+        run: |
+          printf '%s\n' "$COMPRESS" | ssh "$VPS" "bash -s"
+
+      # ---------------------------------------------------------------- verify
+      - name: Verify (read-only)
+        if: inputs.mode == 'verify'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          VERIFY: |
+            set -uo pipefail
+            VOL6E=6e70e905369b205ceebde64c2bc96dd8a204ddd7d10f43ecd7b36c659062ead1
+            echo "=== df ==="
+            df -h /
+            echo
+            echo "=== paperclip_home: backup-pins (moet leeg/klein zijn) ==="
+            docker run --rm -v paperclip_home:/dst:ro alpine sh -c '
+              ls -la /dst/backup-pins/*.sql.gz 2>/dev/null || echo "(geen .sql.gz meer in backup-pins)"
+            '
+            echo
+            echo "=== volume 6e70e905: archief (origineel moet ABSENT zijn, tarball EXISTS) ==="
+            docker run --rm -v "$VOL6E":/dst:ro alpine sh -c '
+              for p in .claude/projects.archief-2026-07-22 .claude/projects.archief-24-07-avond; do
+                if [ -e "/dst/$p" ]; then echo "STILL EXISTS $p"; else echo "ABSENT $p"; fi
+              done
+              if [ -e /dst/.claude/lat7344-archief.tar.gz ]; then
+                echo "EXISTS tarball $(du -sh /dst/.claude/lat7344-archief.tar.gz | cut -f1)"
+              else
+                echo "ABSENT tarball"
+              fi
+            '
+        run: |
+          printf '%s\n' "$VERIFY" | ssh "$VPS" "bash -s"

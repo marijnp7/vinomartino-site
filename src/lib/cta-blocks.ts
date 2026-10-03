@@ -22,7 +22,13 @@ import { buildBookingSearchLink, buildCjBookingLink } from './affiliates';
 import type { Locale } from './i18n';
 import { SUNNYCARS_DEFAULT_DEST, applySunnyCarsLocale } from './affiliate-locale';
 import { buildDiscoverCarsHref, discoverCarsDestVerified } from './discovercars';
-import { loadWineRetailPartner, type WineRetailPartner } from './wine-retail';
+import {
+  loadWineRetailPartner,
+  fillWineRetailTemplate,
+  wineRetailAllowedFor,
+  wineRetailSubId,
+  type WineRetailPartner,
+} from './wine-retail';
 
 // LAT-3726 — de wijnretail-partner komt uit de Directus-singleton, net als op de
 // wijnhuis-onderbalk (LAT-3493). Dit bestand had een eigen hardcoded
@@ -38,28 +44,14 @@ import { loadWineRetailPartner, type WineRetailPartner } from './wine-retail';
 // per-plaatsing-attributie zit al op de `data-affiliate-placement`/`-context`
 // attributen van de click-tracker, net als bij de andere partners.
 //
-// Zonder config valt dit terug op het oude hardcoded gedrag, zodat er niets
-// verandert zolang de singleton leeg staat.
-function buildWineRetailHref(
-  query: string,
-  context: string,
-  partner?: WineRetailPartner | null,
-): string {
-  if (partner) return partner.searchTemplate.replace('{q}', encodeURIComponent(query.trim()));
-  const base = 'https://www.grapedistrict.nl';
-  const affiliateId = (process.env['GRAPEDISTRICT_AFFILIATE_ID'] || '').trim();
-  if (!affiliateId) return `${base}/search?q=${encodeURIComponent(query)}`;
-  try {
-    const u = new URL(`${base}/search`);
-    u.searchParams.set('q', query);
-    u.searchParams.set('aff_id', affiliateId);
-    u.searchParams.set('utm_source', 'vinomartino');
-    u.searchParams.set('utm_medium', 'affiliate');
-    u.searchParams.set('utm_campaign', context);
-    return u.toString();
-  } catch {
-    return `${base}/search?q=${encodeURIComponent(query)}`;
-  }
+// Fail-closed: zonder actieve config, of buiten NL, rendert een wine-retail-CTA
+// helemaal niet (zie ctaLinkAvailable). Het oude kale grapedistrict.nl-pad is weg:
+// de partner is Wijnkring en een link zonder affiliate-id levert niets op.
+function buildWineRetailHref(query: string, context: string, partner: WineRetailPartner): string {
+  // `context` is `cta-<blok>-<entiteit>`; het Daisycon-sub-id wordt `<entiteit>__cta-<blok>`.
+  const m = context.match(/^(cta-(?:primary|closing|comparison))-(.+)$/);
+  const sid = m ? wineRetailSubId(m[2], m[1]) : wineRetailSubId(context, 'cta');
+  return fillWineRetailTemplate(partner.searchTemplate, query, sid);
 }
 
 /** Welk netwerk de CTA aanstuurt. `booking-direct` = directe booking.com search
@@ -91,8 +83,13 @@ function sunnyCarsIds(): { campaign: string; affiliate: string } | null {
 
 /** LAT-11947: fail-closed. Een Sunny Cars-CTA rendert alleen met beide TradeTracker-ids;
  *  zonder ids verschijnt het blok niet (geen kale link naar sunnycars.nl). */
-export function ctaLinkAvailable(link: CtaLink | null | undefined): boolean {
+export function ctaLinkAvailable(
+  link: CtaLink | null | undefined,
+  locale: Locale = 'nl',
+  wineRetail?: WineRetailPartner | null,
+): boolean {
   if (!link) return false;
+  if (link.partner === 'wine-retail') return wineRetailAllowedFor(locale) && !!wineRetail;
   if (link.partner === 'discovercars') return discoverCarsDestVerified(link.dest);
   return link.partner !== 'sunny-cars' || sunnyCarsIds() !== null;
 }
@@ -190,7 +187,9 @@ export interface CtaStructure {
  */
 export async function loadCtaWineRetail(
   links: Array<CtaLink | null | undefined>,
+  locale: Locale = 'nl',
 ): Promise<WineRetailPartner | null> {
+  if (!wineRetailAllowedFor(locale)) return null;
   if (!links.some((link) => link?.partner === 'wine-retail')) return null;
   return loadWineRetailPartner();
 }
@@ -224,7 +223,9 @@ export function resolveCtaHref(
       }).href;
     }
     case 'wine-retail':
-      return buildWineRetailHref(link.query ?? '', sid, wineRetail);
+      return wineRetail && wineRetailAllowedFor(locale)
+        ? buildWineRetailHref(link.query ?? '', sid, wineRetail)
+        : '';
     case 'sunny-cars':
       return buildSunnyCarsHref(link, sid, locale);
     case 'discovercars':
@@ -253,7 +254,7 @@ export function ctaTrackPartner(link: CtaLink, wineRetail?: WineRetailPartner | 
     case 'booking-direct':
       return 'booking';
     case 'wine-retail':
-      return wineRetail?.trackerPartner || 'grapedistrict';
+      return wineRetail?.trackerPartner || 'wine-retail';
     case 'sunny-cars':
       return 'sunnycars';
     case 'discovercars':

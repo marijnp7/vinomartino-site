@@ -7,15 +7,17 @@
 // zonder vertaling).
 import ReisPakketDetail from '../../components/ReisPakketDetail.astro';
 import { loadReispakketten, type ReisPakket } from '../../lib/reispakketten';
+import { loadRoutes } from '../../lib/routes';
 import { loadStreken } from '../../lib/streken';
 
 export async function getStaticPaths() {
   // LAT-2826: de EN-slugset (guard laat alléén vertaalde pakketten door) bepaalt
   // of er een en-hreflang-tegenhanger bestaat. NL blijft altijd primair.
-  const [pakketten, streken, enPakketten] = await Promise.all([
+  const [pakketten, streken, enPakketten, routes] = await Promise.all([
     loadReispakketten(),
     loadStreken(),
     loadReispakketten('en'),
+    loadRoutes(),
   ]);
   const enSlugs = new Set(enPakketten.map((p) => p.slug));
   const streekBySlug = new Map(streken.map((s) => [s.slug, s]));
@@ -28,6 +30,9 @@ export async function getStaticPaths() {
         landSlug: streek?.landSlug ?? '',
         landName: streek?.country ?? '',
         streekName: entry.streekName || streek?.name || '',
+        routes: entry.streekSlug
+          ? routes.filter((r) => r.streekSlug === entry.streekSlug).map((r) => ({ slug: r.slug, title: r.title, description: r.description, zelfGereisd: r.zelfGereisd }))
+          : [],
         // Geen EN-vertaling → geen alternates → SiteLayout emit geen hreflang
         // (byte-identiek aan prod; geen zinloze self-referende nl/x-default).
         alternates: enSlugs.has(entry.slug)
@@ -38,7 +43,8 @@ export async function getStaticPaths() {
   });
 }
 
-const { entry, landSlug, landName, streekName, alternates } = Astro.props as {
+const { entry, landSlug, landName, streekName, routes, alternates } = Astro.props as {
+  routes: { slug: string; title: string; description?: string; zelfGereisd?: boolean }[];
   entry: ReisPakket;
   landSlug: string;
   landName: string;
@@ -52,5 +58,6 @@ const { entry, landSlug, landName, streekName, alternates } = Astro.props as {
   landSlug={landSlug}
   landName={landName}
   streekName={streekName}
+  routes={routes}
   alternates={alternates}
 />

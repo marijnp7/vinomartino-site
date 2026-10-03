@@ -19,9 +19,9 @@ const { data, sid, locale = DEFAULT_LOCALE } = Astro.props;
 const lh = (href: string) => localizeHref(href, locale);
 const ui = await loadUiStrings(locale);
 const placement = 'cta-comparison';
-const options = (data?.options ?? []).filter((opt) => ctaLinkAvailable(opt.link)).slice(0, 3);
 // LAT-3726 — wijnretail-config uit Directus; alleen geladen bij een wine-retail-CTA.
-const wineRetail = await loadCtaWineRetail(options.map((opt) => opt.link));
+const wineRetail = await loadCtaWineRetail((data?.options ?? []).map((opt) => opt.link), locale);
+const options = (data?.options ?? []).filter((opt) => ctaLinkAvailable(opt.link, locale, wineRetail)).slice(0, 3);
 ---
 
 {data && options.length > 0 && (

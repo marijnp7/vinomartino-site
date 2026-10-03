@@ -223,6 +223,8 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     // (component bypasst t() voor de standaardtaal), dus deze seeds raken NL niet;
     // ze zijn de T4-EN-spec + de EN-fallback wanneer een vertaling nog ontbreekt.
     'nav.ontdek': 'Ontdek',
+    'nav.reizen': 'Reizen',
+    'nav.wijnroutes': 'Wijnroutes',
     'nav.wijnhuizen': 'Wijnhuizen',
     'nav.accommodaties': 'Overnachten',
     'nav.artikelen': 'Artikelen',
@@ -561,7 +563,7 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'wijnroutes.index.meta.description': 'Doorloop de mooiste wijnroutes ter wereld, van de steile Etna-noordflank tot de kronkelende Mosel. Praktische routes voor wijnliefhebbers die zelf op pad gaan.',
     'wijnroutes.index.hero.label': 'Wijnroutes',
     'wijnroutes.index.hero.h1': 'Gids voor wijnreizen',
-    'wijnroutes.index.hero.desc': 'Routes die ik zelf heb gereden, met de Fiat Panda, de trein, soms met een koffer te veel. Dagindelingen, slaapadressen en de producenten die het waard zijn om twee weken vooruit voor te bellen.',
+    'wijnroutes.index.hero.desc': 'Routes door wijnstreken: dagindelingen, slaapadressen en de producenten die het waard zijn om twee weken vooruit voor te bellen.',
     'wijnroutes.index.map.title': 'Alle routes op de kaart',
     'wijnroutes.index.empty.title': 'Routes zijn onderweg',
     'wijnroutes.index.empty.descPre': 'Langhe, Etna, Mosel en Wachau staan als eerste op de planning. Intussen: de ',
@@ -638,20 +640,32 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     // LAT-2826 — "Reizen & nareizen"-listing. NL-copy is definitief vastgesteld
     // door de Lead Editor in de ticketomschrijving (Martino-voice goedgekeurd);
     // wijzig deze vier hero/meta-keys niet zonder redactie.
-    'reizen.breadcrumb.index': 'Reizen & nareizen',
-    'reizen.index.meta.title': 'Reizen & nareizen — wijnreizen van Martino | VinoMartino',
+    'reizen.breadcrumb.index': 'Reizen en nareizen',
+    // LAT-12365 (Marijn, 3 okt): titel/meta zonder "van Martino" en zonder gedachtestreepje (REGEL 58).
+    'reizen.index.meta.title': 'Reizen en nareizen | VinoMartino',
     'reizen.index.meta.description':
-        'Verslagen van wijnreizen door Europa en daarbuiten. Marijn reist, proeft en schrijft — na de reis, als het beter te vertellen is.',
-    'reizen.index.hero.label': 'Reizen & nareizen',
-    'reizen.index.hero.h1': 'Reizen & nareizen',
+        'Wijnreizen om na te reizen: nareizen die Marijn zelf maakte en wijnroutes door Europa, met dagindeling, wijnhuizen en slaapadressen.',
+    'reizen.index.hero.label': 'Reizen en nareizen',
+    'reizen.index.hero.h1': 'Reizen en nareizen',
     'reizen.index.hero.desc':
-        'Elke wijnreis eindigt op de terugreis. Soms in een propvolle intercity met een fles te veel in je rugzak, soms in een stiltecoupé met aantekeningen in een linnen boekje. Hier staan de verhalen die daarna pas goed op gang komen — als de geur van de kelder al verdwenen is maar het gevoel niet.',
+        'Elke wijnreis eindigt op de terugreis. Soms in een propvolle intercity met een fles te veel in je rugzak, soms in een stiltecoupé met aantekeningen in een linnen boekje. Hier staan de verhalen die daarna pas goed op gang komen, als de geur van de kelder al verdwenen is maar het gevoel niet. En de routes om zelf op pad te gaan.',
+    'reizen.index.nareizen.title': 'Nareizen',
+    'reizen.index.nareizen.intro': 'Reisgidsen en verhalen van reizen die Marijn zelf maakte.',
+    'reizen.index.routes.title': 'Wijnroutes',
+    'reizen.index.routes.intro': 'Alle routes op een rij, met dagindeling, wijnhuizen en slaapadressen. Het label laat zien of Marijn de route zelf reed of dat het een redactiegids is.',
+    'reizen.index.routes.allCta': 'Alle wijnroutes op de kaart',
+    'reizen.index.routes.moreCta': 'Bekijk de route',
+    'reizen.index.nareizen.emptyNote': 'Nareizen volgen: Marijn schrijft ze op na elke reis. Begin intussen bij de wijnroutes hieronder.',
+    'reizen.label.zelfGereisd': 'Zelf gereisd',
+    'reizen.label.redactiegids': 'Redactiegids',
+    'reizen.related.nareis.title': 'De nareis van deze streek',
+    'reizen.related.route.title': 'Wijnroutes door deze streek',
     'reizen.index.groupFallback': 'Onderweg',
     'reizen.index.readCta': 'Lees de nareis →',
     'reizen.index.empty.title': 'De nareizen zijn onderweg',
     'reizen.index.empty.descPre': 'Er staat nog geen verslag online. Begin intussen bij de ',
     'reizen.index.empty.descLink': 'wijnroutes',
-    'reizen.index.empty.descPost': ' — daar staat waar de reizen beginnen.',
+    'reizen.index.empty.descPost': ', daar staat waar de reizen beginnen.',
 
     // LAT-2826 — chrome van de pakket-/nareisdetailpagina. Stond als losse
     // NL-literals in src/pages/reizen-nareizen/[slug].astro; nu dictionary-driven
