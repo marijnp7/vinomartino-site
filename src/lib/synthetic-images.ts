@@ -28,13 +28,7 @@
  * een lijst dekt de beelden van gisteren en is blind voor die van vandaag.
  */
 
-import {
-    readDirectusEnv,
-    assertDirectusConfigured,
-    assertCollectionReadableOrDegrade,
-    fetchDirectusCollection,
-    type DirectusEnv,
-} from './directus-config';
+import { loadDamFileMeta, resetDamFileMetaCache, type DamFileMeta } from './dam-file-meta';
 
 /**
  * Identiek aan de regex in /paperclip/ops/lat4745-synth-inventory.mjs. Draait
@@ -43,9 +37,6 @@ import {
  */
 export const SYNTHETIC_META_RE =
     /synthetisch|synthetic|ai-render|ai render|ai-gegenereerd|ai gegenereerd|midjourney|dall-?e|stable diffusion|gpt-image|vinomartino \/ atelier/i;
-
-/** De vier velden waarover de regex draait. Zelfde set als de inventaris. */
-const FILE_FIELDS = 'id,title,description,tags,filename_download';
 
 /**
  * Locale-onafhankelijke, machineleesbare marker op de figcaption.
@@ -58,16 +49,15 @@ const FILE_FIELDS = 'id,title,description,tags,filename_download';
  */
 export const SYNTHETIC_MARKER_ATTR = 'ai-gegenereerd';
 
-interface DirectusFileMeta {
-    id: string;
-    title: string | null;
-    description: string | null;
-    tags: unknown;
-    filename_download: string | null;
-}
-
-/** True als de metadata van dit bestand het als AI-/synthetisch aanmerkt. */
-export function fileMetaIsSynthetic(file: DirectusFileMeta): boolean {
+/**
+ * True als dit bestand AI-/synthetisch is. LAT-12054: het DAM-veld
+ * `directus_files.synthetisch` is de bron van waarheid; de regex over titel,
+ * beschrijving, tags en bestandsnaam blijft daarnaast gelden (zo vangt hij ook
+ * beeld dat nog niet is bijgewerkt). Het veld kan alleen aanzetten: `false`
+ * schakelt een regex-treffer niet uit.
+ */
+export function fileMetaIsSynthetic(file: DamFileMeta): boolean {
+    if (file.synthetisch === true) return true;
     return SYNTHETIC_META_RE.test(
         JSON.stringify([file.title, file.description, file.tags, file.filename_download]),
     );
@@ -82,7 +72,7 @@ export function fileMetaIsSynthetic(file: DirectusFileMeta): boolean {
  */
 export const HERO_BLOCK_MARKER_RE = /\[NIET KOPPELEN ALS HERO/i;
 
-export function fileMetaIsHeroBlocked(file: Pick<DirectusFileMeta, 'title' | 'description'>): boolean {
+export function fileMetaIsHeroBlocked(file: Pick<DamFileMeta, 'title' | 'description'>): boolean {
     return HERO_BLOCK_MARKER_RE.test(`${file.title ?? ''}\n${file.description ?? ''}`);
 }
 
@@ -91,58 +81,27 @@ interface FileMetaSets {
     heroBlocked: ReadonlySet<string>;
 }
 
-// Eén fetch per build: `loadSyntheticImageIds()` wordt door elke detailpagina
-// aangeroepen (honderden keren) en /files?limit=-1 is ~765 rijen.
-let cache: Promise<FileMetaSets> | null = null;
-
 /** Alleen voor tests — gooit de memoisatie weg. */
 export function resetSyntheticImageCache(): void {
     cache = null;
+    resetDamFileMetaCache();
 }
 
-async function fetchSyntheticImageIds(env: DirectusEnv): Promise<FileMetaSets> {
-    const url = `${env.url}/files?limit=-1&fields=${FILE_FIELDS}`;
-    const res = await fetchDirectusCollection('loadSyntheticImages', url, {
-        headers: { Authorization: `Bearer ${env.token}` },
-    });
+// Eén set per build: `loadSyntheticImageIds()` wordt door elke detailpagina aangeroepen.
+let cache: Promise<FileMetaSets> | null = null;
 
-    if (!res.ok) {
-        const body = await res.text().catch(() => '');
-        // In productie gooit dit: zonder de DAM-metadata weten we niet wélk
-        // beeld synthetisch is, en dan zou de build stilzwijgend een pagina
-        // zonder §7-disclosure publiceren. Preview/dev mag degraderen.
-        assertCollectionReadableOrDegrade(
-            'loadSyntheticImages',
-            'directus_files',
-            res.status,
-            env,
-            body.slice(0, 200),
-        );
-        return { synthetic: new Set(), heroBlocked: new Set() };
-    }
-
-    const json = await res.json();
-    const files = (json.data || []) as DirectusFileMeta[];
-
-    // Falsifieerbaarheid: 0 bestanden is geen "geen synthetisch beeld", dat is
-    // een kapotte query of een leeggelopen permissie. Dan liever hard stuk dan
-    // een site vol ongemarkeerd AI-beeld (LAT-4745-les).
-    if (files.length === 0) {
-        assertCollectionReadableOrDegrade(
-            'loadSyntheticImages',
-            'directus_files',
-            res.status,
-            env,
-            'query gaf 0 bestanden — dat is een kapotte fields/permissie-situatie, geen lege DAM',
-        );
-        return { synthetic: new Set(), heroBlocked: new Set() };
-    }
-
-    const heroBlocked = new Set(files.filter(fileMetaIsHeroBlocked).map((f) => String(f.id).toLowerCase()));
-    const synthetic = new Set(files.filter(fileMetaIsSynthetic).map((f) => String(f.id).toLowerCase()));
+async function deriveFileMetaSets(): Promise<FileMetaSets> {
+    const files = await loadDamFileMeta();
+    const synthetic = new Set(
+        [...files.values()].filter(fileMetaIsSynthetic).map((f) => String(f.id).toLowerCase()),
+    );
+    const viaVeld = [...files.values()].filter((f) => f.synthetisch === true).length;
+    const heroBlocked = new Set(
+        [...files.values()].filter(fileMetaIsHeroBlocked).map((f) => String(f.id).toLowerCase()),
+    );
     console.log(
-        `[loadSyntheticImages] ${synthetic.size}/${files.length} DAM-bestanden aangemerkt als AI/synthetisch ` +
-            `(LAT-4776, zelfde regex als lat4745-synth-inventory.mjs).`,
+        `[loadSyntheticImages] ${synthetic.size}/${files.size} DAM-bestanden aangemerkt als AI/synthetisch ` +
+            `(${viaVeld} via veld synthetisch, rest via regex; LAT-4776/LAT-12054).`,
     );
     return { synthetic, heroBlocked };
 }
@@ -179,9 +138,7 @@ export async function assertHeroNotBlocked(owner: string, fileId: string | null 
 
 function loadFileMetaSets(): Promise<FileMetaSets> {
     if (!cache) {
-        const env = readDirectusEnv();
-        assertDirectusConfigured('loadSyntheticImages', env);
-        cache = fetchSyntheticImageIds(env).catch((err) => {
+        cache = deriveFileMetaSets().catch((err) => {
             cache = null; // een mislukte poging mag geen permanente lege set worden
             throw err;
         });

@@ -85,7 +85,7 @@ async function buildPlan(): Promise<PinPlan> {
             if (!title || !description) { skip('geen titel of omschrijving'); continue; }
             if (!a.heroImage || !existsSync(join(process.cwd(), 'public', a.heroImage))) { skip('geen eigen foto'); continue; }
             if (a.heroIsIllustration || isSyntheticImage(synthetic, a.heroImageId, a.heroImage)) { skip('illustratie of synthetisch'); continue; }
-            if (getImageCredit(a.heroImageId) || creditRequiredForAsset(a.heroImageId)) { skip('foto van derden'); continue; }
+            if ((await getImageCredit(a.heroImageId)) || creditRequiredForAsset(a.heroImageId)) { skip('foto van derden'); continue; }
             const hits = lintText(`${a.title}\n${description}`);
             if (hits.length) {
                 skip(`lint ${hits[0].rule}`);

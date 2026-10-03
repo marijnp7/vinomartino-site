@@ -18,16 +18,31 @@ registerHooks({
   },
 });
 
+// getImageCredit leest de DAM via loadDamFileMeta (LAT-12054): stub Directus, geen netwerk in CI.
+const RISCAL = '78956639-bb76-4851-9a74-b43c2fab1b77';
+const MAYOR = '680c8deb-7ef4-4e68-990e-98c333170969';
+const PLAIN = 'ca01bf9e-e3d9-402d-8c23-46d9160a33c6';
+const DAM_ROWS = [
+  { id: RISCAL, licentie: 'cc-by-sa-4.0', herkomst: 'Foto: Roderich Kahn / Wikimedia Commons, CC BY-SA 4.0, via Wikimedia Commons. Bron: https://commons.wikimedia.org/wiki/File:Riscal.jpg' },
+  { id: MAYOR, licentie: 'cc-by-sa-3.0', herkomst: 'Foto: Vanbasten 23 / Wikimedia Commons, CC BY-SA 3.0, via Wikimedia Commons. Bron: https://commons.wikimedia.org/wiki/File:Mayor.jpg' },
+  { id: PLAIN, licentie: 'cc-by-2.0', herkomst: null },
+];
+process.env.DIRECTUS_URL = 'http://directus.test';
+process.env.DIRECTUS_TOKEN = 'test-token';
+globalThis.fetch = async () =>
+  new Response(JSON.stringify({ data: DAM_ROWS }), { status: 200, headers: { 'content-type': 'application/json' } });
+
 const { adaptationNoteFor, fileIdFromAccommodatiePath, getImageCredit } = await import('../src/lib/image-credits.ts');
 const src = (rel) => readFileSync(new URL(rel, import.meta.url), 'utf8');
 
-test('fileIdFromAccommodatiePath haalt het UUID uit het self-hosted pad', () => {
-  const id = 'ca01bf9e-e3d9-402d-8c23-46d9160a33c6';
+test('fileIdFromAccommodatiePath haalt het UUID uit het self-hosted pad', async () => {
+  const id = PLAIN;
   assert.equal(fileIdFromAccommodatiePath(`/images/accommodaties/${id}.jpg`), id);
   assert.equal(fileIdFromAccommodatiePath(`/images/accommodaties/${id.toUpperCase()}.webp`), id);
   assert.equal(fileIdFromAccommodatiePath('/images/streken/foo.jpg'), null);
   assert.equal(fileIdFromAccommodatiePath(null), null);
-  assert.equal(getImageCredit(fileIdFromAccommodatiePath(`/images/accommodaties/${id}.jpg`))?.licenseLabel, 'CC BY-ND 2.0');
+  assert.equal((await getImageCredit(fileIdFromAccommodatiePath(`/images/accommodaties/${id}.jpg`)))?.licenseLabel, 'CC BY 2.0');
+  assert.equal(await getImageCredit('00000000-0000-0000-0000-000000000000'), null);
 });
 
 test('adaptationNoteFor: NL en EN, onbekende locale valt terug op EN', () => {
@@ -38,7 +53,7 @@ test('adaptationNoteFor: NL en EN, onbekende locale valt terug op EN', () => {
 
 test('PoiCard rendert de credit uit getImageCredit, met licentielabel per locale en bewerkingsaanduiding', () => {
   const poi = src('../src/components/PoiCard.astro');
-  assert.match(poi, /getImageCredit\(fotoId \?\? fileIdFromAccommodatiePath\(foto\)\)/);
+  assert.match(poi, /await getImageCredit\(fotoId \?\? fileIdFromAccommodatiePath\(foto\), \{ adapted: true \}\)/);
   assert.match(poi, /licenseLabelFor\(credit\.licenseLabel, locale\)/);
   assert.match(poi, /credit\.adapted && .*adaptationNoteFor\(locale\)/);
   assert.match(poi, /rel="license noopener"/);
@@ -49,13 +64,15 @@ test('hideMediaWhenEmpty staat aan voor overnachten (StreekKaart en Accommodatie
   assert.match(src('../src/components/AccommodatieKaart.astro'), /hideMediaWhenEmpty: true/);
 });
 
-test('de twee Rioja-hotelfoto\'s hebben een CC BY-SA-credit met bewerkingsaanduiding', () => {
-  const riscal = getImageCredit('78956639-bb76-4851-9a74-b43c2fab1b77');
-  assert.equal(riscal?.author, '© Roderich Kahn / Wikimedia Commons');
+test('de twee Rioja-hotelfoto\'s hebben een CC BY-SA-credit met bewerkingsaanduiding', async () => {
+  const riscal = await getImageCredit(RISCAL, { adapted: true });
+  assert.equal(riscal?.author, '© Roderich Kahn');
+  assert.equal(riscal?.sourceLabel, 'Wikimedia Commons');
   assert.equal(riscal?.licenseLabel, 'CC BY-SA 4.0');
   assert.equal(riscal?.adapted, true);
-  const mayor = getImageCredit('680c8deb-7ef4-4e68-990e-98c333170969');
-  assert.equal(mayor?.author, '© Vanbasten 23 / Wikimedia Commons');
+  const mayor = await getImageCredit(MAYOR, { adapted: true });
+  assert.equal(mayor?.author, '© Vanbasten 23');
+  assert.equal(mayor?.sourceLabel, 'Wikimedia Commons');
   assert.equal(mayor?.licenseLabel, 'CC BY-SA 3.0');
   assert.equal(mayor?.adapted, true);
 });
