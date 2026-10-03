@@ -9,7 +9,7 @@
 // Disclosure is ACM-compliant (LAT-1029/1595): vooraf, naast de link, eerlijk.
 
 import { allezSearchUrl } from '../lib/stay22';
-import { wineRetailLink } from '../lib/wine-retail';
+import { wineRetailLink, wineRetailSubId } from '../lib/wine-retail';
 import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
 import { loadUiStrings } from '../lib/ui-strings';
 
@@ -38,7 +38,7 @@ const stayLabel = region
 
 // LAT-3493 — config komt uit de Directus-singleton `wine_retail_partner`
 // (gecachet per build), niet meer uit een hardcoded const.
-const retail = await wineRetailLink(naam);
+const retail = await wineRetailLink(naam, locale, wineRetailSubId(region || naam, 'wijnhuis-wijnretail'));
 ---
 
 <aside class="wh-staynear" data-wh-staynear hidden aria-label={ui.t('wijnhuis.staynear.aria')}>
@@ -53,7 +53,7 @@ const retail = await wineRetailLink(naam);
           class="wh-staynear__cta wh-staynear__cta--ghost"
           href={retail.href}
           target="_blank"
-          rel="sponsored noopener"
+          rel="sponsored nofollow noopener"
           data-affiliate-track
           data-affiliate-partner={retail.partner}
           data-affiliate-placement="wijnhuis-wijnretail"

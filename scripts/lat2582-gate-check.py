@@ -186,7 +186,8 @@ NL_NOUNS = {
     "gerelateerde": "/wijnroutes/",
     "huurauto": "/affiliate-verklaring/",
     "kwaliteit": "/streken/",
-    "mailadres": "/",
+    # 3 okt: nieuwsbriefformulier (MailerLite) van de homepage gehaald, het woord staat nu op /privacy/.
+    "mailadres": "/privacy/",
     "nieuwsbrief": "/artikelen/",
     "ontdek": "/",
     "overnachtingen": "/streken/",
