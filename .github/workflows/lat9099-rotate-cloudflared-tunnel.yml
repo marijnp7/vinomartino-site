@@ -179,11 +179,7 @@ jobs:
             echo "nieuwe tunnel-id=$NEW_ID"
 
             CREDS="/root/.agent-secrets/cloudflared-tunnel.json.new"
-            python3 -c 'import json,os
-creds={"AccountTag": os.environ["CF_ACCOUNT_ID"], "TunnelSecret": os.environ["TUNNEL_SECRET"], "TunnelID": os.environ["NEW_ID"]}
-with open(os.environ["CREDS"], "w") as f:
-    json.dump(creds, f)
-'
+            python3 -c 'import json,os; creds={"AccountTag": os.environ["CF_ACCOUNT_ID"], "TunnelSecret": os.environ["TUNNEL_SECRET"], "TunnelID": os.environ["NEW_ID"]}; json.dump(creds, open(os.environ["CREDS"], "w"))'
             chmod 600 "$CREDS"; chown root:root "$CREDS"
             unset TUNNEL_SECRET
             echo "credentials geschreven: $CREDS sha256(8)=$(sha256sum "$CREDS" | cut -c1-8) mode=$(stat -c '%a %U:%G' "$CREDS")"
