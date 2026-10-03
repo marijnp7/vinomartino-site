@@ -25,18 +25,21 @@ interface Props {
   class?: string;
   style?: string;
   loading?: 'lazy' | 'eager';
+  fetchpriority?: 'high' | 'low' | 'auto';
+  /** Weergavebreedte in px voor kaart-thumbnails; stuurt de `sizes` van de post-build <picture>. */
+  width?: number;
   /** Directus file-UUID, als de aanroeper hem los bij de hand heeft. */
   fileId?: string | null;
 }
 
-const { src, alt, class: className, style, loading = 'lazy', fileId = null } = Astro.props;
+const { src, alt, class: className, style, loading = 'lazy', fetchpriority, width, fileId = null } = Astro.props;
 
 // Gememoiseerd per build (één /files-read), dus deze await is per kaart gratis.
 const herkomst = syntheticImageAttrs(await loadSyntheticImageIds(), fileId, src);
 ---
 
 {src ? (
-  <img src={src} alt={alt} class={className} style={style} loading={loading} {...herkomst} />
+  <img src={src} alt={alt} class={className} style={style} loading={loading} fetchpriority={fetchpriority} width={width} {...herkomst} />
 ) : (
   <div class:list={['smart-img-placeholder', className]} style={style} role="img" aria-label={alt}>
     <svg viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" preserveAspectRatio="xMidYMid slice">

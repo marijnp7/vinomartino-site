@@ -97,8 +97,10 @@ function attr(tag, name) {
 }
 
 function sizesFor(tag, hero) {
-    if (hero) return '(min-width: 1200px) 1200px, 100vw';
     const w = Number(attr(tag, 'width'));
+    // Een expliciete width (kaart-thumbnail) wint van de hero-heuristiek: een eager
+    // kaart boven de vouw hoeft niet de 1200px-variant te halen.
+    if (hero && !(w > 0 && w <= 800)) return '(min-width: 1200px) 1200px, 100vw';
     if (w > 0 && w <= 800) return `(min-width: 768px) ${w}px, 100vw`;
     return '(min-width: 1024px) 800px, 100vw';
 }

@@ -492,6 +492,8 @@ const ontdekPromo = {
     padding: 0.4375rem 0.625rem;
     cursor: pointer;
     line-height: 1;
+    white-space: nowrap;
+    flex-shrink: 0;
     transition: color var(--duration-fast) var(--ease-out),
                 border-color var(--duration-fast) var(--ease-out);
   }
@@ -695,6 +697,12 @@ const ontdekPromo = {
      (LAT-2440: 901px gaf 159px page-overflow → horizontale scroll). Omdat het
      aantal nav-items CMS-gestuurd/onbegrensd is, is dit de robuuste knip: onder
      1080px neemt het (verticale, nooit-overlopende) hamburger-menu het over. */
+  /* LAT-12431: tussen 1081 en 1279px is de header-rij te krap voor het label; de
+     knop breekt dan over 3 regels. Icon-only (aria-label blijft de naam). */
+  @media (max-width: 1279px) {
+    .cellar-toggle .cellar-label { display: none !important; }
+    .cellar-toggle .cellar-icon { font-size: 0.875rem; }
+  }
   @media (max-width: 1080px) {
     .header-nav, .header-utility { display: none; }
     .mobile-toggle { display: flex; }
