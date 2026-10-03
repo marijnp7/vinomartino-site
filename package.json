@@ -14,6 +14,7 @@
     "test:authenticiteit": "node --test scripts/lint-authenticiteit.test.mjs",
     "check:affiliate-links:live": "node scripts/check-affiliate-links-live.mjs",
     "test:affiliate-links": "node --test scripts/check-affiliate-links.test.mjs scripts/check-affiliate-links-live.test.mjs",
+    "test:booking-overrides": "node --test scripts/booking-property-overrides.test.mjs",
     "test:i18n-body-links": "node --test scripts/i18n-body-links.test.mjs",
     "test:i18n-voetblok-copy": "node --test scripts/i18n-voetblok-copy.test.mjs",
     "test:i18n-reizen-nareizen": "node --test scripts/i18n-reizen-nareizen.test.mjs",
@@ -50,8 +51,7 @@
     "directus:bootstrap": "node directus/scripts/bootstrap-schema.mjs",
     "directus:seed": "node directus/scripts/seed-countries.mjs",
     "directus:migrate": "node directus/scripts/migrate-blog-posts.mjs",
-    "directus:setup": "npm run directus:bootstrap && npm run directus:seed && npm run directus:migrate",
-    "test:booking-overrides": "node --test scripts/booking-property-overrides.test.mjs"
+    "directus:setup": "npm run directus:bootstrap && npm run directus:seed && npm run directus:migrate"
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.7.2",
