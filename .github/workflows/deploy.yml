@@ -214,13 +214,25 @@ jobs:
       - name: Configure SSH
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
         run: |
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
+          # LAT-3437: transport via de Cloudflare Tunnel (ssh.vinomartino.com),
+          # niet via inbound poort 22. VPS_HOST/VPS_USER/VPS_SSH_PRIVATE_KEY
+          # blijven gelden; alleen de ProxyCommand is nieuw (ops/cf-ssh-proxy.sh).
+          [ -n "$CF_ACCESS_CLIENT_ID" ] && [ -n "$CF_ACCESS_CLIENT_SECRET" ] \
+            || { echo "::error::CF_ACCESS_CLIENT_ID/SECRET ontbreken (LAT-3437)"; exit 1; }
+          umask 077
+          printf 'CF_ACCESS_CLIENT_ID=%s\nCF_ACCESS_CLIENT_SECRET=%s\n' \
+            "$CF_ACCESS_CLIENT_ID" "$CF_ACCESS_CLIENT_SECRET" > ~/.ssh/cf-access.env
+          umask 022
           cat >> ~/.ssh/config <<EOF
           Host $VPS_HOST
             StrictHostKeyChecking accept-new
             UserKnownHostsFile ~/.ssh/known_hosts
+            ProxyCommand bash $GITHUB_WORKSPACE/ops/cf-ssh-proxy.sh
           EOF
           # LAT-3769/LAT-3910: keepalive- en timeout-opties staan in
           # ops/ssh-config-snippet, buiten .github/workflows/, zodat toekomstige
@@ -228,8 +240,8 @@ jobs:
           # Hard falen als het bestand ontbreekt: stil zonder keepalive draaien
           # is precies de bug die dit oplost.
           cat "$GITHUB_WORKSPACE/ops/ssh-config-snippet" >> ~/.ssh/config
-          # Best-effort host-key prefetch; non-fataal als netwerk flakey is
-          ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+          # LAT-3437: geen ssh-keyscan meer — die deed een directe connect naar
+          # poort 22. accept-new pint de host key bij de eerste tunnel-sessie.
 
       # ── 5. Sync src naar VPS staging ─────────────────────────────────────
       - name: Sync source to VPS staging
