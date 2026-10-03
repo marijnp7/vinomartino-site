@@ -152,14 +152,35 @@ jobs:
             [ -f /site-env/.env ] && . /site-env/.env
             [ -f /gh-env/.env ] && . /gh-env/.env
             set +a
+            DIRECTUS_URL="${DIRECTUS_URL:-}"
+            DIRECTUS_TOKEN="${DIRECTUS_TOKEN:-}"
+            GH_TOKEN="${GH_TOKEN:-}"
 
-            echo "$(date -u +%FT%TZ) poll.sh gestart, DIRECTUS_URL key aanwezig: $([ -n "${DIRECTUS_URL:-}" ] && echo ja || echo nee), GH_TOKEN key aanwezig: $([ -n "${GH_TOKEN:-}" ] && echo ja || echo nee)"
+            # DIRECTUS_URL is een hostnaam, geen credential-waarde (dezelfde reden waarom de
+            # diagnose-stap hierboven ook de key-NAMEN mag tonen) - expres niet geredigeerd,
+            # inclusief lengte, zodat een CRLF/quote-artefact uit het bron-.env-bestand
+            # zichtbaar is in plaats van een lege, onverklaarde curl-mislukking (LAT-12199,
+            # install-run 37113567145: http_code en curl-stderr allebei leeg, geen enkele
+            # aanwijzing waarom).
+            echo "$(date -u +%FT%TZ) poll.sh gestart, DIRECTUS_URL=[${DIRECTUS_URL:-}] lengte=${#DIRECTUS_URL} GH_TOKEN key aanwezig: $([ -n "${GH_TOKEN:-}" ] && echo ja || echo nee)"
 
             while true; do
-              HTTP_CODE=$(curl -s -o /tmp/resp.json -w '%{http_code}' \
+              set +u
+              # Expres `-s`, NIET `-v`: verbose curl echoot de Authorization-header inclusief
+              # tokenwaarde naar stderr, en dat belandt in `docker logs` (zichtbaar in de GHA-
+              # run-log). CURL_EXIT (hieronder) geeft genoeg signaal (DNS/connect/timeout) zonder
+              # een secret te loggen.
+              # `-g`/--globoff is verplicht: curl interpreteert `[` en `]` in een URL default als
+              # range-globbing, en Directus' eigen filtersyntax (filter[status][_eq]=...) bestaat
+              # juist uit die tekens. Zonder -g gaf dit curl_exit=3 (CURLE_URL_MALFORMAT), reden
+              # waarom elke poll tot nu toe faalde (LAT-12199, install-run 37114138205).
+              curl -sg -o /tmp/resp.json -w '%{http_code}' \
                 -H "Authorization: Bearer ${DIRECTUS_TOKEN:-}" \
                 "${DIRECTUS_URL:-}/items/articles?filter[status][_eq]=published&filter[pub_date][_lte]=\$NOW&fields=id,pub_date&sort=-pub_date&limit=1" \
-                2>/tmp/curl.err)
+                >/tmp/http_code.txt 2>/tmp/curl.err
+              CURL_EXIT=$?
+              set -u
+              HTTP_CODE=$(cat /tmp/http_code.txt 2>/dev/null)
               RESP=$(cat /tmp/resp.json 2>/dev/null)
               MAX_ID=$(printf '%s' "$RESP" | jq -r '.data[0].id // empty' 2>/dev/null)
               MAX_PUBDATE=$(printf '%s' "$RESP" | jq -r '.data[0].pub_date // empty' 2>/dev/null)
@@ -172,7 +193,7 @@ jobs:
               echo "$(date -u +%FT%TZ) poll: directus_http=$HTTP_CODE max_id=${MAX_ID:-leeg} max_pubdate=${MAX_PUBDATE:-leeg} last_id=${LAST_ID:-leeg}"
 
               if [ "$HTTP_CODE" != "200" ]; then
-                echo "$(date -u +%FT%TZ) directus-query mislukt (http=$HTTP_CODE), curl-stderr: $(cat /tmp/curl.err 2>/dev/null)"
+                echo "$(date -u +%FT%TZ) directus-query mislukt (http=${HTTP_CODE:-leeg} curl_exit=$CURL_EXIT): $(tail -c 500 /tmp/curl.err 2>/dev/null | tr '\n' ' ')"
               elif [ -n "$MAX_ID" ] && [ "$MAX_ID" != "$LAST_ID" ]; then
                 echo "$(date -u +%FT%TZ) nieuw artikel over pub_date-grens: id=$MAX_ID pub_date=$MAX_PUBDATE -> dispatch deploy.yml"
                 DISPATCH_CODE=$(curl -s -o /tmp/dispatch.json -w '%{http_code}' -X POST \
