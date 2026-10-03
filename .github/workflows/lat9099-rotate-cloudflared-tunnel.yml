@@ -130,10 +130,13 @@ jobs:
               "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/cfd_tunnel/$OLD_TUNNEL_ID" \
               | python3 -c 'import json,sys; d=json.load(sys.stdin)["result"]; print({k:d.get(k) for k in ("id","name","status","conns_active_at")})'
             echo "--- ingress config ---"
-            curl -s -H "Authorization: Bearer $CF_API_TOKEN" \
-              "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/cfd_tunnel/$OLD_TUNNEL_ID/configurations" \
-              | python3 -m json.tool
-            for host in deploy-hook.vinomartino.com approval.vinomartino.com; do
+            INGRESS_JSON=$(curl -s -H "Authorization: Bearer $CF_API_TOKEN" \
+              "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/cfd_tunnel/$OLD_TUNNEL_ID/configurations")
+            echo "$INGRESS_JSON" | python3 -m json.tool
+            HOSTS=$(echo "$INGRESS_JSON" | python3 -c 'import json,sys; d=json.load(sys.stdin)["result"]["config"]["ingress"]; print(" ".join(r["hostname"] for r in d if "hostname" in r))')
+            echo "=== hostnames gevonden in ingress (ALLE moeten mee in DNS-cutover, niet alleen deploy-hook/approval) ==="
+            echo "$HOSTS"
+            for host in $HOSTS; do
               echo "--- dns: $host ---"
               curl -s -H "Authorization: Bearer $CF_API_TOKEN" \
                 "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records?name=$host" \
@@ -151,25 +154,36 @@ jobs:
           VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
           CUTOVER: |
             set -euo pipefail
-            OLD_TUNNEL_ID="1c7cc695-b494-4f65-a182-00bd7afb4991"
-            NEW_NAME="paperclip-lat56-v2"
-            HOSTS="deploy-hook.vinomartino.com approval.vinomartino.com"
+            export OLD_TUNNEL_ID="1c7cc695-b494-4f65-a182-00bd7afb4991"
+            export NEW_NAME="paperclip-lat56-v2"
 
             OLDC=$(docker ps -a --format '{{.Names}}' | grep -i cloudflared | head -1)
             [ -n "$OLDC" ] || { echo "::error::geen bestaande cloudflared-container gevonden — afgebroken"; exit 1; }
             IMG=$(docker inspect -f '{{.Config.Image}}' "$OLDC")
-            NET=$(docker inspect -f '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{end}}' "$OLDC")
-            [ -n "$IMG" ] && [ -n "$NET" ] || { echo "::error::kon image/netwerk van $OLDC niet bepalen — afgebroken"; exit 1; }
-            echo "bron-container=$OLDC image=$IMG netwerk=$NET"
+            # kan op meerdere networks zitten (paperclip-lat56 bedient meerdere stacks) — alle meenemen,
+            # niet alleen de eerste, anders missen services op de andere networks de nieuwe container.
+            NETS=$(docker inspect -f '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{"\n"}}{{end}}' "$OLDC")
+            [ -n "$IMG" ] && [ -n "$NETS" ] || { echo "::error::kon image/netwerk van $OLDC niet bepalen — afgebroken"; exit 1; }
+            PRIMARY_NET=$(echo "$NETS" | head -1)
+            echo "bron-container=$OLDC image=$IMG networks:"
+            echo "$NETS"
 
             set -a; source /root/.agent-secrets/cloudflare.env; set +a
 
+            echo "=== ingress-config + hostnames van de oude tunnel ophalen ==="
+            export OLDCFG=$(curl -s -H "Authorization: Bearer $CF_API_TOKEN" \
+              "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/cfd_tunnel/$OLD_TUNNEL_ID/configurations" \
+              | python3 -c 'import json,sys; d=json.load(sys.stdin); print(json.dumps(d["result"]["config"]))')
+            HOSTS=$(printf '%s' "$OLDCFG" | python3 -c 'import json,sys; d=json.load(sys.stdin)["ingress"]; print(" ".join(r["hostname"] for r in d if "hostname" in r))')
+            [ -n "$HOSTS" ] || { echo "::error::geen hostnames gevonden in ingress-config — afgebroken"; exit 1; }
+            echo "hostnames in ingress (ALLEMAAL mee in deze cutover): $HOSTS"
+
             echo "=== nieuwe tunnel aanmaken ==="
-            TUNNEL_SECRET=$(openssl rand -base64 32)
+            export TUNNEL_SECRET=$(openssl rand -base64 32)
             RESP=$(curl -s -X POST -H "Authorization: Bearer $CF_API_TOKEN" -H "Content-Type: application/json" \
               "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/cfd_tunnel" \
               -d "$(python3 -c 'import json,sys,os; print(json.dumps({"name": os.environ["NEW_NAME"], "tunnel_secret": os.environ["TUNNEL_SECRET"]}))')")
-            NEW_ID=$(printf '%s' "$RESP" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["result"]["id"] if d.get("success") else "")')
+            export NEW_ID=$(printf '%s' "$RESP" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["result"]["id"] if d.get("success") else "")')
             if [ -z "$NEW_ID" ]; then
               echo "::error::tunnel-create mislukt"
               printf '%s' "$RESP" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("errors"))'
@@ -178,16 +192,13 @@ jobs:
             fi
             echo "nieuwe tunnel-id=$NEW_ID"
 
-            CREDS="/root/.agent-secrets/cloudflared-tunnel.json.new"
+            export CREDS="/root/.agent-secrets/cloudflared-tunnel.json.new"
             python3 -c 'import json,os; creds={"AccountTag": os.environ["CF_ACCOUNT_ID"], "TunnelSecret": os.environ["TUNNEL_SECRET"], "TunnelID": os.environ["NEW_ID"]}; json.dump(creds, open(os.environ["CREDS"], "w"))'
             chmod 600 "$CREDS"; chown root:root "$CREDS"
             unset TUNNEL_SECRET
             echo "credentials geschreven: $CREDS sha256(8)=$(sha256sum "$CREDS" | cut -c1-8) mode=$(stat -c '%a %U:%G' "$CREDS")"
 
-            echo "=== ingress-config overzetten ==="
-            OLDCFG=$(curl -s -H "Authorization: Bearer $CF_API_TOKEN" \
-              "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/cfd_tunnel/$OLD_TUNNEL_ID/configurations" \
-              | python3 -c 'import json,sys; d=json.load(sys.stdin); print(json.dumps(d["result"]["config"]))')
+            echo "=== ingress-config overzetten (hergebruikt OLDCFG van hierboven) ==="
             PUTRESP=$(curl -s -X PUT -H "Authorization: Bearer $CF_API_TOKEN" -H "Content-Type: application/json" \
               "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/cfd_tunnel/$NEW_ID/configurations" \
               -d "$(python3 -c 'import json,os; print(json.dumps({"config": json.loads(os.environ["OLDCFG"])}))')")
@@ -195,12 +206,17 @@ jobs:
             [ "$OK" = "True" ] || { echo "::error::ingress-config PUT mislukt: $PUTRESP"; exit 1; }
             echo "ingress-config overgezet naar $NEW_ID"
 
-            echo "=== nieuwe connector-container starten naast de oude ==="
+            echo "=== nieuwe connector-container starten naast de oude (op alle $(echo "$NETS" | wc -l) networks) ==="
             NEWC="paperclip-cloudflared-lat56-v2"
             docker rm -f "$NEWC" >/dev/null 2>&1 || true
-            docker run -d --name "$NEWC" --restart unless-stopped --network "$NET" \
+            docker run -d --name "$NEWC" --restart unless-stopped --network "$PRIMARY_NET" \
               -v "$CREDS:/etc/cloudflared/creds.json:ro" \
               "$IMG" tunnel --no-autoupdate --credentials-file /etc/cloudflared/creds.json run "$NEW_ID"
+            echo "$NETS" | tail -n +2 | while read -r extra_net; do
+              [ -n "$extra_net" ] || continue
+              echo "network connect: $extra_net"
+              docker network connect "$extra_net" "$NEWC"
+            done
             sleep 5
             docker inspect -f 'status={{.State.Status}}' "$NEWC"
 
@@ -238,9 +254,14 @@ jobs:
           VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
           ROLLBACK: |
             set -euo pipefail
-            OLD_TUNNEL_ID="1c7cc695-b494-4f65-a182-00bd7afb4991"
-            HOSTS="deploy-hook.vinomartino.com approval.vinomartino.com"
+            export OLD_TUNNEL_ID="1c7cc695-b494-4f65-a182-00bd7afb4991"
             set -a; source /root/.agent-secrets/cloudflare.env; set +a
+
+            HOSTS=$(curl -s -H "Authorization: Bearer $CF_API_TOKEN" \
+              "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/cfd_tunnel/$OLD_TUNNEL_ID/configurations" \
+              | python3 -c 'import json,sys; d=json.load(sys.stdin)["result"]["config"]["ingress"]; print(" ".join(r["hostname"] for r in d if "hostname" in r))')
+            [ -n "$HOSTS" ] || { echo "::error::geen hostnames gevonden in ingress-config van de oude tunnel — afgebroken"; exit 1; }
+            echo "hostnames terug te zetten: $HOSTS"
 
             for host in $HOSTS; do
               RID=$(curl -s -H "Authorization: Bearer $CF_API_TOKEN" \
@@ -272,8 +293,13 @@ jobs:
           CLEANUP: |
             set -euo pipefail
             OLD_TUNNEL_ID="1c7cc695-b494-4f65-a182-00bd7afb4991"
-            HOSTS="deploy-hook.vinomartino.com approval.vinomartino.com"
             set -a; source /root/.agent-secrets/cloudflare.env; set +a
+
+            HOSTS=$(curl -s -H "Authorization: Bearer $CF_API_TOKEN" \
+              "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/cfd_tunnel/$OLD_TUNNEL_ID/configurations" \
+              | python3 -c 'import json,sys; d=json.load(sys.stdin)["result"]["config"]["ingress"]; print(" ".join(r["hostname"] for r in d if "hostname" in r))')
+            [ -n "$HOSTS" ] || { echo "::error::geen hostnames gevonden in ingress-config van de oude tunnel — afgebroken"; exit 1; }
+            echo "hostnames om te her-verifieren: $HOSTS"
 
             echo "=== her-verificatie voor delete ==="
             for host in $HOSTS; do
