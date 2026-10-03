@@ -258,6 +258,12 @@ NL_NOUNS_PENDING: dict[str, str] = {
 
 NOUN_RE = {w: re.compile(r"\b" + re.escape(w) + r"\b") for w in NL_NOUNS}
 
+# LAT-12391 -- eigennamen die een NL_NOUNS-woord bevatten maar geen NL-lek zijn.
+# Alleen exacte, hoofdlettergevoelige fotograafnamen uit de DAM-herkomst (bv.
+# Wikimedia-uploader "Foto Fitti"); een kaal "© Foto: ..." blijft gewoon vuren.
+PROPER_NAMES = ("Foto Fitti",)
+PROPER_NAME_RE = re.compile("|".join(re.escape(n) for n in PROPER_NAMES))
+
 # --------------------------------------------------------------------------- #
 # dimensie 5 -- ratio-blinde NL-literals (LAT-2820)
 # --------------------------------------------------------------------------- #
@@ -454,7 +460,8 @@ def find_nouns(raw: str):
     omdat die patronen op tag-grenzen leunen.
     """
     text = visible_text(raw)
-    flat = re.sub(r"\s+", " ", text)
+    flat = PROPER_NAME_RE.sub(lambda m: " " * len(m.group(0)),
+                              re.sub(r"\s+", " ", text))
     low = flat.lower()
     out = {}
     for word, rx in NOUN_RE.items():

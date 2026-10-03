@@ -66,6 +66,23 @@ class TestSentences(unittest.TestCase):
         self.assertEqual(flagged, [])
 
 
+class TestNounsProperNames(unittest.TestCase):
+    def page(self, body):
+        return f"<html><body><main><p>{body}</p></main></body></html>"
+
+    def test_foto_fitti_credit_is_not_a_leak(self):
+        raw = self.page("Zonnewijzer. &copy; Foto Fitti, CC BY-SA 3.0, via Wikimedia Commons")
+        self.assertNotIn("foto", gate.find_nouns(raw))
+
+    def test_bare_foto_still_fires(self):
+        raw = self.page("&copy; Foto: Jan, CC BY 2.0, via Wikimedia Commons")
+        self.assertIn("foto", gate.find_nouns(raw))
+
+    def test_foto_next_to_fitti_still_fires(self):
+        raw = self.page("Foto Fitti, CC BY-SA 3.0. Foto van de wijngaard")
+        self.assertIn("foto", gate.find_nouns(raw))
+
+
 class TestTechnical(unittest.TestCase):
     def test_clean_page_passes(self):
         p = "/en/streken/"
