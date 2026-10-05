@@ -161,11 +161,12 @@ if (article.faqSchema) {
   activeNav="artikelen"
   locale={locale}
   alternates={alternates}
+  loadStay22={Boolean(accommodation || sidebarBlock)}
 >
   <article class="article-page">
     {article.heroImage && (
       <figure class={`article-hero ${article.heroIsIllustration ? 'article-hero--illustration' : 'article-hero--photo'}`}>
-        <img src={article.heroImage} alt={article.title} class="article-hero-img" />
+        <img src={article.heroImage} alt={article.title} class="article-hero-img" loading="eager" fetchpriority="high" />
         <PlaatsStempel text={article.plaatsstempel} variant="hero" />
         <BeeldHerkomst fileId={article.heroImageId} src={article.heroImage} locale={locale} />
         {heroCredit && (

@@ -161,6 +161,7 @@ const heroCredit = await getImageCredit(heroImageId, { adapted: true });
         theme="winery"
         class="wh-hero__img"
         loading="eager"
+        fetchpriority="high"
       />
       <BeeldHerkomst fileId={heroImageId} src={heroImage} locale={locale} variant="inline" />
       {heroCredit && (

@@ -257,6 +257,7 @@ const hasFactBox = Boolean(
   activeNav="streken"
   locale={locale}
   alternates={alternates}
+  loadStay22={hasCuratedStays}
 >
   <article class="streek-page">
     <section class="streek-hero">
@@ -313,7 +314,7 @@ const hasFactBox = Boolean(
       </div>
       {entry.heroImage && (
         <figure class="streek-hero-img-wrap">
-          <img src={entry.heroImage} alt={entry.name} class="streek-hero-img" loading="eager" />
+          <img src={entry.heroImage} alt={entry.name} class="streek-hero-img" loading="eager" fetchpriority="high" />
           <BeeldHerkomst src={entry.heroImage} locale={locale} variant="inline" />
           {entry.heroCredit && (
             <figcaption class="streek-hero-credit">
