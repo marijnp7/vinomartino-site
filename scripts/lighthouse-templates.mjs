@@ -56,6 +56,18 @@ function findChrome() {
   return undefined;
 }
 
+// LAT-12591 — wat is het LCP-element en waar zit de tijd? Gebeurt in de run zelf, want de
+// weekly-artifact bewaarde alleen de samenvatting en daar valt niet uit af te leiden of een
+// beeld-ingreep (AVIF/srcset) wel de juiste hendel is.
+const DIAG_AUDITS = ['largest-contentful-paint-element', 'lcp-breakdown-insight', 'lcp-discovery-insight', 'render-blocking-insight', 'network-dependency-tree-insight', 'unused-javascript'];
+export function diagnose(audits) {
+  const trim = (d) => { const t = JSON.stringify(d ?? null); return t.length > 6000 ? { truncated: true, head: t.slice(0, 6000) } : d; };
+  const reqs = (audits['network-requests']?.details?.items ?? [])
+    .map((r) => ({ url: r.url, kb: Math.round((r.transferSize ?? 0) / 102.4) / 10, start: Math.round(r.networkRequestTime ?? 0), end: Math.round(r.networkEndTime ?? 0), priority: r.priority, type: r.resourceType }))
+    .sort((x, y) => y.kb - x.kb).slice(0, 12);
+  return { audits: Object.fromEntries(DIAG_AUDITS.filter((id) => audits[id]).map((id) => [id, trim(audits[id].details)])), topRequests: reqs };
+}
+
 function runOnce(url, chrome, tmp) {
   const out = join(tmp, 'lh.json');
   const args = ['--yes', `lighthouse@${LIGHTHOUSE_VERSION}`, url, '--quiet', '--output=json', `--output-path=${out}`,
@@ -63,9 +75,12 @@ function runOnce(url, chrome, tmp) {
     '--chrome-flags=--headless=new --no-sandbox --disable-gpu'];
   const r = spawnSync('npx', args, { env: { ...process.env, ...(chrome ? { CHROME_PATH: chrome } : {}) }, encoding: 'utf8', timeout: 240000 });
   if (r.status !== 0 || !existsSync(out)) throw new Error(`lighthouse faalde op ${url}: ${(r.stderr || '').slice(-400)}`);
-  const j = JSON.parse(readFileSync(out, 'utf8'));
+  const raw = readFileSync(out, 'utf8');
+  const j = JSON.parse(raw);
   const a = j.audits;
   return {
+    raw,
+    diag: diagnose(a),
     performance: Math.round(j.categories.performance.score * 100),
     lcpMs: a['largest-contentful-paint'].numericValue,
     fcpMs: a['first-contentful-paint'].numericValue,
@@ -93,13 +108,19 @@ async function main() {
       const url = base + t.path;
       const rs = [];
       for (let i = 0; i < runs; i++) rs.push(runOnce(url, chrome, tmp));
+      mkdirSync(join(outDir, 'raw'), { recursive: true });
+      rs.forEach((r, i) => writeFileSync(join(outDir, 'raw', `${t.template}-${i + 1}.json`), r.raw));
       rows.push({ ...t, url, runs: rs });
       console.log(`${t.template}: perf ${rs.map((x) => x.performance)} lcp ${rs.map((x) => Math.round(x.lcpMs))}`);
     }
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }
-  const templates = summarize(rows);
+  const templates = summarize(rows).map((t, i) => {
+    const rs = rows[i].runs;
+    const med = [...rs].sort((x, y) => x.lcpMs - y.lcpMs)[Math.floor(rs.length / 2)];
+    return { ...t, diag: med.diag };
+  });
   const result = {
     measuredAt: new Date().toISOString().replace(/\.\d+Z$/, 'Z'),
     base, lighthouse: LIGHTHOUSE_VERSION, formFactor: 'mobile', throttling: 'simulate', runsPerTemplate: runs,
