@@ -7,6 +7,7 @@ import { getPublicImageDimensions } from '../lib/og-image-dimensions';
 import { isRasterImageFormat } from '../lib/og-image-format';
 import { PINTEREST_DOMAIN_VERIFY } from '../data/pinterest-claim';
 import '../styles/tokens.css';
+import '../styles/fonts.css';
 
 type OgType = 'website' | 'article' | 'profile' | 'place';
 
@@ -164,12 +165,9 @@ const articleTags = article?.tags?.filter((tag): tag is string => Boolean(tag &&
     {schema && (
       <script type="application/ld+json" set:html={JSON.stringify(Array.isArray(schema) ? schema : [schema])} />
     )}
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400;1,600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300;0,8..60,400;0,8..60,600;1,8..60,300;1,8..60,400&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
-      rel="stylesheet"
-    />
+    <link rel="preload" href="/fonts/source-serif-4-latin-167ee9c3.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/cormorant-garamond-latin-4db21dbf.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/inter-latin-6ab57b19.woff2" as="font" type="font/woff2" crossorigin />
     <script is:inline>
       (function () {
         try {
@@ -187,11 +185,20 @@ const articleTags = article?.tags?.filter((tag): tag is string => Boolean(tag &&
           lmaID: '6a22c22f543a519eadd2cd2e',
           nova: { ignoreElements: ['.affiliate-block__cta', '.acc-kaart__cta'] },
         };
-        twenty = t.createElement(a);
-        two = t.getElementsByTagName(a)[0];
-        twenty.async = 1;
-        twenty.src = y;
-        two.parentNode.insertBefore(twenty, two);
+        // LAT-12573: pas na load + idle, zodat het scriptverzoek niet met LCP concurreert.
+        function inject() {
+          twenty = t.createElement(a);
+          two = t.getElementsByTagName(a)[0];
+          twenty.async = 1;
+          twenty.src = y;
+          two.parentNode.insertBefore(twenty, two);
+        }
+        function later() {
+          if (s.requestIdleCallback) s.requestIdleCallback(inject, { timeout: 3000 });
+          else setTimeout(inject, 1500);
+        }
+        if (t.readyState === 'complete') later();
+        else s.addEventListener('load', later);
       })(window, document, 'script', 'https://scripts.stay22.com/letmeallez.js');
     </script>
     <!-- Universele booking-guard (LAT-1369 → LAT-1400 → LAT-1729). LinkSwap herschrijft

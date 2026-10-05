@@ -48,3 +48,14 @@ test('nginx proxied /api/events zonder client-IP door te geven', () => {
   assert.match(block, /X-Forwarded-For ""/);
   assert.match(block, /X-Real-IP ""/);
 });
+
+test('LAT-12573: elke rij draagt device_class en conn_type, en Directus staat ze toe', () => {
+  const ts = readFileSync(path.join(root, 'src/lib/site-events.ts'), 'utf8');
+  assert.match(ts, /device_class: deviceClass\(window\.innerWidth\)/);
+  assert.match(ts, /conn_type: connectionType\(\)/);
+  const dx = readFileSync(path.join(root, 'directus/scripts/create-site-events-collection.mjs'), 'utf8');
+  const perm = dx.slice(dx.indexOf('await ensure(pub, "create"'));
+  assert.match(perm, /"device_class", "conn_type"/);
+  assert.match(dx, /s\("device_class"/);
+  assert.match(dx, /s\("conn_type"/);
+});

@@ -32,6 +32,8 @@ const FIELDS = [
   s("referrer_host", "Alleen hostnaam, nooit volledige URL; leeg = intern of direct"),
   s("utm_source", ""), s("utm_medium", ""), s("utm_campaign", ""),
   s("session_hash", "sha256(tab-id + UTC-datum) eerste 16 hex; wisselt dagelijks, geen IP"),
+  s("device_class", "LAT-12573: viewport-bucket mobile (<768) | tablet (<1024) | desktop"),
+  s("conn_type", "LAT-12573: navigator.connection.effectiveType slow-2g|2g|3g|4g; leeg = niet ondersteund (Safari/Firefox)"),
   { field: "is_internal", type: "boolean", meta: { interface: "boolean", width: "half", note: "Eigen/agent/bot/niet-productieverkeer. Filter op false voor KPI's." }, schema: { is_nullable: false, default_value: false } },
 ];
 
@@ -65,7 +67,7 @@ const ensure = async (policy, action, extra) => {
   console.log("perm", action, policy === pub ? "public" : "dashboard_reader", r.status);
 };
 await ensure(pub, "create", {
-  fields: ["event", "cta_id", "metric", "value", "path", "page_type", "lang", "referrer_host", "utm_source", "utm_medium", "utm_campaign", "session_hash", "is_internal"],
+  fields: ["event", "cta_id", "metric", "value", "path", "page_type", "lang", "referrer_host", "utm_source", "utm_medium", "utm_campaign", "session_hash", "device_class", "conn_type", "is_internal"],
   validation: { _and: [{ event: { _in: EVENTS } }, { path: { _nnull: true } }, { session_hash: { _nnull: true } }] },
 });
 await ensure(rd, "read", {});

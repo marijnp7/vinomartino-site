@@ -89,6 +89,17 @@ export function pageType(path: string): string {
   return map[first] || 'overig';
 }
 
+// Grove apparaatklasse (viewport-bucket) en verbindingstype: genoeg om mobiel apart te lezen,
+// te grof om een apparaat te herkennen.
+export function deviceClass(width: number): 'mobile' | 'tablet' | 'desktop' {
+  return width < 768 ? 'mobile' : width < 1024 ? 'tablet' : 'desktop';
+}
+
+function connectionType(): string | null {
+  const t = (navigator as Navigator & { connection?: { effectiveType?: string } }).connection?.effectiveType;
+  return t && /^(slow-2g|2g|3g|4g)$/.test(t) ? t : null;
+}
+
 let hashPromise: Promise<string> | null = null;
 
 function baseRow(event: SiteEventName, props: SiteEventProps) {
@@ -106,6 +117,8 @@ function baseRow(event: SiteEventName, props: SiteEventProps) {
     utm_source: params.get('utm_source')?.slice(0, 80) || null,
     utm_medium: params.get('utm_medium')?.slice(0, 80) || null,
     utm_campaign: params.get('utm_campaign')?.slice(0, 120) || null,
+    device_class: deviceClass(window.innerWidth),
+    conn_type: connectionType(),
     is_internal: isInternal(),
   };
 }
