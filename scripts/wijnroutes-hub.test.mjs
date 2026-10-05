@@ -75,8 +75,28 @@ test('de hub en het verhaalblok linken niet meer naar /reizen-nareizen/', () => 
   assert.match(ROUTE, /<ReisVerhaal verhalen=\{verhalen\}/);
 });
 
+test('verhalenVoorRoute koppelt eerst op route_id, dan op streek (LAT-12646)', () => {
+  const pakketten = [
+    { slug: 'reims', streekSlug: 'champagne', routeSlug: 'champagne-reims' },
+    { slug: 'losse', streekSlug: 'champagne', routeSlug: null },
+    { slug: 'mosel', streekSlug: 'mosel-duitsland', routeSlug: null },
+  ];
+  const slugs = (route) => verhalenVoorRoute(pakketten, route).map((p) => p.slug);
+  assert.deepEqual(slugs({ slug: 'champagne-reims', streekSlug: 'champagne' }), ['reims', 'losse']);
+  assert.deepEqual(slugs({ slug: 'champagne-aube', streekSlug: 'champagne' }), ['losse']);
+  assert.deepEqual(slugs({ slug: 'mosel-route', streekSlug: 'mosel-duitsland' }), ['mosel']);
+  assert.deepEqual(slugs({ slug: 'x', streekSlug: null }), []);
+});
+
+test('loader vraagt route_id.slug op met eigen degradatie-tier', () => {
+  const L = src('../src/lib/reispakketten.ts');
+  assert.match(L, /ROUTE_FIELD = 'route_id\.slug'/);
+  assert.match(L, /routeSlug: route\.slug \? String\(route\.slug\) : null/);
+  assert.match(L, /missing: 'route_id' \}/);
+});
+
 test('verhalenVoorRoute koppelt op streek', () => {
-  const pakketten = [{ streekSlug: 'mosel-duitsland', slug: 'a' }, { streekSlug: 'langhe-piemonte', slug: 'b' }];
+  const pakketten = [{ streekSlug: 'mosel-duitsland', slug: 'a', routeSlug: null }, { streekSlug: 'langhe-piemonte', slug: 'b', routeSlug: null }];
   assert.deepEqual(verhalenVoorRoute(pakketten, { streekSlug: 'mosel-duitsland' }).map((p) => p.slug), ['a']);
   assert.deepEqual(verhalenVoorRoute(pakketten, { streekSlug: null }), []);
   assert.deepEqual(verhalenVoorRoute(pakketten, { streekSlug: 'etna-sicilie' }), []);
