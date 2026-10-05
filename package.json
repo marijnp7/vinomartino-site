@@ -7,6 +7,8 @@
     "build": "astro build && node --env-file-if-exists=.env scripts/check-c2pa.mjs && node scripts/lint-pins.mjs && node scripts/write-build-info.mjs && node scripts/check-dom-affiliate.mjs dist --lenient && node scripts/lint-authenticiteit.mjs dist --lenient && { for d in wijnhuizen streken routes articles landen accommodaties reispakketten; do if [ -d public/images/$d ]; then mkdir -p dist/images/$d && cp -r public/images/$d/. dist/images/$d/; fi; done; for f in public/build-debug-*.json; do [ -f \"$f\" ] && cp \"$f\" dist/; done; true; } && node scripts/optimize-images.mjs",
     "build:vinomartino": "astro build",
     "preview": "astro preview --host 0.0.0.0",
+    "lighthouse": "node scripts/lighthouse-templates.mjs",
+    "test:lighthouse-templates": "node --test scripts/lat12558-lighthouse-templates.test.mjs",
     "check:affiliate-links": "node scripts/check-affiliate-links.mjs",
     "check:dom-affiliate": "node scripts/check-dom-affiliate.mjs dist --lenient",
     "test:dom-affiliate": "node --test scripts/check-dom-affiliate.test.mjs",

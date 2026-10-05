@@ -1,0 +1,81 @@
+# LAT-12558 — wekelijkse labmeting (Lighthouse mobiel) op de 6 vaste sjablonen.
+#
+# Waarom hier: de agent-container kan geen Chrome starten (systeembibliotheken ontbreken,
+# geen root) en PageSpeed Insights zonder sleutel geeft "Queries per day"-quota. Een GitHub-
+# hosted runner heeft Chrome. NIET-blokkerend voor deploy: meet prod, faalt alleen zichzelf.
+#
+# Uitslag voor Strategy (leesbaar zonder CI-toegang):
+#   gh api repos/marijnp7/vinomartino-site/contents/latest.json?ref=lighthouse-data --jq .content | base64 -d
+# Daarnaast: artifact `lighthouse-<run>` en de job-summary. build-info.json van prod wordt
+# aangevuld met de sleutel `lighthouse` (zie scripts/lighthouse-templates.mjs).
+
+name: Lighthouse weekly (6 templates)
+
+on:
+  schedule:
+    - cron: "30 5 * * 1" # maandag 05:30 UTC, voor het weekrapport van Strategy
+  workflow_dispatch:
+    inputs:
+      base:
+        description: "Te meten site"
+        required: false
+        default: "https://vinomartino.com"
+      runs:
+        description: "Runs per sjabloon (mediaan)"
+        required: false
+        default: "3"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: lighthouse-weekly
+  cancel-in-progress: false
+
+jobs:
+  lighthouse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Meet 6 sjablonen
+        id: measure
+        run: |
+          mkdir -p out dist
+          curl -fsS "${BASE}/build-info.json" -o dist/build-info.json || echo '{}' > dist/build-info.json
+          node scripts/lighthouse-templates.mjs --base "$BASE" --runs "$RUNS" --out-dir out --build-info dist/build-info.json
+        env:
+          BASE: ${{ github.event.inputs.base || 'https://vinomartino.com' }}
+          RUNS: ${{ github.event.inputs.runs || '3' }}
+      - name: Samenvatting
+        if: always()
+        run: |
+          [ -f out/latest.json ] || exit 0
+          node -e "const r=require('./out/latest.json');console.log('| sjabloon | perf | LCP ms | runs |\n|---|---|---|---|\n'+r.templates.map(t=>'| '+t.template+' | '+t.performance+' | '+t.lcpMs+' | '+t.runs+' |').join('\n')+'\n\nallPass: '+r.allPass)" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lighthouse-${{ github.run_id }}
+          path: |
+            out/
+            dist/build-info.json
+          retention-days: 90
+      - name: Publiceer naar branch lighthouse-data
+        if: success()
+        run: |
+          set -e
+          git config user.name "github-actions"
+          git config user.email "actions@users.noreply.github.com"
+          cp out/latest.json /tmp/latest.json; cp out/*-*-*.json /tmp/ 2>/dev/null || true
+          cp dist/build-info.json /tmp/build-info.json
+          if git ls-remote --exit-code --heads origin lighthouse-data >/dev/null; then
+            git fetch origin lighthouse-data && git checkout -f lighthouse-data
+          else
+            git checkout --orphan lighthouse-data && git rm -rf . >/dev/null
+          fi
+          cp /tmp/latest.json /tmp/build-info.json .
+          for f in /tmp/20??-??-??.json; do [ -f "$f" ] && cp "$f" .; done
+          git add -A && git commit -m "lighthouse: $(date -u +%F) [skip ci]" && git push origin lighthouse-data
