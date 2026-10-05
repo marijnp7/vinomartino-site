@@ -44,10 +44,13 @@ function datarij1(n: Proefnotitie): string[] {
 {notes.length > 0 && (
   <section class="proefnotities" aria-label={kaartLabel}>
     {notes.map((n) => (
-      <article class:list={['pnk', `pnk--${format}`]}>
-        <div class="pnk__figure">
-          <SmartImg src={n.etiketFoto ?? undefined} alt={n.etiketFotoAlt ?? `Etiket ${n.wijnnaam}`} theme="bottle" class="pnk__img" />
-        </div>
+      <article class:list={['pnk', `pnk--${format}`, !n.etiketFoto && 'pnk--zonder-etiket']}>
+        {/* Geen etiketfoto → geen leeg placeholdervlak; de notitie neemt de volle breedte. */}
+        {n.etiketFoto && (
+          <div class="pnk__figure">
+            <SmartImg src={n.etiketFoto} alt={n.etiketFotoAlt ?? `Etiket ${n.wijnnaam}`} theme="bottle" class="pnk__img" />
+          </div>
+        )}
         <div class="pnk__body">
           <span class="pnk__label">{kaartLabel}</span>
           <h3 class="pnk__wijnnaam">{n.wijnnaam}</h3>
@@ -118,6 +121,8 @@ function datarij1(n: Proefnotitie): string[] {
   .pnk__body {
     padding: var(--space-5) var(--space-5) var(--space-5) 0;
   }
+  .pnk--zonder-etiket { grid-template-columns: 1fr; }
+  .pnk--zonder-etiket .pnk__body { padding: var(--space-5); }
 
   .pnk__label {
     font-family: var(--font-mono, 'JetBrains Mono', monospace);
