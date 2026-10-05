@@ -6,11 +6,17 @@ import type { ReisPakket } from './reispakketten';
 
 export const VERHAAL_ANCHOR = 'zo-reisden-wij';
 
-/** Verhalen die bij een route horen: zelfde streek. */
+/**
+ * Verhalen die bij een route horen. Een verhaal met `routeSlug` (Directus
+ * `reispakketten.route_id`) hoort alleen bij díe route; een verhaal zonder
+ * `routeSlug` valt terug op de streek (LAT-12646).
+ */
 export function verhalenVoorRoute(
-  pakketten: readonly ReisPakket[],
-  route: { streekSlug?: string | null },
+  pakketten: readonly Pick<ReisPakket, 'slug' | 'streekSlug' | 'routeSlug'>[],
+  route: { slug?: string | null; streekSlug?: string | null },
 ): ReisPakket[] {
-  if (!route.streekSlug) return [];
-  return pakketten.filter((p) => p.streekSlug === route.streekSlug);
+  return pakketten.filter((p) => {
+    if (p.routeSlug) return p.routeSlug === route.slug;
+    return Boolean(route.streekSlug) && p.streekSlug === route.streekSlug;
+  }) as ReisPakket[];
 }

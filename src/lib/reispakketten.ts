@@ -50,6 +50,8 @@ export interface ReisPakket {
     pubDate: string;
     streekSlug: string;
     streekName: string;
+    /** Optionele koppeling aan één route (reispakketten.route_id); leeg = streek-match. */
+    routeSlug: string | null;
     introHtml: string;
     dagTotDagHtml: string;
     wijnhuizen: PakketWijnhuis[];
@@ -180,6 +182,9 @@ async function mapAccommodaties(
     );
 }
 
+// LAT-12646: optionele M2O naar routes. Eigen tier zodat een ontbrekend veld de build niet breekt.
+const ROUTE_FIELD = 'route_id.slug';
+
 const CORE_FIELDS =
     'id,slug,titel,tagline,status,pub_date,introductie,dag_tot_dag,reismoment,cta_heading,cta_tekst,meta_title,meta_description,hero_image,streek_id.id,streek_id.name,streek_id.slug';
 
@@ -217,12 +222,17 @@ async function fetchPakketten(url: string, token: string): Promise<Record<string
             { headers },
         );
 
-    // Voorkeursquery met M2M-relaties; degradeer wanneer de junctions nog niet
-    // bestaan (DevOps-migratie) zodat de build niet breekt.
-    let res = await tryFetch(`${CORE_FIELDS},${WIJNHUIS_FIELDS},${ACC_FIELDS}`);
-    if (!res.ok && (res.status === 400 || res.status === 403)) {
-        console.warn(`[loadReispakketten] M2M-velden nog niet in Directus (HTTP ${res.status}) — retry zonder wijnhuizen/accommodaties.`);
-        res = await tryFetch(CORE_FIELDS);
+    // Voorkeursquery met route_id + M2M-relaties; degradeer per tier wanneer een
+    // veld/junction nog niet bestaat (DevOps-migratie) zodat de build niet breekt.
+    const tiers: { fields: string; missing: string }[] = [
+        { fields: `${CORE_FIELDS},${ROUTE_FIELD},${WIJNHUIS_FIELDS},${ACC_FIELDS}`, missing: '' },
+        { fields: `${CORE_FIELDS},${WIJNHUIS_FIELDS},${ACC_FIELDS}`, missing: 'route_id' },
+        { fields: CORE_FIELDS, missing: 'route_id/wijnhuizen/accommodaties' },
+    ];
+    let res = await tryFetch(tiers[0].fields);
+    for (let i = 1; i < tiers.length && !res.ok && (res.status === 400 || res.status === 403); i++) {
+        console.warn(`[loadReispakketten] velden nog niet in Directus (HTTP ${res.status}) — retry zonder ${tiers[i].missing}.`);
+        res = await tryFetch(tiers[i].fields);
     }
     if (!res.ok) {
         if (res.status === 403 || res.status === 404) {
@@ -241,6 +251,7 @@ async function mapPakket(
     token: string,
 ): Promise<ReisPakket> {
     const streek = (r.streek_id && typeof r.streek_id === 'object' ? r.streek_id : {}) as Record<string, unknown>;
+    const route = (r.route_id && typeof r.route_id === 'object' ? r.route_id : {}) as Record<string, unknown>;
     const introHtml = r.introductie ? await renderMarkdown(String(r.introductie)) : '';
     const dagTotDagHtml = r.dag_tot_dag ? await renderMarkdown(String(r.dag_tot_dag)) : '';
     const heroImage = r.hero_image
@@ -255,6 +266,7 @@ async function mapPakket(
         pubDate: String(r.pub_date || ''),
         streekSlug: String(streek.slug || ''),
         streekName: normalizeEmDashes(String(streek.name || '')),
+        routeSlug: route.slug ? String(route.slug) : null,
         introHtml,
         dagTotDagHtml,
         wijnhuizen: mapWijnhuizen(r.wijnhuizen),
