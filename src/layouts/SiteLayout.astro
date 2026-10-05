@@ -39,9 +39,11 @@ interface Props {
   // LAT-2575: absolute of pad-URLs van de tegenhanger per taal, voor hreflang.
   // Alleen ingevuld wanneer een vertaling daadwerkelijk bestaat (no-translation-guard).
   alternates?: Partial<Record<Locale, string>>;
+  // LAT-12558: Stay22 LaatMeGaan + booking-guard alleen laden op pagina's met accommodatie-blokken.
+  loadStay22?: boolean;
 }
 
-const { title, description, canonicalUrl, ogImage, ogImageWidth, ogImageHeight, ogType, article, noindex, schema, activeNav, locale, alternates } = Astro.props;
+const { title, description, canonicalUrl, ogImage, ogImageWidth, ogImageHeight, ogType, article, noindex, schema, activeNav, locale, alternates, loadStay22 = false } = Astro.props;
 
 const currentLocale: Locale = locale ?? DEFAULT_LOCALE;
 
@@ -177,30 +179,33 @@ const articleTags = article?.tags?.filter((tag): tag is string => Boolean(tag &&
       })();
     </script>
     <!-- Stay22 "Let Me Allez" affiliate loader (LAT-1126). LinkSwap auto-converteert
-         bestaande hotel/activiteit-links naar Stay22-affiliate-links. AID: vinomartino. -->
-    <script is:inline>
-      (function (s, t, a, y, twenty, two) {
-        s.Stay22 = s.Stay22 || {};
-        s.Stay22.params = {
-          lmaID: '6a22c22f543a519eadd2cd2e',
-          nova: { ignoreElements: ['.affiliate-block__cta', '.acc-kaart__cta'] },
-        };
-        // LAT-12573: pas na load + idle, zodat het scriptverzoek niet met LCP concurreert.
-        function inject() {
-          twenty = t.createElement(a);
-          two = t.getElementsByTagName(a)[0];
-          twenty.async = 1;
-          twenty.src = y;
-          two.parentNode.insertBefore(twenty, two);
-        }
-        function later() {
-          if (s.requestIdleCallback) s.requestIdleCallback(inject, { timeout: 3000 });
-          else setTimeout(inject, 1500);
-        }
-        if (t.readyState === 'complete') later();
-        else s.addEventListener('load', later);
-      })(window, document, 'script', 'https://scripts.stay22.com/letmeallez.js');
-    </script>
+         bestaande hotel/activiteit-links naar Stay22-affiliate-links. AID: vinomartino.
+         LAT-12558: alleen laden op pagina's met accommodatie-blokken (loadStay22=true).
+         Pas na load + idle, zodat het scriptverzoek niet met LCP concurreert. -->
+    {loadStay22 && (
+      <script is:inline>
+        (function (s, t, a, y, twenty, two) {
+          s.Stay22 = s.Stay22 || {};
+          s.Stay22.params = {
+            lmaID: '6a22c22f543a519eadd2cd2e',
+            nova: { ignoreElements: ['.affiliate-block__cta', '.acc-kaart__cta'] },
+          };
+          function inject() {
+            twenty = t.createElement(a);
+            two = t.getElementsByTagName(a)[0];
+            twenty.async = 1;
+            twenty.src = y;
+            two.parentNode.insertBefore(twenty, two);
+          }
+          function later() {
+            if (s.requestIdleCallback) s.requestIdleCallback(inject, { timeout: 3000 });
+            else setTimeout(inject, 1500);
+          }
+          if (t.readyState === 'complete') later();
+          else s.addEventListener('load', later);
+        })(window, document, 'script', 'https://scripts.stay22.com/letmeallez.js');
+      </script>
+    )}
     <!-- Universele booking-guard (LAT-1369 → LAT-1400 → LAT-1729). LinkSwap herschrijft
          client-side de href van booking.com-links naar Stay22 (aid 818285 → 1607597) — dat
          kaapt onze directe CJ-conversie. De oude guard beschermde alléén a[data-cj-href]
@@ -210,7 +215,9 @@ const articleTags = article?.tags?.filter((tag): tag is string => Boolean(tag &&
          in data-vm-booking-href (vóór LinkSwap kan rewriten) en herstellen die met een
          MutationObserver + sweeps. data-cj-href blijft de canonieke bron waar aanwezig.
          LinkSwap kent geen per-element opt-out (nova.ignoreElements stuurt alleen de overlay,
-         niet de rewrite); globale LinkSwap blijft aan voor niet-booking OTA-links elders. -->
+         niet de rewrite); globale LinkSwap blijft aan voor niet-booking OTA-links elders.
+         LAT-12558: guard alleen actief op pagina's die Stay22 laden. -->
+    {loadStay22 && (
     <script is:inline>
       (function () {
         function canonical(el) {
@@ -260,6 +267,7 @@ const articleTags = article?.tags?.filter((tag): tag is string => Boolean(tag &&
         else start();
       })();
     </script>
+    )}
   </head>
   <body>
     <SiteHeader activeNav={activeNav} locale={currentLocale} counterpartExists={Boolean(alternates?.en)} />
