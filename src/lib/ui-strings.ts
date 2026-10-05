@@ -388,7 +388,7 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
 
     // NewsletterInline.astro (LAT-12560) — CTA na de eerste sectie van artikelen en streekpagina's.
     'newsletter.inline.heading': 'Dit soort verhalen, eens per maand in je inbox',
-    'newsletter.inline.body': 'Eens per maand stuurt Marijn een echte brief: over een wijnmaker die we net bezochten, een regio die opnieuw onze aandacht trok, een fles die indruk maakte. Afmelden kan altijd.',
+    'newsletter.inline.body': 'Eens per maand schrijf ik een brief: waar we waren, wie we spraken, welke fles ons bijbleef. Afmelden kan altijd.',
     'newsletter.inline.submit': 'Schrijf je in voor De brief',
 
 
@@ -848,7 +848,7 @@ export const UI_STRING_EN: Record<string, string> = {
     'newsletter.footer.submit': 'Subscribe to The Letter',
     'newsletter.footer.fineprint': 'Signing up goes through Substack: you get an email to confirm your subscription. You can unsubscribe at any time with one click.',
     'newsletter.inline.heading': 'Stories like this, once a month in your inbox',
-    'newsletter.inline.body': 'Once a month Marijn sends a real letter: about a winemaker we just visited, a region that caught our attention again, a bottle that made an impression. Unsubscribe at any time.',
+    'newsletter.inline.body': 'Once a month I write a letter: where we were, who we spoke to, which bottle stayed with us. Unsubscribe at any time.',
     'newsletter.inline.submit': 'Subscribe to The Letter',
 
     // LangheCaptureBlock.astro — Langhe capture (variant a = mid-article).

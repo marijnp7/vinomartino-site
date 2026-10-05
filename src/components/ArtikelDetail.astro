@@ -110,6 +110,8 @@ const modifiedTime = article.updatedAt || article.pubDate;
 const rhoneMap = splitBodyForRhoneMap(article.bodyHtml, article.slug, locale);
 // LAT-12560: nieuwsbrief-CTA na de eerste sectie, ook op artikelen met een Rhônekaart.
 const bodyFirst = splitAfterFirstSection(rhoneMap ? rhoneMap.before : article.bodyHtml);
+// LAT-12572: geen inline-CTA zonder echte eerste sectie, en niet naast het Langhe-capture-blok.
+const showInlineCta = bodyFirst.found && article.slug !== 'langhe-piemonte-4-dagen-route';
 
 // LAT-1687: verplichte beeldcredit (bv. Wikimedia Commons CC BY-SA) bij de hero.
 const heroCredit = await getImageCredit(article.heroImageId);
@@ -228,7 +230,7 @@ if (article.faqSchema) {
         )}
 
         <div class="article-prose" set:html={bodyFirst.head} />
-        <NewsletterInline placement="artikel-inline" locale={locale} />
+        {showInlineCta && <NewsletterInline placement="artikel-inline" locale={locale} />}
         {bodyFirst.tail && <div class="article-prose" set:html={bodyFirst.tail} />}
         {rhoneMap && (
           <Fragment>

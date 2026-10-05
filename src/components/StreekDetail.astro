@@ -432,17 +432,19 @@ const hasFactBox = Boolean(
         alleen als er tours in Directus (streken.gyg_tours) staan. */}
     <TourCards streekSlug={entry.slug} streekName={entry.name} tours={entry.gygTours} locale={locale} />
 
-    {/* LAT-12560: nieuwsbrief-CTA na de eerste sectie; ook zonder body, zodat elke streekpagina hem draagt. */}
-    <section class="streek-body">
-      <div class="streek-body__inner">
-        {entry.bodyHtml && <div class="streek-prose" set:html={streekBody.head} />}
-        <NewsletterInline placement="streek-inline" locale={locale} />
-        {streekBody.tail && <div class="streek-prose" set:html={streekBody.tail} />}
-        {entry.bodyHtml && entry.activiteiten.length === 0 && (
-          <AffiliatePlaceholder type="activity" partner="getyourguide" region={entry.name} placement="inline-end" context="streek-activity" locale={locale} />
-        )}
-      </div>
-    </section>
+    {entry.bodyHtml && (
+      <section class="streek-body">
+        <div class="streek-body__inner">
+          <div class="streek-prose" set:html={streekBody.head} />
+          {/* LAT-12572: alleen na een echte eerste sectie (tweede h2); anders dekt de footer-CTA. */}
+          {streekBody.found && <NewsletterInline placement="streek-inline" locale={locale} />}
+          {streekBody.tail && <div class="streek-prose" set:html={streekBody.tail} />}
+          {entry.activiteiten.length === 0 && (
+            <AffiliatePlaceholder type="activity" partner="getyourguide" region={entry.name} placement="inline-end" context="streek-activity" locale={locale} />
+          )}
+        </div>
+      </section>
+    )}
 
     {entry.subRegions.length > 0 && (
       <section class="streek-subregions">
