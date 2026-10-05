@@ -278,8 +278,8 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'home.proof.manifestPre': 'Waar we zelf waren, zie je dat: het label ',
     'home.proof.manifestEm': 'Zelf gereisd',
     'home.proof.cta': 'Ons verhaal →',
-    'home.brief.dateline': 'De Brief · elke twee weken',
-    'home.brief.heading': 'Elke twee weken een brief. Geen lijstjes.',
+    'home.brief.dateline': 'De Brief · eens per maand',
+    'home.brief.heading': 'Eens per maand een brief. Geen lijstjes.',
     'home.brief.body': 'Een persoonlijke brief van Marijn: wat we recent dronken, waar we waren, en welke fles ons opviel. Geen affiliate-deals, geen nieuwsbriefformule.',
     'home.brief.submit': 'Schrijf je in voor de brief',
 
@@ -380,11 +380,16 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
 
     // NewsletterFooter.astro (LAT-2436) — artikel/streek-footer; CTA naar Substack
     // (LAT-12309). Merknaam "VinoMartino" blijft ongewijzigd.
-    'newsletter.footer.kicker': 'De brief · nieuwsbrief van VinoMartino',
+    'newsletter.footer.kicker': 'De brief · eens per maand',
     'newsletter.footer.heading': 'Wijnreisverhalen in je inbox',
-    'newsletter.footer.lede': 'Een paar keer per jaar stuurt Marijn een echte brief: over een wijnmaker die we net bezochten, een regio die opnieuw onze aandacht trok, een fles die indruk maakte.',
+    'newsletter.footer.lede': 'Eens per maand stuurt Marijn een echte brief: over een wijnmaker die we net bezochten, een regio die opnieuw onze aandacht trok, een fles die indruk maakte.',
     'newsletter.footer.submit': 'Schrijf je in voor De brief',
     'newsletter.footer.fineprint': 'Aanmelden gaat via Substack: je ontvangt een e-mail om je aanmelding te bevestigen. Afmelden kan altijd, met één klik.',
+
+    // NewsletterInline.astro (LAT-12560) — CTA na de eerste sectie van artikelen en streekpagina's.
+    'newsletter.inline.heading': 'Dit soort verhalen, eens per maand in je inbox',
+    'newsletter.inline.body': 'Eens per maand schrijf ik een brief: waar we waren, wie we spraken, welke fles ons bijbleef. Afmelden kan altijd.',
+    'newsletter.inline.submit': 'Schrijf je in voor De brief',
 
 
     // StreekKaart.astro (LAT-1592) — "de geld-pagina" dubbele kaart + POI-lijst.
@@ -710,13 +715,13 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     // NL-`variants` in src/components/LangheCaptureBlock.astro; nu dictionary-driven
     // zodat de /en/-artikelpagina de EN-overlay krijgt (seed: ui-strings-en-lat2832).
     'langhe.capture.a.koptekst': 'Meer uit de Langhe in je inbox',
-    'langhe.capture.a.body': 'Dit artikel geeft de kern. Wil je meer: waar we proefden, welke wijnhuizen ons bijbleven en wat zo’n reis kost? Dat staat in De Brief, die Marijn elke twee weken schrijft.',
+    'langhe.capture.a.body': 'Dit artikel geeft de kern. Wil je meer: waar we proefden, welke wijnhuizen ons bijbleven en wat zo’n reis kost? Dat staat in De Brief, die Marijn eens per maand schrijft.',
     'langhe.capture.a.ctaText': 'Schrijf je in voor De brief',
-    'langhe.capture.a.subCopy': 'Elke twee weken ontvang je ook De Brief: over wijn, reizen en de mensen erachter. Uitschrijven kan altijd.',
+    'langhe.capture.a.subCopy': 'Eens per maand ontvang je ook De Brief: over wijn, reizen en de mensen erachter. Uitschrijven kan altijd.',
     'langhe.capture.c.koptekst': 'Begin met Piemonte',
     'langhe.capture.c.body': 'Wil je weten waar te beginnen in de Langhe? In De Brief schrijf ik over routes, wijnhuizen en wat het kost, vanuit eigen ervaring.',
     'langhe.capture.c.ctaText': 'Schrijf je in voor De brief',
-    'langhe.capture.c.subCopy': 'Elke twee weken volgt De Brief: over wijn en reizen vanuit eigen ervaring.',
+    'langhe.capture.c.subCopy': 'Eens per maand volgt De Brief: over wijn en reizen vanuit eigen ervaring.',
 
     // LAT-2921 — HubBacklink (pillar-hub terugverwijzing, src/lib/hub-backlinks.ts).
     // Stond als hardcoded NL-`label` op het HubDef-target; nu dictionary-driven
@@ -836,17 +841,27 @@ export const UI_STRING_EN: Record<string, string> = {
     'streken.index.empty.descLink': 'articles',
     'streken.index.empty.descPost': '.',
 
+    // NewsletterFooter.astro / NewsletterInline.astro (LAT-12560): EN had no keys and fell back to Dutch.
+    'newsletter.footer.kicker': 'The letter · once a month',
+    'newsletter.footer.heading': 'Wine travel stories in your inbox',
+    'newsletter.footer.lede': 'Once a month Marijn sends a real letter: about a winemaker we just visited, a region that caught our attention again, a bottle that made an impression.',
+    'newsletter.footer.submit': 'Subscribe to The Letter',
+    'newsletter.footer.fineprint': 'Signing up goes through Substack: you get an email to confirm your subscription. You can unsubscribe at any time with one click.',
+    'newsletter.inline.heading': 'Stories like this, once a month in your inbox',
+    'newsletter.inline.body': 'Once a month I write a letter: where we were, who we spoke to, which bottle stayed with us. Unsubscribe at any time.',
+    'newsletter.inline.submit': 'Subscribe to The Letter',
+
     // LangheCaptureBlock.astro — Langhe capture (variant a = mid-article).
     'langhe.capture.a.koptekst': 'More from the Langhe in your inbox',
-    'langhe.capture.a.body': 'This article gives you the essentials. Want more: where we tasted, which wineries stayed with us and what a trip like this costs? That is in The Letter, which Marijn writes every two weeks.',
+    'langhe.capture.a.body': 'This article gives you the essentials. Want more: where we tasted, which wineries stayed with us and what a trip like this costs? That is in The Letter, which Marijn writes once a month.',
     'langhe.capture.a.ctaText': 'Subscribe to The Letter',
-    'langhe.capture.a.subCopy': 'Every two weeks you\'ll also receive The Letter: about wine, travel, and the people behind it. Unsubscribe anytime.',
+    'langhe.capture.a.subCopy': 'Once a month you\'ll also receive The Letter: about wine, travel, and the people behind it. Unsubscribe anytime.',
 
     // LangheCaptureBlock.astro — Langhe capture (variant c = homepage-style).
     'langhe.capture.c.koptekst': 'Start with Piedmont',
     'langhe.capture.c.body': 'If you want to know where to begin in the Langhe: in The Letter I write about routes, wineries and what it costs, from personal experience.',
     'langhe.capture.c.ctaText': 'Subscribe to The Letter',
-    'langhe.capture.c.subCopy': 'Every two weeks The Letter follows: about wine and travel from personal experience.',
+    'langhe.capture.c.subCopy': 'Once a month The Letter follows: about wine and travel from personal experience.',
 
     // RhoneMap.astro — kaart-chrome (LAT-4909). `rhonemap.aria.mapPre` is in
     // Directus geseed (LAT-2848) maar had nog geen code-level fallback: bij een

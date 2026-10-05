@@ -19,7 +19,7 @@ const schema = [
 
 <SiteLayout
   title="The letter, the VinoMartino newsletter"
-  description="Every two weeks Marijn puts a letter in your inbox: about a winemaker we just visited, a region that caught our attention again, a bottle that made an impression. Sign up through Substack and the next edition lands in your inbox."
+  description="Once a month Marijn puts a letter in your inbox: about a winemaker we just visited, a region that caught our attention again, a bottle that made an impression. Sign up through Substack."
   schema={schema}
   activeNav="de-brief"
   locale="en"
@@ -27,13 +27,16 @@ const schema = [
 >
   <section class="hero">
     <div class="container container-narrow">
-      <span class="kicker">The letter · every two weeks</span>
+      <span class="kicker">The letter · once a month</span>
       <h1>The letter</h1>
       <p class="lede">
-        Every two weeks Marijn puts a letter in your inbox. No press releases,
-        no invitations to generic wine festivals — a real letter. About a
+        Once a month Marijn puts a letter in your inbox. No press releases,
+        no invitations to generic wine festivals, a real letter. About a
         winemaker we just visited, a region that caught our attention again, a
-        bottle that made an impression. Sign up through Substack and the next edition lands in your inbox.
+        bottle that made an impression.
+        {/* LAT-12572: haal de volgende zin weg zodra de eerste editie verstuurd is. */}
+        The first edition arrives on 5 November.
+        Sign up through Substack.
       </p>
 
       <div class="signup">
@@ -51,7 +54,7 @@ const schema = [
 
   <section class="voorbeeld">
     <div class="container container-narrow">
-      <Briefkaart dateline="The Letter, edition 1, July 2026">
+      <Briefkaart dateline="The Letter, example">
         <p>Dear reader,</p>
         <p>
           It was the day after the last clusters of Nebbiolo had been picked, early

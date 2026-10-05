@@ -28,6 +28,7 @@
     "test:perf-lat12573": "node --test scripts/lat12573-perf.test.mjs",
     "test:map-intent-lat12592": "node --test scripts/lat12592-map-intent.test.mjs",
     "test:newsletter-cta-attribution": "node --test scripts/lat2772-newsletter-cta-attribution.test.mjs",
+    "test:newsletter-cta": "node --test scripts/lat12560-newsletter-cta.test.mjs",
     "test:discovercars": "node --test scripts/lat12032-discovercars.test.mjs",
     "test:cta-wine-retail": "node --test scripts/lat3726-cta-wine-retail.test.mjs",
     "test:beeld-herkomst": "node --test scripts/lat4776-beeld-herkomst.test.mjs",
