@@ -1,10 +1,10 @@
 {
-  "measuredAt": "2026-10-05T05:27:08Z",
+  "measuredAt": "2026-10-05T05:31:20Z",
   "base": "https://vinomartino.com",
   "lighthouse": "13.5.0",
   "formFactor": "mobile",
   "throttling": "simulate",
-  "runsPerTemplate": 1,
+  "runsPerTemplate": 3,
   "thresholds": {
     "performance": 85,
     "lcpMs": 2500
@@ -14,97 +14,121 @@
     {
       "template": "home",
       "url": "https://vinomartino.com/",
-      "runs": 1,
-      "performance": 61,
-      "lcpMs": 6129,
-      "fcpMs": 3273,
-      "tbtMs": 314,
-      "cls": 0.03,
+      "runs": 3,
+      "performance": 65,
+      "lcpMs": 6899,
+      "fcpMs": 4823,
+      "tbtMs": 14,
+      "cls": 0,
       "perRunPerformance": [
-        61
+        72,
+        65,
+        64
       ],
       "perRunLcpMs": [
-        6129
+        6899,
+        6557,
+        7088
       ]
     },
     {
       "template": "streek",
       "url": "https://vinomartino.com/streken/langhe-piemonte/",
-      "runs": 1,
-      "performance": 64,
-      "lcpMs": 3712,
-      "fcpMs": 2234,
-      "tbtMs": 839,
+      "runs": 3,
+      "performance": 71,
+      "lcpMs": 3958,
+      "fcpMs": 1795,
+      "tbtMs": 594,
       "cls": 0,
       "perRunPerformance": [
-        64
+        82,
+        71,
+        47
       ],
       "perRunLcpMs": [
-        3712
+        2414,
+        3958,
+        6682
       ]
     },
     {
       "template": "artikel",
       "url": "https://vinomartino.com/artikelen/waar-slapen-langhe-piemonte/",
-      "runs": 1,
-      "performance": 63,
-      "lcpMs": 6287,
-      "fcpMs": 5413,
-      "tbtMs": 93,
-      "cls": 0,
+      "runs": 3,
+      "performance": 89,
+      "lcpMs": 3671,
+      "fcpMs": 1821,
+      "tbtMs": 12,
+      "cls": 0.007,
       "perRunPerformance": [
-        63
+        88,
+        89,
+        89
       ],
       "perRunLcpMs": [
-        6287
+        3747,
+        3658,
+        3671
       ]
     },
     {
       "template": "artikel-grower",
       "url": "https://vinomartino.com/artikelen/grower-champagne-waarom-marijn-gestopt-is-met-grandes-marques/",
-      "runs": 1,
-      "performance": 64,
-      "lcpMs": 6744,
-      "fcpMs": 4965,
-      "tbtMs": 25,
+      "runs": 3,
+      "performance": 76,
+      "lcpMs": 6633,
+      "fcpMs": 1786,
+      "tbtMs": 11,
       "cls": 0,
       "perRunPerformance": [
+        86,
+        76,
         64
       ],
       "perRunLcpMs": [
-        6744
+        4111,
+        6633,
+        6706
       ]
     },
     {
       "template": "route",
       "url": "https://vinomartino.com/wijnroutes/mosel-bernkastel-traben-trarbach/",
-      "runs": 1,
-      "performance": 52,
-      "lcpMs": 4105,
-      "fcpMs": 3380,
-      "tbtMs": 1315,
+      "runs": 3,
+      "performance": 63,
+      "lcpMs": 4789,
+      "fcpMs": 1792,
+      "tbtMs": 736,
       "cls": 0,
       "perRunPerformance": [
-        52
+        63,
+        64,
+        54
       ],
       "perRunLcpMs": [
-        4105
+        4789,
+        4594,
+        6486
       ]
     },
     {
       "template": "artikel-en",
       "url": "https://vinomartino.com/en/artikelen/waar-slapen-langhe-piemonte/",
-      "runs": 1,
-      "performance": 62,
-      "lcpMs": 6724,
-      "fcpMs": 5717,
-      "tbtMs": 89,
-      "cls": 0,
+      "runs": 3,
+      "performance": 89,
+      "lcpMs": 3677,
+      "fcpMs": 1801,
+      "tbtMs": 9,
+      "cls": 0.007,
       "perRunPerformance": [
-        62
+        89,
+        65,
+        89
       ],
       "perRunLcpMs": [
-        6724
+        3632,
+        6343,
+        3677
       ]
     }
   ]
