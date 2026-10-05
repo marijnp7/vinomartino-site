@@ -6,6 +6,21 @@ export const BASE_ATTRIBUTION =
   '<a href="https://www.openmaptiles.org/" target="_blank" rel="noopener">&copy; OpenMapTiles</a> ' +
   'Data from <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>';
 
+let intentPromise: Promise<void> | null = null;
+
+/** Resolvet bij de eerste echte gebruikersactie (of een #anker in de URL). Houdt de zware kaart-init buiten de laadfase: Lighthouse-TBT op streek/route (LAT-12592). */
+export function whenUserIntent(): Promise<void> {
+  if (!intentPromise) {
+    intentPromise = new Promise<void>((resolve) => {
+      if (location.hash) { resolve(); return; }
+      const evs = ['pointerdown', 'touchstart', 'keydown', 'wheel', 'scroll'];
+      const go = () => { evs.forEach((e) => window.removeEventListener(e, go)); resolve(); };
+      evs.forEach((e) => window.addEventListener(e, go, { passive: true }));
+    });
+  }
+  return intentPromise;
+}
+
 let glPromise: Promise<(opts: Record<string, unknown>) => any> | null = null;
 
 function loadGl() {

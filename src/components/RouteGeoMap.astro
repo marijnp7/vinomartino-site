@@ -87,7 +87,7 @@ const mapData = {
 
 <script>
   import 'leaflet/dist/leaflet.css';
-  import { addBaseLayer } from '../lib/map-base';
+  import { addBaseLayer, whenUserIntent } from '../lib/map-base';
 
   type StopKind = 'stop' | 'wijnhuis' | 'slaap';
   type Stop = { n: number | null; kind: StopKind; naam: string; slug: string | null; lat: number; lng: number };
@@ -119,6 +119,7 @@ const mapData = {
     }
     if (!data.stops || data.stops.length < 2) return;
 
+    await whenUserIntent();
     const L = await loadLeaflet();
 
     const map = L.map(canvas, {
