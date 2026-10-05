@@ -581,8 +581,9 @@ function mapStreek(
         ogImage: ogImagePath,
         heroCredit: parseHeroCredit(r.hero_credit),
         status: String(r.status || 'draft'),
-        metaTitle: String(r.meta_title || r.name),
-        metaDescription: String(r.meta_description || r.description || ''),
+        // LAT-12575 — leeg laten bij ontbreken: de fallback (generator) zit in StreekDetail.
+        metaTitle: String(r.meta_title || '').trim(),
+        metaDescription: String(r.meta_description || '').trim(),
         bodyHtml,
         accommodaties: parseAccommodaties(r.accommodaties),
         wijnhuizen: parseWijnhuizen(r.wijnhuizen),
@@ -801,6 +802,7 @@ async function fetchStrekenItems(url: string, token: string): Promise<Record<str
 
 async function loadFromDirectus(url: string, token: string, locale: Locale): Promise<Streek[]> {
     const raw = await fetchStrekenItems(url, token);
+    const nlMeta = new Map(raw.map((r) => [String(r.id), { t: String(r.meta_title || ''), d: String(r.meta_description || '') }]));
     // LAT-2575 — EN: overlay native translations + no-translation-guard (streken
     // zonder EN-vertaling vallen weg → geen /en/-pagina). NL: ongewijzigd.
     const data = await localizeRecords(raw, {
@@ -810,6 +812,17 @@ async function loadFromDirectus(url: string, token: string, locale: Locale): Pro
         fields: STREKEN_TRANSLATABLE,
         locale,
     });
+    // LAT-12575 — de overlay slaat lege EN-velden over, dus een EN-rij zonder eigen
+    // meta_title/meta_description erft de NL-waarde. Een NL-titel op een /en/-pagina
+    // is fout: behandel een waarde gelijk aan de NL-basis als "niet vertaald".
+    if (locale !== DEFAULT_LOCALE) {
+        for (const r of data) {
+            const nl = nlMeta.get(String(r.id));
+            if (!nl) continue;
+            if (nl.t && String(r.meta_title || '') === nl.t) r.meta_title = '';
+            if (nl.d && String(r.meta_description || '') === nl.d) r.meta_description = '';
+        }
+    }
     // LAT-2697 — vertaal de gejoinde landnaam mee (anders lekt de NL-landnaam,
     // bv. "Italië", in de EN streek-meta-title "…, Wine region in Italië"). De
     // land-M2O wordt niet door localizeRecords geraakt (dat lokaliseert alleen
