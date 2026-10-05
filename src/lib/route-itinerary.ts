@@ -34,6 +34,8 @@ export interface ItineraryStop {
     foto: string | null;
     /** Directus file-UUID van `foto` (na build-resolve), sleutel voor de beeldcredit. */
     fotoId?: string | null;
+    /** Geverifieerde officiële website (extern). Leeg = kaartlink naar Google Maps. */
+    website: string | null;
 }
 
 export interface ItineraryOvernachting {
@@ -44,6 +46,8 @@ export interface ItineraryOvernachting {
     foto: string | null;
     /** Directus file-UUID van `foto` (na build-resolve), sleutel voor de beeldcredit. */
     fotoId?: string | null;
+    /** booking.com-property- of zoek-URL; leeg = zoeken op de naam. */
+    bookingUrl: string | null;
     /** Boekbaar → CTA op het nacht-blok. */
     boekbaar: boolean;
 }
@@ -98,7 +102,13 @@ function parseStop(row: unknown): ItineraryStop | null {
         why: asString(rec.why ?? rec.why_regel ?? rec.whyRegel),
         duur: asString(rec.duur ?? rec.duration),
         foto: asString(rec.foto ?? rec.image ?? rec.dam_image_ref),
+        website: asHttpUrl(rec.website ?? rec.url),
     };
+}
+
+function asHttpUrl(v: unknown): string | null {
+    const s = asString(v);
+    return s && /^https?:\/\//i.test(s) ? s : null;
 }
 
 function parseOvernachting(row: unknown): ItineraryOvernachting | null {
@@ -113,6 +123,7 @@ function parseOvernachting(row: unknown): ItineraryOvernachting | null {
         lat: asFiniteNumber(rec.lat),
         lng: asFiniteNumber(rec.lng),
         foto: asString(rec.foto ?? rec.image ?? rec.dam_image_ref),
+        bookingUrl: asHttpUrl(rec.booking_url ?? rec.bookingUrl),
         boekbaar: rec.boekbaar === true || rec.boekbaar === 'true' || rec.bookable === true,
     };
 }

@@ -113,6 +113,8 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'route.stop.overnachting': 'Overnachting',
     // {duur} wordt vervangen door de duur-string uit de itinerary-data.
     'route.stop.duur': 'Reken op {duur}.',
+    'route.stop.website': 'Website',
+    'route.stop.kaart': 'Op de kaart',
     'routegeo.label': 'Routekaart',
     'routegeo.aria.mapPre': 'Kaart van de route',
     'routegeo.legend.aria': 'Legenda',
@@ -914,6 +916,8 @@ export const UI_STRING_EN: Record<string, string> = {
     'route.stop.bezienswaardigheid': 'Sight',
     'route.stop.overnachting': 'Stay',
     'route.stop.duur': 'Allow {duur}.',
+    'route.stop.website': 'Website',
+    'route.stop.kaart': 'View on map',
     'route.daysAria': 'Days on this route',
     'route.leesPortret': 'Read the portrait',
     'routegeo.label': 'Route map',
