@@ -67,11 +67,15 @@ export function assertAssetAllowed(assetId: string | null | undefined): boolean 
 // leeg tot er een asset mét regiobewijs bestaat.
 const REGION_HERO_ALLOWLIST: Readonly<Record<string, string | null>> = {
     // 6 bewezen-foute streken, gecorrigeerd via LAT-2383 (sourcing) → LAT-2387 (upload):
-    rioja: '49f2644d-3102-4b1c-a0b9-346156ef683e', // Ken Case, Public Domain
+    // 2026-10-05: rioja/alentejo/vinho-verde kregen op 29-09 een 2K-opschaling van
+    // hetzelfde beeld (nieuw file-UUID); rueda kreeg een echte Commons-foto i.p.v.
+    // het AI-beeld. De allowlist stond nog op de oude UUID's, waardoor alle vier
+    // de streekpagina's (en hun kaarten op /streken/ en landpagina's) leeg renderden.
+    rioja: '4dbbeb26-bf0d-4da9-84b1-b9acde1060cd', // Ken Case, Public Domain (2K-opschaling van 49f2644d)
     'rias-baixas': 'a8b5d3db-7151-4686-889c-65d3dd786c5a', // jacilluch, CC BY-SA 2.0
     'ribera-del-duero': 'f3e3a8ec-ec48-4064-9f04-dd698d64efe5', // Pravdaverita, CC BY 3.0
-    alentejo: '852dee27-6b86-4b16-87b5-a99cb537d187', // Celestino Manuel, CC BY 2.0
-    'vinho-verde': '66cb57f5-c86e-443d-a499-7eca5f80d6a2', // alexandra vale, CC BY 2.0
+    alentejo: '35189a0c-085c-400d-af05-21e5d7ae5082', // Celestino Manuel, CC BY 2.0 (2K-opschaling van 852dee27)
+    'vinho-verde': '4f8d59ae-1c98-4016-aa00-19f07867056c', // alexandra vale, CC BY 2.0 (2K-opschaling van 66cb57f5)
     rhone: 'a2fcf3ec-1499-48be-a991-926c702653e1', // Ed Clayton, CC BY 2.0
     // LAT-2528/LAT-2537 (2026-07-16): de vier CC-streken kregen een geverifieerd
     // Wikimedia-regiobeeld (CC BY/BY-SA) via DAM-upload → allowlist gevuld.
@@ -83,7 +87,7 @@ const REGION_HERO_ALLOWLIST: Readonly<Record<string, string | null>> = {
     kamptal: 'cbb47e5b-6c75-427b-a67b-953f832a0dad', // Isiwal, CC BY-SA 4.0
     lisboa: '82fc7889-d456-4d1b-9165-e485cde9feb5', // Alexey Komarov, CC BY 4.0
     rheingau: '6b06f949-de31-4fa2-b2d7-80ad905c4956', // Gerda Arendt, CC BY-SA 4.0
-    rueda: 'e1ed309d-f731-4282-9677-62148668f451', // AI (gpt-image-2), eigen werk VinoMartino
+    rueda: '1164c9c0-1beb-4f56-9193-a8fbc6422878', // Carlosmartinmm34, CC BY-SA 4.0 (Commons, La Seca); vervangt het AI-beeld e1ed309d
 };
 
 /** True als deze streek onder allowlist-handhaving valt (Optie A, LAT-2379). */
