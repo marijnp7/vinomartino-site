@@ -32,6 +32,8 @@ export interface ItineraryStop {
     duur: string | null;
     /** DAM-fotoreferentie of pad. */
     foto: string | null;
+    /** Directus file-UUID van `foto` (na build-resolve), sleutel voor de beeldcredit. */
+    fotoId?: string | null;
 }
 
 export interface ItineraryOvernachting {
@@ -40,6 +42,8 @@ export interface ItineraryOvernachting {
     lat: number | null;
     lng: number | null;
     foto: string | null;
+    /** Directus file-UUID van `foto` (na build-resolve), sleutel voor de beeldcredit. */
+    fotoId?: string | null;
     /** Boekbaar → CTA op het nacht-blok. */
     boekbaar: boolean;
 }

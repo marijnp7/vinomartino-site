@@ -176,6 +176,23 @@ async function downloadAsset(assetId: string, directusUrl: string, token: string
     }
 }
 
+// Stop- en overnachtingsfoto's in de itinerary zijn Directus-file-UUID's. Zonder
+// deze stap belandde de kale UUID als src in de PoiCard en toonde elke stopkaart
+// een lege placeholder. Download ze net als hero's naar /images/routes/stop-<uuid>.jpg.
+const ITINERARY_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+async function resolveItineraryFotos(it: RouteItinerary, directusUrl: string, token: string): Promise<void> {
+    const resolve = async (o: { foto: string | null; fotoId?: string | null }) => {
+        const ref = o.foto?.trim();
+        if (!ref || !ITINERARY_UUID_RE.test(ref)) return;
+        o.fotoId = ref;
+        o.foto = await downloadAsset(ref, directusUrl, token, 'stop-');
+    };
+    for (const d of it.days) {
+        for (const s of d.stops) await resolve(s);
+        if (d.overnachting) await resolve(d.overnachting);
+    }
+}
+
 async function writeAssetDebug(pathTaken: string): Promise<void> {
     const { writeFileSync, mkdirSync } = await import('node:fs');
     const { join } = await import('node:path');
@@ -499,6 +516,7 @@ async function loadFromDirectus(url: string, token: string, locale: Locale): Pro
                 ? await downloadAsset(String(r.og_image), url, token, 'og-')
                 : null;
             const route = mapRoute(r, heroImagePath, ogImagePath, bodyHtml);
+            if (route.itinerary) await resolveItineraryFotos(route.itinerary, url, token);
             // Prefer canonieke M2O streek_id; val terug op de M2M-junction.
             const m2o = r.streek_id && typeof r.streek_id === 'object'
                 ? String((r.streek_id as Record<string, unknown>).slug || '')

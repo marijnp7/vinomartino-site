@@ -94,6 +94,9 @@ function stopToPoi(stop: ItineraryStop, pin: CardPin): PoiCardData {
   return {
     naam: stop.naam,
     foto: stop.foto,
+    fotoId: stop.fotoId ?? null,
+    // Geen eigen beeld → compacte kaart i.p.v. een lege placeholder.
+    hideMediaWhenEmpty: true,
     fotoTheme: stop.kind === 'wijnhuis' ? 'winery' : 'region',
     badge: KIND_LABEL[stop.kind],
     whyRegel: stop.why,
@@ -150,6 +153,8 @@ function stopToPoi(stop: ItineraryStop, pin: CardPin): PoiCardData {
               poi={{
                 naam: d.overnachting.naam,
                 foto: d.overnachting.foto,
+                fotoId: d.overnachting.fotoId ?? null,
+                hideMediaWhenEmpty: true,
                 fotoTheme: 'region',
                 badge: ui.t('route.stop.overnachting'),
                 boeklink: d.overnachting.boekbaar ? bookHref : null,
