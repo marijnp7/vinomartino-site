@@ -1,10 +1,10 @@
 {
-  "measuredAt": "2026-10-05T06:13:14Z",
+  "measuredAt": "2026-10-05T06:31:38Z",
   "base": "https://vinomartino.com",
   "lighthouse": "13.5.0",
   "formFactor": "mobile",
   "throttling": "simulate",
-  "runsPerTemplate": 3,
+  "runsPerTemplate": 1,
   "thresholds": {
     "performance": 85,
     "lcpMs": 2500
@@ -14,122 +14,2716 @@
     {
       "template": "home",
       "url": "https://vinomartino.com/",
-      "runs": 3,
-      "performance": 79,
-      "lcpMs": 5480,
-      "fcpMs": 1558,
-      "tbtMs": 0,
-      "cls": 0,
+      "runs": 1,
+      "performance": 82,
+      "lcpMs": 3182,
+      "fcpMs": 1738,
+      "tbtMs": 398,
+      "cls": 0.028,
       "perRunPerformance": [
-        74,
-        79,
-        79
+        82
       ],
       "perRunLcpMs": [
-        5619,
-        5480,
-        5463
-      ]
+        3182
+      ],
+      "diag": {
+        "audits": {
+          "lcp-breakdown-insight": {
+            "type": "list",
+            "items": [
+              {
+                "type": "table",
+                "headings": [
+                  {
+                    "key": "label",
+                    "valueType": "text",
+                    "label": "Subpart"
+                  },
+                  {
+                    "key": "duration",
+                    "valueType": "ms",
+                    "label": "Duration"
+                  }
+                ],
+                "items": [
+                  {
+                    "subpart": "timeToFirstByte",
+                    "label": "Time to first byte",
+                    "duration": 636.676
+                  },
+                  {
+                    "subpart": "resourceLoadDelay",
+                    "label": "Resource load delay",
+                    "duration": 119.767
+                  },
+                  {
+                    "subpart": "resourceLoadDuration",
+                    "label": "Resource load duration",
+                    "duration": 47.526
+                  },
+                  {
+                    "subpart": "elementRenderDelay",
+                    "label": "Element render delay",
+                    "duration": 758.396
+                  }
+                ]
+              },
+              {
+                "type": "node",
+                "lhId": "page-2-IMG",
+                "path": "1,HTML,1,BODY,2,MAIN,0,SECTION,0,DIV,0,PICTURE,2,IMG",
+                "selector": "section.hero > div.hero-media > picture > img",
+                "boundingRect": {
+                  "top": 49,
+                  "bottom": 797,
+                  "left": -8,
+                  "right": 420,
+                  "width": 428,
+                  "height": 747
+                },
+                "snippet": "<img src=\"https://vinomartino.com/images/landschap-piemonte-barolo-001.w1024.avif\" alt=\"Golden-hour wijngaardlandschap in de Langhe, pad door de vines richting Ba…\" width=\"1600\" height=\"1067\" fetchpriority=\"high\" decoding=\"async\" data-astro-cid-bobyx3ht=\"\" srcset=\"/images/landschap-piemonte-barolo-001.w640.jpg 640w, /images/landschap-pie…\" sizes=\"(min-width: 1200px) 1200px, 100vw\" loading=\"eager\">",
+                "nodeLabel": "Golden-hour wijngaardlandschap in de Langhe, pad door de vines richting Barolo,…"
+              }
+            ]
+          },
+          "lcp-discovery-insight": {
+            "type": "list",
+            "items": [
+              {
+                "type": "checklist",
+                "items": {
+                  "priorityHinted": {
+                    "label": "fetchpriority=high applied",
+                    "value": true
+                  },
+                  "requestDiscoverable": {
+                    "label": "Request is discoverable in initial document",
+                    "value": true
+                  },
+                  "eagerlyLoaded": {
+                    "label": "LCP resources should not use loading=lazy",
+                    "value": true
+                  }
+                }
+              },
+              {
+                "type": "node",
+                "lhId": "page-2-IMG",
+                "path": "1,HTML,1,BODY,2,MAIN,0,SECTION,0,DIV,0,PICTURE,2,IMG",
+                "selector": "section.hero > div.hero-media > picture > img",
+                "boundingRect": {
+                  "top": 49,
+                  "bottom": 797,
+                  "left": -8,
+                  "right": 420,
+                  "width": 428,
+                  "height": 747
+                },
+                "snippet": "<img src=\"https://vinomartino.com/images/landschap-piemonte-barolo-001.w1024.avif\" alt=\"Golden-hour wijngaardlandschap in de Langhe, pad door de vines richting Ba…\" width=\"1600\" height=\"1067\" fetchpriority=\"high\" decoding=\"async\" data-astro-cid-bobyx3ht=\"\" srcset=\"/images/landschap-piemonte-barolo-001.w640.jpg 640w, /images/landschap-pie…\" sizes=\"(min-width: 1200px) 1200px, 100vw\" loading=\"eager\">",
+                "nodeLabel": "Golden-hour wijngaardlandschap in de Langhe, pad door de vines richting Barolo,…"
+              }
+            ]
+          },
+          "render-blocking-insight": {
+            "type": "table",
+            "headings": [
+              {
+                "key": "url",
+                "valueType": "url",
+                "label": "URL"
+              },
+              {
+                "key": "totalBytes",
+                "valueType": "bytes",
+                "label": "Transfer Size"
+              },
+              {
+                "key": "wastedMs",
+                "valueType": "timespanMs",
+                "label": "Duration"
+              }
+            ],
+            "items": [
+              {
+                "url": "https://vinomartino.com/_astro/_streek_.DKCzTGCC.css",
+                "totalBytes": 5535,
+                "wastedMs": 150
+              },
+              {
+                "url": "https://vinomartino.com/_astro/maplibre-gl.DNVN2dqC.css",
+                "totalBytes": 10302,
+                "wastedMs": 150
+              },
+              {
+                "url": "https://vinomartino.com/_astro/index.DZxWcmBj.css",
+                "totalBytes": 1599
+              },
+              {
+                "url": "https://vinomartino.com/_astro/index.BAcyyrDJ.css",
+                "totalBytes": 3776
+              },
+              {
+                "url": "https://vinomartino.com/_astro/map-base.CIGW-MKW.css",
+                "totalBytes": 6976
+              }
+            ]
+          },
+          "network-dependency-tree-insight": {
+            "type": "list",
+            "items": [
+              {
+                "type": "list-section",
+                "value": {
+                  "type": "network-tree",
+                  "chains": {
+                    "EB99D41D7037663F9C24D85EC66F70E8": {
+                      "url": "https://vinomartino.com/",
+                      "navStartToEndTime": 853,
+                      "transferSize": 27987,
+                      "isLongest": true,
+                      "children": {
+                        "2261.42": {
+                          "url": "https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495",
+                          "navStartToEndTime": 960,
+                          "transferSize": 10338,
+                          "isLongest": true,
+                          "children": {
+                            "2261.90": {
+                              "url": "https://vinomartino.com/cdn-cgi/rum?",
+                              "navStartToEndTime": 2352,
+                              "transferSize": 454,
+                              "isLongest": true,
+                              "children": {}
+                            }
+                          }
+                        },
+                        "2261.7": {
+                          "url": "https://vinomartino.com/_astro/_streek_.DKCzTGCC.css",
+                          "navStartToEndTime": 1269,
+                          "transferSize": 5535,
+                          "children": {
+                            "2261.51": {
+                              "url": "https://vinomartino.com/fonts/cormorant-garamond-latin-abcaa8b4.woff2",
+                              "navStartToEndTime": 2325,
+                              "transferSize": 38168,
+                              "children": {}
+                            },
+                            "2261.69": {
+                              "url": "https://vinomartino.com/fonts/jetbrains-mono-latin-0a7197f9.woff2",
+                              "navStartToEndTime": 2144,
+                              "transferSize": 31965,
+                              "children": {}
+                            }
+                          }
+                        },
+                        "2261.41": {
+                          "url": "https://vinomartino.com/_astro/SiteLayout.astro_astro_type_script_index_0_lang.DR7MNdN4.js",
+                          "navStartToEndTime": 1532,
+                          "transferSize": 3281,
+                          "children": {}
+                        },
+                        "2261.28": {
+                          "url": "https://vinomartino.com/_astro/HomeRoutesMap.astro_astro_type_script_index_0_lang.C5Dz5s7C.js",
+                          "navStartToEndTime": 881,
+                          "transferSize": 2001,
+                          "children": {
+                            "2261.43": {
+                              "url": "https://vinomartino.com/_astro/map-base.BNdVDAQP.js",
+                              "navStartToEndTime": 910,
+                              "transferSize": 1663,
+                              "children": {}
+                            }
+                          }
+                        },
+                        "2261.40": {
+                          "url": "https://vinomartino.com/_astro/SearchDialog.astro_astro_type_script_index_0_lang.BBQ_5kfG.js",
+                          "navStartToEndTime": 899,
+                          "transferSize": 2886,
+                          "children": {}
+                        },
+                        "2261.18": {
+                          "url": "https://vinomartino.com/site.webmanifest",
+                          "navStartToEndTime": 876,
+                          "transferSize": 1220,
+                          "children": {}
+                        },
+                        "2261.6": {
+                          "url": "https://vinomartino.com/_astro/maplibre-gl.DNVN2dqC.css",
+                          "navStartToEndTime": 711,
+                          "transferSize": 10302,
+                          "children": {}
+                        },
+                        "2261.8": {
+                          "url": "https://vinomartino.com/_astro/index.DZxWcmBj.css",
+                          "navStartToEndTime": 711,
+                          "transferSize": 1599,
+                          "children": {}
+                        },
+                        "2261.9": {
+                          "url": "https://vinomartino.com/_astro/index.BAcyyrDJ.css",
+                          "navStartToEndTime": 710,
+                          "transferSize": 3776,
+                          "children": {}
+                        },
+                        "2261.5": {
+                          "url": "https://vinomartino.com/_astro/map-base.CIGW-MKW.css",
+                          "navStartToEndTime": 710,
+                          "transferSize": 6976,
+                          "children": {}
+                        }
+                      }
+                    }
+                  },
+                  "longestChain": {
+                    "duration": 2352
+                  }
+                }
+              },
+              {
+                "type": "list-section",
+                "title": "Preconnected origins",
+                "description": "[preconnect](https://developer.chrome.com/docs/lighthouse/performance/uses-rel-preconnect/) hints help the browser establish a connection earlier in the page load, saving time when the first request for that origin is made. The following are the origins that the page preconnected to.",
+                "value": {
+                  "type": "text",
+                  "value": "no origins were preconnected"
+                }
+              },
+              {
+                "type": "list-section",
+                "title": "Preconnect candidates",
+                "description": "Add [preconnect](https://developer.chrome.com/docs/lighthouse/performance/uses-rel-preconnect/) hints to your most important origins, but try to use no more than 4.",
+                "value": {
+                  "type": "text",
+                  "value": "No additional origins are good candidates for preconnecting"
+                }
+              }
+            ]
+          },
+          "unused-javascript": {
+            "type": "opportunity",
+            "headings": [],
+            "items": [],
+            "overallSavingsMs": 0,
+            "overallSavingsBytes": 0,
+            "sortedBy": [
+              "wastedBytes"
+            ],
+            "debugData": {
+              "type": "debugdata",
+              "metricSavings": {
+                "FCP": 0,
+                "LCP": 0
+              }
+            }
+          }
+        },
+        "topRequests": [
+          {
+            "url": "https://vinomartino.com/images/streken/f96be338-f32f-4f3c-b1d3-5cf8074a79f4.w1024.avif",
+            "kb": 134.6,
+            "start": 1531,
+            "end": 1567,
+            "priority": "Low",
+            "type": "Image"
+          },
+          {
+            "url": "https://vinomartino.com/fonts/source-serif-4-latin-167ee9c3.woff2",
+            "kb": 119.9,
+            "start": 675,
+            "end": 1499,
+            "priority": "High",
+            "type": "Font"
+          },
+          {
+            "url": "https://vinomartino.com/images/streken/09458d5b-6c2c-4704-a521-df9facda7329.w1024.avif",
+            "kb": 99.7,
+            "start": 1531,
+            "end": 1552,
+            "priority": "Low",
+            "type": "Image"
+          },
+          {
+            "url": "https://vinomartino.com/images/streken/e9925914-e38b-402e-87bb-bf6e1016c386.w1024.avif",
+            "kb": 92.2,
+            "start": 854,
+            "end": 886,
+            "priority": "Low",
+            "type": "Image"
+          },
+          {
+            "url": "https://vinomartino.com/images/landschap-piemonte-barolo-001.w1024.avif",
+            "kb": 82.2,
+            "start": 751,
+            "end": 799,
+            "priority": "High",
+            "type": "Image"
+          },
+          {
+            "url": "https://vinomartino.com/images/routes/792c9736-cb86-459d-ab1e-0baa5a0b2b4f.w1024.avif",
+            "kb": 81.4,
+            "start": 855,
+            "end": 896,
+            "priority": "Low",
+            "type": "Image"
+          },
+          {
+            "url": "https://vinomartino.com/images/routes/e40cf803-d659-4351-a503-c650bb89a704.w1024.avif",
+            "kb": 68.9,
+            "start": 855,
+            "end": 881,
+            "priority": "Low",
+            "type": "Image"
+          },
+          {
+            "url": "https://vinomartino.com/images/streken/da45be0a-9ceb-46d0-bf02-b51506cf3fd9.w1024.avif",
+            "kb": 52.2,
+            "start": 854,
+            "end": 887,
+            "priority": "Low",
+            "type": "Image"
+          },
+          {
+            "url": "https://vinomartino.com/fonts/inter-latin-6ab57b19.woff2",
+            "kb": 47.5,
+            "start": 676,
+            "end": 1333,
+            "priority": "High",
+            "type": "Font"
+          },
+          {
+            "url": "https://vinomartino.com/fonts/cormorant-garamond-latin-4db21dbf.woff2",
+            "kb": 38.7,
+            "start": 676,
+            "end": 1256,
+            "priority": "High",
+            "type": "Font"
+          },
+          {
+            "url": "https://vinomartino.com/fonts/cormorant-garamond-latin-abcaa8b4.woff2",
+            "kb": 37.3,
+            "start": 1533,
+            "end": 2324,
+            "priority": "VeryHigh",
+            "type": "Font"
+          },
+          {
+            "url": "https://vinomartino.com/fonts/jetbrains-mono-latin-0a7197f9.woff2",
+            "kb": 31.2,
+            "start": 1533,
+            "end": 2142,
+            "priority": "VeryHigh",
+            "type": "Font"
+          }
+        ]
+      }
     },
     {
       "template": "streek",
       "url": "https://vinomartino.com/streken/langhe-piemonte/",
-      "runs": 3,
-      "performance": 56,
-      "lcpMs": 4791,
-      "fcpMs": 1708,
-      "tbtMs": 1248,
+      "runs": 1,
+      "performance": 50,
+      "lcpMs": 8965,
+      "fcpMs": 4048,
+      "tbtMs": 452,
       "cls": 0,
       "perRunPerformance": [
-        39,
-        56,
-        57
+        50
       ],
       "perRunLcpMs": [
-        8401,
-        4791,
-        4600
-      ]
+        8965
+      ],
+      "diag": {
+        "audits": {
+          "lcp-breakdown-insight": {
+            "type": "list",
+            "items": [
+              {
+                "type": "table",
+                "headings": [
+                  {
+                    "key": "label",
+                    "valueType": "text",
+                    "label": "Subpart"
+                  },
+                  {
+                    "key": "duration",
+                    "valueType": "ms",
+                    "label": "Duration"
+                  }
+                ],
+                "items": [
+                  {
+                    "subpart": "timeToFirstByte",
+                    "label": "Time to first byte",
+                    "duration": 275.414
+                  },
+                  {
+                    "subpart": "resourceLoadDelay",
+                    "label": "Resource load delay",
+                    "duration": 108.712
+                  },
+                  {
+                    "subpart": "resourceLoadDuration",
+                    "label": "Resource load duration",
+                    "duration": 37.241
+                  },
+                  {
+                    "subpart": "elementRenderDelay",
+                    "label": "Element render delay",
+                    "duration": 2019.08
+                  }
+                ]
+              },
+              {
+                "type": "node",
+                "lhId": "page-0-IMG",
+                "path": "1,HTML,1,BODY,2,MAIN,0,ARTICLE,0,SECTION,1,FIGURE,0,PICTURE,2,IMG",
+                "selector": "section.streek-hero > figure.streek-hero-img-wrap > picture > img.streek-hero-img",
+                "boundingRect": {
+                  "top": 455,
+                  "bottom": 631,
+                  "left": 0,
+                  "right": 412,
+                  "width": 412,
+                  "height": 177
+                },
+                "snippet": "<img src=\"https://vinomartino.com/images/streken/09458d5b-6c2c-4704-a521-df9facda732…\" alt=\"Langhe\" class=\"streek-hero-img\" loading=\"eager\" fetchpriority=\"high\" data-astro-cid-t4mxo7xy=\"\" srcset=\"/images/streken/09458d5b-6c2c-4704-a521-df9facda7329.w640.jpg 640w, /image…\" sizes=\"(min-width: 1200px) 1200px, 100vw\" decoding=\"async\">",
+                "nodeLabel": "Langhe"
+              }
+            ]
+          },
+          "lcp-discovery-insight": {
+            "type": "list",
+            "items": [
+              {
+                "type": "checklist",
+                "items": {
+                  "priorityHinted": {
+                    "label": "fetchpriority=high applied",
+                    "value": true
+                  },
+                  "requestDiscoverable": {
+                    "label": "Request is discoverable in initial document",
+                    "value": true
+                  },
+                  "eagerlyLoaded": {
+                    "label": "LCP resources should not use loading=lazy",
+                    "value": true
+                  }
+                }
+              },
+              {
+                "type": "node",
+                "lhId": "page-0-IMG",
+                "path": "1,HTML,1,BODY,2,MAIN,0,ARTICLE,0,SECTION,1,FIGURE,0,PICTURE,2,IMG",
+                "selector": "section.streek-hero > figure.streek-hero-img-wrap > picture > img.streek-hero-img",
+                "boundingRect": {
+                  "top": 455,
+                  "bottom": 631,
+                  "left": 0,
+                  "right": 412,
+                  "width": 412,
+                  "height": 177
+                },
+                "snippet": "<img src=\"https://vinomartino.com/images/streken/09458d5b-6c2c-4704-a521-df9facda732…\" alt=\"Langhe\" class=\"streek-hero-img\" loading=\"eager\" fetchpriority=\"high\" data-astro-cid-t4mxo7xy=\"\" srcset=\"/images/streken/09458d5b-6c2c-4704-a521-df9facda7329.w640.jpg 640w, /image…\" sizes=\"(min-width: 1200px) 1200px, 100vw\" decoding=\"async\">",
+                "nodeLabel": "Langhe"
+              }
+            ]
+          },
+          "render-blocking-insight": {
+            "type": "table",
+            "headings": [
+              {
+                "key": "url",
+                "valueType": "url",
+                "label": "URL"
+              },
+              {
+                "key": "totalBytes",
+                "valueType": "bytes",
+                "label": "Transfer Size"
+              },
+              {
+                "key": "wastedMs",
+                "valueType": "timespanMs",
+                "label": "Duration"
+              }
+            ],
+            "items": [
+              {
+                "url": "https://vinomartino.com/_astro/_streek_.DKCzTGCC.css",
+                "totalBytes": 5593,
+                "wastedMs": 619
+              },
+              {
+                "url": "https://vinomartino.com/_astro/_slug_.DQBnlgSB.css",
+                "totalBytes": 4051,
+                "wastedMs": 619
+              },
+              {
+                "url": "https://vinomartino.com/_astro/_streek_.Gxhh2lF-.css",
+                "totalBytes": 1783,
+                "wastedMs": 467
+              },
+              {
+                "url": "https://vinomartino.com/_astro/map-base.CIGW-MKW.css",
+                "totalBytes": 7137,
+                "wastedMs": 467
+              },
+              {
+                "url": "https://vinomartino.com/_astro/_streek_.BRN1sMGG.css",
+                "totalBytes": 1465,
+                "wastedMs": 467
+              },
+              {
+                "url": "https://vinomartino.com/_astro/maplibre-gl.DNVN2dqC.css",
+                "totalBytes": 10577,
+                "wastedMs": 923
+              }
+            ]
+          },
+          "network-dependency-tree-insight": {
+            "type": "list",
+            "items": [
+              {
+                "type": "list-section",
+                "value": {
+                  "type": "network-tree",
+                  "chains": {
+                    "0F92946FB2155D6C3137AA4AEFD55F43": {
+                      "url": "https://vinomartino.com/streken/langhe-piemonte/",
+                      "navStartToEndTime": 492,
+                      "transferSize": 31470,
+                      "isLongest": true,
+                      "children": {
+                        "2497.44": {
+                          "url": "https://vinomartino.com/_astro/StreekKaart.astro_astro_type_script_index_0_lang.DpawFOwD.js",
+                          "navStartToEndTime": 506,
+                          "transferSize": 2548,
+                          "isLongest": true,
+                          "children": {
+                            "2497.51": {
+                              "url": "https://vinomartino.com/_astro/map-base.BNdVDAQP.js",
+                              "navStartToEndTime": 521,
+                              "transferSize": 1667,
+                              "isLongest": true,
+                              "children": {
+                                "2497.99": {
+                                  "url": "https://vinomartino.com/_astro/leaflet-src.BeTJ7FbR.js",
+                                  "navStartToEndTime": 1469,
+                                  "transferSize": 46876,
+                                  "isLongest": true,
+                                  "children": {
+                                    "2497.101": {
+                                      "url": "https://vinomartino.com/_astro/maplibre-gl.CPzEIX0i.js",
+                                      "navStartToEndTime": 1523,
+                                      "transferSize": 292300,
+                                      "isLongest": true,
+                                      "children": {
+                                        "2497.113": {
+                                          "url": "https://tiles.openfreemap.org/fonts/Noto%20Sans%20Italic/0-255.pbf",
+                                          "navStartToEndTime": 2611,
+                                          "transferSize": 48162,
+                                          "isLongest": true,
+                                          "children": {}
+                                        },
+                                        "2497.114": {
+                                          "url": "https://tiles.openfreemap.org/fonts/Noto%20Sans%20Regular/0-255.pbf",
+                                          "navStartToEndTime": 2610,
+                                          "transferSize": 43194,
+                                          "children": {}
+                                        },
+                                        "2497.106": {
+                                          "url": "https://tiles.openfreemap.org/sprites/ofm_f384/ofm@2x.json",
+                                          "navStartToEndTime": 1642,
+                                          "transferSize": 4045,
+                                          "children": {}
+                                        },
+                                        "2497.105": {
+                                          "url": "https://tiles.openfreemap.org/planet",
+                                          "navStartToEndTime": 1634,
+                                          "transferSize": 2387,
+                                          "children": {}
+                                        }
+                                      }
+                                    },
+                                    "2497.102": {
+                                      "url": "https://vinomartino.com/_astro/leaflet-maplibre-gl.Dmow_MPC.js",
+                                      "navStartToEndTime": 1494,
+                                      "transferSize": 2446,
+                                      "children": {
+                                        "2497.103": {
+                                          "url": "https://tiles.openfreemap.org/styles/positron",
+                                          "navStartToEndTime": 1604,
+                                          "transferSize": 4151,
+                                          "children": {}
+                                        }
+                                      }
+                                    }
+                                  }
+                                },
+                                "2497.100": {
+                                  "url": "https://vinomartino.com/_astro/_commonjsHelpers.CqkleIqs.js",
+                                  "navStartToEndTime": 1464,
+                                  "transferSize": 630,
+                                  "children": {}
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "2497.50": {
+                          "url": "https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495",
+                          "navStartToEndTime": 549,
+                          "transferSize": 10338,
+                          "children": {
+                            "2497.108": {
+                              "url": "https://vinomartino.com/cdn-cgi/rum?",
+                              "navStartToEndTime": 1767,
+                              "transferSize": 448,
+                              "children": {}
+                            }
+                          }
+                        },
+                        "2497.7": {
+                          "url": "https://vinomartino.com/_astro/_streek_.DKCzTGCC.css",
+                          "navStartToEndTime": 868,
+                          "transferSize": 5593,
+                          "children": {
+                            "2497.85": {
+                              "url": "https://vinomartino.com/fonts/source-serif-4-latin-3fee470f.woff2",
+                              "navStartToEndTime": 1742,
+                              "transferSize": 130735,
+                              "children": {}
+                            },
+                            "2497.59": {
+                              "url": "https://vinomartino.com/fonts/cormorant-garamond-latin-abcaa8b4.woff2",
+                              "navStartToEndTime": 924,
+                              "transferSize": 38169,
+                              "children": {}
+                            },
+                            "2497.77": {
+                              "url": "https://vinomartino.com/fonts/jetbrains-mono-latin-0a7197f9.woff2",
+                              "navStartToEndTime": 923,
+                              "transferSize": 31966,
+                              "children": {}
+                            }
+                          }
+                        },
+                        "2497.49": {
+                          "url": "https://vinomartino.com/_astro/SiteLayout.astro_astro_type_script_index_0_lang.DR7MNdN4.js",
+                          "navStartToEndTime": 538,
+                          "transferSize": 3280,
+                          "children": {}
+                        },
+                        "2497.48": {
+                          "url": "https://vinomartino.com/_astro/SearchDialog.astro_astro_type_script_index_0_lang.BBQ_5kfG.js",
+                          "navStartToEndTime": 511,
+                          "transferSize": 2883,
+                          "children": {}
+                        },
+                        "2497.20": {
+                          "url": "https://vinomartino.com/site.webmanifest",
+                          "navStartToEndTime": 490,
+                          "transferSize": 1224,
+                          "children": {}
+                        },
+                        "2497.9": {
+                          "url": "https://vinomartino.com/_astro/_slug_.DQBnlgSB.css",
+                          "navStartToEndTime": 328,
+                          "transferSize": 4051,
+                          "children": {}
+                        },
+                        "2497.10": {
+                          "url": "https://vinomartino.com/_astro/_streek_.Gxhh2lF-.css",
+                          "navStartToEndTime": 327,
+                          "transferSize": 1783,
+                          "children": {}
+                        },
+                        "2497.5": {
+                          "url": "https://vinomartino.com/_astro/map-base.CIGW-MKW.css",
+                          "navStartToEndTime": 324,
+                          "transferSize": 7137,
+                          "children": {}
+                        },
+                        "2497.8": {
+                          "url": "https://vinomartino.com/_astro/_streek_.BRN1sMGG.css",
+                          "navStartToEndTime": 318,
+                          "transferSize": 1465,
+                          "children": {}
+                        },
+                        "2497.6": {
+                          "url": "https://vinomartino.com/_astro/maplibre-gl.DNVN2dqC.css",
+                          "navStartToEndTime": 313,
+                          "transferSize": 10577,
+                          "children": {}
+                        }
+                      }
+                    }
+                  },
+                  "longestChain": {
+                    "duration": 2611
+                  }
+                }
+              },
+              {
+                "type": "list-section",
+                "title": "Preconnected origins",
+                "description": "[preconnect](https://developer.chrome.com/docs/lighthouse/performance/uses-rel-preconnect/) hints help the browser establish a connection earlier in the page load, saving time when the first request for that origin is made. The following are the origins that the page preconnected to.",
+                "value": {
+                  "type": "text",
+                  "value": "no origins were preconnected"
+                }
+              },
+              {
+                "type": "list-section",
+                "title": "Preconnect candidates",
+                "description": "Add [preconnect](https://developer.chrome.com/docs/lighthouse/performance/uses-rel-preconnect/) hints to your most important origins, but try to use no more than 4.",
+                "value": {
+                  "type": "table",
+                  "headings": [
+                    {
+                      "key": "origin",
+                      "valueType": "text",
+                      "label": "Origin"
+                    },
+                    {
+                      "key": "wastedMs",
+                      "valueType": "ms",
+                      "label": "Est LCP savings"
+                    }
+                  ],
+                  "items": [
+                    {
+                      "origin": "https://tiles.openfreemap.org",
+                      "wastedMs": 305.752
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "unused-javascript": {
+            "type": "opportunity",
+            "headings": [
+              {
+                "key": "url",
+                "valueType": "url",
+                "subItemsHeading": {
+                  "key": "source",
+                  "valueType": "code"
+                },
+                "label": "URL"
+              },
+              {
+                "key": "totalBytes",
+                "valueType": "bytes",
+                "subItemsHeading": {
+                  "key": "sourceBytes"
+                },
+                "label": "Transfer Size"
+              },
+              {
+                "key": "wastedBytes",
+                "valueType": "bytes",
+                "subItemsHeading": {
+                  "key": "sourceWastedBytes"
+                },
+                "label": "Est Savings"
+              }
+            ],
+            "items": [
+              {
+                "url": "https://vinomartino.com/_astro/maplibre-gl.CPzEIX0i.js",
+                "totalBytes": 291713,
+                "wastedBytes": 176096,
+                "wastedPercent": 60.36609391897473
+              },
+              {
+                "url": "https://scripts.stay22.com/letmeallez.js",
+                "totalBytes": 92206,
+                "wastedBytes": 58104,
+                "wastedPercent": 63.01539523380433
+              },
+              {
+                "url": "https://vinomartino.com/_astro/leaflet-src.BeTJ7FbR.js",
+                "totalBytes": 46364,
+                "wastedBytes": 31488,
+                "wastedPercent": 67.91473426088811
+              }
+            ],
+            "overallSavingsMs": 1220,
+            "overallSavingsBytes": 265688,
+            "sortedBy": [
+              "wastedBytes"
+            ],
+            "debugData": {
+              "type": "debugdata",
+              "metricSavings": {
+                "FCP": 0,
+                "LCP": 1220
+              }
+            }
+          }
+        },
+        "topRequests": [
+          {
+            "url": "https://vinomartino.com/_astro/maplibre-gl.CPzEIX0i.js",
+            "kb": 285.4,
+            "start": 1477,
+            "end": 1506,
+            "priority": "High",
+            "type": "Script"
+          },
+          {
+            "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/9/267/185.pbf",
+            "kb": 166.6,
+            "start": 2454,
+            "end": 2483,
+            "priority": "High",
+            "type": "Fetch"
+          },
+          {
+            "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/9/267/184.pbf",
+            "kb": 130.1,
+            "start": 2453,
+            "end": 2479,
+            "priority": "High",
+            "type": "Fetch"
+          },
+          {
+            "url": "https://vinomartino.com/fonts/source-serif-4-latin-3fee470f.woff2",
+            "kb": 127.7,
+            "start": 906,
+            "end": 1739,
+            "priority": "VeryHigh",
+            "type": "Font"
+          },
+          {
+            "url": "https://vinomartino.com/fonts/source-serif-4-latin-167ee9c3.woff2",
+            "kb": 120,
+            "start": 284,
+            "end": 1142,
+            "priority": "High",
+            "type": "Font"
+          },
+          {
+            "url": "https://tiles.openfreemap.org/sprites/ofm_f384/ofm@2x.png",
+            "kb": 116.7,
+            "start": 1619,
+            "end": 1647,
+            "priority": "High",
+            "type": "Fetch"
+          },
+          {
+            "url": "https://vinomartino.com/images/streken/09458d5b-6c2c-4704-a521-df9facda7329.w1024.avif",
+            "kb": 99.7,
+            "start": 384,
+            "end": 421,
+            "priority": "High",
+            "type": "Image"
+          },
+          {
+            "url": "https://vinomartino.com/images/wijnhuizen/09458d5b-6c2c-4704-a521-df9facda7329.w1024.avif",
+            "kb": 99.7,
+            "start": 1443,
+            "end": 1469,
+            "priority": "Low",
+            "type": "Image"
+          },
+          {
+            "url": "https://scripts.stay22.com/letmeallez.js",
+            "kb": 90.6,
+            "start": 2887,
+            "end": 2956,
+            "priority": "Low",
+            "type": "Script"
+          },
+          {
+            "url": "https://vinomartino.com/images/wijnhuizen/beb7826e-a863-431f-92f3-1ceda4137e4e.w1024.avif",
+            "kb": 67.4,
+            "start": 1442,
+            "end": 1467,
+            "priority": "Low",
+            "type": "Image"
+          },
+          {
+            "url": "https://vinomartino.com/images/wijnhuizen/ae1786ee-ad22-48a0-9ecd-9a89880158d8.w1024.avif",
+            "kb": 62.2,
+            "start": 1443,
+            "end": 1470,
+            "priority": "Low",
+            "type": "Image"
+          },
+          {
+            "url": "https://vinomartino.com/fonts/inter-latin-6ab57b19.woff2",
+            "kb": 47.6,
+            "start": 285,
+            "end": 1020,
+            "priority": "High",
+            "type": "Font"
+          }
+        ]
+      }
     },
     {
       "template": "artikel",
       "url": "https://vinomartino.com/artikelen/waar-slapen-langhe-piemonte/",
-      "runs": 3,
-      "performance": 85,
-      "lcpMs": 4166,
-      "fcpMs": 1701,
+      "runs": 1,
+      "performance": 92,
+      "lcpMs": 3175,
+      "fcpMs": 1745,
       "tbtMs": 0,
       "cls": 0,
       "perRunPerformance": [
-        82,
-        85,
-        86
+        92
       ],
       "perRunLcpMs": [
-        4526,
-        4166,
-        4145
-      ]
+        3175
+      ],
+      "diag": {
+        "audits": {
+          "lcp-breakdown-insight": {
+            "type": "list",
+            "items": [
+              {
+                "type": "table",
+                "headings": [
+                  {
+                    "key": "label",
+                    "valueType": "text",
+                    "label": "Subpart"
+                  },
+                  {
+                    "key": "duration",
+                    "valueType": "ms",
+                    "label": "Duration"
+                  }
+                ],
+                "items": [
+                  {
+                    "subpart": "timeToFirstByte",
+                    "label": "Time to first byte",
+                    "duration": 589.747
+                  },
+                  {
+                    "subpart": "resourceLoadDelay",
+                    "label": "Resource load delay",
+                    "duration": 104.295
+                  },
+                  {
+                    "subpart": "resourceLoadDuration",
+                    "label": "Resource load duration",
+                    "duration": 18.751
+                  },
+                  {
+                    "subpart": "elementRenderDelay",
+                    "label": "Element render delay",
+                    "duration": 31.347
+                  }
+                ]
+              },
+              {
+                "type": "node",
+                "lhId": "page-0-IMG",
+                "path": "1,HTML,1,BODY,2,MAIN,0,ARTICLE,0,FIGURE,0,PICTURE,2,IMG",
+                "selector": "article.article-page > figure.article-hero > picture > img.article-hero-img",
+                "boundingRect": {
+                  "top": 63,
+                  "bottom": 433,
+                  "left": 0,
+                  "right": 412,
+                  "width": 412,
+                  "height": 370
+                },
+                "snippet": "<img src=\"https://vinomartino.com/images/articles/97bc9bcb-1af3-4f16-9d69-2ccf90661b…\" alt=\"Waar slapen in de Langhe - van agriturismo tot wine estate\" class=\"article-hero-img\" loading=\"eager\" fetchpriority=\"high\" data-astro-cid-tooj2qcn=\"\" srcset=\"/images/articles/97bc9bcb-1af3-4f16-9d69-2ccf90661b55.w640.jpg 640w, /imag…\" sizes=\"(min-width: 1200px) 1200px, 100vw\" decoding=\"async\">",
+                "nodeLabel": "Waar slapen in de Langhe - van agriturismo tot wine estate"
+              }
+            ]
+          },
+          "lcp-discovery-insight": {
+            "type": "list",
+            "items": [
+              {
+                "type": "checklist",
+                "items": {
+                  "priorityHinted": {
+                    "label": "fetchpriority=high applied",
+                    "value": true
+                  },
+                  "requestDiscoverable": {
+                    "label": "Request is discoverable in initial document",
+                    "value": true
+                  },
+                  "eagerlyLoaded": {
+                    "label": "LCP resources should not use loading=lazy",
+                    "value": true
+                  }
+                }
+              },
+              {
+                "type": "node",
+                "lhId": "page-0-IMG",
+                "path": "1,HTML,1,BODY,2,MAIN,0,ARTICLE,0,FIGURE,0,PICTURE,2,IMG",
+                "selector": "article.article-page > figure.article-hero > picture > img.article-hero-img",
+                "boundingRect": {
+                  "top": 63,
+                  "bottom": 433,
+                  "left": 0,
+                  "right": 412,
+                  "width": 412,
+                  "height": 370
+                },
+                "snippet": "<img src=\"https://vinomartino.com/images/articles/97bc9bcb-1af3-4f16-9d69-2ccf90661b…\" alt=\"Waar slapen in de Langhe - van agriturismo tot wine estate\" class=\"article-hero-img\" loading=\"eager\" fetchpriority=\"high\" data-astro-cid-tooj2qcn=\"\" srcset=\"/images/articles/97bc9bcb-1af3-4f16-9d69-2ccf90661b55.w640.jpg 640w, /imag…\" sizes=\"(min-width: 1200px) 1200px, 100vw\" decoding=\"async\">",
+                "nodeLabel": "Waar slapen in de Langhe - van agriturismo tot wine estate"
+              }
+            ]
+          },
+          "render-blocking-insight": {
+            "type": "table",
+            "headings": [
+              {
+                "key": "url",
+                "valueType": "url",
+                "label": "URL"
+              },
+              {
+                "key": "totalBytes",
+                "valueType": "bytes",
+                "label": "Transfer Size"
+              },
+              {
+                "key": "wastedMs",
+                "valueType": "timespanMs",
+                "label": "Duration"
+              }
+            ],
+            "items": [
+              {
+                "url": "https://vinomartino.com/_astro/maplibre-gl.DNVN2dqC.css",
+                "totalBytes": 10626,
+                "wastedMs": 802
+              },
+              {
+                "url": "https://vinomartino.com/_astro/_slug_.XJ_KobeO.css",
+                "totalBytes": 4824,
+                "wastedMs": 643
+              },
+              {
+                "url": "https://vinomartino.com/_astro/_streek_.DKCzTGCC.css",
+                "totalBytes": 5592,
+                "wastedMs": 643
+              },
+              {
+                "url": "https://vinomartino.com/_astro/_streek_.Gxhh2lF-.css",
+                "totalBytes": 1783,
+                "wastedMs": 484
+              },
+              {
+                "url": "https://vinomartino.com/_astro/_streek_.BRN1sMGG.css",
+                "totalBytes": 1464,
+                "wastedMs": 484
+              },
+              {
+                "url": "https://vinomartino.com/_astro/map-base.CIGW-MKW.css",
+                "totalBytes": 7128,
+                "wastedMs": 325
+              }
+            ]
+          },
+          "network-dependency-tree-insight": {
+            "type": "list",
+            "items": [
+              {
+                "type": "list-section",
+                "value": {
+                  "type": "network-tree",
+                  "chains": {
+                    "A47A3A39F1B7F52DFDA05589D31B6EFF": {
+                      "url": "https://vinomartino.com/artikelen/waar-slapen-langhe-piemonte/",
+                      "navStartToEndTime": 791,
+                      "transferSize": 24025,
+                      "isLongest": true,
+                      "children": {
+                        "2736.76": {
+                          "url": "https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495",
+                          "navStartToEndTime": 837,
+                          "transferSize": 10338,
+                          "isLongest": true,
+                          "children": {
+                            "2736.78": {
+                              "url": "https://vinomartino.com/cdn-cgi/rum?",
+                              "navStartToEndTime": 1648,
+                              "transferSize": 451,
+                              "isLongest": true,
+                              "children": {}
+                            }
+                          }
+                        },
+                        "2736.7": {
+                          "url": "https://vinomartino.com/_astro/_streek_.DKCzTGCC.css",
+                          "navStartToEndTime": 631,
+                          "transferSize": 5592,
+                          "children": {
+                            "2736.54": {
+                              "url": "https://vinomartino.com/fonts/source-serif-4-latin-3fee470f.woff2",
+                              "navStartToEndTime": 1620,
+                              "transferSize": 130734,
+                              "children": {}
+                            },
+                            "2736.28": {
+                              "url": "https://vinomartino.com/fonts/cormorant-garamond-latin-abcaa8b4.woff2",
+                              "navStartToEndTime": 1256,
+                              "transferSize": 38167,
+                              "children": {}
+                            },
+                            "2736.46": {
+                              "url": "https://vinomartino.com/fonts/jetbrains-mono-latin-0a7197f9.woff2",
+                              "navStartToEndTime": 1208,
+                              "transferSize": 31960,
+                              "children": {}
+                            }
+                          }
+                        },
+                        "2736.75": {
+                          "url": "https://vinomartino.com/_astro/SiteLayout.astro_astro_type_script_index_0_lang.DR7MNdN4.js",
+                          "navStartToEndTime": 1266,
+                          "transferSize": 3282,
+                          "children": {}
+                        },
+                        "2736.20": {
+                          "url": "https://vinomartino.com/site.webmanifest",
+                          "navStartToEndTime": 1104,
+                          "transferSize": 1220,
+                          "children": {}
+                        },
+                        "2736.74": {
+                          "url": "https://vinomartino.com/_astro/SearchDialog.astro_astro_type_script_index_0_lang.BBQ_5kfG.js",
+                          "navStartToEndTime": 810,
+                          "transferSize": 2880,
+                          "children": {}
+                        },
+                        "2736.6": {
+                          "url": "https://vinomartino.com/_astro/maplibre-gl.DNVN2dqC.css",
+                          "navStartToEndTime": 635,
+                          "transferSize": 10626,
+                          "children": {}
+                        },
+                        "2736.8": {
+                          "url": "https://vinomartino.com/_astro/_slug_.XJ_KobeO.css",
+                          "navStartToEndTime": 632,
+                          "transferSize": 4824,
+                          "children": {}
+                        },
+                        "2736.10": {
+                          "url": "https://vinomartino.com/_astro/_streek_.Gxhh2lF-.css",
+                          "navStartToEndTime": 630,
+                          "transferSize": 1783,
+                          "children": {}
+                        },
+                        "2736.9": {
+                          "url": "https://vinomartino.com/_astro/_streek_.BRN1sMGG.css",
+                          "navStartToEndTime": 629,
+                          "transferSize": 1464,
+                          "children": {}
+                        },
+                        "2736.5": {
+                          "url": "https://vinomartino.com/_astro/map-base.CIGW-MKW.css",
+                          "navStartToEndTime": 622,
+                          "transferSize": 7128,
+                          "children": {}
+                        }
+                      }
+                    }
+                  },
+                  "longestChain": {
+                    "duration": 1648
+                  }
+                }
+              },
+              {
+                "type": "list-section",
+                "title": "Preconnected origins",
+                "description": "[preconnect](https://developer.chrome.com/docs/lighthouse/performance/uses-rel-preconnect/) hints help the browser establish a connection earlier in the page load, saving time when the first request for that origin is made. The following are the origins that the page preconnected to.",
+                "value": {
+                  "type": "text",
+                  "value": "no origins were preconnected"
+                }
+              },
+              {
+                "type": "list-section",
+                "title": "Preconnect candidates",
+                "description": "Add [preconnect](https://developer.chrome.com/docs/lighthouse/performance/uses-rel-preconnect/) hints to your most important origins, but try to use no more than 4.",
+                "value": {
+                  "type": "text",
+                  "value": "No additional origins are good candidates for preconnecting"
+                }
+              }
+            ]
+          },
+          "unused-javascript": {
+            "type": "opportunity",
+            "headings": [],
+            "items": [],
+            "overallSavingsMs": 0,
+            "overallSavingsBytes": 0,
+            "sortedBy": [
+              "wastedBytes"
+            ],
+            "debugData": {
+              "type": "debugdata",
+              "metricSavings": {
+                "FCP": 0,
+                "LCP": 0
+              }
+            }
+          }
+        },
+        "topRequests": [
+          {
+            "url": "https://vinomartino.com/fonts/source-serif-4-latin-3fee470f.woff2",
+            "kb": 127.7,
+            "start": 729,
+            "end": 1617,
+            "priority": "VeryHigh",
+            "type": "Font"
+          },
+          {
+            "url": "https://vinomartino.com/fonts/source-serif-4-latin-167ee9c3.woff2",
+            "kb": 120,
+            "start": 597,
+            "end": 640,
+            "priority": "High",
+            "type": "Font"
+          },
+          {
+            "url": "https://vinomartino.com/fonts/inter-latin-6ab57b19.woff2",
+            "kb": 47.6,
+            "start": 599,
+            "end": 639,
+            "priority": "High",
+            "type": "Font"
+          },
+          {
+            "url": "https://vinomartino.com/images/articles/97bc9bcb-1af3-4f16-9d69-2ccf90661b55.w1024.avif",
+            "kb": 41.7,
+            "start": 694,
+            "end": 712,
+            "priority": "High",
+            "type": "Image"
+          },
+          {
+            "url": "https://vinomartino.com/fonts/cormorant-garamond-latin-4db21dbf.woff2",
+            "kb": 38.9,
+            "start": 599,
+            "end": 638,
+            "priority": "High",
+            "type": "Font"
+          },
+          {
+            "url": "https://vinomartino.com/fonts/cormorant-garamond-latin-abcaa8b4.woff2",
+            "kb": 37.3,
+            "start": 651,
+            "end": 1254,
+            "priority": "VeryHigh",
+            "type": "Font"
+          },
+          {
+            "url": "https://vinomartino.com/fonts/jetbrains-mono-latin-0a7197f9.woff2",
+            "kb": 31.2,
+            "start": 651,
+            "end": 1207,
+            "priority": "VeryHigh",
+            "type": "Font"
+          },
+          {
+            "url": "https://vinomartino.com/artikelen/waar-slapen-langhe-piemonte/",
+            "kb": 23.5,
+            "start": 1,
+            "end": 788,
+            "priority": "VeryHigh",
+            "type": "Document"
+          },
+          {
+            "url": "https://vinomartino.com/_astro/maplibre-gl.DNVN2dqC.css",
+            "kb": 10.4,
+            "start": 602,
+            "end": 634,
+            "priority": "VeryHigh",
+            "type": "Stylesheet"
+          },
+          {
+            "url": "https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495",
+            "kb": 10.1,
+            "start": 790,
+            "end": 836,
+            "priority": "High",
+            "type": "Script"
+          },
+          {
+            "url": "https://vinomartino.com/_astro/map-base.CIGW-MKW.css",
+            "kb": 7,
+            "start": 602,
+            "end": 621,
+            "priority": "VeryHigh",
+            "type": "Stylesheet"
+          },
+          {
+            "url": "https://vinomartino.com/_astro/_streek_.DKCzTGCC.css",
+            "kb": 5.5,
+            "start": 602,
+            "end": 630,
+            "priority": "VeryHigh",
+            "type": "Stylesheet"
+          }
+        ]
+      }
     },
     {
       "template": "artikel-grower",
       "url": "https://vinomartino.com/artikelen/grower-champagne-waarom-marijn-gestopt-is-met-grandes-marques/",
-      "runs": 3,
-      "performance": 82,
-      "lcpMs": 4747,
-      "fcpMs": 1701,
+      "runs": 1,
+      "performance": 77,
+      "lcpMs": 4779,
+      "fcpMs": 2947,
       "tbtMs": 0,
       "cls": 0,
       "perRunPerformance": [
-        82,
-        78,
-        82
+        77
       ],
       "perRunLcpMs": [
-        4747,
-        4628,
-        4800
-      ]
+        4779
+      ],
+      "diag": {
+        "audits": {
+          "lcp-breakdown-insight": {
+            "type": "list",
+            "items": [
+              {
+                "type": "table",
+                "headings": [
+                  {
+                    "key": "label",
+                    "valueType": "text",
+                    "label": "Subpart"
+                  },
+                  {
+                    "key": "duration",
+                    "valueType": "ms",
+                    "label": "Duration"
+                  }
+                ],
+                "items": [
+                  {
+                    "subpart": "timeToFirstByte",
+                    "label": "Time to first byte",
+                    "duration": 280.133
+                  },
+                  {
+                    "subpart": "resourceLoadDelay",
+                    "label": "Resource load delay",
+                    "duration": 114.445
+                  },
+                  {
+                    "subpart": "resourceLoadDuration",
+                    "label": "Resource load duration",
+                    "duration": 16.29
+                  },
+                  {
+                    "subpart": "elementRenderDelay",
+                    "label": "Element render delay",
+                    "duration": 1027.025
+                  }
+                ]
+              },
+              {
+                "type": "node",
+                "lhId": "page-0-IMG",
+                "path": "1,HTML,1,BODY,2,MAIN,0,ARTICLE,0,FIGURE,0,PICTURE,2,IMG",
+                "selector": "article.article-page > figure.article-hero > picture > img.article-hero-img",
+                "boundingRect": {
+                  "top": 63,
+                  "bottom": 433,
+                  "left": 0,
+                  "right": 412,
+                  "width": 412,
+                  "height": 370
+                },
+                "snippet": "<img src=\"https://vinomartino.com/images/articles/f0a145b6-4d05-4c40-a2d9-7c9b3f361b…\" alt=\"Grower Champagne: waarom Marijn gestopt is met grandes marques\" class=\"article-hero-img\" loading=\"eager\" fetchpriority=\"high\" data-astro-cid-tooj2qcn=\"\" srcset=\"/images/articles/f0a145b6-4d05-4c40-a2d9-7c9b3f361bac.w640.jpg 640w, /imag…\" sizes=\"(min-width: 1200px) 1200px, 100vw\" decoding=\"async\">",
+                "nodeLabel": "Grower Champagne: waarom Marijn gestopt is met grandes marques"
+              }
+            ]
+          },
+          "lcp-discovery-insight": {
+            "type": "list",
+            "items": [
+              {
+                "type": "checklist",
+                "items": {
+                  "priorityHinted": {
+                    "label": "fetchpriority=high applied",
+                    "value": true
+                  },
+                  "requestDiscoverable": {
+                    "label": "Request is discoverable in initial document",
+                    "value": true
+                  },
+                  "eagerlyLoaded": {
+                    "label": "LCP resources should not use loading=lazy",
+                    "value": true
+                  }
+                }
+              },
+              {
+                "type": "node",
+                "lhId": "page-0-IMG",
+                "path": "1,HTML,1,BODY,2,MAIN,0,ARTICLE,0,FIGURE,0,PICTURE,2,IMG",
+                "selector": "article.article-page > figure.article-hero > picture > img.article-hero-img",
+                "boundingRect": {
+                  "top": 63,
+                  "bottom": 433,
+                  "left": 0,
+                  "right": 412,
+                  "width": 412,
+                  "height": 370
+                },
+                "snippet": "<img src=\"https://vinomartino.com/images/articles/f0a145b6-4d05-4c40-a2d9-7c9b3f361b…\" alt=\"Grower Champagne: waarom Marijn gestopt is met grandes marques\" class=\"article-hero-img\" loading=\"eager\" fetchpriority=\"high\" data-astro-cid-tooj2qcn=\"\" srcset=\"/images/articles/f0a145b6-4d05-4c40-a2d9-7c9b3f361bac.w640.jpg 640w, /imag…\" sizes=\"(min-width: 1200px) 1200px, 100vw\" decoding=\"async\">",
+                "nodeLabel": "Grower Champagne: waarom Marijn gestopt is met grandes marques"
+              }
+            ]
+          },
+          "render-blocking-insight": {
+            "type": "table",
+            "headings": [
+              {
+                "key": "url",
+                "valueType": "url",
+                "label": "URL"
+              },
+              {
+                "key": "totalBytes",
+                "valueType": "bytes",
+                "label": "Transfer Size"
+              },
+              {
+                "key": "wastedMs",
+                "valueType": "timespanMs",
+                "label": "Duration"
+              }
+            ],
+            "items": [
+              {
+                "url": "https://vinomartino.com/_astro/_slug_.XJ_KobeO.css",
+                "totalBytes": 4832,
+                "wastedMs": 628
+              },
+              {
+                "url": "https://vinomartino.com/_astro/maplibre-gl.DNVN2dqC.css",
+                "totalBytes": 10516,
+                "wastedMs": 781
+              },
+              {
+                "url": "https://vinomartino.com/_astro/_streek_.Gxhh2lF-.css",
+                "totalBytes": 1785,
+                "wastedMs": 475
+              },
+              {
+                "url": "https://vinomartino.com/_astro/map-base.CIGW-MKW.css",
+                "totalBytes": 7131,
+                "wastedMs": 323
+              },
+              {
+                "url": "https://vinomartino.com/_astro/_streek_.BRN1sMGG.css",
+                "totalBytes": 1466,
+                "wastedMs": 475
+              },
+              {
+                "url": "https://vinomartino.com/_astro/_streek_.DKCzTGCC.css",
+                "totalBytes": 5595,
+                "wastedMs": 628
+              }
+            ]
+          },
+          "network-dependency-tree-insight": {
+            "type": "list",
+            "items": [
+              {
+                "type": "list-section",
+                "value": {
+                  "type": "network-tree",
+                  "chains": {
+                    "827B0617CAE36DDCF8A59046444D29D7": {
+                      "url": "https://vinomartino.com/artikelen/grower-champagne-waarom-marijn-gestopt-is-met-grandes-marques/",
+                      "navStartToEndTime": 399,
+                      "transferSize": 21269,
+                      "isLongest": true,
+                      "children": {
+                        "2928.33": {
+                          "url": "https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495",
+                          "navStartToEndTime": 438,
+                          "transferSize": 10338,
+                          "isLongest": true,
+                          "children": {
+                            "2928.77": {
+                              "url": "https://vinomartino.com/cdn-cgi/rum?",
+                              "navStartToEndTime": 529,
+                              "transferSize": 456,
+                              "isLongest": true,
+                              "children": {}
+                            }
+                          }
+                        },
+                        "2928.7": {
+                          "url": "https://vinomartino.com/_astro/_streek_.DKCzTGCC.css",
+                          "navStartToEndTime": 309,
+                          "transferSize": 5595,
+                          "children": {
+                            "2928.67": {
+                              "url": "https://vinomartino.com/fonts/source-serif-4-latin-3fee470f.woff2",
+                              "navStartToEndTime": 508,
+                              "transferSize": 130739,
+                              "children": {}
+                            },
+                            "2928.59": {
+                              "url": "https://vinomartino.com/fonts/jetbrains-mono-latin-0a7197f9.woff2",
+                              "navStartToEndTime": 489,
+                              "transferSize": 31959,
+                              "children": {}
+                            },
+                            "2928.41": {
+                              "url": "https://vinomartino.com/fonts/cormorant-garamond-latin-abcaa8b4.woff2",
+                              "navStartToEndTime": 489,
+                              "transferSize": 38167,
+                              "children": {}
+                            }
+                          }
+                        },
+                        "2928.18": {
+                          "url": "https://vinomartino.com/site.webmanifest",
+                          "navStartToEndTime": 476,
+                          "transferSize": 1221,
+                          "children": {}
+                        },
+                        "2928.31": {
+                          "url": "https://vinomartino.com/_astro/SearchDialog.astro_astro_type_script_index_0_lang.BBQ_5kfG.js",
+                          "navStartToEndTime": 438,
+                          "transferSize": 2881,
+                          "children": {}
+                        },
+                        "2928.19": {
+                          "url": "https://vinomartino.com/_astro/_streek_.Gxhh2lF-.css",
+                          "navStartToEndTime": 428,
+                          "transferSize": 1785,
+                          "children": {}
+                        },
+                        "2928.32": {
+                          "url": "https://vinomartino.com/_astro/SiteLayout.astro_astro_type_script_index_0_lang.DR7MNdN4.js",
+                          "navStartToEndTime": 416,
+                          "transferSize": 3281,
+                          "children": {}
+                        },
+                        "2928.8": {
+                          "url": "https://vinomartino.com/_astro/_slug_.XJ_KobeO.css",
+                          "navStartToEndTime": 328,
+                          "transferSize": 4832,
+                          "children": {}
+                        },
+                        "2928.6": {
+                          "url": "https://vinomartino.com/_astro/maplibre-gl.DNVN2dqC.css",
+                          "navStartToEndTime": 325,
+                          "transferSize": 10516,
+                          "children": {}
+                        },
+                        "2928.5": {
+                          "url": "https://vinomartino.com/_astro/map-base.CIGW-MKW.css",
+                          "navStartToEndTime": 322,
+                          "transferSize": 7131,
+                          "children": {}
+                        },
+                        "2928.9": {
+                          "url": "https://vinomartino.com/_astro/_streek_.BRN1sMGG.css",
+                          "navStartToEndTime": 319,
+                          "transferSize": 1466,
+                          "children": {}
+                        }
+                      }
+                    }
+                  },
+                  "longestChain": {
+                    "duration": 529
+                  }
+                }
+              },
+              {
+                "type": "list-section",
+                "title": "Preconnected origins",
+                "description": "[preconnect](https://developer.chrome.com/docs/lighthouse/performance/uses-rel-preconnect/) hints help the browser establish a connection earlier in the page load, saving time when the first request for that origin is made. The following are the origins that the page preconnected to.",
+                "value": {
+                  "type": "text",
+                  "value": "no origins were preconnected"
+                }
+              },
+              {
+                "type": "list-section",
+                "title": "Preconnect candidates",
+                "description": "Add [preconnect](https://developer.chrome.com/docs/lighthouse/performance/uses-rel-preconnect/) hints to your most important origins, but try to use no more than 4.",
+                "value": {
+                  "type": "text",
+                  "value": "No additional origins are good candidates for preconnecting"
+                }
+              }
+            ]
+          },
+          "unused-javascript": {
+            "type": "opportunity",
+            "headings": [],
+            "items": [],
+            "overallSavingsMs": 0,
+            "overallSavingsBytes": 0,
+            "sortedBy": [
+              "wastedBytes"
+            ],
+            "debugData": {
+              "type": "debugdata",
+              "metricSavings": {
+                "FCP": 0,
+                "LCP": 0
+              }
+            }
+          }
+        },
+        "topRequests": [
+          {
+            "url": "https://vinomartino.com/fonts/source-serif-4-latin-3fee470f.woff2",
+            "kb": 127.7,
+            "start": 472,
+            "end": 505,
+            "priority": "VeryHigh",
+            "type": "Font"
+          },
+          {
+            "url": "https://vinomartino.com/fonts/source-serif-4-latin-167ee9c3.woff2",
+            "kb": 120,
+            "start": 287,
+            "end": 326,
+            "priority": "High",
+            "type": "Font"
+          },
+          {
+            "url": "https://vinomartino.com/images/articles/f0a145b6-4d05-4c40-a2d9-7c9b3f361bac.w1024.avif",
+            "kb": 106,
+            "start": 394,
+            "end": 410,
+            "priority": "High",
+            "type": "Image"
+          },
+          {
+            "url": "https://vinomartino.com/fonts/inter-latin-6ab57b19.woff2",
+            "kb": 47.7,
+            "start": 288,
+            "end": 329,
+            "priority": "High",
+            "type": "Font"
+          },
+          {
+            "url": "https://vinomartino.com/fonts/cormorant-garamond-latin-4db21dbf.woff2",
+            "kb": 38.9,
+            "start": 288,
+            "end": 328,
+            "priority": "High",
+            "type": "Font"
+          },
+          {
+            "url": "https://vinomartino.com/fonts/cormorant-garamond-latin-abcaa8b4.woff2",
+            "kb": 37.3,
+            "start": 472,
+            "end": 487,
+            "priority": "VeryHigh",
+            "type": "Font"
+          },
+          {
+            "url": "https://vinomartino.com/fonts/jetbrains-mono-latin-0a7197f9.woff2",
+            "kb": 31.2,
+            "start": 472,
+            "end": 487,
+            "priority": "VeryHigh",
+            "type": "Font"
+          },
+          {
+            "url": "https://vinomartino.com/artikelen/grower-champagne-waarom-marijn-gestopt-is-met-grandes-marques/",
+            "kb": 20.8,
+            "start": 1,
+            "end": 398,
+            "priority": "VeryHigh",
+            "type": "Document"
+          },
+          {
+            "url": "https://vinomartino.com/_astro/maplibre-gl.DNVN2dqC.css",
+            "kb": 10.3,
+            "start": 292,
+            "end": 323,
+            "priority": "VeryHigh",
+            "type": "Stylesheet"
+          },
+          {
+            "url": "https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495",
+            "kb": 10.1,
+            "start": 400,
+            "end": 437,
+            "priority": "High",
+            "type": "Script"
+          },
+          {
+            "url": "https://vinomartino.com/_astro/map-base.CIGW-MKW.css",
+            "kb": 7,
+            "start": 292,
+            "end": 322,
+            "priority": "VeryHigh",
+            "type": "Stylesheet"
+          },
+          {
+            "url": "https://vinomartino.com/_astro/_streek_.DKCzTGCC.css",
+            "kb": 5.5,
+            "start": 292,
+            "end": 309,
+            "priority": "VeryHigh",
+            "type": "Stylesheet"
+          }
+        ]
+      }
     },
     {
       "template": "route",
       "url": "https://vinomartino.com/wijnroutes/mosel-bernkastel-traben-trarbach/",
-      "runs": 3,
-      "performance": 56,
-      "lcpMs": 4652,
-      "fcpMs": 1696,
-      "tbtMs": 1509,
+      "runs": 1,
+      "performance": 74,
+      "lcpMs": 4678,
+      "fcpMs": 1678,
+      "tbtMs": 336,
       "cls": 0,
       "perRunPerformance": [
-        54,
-        56,
-        56
+        74
       ],
       "perRunLcpMs": [
-        4652,
-        4768,
-        4633
-      ]
+        4678
+      ],
+      "diag": {
+        "audits": {
+          "lcp-breakdown-insight": {
+            "type": "list",
+            "items": [
+              {
+                "type": "table",
+                "headings": [
+                  {
+                    "key": "label",
+                    "valueType": "text",
+                    "label": "Subpart"
+                  },
+                  {
+                    "key": "duration",
+                    "valueType": "ms",
+                    "label": "Duration"
+                  }
+                ],
+                "items": [
+                  {
+                    "subpart": "timeToFirstByte",
+                    "label": "Time to first byte",
+                    "duration": 640.724
+                  },
+                  {
+                    "subpart": "resourceLoadDelay",
+                    "label": "Resource load delay",
+                    "duration": 114.602
+                  },
+                  {
+                    "subpart": "resourceLoadDuration",
+                    "label": "Resource load duration",
+                    "duration": 37.835
+                  },
+                  {
+                    "subpart": "elementRenderDelay",
+                    "label": "Element render delay",
+                    "duration": 24.362
+                  }
+                ]
+              },
+              {
+                "type": "node",
+                "lhId": "page-1-IMG",
+                "path": "1,HTML,1,BODY,2,MAIN,0,ARTICLE,0,DIV,0,PICTURE,2,IMG",
+                "selector": "article.route-page > div.page-hero > picture > img.page-hero-img",
+                "boundingRect": {
+                  "top": 63,
+                  "bottom": 433,
+                  "left": 0,
+                  "right": 412,
+                  "width": 412,
+                  "height": 370
+                },
+                "snippet": "<img src=\"https://vinomartino.com/images/routes/49e933ef-aaee-4a5b-94a3-a04b178c171f…\" alt=\"Mosel Route\" class=\"page-hero-img\" loading=\"eager\" fetchpriority=\"high\" data-astro-cid-ygeqcxkd=\"\" srcset=\"/images/routes/49e933ef-aaee-4a5b-94a3-a04b178c171f.w640.jpg 640w, /images…\" sizes=\"(min-width: 1200px) 1200px, 100vw\" decoding=\"async\">",
+                "nodeLabel": "Mosel Route"
+              }
+            ]
+          },
+          "lcp-discovery-insight": {
+            "type": "list",
+            "items": [
+              {
+                "type": "checklist",
+                "items": {
+                  "priorityHinted": {
+                    "label": "fetchpriority=high applied",
+                    "value": true
+                  },
+                  "requestDiscoverable": {
+                    "label": "Request is discoverable in initial document",
+                    "value": true
+                  },
+                  "eagerlyLoaded": {
+                    "label": "LCP resources should not use loading=lazy",
+                    "value": true
+                  }
+                }
+              },
+              {
+                "type": "node",
+                "lhId": "page-1-IMG",
+                "path": "1,HTML,1,BODY,2,MAIN,0,ARTICLE,0,DIV,0,PICTURE,2,IMG",
+                "selector": "article.route-page > div.page-hero > picture > img.page-hero-img",
+                "boundingRect": {
+                  "top": 63,
+                  "bottom": 433,
+                  "left": 0,
+                  "right": 412,
+                  "width": 412,
+                  "height": 370
+                },
+                "snippet": "<img src=\"https://vinomartino.com/images/routes/49e933ef-aaee-4a5b-94a3-a04b178c171f…\" alt=\"Mosel Route\" class=\"page-hero-img\" loading=\"eager\" fetchpriority=\"high\" data-astro-cid-ygeqcxkd=\"\" srcset=\"/images/routes/49e933ef-aaee-4a5b-94a3-a04b178c171f.w640.jpg 640w, /images…\" sizes=\"(min-width: 1200px) 1200px, 100vw\" decoding=\"async\">",
+                "nodeLabel": "Mosel Route"
+              }
+            ]
+          },
+          "render-blocking-insight": {
+            "type": "table",
+            "headings": [
+              {
+                "key": "url",
+                "valueType": "url",
+                "label": "URL"
+              },
+              {
+                "key": "totalBytes",
+                "valueType": "bytes",
+                "label": "Transfer Size"
+              },
+              {
+                "key": "wastedMs",
+                "valueType": "timespanMs",
+                "label": "Duration"
+              }
+            ],
+            "items": [
+              {
+                "url": "https://vinomartino.com/_astro/maplibre-gl.DNVN2dqC.css",
+                "totalBytes": 10570,
+                "wastedMs": 764
+              },
+              {
+                "url": "https://vinomartino.com/_astro/_slug_.RwGHbxHM.css",
+                "totalBytes": 4174,
+                "wastedMs": 464
+              },
+              {
+                "url": "https://vinomartino.com/_astro/_streek_.BRN1sMGG.css",
+                "totalBytes": 1467,
+                "wastedMs": 464
+              },
+              {
+                "url": "https://vinomartino.com/_astro/_streek_.DKCzTGCC.css",
+                "totalBytes": 5590,
+                "wastedMs": 614
+              },
+              {
+                "url": "https://vinomartino.com/_astro/_streek_.Gxhh2lF-.css",
+                "totalBytes": 1792,
+                "wastedMs": 464
+              },
+              {
+                "url": "https://vinomartino.com/_astro/map-base.CIGW-MKW.css",
+                "totalBytes": 7138,
+                "wastedMs": 314
+              }
+            ]
+          },
+          "network-dependency-tree-insight": {
+            "type": "list",
+            "items": [
+              {
+                "type": "list-section",
+                "value": {
+                  "type": "network-tree",
+                  "chains": {
+                    "E038A62DE6A6E51CEC055041854FD961": {
+                      "url": "https://vinomartino.com/wijnroutes/mosel-bernkastel-traben-trarbach/",
+                      "navStartToEndTime": 756,
+                      "transferSize": 16251,
+                      "isLongest": true,
+                      "children": {
+                        "3132.64": {
+                          "url": "https://vinomartino.com/_astro/RouteGeoMap.astro_astro_type_script_index_0_lang.pscg8oT-.js",
+                          "navStartToEndTime": 803,
+                          "transferSize": 2199,
+                          "isLongest": true,
+                          "children": {
+                            "3132.71": {
+                              "url": "https://vinomartino.com/_astro/map-base.BNdVDAQP.js",
+                              "navStartToEndTime": 821,
+                              "transferSize": 1663,
+                              "isLongest": true,
+                              "children": {
+                                "3132.75": {
+                                  "url": "https://vinomartino.com/_astro/leaflet-src.BeTJ7FbR.js",
+                                  "navStartToEndTime": 856,
+                                  "transferSize": 46953,
+                                  "isLongest": true,
+                                  "children": {
+                                    "3132.78": {
+                                      "url": "https://vinomartino.com/_astro/maplibre-gl.CPzEIX0i.js",
+                                      "navStartToEndTime": 920,
+                                      "transferSize": 292192,
+                                      "isLongest": true,
+                                      "children": {
+                                        "3132.87": {
+                                          "url": "https://tiles.openfreemap.org/fonts/Noto%20Sans%20Italic/0-255.pbf",
+                                          "navStartToEndTime": 1281,
+                                          "transferSize": 48155,
+                                          "isLongest": true,
+                                          "children": {}
+                                        },
+                                        "3132.88": {
+                                          "url": "https://tiles.openfreemap.org/fonts/Noto%20Sans%20Regular/0-255.pbf",
+                                          "navStartToEndTime": 1263,
+                                          "transferSize": 43199,
+                                          "children": {}
+                                        },
+                                        "3132.82": {
+                                          "url": "https://tiles.openfreemap.org/planet",
+                                          "navStartToEndTime": 1079,
+                                          "transferSize": 2388,
+                                          "children": {}
+                                        },
+                                        "3132.83": {
+                                          "url": "https://tiles.openfreemap.org/sprites/ofm_f384/ofm@2x.json",
+                                          "navStartToEndTime": 1078,
+                                          "transferSize": 4049,
+                                          "children": {}
+                                        }
+                                      }
+                                    },
+                                    "3132.79": {
+                                      "url": "https://vinomartino.com/_astro/leaflet-maplibre-gl.Dmow_MPC.js",
+                                      "navStartToEndTime": 899,
+                                      "transferSize": 2442,
+                                      "children": {
+                                        "3132.80": {
+                                          "url": "https://tiles.openfreemap.org/styles/positron",
+                                          "navStartToEndTime": 989,
+                                          "transferSize": 4149,
+                                          "children": {}
+                                        }
+                                      }
+                                    }
+                                  }
+                                },
+                                "3132.76": {
+                                  "url": "https://vinomartino.com/_astro/_commonjsHelpers.CqkleIqs.js",
+                                  "navStartToEndTime": 864,
+                                  "transferSize": 625,
+                                  "children": {}
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "3132.70": {
+                          "url": "https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495",
+                          "navStartToEndTime": 814,
+                          "transferSize": 10338,
+                          "children": {
+                            "3132.73": {
+                              "url": "https://vinomartino.com/cdn-cgi/rum?",
+                              "navStartToEndTime": 860,
+                              "transferSize": 454,
+                              "children": {}
+                            }
+                          }
+                        },
+                        "3132.20": {
+                          "url": "https://vinomartino.com/site.webmanifest",
+                          "navStartToEndTime": 791,
+                          "transferSize": 1218,
+                          "children": {}
+                        },
+                        "3132.68": {
+                          "url": "https://vinomartino.com/_astro/SearchDialog.astro_astro_type_script_index_0_lang.BBQ_5kfG.js",
+                          "navStartToEndTime": 788,
+                          "transferSize": 2887,
+                          "children": {}
+                        },
+                        "3132.69": {
+                          "url": "https://vinomartino.com/_astro/SiteLayout.astro_astro_type_script_index_0_lang.DR7MNdN4.js",
+                          "navStartToEndTime": 787,
+                          "transferSize": 3280,
+                          "children": {}
+                        },
+                        "3132.7": {
+                          "url": "https://vinomartino.com/_astro/_streek_.DKCzTGCC.css",
+                          "navStartToEndTime": 674,
+                          "transferSize": 5590,
+                          "children": {
+                            "3132.46": {
+                              "url": "https://vinomartino.com/fonts/jetbrains-mono-latin-0a7197f9.woff2",
+                              "navStartToEndTime": 729,
+                              "transferSize": 31960,
+                              "children": {}
+                            },
+                            "3132.28": {
+                              "url": "https://vinomartino.com/fonts/cormorant-garamond-latin-abcaa8b4.woff2",
+                              "navStartToEndTime": 723,
+                              "transferSize": 38172,
+                              "children": {}
+                            }
+                          }
+                        },
+                        "3132.6": {
+                          "url": "https://vinomartino.com/_astro/maplibre-gl.DNVN2dqC.css",
+                          "navStartToEndTime": 687,
+                          "transferSize": 10570,
+                          "children": {}
+                        },
+                        "3132.8": {
+                          "url": "https://vinomartino.com/_astro/_slug_.RwGHbxHM.css",
+                          "navStartToEndTime": 685,
+                          "transferSize": 4174,
+                          "children": {}
+                        },
+                        "3132.10": {
+                          "url": "https://vinomartino.com/_astro/_streek_.BRN1sMGG.css",
+                          "navStartToEndTime": 684,
+                          "transferSize": 1467,
+                          "children": {}
+                        },
+                        "3132.9": {
+                          "url": "https://vinomartino.com/_astro/_streek_.Gxhh2lF-.css",
+                          "navStartToEndTime": 672,
+                          "transferSize": 1792,
+                          "children": {}
+                        },
+                        "3132.5": {
+                          "url": "https://vinomartino.com/_astro/map-base.CIGW-MKW.css",
+                          "navStartToEndTime": 671,
+                          "transferSize": 7138,
+                          "children": {}
+                        }
+                      }
+                    }
+                  },
+                  "longestChain": {
+                    "duration": 1281
+                  }
+                }
+              },
+              {
+                "type": "list-section",
+                "title": "Preconnected origins",
+                "description": "[preconnect](https://developer.chrome.com/docs/lighthouse/performance/uses-rel-preconnect/) hints help the browser establish a connection earlier in the page load, saving time when the first request for that origin is made. The following are the origins that the page preconnected to.",
+                "value": {
+                  "type": "text",
+                  "value": "no origins were preconnected"
+                }
+              },
+              {
+                "type": "list-section",
+                "title": "Preconnect candidates",
+                "description": "Add [preconnect](https://developer.chrome.com/docs/lighthouse/performance/uses-rel-preconnect/) hints to your most important origins, but try to use no more than 4.",
+                "value": {
+                  "type": "text",
+                  "value": "No additional origins are good candidates for preconnecting"
+                }
+              }
+            ]
+          },
+          "unused-javascript": {
+            "type": "opportunity",
+            "headings": [
+              {
+                "key": "url",
+                "valueType": "url",
+                "subItemsHeading": {
+                  "key": "source",
+                  "valueType": "code"
+                },
+                "label": "URL"
+              },
+              {
+                "key": "totalBytes",
+                "valueType": "bytes",
+                "subItemsHeading": {
+                  "key": "sourceBytes"
+                },
+                "label": "Transfer Size"
+              },
+              {
+                "key": "wastedBytes",
+                "valueType": "bytes",
+                "subItemsHeading": {
+                  "key": "sourceWastedBytes"
+                },
+                "label": "Est Savings"
+              }
+            ],
+            "items": [
+              {
+                "url": "https://vinomartino.com/_astro/maplibre-gl.CPzEIX0i.js",
+                "totalBytes": 291607,
+                "wastedBytes": 174552,
+                "wastedPercent": 59.85851103323405
+              },
+              {
+                "url": "https://vinomartino.com/_astro/leaflet-src.BeTJ7FbR.js",
+                "totalBytes": 46448,
+                "wastedBytes": 29732,
+                "wastedPercent": 64.01060824137747
+              }
+            ],
+            "overallSavingsMs": 0,
+            "overallSavingsBytes": 204284,
+            "sortedBy": [
+              "wastedBytes"
+            ],
+            "debugData": {
+              "type": "debugdata",
+              "metricSavings": {
+                "FCP": 0,
+                "LCP": 0
+              }
+            }
+          }
+        },
+        "topRequests": [
+          {
+            "url": "https://vinomartino.com/_astro/maplibre-gl.CPzEIX0i.js",
+            "kb": 285.3,
+            "start": 872,
+            "end": 907,
+            "priority": "High",
+            "type": "Script"
+          },
+          {
+            "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/10/531/347.pbf",
+            "kb": 120.5,
+            "start": 1101,
+            "end": 1126,
+            "priority": "High",
+            "type": "Fetch"
+          },
+          {
+            "url": "https://vinomartino.com/fonts/source-serif-4-latin-167ee9c3.woff2",
+            "kb": 120.1,
+            "start": 647,
+            "end": 694,
+            "priority": "High",
+            "type": "Font"
+          },
+          {
+            "url": "https://tiles.openfreemap.org/sprites/ofm_f384/ofm@2x.png",
+            "kb": 116.7,
+            "start": 1008,
+            "end": 1034,
+            "priority": "High",
+            "type": "Fetch"
+          },
+          {
+            "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/10/532/347.pbf",
+            "kb": 115.3,
+            "start": 1100,
+            "end": 1127,
+            "priority": "High",
+            "type": "Fetch"
+          },
+          {
+            "url": "https://vinomartino.com/images/routes/49e933ef-aaee-4a5b-94a3-a04b178c171f.w1024.avif",
+            "kb": 80.7,
+            "start": 755,
+            "end": 793,
+            "priority": "High",
+            "type": "Image"
+          },
+          {
+            "url": "https://vinomartino.com/images/routes/body-49e933ef-aaee-4a5b-94a3-a04b178c171f.w1024.avif",
+            "kb": 80.7,
+            "start": 756,
+            "end": 779,
+            "priority": "High",
+            "type": "Image"
+          },
+          {
+            "url": "https://vinomartino.com/fonts/inter-latin-6ab57b19.woff2",
+            "kb": 47.6,
+            "start": 649,
+            "end": 680,
+            "priority": "High",
+            "type": "Font"
+          },
+          {
+            "url": "https://tiles.openfreemap.org/fonts/Noto%20Sans%20Italic/0-255.pbf",
+            "kb": 47,
+            "start": 1226,
+            "end": 1246,
+            "priority": "High",
+            "type": "Fetch"
+          },
+          {
+            "url": "https://vinomartino.com/_astro/leaflet-src.BeTJ7FbR.js",
+            "kb": 45.9,
+            "start": 833,
+            "end": 853,
+            "priority": "High",
+            "type": "Script"
+          },
+          {
+            "url": "https://tiles.openfreemap.org/fonts/Noto%20Sans%20Regular/0-255.pbf",
+            "kb": 42.2,
+            "start": 1226,
+            "end": 1245,
+            "priority": "High",
+            "type": "Fetch"
+          },
+          {
+            "url": "https://vinomartino.com/fonts/cormorant-garamond-latin-4db21dbf.woff2",
+            "kb": 38.9,
+            "start": 648,
+            "end": 685,
+            "priority": "High",
+            "type": "Font"
+          }
+        ]
+      }
     },
     {
       "template": "artikel-en",
       "url": "https://vinomartino.com/en/artikelen/waar-slapen-langhe-piemonte/",
-      "runs": 3,
-      "performance": 88,
-      "lcpMs": 3728,
-      "fcpMs": 1706,
+      "runs": 1,
+      "performance": 89,
+      "lcpMs": 3593,
+      "fcpMs": 1714,
       "tbtMs": 0,
       "cls": 0,
       "perRunPerformance": [
-        88,
-        85,
-        88
+        89
       ],
       "perRunLcpMs": [
-        3726,
-        4203,
-        3728
-      ]
+        3593
+      ],
+      "diag": {
+        "audits": {
+          "lcp-breakdown-insight": {
+            "type": "list",
+            "items": [
+              {
+                "type": "table",
+                "headings": [
+                  {
+                    "key": "label",
+                    "valueType": "text",
+                    "label": "Subpart"
+                  },
+                  {
+                    "key": "duration",
+                    "valueType": "ms",
+                    "label": "Duration"
+                  }
+                ],
+                "items": [
+                  {
+                    "subpart": "timeToFirstByte",
+                    "label": "Time to first byte",
+                    "duration": 249.201
+                  },
+                  {
+                    "subpart": "resourceLoadDelay",
+                    "label": "Resource load delay",
+                    "duration": 110.245
+                  },
+                  {
+                    "subpart": "resourceLoadDuration",
+                    "label": "Resource load duration",
+                    "duration": 16.807
+                  },
+                  {
+                    "subpart": "elementRenderDelay",
+                    "label": "Element render delay",
+                    "duration": 14.891
+                  }
+                ]
+              },
+              {
+                "type": "node",
+                "lhId": "page-0-IMG",
+                "path": "1,HTML,1,BODY,2,MAIN,0,ARTICLE,0,FIGURE,0,PICTURE,2,IMG",
+                "selector": "article.article-page > figure.article-hero > picture > img.article-hero-img",
+                "boundingRect": {
+                  "top": 63,
+                  "bottom": 433,
+                  "left": 0,
+                  "right": 412,
+                  "width": 412,
+                  "height": 370
+                },
+                "snippet": "<img src=\"https://vinomartino.com/images/articles/97bc9bcb-1af3-4f16-9d69-2ccf90661b…\" alt=\"Where to stay in the Langhe: agriturismos and wine estates\" class=\"article-hero-img\" loading=\"eager\" fetchpriority=\"high\" data-astro-cid-tooj2qcn=\"\" srcset=\"/images/articles/97bc9bcb-1af3-4f16-9d69-2ccf90661b55.w640.jpg 640w, /imag…\" sizes=\"(min-width: 1200px) 1200px, 100vw\" decoding=\"async\">",
+                "nodeLabel": "Where to stay in the Langhe: agriturismos and wine estates"
+              }
+            ]
+          },
+          "lcp-discovery-insight": {
+            "type": "list",
+            "items": [
+              {
+                "type": "checklist",
+                "items": {
+                  "priorityHinted": {
+                    "label": "fetchpriority=high applied",
+                    "value": true
+                  },
+                  "requestDiscoverable": {
+                    "label": "Request is discoverable in initial document",
+                    "value": true
+                  },
+                  "eagerlyLoaded": {
+                    "label": "LCP resources should not use loading=lazy",
+                    "value": true
+                  }
+                }
+              },
+              {
+                "type": "node",
+                "lhId": "page-0-IMG",
+                "path": "1,HTML,1,BODY,2,MAIN,0,ARTICLE,0,FIGURE,0,PICTURE,2,IMG",
+                "selector": "article.article-page > figure.article-hero > picture > img.article-hero-img",
+                "boundingRect": {
+                  "top": 63,
+                  "bottom": 433,
+                  "left": 0,
+                  "right": 412,
+                  "width": 412,
+                  "height": 370
+                },
+                "snippet": "<img src=\"https://vinomartino.com/images/articles/97bc9bcb-1af3-4f16-9d69-2ccf90661b…\" alt=\"Where to stay in the Langhe: agriturismos and wine estates\" class=\"article-hero-img\" loading=\"eager\" fetchpriority=\"high\" data-astro-cid-tooj2qcn=\"\" srcset=\"/images/articles/97bc9bcb-1af3-4f16-9d69-2ccf90661b55.w640.jpg 640w, /imag…\" sizes=\"(min-width: 1200px) 1200px, 100vw\" decoding=\"async\">",
+                "nodeLabel": "Where to stay in the Langhe: agriturismos and wine estates"
+              }
+            ]
+          },
+          "render-blocking-insight": {
+            "type": "table",
+            "headings": [
+              {
+                "key": "url",
+                "valueType": "url",
+                "label": "URL"
+              },
+              {
+                "key": "totalBytes",
+                "valueType": "bytes",
+                "label": "Transfer Size"
+              },
+              {
+                "key": "wastedMs",
+                "valueType": "timespanMs",
+                "label": "Duration"
+              }
+            ],
+            "items": [
+              {
+                "url": "https://vinomartino.com/_astro/maplibre-gl.DNVN2dqC.css",
+                "totalBytes": 10623,
+                "wastedMs": 785
+              },
+              {
+                "url": "https://vinomartino.com/_astro/_streek_.Gxhh2lF-.css",
+                "totalBytes": 1788,
+                "wastedMs": 472
+              },
+              {
+                "url": "https://vinomartino.com/_astro/_streek_.BRN1sMGG.css",
+                "totalBytes": 1471,
+                "wastedMs": 472
+              },
+              {
+                "url": "https://vinomartino.com/_astro/_streek_.DKCzTGCC.css",
+                "totalBytes": 5551,
+                "wastedMs": 629
+              },
+              {
+                "url": "https://vinomartino.com/_astro/_slug_.XJ_KobeO.css",
+                "totalBytes": 4907,
+                "wastedMs": 629
+              },
+              {
+                "url": "https://vinomartino.com/_astro/map-base.CIGW-MKW.css",
+                "totalBytes": 7127,
+                "wastedMs": 315
+              }
+            ]
+          },
+          "network-dependency-tree-insight": {
+            "type": "list",
+            "items": [
+              {
+                "type": "list-section",
+                "value": {
+                  "type": "network-tree",
+                  "chains": {
+                    "9BB9BA083819B67D4D2687B77F58AD27": {
+                      "url": "https://vinomartino.com/en/artikelen/waar-slapen-langhe-piemonte/",
+                      "navStartToEndTime": 470,
+                      "transferSize": 26127,
+                      "isLongest": true,
+                      "children": {
+                        "3333.76": {
+                          "url": "https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495",
+                          "navStartToEndTime": 509,
+                          "transferSize": 10338,
+                          "isLongest": true,
+                          "children": {
+                            "3333.78": {
+                              "url": "https://vinomartino.com/cdn-cgi/rum?",
+                              "navStartToEndTime": 529,
+                              "transferSize": 458,
+                              "isLongest": true,
+                              "children": {}
+                            }
+                          }
+                        },
+                        "3333.75": {
+                          "url": "https://vinomartino.com/_astro/SiteLayout.astro_astro_type_script_index_0_lang.DR7MNdN4.js",
+                          "navStartToEndTime": 506,
+                          "transferSize": 3285,
+                          "children": {}
+                        },
+                        "3333.74": {
+                          "url": "https://vinomartino.com/_astro/SearchDialog.astro_astro_type_script_index_0_lang.BBQ_5kfG.js",
+                          "navStartToEndTime": 483,
+                          "transferSize": 2881,
+                          "children": {}
+                        },
+                        "3333.20": {
+                          "url": "https://vinomartino.com/site.webmanifest",
+                          "navStartToEndTime": 472,
+                          "transferSize": 1221,
+                          "children": {}
+                        },
+                        "3333.7": {
+                          "url": "https://vinomartino.com/_astro/_streek_.DKCzTGCC.css",
+                          "navStartToEndTime": 280,
+                          "transferSize": 5551,
+                          "children": {
+                            "3333.54": {
+                              "url": "https://vinomartino.com/fonts/source-serif-4-latin-3fee470f.woff2",
+                              "navStartToEndTime": 409,
+                              "transferSize": 130729,
+                              "children": {}
+                            },
+                            "3333.46": {
+                              "url": "https://vinomartino.com/fonts/jetbrains-mono-latin-0a7197f9.woff2",
+                              "navStartToEndTime": 325,
+                              "transferSize": 31963,
+                              "children": {}
+                            },
+                            "3333.28": {
+                              "url": "https://vinomartino.com/fonts/cormorant-garamond-latin-abcaa8b4.woff2",
+                              "navStartToEndTime": 324,
+                              "transferSize": 38165,
+                              "children": {}
+                            }
+                          }
+                        },
+                        "3333.6": {
+                          "url": "https://vinomartino.com/_astro/maplibre-gl.DNVN2dqC.css",
+                          "navStartToEndTime": 296,
+                          "transferSize": 10623,
+                          "children": {}
+                        },
+                        "3333.10": {
+                          "url": "https://vinomartino.com/_astro/_streek_.Gxhh2lF-.css",
+                          "navStartToEndTime": 295,
+                          "transferSize": 1788,
+                          "children": {}
+                        },
+                        "3333.9": {
+                          "url": "https://vinomartino.com/_astro/_streek_.BRN1sMGG.css",
+                          "navStartToEndTime": 287,
+                          "transferSize": 1471,
+                          "children": {}
+                        },
+                        "3333.8": {
+                          "url": "https://vinomartino.com/_astro/_slug_.XJ_KobeO.css",
+                          "navStartToEndTime": 277,
+                          "transferSize": 4907,
+                          "children": {}
+                        },
+                        "3333.5": {
+                          "url": "https://vinomartino.com/_astro/map-base.CIGW-MKW.css",
+                          "navStartToEndTime": 272,
+                          "transferSize": 7127,
+                          "children": {}
+                        }
+                      }
+                    }
+                  },
+                  "longestChain": {
+                    "duration": 529
+                  }
+                }
+              },
+              {
+                "type": "list-section",
+                "title": "Preconnected origins",
+                "description": "[preconnect](https://developer.chrome.com/docs/lighthouse/performance/uses-rel-preconnect/) hints help the browser establish a connection earlier in the page load, saving time when the first request for that origin is made. The following are the origins that the page preconnected to.",
+                "value": {
+                  "type": "text",
+                  "value": "no origins were preconnected"
+                }
+              },
+              {
+                "type": "list-section",
+                "title": "Preconnect candidates",
+                "description": "Add [preconnect](https://developer.chrome.com/docs/lighthouse/performance/uses-rel-preconnect/) hints to your most important origins, but try to use no more than 4.",
+                "value": {
+                  "type": "text",
+                  "value": "No additional origins are good candidates for preconnecting"
+                }
+              }
+            ]
+          },
+          "unused-javascript": {
+            "type": "opportunity",
+            "headings": [],
+            "items": [],
+            "overallSavingsMs": 0,
+            "overallSavingsBytes": 0,
+            "sortedBy": [
+              "wastedBytes"
+            ],
+            "debugData": {
+              "type": "debugdata",
+              "metricSavings": {
+                "FCP": 0,
+                "LCP": 0
+              }
+            }
+          }
+        },
+        "topRequests": [
+          {
+            "url": "https://vinomartino.com/fonts/source-serif-4-latin-3fee470f.woff2",
+            "kb": 127.7,
+            "start": 386,
+            "end": 405,
+            "priority": "VeryHigh",
+            "type": "Font"
+          },
+          {
+            "url": "https://vinomartino.com/fonts/source-serif-4-latin-167ee9c3.woff2",
+            "kb": 120,
+            "start": 256,
+            "end": 298,
+            "priority": "High",
+            "type": "Font"
+          },
+          {
+            "url": "https://vinomartino.com/fonts/inter-latin-6ab57b19.woff2",
+            "kb": 47.6,
+            "start": 257,
+            "end": 293,
+            "priority": "High",
+            "type": "Font"
+          },
+          {
+            "url": "https://vinomartino.com/images/articles/97bc9bcb-1af3-4f16-9d69-2ccf90661b55.w1024.avif",
+            "kb": 41.7,
+            "start": 359,
+            "end": 376,
+            "priority": "High",
+            "type": "Image"
+          },
+          {
+            "url": "https://vinomartino.com/fonts/cormorant-garamond-latin-4db21dbf.woff2",
+            "kb": 38.9,
+            "start": 256,
+            "end": 275,
+            "priority": "High",
+            "type": "Font"
+          },
+          {
+            "url": "https://vinomartino.com/fonts/cormorant-garamond-latin-abcaa8b4.woff2",
+            "kb": 37.3,
+            "start": 310,
+            "end": 322,
+            "priority": "VeryHigh",
+            "type": "Font"
+          },
+          {
+            "url": "https://vinomartino.com/fonts/jetbrains-mono-latin-0a7197f9.woff2",
+            "kb": 31.2,
+            "start": 310,
+            "end": 324,
+            "priority": "VeryHigh",
+            "type": "Font"
+          },
+          {
+            "url": "https://vinomartino.com/en/artikelen/waar-slapen-langhe-piemonte/",
+            "kb": 25.5,
+            "start": 1,
+            "end": 468,
+            "priority": "VeryHigh",
+            "type": "Document"
+          },
+          {
+            "url": "https://vinomartino.com/_astro/maplibre-gl.DNVN2dqC.css",
+            "kb": 10.4,
+            "start": 260,
+            "end": 295,
+            "priority": "VeryHigh",
+            "type": "Stylesheet"
+          },
+          {
+            "url": "https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495",
+            "kb": 10.1,
+            "start": 470,
+            "end": 507,
+            "priority": "High",
+            "type": "Script"
+          },
+          {
+            "url": "https://vinomartino.com/_astro/map-base.CIGW-MKW.css",
+            "kb": 7,
+            "start": 260,
+            "end": 271,
+            "priority": "VeryHigh",
+            "type": "Stylesheet"
+          },
+          {
+            "url": "https://vinomartino.com/_astro/_streek_.DKCzTGCC.css",
+            "kb": 5.4,
+            "start": 261,
+            "end": 279,
+            "priority": "VeryHigh",
+            "type": "Stylesheet"
+          }
+        ]
+      }
     }
   ]
 }
