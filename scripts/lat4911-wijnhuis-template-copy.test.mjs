@@ -98,6 +98,8 @@ const EN_IDENTIEK_MET_REDEN = {
   'wijnhuis.visit.mapsCta': 'merknaam',
   // Hetzelfde woord in beide talen.
   'wijnhuis.meta.route': 'leenwoord',
+  // Routestop-CTA naar de officiële site; 'Website' is in NL en EN hetzelfde woord.
+  'route.stop.website': 'leenwoord',
 };
 
 test('NL-defaults zijn byte-identiek aan de literals van vóór LAT-4911', async () => {
