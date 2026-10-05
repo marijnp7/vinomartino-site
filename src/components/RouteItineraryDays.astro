@@ -12,6 +12,8 @@ import PoiCard, { type PoiCardData } from './PoiCard.astro';
 import { deriveStopsGeoFromItinerary, localizeDuur, type RouteItinerary, type ItineraryStop } from '../lib/route-itinerary';
 import type { RouteStopKind } from '../lib/routes';
 import { loadUiStrings } from '../lib/ui-strings';
+import { loadWijnhuizen } from '../lib/wijnhuizen';
+import { accommodatieBookingDeeplink } from '../lib/affiliates';
 
 interface Props {
   /** LAT-2704 — locale doorgeven zodat interne links in PoiCard locale-aware zijn. */
@@ -27,6 +29,11 @@ interface Props {
 
 const { itinerary, streekSlug = '', boekbaar = false, context = '', locale = DEFAULT_LOCALE } = Astro.props;
 const ui = await loadUiStrings(locale);
+// Alleen linken naar wijnhuisportretten die als pagina bestaan (gepubliceerd in deze
+// locale); een slug naar een concept-wijnhuis gaf een 404.
+const wijnhuisSlugs = new Set((await loadWijnhuizen(locale)).map((w) => w.slug));
+const mapsHref = (naam: string) => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(naam)}`;
+const routeSid = `route-${context || 'itinerary'}`;
 
 const dagAnchor = (n: number) => `dag-${n}`;
 
@@ -90,7 +97,10 @@ const dayBlocks = itinerary.days.map((d) => ({
 }));
 
 function stopToPoi(stop: ItineraryStop, pin: CardPin): PoiCardData {
-  const detailUrl = stop.kind === 'wijnhuis' && stop.slug ? `/wijnhuizen/${stop.slug}/` : null;
+  const detailUrl = stop.kind === 'wijnhuis' && stop.slug && wijnhuisSlugs.has(stop.slug) ? `/wijnhuizen/${stop.slug}/` : null;
+  // Geen eigen portret → officiële website (geverifieerd in de data), anders de plek op de kaart.
+  const externeUrl = detailUrl ? null : (stop.website ?? mapsHref(stop.naam));
+  const externeCta = stop.website ? ui.t('route.stop.website') : ui.t('route.stop.kaart');
   return {
     naam: stop.naam,
     foto: stop.foto,
@@ -103,6 +113,8 @@ function stopToPoi(stop: ItineraryStop, pin: CardPin): PoiCardData {
     // LAT-4911 — stonden als kale NL-literals op de 11 /en/wijnroutes/-pagina's.
     beschrijving: localizeDuur(stop.duur, locale) ? ui.t('route.stop.duur').replace('{duur}', localizeDuur(stop.duur, locale) as string) : null,
     detailUrl,
+    externeUrl,
+    externeCta,
     cta: ui.t('route.leesPortret'),
     n: pin.n,
     plotted: pin.plotted,
@@ -157,13 +169,14 @@ function stopToPoi(stop: ItineraryStop, pin: CardPin): PoiCardData {
                 hideMediaWhenEmpty: true,
                 fotoTheme: 'region',
                 badge: ui.t('route.stop.overnachting'),
-                boeklink: d.overnachting.boekbaar ? bookHref : null,
+                // Elke overnachting is klikbaar: property- of zoeklink op booking.com (CJ-affiliate).
+                boeklink: accommodatieBookingDeeplink(d.overnachting.naam, '', d.overnachting.bookingUrl, routeSid, locale),
                 cta: ui.t('streekkaart.cta.overnachten'),
-                partner: 'stay22',
+                partner: 'booking',
                 placement: 'route-itinerary-overnachten',
                 context,
                 ctaKey: 'bekijk-boek',
-                disclosure: d.overnachting.boekbaar && bookHref ? ui.t('stay.disclosure.microcopy') : null,
+                disclosure: ui.t('stay.disclosure.microcopy'),
                 n: overnachtingPin?.n ?? null,
                 plotted: overnachtingPin?.plotted ?? false,
               }}

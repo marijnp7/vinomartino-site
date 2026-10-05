@@ -8,7 +8,7 @@
 // per sub-bestemming) wordt door CTO/DevOps gevuld; foto-URL is op buildtijd al
 // gedownload uit DAM → Directus zoals bij de bestaande hero_image-loaders.
 
-import { buildCjBookingLink, unwrapCjRedirect } from './affiliates';
+import { buildBookingSearchLink, buildCjBookingLink, unwrapCjRedirect } from './affiliates';
 import { herbouwClusterWeergave } from './accommodatie-cluster';
 import type { StayTier } from './stay-tier';
 
@@ -100,6 +100,11 @@ export function accommodatieBookingHref(kaart: AccommodatieKaart): string | null
   }
   if (kaart.bookingUrl && /^https?:\/\//.test(kaart.bookingUrl)) {
     return buildCjBookingLink(kaart.bookingUrl, sid);
+  }
+  // Geen property-URL in Directus → zoekdeeplink op naam + plaats, zodat de kaart
+  // klikbaar blijft (en de klik via CJ geattribueerd wordt) i.p.v. een dode kaart.
+  if (kaart.naam) {
+    return buildBookingSearchLink(kaart.plaats ? `${kaart.naam}, ${kaart.plaats}` : kaart.naam, sid);
   }
   return null;
 }

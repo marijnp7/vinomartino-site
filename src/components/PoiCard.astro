@@ -54,6 +54,10 @@ export interface PoiCardData {
   boeklink?: string | null;
   /** Interne detailpagina (bv. /wijnhuizen/{slug}/). */
   detailUrl?: string | null;
+  /** Externe link (officiële website of kaart) als er geen interne detailpagina is. */
+  externeUrl?: string | null;
+  /** CTA-tekst bij externeUrl, bv. "Website" of "Op de kaart". */
+  externeCta?: string | null;
   /** CTA-tekst (COPY-GATE: definitief via Lead Editor + Martin-check). */
   cta?: string;
   /** Analytics-sleutel voor de CTA (LAT-2019), bv. 'bekijk-boek'. Leeg = geen data-cta. */
@@ -101,6 +105,8 @@ const {
   prijs = null,
   boeklink = null,
   detailUrl = null,
+  externeUrl = null,
+  externeCta = null,
   cta = 'Plan een bezoek',
   ctaKey,
   partner = '',
@@ -143,7 +149,7 @@ const credit = foto ? await getImageCredit(fotoId ?? fileIdFromAccommodatiePath(
   <div class="poi-card__body">
     <div class="poi-card__head">
       <h4 class="poi-card__name">
-        {detailUrl ? <a href={lh(detailUrl)}>{naam}</a> : naam}
+        {detailUrl ? <a href={lh(detailUrl)}>{naam}</a> : boeklink ? <a href={boeklink} target="_blank" rel="sponsored noopener" data-affiliate-track data-affiliate-partner={partner} data-affiliate-placement={placement} data-affiliate-context={context}>{naam}</a> : externeUrl ? <a href={externeUrl} target="_blank" rel="noopener">{naam}</a> : naam}
       </h4>
       {badge && (
         <span class="poi-card__badge" style={`color:${color};border-color:${color}`}>{badge}</span>
@@ -171,6 +177,8 @@ const credit = foto ? await getImageCredit(fotoId ?? fileIdFromAccommodatiePath(
         </a>
       ) : detailUrl ? (
         <a class="poi-card__cta poi-card__cta--ghost" href={lh(detailUrl)}>{ui.t('streekkaart.popupLeesMeer')} &rarr;</a>
+      ) : externeUrl ? (
+        <a class="poi-card__cta poi-card__cta--ghost" href={externeUrl} target="_blank" rel="noopener">{externeCta || ui.t('route.stop.website')} &#8599;</a>
       ) : null}
     </div>
 
