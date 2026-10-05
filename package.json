@@ -26,6 +26,7 @@
     "test:pins-feed": "node --test scripts/lat11988-pins-feed.test.mjs",
     "test:site-events": "node --test scripts/lat11948-site-events.test.mjs",
     "test:perf-lat12573": "node --test scripts/lat12573-perf.test.mjs",
+    "test:map-intent-lat12592": "node --test scripts/lat12592-map-intent.test.mjs",
     "test:newsletter-cta-attribution": "node --test scripts/lat2772-newsletter-cta-attribution.test.mjs",
     "test:discovercars": "node --test scripts/lat12032-discovercars.test.mjs",
     "test:cta-wine-retail": "node --test scripts/lat3726-cta-wine-retail.test.mjs",

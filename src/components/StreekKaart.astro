@@ -321,7 +321,7 @@ const usedCats = sections.map((s) => s.key);
 
 <script>
   import 'leaflet/dist/leaflet.css';
-  import { addBaseLayer } from '../lib/map-base';
+  import { addBaseLayer, whenUserIntent } from '../lib/map-base';
 
   type Pin = {
     n: number; naam: string; category: string; label: string; color: string;
@@ -346,6 +346,7 @@ const usedCats = sections.map((s) => s.key);
     const lat = Number(canvas.dataset.lat);
     const lng = Number(canvas.dataset.lng);
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+    await whenUserIntent();
     const L = await loadLeaflet();
     const map = L.map(canvas, {
       scrollWheelZoom: false, zoomControl: false, dragging: false,
@@ -372,6 +373,7 @@ const usedCats = sections.map((s) => s.key);
     try { data = JSON.parse(dataEl.textContent || '{}'); } catch { return; }
     if (!data.pins?.length) return;
 
+    await whenUserIntent();
     const L = await loadLeaflet();
     const map = L.map(canvas, { scrollWheelZoom: false, zoomControl: true, attributionControl: true });
     await addBaseLayer(map);
