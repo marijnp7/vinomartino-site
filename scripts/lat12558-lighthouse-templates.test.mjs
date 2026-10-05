@@ -26,3 +26,19 @@ test('summarize neemt mediaan per sjabloon en passes toetst beide drempels', () 
   assert.ok(!passes(c), 'performance onder 85 faalt');
   assert.equal(THRESHOLDS.performance, 85);
 });
+
+test('LAT-12591 diagnose: bewaart LCP-audits (afgekapt) en de zwaarste requests', async () => {
+  const { diagnose } = await import('./lighthouse-templates.mjs');
+  const d = diagnose({
+    'largest-contentful-paint-element': { details: { items: [{ node: { selector: 'img.hero' } }] } },
+    'lcp-breakdown-insight': { details: { x: 'y'.repeat(7000) } },
+    'network-requests': { details: { items: [
+      { url: 'a', transferSize: 1024, networkRequestTime: 1, networkEndTime: 2 },
+      { url: 'b', transferSize: 204800, networkRequestTime: 3, networkEndTime: 9 },
+    ] } },
+  });
+  assert.equal(d.audits['largest-contentful-paint-element'].items[0].node.selector, 'img.hero');
+  assert.equal(d.audits['lcp-breakdown-insight'].truncated, true);
+  assert.equal(d.topRequests[0].url, 'b');
+  assert.equal(d.topRequests[0].kb, 200);
+});
