@@ -9,6 +9,8 @@
  * /ontdek-atlas-hub); oude rijen met die keys worden gesnoeid. LAT-12365: Reizen
  * (de live rij, key 'reizen') stond ten onrechte niet in deze lijst, en Wijnroutes
  * is op verzoek van Marijn wél een eigen nav-item (14 routes, anders onvindbaar).
+ * Besluit 2026-10-05: 'reizen' is weer weg; /reizen-nareizen/ is opgegaan in
+ * /wijnroutes/ (301). De prune hieronder verwijdert de rij uit Directus.
  *
  * Idempotent: upsert by `key`, insert if missing, en prune elke nav_items-rij
  * met een key die niet in deze lijst staat.
@@ -33,7 +35,6 @@ const headers = {
 
 const items = [
   { key: 'ontdek', label: 'Ontdek', href: '/ontdek/', order: 5 },
-  { key: 'reizen', label: 'Reizen', href: '/reizen-nareizen/', order: 25 },
   { key: 'wijnroutes', label: 'Wijnroutes', href: '/wijnroutes/', order: 27 },
   { key: 'wijnhuizen', label: 'Wijnhuizen', href: '/wijnhuizen/', order: 30 },
   { key: 'accommodaties', label: 'Overnachten', href: '/accommodaties/', order: 35 },

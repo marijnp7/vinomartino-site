@@ -225,7 +225,6 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     // (component bypasst t() voor de standaardtaal), dus deze seeds raken NL niet;
     // ze zijn de T4-EN-spec + de EN-fallback wanneer een vertaling nog ontbreekt.
     'nav.ontdek': 'Ontdek',
-    'nav.reizen': 'Reizen',
     'nav.wijnroutes': 'Wijnroutes',
     'nav.wijnhuizen': 'Wijnhuizen',
     'nav.accommodaties': 'Overnachten',
@@ -572,6 +571,20 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'wijnroutes.index.hero.h1': 'Gids voor wijnreizen',
     'wijnroutes.index.hero.desc': 'Routes door wijnstreken: dagindelingen, slaapadressen en de producenten die het waard zijn om twee weken vooruit voor te bellen.',
     'wijnroutes.index.map.title': 'Alle routes op de kaart',
+    // Besluit 2026-10-05: /wijnroutes/ is de ene hub voor routes én Marijns reisverhalen
+    // (de oude /reizen-nareizen/ is erin opgegaan). Nieuwe keys, zodat een eventuele
+    // CMS-overlay op de oude reizen.*-hero-keys deze copy niet kan overschrijven.
+    'wijnroutes.hub.meta.title': 'Wijnroutes om zelf te rijden, met slaapadressen en wijnhuizen | VinoMartino',
+    'wijnroutes.hub.meta.description':
+        'Wijnroutes van één tot vijf dagen door Europa en de Kaap: dagindeling, wijnhuizen die je kunt bellen en adressen om te slapen. Bij de routes die Marijn zelf reed, lees je hoe het echt ging.',
+    'wijnroutes.hub.hero.label': 'Wijnroutes',
+    'wijnroutes.hub.hero.h1': 'Wijnroutes om zelf te rijden',
+    'wijnroutes.hub.hero.desc':
+        'Dagindelingen met wijnhuizen die je kunt bellen en adressen waar je slaapt. Bij de routes die Marijn zelf reed, lees je eerst hoe het echt ging.',
+    'wijnroutes.hub.hero.ctaStories': 'Lees hoe het echt ging',
+    // Blok "Zo reisden wij hem" op de routepagina (ReisVerhaal.astro).
+    'route.verhaal.kicker': 'Zo reisden wij hem · zelf gereisd',
+    'route.verhaal.slapen': 'Waar wij sliepen',
     'wijnroutes.index.empty.title': 'Routes zijn onderweg',
     'wijnroutes.index.empty.descPre': 'Langhe, Etna, Mosel en Wachau staan als eerste op de planning. Intussen: de ',
     'wijnroutes.index.empty.descLink': 'reisartikelen',
@@ -751,6 +764,29 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
  * nog geen EN-values heeft.  Volgorde in t(): Directus → UI_STRING_EN → UI_STRING_DEFAULTS.
  */
 export const UI_STRING_EN: Record<string, string> = {
+  // Besluit 2026-10-05: /en/wijnroutes/ is de ene hub (zie WijnroutesHub.astro).
+  'wijnroutes.hub.meta.title': 'Wine routes to drive yourself, with places to stay and wineries | VinoMartino',
+  'wijnroutes.hub.meta.description':
+    'Wine routes of one to five days across Europe and the Cape: day plans, wineries you can call and places to sleep. On the routes Marijn drove himself, you read how it really went.',
+  'wijnroutes.hub.hero.label': 'Wine routes',
+  'wijnroutes.hub.hero.h1': 'Wine routes to drive yourself',
+  'wijnroutes.hub.hero.desc':
+    'Day plans with wineries you can call and places to sleep. On the routes Marijn drove himself, you first read how it really went.',
+  'wijnroutes.hub.hero.ctaStories': 'Read how it really went',
+  'route.verhaal.kicker': 'How we drove it · travelled ourselves',
+  'route.verhaal.slapen': 'Where we slept',
+  // Code-level EN voor keys die de hub en het verhaalblok delen met oudere
+  // families; Directus `ui_strings_translations` wint als die een waarde heeft.
+  'streek.breadcrumb.home': 'Home',
+  'route.breadcrumb.index': 'Wine routes',
+  'wijnroutes.index.empty.title': 'Routes are on their way',
+  'wijnroutes.index.empty.descPre': 'Langhe, Etna, Mosel and Wachau are first in line. In the meantime, the ',
+  'wijnroutes.index.empty.descLink': 'travel articles',
+  'wijnroutes.index.empty.descPost': ' already hold the practical details per region.',
+  'reizen.detail.section.dagTotDag': 'Day-by-day route',
+  'reizen.detail.section.wijnhuizen': 'Wineries worth booking',
+  'reizen.detail.section.reismoment': 'When to go',
+  'reizen.detail.leesPortret': 'Read the portrait →',
   // LAT-12451 — redesign /reizen-nareizen/.
   'reizen.index.hero.h1': 'The story first. Then the route.',
   'reizen.index.hero.desc': 'Nareizen are the trips Marijn made himself, detours included. Routes are the day plans to follow in his footsteps.',

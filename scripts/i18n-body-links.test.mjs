@@ -31,7 +31,7 @@ const BODY = [
   'Lees ook [de Rhône in drie dagen](/artikelen/van-macon-naar-aix-rhone-route/).',
   'En [slapen in de Langhe](/accommodaties/langhe-piemonte/) of [de streek](/streken/langhe-piemonte/#kaart).',
   'Boek via [Partner](https://example.org/x) of mail [ons](mailto:hoi@vinomartino.com).',
-  'De [nareis](/reizen-nareizen/langhe-piemonte/) bestaat alleen in het NL.',
+  'De [seizoenskalender](/seizoenskalender/) bestaat alleen in het NL.',
   'Download de [kaart](/images/langhe.png) en het [feed](/rss.xml).',
   '![De Langhe](/images/langhe.png)',
   'Terug naar [het begin](#intro).',
@@ -56,7 +56,7 @@ test('EN: externe, mailto, hash-only, assets en NL-only families blijven ongemoe
   assert.match(html, /href="mailto:hoi@vinomartino\.com"/);
   assert.match(html, /href="#intro"/);
   assert.match(html, /href="\/rss\.xml"/);
-  assert.match(html, /href="\/reizen-nareizen\/langhe-piemonte\/"/);
+  assert.match(html, /href="\/seizoenskalender\/"/);
   // Afbeeldingen zijn locale-loos: de src mag nooit onder /en/ belanden.
   assert.match(html, /src="\/images\/langhe\.png"/);
   assert.doesNotMatch(html, /src="\/en\//);

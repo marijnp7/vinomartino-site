@@ -1,0 +1,145 @@
+---
+// ReisVerhaal — het verhaal van Marijns eigen reis, als blok op de routepagina van
+// dezelfde streek (besluit 2026-10-05, zie WijnroutesHub.astro). Vervangt de losse
+// pakketpagina's onder /reizen-nareizen/ (ReisPakketDetail, LAT-2023/LAT-2826).
+// Inhoud komt ongewijzigd uit Directus `reispakketten`: intro, dag-tot-dag, de
+// wijnhuizen, de slaapadressen (AccommodatieKaart met CJ-wrapper), reismoment, CTA.
+import AccommodatieKaart from './AccommodatieKaart.astro';
+import type { ReisPakket } from '../lib/reispakketten';
+import { VERHAAL_ANCHOR } from '../lib/reis-verhaal';
+import { loadUiStrings } from '../lib/ui-strings';
+import { DEFAULT_LOCALE, localizePath, type Locale } from '../lib/i18n';
+
+interface Props {
+  verhalen: ReisPakket[];
+  /** sid-context voor de affiliate-kaarten, bv. `route-<slug>`. */
+  context: string;
+  locale?: Locale;
+}
+
+const { verhalen, context, locale = DEFAULT_LOCALE } = Astro.props;
+const ui = await loadUiStrings(locale);
+---
+
+{verhalen.length > 0 && (
+  <section class="reis-verhaal" id={VERHAAL_ANCHOR}>
+    <span class="section-label">{ui.t('route.verhaal.kicker')}</span>
+    {verhalen.map((entry) => (
+      <article class="reis-verhaal__item">
+        <header class="reis-verhaal__head">
+          <h2 class="reis-verhaal__title">{entry.titel}</h2>
+          {entry.tagline && <p class="reis-verhaal__tagline">{entry.tagline}</p>}
+        </header>
+
+        {entry.introHtml && <div class="page-prose" set:html={entry.introHtml} />}
+
+        {entry.dagTotDagHtml && (
+          <div class="reis-verhaal__sub">
+            <span class="section-label">{ui.t('reizen.detail.section.dagTotDag')}</span>
+            <div class="page-prose" set:html={entry.dagTotDagHtml} />
+          </div>
+        )}
+
+        {entry.wijnhuizen.length > 0 && (
+          <div class="reis-verhaal__sub">
+            <span class="section-label">{ui.t('reizen.detail.section.wijnhuizen')}</span>
+            <div class="wijnhuis-grid">
+              {entry.wijnhuizen.map((wh) => (
+                <a class="wijnhuis-card" href={localizePath(`/wijnhuizen/${wh.slug}/`, locale)}>
+                  <span class="wijnhuis-card__name">{wh.name}</span>
+                  {wh.description && <span class="wijnhuis-card__desc">{wh.description}</span>}
+                  <span class="wijnhuis-card__cta">{ui.t('reizen.detail.leesPortret')}</span>
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {entry.accommodaties.length > 0 && (
+          <div class="reis-verhaal__sub">
+            <span class="section-label">{ui.t('route.verhaal.slapen')}</span>
+            <div class="reis-verhaal__acc">
+              {entry.accommodaties.map((acc) => (
+                <AccommodatieKaart kaart={acc} context={`${context}-verhaal`} locale={locale} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {entry.reismoment && (
+          <div class="reis-verhaal__sub reis-verhaal__moment">
+            <span class="section-label">{ui.t('reizen.detail.section.reismoment')}</span>
+            <p>{entry.reismoment}</p>
+          </div>
+        )}
+
+        {(entry.ctaHeading || entry.ctaTekst) && (
+          <aside class="reis-verhaal__cta">
+            {entry.ctaHeading && <h3>{entry.ctaHeading}</h3>}
+            {entry.ctaTekst && <p>{entry.ctaTekst}</p>}
+          </aside>
+        )}
+      </article>
+    ))}
+  </section>
+)}
+
+<style>
+  .reis-verhaal {
+    margin-top: var(--space-10, 3.5rem);
+    padding-top: var(--space-8);
+    border-top: 1px solid var(--rule);
+    scroll-margin-top: 5rem;
+  }
+  .reis-verhaal__item + .reis-verhaal__item { margin-top: var(--space-10, 3.5rem); }
+  .reis-verhaal__head { margin: var(--space-3) 0 var(--space-5); }
+  .reis-verhaal__title {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: clamp(1.75rem, 1.2rem + 1.8vw, 2.5rem);
+    line-height: 1.08;
+    letter-spacing: -0.015em;
+    color: var(--ink);
+  }
+  .reis-verhaal__tagline {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 1.125rem;
+    color: var(--inkSoft);
+    margin-top: var(--space-2);
+  }
+  .reis-verhaal__sub { margin-top: var(--space-6); }
+  .reis-verhaal__acc {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: var(--space-5);
+    margin-top: var(--space-3);
+  }
+  .reis-verhaal__moment p { color: var(--inkSoft); max-width: 36rem; }
+  .reis-verhaal__cta {
+    margin-top: var(--space-6);
+    padding: var(--space-5);
+    background: var(--paperDeep);
+    border: 1px solid var(--rule);
+  }
+  .reis-verhaal__cta h3 {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: 1.375rem;
+    color: var(--ink);
+    margin-bottom: var(--space-2);
+  }
+  .reis-verhaal__cta p { color: var(--inkSoft); }
+  .section-label { display: block; margin-bottom: var(--space-3); }
+  .wijnhuis-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
+  .wijnhuis-card {
+    display: flex; flex-direction: column; gap: 0.5rem; padding: 1.25rem;
+    text-decoration: none; background: var(--paper); border: 1px solid var(--rule);
+    transition: box-shadow var(--duration-image, 200ms) var(--ease-out, ease);
+  }
+  .wijnhuis-card:hover { box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); }
+  .wijnhuis-card__name { font-family: var(--font-display); font-size: 1.375rem; font-weight: 500; color: var(--ink); }
+  .wijnhuis-card__desc { font-family: var(--font-body); font-size: 0.9375rem; line-height: 1.5; color: var(--inkSoft); }
+  .wijnhuis-card__cta { font-family: var(--font-mono); font-size: 0.6875rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--burgundy); margin-top: auto; }
+  @media (max-width: 700px) { .wijnhuis-grid { grid-template-columns: 1fr; } }
+</style>

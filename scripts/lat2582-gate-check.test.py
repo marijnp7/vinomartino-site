@@ -24,7 +24,7 @@ gate = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(gate)
 
 BASE = "https://vinomartino.com"
-NL_ONLY = ("/reizen-nareizen/", "/intern/", "/preview/")
+NL_ONLY = ("/intern/", "/preview/", "/seizoenskalender/")
 
 
 def page(head="", body=""):
@@ -156,7 +156,7 @@ class TestInternalNlLinks(unittest.TestCase):
         self.assertEqual(gate.internal_nl_links(raw, BASE, NL_ONLY), [])
 
     def test_nl_only_family_is_ignored(self):
-        raw = page(body='<a href="/reizen-nareizen/langhe-piemonte/">pakket</a>')
+        raw = page(body='<a href="/intern/dashboard/">dashboard</a>')
         self.assertEqual(gate.internal_nl_links(raw, BASE, NL_ONLY), [])
 
     def test_external_links_are_ignored(self):
@@ -208,19 +208,21 @@ class TestCoverage(unittest.TestCase):
         self.assertEqual(missing, ["/wijnhuizen/"])
 
     def test_nl_only_family_leaves_the_denominator(self):
-        paths = ["/streken/", "/en/streken/", "/reizen-nareizen/langhe/"]
+        paths = ["/streken/", "/en/streken/", "/intern/dashboard/"]
         _, counted, missing, nl_only, _ = gate.coverage_gaps(paths, NL_ONLY)
         self.assertEqual(missing, [])
-        self.assertEqual(nl_only, ["/reizen-nareizen/langhe/"])
-        self.assertNotIn("/reizen-nareizen/langhe/", counted)
+        self.assertEqual(nl_only, ["/intern/dashboard/"])
+        self.assertNotIn("/intern/dashboard/", counted)
 
     def test_nl_only_page_counts_again_once_en_exists(self):
         # EN_PRESENT_EXACT_PATHS-gedrag: zodra de EN-versie er is, hoort de
         # pagina weer gewoon mee te tellen i.p.v. permanent vrijgesteld te zijn.
-        paths = ["/reizen-nareizen/", "/en/reizen-nareizen/"]
-        _, counted, missing, nl_only, _ = gate.coverage_gaps(paths, NL_ONLY)
+        # 2026-10-05: geen exacte uitzondering meer in de site; het gedrag blijft
+        # getest door de uitzondering hier expliciet mee te geven.
+        paths = ["/seizoenskalender/", "/en/seizoenskalender/"]
+        _, counted, missing, nl_only, _ = gate.coverage_gaps(paths, NL_ONLY, ("/seizoenskalender/",))
         self.assertEqual(nl_only, [])
-        self.assertEqual(counted, ["/reizen-nareizen/"])
+        self.assertEqual(counted, ["/seizoenskalender/"])
         self.assertEqual(missing, [])
 
     def test_equal_counts_can_still_be_a_mismatch(self):
@@ -288,7 +290,7 @@ class TestPrefixLoading(unittest.TestCase):
         repo = os.path.dirname(_HERE)
         prefixes, exact, src = gate.load_nl_only_prefixes(repo)
         self.assertIn("i18n.ts", src)
-        self.assertIn("/reizen-nareizen/", prefixes)
+        self.assertIn("/seizoenskalender/", prefixes)
 
     def test_exact_nl_only_paths_come_from_i18n_ts(self):
         # LAT-4918: de gate leest de uitzondering uit de site, er staat geen

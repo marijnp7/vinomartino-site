@@ -6,7 +6,7 @@
 // de per-locale loaders in getStaticPaths. Op DEFAULT_LOCALE geeft t() de
 // bestaande NL-copy byte-identiek terug (nul NL-regressie); /en/ overlayt EN.
 import SiteLayout from '../layouts/SiteLayout.astro';
-import ReisCrossLinks from './ReisCrossLinks.astro';
+import ReisVerhaal from './ReisVerhaal.astro';
 import RelatedArticles from './RelatedArticles.astro';
 import HubBacklink from './HubBacklink.astro';
 import RouteMap from './RouteMap.astro';
@@ -16,6 +16,7 @@ import RouteStatStrip from './RouteStatStrip.astro';
 import StaysTeaser from './StaysTeaser.astro';
 import CtaStructure from './CtaStructure.astro';
 import { type WijnRoute } from '../lib/routes';
+import { type ReisPakket } from '../lib/reispakketten';
 import { getImageCredit, licenseLabelFor } from '../lib/image-credits';
 import { assetIdFromSrc } from '../lib/synthetic-images';
 import { splitRouteBody } from '../lib/route-days';
@@ -32,15 +33,15 @@ interface Props {
   landName: string;
   wijnhuizen: Wijnhuis[];
   staysRoundup: AccommodatieRoundupData | null;
-  /** LAT-12365: nareizen (reispakketten) van dezelfde streek. */
-  nareizen?: { slug: string; titel: string; tagline?: string }[];
+  /** Besluit 2026-10-05: Marijns reisverhalen (reispakketten) van dezelfde streek, als blok op de route. */
+  verhalen?: ReisPakket[];
   /** LAT-2638: NL byte-identiek op DEFAULT_LOCALE; /en/ geeft "en" mee. */
   locale?: Locale;
   /** LAT-2638: pad-URLs van de tegenhanger per taal voor hreflang. */
   alternates?: Partial<Record<Locale, string>>;
 }
 
-const { entry, streekName, landSlug, landName, wijnhuizen, staysRoundup, nareizen = [], locale = DEFAULT_LOCALE, alternates } = Astro.props;
+const { entry, streekName, landSlug, landName, wijnhuizen, staysRoundup, verhalen = [], locale = DEFAULT_LOCALE, alternates } = Astro.props;
 
 // LAT-12054: naamsvermelding uit de DAM (`licentie` + `herkomst`) bij CC BY(-SA)-hero's.
 const heroCredit = await getImageCredit(assetIdFromSrc(entry.heroImage));
@@ -221,6 +222,8 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
           </section>
         )}
 
+        <ReisVerhaal verhalen={verhalen} context={`route-${entry.slug}`} locale={locale} />
+
         <CtaStructure data={entry.cta} sid={entry.slug} locale={locale} />
       </div>
 
@@ -255,8 +258,6 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
     </div>
 
     <RelatedArticles items={entry.relatedArticles} locale={locale} />
-
-    <ReisCrossLinks nareizen={nareizen} locale={locale} />
 
     <HubBacklink type="route" slug={entry.slug} locale={locale} />
 

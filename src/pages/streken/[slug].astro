@@ -9,7 +9,6 @@ import { loadStreken, type Streek } from '../../lib/streken';
 import { loadWijnhuizen, type Wijnhuis } from '../../lib/wijnhuizen';
 import { loadAccommodatieRoundupsByStreek } from '../../lib/accommodaties-loader';
 import type { AccommodatieRoundup as AccommodatieRoundupData } from '../../lib/accommodaties';
-import { loadReispakketten } from '../../lib/reispakketten';
 import { loadRoutes, type WijnRoute } from '../../lib/routes';
 import { DEFAULT_LOCALE } from '../../lib/i18n';
 
@@ -34,21 +33,12 @@ export async function getStaticPaths() {
     list.push(route);
     routesByStreek.set(route.streekSlug, list);
   }
-  const pakketten = await loadReispakketten();
-  const nareizenByStreek = new Map<string, { slug: string; titel: string; tagline: string }[]>();
-  for (const p of pakketten) {
-    if (!p.streekSlug) continue;
-    const list = nareizenByStreek.get(p.streekSlug) ?? [];
-    list.push({ slug: p.slug, titel: p.titel, tagline: p.tagline });
-    nareizenByStreek.set(p.streekSlug, list);
-  }
   return entries.map(entry => ({
     params: { slug: entry.slug },
     props: {
       entry,
       wijnhuizen: byStreek.get(entry.slug) ?? [],
       routes: routesByStreek.get(entry.slug) ?? [],
-      nareizen: nareizenByStreek.get(entry.slug) ?? [],
       accRoundup: accRoundupsByStreek.get(entry.slug) ?? null,
       // LAT-2575: hreflang alléén op streken mét een echte EN-tegenhanger. NL-only
       // streken krijgen géén alternates → SiteLayout emit geen hreflang (byte-identiek
@@ -58,7 +48,7 @@ export async function getStaticPaths() {
   }));
 }
 
-const { entry, wijnhuizen, routes, nareizen, accRoundup, alternates } = Astro.props as { entry: Streek; wijnhuizen: Wijnhuis[]; routes: WijnRoute[]; nareizen: { slug: string; titel: string; tagline?: string }[]; accRoundup: AccommodatieRoundupData | null; alternates: Record<string, string> | undefined };
+const { entry, wijnhuizen, routes, accRoundup, alternates } = Astro.props as { entry: Streek; wijnhuizen: Wijnhuis[]; routes: WijnRoute[]; accRoundup: AccommodatieRoundupData | null; alternates: Record<string, string> | undefined };
 ---
 
-<StreekDetail entry={entry} wijnhuizen={wijnhuizen} routes={routes} nareizen={nareizen} accRoundup={accRoundup} locale={DEFAULT_LOCALE} alternates={alternates} />
+<StreekDetail entry={entry} wijnhuizen={wijnhuizen} routes={routes} accRoundup={accRoundup} locale={DEFAULT_LOCALE} alternates={alternates} />

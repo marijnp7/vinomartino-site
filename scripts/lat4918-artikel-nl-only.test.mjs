@@ -73,10 +73,11 @@ test('de uitzondering staat als EXACT pad genoteerd, niet als prefix', () => {
 test('de bestaande families en hun uitzondering blijven staan', () => {
   // regressiehek op de refactor naar isEnMissingPath: EN_PRESENT_EXACT_PATHS
   // moet de familie-regel nog steeds kunnen opheffen.
-  assert.equal(isEnMissingPath('/reizen-nareizen/langhe/'), true);
-  assert.equal(isEnMissingPath('/reizen-nareizen/'), false);
-  assert.equal(localizeHref('/reizen-nareizen/', 'en'), '/en/reizen-nareizen/');
-  assert.equal(localizeHref('/reizen-nareizen/langhe/', 'en'), '/reizen-nareizen/langhe/');
+  // 2026-10-05: de oude Reizen-familie is opgegaan in /wijnroutes/; de hub heeft een EN-versie.
+  assert.equal(isEnMissingPath('/intern/dashboard/'), true);
+  assert.equal(isEnMissingPath('/wijnroutes/'), false);
+  assert.equal(localizeHref('/wijnroutes/', 'en'), '/en/wijnroutes/');
+  assert.equal(localizeHref('/intern/dashboard/', 'en'), '/intern/dashboard/');
   assert.equal(isEnMissingPath('/seizoenskalender/'), true);
 });
 

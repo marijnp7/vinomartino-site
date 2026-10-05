@@ -101,7 +101,7 @@ DIMENSIONS = ("nl-sentences", "technical", "nl-links", "coverage",
 # Bewust NL-only route-families. Wordt bij voorkeur uit src/lib/i18n.ts gelezen
 # (`EN_MISSING_PREFIXES`), zodat de gate niet uit de pas loopt met de site zelf;
 # deze tuple is alleen de fallback als dat bestand er niet is (los gedraaid).
-NL_ONLY_PREFIXES_FALLBACK = ("/reizen-nareizen/", "/intern/", "/preview/")
+NL_ONLY_PREFIXES_FALLBACK = ("/intern/", "/preview/", "/seizoenskalender/")
 
 # --------------------------------------------------------------------------- #
 # dimensie 1 -- Nederlandse zinnen (LAT-2908)

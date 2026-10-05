@@ -20,7 +20,6 @@ export interface NavItem {
 // gewenste set en snoeit afwijkende rijen weg.
 const FALLBACK_ITEMS: NavItem[] = [
     { label: 'Ontdek', href: '/ontdek/', key: 'ontdek', order: 5 },
-    { label: 'Reizen', href: '/reizen-nareizen/', key: 'reizen', order: 25 },
     { label: 'Wijnroutes', href: '/wijnroutes/', key: 'wijnroutes', order: 27 },
     { label: 'Wijnhuizen', href: '/wijnhuizen/', key: 'wijnhuizen', order: 30 },
     { label: 'Overnachten', href: '/accommodaties/', key: 'accommodaties', order: 35 },
@@ -28,6 +27,12 @@ const FALLBACK_ITEMS: NavItem[] = [
     { label: 'De brief', href: '/de-brief/', key: 'de-brief', order: 60 },
     { label: 'Ons verhaal', href: '/over-ons/', key: 'over-ons', order: 70 },
 ];
+
+// Besluit 2026-10-05: het nav-item "Reizen" (/reizen-nareizen/) is opgegaan in
+// Wijnroutes. De rij is uit Directus én uit de seed gehaald; deze set is het
+// vangnet voor een oude of teruggezette CMS-rij, zodat "Reizen" nooit meer in de
+// header kan verschijnen terwijl zijn doel-URL een 301 is.
+const RETIRED_NAV_KEYS = new Set(['reizen']);
 
 function sorted(items: NavItem[]): NavItem[] {
     return [...items].sort((a, b) => a.order - b.order);
@@ -113,6 +118,7 @@ async function fetchNavigation(): Promise<NavigationLoad> {
     const rows = (json.data || []) as Record<string, unknown>[];
     const items = rows
         .filter((r) => r.label && r.href && r.key)
+        .filter((r) => !RETIRED_NAV_KEYS.has(String(r.key)))
         .map((r) => ({
             label: String(r.label),
             href: String(r.href),

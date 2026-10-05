@@ -1,7 +1,9 @@
 ---
-// LAT-2693 — NL wijnroutes-overzicht (prefixloos). Markup + logica in het gedeelde
-// WijnroutesIndex-component; de /en/-tegenhanger rendert hetzelfde met locale="en".
-import WijnroutesIndex from '../../components/WijnroutesIndex.astro';
+// NL wijnroutes-hub (prefixloos). Sinds 2026-10-05 het enige overzicht van routes
+// én Marijns reisverhalen; /reizen-nareizen/ is hierin opgegaan (301 in nginx).
+// Markup en logica in het gedeelde WijnroutesHub-component; de /en/-tegenhanger
+// rendert hetzelfde met locale="en".
+import WijnroutesHub from '../../components/WijnroutesHub.astro';
 ---
 
-<WijnroutesIndex alternates={{ nl: '/wijnroutes/', en: '/en/wijnroutes/' }} />
+<WijnroutesHub alternates={{ nl: '/wijnroutes/', en: '/en/wijnroutes/' }} />

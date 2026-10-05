@@ -5,7 +5,8 @@
 // (launch-gate: geen en-hreflang zonder tegenhanger).
 import RouteDetail from '../../components/RouteDetail.astro';
 import { loadRoutes, type WijnRoute } from '../../lib/routes';
-import { loadReispakketten } from '../../lib/reispakketten';
+import { verhalenVoorRoute } from '../../lib/reis-verhaal';
+import { loadReispakketten, type ReisPakket } from '../../lib/reispakketten';
 import { loadStreken } from '../../lib/streken';
 import { loadWijnhuizen, type Wijnhuis } from '../../lib/wijnhuizen';
 import { loadAccommodatieRoundupsByStreek } from '../../lib/accommodaties-loader';
@@ -60,9 +61,7 @@ export async function getStaticPaths() {
           ? routeWijnhuizen
           : (entry.streekSlug ? (wijnhuizenByStreek.get(entry.streekSlug) ?? []) : []),
         staysRoundup,
-        nareizen: entry.streekSlug
-          ? pakketten.filter(p => p.streekSlug === entry.streekSlug).map(p => ({ slug: p.slug, titel: p.titel, tagline: p.tagline }))
-          : [],
+        verhalen: verhalenVoorRoute(pakketten, entry),
         alternates: enSlugs.has(entry.slug)
           ? { nl: `/wijnroutes/${entry.slug}/`, en: `/en/wijnroutes/${entry.slug}/` }
           : undefined,
@@ -71,11 +70,11 @@ export async function getStaticPaths() {
   });
 }
 
-const { entry, streekName, landSlug, landName, wijnhuizen, staysRoundup, nareizen, alternates } = Astro.props as {
-  nareizen: { slug: string; titel: string; tagline?: string }[];
+const { entry, streekName, landSlug, landName, wijnhuizen, staysRoundup, verhalen, alternates } = Astro.props as {
+  verhalen: ReisPakket[];
   entry: WijnRoute; streekName: string; landSlug: string; landName: string; wijnhuizen: Wijnhuis[];
   staysRoundup: AccommodatieRoundupData | null; alternates?: Record<string, string>;
 };
 ---
 
-<RouteDetail entry={entry} streekName={streekName} landSlug={landSlug} landName={landName} wijnhuizen={wijnhuizen} staysRoundup={staysRoundup} nareizen={nareizen} locale={DEFAULT_LOCALE} alternates={alternates} />
+<RouteDetail entry={entry} streekName={streekName} landSlug={landSlug} landName={landName} wijnhuizen={wijnhuizen} staysRoundup={staysRoundup} verhalen={verhalen} locale={DEFAULT_LOCALE} alternates={alternates} />

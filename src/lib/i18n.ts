@@ -51,20 +51,16 @@ export function localizePath(pathname: string, locale: Locale): string {
 // krijgt bewust geen EN-tegenhanger zolang de PDF geblokkeerd is (LAT-2684/LAT-2318),
 // en zonder deze regel zou de i18n-coverage-gate hem als vertaalgat rapporteren.
 const EN_MISSING_PREFIXES: readonly string[] = [
-    '/reizen-nareizen/',
     '/intern/',
     '/preview/',
     '/seizoenskalender/',
 ];
 
-// LAT-2826 — uitzonderingen ÓP `EN_MISSING_PREFIXES`, op exacte padmatch. De
-// listingpagina /reizen-nareizen/ heeft wél een /en/-tegenhanger (die altijd
-// gebouwd wordt), terwijl de detailpagina's eronder pas een EN-versie krijgen
-// zodra `reispakketten_translations` gevuld is. Zonder deze allowlist zou een
-// EN-body-link naar het overzicht op het NL-pad blijven hangen; mét de allowlist
-// blijven links naar losse (nog onvertaalde) pakketten wél NL — beter een
-// expliciete taalwissel dan een 404.
-const EN_PRESENT_EXACT_PATHS: readonly string[] = ['/reizen-nareizen/'];
+// LAT-2826 — uitzonderingen ÓP `EN_MISSING_PREFIXES`, op exacte padmatch: paden
+// die wél een /en/-tegenhanger hebben binnen een familie die verder NL-only is.
+// Sinds 2026-10-05 leeg (/reizen-nareizen/ is opgegaan in /wijnroutes/), de
+// hook blijft staan voor een volgende familie.
+const EN_PRESENT_EXACT_PATHS: readonly string[] = [];
 
 // LAT-4918 — het spiegelbeeld van `EN_PRESENT_EXACT_PATHS`: LOSSE paden zonder
 // EN-tegenhanger binnen een familie die verder wél vertaald wordt. Een prefix

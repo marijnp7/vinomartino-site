@@ -16,7 +16,6 @@ import StreekKaart, { type StreekPoiInput } from './StreekKaart.astro';
 import StreekFeitenblok from './StreekFeitenblok.astro';
 import RouteMap from './RouteMap.astro';
 import TourCards from './TourCards.astro';
-import ReisCrossLinks from './ReisCrossLinks.astro';
 import ZelfGereisdBadge from './ZelfGereisdBadge.astro';
 import BeeldHerkomst from './BeeldHerkomst.astro';  // LAT-4776: §7-disclosure bij AI-beeld
 import NewsletterFooter from './NewsletterFooter.astro';
@@ -39,8 +38,6 @@ interface Props {
   entry: Streek;
   wijnhuizen: Wijnhuis[];
   routes: WijnRoute[];
-  /** LAT-12365: nareizen (reispakketten) van deze streek. */
-  nareizen?: { slug: string; titel: string; tagline?: string }[];
   accRoundup: AccommodatieRoundupData | null;
   /** LAT-2575: NL byte-identiek op DEFAULT_LOCALE; /en/ geeft "en" mee. */
   locale?: Locale;
@@ -50,7 +47,7 @@ interface Props {
   alternates?: Partial<Record<Locale, string>>;
 }
 
-const { entry, wijnhuizen, routes, nareizen = [], accRoundup, locale = DEFAULT_LOCALE, alternates } = Astro.props;
+const { entry, wijnhuizen, routes, accRoundup, locale = DEFAULT_LOCALE, alternates } = Astro.props;
 
 // LAT-12054: `streken.hero_credit` houdt voorrang; ontbreekt het, dan komt de naamsvermelding uit de DAM.
 const damHeroCredit = entry.heroCredit ? null : await getImageCredit(assetIdFromSrc(entry.heroImage));
@@ -426,8 +423,6 @@ const hasFactBox = Boolean(
         </div>
       </section>
     )}
-
-    <ReisCrossLinks nareizen={nareizen} locale={locale} />
 
     {/* LAT-2252 — gecureerde GetYourGuide-tours (activiteitenkanaal). Rendert
         alleen als er tours in Directus (streken.gyg_tours) staan. */}
