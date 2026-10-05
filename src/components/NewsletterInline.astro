@@ -1,0 +1,46 @@
+---
+// Nieuwsbrief-CTA na de eerste sectie van artikelen en streekpagina's (LAT-12560, taak 5.3).
+// Eigen cta_id `newsletter_inline`; de CTA aan het eind is NewsletterFooter (`footer_signup`).
+import SubstackCta from './SubstackCta.astro';
+import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
+
+interface Props {
+  /** utm_campaign: de pagina-soort, zodat Substack de bron per plek toont. */
+  placement: 'artikel-inline' | 'streek-inline';
+  locale?: Locale;
+}
+
+const { placement, locale = DEFAULT_LOCALE } = Astro.props;
+const ui = await loadUiStrings(locale);
+---
+
+<aside class="nl-inline" aria-label={ui.t('newsletter.inline.heading')}>
+  <p class="nl-inline__heading">{ui.t('newsletter.inline.heading')}</p>
+  <p class="nl-inline__body">{ui.t('newsletter.inline.body')}</p>
+  <SubstackCta placement={placement} ctaId="newsletter_inline" label={ui.t('newsletter.inline.submit')} />
+</aside>
+
+<style>
+  .nl-inline {
+    margin: clamp(1.75rem, 4vw, 2.5rem) 0;
+    padding: 1.25rem 1.5rem;
+    border-left: 3px solid var(--color-rust, #A14F2A);
+    background: var(--color-bg-soft, var(--color-bg, #fff));
+  }
+  .nl-inline__heading {
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    font-weight: 500;
+    line-height: 1.2;
+    color: var(--color-text);
+    margin: 0;
+  }
+  .nl-inline__body {
+    font-family: var(--font-serif, var(--font-body));
+    font-size: 1rem;
+    line-height: 1.55;
+    color: var(--color-text-soft, var(--color-text));
+    margin: 0.5rem 0 1rem;
+  }
+</style>

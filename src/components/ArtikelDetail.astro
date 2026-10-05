@@ -26,6 +26,8 @@ import EerstDitBoeken from './EerstDitBoeken.astro';
 import LangheCaptureBlock from './LangheCaptureBlock.astro';
 import ArtikelVoetblok, { type VoetblokRoute, type VoetblokHotel } from './ArtikelVoetblok.astro';
 import NewsletterFooter from './NewsletterFooter.astro';
+import NewsletterInline from './NewsletterInline.astro';
+import { splitAfterFirstSection } from '../lib/newsletter-inline';
 import { splitBodyForRhoneMap } from '../lib/rhone-maps';
 import { type Article } from '../lib/articles';
 import { articleSchema, breadcrumbSchema } from '../lib/seo';
@@ -106,6 +108,8 @@ const modifiedTime = article.updatedAt || article.pubDate;
 // LAT-4909: de locale gaat mee, zodat de kaartteksten (titel/bijschrift/legenda)
 // én het split-anker bij de taal van de gerenderde body horen. NL = no-op.
 const rhoneMap = splitBodyForRhoneMap(article.bodyHtml, article.slug, locale);
+// LAT-12560: nieuwsbrief-CTA na de eerste sectie, ook op artikelen met een Rhônekaart.
+const bodyFirst = splitAfterFirstSection(rhoneMap ? rhoneMap.before : article.bodyHtml);
 
 // LAT-1687: verplichte beeldcredit (bv. Wikimedia Commons CC BY-SA) bij de hero.
 const heroCredit = await getImageCredit(article.heroImageId);
@@ -223,14 +227,14 @@ if (article.faqSchema) {
           </details>
         )}
 
-        {rhoneMap ? (
+        <div class="article-prose" set:html={bodyFirst.head} />
+        <NewsletterInline placement="artikel-inline" locale={locale} />
+        {bodyFirst.tail && <div class="article-prose" set:html={bodyFirst.tail} />}
+        {rhoneMap && (
           <Fragment>
-            <div class="article-prose" set:html={rhoneMap.before} />
             <RhoneMap slug={article.slug} {...rhoneMap.config} locale={locale} />
             <div class="article-prose" set:html={rhoneMap.after} />
           </Fragment>
-        ) : (
-          <div class="article-prose" set:html={article.bodyHtml} />
         )}
 
         {/* LAT-2112 — "Uit de kelder": fles-first proefnotitie-kaarten (kader LAT-2014). */}
