@@ -79,3 +79,8 @@ test('de bestaande families en hun uitzondering blijven staan', () => {
   assert.equal(localizeHref('/reizen-nareizen/langhe/', 'en'), '/reizen-nareizen/langhe/');
   assert.equal(isEnMissingPath('/seizoenskalender/'), true);
 });
+
+test('LAT-12192: de NL-alias met een 301-EN telt als NL-only, de EN-keeper niet', () => {
+  assert.equal(isEnMissingPath('/artikelen/overnachten-langhe-barolo-agriturismi/'), true);
+  assert.equal(isEnMissingPath('/artikelen/waar-slapen-langhe-piemonte/'), false);
+});

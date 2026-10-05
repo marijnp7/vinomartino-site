@@ -85,9 +85,16 @@ const EN_PRESENT_EXACT_PATHS: readonly string[] = ['/reizen-nareizen/'];
 // staan (expliciete taalwissel i.p.v. een harde 404), en de i18n-nl-gate
 // (LAT-4912) telt het pad niet meer als dekkingsgat. Komt er ooit tóch een
 // EN-versie, haal het pad hier weg — één plek, geen sweep.
+//
+// `/artikelen/overnachten-langhe-barolo-agriturismi/` (LAT-12192): de EN-variant
+// is in LAT-11952 samengevoegd en 301't (nginx-prod.conf) naar de EN-keeper
+// `waar-slapen-langhe-piemonte`; de NL-pagina blijft bewust bestaan. Er is dus
+// geen EN-tegenhanger meer, en dat is geen vertaalgat. Zonder deze regel meldde
+// de i18n-nl-gate dit pad elke dag als "NL zonder EN".
 const EN_MISSING_EXACT_PATHS: readonly string[] = [
     '/artikelen/ik-weet-het-ik-drink-toch-wijn/',
     '/artikelen/de-stille-wijnkeuze/',
+    '/artikelen/overnachten-langhe-barolo-agriturismi/',
 ];
 
 // Padvergelijking die zowel `/x/` als `/x` accepteert; sitemap-URLs dragen een
