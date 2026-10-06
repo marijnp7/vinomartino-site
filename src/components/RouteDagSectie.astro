@@ -69,7 +69,7 @@ const slaap = dag.slaap;
           badge: slaap.label ?? slaap.type ?? ui.t('route.stop.overnachting'),
           whyRegel: slaap.why,
           boeklink: accommodatieBookingDeeplink(slaap.naam, slaap.plaats ?? '', slaap.bookingUrl, `route-${context}`, locale),
-          cta: ui.t('stay.cta.bekijkBoek'),
+          cta: ui.t('route.stay.cta'),
           ctaKey: 'bekijk-boek',
           partner: 'booking',
           placement: 'route-dag-slaap',

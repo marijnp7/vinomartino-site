@@ -111,6 +111,7 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'route.stop.eten': 'Eten',
     'route.stop.bezienswaardigheid': 'Bezienswaardigheid',
     'route.stop.overnachting': 'Overnachting',
+    'route.stay.cta': 'Bekijk & boek',
     // {duur} wordt vervangen door de duur-string uit de itinerary-data.
     'route.stop.duur': 'Reken op {duur}.',
     'route.stop.website': 'Website',
@@ -951,6 +952,7 @@ export const UI_STRING_EN: Record<string, string> = {
     'route.stop.eten': 'Food',
     'route.stop.bezienswaardigheid': 'Sight',
     'route.stop.overnachting': 'Stay',
+    'route.stay.cta': 'View & book',
     'route.stop.duur': 'Allow {duur}.',
     'route.stop.website': 'Website',
     'route.stop.kaart': 'View on map',
