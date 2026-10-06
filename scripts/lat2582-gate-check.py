@@ -188,7 +188,9 @@ NL_NOUNS = {
     "kwaliteit": "/streken/",
     # 3 okt: nieuwsbriefformulier (MailerLite) van de homepage gehaald, het woord staat nu op /privacy/.
     "mailadres": "/privacy/",
-    "nieuwsbrief": "/artikelen/",
+    # 6 okt: "nieuwsbrief" weggehaald. Sinds de nieuwsbrief-CTA-wijziging (LAT-12560, 5 okt)
+    # staat het woord nergens meer in de zichtbare NL-tekst (ook niet op /, /privacy/ of
+    # /artikelen/), waardoor de selftest op elke PR faalde ongeacht de inhoud van de PR.
     "ontdek": "/",
     "overnachtingen": "/streken/",
     "proefnotities": "/",
