@@ -21,7 +21,7 @@ import { routeDagen, dagenBucket, routeWijnhuizen, routeLand, orderRoutes } from
 import { organizationSchema, breadcrumbSchema } from '../lib/seo';
 import { loadUiStrings } from '../lib/ui-strings';
 import { DEFAULT_LOCALE, localizePath, type Locale } from '../lib/i18n';
-import { VERHAAL_ANCHOR } from '../lib/reis-verhaal';
+import { VERHAAL_ANCHOR, verhaalInRouteBody } from '../lib/reis-verhaal';
 
 interface Props {
   locale?: Locale;
@@ -41,7 +41,10 @@ function routeFor(entry: ReisPakket) {
 }
 // Een verhaal zonder route in dezelfde streek heeft geen landingsplek meer en valt af.
 const entries = (await loadReispakketten(locale)).filter((e) => routeFor(e));
-const verhaalHref = (entry: ReisPakket) => localizePath(`/wijnroutes/${routeFor(entry)!.slug}/#${VERHAAL_ANCHOR}`, locale);
+const verhaalHref = (entry: ReisPakket) => {
+  const slug = routeFor(entry)!.slug;
+  return localizePath(`/wijnroutes/${slug}/${verhaalInRouteBody(slug) ? '' : `#${VERHAAL_ANCHOR}`}`, locale);
+};
 const routeHref = (entry: ReisPakket) => localizePath(`/wijnroutes/${routeFor(entry)!.slug}/`, locale);
 
 function timestamp(entry: ReisPakket): number {

@@ -23,6 +23,7 @@ import RouteWijnhuizenGrid from './RouteWijnhuizenGrid.astro';
 import { accommodatieBookingDeeplink } from '../lib/affiliates';
 import { type WijnRoute } from '../lib/routes';
 import { type ReisPakket } from '../lib/reispakketten';
+import { verhaalInRouteBody } from '../lib/reis-verhaal';
 import { getImageCredit, licenseLabelFor } from '../lib/image-credits';
 import { assetIdFromSrc } from '../lib/synthetic-images';
 import { splitRouteBody } from '../lib/route-days';
@@ -100,7 +101,7 @@ const routeBody = splitRouteBody(entry.bodyHtml);
 // LAT-12710 — één-pagina-opbouw (blauwdruk LAT-12709). Activeert alleen met itinerary.pagina.
 const pagina = entry.pagina;
 const paginaHeroCredit = pagina?.hero.foto ? heroCredit : null;
-const etappeCount = pagina?.dagen.length ?? entry.itinerary?.days.length ?? (entry.stopsGeo.length || entry.stops.length);
+const etappeCount = pagina?.dagen.length ?? entry.itinerary?.days.length ?? (entry.stopsGeo.filter(s => s.kind !== 'wijnhuis').length || entry.stops.length);
 const wijnhuisLabels = Object.fromEntries((pagina?.wijnhuizen ?? []).map((w) => [w.slug, w.label]));
 const slotItems = pagina?.slapen?.items.slice(0, 3) ?? [];
 const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.streekSlug}/` : null;
@@ -329,7 +330,7 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
           </section>
         )}
 
-        <ReisVerhaal verhalen={verhalen} context={`route-${entry.slug}`} locale={locale} />
+        {!verhaalInRouteBody(entry.slug) && <ReisVerhaal verhalen={verhalen} context={`route-${entry.slug}`} locale={locale} />}
 
         <CtaStructure data={entry.cta} sid={entry.slug} locale={locale} />
       </div>
