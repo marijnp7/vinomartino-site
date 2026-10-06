@@ -585,6 +585,7 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     // Blok "Zo reisden wij hem" op de routepagina (ReisVerhaal.astro).
     'route.verhaal.kicker': 'Zo reisden wij hem · zelf gereisd',
     'route.verhaal.slapen': 'Waar wij sliepen',
+    'route.verhaal.jump': 'Lees ons verhaal ↓',
     'wijnroutes.index.empty.title': 'Routes zijn onderweg',
     'wijnroutes.index.empty.descPre': 'Langhe, Etna, Mosel en Wachau staan als eerste op de planning. Intussen: de ',
     'wijnroutes.index.empty.descLink': 'reisartikelen',
@@ -775,6 +776,7 @@ export const UI_STRING_EN: Record<string, string> = {
   'wijnroutes.hub.hero.ctaStories': 'Read how it really went',
   'route.verhaal.kicker': 'How we drove it · travelled ourselves',
   'route.verhaal.slapen': 'Where we slept',
+  'route.verhaal.jump': 'Read our story ↓',
   // Code-level EN voor keys die de hub en het verhaalblok delen met oudere
   // families; Directus `ui_strings_translations` wint als die een waarde heeft.
   'streek.breadcrumb.home': 'Home',

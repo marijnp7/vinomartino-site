@@ -17,6 +17,7 @@ import StaysTeaser from './StaysTeaser.astro';
 import CtaStructure from './CtaStructure.astro';
 import { type WijnRoute } from '../lib/routes';
 import { type ReisPakket } from '../lib/reispakketten';
+import { VERHAAL_ANCHOR } from '../lib/reis-verhaal';
 import { getImageCredit, licenseLabelFor } from '../lib/image-credits';
 import { assetIdFromSrc } from '../lib/synthetic-images';
 import { splitRouteBody } from '../lib/route-days';
@@ -140,6 +141,9 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
           stopsCount={entry.stopsGeo.length || entry.stops.length}
           wijnhuisCount={wijnhuizen.length}
         />
+        {verhalen.length > 0 && (
+          <a class="route-verhaal-link" href={`#${VERHAAL_ANCHOR}`}>{ui.t('route.verhaal.jump')}</a>
+        )}
 
         <div class="page-routemap">
           {entry.stopsGeo.length >= 2 ? (
@@ -347,6 +351,12 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
   }
 
   /* LAT-2005 [VIS-BL-06]: dag-blokken + mobiele swipe-strip */
+  .route-verhaal-link {
+    display: inline-flex; align-items: center; min-height: 44px; margin: var(--space-3) 0 var(--space-4);
+    font-family: var(--font-mono); font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--burgundy); text-decoration: none; border-bottom: 1px solid var(--burgundy);
+  }
+  .route-verhaal-link:hover { text-decoration: underline; }
   .route-daystrip {
     display: flex;
     gap: 0.5rem;
