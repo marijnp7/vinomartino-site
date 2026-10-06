@@ -1,0 +1,77 @@
+---
+// LAT-12710 — wijnhuizen-grid met optioneel label (bv. "Zelf geweest") per huis.
+// Alleen huizen met een bestaande portretpagina krijgen een link.
+import { type Wijnhuis } from '../lib/wijnhuizen';
+import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
+
+interface Props {
+  wijnhuizen: Wijnhuis[];
+  /** slug → label. Huizen zonder entry krijgen geen label. */
+  labels?: Record<string, string | null>;
+  /** Volgorde-voorkeur (slugs); rest volgt op oorspronkelijke volgorde. */
+  volgorde?: string[];
+  locale?: Locale;
+}
+const { wijnhuizen, labels = {}, volgorde = [], locale = DEFAULT_LOCALE } = Astro.props;
+const ui = await loadUiStrings(locale);
+const rank = (slug: string) => { const i = volgorde.indexOf(slug); return i === -1 ? volgorde.length : i; };
+const items = [...wijnhuizen].sort((a, b) => rank(a.slug) - rank(b.slug));
+---
+
+{items.length > 0 && (
+  <section class="rwg">
+    <h2 class="rwg__kop">{ui.t('route.wijnhuizenOpRoute')}</h2>
+    <div class="rwg__grid">
+      {items.map((wh) => (
+        <a class="rwg__card" href={localizeHref(`/wijnhuizen/${wh.slug}/`, locale)}>
+          {labels[wh.slug] && <span class="rwg__tag">{labels[wh.slug]}</span>}
+          <span class="rwg__naam">{wh.name}</span>
+          {wh.description && <span class="rwg__desc">{wh.description}</span>}
+          <span class="rwg__cta">{ui.t('route.leesPortret')} &rarr;</span>
+        </a>
+      ))}
+    </div>
+  </section>
+)}
+
+<style>
+  .rwg { margin: var(--space-12) 0; }
+  .rwg__kop { font-family: var(--font-display); font-size: 1.75rem; font-weight: 500; margin: 0 0 var(--space-5); }
+  .rwg__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: 1rem; }
+  .rwg__card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    min-width: 0;
+    padding: 1.25rem;
+    text-decoration: none;
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    transition: box-shadow 0.15s;
+  }
+  .rwg__card:hover { box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); }
+  .rwg__tag {
+    align-self: flex-start;
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--burgundy);
+    border: 1px solid var(--burgundy);
+    padding: 0.1rem 0.45rem;
+    border-radius: 1px;
+  }
+  .rwg__naam { font-family: var(--font-display); font-size: 1.375rem; font-weight: 500; color: var(--ink); }
+  .rwg__desc {
+    font-family: var(--font-body);
+    font-size: 0.9375rem;
+    line-height: 1.5;
+    color: var(--inkSoft);
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .rwg__cta { font-family: var(--font-mono); font-size: 0.6875rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--burgundy); margin-top: auto; }
+</style>

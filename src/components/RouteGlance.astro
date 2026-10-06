@@ -1,0 +1,151 @@
+---
+// LAT-12710 — "In één oogopslag": kaart (slot) + feitenrij + top-3 must-dos + compacte wijntabel.
+interface Props {
+  kop?: string | null;
+  feiten: { label: string; value: string }[];
+  mustdosKop?: string | null;
+  mustdos: { titel: string; regel: string | null }[];
+  wijntabel?: { kop: string[]; rijen: string[][] } | null;
+}
+const { kop, feiten, mustdosKop, mustdos, wijntabel } = Astro.props;
+---
+
+<section class="rglance" aria-label={kop || undefined}>
+  {kop && <h2 class="rglance__kop">{kop}</h2>}
+  <div class="rglance__map"><slot /></div>
+
+  {feiten.length > 0 && (
+    <dl class="rglance__feiten">
+      {feiten.map((f) => (
+        <div class="rglance__feit">
+          <dt>{f.label}</dt>
+          <dd>{f.value}</dd>
+        </div>
+      ))}
+    </dl>
+  )}
+
+  {mustdos.length > 0 && (
+    <div class="rglance__must">
+      {mustdosKop && <h3 class="rglance__sub">{mustdosKop}</h3>}
+      <ol class="rglance__list">
+        {mustdos.slice(0, 3).map((m) => (
+          <li>
+            <strong>{m.titel}</strong>
+            {m.regel && <span>{m.regel}</span>}
+          </li>
+        ))}
+      </ol>
+    </div>
+  )}
+
+  {wijntabel && wijntabel.rijen.length > 0 && (
+    <div class="rglance__tabelwrap">
+      <table class="rglance__tabel">
+        {wijntabel.kop.length > 0 && (
+          <thead><tr>{wijntabel.kop.map((c) => <th scope="col">{c}</th>)}</tr></thead>
+        )}
+        <tbody>
+          {wijntabel.rijen.map((r) => <tr>{r.map((c, i) => (i === 0 ? <th scope="row">{c}</th> : <td>{c}</td>))}</tr>)}
+        </tbody>
+      </table>
+    </div>
+  )}
+</section>
+
+<style>
+  .rglance { margin: var(--space-8) 0 var(--space-10); }
+  .rglance__kop {
+    font-family: var(--font-display);
+    font-size: 1.625rem;
+    font-weight: 500;
+    margin: 0 0 var(--space-5);
+  }
+  .rglance__map { margin-bottom: var(--space-5); }
+  .rglance__feiten {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+    gap: 1px;
+    margin: 0 0 var(--space-6);
+    background: var(--rule);
+    border: 1px solid var(--rule);
+  }
+  .rglance__feit { background: var(--paper); padding: 0.75rem 0.9rem; min-width: 0; }
+  .rglance__feit dt {
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--inkFaint);
+    margin-bottom: 0.2rem;
+  }
+  .rglance__feit dd {
+    margin: 0;
+    font-family: var(--font-ui);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--ink);
+    overflow-wrap: anywhere;
+  }
+  .rglance__sub {
+    font-family: var(--font-ui);
+    font-size: 1.0625rem;
+    font-weight: 600;
+    margin: 0 0 var(--space-3);
+  }
+  .rglance__list {
+    list-style: none;
+    counter-reset: must;
+    margin: 0 0 var(--space-6);
+    padding: 0;
+    display: grid;
+    gap: var(--space-3);
+  }
+  .rglance__list li {
+    counter-increment: must;
+    display: grid;
+    grid-template-columns: 2rem 1fr;
+    column-gap: 0.75rem;
+    padding: 0.9rem 1rem;
+    background: var(--paperDeep);
+    border-left: 3px solid var(--burgundy);
+    border-radius: var(--radius-sm);
+    font-family: var(--font-body);
+    line-height: 1.5;
+  }
+  .rglance__list li::before {
+    content: counter(must);
+    grid-row: 1 / span 2;
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    line-height: 1;
+    color: var(--burgundy);
+  }
+  .rglance__list strong { font-family: var(--font-ui); color: var(--ink); }
+  .rglance__list span { color: var(--inkSoft); font-size: 0.9375rem; }
+  .rglance__tabelwrap { max-width: 100%; overflow-x: auto; }
+  .rglance__tabel {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--font-ui);
+    font-size: 0.875rem;
+  }
+  .rglance__tabel th, .rglance__tabel td {
+    text-align: left;
+    padding: 0.5rem 0.6rem;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  .rglance__tabel thead th {
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--inkFaint);
+  }
+  .rglance__tabel tbody th { font-weight: 600; color: var(--ink); }
+  @media (max-width: 640px) {
+    .rglance__tabel { font-size: 0.8125rem; }
+    .rglance__tabel th, .rglance__tabel td { padding: 0.45rem 0.4rem; }
+  }
+</style>

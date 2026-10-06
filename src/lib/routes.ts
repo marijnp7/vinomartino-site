@@ -2,6 +2,7 @@ import { stripEditorialHeader, type RelatedRef } from './articles';
 import { fallbackStopsGeo } from './route-geo-fallback';
 import { getCtaStructure, type CtaStructure } from './cta-blocks';
 import { parseItinerary, deriveStopsGeoFromItinerary, type RouteItinerary } from './route-itinerary';
+import { parseRoutePagina, finalizePagina, type RoutePagina } from './route-pagina';
 
 // LAT-1635 — een stop mét coördinaten voor de geografische routekaart
 // (RouteGeoMap). Komt uit het Directus-veld routes.stops_geo (JSON-array van
@@ -47,6 +48,8 @@ export interface WijnRoute {
     // LAT-2013 [VIS-STRAT-02] — gestructureerde dag-itinerary. null = geen CMS-data
     // (proza/regex-fallback via route-days.ts blijft de bron voor dag-blokken).
     itinerary: RouteItinerary | null;
+    // LAT-12710 — één-pagina-opbouw (itinerary.pagina). null = bestaand sjabloon.
+    pagina: RoutePagina | null;
 }
 
 function mapRelatedArticles(val: unknown): RelatedRef[] {
@@ -278,6 +281,7 @@ function mapRoute(
         relatedArticles: mapRelatedArticles(r.related_articles),
         cta: getCtaStructure(r),
         itinerary,
+        pagina: parseRoutePagina(r.itinerary),
     };
 }
 
@@ -517,6 +521,12 @@ async function loadFromDirectus(url: string, token: string, locale: Locale): Pro
                 : null;
             const route = mapRoute(r, heroImagePath, ogImagePath, bodyHtml);
             if (route.itinerary) await resolveItineraryFotos(route.itinerary, url, token);
+            if (route.pagina) {
+                await finalizePagina(route.pagina, {
+                    downloadFoto: (id) => downloadAsset(id, url, token, 'pg-'),
+                    renderMd: (md) => renderMarkdown(md, { locale }),
+                });
+            }
             // Prefer canonieke M2O streek_id; val terug op de M2M-junction.
             const m2o = r.streek_id && typeof r.streek_id === 'object'
                 ? String((r.streek_id as Record<string, unknown>).slug || '')
