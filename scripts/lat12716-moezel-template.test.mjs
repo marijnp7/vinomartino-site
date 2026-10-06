@@ -23,7 +23,7 @@ const read = (p) => readFileSync(path.join(root, p), 'utf8');
 const ROUTE = read('src/components/RouteDetail.astro');
 
 test('Etappes telt geen wijnhuis-markers', () => {
-  assert.match(ROUTE, /stopsCount=\{entry\.stopsGeo\.filter\(s => s\.kind !== 'wijnhuis'\)\.length \|\| entry\.stops\.length\}/);
+  assert.match(ROUTE, /\?\? \(entry\.stopsGeo\.filter\(s => s\.kind !== 'wijnhuis'\)\.length \|\| entry\.stops\.length\)/);
 });
 
 test('ontdek-promo in de header is geen <h2> meer', () => {
