@@ -26,6 +26,9 @@
 import type { AccommodatieKaart } from './accommodaties';
 import { markdownToHtml as renderMarkdown, normalizeEmDashes } from './markdown';
 import { DEFAULT_LOCALE, type Locale } from './i18n';
+import { hasRouteDirectives, renderEnrichedRouteBody } from './route-body';
+import { buildBookingSearchLink, resolveAccommodationHref } from './affiliates';
+import { loadUiStrings } from './ui-strings';
 import { localizeJoinedRefs, localizeNestedRefs, localizeRecords } from './directus-i18n';
 import {
     readDirectusEnv,
@@ -40,6 +43,14 @@ export interface PakketWijnhuis {
     slug: string;
     name: string;
     description: string;
+}
+
+/** Eén kop-blok uit `dag_tot_dag` (bold-regel = kop). `dagLabel` gezet bij "Dag N: titel" / "Dag 1 en 2: titel". */
+export interface VerhaalSectie {
+    anchor: string;
+    dagLabel: string | null;
+    title: string;
+    html: string;
 }
 
 export interface ReisPakket {
@@ -60,6 +71,10 @@ export interface ReisPakket {
     ctaHeading: string;
     ctaTekst: string;
     heroImage: string | null;
+    heroWidth: number | null;
+    heroHeight: number | null;
+    /** `dag_tot_dag` opgeknipt op kopregels (`**Dag 1: …**`); leeg = geen koppen gevonden. */
+    secties: VerhaalSectie[];
     metaTitle: string;
     metaDescription: string;
 }
@@ -245,6 +260,61 @@ async function fetchPakketten(url: string, token: string): Promise<Record<string
     return ((await res.json()).data || []) as Record<string, unknown>[];
 }
 
+// Redactionele `::foto`/`::boek`-directives (zie route-body.ts) werken ook in het
+// reisverhaal; zonder directives blijft de render byte-identiek aan markdownToHtml.
+async function renderVerhaalMd(md: string, slug: string, url: string, token: string): Promise<string> {
+    if (!md) return '';
+    if (!hasRouteDirectives(md)) return renderMarkdown(md);
+    const ui = await loadUiStrings(DEFAULT_LOCALE);
+    const { html } = await renderEnrichedRouteBody(md, {
+        disclosure: ui.t('stay.disclosure.microcopy'),
+        downloadFoto: (ref) => downloadAsset(ref, url, token, 'verhaal'),
+        resolveBoekHref: async (attrs) => {
+            const acc = attrs.acc ? Number(attrs.acc) : NaN;
+            if (Number.isFinite(acc)) return (await resolveAccommodationHref(acc)) ?? null;
+            const zoek = (attrs.zoek || '').trim();
+            return zoek ? buildBookingSearchLink(zoek, `route-${slug}-verhaal`) : null;
+        },
+    });
+    return html;
+}
+
+async function probeDims(publicPath: string | null): Promise<{ width: number; height: number } | null> {
+    if (!publicPath) return null;
+    try {
+        const { join } = await import('node:path');
+        const sharp = (await import('sharp')).default;
+        const meta = await sharp(join(process.cwd(), 'public', publicPath.replace(/^\/+/, ''))).metadata();
+        if (!meta.width || !meta.height) return null;
+        const rotated = typeof meta.orientation === 'number' && meta.orientation >= 5;
+        return rotated ? { width: meta.height, height: meta.width } : { width: meta.width, height: meta.height };
+    } catch {
+        return null;
+    }
+}
+
+async function splitSecties(md: string, slug: string, url: string, token: string): Promise<VerhaalSectie[]> {
+    const parts: { heading: string; lines: string[] }[] = [{ heading: '', lines: [] }];
+    for (const line of md.split('\n')) {
+        const m = line.match(/^(?:\*\*(.+?)\*\*|#{2,4}\s+(.+?))\s*$/);
+        if (m) parts.push({ heading: (m[1] ?? m[2]).trim(), lines: [] });
+        else parts[parts.length - 1].lines.push(line);
+    }
+    const out: VerhaalSectie[] = [];
+    for (const [i, part] of parts.entries()) {
+        const body = part.lines.join('\n').trim();
+        if (!part.heading && !body) continue;
+        const dag = part.heading.match(/^(Dag\s*(\d+)(?:\s*(?:en|t\/m|-|–)\s*\d+)?)\s*[:.\-–]\s*(.+)$/i);
+        out.push({
+            anchor: dag ? `verhaal-dag-${dag[2]}` : `verhaal-sectie-${i}`,
+            dagLabel: dag ? dag[1].replace(/\s+/g, ' ') : null,
+            title: normalizeEmDashes(dag ? dag[3].trim() : part.heading),
+            html: await renderVerhaalMd(body, slug, url, token),
+        });
+    }
+    return out;
+}
+
 async function mapPakket(
     r: Record<string, unknown>,
     url: string,
@@ -252,11 +322,15 @@ async function mapPakket(
 ): Promise<ReisPakket> {
     const streek = (r.streek_id && typeof r.streek_id === 'object' ? r.streek_id : {}) as Record<string, unknown>;
     const route = (r.route_id && typeof r.route_id === 'object' ? r.route_id : {}) as Record<string, unknown>;
-    const introHtml = r.introductie ? await renderMarkdown(String(r.introductie)) : '';
-    const dagTotDagHtml = r.dag_tot_dag ? await renderMarkdown(String(r.dag_tot_dag)) : '';
+    const slug = String(r.slug || '');
+    const introHtml = r.introductie ? await renderVerhaalMd(String(r.introductie), slug, url, token) : '';
+    const dagMd = r.dag_tot_dag ? String(r.dag_tot_dag) : '';
+    const dagTotDagHtml = dagMd ? await renderVerhaalMd(dagMd, slug, url, token) : '';
+    const secties = dagMd ? await splitSecties(dagMd, slug, url, token) : [];
     const heroImage = r.hero_image
         ? await downloadAsset(String(r.hero_image), url, token, 'reispakketten')
         : null;
+    const heroDims = await probeDims(heroImage);
     const titel = normalizeEmDashes(String(r.titel || ''));
     return {
         slug: String(r.slug || ''),
@@ -275,6 +349,9 @@ async function mapPakket(
         ctaHeading: normalizeEmDashes(String(r.cta_heading || '')),
         ctaTekst: normalizeEmDashes(String(r.cta_tekst || '')),
         heroImage,
+        heroWidth: heroDims?.width ?? null,
+        heroHeight: heroDims?.height ?? null,
+        secties,
         metaTitle: String(r.meta_title || titel),
         metaDescription: normalizeEmDashes(String(r.meta_description || r.tagline || '')),
     };

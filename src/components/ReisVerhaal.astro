@@ -24,20 +24,62 @@ const ui = await loadUiStrings(locale);
 {verhalen.length > 0 && (
   <section class="reis-verhaal" id={VERHAAL_ANCHOR}>
     <span class="section-label">{ui.t('route.verhaal.kicker')}</span>
-    {verhalen.map((entry) => (
+    {verhalen.map((entry) => {
+      const dagen = entry.secties.filter((x) => x.dagLabel !== null);
+      return (
       <article class="reis-verhaal__item">
+        {entry.heroImage && (
+          <figure class="reis-verhaal__hero">
+            <img
+              src={entry.heroImage}
+              alt={entry.titel}
+              width={entry.heroWidth ?? undefined}
+              height={entry.heroHeight ?? undefined}
+              loading="lazy"
+              decoding="async"
+            />
+          </figure>
+        )}
         <header class="reis-verhaal__head">
           <h2 class="reis-verhaal__title">{entry.titel}</h2>
           {entry.tagline && <p class="reis-verhaal__tagline">{entry.tagline}</p>}
         </header>
 
-        {entry.introHtml && <div class="page-prose" set:html={entry.introHtml} />}
+        {dagen.length > 1 && (
+          <nav class="reis-verhaal__chips" aria-label={ui.t('route.daysAria')}>
+            {dagen.map((d) => (
+              <a class="reis-verhaal__chip" href={`#${d.anchor}`}>
+                <span class="reis-verhaal__chip-label">{d.dagLabel}</span>
+                <span class="reis-verhaal__chip-title">{d.title}</span>
+              </a>
+            ))}
+          </nav>
+        )}
 
-        {entry.dagTotDagHtml && (
-          <div class="reis-verhaal__sub">
-            <span class="section-label">{ui.t('reizen.detail.section.dagTotDag')}</span>
-            <div class="page-prose" set:html={entry.dagTotDagHtml} />
-          </div>
+        {entry.introHtml && <div class="page-prose reis-verhaal__lead" set:html={entry.introHtml} />}
+
+        {entry.secties.length > 0 ? (
+          entry.secties.map((sec) => sec.dagLabel !== null ? (
+            <section class="reis-dag" id={sec.anchor}>
+              <header class="reis-dag__head">
+                <span class="reis-dag__label">{sec.dagLabel}</span>
+                <h3 class="reis-dag__title">{sec.title}</h3>
+              </header>
+              <div class="page-prose reis-dag__body" set:html={sec.html} />
+            </section>
+          ) : (
+            <section class="reis-sectie" id={sec.anchor}>
+              {sec.title && <h3 class="reis-sectie__title">{sec.title}</h3>}
+              <div class="page-prose reis-sectie__body" set:html={sec.html} />
+            </section>
+          ))
+        ) : (
+          entry.dagTotDagHtml && (
+            <div class="reis-verhaal__sub">
+              <span class="section-label">{ui.t('reizen.detail.section.dagTotDag')}</span>
+              <div class="page-prose" set:html={entry.dagTotDagHtml} />
+            </div>
+          )
         )}
 
         {entry.wijnhuizen.length > 0 && (
@@ -80,7 +122,8 @@ const ui = await loadUiStrings(locale);
           </aside>
         )}
       </article>
-    ))}
+      );
+    })}
   </section>
 )}
 
@@ -142,4 +185,80 @@ const ui = await loadUiStrings(locale);
   .wijnhuis-card__desc { font-family: var(--font-body); font-size: 0.9375rem; line-height: 1.5; color: var(--inkSoft); }
   .wijnhuis-card__cta { font-family: var(--font-mono); font-size: 0.6875rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--burgundy); margin-top: auto; }
   @media (max-width: 700px) { .wijnhuis-grid { grid-template-columns: 1fr; } }
+
+  /* LAT-12692: eigen identiteit als persoonlijk reisverslag (kaart-achtergrond, hero,
+     lead, pull-quote, dag-kaarten). HTML uit set:html → :global. */
+  .reis-verhaal {
+    background: var(--paperDeep);
+    border: 1px solid var(--rule);
+    border-top: 3px solid var(--burgundy);
+    border-radius: var(--radius-sm);
+    padding: var(--space-6);
+  }
+  .reis-verhaal__hero { margin: var(--space-4) calc(-1 * var(--space-6)) 0; }
+  .reis-verhaal__hero img {
+    display: block; width: 100%; height: auto; max-height: 28rem; object-fit: cover;
+    background: var(--paper);
+  }
+  .reis-verhaal__chips { display: flex; gap: var(--space-3); flex-wrap: wrap; margin: var(--space-5) 0 var(--space-6); }
+  .reis-verhaal__chip {
+    display: flex; flex-direction: column; gap: 0.15rem; padding: 0.6rem 0.9rem;
+    text-decoration: none; background: var(--paper); border: 1px solid var(--rule);
+    border-radius: var(--radius-sm); min-height: 44px; justify-content: center;
+  }
+  .reis-verhaal__chip:hover { border-color: var(--burgundy); }
+  .reis-verhaal__chip-label { font-family: var(--font-mono); font-size: 0.6875rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--burgundy); }
+  .reis-verhaal__chip-title { font-family: var(--font-display); font-size: 0.9375rem; color: var(--ink); }
+  .reis-verhaal__lead :global(p:first-child) {
+    font-family: var(--font-display); font-size: 1.25rem; line-height: 1.5; color: var(--ink);
+  }
+  .reis-verhaal :global(blockquote) {
+    margin: var(--space-6) 0; padding: var(--space-2) 0 var(--space-2) var(--space-5);
+    border-left: 3px solid var(--burgundy);
+    font-family: var(--font-display); font-style: italic;
+    font-size: clamp(1.25rem, 1.05rem + 0.9vw, 1.625rem); line-height: 1.35; color: var(--ink);
+  }
+  .reis-verhaal :global(blockquote p) { margin: 0; }
+  .reis-dag, .reis-sectie {
+    margin-top: var(--space-6); padding: var(--space-5);
+    background: var(--paper); border: 1px solid var(--rule); border-radius: var(--radius-sm);
+    scroll-margin-top: 5rem;
+  }
+  .reis-dag__head { margin-bottom: var(--space-3); }
+  .reis-dag__label { display: block; font-family: var(--font-mono); font-size: 0.6875rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--burgundy); }
+  .reis-dag__title, .reis-sectie__title {
+    font-family: var(--font-display); font-weight: 400; font-size: 1.5rem; line-height: 1.15; color: var(--ink);
+  }
+  .reis-sectie__title { margin-bottom: var(--space-3); }
+  .reis-dag__body > :global(:first-child), .reis-sectie__body > :global(:first-child) { margin-top: 0; }
+  .reis-sectie__body :global(ul) {
+    list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: var(--space-4);
+  }
+  .reis-sectie__body :global(ul > li) {
+    padding: var(--space-4); background: var(--paperDeep); border: 1px solid var(--rule); border-radius: var(--radius-sm);
+    font-size: 0.9375rem; line-height: 1.5;
+  }
+  .reis-verhaal :global(.route-foto) { margin: var(--space-5) 0; }
+  .reis-verhaal :global(.route-foto img) { display: block; width: 100%; height: auto; border-radius: var(--radius-sm); background: var(--paperDeep); }
+  .reis-verhaal :global(.route-foto img:not([width])) { aspect-ratio: 3 / 2; object-fit: cover; }
+  .reis-verhaal :global(.route-foto figcaption) {
+    font-family: var(--font-mono); font-size: 0.6875rem; letter-spacing: 0.04em; color: var(--inkFaint); margin-top: 0.6rem; line-height: 1.5;
+  }
+  .reis-verhaal :global(.route-boek) {
+    display: flex; flex-direction: column; gap: 0.5rem; align-items: flex-start;
+    background: var(--paperDeep); border: 1px solid var(--rule); border-left: 3px solid var(--burgundy);
+    border-radius: var(--radius-sm); padding: var(--space-5); margin: var(--space-5) 0;
+  }
+  .reis-verhaal :global(.route-boek__cta) {
+    display: inline-flex; align-items: center; min-height: 44px; font-family: var(--font-ui); font-size: 0.9375rem; font-weight: 600;
+    text-decoration: none; color: var(--paper); background: var(--burgundy); padding: 0.7rem 1.4rem; border-radius: var(--radius-sm);
+  }
+  .reis-verhaal :global(.route-boek__cta:hover) { text-decoration: underline; }
+  .reis-verhaal :global(.route-boek__disclosure) { font-family: var(--font-mono); font-size: 0.625rem; letter-spacing: 0.03em; line-height: 1.5; color: var(--inkFaint); margin: 0; }
+  @media (max-width: 768px) {
+    .reis-verhaal { padding: var(--space-4); }
+    .reis-verhaal__hero { margin-left: calc(-1 * var(--space-4)); margin-right: calc(-1 * var(--space-4)); }
+    .reis-dag, .reis-sectie { padding: var(--space-4); }
+    .reis-verhaal__lead :global(p:first-child) { font-size: 1.125rem; }
+  }
 </style>
