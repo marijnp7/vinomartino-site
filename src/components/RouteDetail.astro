@@ -15,6 +15,12 @@ import RouteItineraryDays from './RouteItineraryDays.astro';
 import RouteStatStrip from './RouteStatStrip.astro';
 import StaysTeaser from './StaysTeaser.astro';
 import CtaStructure from './CtaStructure.astro';
+import RouteHero from './RouteHero.astro';
+import RouteGlance from './RouteGlance.astro';
+import RouteDagSectie from './RouteDagSectie.astro';
+import RouteSlaapOverzicht from './RouteSlaapOverzicht.astro';
+import RouteWijnhuizenGrid from './RouteWijnhuizenGrid.astro';
+import { accommodatieBookingDeeplink } from '../lib/affiliates';
 import { type WijnRoute } from '../lib/routes';
 import { type ReisPakket } from '../lib/reispakketten';
 import { getImageCredit, licenseLabelFor } from '../lib/image-credits';
@@ -91,6 +97,12 @@ const routeBody = splitRouteBody(entry.bodyHtml);
 // Sticky "Boek dag 1" verwijst naar de boekbare accommodatie-pagina van de streek
 // (bestaat alleen als er verblijven met echte foto's zijn — zelfde poort als de
 // StaysTeaser). Zonder boekbaar doel tonen we de knop niet.
+// LAT-12710 — één-pagina-opbouw (blauwdruk LAT-12709). Activeert alleen met itinerary.pagina.
+const pagina = entry.pagina;
+const paginaHeroCredit = pagina?.hero.foto ? heroCredit : null;
+const etappeCount = pagina?.dagen.length ?? entry.itinerary?.days.length ?? (entry.stopsGeo.length || entry.stops.length);
+const wijnhuisLabels = Object.fromEntries((pagina?.wijnhuizen ?? []).map((w) => [w.slug, w.label]));
+const slotItems = pagina?.slapen?.items.slice(0, 3) ?? [];
 const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.streekSlug}/` : null;
 ---
 
@@ -105,6 +117,101 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
   loadStay22={Boolean(staysRoundup)}
 >
   <article class="route-page">
+    {pagina ? (
+      <>
+        <RouteHero
+          h1={pagina.hero.h1 ?? entry.title}
+          tagline={pagina.hero.tagline}
+          badge={pagina.hero.badge ?? (entry.zelfGereisd ? ui.t('ui.badge.zelfGereisd') : null)}
+          foto={pagina.hero.foto ?? entry.heroImage}
+          fotoAlt={pagina.hero.fotoAlt}
+          credit={paginaHeroCredit ? [paginaHeroCredit.author, licenseLabelFor(paginaHeroCredit.licenseLabel, locale)].filter(Boolean).join(', ') : null}
+          knopSlapen={pagina.hero.knopSlapen}
+          knopRoute={pagina.hero.knopRoute}
+        />
+
+        <div class="container route-one">
+          <nav class="breadcrumb" aria-label="Breadcrumb">
+            {crumbs.slice(0, -1).map(c => (
+              <><a href={lh(c.url)}>{c.name}</a> / </>
+            ))}
+            <span>{entry.title}</span>
+          </nav>
+
+          {pagina.introHtml && <div class="page-prose route-one__intro" set:html={pagina.introHtml} />}
+
+          <RouteGlance
+            kop={pagina.glance?.kop}
+            feiten={pagina.glance?.feiten ?? []}
+            mustdosKop={pagina.glance?.mustdosKop}
+            mustdos={pagina.glance?.mustdos ?? []}
+            wijntabel={pagina.glance?.wijntabel}
+          >
+            {entry.stopsGeo.length >= 2 ? (
+              <RouteGeoMap locale={locale} stops={entry.stopsGeo} title={entry.title} slug={entry.slug} duration={entry.duration} transport={entry.transport} />
+            ) : (
+              <RouteMap stops={entry.stops.length > 0 ? entry.stops : entry.highlights} duration={entry.duration} transport={entry.transport} variant="full" locale={locale} />
+            )}
+          </RouteGlance>
+
+          <div id="route" class="route-one__dagen">
+            {pagina.dagen.map((dag) => (
+              <RouteDagSectie dag={dag} context={entry.slug} locale={locale} />
+            ))}
+          </div>
+
+          {pagina.slapen && (
+            <RouteSlaapOverzicht
+              kop={pagina.slapen.kop}
+              intro={pagina.slapen.intro}
+              items={pagina.slapen.items}
+              disclosureHtml={pagina.slapen.disclosureHtml}
+              context={entry.slug}
+              locale={locale}
+            />
+          )}
+
+          <RouteWijnhuizenGrid
+            wijnhuizen={wijnhuizen}
+            labels={wijnhuisLabels}
+            volgorde={pagina.wijnhuizen.map((w) => w.slug)}
+            locale={locale}
+          />
+
+          {pagina.praktisch && pagina.praktisch.items.length > 0 && (
+            <section class="route-one__praktisch">
+              {pagina.praktisch.kop && <h2>{pagina.praktisch.kop}</h2>}
+              <dl>
+                {pagina.praktisch.items.map((i) => (
+                  <div><dt>{i.label}</dt><dd>{i.value}</dd></div>
+                ))}
+              </dl>
+            </section>
+          )}
+
+          {pagina.slot && slotItems.length > 0 && (
+            <section class="route-one__slot">
+              {pagina.slot.kop && <h2>{pagina.slot.kop}</h2>}
+              {pagina.slot.tekst && <p>{pagina.slot.tekst}</p>}
+              <div class="route-one__slot-knoppen">
+                {slotItems.map((it, i) => (
+                  <a
+                    class:list={['route-one__slot-btn', i === 0 && 'route-one__slot-btn--primary']}
+                    href={accommodatieBookingDeeplink(it.naam, '', it.bookingUrl, `route-${entry.slug}`, locale)}
+                    rel="sponsored noopener"
+                    target="_blank"
+                    data-affiliate-partner="booking"
+                    data-affiliate-placement="route-slot-cta"
+                    data-affiliate-context={`route-${entry.slug}`}
+                  >{i === 0 && pagina.slot?.knop ? pagina.slot.knop : it.naam}</a>
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
+      </>
+    ) : (
+      <>
     {entry.heroImage && (
       <div class="page-hero">
         <img src={entry.heroImage} alt={entry.title} class="page-hero-img" loading="eager" fetchpriority="high" />
@@ -137,7 +244,7 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
           duration={entry.duration}
           transport={entry.transport}
           style={entry.style}
-          stopsCount={entry.stopsGeo.length || entry.stops.length}
+          stopsCount={etappeCount}
           wijnhuisCount={wijnhuizen.length}
         />
 
@@ -239,13 +346,6 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
           />
         )}
 
-        <div class="sidebar-card">
-          <h3>{ui.t('route.info.heading')}</h3>
-          {entry.duration && <p><strong>{ui.t('route.info.duur')}</strong> {entry.duration}</p>}
-          {entry.transport && <p><strong>{ui.t('route.info.vervoer')}</strong> {entry.transport}</p>}
-          {entry.style && <p><strong>{ui.t('route.info.stijl')}</strong> {entry.style}</p>}
-        </div>
-
         {entry.highlights && entry.highlights.length > 0 && (
           <div class="sidebar-card sidebar-highlights">
             <h3>{ui.t('route.highlights')}</h3>
@@ -256,6 +356,9 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
         )}
       </aside>
     </div>
+
+      </>
+    )}
 
     <RelatedArticles items={entry.relatedArticles} locale={locale} />
 
@@ -268,6 +371,24 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
 </SiteLayout>
 
 <style>
+  .route-one { padding-top: var(--space-6); padding-bottom: var(--space-12); }
+  .route-one > * { min-width: 0; }
+  .route-one__intro { margin: var(--space-6) 0; }
+  .route-one__praktisch { margin: var(--space-12) 0; }
+  .route-one__praktisch h2, .route-one__slot h2 { font-family: var(--font-display); font-size: 1.75rem; font-weight: 500; margin: 0 0 var(--space-4); }
+  .route-one__praktisch dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: var(--space-3); margin: 0; }
+  .route-one__praktisch dl > div { padding: 0.9rem 1rem; background: var(--paperDeep); border-radius: var(--radius-sm); }
+  .route-one__praktisch dt { font-family: var(--font-mono); font-size: 0.625rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--inkFaint); margin-bottom: 0.25rem; }
+  .route-one__praktisch dd { margin: 0; font-family: var(--font-body); line-height: 1.5; }
+  .route-one__slot { margin: var(--space-12) 0 0; padding: var(--space-8) var(--space-6); background: var(--paperDeep); border-top: 3px solid var(--burgundy); border-radius: var(--radius-sm); }
+  .route-one__slot p { font-family: var(--font-body); line-height: 1.6; margin: 0 0 var(--space-5); max-width: var(--article-body-max); }
+  .route-one__slot-knoppen { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+  .route-one__slot-btn { display: inline-block; padding: 0.8rem 1.4rem; font-family: var(--font-ui); font-size: 0.9375rem; font-weight: 600; text-decoration: none; color: var(--burgundy); border: 1px solid var(--burgundy); border-radius: var(--radius-sm); }
+  .route-one__slot-btn--primary { color: var(--paper); background: var(--burgundy); }
+  @media (max-width: 640px) {
+    .route-one__slot { padding: var(--space-6) var(--space-4); }
+    .route-one__slot-btn { flex: 1 1 100%; text-align: center; }
+  }
   .page-hero {
     position: relative;
     height: 45vh;

@@ -1,0 +1,74 @@
+---
+// LAT-12710 — slaapoverzicht: vergelijkingskaarten (naam, dorp, type, waarom in één zin,
+// boek-knop) met optioneel label "Hier sliepen wij" en één disclosure-regel onder het blok.
+import PoiCard from './PoiCard.astro';
+import { type PaginaSlaap } from '../lib/route-pagina';
+import { accommodatieBookingDeeplink } from '../lib/affiliates';
+import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
+
+interface Props {
+  kop?: string | null;
+  intro?: string | null;
+  items: PaginaSlaap[];
+  disclosureHtml?: string;
+  context: string;
+  id?: string;
+  locale?: Locale;
+}
+const { kop, intro, items, disclosureHtml = '', context, id = 'slapen', locale = DEFAULT_LOCALE } = Astro.props;
+const ui = await loadUiStrings(locale);
+const disclosure = disclosureHtml || `<p>${ui.t('stay.disclosure.microcopy')}</p>`;
+---
+
+{items.length > 0 && (
+  <section class="rslaap" id={id}>
+    {kop && <h2 class="rslaap__kop">{kop}</h2>}
+    {intro && <p class="rslaap__intro">{intro}</p>}
+    <div class="rslaap__grid">
+      {items.map((it) => (
+        <PoiCard
+          locale={locale}
+          poi={{
+            naam: it.naam,
+            foto: it.foto,
+            fotoId: it.fotoId,
+            hideMediaWhenEmpty: true,
+            badge: it.label ?? [it.plaats, it.type].filter(Boolean).join(' · '),
+            beschrijving: it.label ? [it.plaats, it.type].filter(Boolean).join(' · ') : null,
+            whyRegel: it.why,
+            boeklink: accommodatieBookingDeeplink(it.naam, '', it.bookingUrl, `route-${context}`, locale),
+            cta: ui.t('streekkaart.cta.overnachten'),
+            ctaKey: 'bekijk-boek',
+            partner: 'booking',
+            placement: 'route-slaapoverzicht',
+            context: `route-${context}`,
+          }}
+        />
+      ))}
+    </div>
+    <div class="rslaap__disclosure" set:html={disclosure} />
+  </section>
+)}
+
+<style>
+  .rslaap { margin: var(--space-12) 0; scroll-margin-top: var(--space-6); }
+  .rslaap__kop { font-family: var(--font-display); font-size: 1.75rem; font-weight: 500; margin: 0 0 var(--space-3); }
+  .rslaap__intro { font-family: var(--font-body); color: var(--inkSoft); line-height: 1.6; margin: 0 0 var(--space-5); max-width: var(--article-body-max); }
+  .rslaap__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+    gap: var(--space-4);
+    align-items: stretch;
+  }
+  .rslaap__grid > :global(*) { min-width: 0; }
+  .rslaap__disclosure { margin-top: var(--space-4); }
+  .rslaap__disclosure :global(p) {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    line-height: 1.5;
+    letter-spacing: 0.03em;
+    color: var(--inkFaint);
+    margin: 0;
+  }
+</style>

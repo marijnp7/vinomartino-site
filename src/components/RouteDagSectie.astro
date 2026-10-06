@@ -1,0 +1,173 @@
+---
+// LAT-12710 — één samengevoegde dag-sectie: foto, hook + verhaal, wijnhuis-kaartjes
+// (optioneel label "Zelf geweest") en één slaap-kaart met boek-knop.
+import PoiCard from './PoiCard.astro';
+import { type PaginaDag } from '../lib/route-pagina';
+import { loadWijnhuizen } from '../lib/wijnhuizen';
+import { accommodatieBookingDeeplink } from '../lib/affiliates';
+import { getImageCredit, licenseLabelFor } from '../lib/image-credits';
+import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
+
+interface Props {
+  dag: PaginaDag;
+  context: string;
+  locale?: Locale;
+}
+const { dag, context, locale = DEFAULT_LOCALE } = Astro.props;
+const ui = await loadUiStrings(locale);
+const bestaand = new Map((await loadWijnhuizen(locale)).map((w) => [w.slug, w]));
+const credit = dag.foto ? await getImageCredit(dag.fotoId) : null;
+const slaap = dag.slaap;
+---
+
+<section class="rdag" id={`dag-${dag.n}`}>
+  <header class="rdag__head">
+    <span class="rdag__label">{dag.label}</span>
+    <h2 class="rdag__titel">{dag.titel}</h2>
+    {dag.hook && <p class="rdag__hook">{dag.hook}</p>}
+  </header>
+
+  {dag.foto && (
+    <figure class="rdag__foto">
+      <img src={dag.foto} alt={dag.fotoAlt || dag.titel} loading="lazy" decoding="async" />
+      {credit && (
+        <figcaption>
+          {credit.author && <>{credit.author}, </>}<a href={credit.licenseUrl} rel="license noopener" target="_blank">{licenseLabelFor(credit.licenseLabel, locale)}</a>
+        </figcaption>
+      )}
+    </figure>
+  )}
+
+  {dag.proseHtml && <div class="rdag__prose" set:html={dag.proseHtml} />}
+
+  {dag.wijnhuizen.length > 0 && (
+    <div class="rdag__wijnhuizen">
+      {dag.wijnhuizen.map((w) => {
+        const wh = w.slug ? bestaand.get(w.slug) : undefined;
+        const href = wh ? localizeHref(`/wijnhuizen/${wh.slug}/`, locale) : w.url;
+        const Tag = href ? 'a' : 'div';
+        return (
+          <Tag class="rdag__wh" href={href ?? undefined} {...(w.url && !wh ? { rel: 'noopener', target: '_blank' } : {})}>
+            {w.label && <span class="rdag__tag">{w.label}</span>}
+            <span class="rdag__wh-naam">{w.naam}</span>
+            {(w.regel || wh?.description) && <span class="rdag__wh-regel">{w.regel ?? wh?.description}</span>}
+          </Tag>
+        );
+      })}
+    </div>
+  )}
+
+  {slaap && (
+    <div class="rdag__slaap">
+      <PoiCard
+        locale={locale}
+        poi={{
+          naam: slaap.naam,
+          foto: slaap.foto,
+          fotoId: slaap.fotoId,
+          badge: slaap.label ?? slaap.type ?? ui.t('route.stop.overnachting'),
+          whyRegel: slaap.why,
+          boeklink: accommodatieBookingDeeplink(slaap.naam, slaap.plaats ?? '', slaap.bookingUrl, `route-${context}`, locale),
+          cta: ui.t('stay.cta.bekijkBoek'),
+          ctaKey: 'bekijk-boek',
+          partner: 'booking',
+          placement: 'route-dag-slaap',
+          context: `route-${context}`,
+          hideMediaWhenEmpty: true,
+        }}
+      />
+    </div>
+  )}
+</section>
+
+<style>
+  .rdag { margin: 0 0 var(--space-12); scroll-margin-top: var(--space-6); }
+  .rdag__head { padding-bottom: var(--space-3); margin-bottom: var(--space-5); border-bottom: 2px solid var(--burgundy); }
+  .rdag__label {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--burgundy);
+    margin-bottom: 0.35rem;
+  }
+  .rdag__titel {
+    font-family: var(--font-display);
+    font-size: clamp(1.5rem, 1.2rem + 1.2vw, 2rem);
+    font-weight: 500;
+    line-height: 1.2;
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+  .rdag__hook {
+    font-family: var(--font-body);
+    font-style: italic;
+    font-size: 1.125rem;
+    line-height: 1.5;
+    color: var(--inkSoft);
+    margin: var(--space-3) 0 0;
+  }
+  .rdag__foto { margin: 0 0 var(--space-5); }
+  .rdag__foto img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 3 / 2;
+    object-fit: cover;
+    border-radius: var(--radius-sm);
+    background: var(--paperDeep);
+  }
+  .rdag__foto figcaption {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    color: var(--inkFaint);
+    margin-top: 0.5rem;
+  }
+  .rdag__prose {
+    font-family: var(--font-body);
+    font-size: 1.0625rem;
+    line-height: 1.8;
+    color: var(--ink);
+    max-width: var(--article-body-max);
+  }
+  .rdag__prose :global(p) { margin: 0 0 var(--space-5); }
+  .rdag__prose :global(h3) { font-family: var(--font-ui); font-size: 1.125rem; font-weight: 600; margin: var(--space-6) 0 var(--space-3); }
+  .rdag__prose :global(img) { max-width: 100%; height: auto; }
+  .rdag__wijnhuizen {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+    gap: 0.75rem;
+    margin: var(--space-6) 0;
+  }
+  .rdag__wh {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 1rem 1.1rem;
+    text-decoration: none;
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    min-width: 0;
+  }
+  a.rdag__wh:hover { box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); }
+  .rdag__tag {
+    align-self: flex-start;
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--burgundy);
+    border: 1px solid var(--burgundy);
+    padding: 0.1rem 0.45rem;
+    border-radius: 1px;
+  }
+  .rdag__wh-naam { font-family: var(--font-display); font-size: 1.25rem; font-weight: 500; color: var(--ink); }
+  .rdag__wh-regel { font-family: var(--font-body); font-size: 0.9375rem; line-height: 1.5; color: var(--inkSoft); }
+  .rdag__slaap { margin-top: var(--space-6); max-width: 26rem; }
+  @media (max-width: 640px) {
+    .rdag__slaap { max-width: none; }
+    .rdag__prose { font-size: 1rem; line-height: 1.7; }
+  }
+</style>
