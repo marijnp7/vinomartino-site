@@ -162,29 +162,41 @@ function fotoHtml(attrs: Record<string, string>, foto: FotoResolved, eager: bool
   return fig;
 }
 
-function boekHtml(href: string, label: string, disclosure: string): string {
+function boekHtml(href: string, label: string): string {
   return [
     `<div class="route-boek">`,
     `<a class="route-boek__cta" href="${escapeHtml(href)}" target="_blank" rel="sponsored noopener">${escapeHtml(label)}</a>`,
-    disclosure ? `<p class="route-boek__disclosure">${escapeHtml(disclosure)}</p>` : '',
     `</div>`,
   ].join('');
+}
+
+// LAT-12716: disclosure één keer per sectie (tussen twee koppen), onder de laatste
+// boekknop van die sectie, i.p.v. onder elke knop.
+function flushDisclosure(state: TransformState): void {
+  const last = state.lastBoek;
+  state.lastBoek = null;
+  if (!last || !state.disclosure) return;
+  last.value = (last.value ?? '').replace(/<\/div>$/, `<p class="route-boek__disclosure">${escapeHtml(state.disclosure)}</p></div>`);
 }
 
 // Vervangt directive-nodes in-place: foto/boek → raw-HTML-node (loopt door sanitize),
 // infographic → <aside>-wrapper met behoud van kinderen. Onbekende/onresolvbare
 // directives worden verwijderd (deploy-safe).
+type TransformState = { fotoSeen: number; disclosure: string; lastBoek: MdastNode | null };
+
 function transform(
   nodes: MdastNode[],
   fotoMap: Map<string, FotoResolved | null>,
   boekMap: Map<string, string | null>,
   // `disclosure` reist mee in de state-bag zodat de recursie hem niet als extra
   // argument hoeft door te geven; hij is invariant over de hele boom.
-  state: { fotoSeen: number; disclosure: string },
+  state: TransformState,
 ): MdastNode[] {
   const out: MdastNode[] = [];
   for (const node of nodes) {
     if (Array.isArray(node.children)) node.children = transform(node.children, fotoMap, boekMap, state);
+
+    if (node.type === 'heading') flushDisclosure(state);
 
     if (!DIRECTIVE_TYPES.has(node.type) || !node.name || !ENRICHED_NAMES.has(node.name)) {
       // Niet-verrijkte directive (onbekende naam) → droppen; anders node behouden.
@@ -205,7 +217,11 @@ function transform(
     }
     if (node.name === 'boek') {
       const href = boekMap.get(JSON.stringify(attrs)) ?? null;
-      if (href) out.push({ type: 'html', value: boekHtml(href, attrs.label || 'Bekijk & boek', state.disclosure) });
+      if (href) {
+        const html: MdastNode = { type: 'html', value: boekHtml(href, attrs.label || 'Bekijk & boek') };
+        out.push(html);
+        state.lastBoek = html;
+      }
       continue; // geen href → CTA valt weg
     }
     // infographic: behoud kinderen, render als <aside class="route-infographic">.
@@ -250,7 +266,9 @@ export async function renderEnrichedRouteBody(
   ]);
 
   // 2. Synchrone directive→HTML-transform, daarna de gedeelde sanitize/toc-pas.
-  mdast.children = transform(mdast.children, fotoMap, boekMap, { fotoSeen: 0, disclosure: ctx.disclosure });
+  const state: TransformState = { fotoSeen: 0, disclosure: ctx.disclosure, lastBoek: null };
+  mdast.children = transform(mdast.children, fotoMap, boekMap, state);
+  flushDisclosure(state);
   return mdastToHtmlWithToc(mdast as unknown as Parameters<typeof mdastToHtmlWithToc>[0], {
     stripFirstH1: true,
     locale: ctx.locale,

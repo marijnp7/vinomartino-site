@@ -20,3 +20,11 @@ export function verhalenVoorRoute(
     return Boolean(route.streekSlug) && p.streekSlug === route.streekSlug;
   }) as ReisPakket[];
 }
+
+// LAT-12716 / LAT-12709: de Moezelroute draagt het reisverhaal zelf in `routes.body`.
+// Daar staat het blok "Zo reisden wij hem" niet óók nog eens; de hub linkt dan naar de
+// route zonder anker. Voeg een slug pas toe als de route-body het verhaal heeft overgenomen.
+const ROUTES_MET_VERHAAL_IN_BODY: ReadonlySet<string> = new Set(['mosel-bernkastel-traben-trarbach']);
+
+export const verhaalInRouteBody = (routeSlug: string | null | undefined): boolean =>
+  Boolean(routeSlug) && ROUTES_MET_VERHAAL_IN_BODY.has(routeSlug as string);
