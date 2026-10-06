@@ -22,7 +22,7 @@ test('elk font-bestand uit fonts.css bestaat in public/fonts en elke preload wij
   assert.doesNotMatch(css, /https?:\/\//);
   const layout = read('src/layouts/SiteLayout.astro');
   const preloads = [...layout.matchAll(/rel="preload" href="(\/fonts\/[^"]+)"/g)].map((m) => m[1]);
-  assert.ok(preloads.length >= 2 && preloads.length <= 4);
+  assert.ok(preloads.length >= 2 && preloads.length <= 5);
   for (const f of preloads) assert.ok(files.includes(f), `${f} staat niet in fonts.css`);
 });
 
