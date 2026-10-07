@@ -67,6 +67,16 @@ export const PIN_DAM_BATCHES: readonly PinDamBatch[] = [
             { articleId: 131, slug: 'priorat-licorella-route-gratallops-torroja', lang: 'nl', fileId: 'd0b9f126-adc4-4c8c-9cb5-e7d49f93da33' },
         ],
     },
+    {
+        day: '2026-10-08',
+        pins: [
+            { articleId: 143, slug: 'de-champagneroute-in-twee-dagen', lang: 'en', fileId: 'c6c16a58-29ad-4795-b6b2-a7a3c615db80' },
+            { articleId: 144, slug: 'champagne-reims-epernay-of-de-aube-waar-begin-je', lang: 'en', fileId: '0355a9d8-788e-4571-a2fb-e5ae3294602b' },
+            { articleId: 163, slug: 'waar-slapen-stellenbosch-kaapse-winelands', lang: 'en', fileId: '4accd1e2-637d-4e2c-afbb-e6d490664914' },
+            { articleId: 165, slug: 'franschhoek-wine-tram-of-auto', lang: 'en', fileId: '4c2f507c-1be6-4604-a3bf-b7a2558a88fd' },
+            { articleId: 166, slug: 'wijnproeven-stellenbosch-prijzen-boeken', lang: 'en', fileId: '61a103b8-ffaf-46f1-b710-63157dd4bc80' },
+        ],
+    },
 ];
 
 export const PIN_DAM_SLUGS: ReadonlySet<string> = new Set(PIN_DAM_BATCHES.flatMap((b) => b.pins.map((p) => p.slug)));
