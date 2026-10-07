@@ -73,7 +73,7 @@ async function variant(srcBuf, hash, cacheDir, w, fmt) {
 export async function processImage(file, cacheDir) {
     const srcBuf = readFileSync(file);
     const hash = createHash('sha1').update(srcBuf).digest('hex').slice(0, 16);
-    const { width: srcW } = await sharp(srcBuf).metadata();
+    const { width: srcW, height: srcH } = await sharp(srcBuf).rotate().metadata();
     const widths = widthsFor(srcW);
     const base = file.replace(/\.jpg$/i, '');
     const oversize = [];
@@ -86,7 +86,7 @@ export async function processImage(file, cacheDir) {
             writeFileSync(isBaseJpg ? file : `${base}.w${w}.${fmt}`, buf);
         }
     }
-    return { widths, srcW, oversize };
+    return { widths, srcW, srcH, oversize };
 }
 
 const IMG_RE = /<img\b(?:"[^"]*"|'[^']*'|[^>"'])*>/g;
@@ -103,6 +103,33 @@ function sizesFor(tag, hero) {
     if (hero && !(w > 0 && w <= 800)) return '(min-width: 1200px) 1200px, 100vw';
     if (w > 0 && w <= 800) return `(min-width: 768px) ${w}px, 100vw`;
     return '(min-width: 1024px) 800px, 100vw';
+}
+
+/**
+ * LAT-12768 — zet width/height op elke <img> waarvan de bron bekend is en die ze mist
+ * (ook markdown-body-beelden): voorkomt layout-shift. Alleen als beide ontbreken; staat er
+ * één, dan wordt de andere uit de beeldverhouding afgeleid. Inline aspect-ratio telt als maat.
+ */
+export function addDimensions(html, info) {
+    let added = 0;
+    const out = html.replace(IMG_RE, (tag) => {
+        const src = attr(tag, 'src');
+        const meta = src && info.get(src);
+        if (!meta || !meta.srcW || !meta.srcH) return tag;
+        const w = Number(attr(tag, 'width'));
+        const h = Number(attr(tag, 'height'));
+        const hasW = w > 0, hasH = h > 0;
+        if (hasW && hasH) return tag;
+        let nw, nh;
+        if (hasW) { nw = w; nh = Math.round((w * meta.srcH) / meta.srcW); }
+        else if (hasH) { nh = h; nw = Math.round((h * meta.srcW) / meta.srcH); }
+        else { nw = meta.srcW; nh = meta.srcH; }
+        let t = tag.replace(/\s(?:width|height)=(?:"[^"]*"|'[^']*')/gi, '');
+        t = t.replace(/\/?>$/, '').replace(/\s+$/, '') + ` width="${nw}" height="${nh}">`;
+        added++;
+        return t;
+    });
+    return { html: out, added };
 }
 
 /** Herschrijft de <img>-tags van één HTML-bestand. `info` = Map src-pad → {widths}. */
@@ -161,7 +188,7 @@ export async function optimizeDist(dist, cacheDir) {
         while (next < files.length) {
             const f = files[next++];
             const r = await processImage(f, cacheDir);
-            info.set('/' + relative(dist, f).split(sep).join('/'), { widths: r.widths });
+            info.set('/' + relative(dist, f).split(sep).join('/'), { widths: r.widths, srcW: r.srcW, srcH: r.srcH });
             oversize.push(...r.oversize);
         }
     };
@@ -170,10 +197,11 @@ export async function optimizeDist(dist, cacheDir) {
     let pages = 0;
     let imgs = 0;
     for (const f of walk(dist, (p) => p.endsWith('.html'))) {
-        const html = readFileSync(f, 'utf8');
-        if (!html.includes('.jpg')) continue;
-        const r = rewriteHtml(html, info);
-        if (r.changed) {
+        const raw = readFileSync(f, 'utf8');
+        if (!raw.includes('.jpg')) continue;
+        const d = addDimensions(raw, info);
+        const r = rewriteHtml(d.html, info);
+        if (r.changed || d.added) {
             writeFileSync(f, r.html);
             pages++;
             imgs += r.changed;

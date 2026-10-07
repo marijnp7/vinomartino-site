@@ -22,8 +22,11 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => readFileSync(path.join(root, p), 'utf8');
 const ROUTE = read('src/components/RouteDetail.astro');
 
-test('Etappes telt geen wijnhuis-markers', () => {
-  assert.match(ROUTE, /\?\? \(entry\.stopsGeo\.filter\(s => s\.kind !== 'wijnhuis'\)\.length \|\| entry\.stops\.length\)/);
+test('Etappes telt dagen, nooit stops of wijnhuis-markers (LAT-12768)', () => {
+  const m = /const etappeCount = ([^\n]+)/.exec(ROUTE);
+  assert.ok(m, 'etappeCount ontbreekt');
+  assert.doesNotMatch(m[1], /stopsGeo|entry\.stops/);
+  assert.match(m[1], /pagina\?\.dagen\.length/);
 });
 
 test('ontdek-promo in de header is geen <h2> meer', () => {
