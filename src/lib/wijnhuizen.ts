@@ -1,12 +1,20 @@
 import type { RelatedRef } from './articles';
 import { assertHeroNotBlocked } from './synthetic-images';
 import { getCtaStructure, type CtaStructure } from './cta-blocks';
+import { normalizePortret, type WijnhuisPortret } from './wijnhuis-portret';
 
 // VIS-BL-03 (LAT-2002): vaste rij van (max) 3 portretbeelden onder de intro.
 export interface WijnhuisDrieluikBeeld {
     src: string;
     alt: string;
     caption?: string;
+}
+
+export interface WijnhuisGalerijBeeld {
+    src: string;
+    alt: string;
+    width: number | null;
+    height: number | null;
 }
 
 export interface Wijnhuis {
@@ -36,6 +44,10 @@ export interface Wijnhuis {
     relatedArticles: RelatedRef[];
     // LAT-1784/LAT-1795 — gestandaardiseerde 3-CTA-structuur (Directus `cta_blocks`).
     cta: CtaStructure;
+    // LAT-12769 — gestructureerde portret-velden (LAT-12786); leeg = blok verborgen.
+    portret: WijnhuisPortret;
+    // LAT-12769 — extra foto's (wijngaard, kelder/proeflokaal) met afmetingen tegen layout shift.
+    galerij: WijnhuisGalerijBeeld[];
 }
 
 function mapRelatedArticles(val: unknown): RelatedRef[] {
@@ -151,6 +163,7 @@ function mapWijnhuis(
     ogImagePath: string | null,
     bodyHtml: string,
     drieluik: WijnhuisDrieluikBeeld[],
+    galerij: WijnhuisGalerijBeeld[] = [],
 ): Wijnhuis {
     return {
         slug: String(r.slug),
@@ -176,8 +189,18 @@ function mapWijnhuis(
         bodyHtml,
         relatedArticles: mapRelatedArticles(r.related_articles),
         cta: getCtaStructure(r),
+        portret: normalizePortret(r),
+        galerij,
     };
 }
+
+const PORTRET_FIELDS = [
+    'eigenaar_generatie', 'topwijngaarden', 'druiven', 'bodem', 'max_helling_pct',
+    'stijl_zoet', 'stijl_vol', 'stijl_bewaar', 'prijsband', 'bezoek_type', 'talen',
+    'openingstijden', 'proeverij', 'zelf_geweest', 'onze_ervaring', 'wijnen',
+    'routes.routes_id.slug', 'nabije_wijnhuizen.nabij_id.slug', 'nabije_wijnhuizen.nabij_id.name',
+    'afbeeldingen.directus_files_id.id', 'afbeeldingen.directus_files_id.width', 'afbeeldingen.directus_files_id.height', 'afbeeldingen.sort',
+].join(',');
 
 async function fetchWijnhuizenItems(url: string, token: string): Promise<Record<string, unknown>[]> {
     const env = readDirectusEnv();
@@ -193,9 +216,16 @@ async function fetchWijnhuizenItems(url: string, token: string): Promise<Record<
     const withDrieluik = `${withCta},beeld_plek,beeld_mens,beeld_fles`;
     const filterSort = `${statusFilterQuery(env)}&sort=name`;
     const headers = { Authorization: `Bearer ${token}` };
+    // LAT-12769: portret-velden als hoogste tier; 400/403 (veld of junction-recht ontbreekt)
+    // valt terug op withDrieluik, waarna het portret leeg is en alle nieuwe blokken verborgen blijven.
+    const withPortret = `${withDrieluik},${PORTRET_FIELDS}`;
     let res: Response;
     try {
-        res = await fetchDirectusCollection('loadWijnhuizen', `${url}/items/wijnhuizen?limit=-1&fields=${withDrieluik}${filterSort}`, { headers });
+        res = await fetchDirectusCollection('loadWijnhuizen', `${url}/items/wijnhuizen?limit=-1&fields=${withPortret}${filterSort}`, { headers });
+        if (res.status === 400 || res.status === 403) {
+            console.warn(`[loadWijnhuizen] Directus rejected portret-velden (HTTP ${res.status}) — retrying without LAT-12769 fields.`);
+            res = await fetchDirectusCollection('loadWijnhuizen', `${url}/items/wijnhuizen?limit=-1&fields=${withDrieluik}${filterSort}`, { headers });
+        }
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         assetDebug.push({ kind: 'query', url, error: msg });
@@ -333,7 +363,13 @@ async function loadFromDirectus(url: string, token: string, locale: Locale): Pro
                 ? await downloadAsset(String(r.og_image), url, token, 'og-')
                 : null;
             const drieluik = await buildDrieluik(r, url, token, normalizeEmDashes(String(r.name)));
-            return mapWijnhuis(r, heroImagePath, ogImagePath, bodyHtml, drieluik);
+            const portret = normalizePortret(r);
+            const naam = normalizeEmDashes(String(r.name));
+            const galerij = (await Promise.all(portret.afbeeldingen.map(async (a): Promise<WijnhuisGalerijBeeld | null> => {
+                const src = await downloadAsset(a.id, url, token, 'gal-');
+                return src ? { src, alt: naam, width: a.width, height: a.height } : null;
+            }))).filter((g): g is WijnhuisGalerijBeeld => g !== null);
+            return mapWijnhuis(r, heroImagePath, ogImagePath, bodyHtml, drieluik, galerij);
         }),
     );
     console.log(`[loadWijnhuizen] fetched ${items.length} wijnhuizen from Directus`);

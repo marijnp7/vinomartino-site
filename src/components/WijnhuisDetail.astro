@@ -10,6 +10,9 @@ import WijnhuisPageContent from './pages/WijnhuisPageContent.astro';
 import WijnhuisStayNear from './WijnhuisStayNear.astro';
 import RelatedArticles from './RelatedArticles.astro';
 import CtaStructure from './CtaStructure.astro';
+import WijnhuisInfographic from './WijnhuisInfographic.astro';
+import WijnhuisPortretBlokken from './WijnhuisPortretBlokken.astro';
+import { heeftBezoek } from '../lib/wijnhuis-portret';
 import { type Wijnhuis } from '../lib/wijnhuizen';
 import { wijnhuisSchema, wijnhuisMetaTitle, wijnhuisMetaDescription, breadcrumbSchema } from '../lib/seo';
 import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
@@ -99,10 +102,17 @@ const schema = [
     heroImage={entry.heroImage || undefined}
     heroImageId={entry.heroImageId}
     drieluik={entry.drieluik}
+    zelfGeweest={entry.portret.zelfGeweest}
+    bezoekAnchor={heeftBezoek(entry.portret, entry.address, entry.website) ? '#bezoek' : undefined}
   >
+    <WijnhuisInfographic slot="after-hero" portret={entry.portret} established={entry.established} hectares={entry.hectares} locale={locale} />
     {entry.bodyHtml && <div slot="story" set:html={entry.bodyHtml} />}
   </WijnhuisPageContent>
+  <WijnhuisPortretBlokken blok="galerij" portret={entry.portret} galerij={entry.galerij} name={entry.name} locale={locale} />
+  <WijnhuisPortretBlokken blok="drinken" portret={entry.portret} name={entry.name} locale={locale} />
+  <WijnhuisPortretBlokken blok="bezoek" portret={entry.portret} name={entry.name} address={entry.address} website={entry.website} locale={locale} />
+  <WijnhuisStayNear naam={entry.name} region={entry.region} country={entry.country} slug={entry.slug} locale={locale} />
+  <WijnhuisPortretBlokken blok="combineer" portret={entry.portret} name={entry.name} routeHref={routeHref ? lh(routeHref) : undefined} routeLabel={routeLabel || undefined} region={entry.region} streekSlug={entry.streekSlug} locale={locale} />
   <CtaStructure data={entry.cta} sid={entry.slug} locale={locale} />
   <RelatedArticles items={entry.relatedArticles} locale={locale} />
-  <WijnhuisStayNear naam={entry.name} region={entry.region} country={entry.country} slug={entry.slug} locale={locale} />
 </SiteLayout>

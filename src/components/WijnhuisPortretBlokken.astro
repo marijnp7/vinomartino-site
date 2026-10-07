@@ -1,0 +1,259 @@
+---
+// LAT-12769 — Wijnhuis-portret 2.0: blokken "De wijngaarden" (extra foto's),
+// "Wat te drinken", "Bezoek" en "Combineer met". Elk blok rendert alleen als
+// zijn data gevuld is; nooit een leeg kader.
+import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
+import { DAGEN, WIJN_ROLLEN, eurLabel, heeftBezoek as bezoekGevuld, safeUrl, type WijnhuisPortret } from '../lib/wijnhuis-portret';
+import type { WijnhuisGalerijBeeld } from '../lib/wijnhuizen';
+
+type Blok = 'galerij' | 'drinken' | 'bezoek' | 'combineer';
+
+interface Props {
+  blok: Blok;
+  portret: WijnhuisPortret;
+  galerij?: WijnhuisGalerijBeeld[];
+  name: string;
+  address?: string;
+  website?: string;
+  routeHref?: string;
+  routeLabel?: string;
+  region?: string;
+  streekSlug?: string;
+  locale?: Locale;
+}
+
+const { blok, portret: p, galerij = [], name, address = '', website = '', routeHref, routeLabel, region, streekSlug, locale = DEFAULT_LOCALE } = Astro.props;
+const ui = await loadUiStrings(locale);
+const lh = (href: string) => localizeHref(href, locale);
+
+const websiteUrl = safeUrl(website);
+const mapsUrl = address
+  ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${name}, ${address}`)}`
+  : null;
+
+const dagen = p.openingstijden
+  ? DAGEN.filter((d) => p.openingstijden!.dagen[d] !== undefined).map((d) => ({
+      dag: ui.t(`wijnhuis.dag.${d}`),
+      tijden: p.openingstijden!.dagen[d]!,
+    }))
+  : [];
+const ps = p.proeverij;
+const heeftBezoek = bezoekGevuld(p, address, website);
+
+const wijnen = WIJN_ROLLEN.map((r) => p.wijnen.find((w) => w.rol === r)).filter((w): w is NonNullable<typeof w> => Boolean(w));
+
+const nabije = p.nabije.slice(0, 4);
+const heeftCombineer = Boolean(nabije.length || (routeHref && routeLabel) || (streekSlug && region));
+---
+
+{blok === 'galerij' && galerij.length > 0 && (
+  <section class="wp wp--galerij" aria-label={name}>
+    <div class="container">
+      <div class:list={['wp-galerij', `wp-galerij--${Math.min(galerij.length, 3)}`]}>
+        {galerij.map((b) => (
+          <figure class="wp-galerij__item">
+            <img
+              src={b.src}
+              alt={b.alt}
+              loading="lazy"
+              decoding="async"
+              width={b.width ?? undefined}
+              height={b.height ?? undefined}
+            />
+          </figure>
+        ))}
+      </div>
+    </div>
+  </section>
+)}
+
+{blok === 'drinken' && wijnen.length > 0 && (
+  <section class="wp wp--drinken" id="wat-te-drinken" aria-labelledby="wp-drinken-title">
+    <div class="container">
+      <p class="wp__eyebrow">{ui.t('wijnhuis.drinken.eyebrow')}</p>
+      <h2 class="wp__title" id="wp-drinken-title">{ui.t('wijnhuis.drinken.title')}</h2>
+      <ul class="wp-fles">
+        {wijnen.map((w) => {
+          const koop = w.koopUrl;
+          return (
+            <li class={`wp-fles__kaart wp-fles__kaart--${w.rol}`}>
+              <span class="wp-fles__rol">{ui.t(`wijnhuis.rol.${w.rol}`)}</span>
+              <h3 class="wp-fles__naam">{w.naam}</h3>
+              {w.prijsband && <span class="wp-fles__prijs" aria-label={`${w.prijsband}/4`}>{eurLabel(w.prijsband)}</span>}
+              {(w.van || w.tot) && (
+                <p class="wp-fles__venster">
+                  {[w.van ? `${ui.t('wijnhuis.drink.vanaf')} ${w.van}` : null, w.tot ? `${ui.t('wijnhuis.drink.tot')} ${w.tot}` : null].filter(Boolean).join(' ')}
+                </p>
+              )}
+              {koop && (
+                <a class="btn btn--outline" href={koop} rel="sponsored noopener" target="_blank">{ui.t('wijnhuis.drink.koop')}</a>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  </section>
+)}
+
+{blok === 'bezoek' && heeftBezoek && (
+  <section class="wp wp--bezoek" id="bezoek" aria-labelledby="wp-bezoek-title">
+    <div class="container">
+      <p class="wp__eyebrow">{ui.t('wijnhuis.bezoek.eyebrow')}</p>
+      <h2 class="wp__title" id="wp-bezoek-title">{ui.t('wijnhuis.bezoek.title')}</h2>
+      <div class="wp-bezoek">
+        <dl class="wp-bezoek__lijst">
+          {address && (
+            <div class="wp-bezoek__rij">
+              <dt>{ui.t('wijnhuis.bezoek.adres')}</dt>
+              <dd>{address}{mapsUrl && <> · <a href={mapsUrl} target="_blank" rel="noopener">Google Maps</a></>}</dd>
+            </div>
+          )}
+          {websiteUrl && (
+            <div class="wp-bezoek__rij">
+              <dt>{ui.t('wijnhuis.bezoek.website')}</dt>
+              <dd><a href={websiteUrl} target="_blank" rel="noopener">{new URL(websiteUrl).hostname.replace(/^www\./, '')}</a></dd>
+            </div>
+          )}
+          {dagen.length > 0 && (
+            <div class="wp-bezoek__rij">
+              <dt>{ui.t('wijnhuis.bezoek.openingstijden')}</dt>
+              <dd>
+                <ul class="wp-uren">
+                  {dagen.map((d) => (
+                    <li><span>{d.dag}</span><span>{d.tijden.length ? d.tijden.join(', ') : ui.t('wijnhuis.bezoek.gesloten')}</span></li>
+                  ))}
+                </ul>
+                {p.openingstijden?.opmerking && <p class="wp-uren__noot">{p.openingstijden.opmerking}</p>}
+              </dd>
+            </div>
+          )}
+          {dagen.length === 0 && p.openingstijden?.opmerking && (
+            <div class="wp-bezoek__rij">
+              <dt>{ui.t('wijnhuis.bezoek.openingstijden')}</dt>
+              <dd>{p.openingstijden.opmerking}</dd>
+            </div>
+          )}
+          {ps && (
+            <div class="wp-bezoek__rij">
+              <dt>{ui.t('wijnhuis.bezoek.proeverij')}</dt>
+              <dd>
+                {[
+                  ps.prijs !== null ? `${ui.t('wijnhuis.bezoek.prijs')} €${ps.prijs}` : null,
+                  ps.duur !== null ? `${ui.t('wijnhuis.bezoek.duur')} ${ps.duur} ${ui.t('wijnhuis.bezoek.min')}` : null,
+                  ps.talen.length ? `${ui.t('wijnhuis.bezoek.taal')} ${ps.talen.map((t) => t.toUpperCase()).join(', ')}` : null,
+                ].filter(Boolean).join(' · ')}
+                {ps.url && <p><a class="btn btn--primary" href={ps.url} target="_blank" rel="noopener">{ui.t('wijnhuis.bezoek.reserveer')}</a></p>}
+              </dd>
+            </div>
+          )}
+        </dl>
+        {p.zelfGeweest && p.onzeErvaring && (
+          <aside class="wp-ervaring">
+            <h3 class="wp-ervaring__titel">{ui.t('wijnhuis.ervaring.title')}</h3>
+            <p>{p.onzeErvaring}</p>
+          </aside>
+        )}
+      </div>
+    </div>
+  </section>
+)}
+
+{blok === 'combineer' && heeftCombineer && (
+  <section class="wp wp--combineer" aria-labelledby="wp-combineer-title">
+    <div class="container">
+      <p class="wp__eyebrow">{ui.t('wijnhuis.combineer.eyebrow')}</p>
+      <h2 class="wp__title" id="wp-combineer-title">{ui.t('wijnhuis.combineer.title')}</h2>
+      <ul class="wp-combineer">
+        {routeHref && routeLabel && (
+          <li><a href={routeHref}><span>{ui.t('wijnhuis.combineer.route')}</span>{routeLabel}</a></li>
+        )}
+        {streekSlug && region && (
+          <li><a href={lh(`/streken/${streekSlug}/`)}><span>{ui.t('wijnhuis.combineer.streek')}</span>{region}</a></li>
+        )}
+        {nabije.map((n) => (
+          <li><a href={lh(`/wijnhuizen/${n.slug}/`)}><span>{ui.t('wijnhuis.related.label')}</span>{n.name}</a></li>
+        ))}
+      </ul>
+    </div>
+  </section>
+)}
+
+<style>
+  .wp { padding: 2.5rem 0; }
+  .wp__eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--rust);
+    margin: 0 0 0.5rem;
+  }
+  .wp__title {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: clamp(1.75rem, 4vw, 2.5rem);
+    line-height: 1.15;
+    color: var(--ink);
+    margin: 0 0 1.5rem;
+  }
+
+  .wp-galerij { display: grid; gap: 0.75rem; }
+  .wp-galerij--2 { grid-template-columns: repeat(2, 1fr); }
+  .wp-galerij--3 { grid-template-columns: repeat(3, 1fr); }
+  .wp-galerij__item { margin: 0; }
+  .wp-galerij__item img { display: block; width: 100%; height: auto; background: var(--paperDeep); }
+
+  .wp-fles { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+  .wp-fles__kaart {
+    background: var(--paperDeep);
+    border: 1px solid var(--rule);
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .wp-fles__rol { font-family: var(--font-mono); font-size: 0.6875rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--burgundy); }
+  .wp-fles__naam { font-family: var(--font-display); font-weight: 400; font-size: 1.375rem; line-height: 1.2; margin: 0; color: var(--ink); }
+  .wp-fles__prijs { font-family: var(--font-mono); color: var(--inkSoft); }
+  .wp-fles__venster { margin: 0; font-family: var(--font-ui); font-size: 0.875rem; color: var(--inkSoft); }
+  .wp-fles__kaart .btn { margin-top: auto; align-self: flex-start; }
+
+  .wp-bezoek { display: grid; grid-template-columns: 1.4fr 1fr; gap: 2rem; align-items: start; }
+  .wp-bezoek__lijst { margin: 0; }
+  .wp-bezoek__rij { display: grid; grid-template-columns: 9rem 1fr; gap: 1rem; padding: 0.75rem 0; border-top: 1px solid var(--ruleSoft); }
+  .wp-bezoek__rij dt { font-family: var(--font-mono); font-size: 0.6875rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--inkSoft); }
+  .wp-bezoek__rij dd { margin: 0; font-family: var(--font-body); color: var(--ink); }
+  .wp-bezoek__rij a:not(.btn) { color: var(--burgundy); }
+  .wp-uren { list-style: none; margin: 0; padding: 0; }
+  .wp-uren li { display: flex; justify-content: space-between; gap: 1rem; font-size: 0.9375rem; padding: 0.125rem 0; }
+  .wp-uren__noot { margin: 0.5rem 0 0; font-size: 0.875rem; color: var(--inkSoft); }
+  .wp-ervaring { background: var(--paperShade); border-left: 3px solid var(--burgundy); padding: 1.25rem 1.5rem; }
+  .wp-ervaring__titel { font-family: var(--font-display); font-weight: 400; font-size: 1.25rem; margin: 0 0 0.5rem; color: var(--ink); }
+  .wp-ervaring p { margin: 0; line-height: 1.6; }
+
+  .wp-combineer { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); gap: 0.75rem; }
+  .wp-combineer a {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 1rem 1.25rem;
+    border: 1px solid var(--rule);
+    background: var(--paper);
+    color: var(--ink);
+    text-decoration: none;
+    font-family: var(--font-display);
+    font-size: 1.125rem;
+  }
+  .wp-combineer a:hover { border-color: var(--burgundy); }
+  .wp-combineer a span { font-family: var(--font-mono); font-size: 0.625rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--rust); }
+
+  @media (max-width: 640px) {
+    .wp { padding: 1.75rem 0; }
+    .wp-galerij--2, .wp-galerij--3 { grid-template-columns: 1fr; }
+    .wp-fles { grid-template-columns: 1fr; }
+    .wp-bezoek { grid-template-columns: 1fr; }
+    .wp-bezoek__rij { grid-template-columns: 1fr; gap: 0.25rem; }
+  }
+</style>
