@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "scripts": {
     "dev": "astro dev --host 0.0.0.0",
-    "build": "astro build && node --env-file-if-exists=.env scripts/check-c2pa.mjs && node scripts/lint-pins.mjs && node scripts/write-build-info.mjs && node scripts/check-dom-affiliate.mjs dist --lenient && node scripts/lint-authenticiteit.mjs dist --lenient && { for d in wijnhuizen streken routes articles landen accommodaties reispakketten verhaal; do if [ -d public/images/$d ]; then mkdir -p dist/images/$d && cp -r public/images/$d/. dist/images/$d/; fi; done; for f in public/build-debug-*.json; do [ -f \"$f\" ] && cp \"$f\" dist/; done; true; } && node scripts/optimize-images.mjs",
+    "build": "astro build && node --env-file-if-exists=.env scripts/check-c2pa.mjs && node scripts/lint-pins.mjs && node scripts/write-build-info.mjs && node scripts/check-dom-affiliate.mjs dist --lenient && node scripts/lint-authenticiteit.mjs dist --lenient && { for d in wijnhuizen streken routes articles landen accommodaties reispakketten verhaal; do if [ -d public/images/$d ]; then mkdir -p dist/images/$d && cp -r public/images/$d/. dist/images/$d/; fi; done; for f in public/build-debug-*.json; do [ -f \"$f\" ] && cp \"$f\" dist/; done; true; } && node scripts/optimize-images.mjs && node scripts/check-img-dimensions.mjs dist",
     "build:vinomartino": "astro build",
     "preview": "astro preview --host 0.0.0.0",
     "lighthouse": "node scripts/lighthouse-templates.mjs",
@@ -19,6 +19,7 @@
     "test:booking-overrides": "node --test scripts/booking-property-overrides.test.mjs",
     "test:i18n-body-links": "node --test scripts/i18n-body-links.test.mjs",
     "test:i18n-voetblok-copy": "node --test scripts/i18n-voetblok-copy.test.mjs",
+    "test:img-dimensions": "node --test scripts/lat12768-img-dimensions.test.mjs",
     "test:lat12716-moezel-template": "node --test scripts/lat12716-moezel-template.test.mjs",
     "test:wijnroutes-hub": "node --test scripts/wijnroutes-hub.test.mjs",
     "test:i18n-crosslink-refs": "node --test scripts/i18n-crosslink-refs.test.mjs",

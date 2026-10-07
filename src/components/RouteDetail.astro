@@ -101,7 +101,9 @@ const routeBody = splitRouteBody(entry.bodyHtml);
 // LAT-12710 — één-pagina-opbouw (blauwdruk LAT-12709). Activeert alleen met itinerary.pagina.
 const pagina = entry.pagina;
 const paginaHeroCredit = pagina?.hero.foto ? heroCredit : null;
-const etappeCount = pagina?.dagen.length ?? entry.itinerary?.days.length ?? (entry.stopsGeo.filter(s => s.kind !== 'wijnhuis').length || entry.stops.length);
+// LAT-12768 — "Etappes" telt dagen, geen losse stops. Onbekend = cel weglaten (nooit de stops-telling).
+const durationDays = Number(/(\d+)\s*(?:dagen|dag|days|day)\b/i.exec(entry.duration ?? '')?.[1]) || undefined;
+const etappeCount = pagina?.dagen.length ?? entry.itinerary?.days.length ?? (routeBody.hasDays ? routeBody.days.length : durationDays);
 const wijnhuisLabels = Object.fromEntries((pagina?.wijnhuizen ?? []).map((w) => [w.slug, w.label]));
 const slotItems = pagina?.slapen?.items.slice(0, 3) ?? [];
 const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.streekSlug}/` : null;
@@ -336,8 +338,9 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
       </div>
 
       <aside class="page-sidebar">
-        {staysRoundup && entry.streekSlug && (
+        {staysRoundup && entry.streekSlug && !hasItinerary && (
           <StaysTeaser
+            nearStops={entry.stopsGeo}
             locale={locale}
             roundup={staysRoundup}
             streekSlug={entry.streekSlug}
