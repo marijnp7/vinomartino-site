@@ -14,7 +14,7 @@
 #   diagnose = alleen lezen. Dumpt container-labels/compose-info van het huidige cloudflared,
 #              eventuele lokale config.yml, de remote ingress-config + DNS-records via de CF API.
 #              Print NOOIT een secret-waarde, wel tunnel-IDs, hostnames en sha256(8) van bestanden.
-#   cutover  = maakt een NIEUWE tunnel (paperclip-lat56-v2) + credentials-bestand (secret verlaat de
+#   cutover  = maakt een NIEUWE tunnel (paperclip-lat56-v2-<ts>) + credentials-bestand (secret verlaat de
 #              host nooit), kopieert de ingress-config, start een tweede cloudflared-container naast
 #              de oude, wijst de twee CNAME's om naar de nieuwe tunnel, en verifieert beide
 #              hostnames. Verwijdert of stopt de OUDE tunnel/container NIET — dat is een aparte stap
@@ -99,13 +99,21 @@ jobs:
             OLD_TUNNEL_ID="1c7cc695-b494-4f65-a182-00bd7afb4991"
 
             echo "=== container ==="
-            C=$(docker ps -a --format '{{.Names}}' | grep -i cloudflared | head -1)
+            C=$(docker ps -a --format '{{.Names}}' | grep -i cloudflared | grep -v lat56-v2 | head -1)
             [ -n "$C" ] || { echo "::error::geen container met 'cloudflared' in de naam gevonden"; exit 1; }
             echo "container=$C"
             docker inspect -f 'image={{.Image}} status={{.State.Status}} network={{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}}' "$C"
             docker inspect -f 'cmd={{json .Config.Cmd}} entrypoint={{json .Config.Entrypoint}}' "$C"
             echo "mounts:"
             docker inspect -f '{{range .Mounts}}{{.Source}} -> {{.Destination}} ({{.Mode}}){{"\n"}}{{end}}' "$C"
+            # LAT-9099 incident 10-03: v2-container ging direct in restart-loop. Draai-user van oud vs image:
+            echo "container-user=[$(docker inspect -f '{{.Config.User}}' "$C")] image-user=[$(docker image inspect -f '{{.Config.User}}' "$(docker inspect -f '{{.Config.Image}}' "$C")")]"
+
+            echo "=== mislukte v2-container(s) van eerdere cutover (logs, geen secrets) ==="
+            for v2 in $(docker ps -a --format '{{.Names}}' | grep -i 'cloudflared-lat56-v2' || true); do
+              docker inspect -f "$v2 status={{.State.Status}} exit={{.State.ExitCode}} restarts={{.RestartCount}} user=[{{.Config.User}}]" "$v2"
+              docker logs --tail 40 "$v2" 2>&1 | sed 's/^/  /'
+            done
 
             echo "=== compose labels ==="
             WD=$(docker inspect -f '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' "$C")
@@ -139,6 +147,10 @@ jobs:
             curl -s -H "Authorization: Bearer $CF_API_TOKEN" \
               "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/cfd_tunnel/$OLD_TUNNEL_ID" \
               | python3 -c 'import json,sys; d=json.load(sys.stdin)["result"]; print({k:d.get(k) for k in ("id","name","status","conns_active_at")})'
+            echo "--- alle tunnels met prefix paperclip-lat56 (incl. achtergebleven v2 van 10-03) ---"
+            curl -s -H "Authorization: Bearer $CF_API_TOKEN" \
+              "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/cfd_tunnel?is_deleted=false&per_page=100" \
+              | python3 -c 'import json,sys; print([{k:t.get(k) for k in ("id","name","status")} for t in json.load(sys.stdin).get("result") or [] if t.get("name","").startswith("paperclip-lat56")])'
             echo "--- ingress config ---"
             INGRESS_JSON=$(curl -s -H "Authorization: Bearer $CF_API_TOKEN" \
               "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/cfd_tunnel/$OLD_TUNNEL_ID/configurations")
@@ -165,9 +177,10 @@ jobs:
           CUTOVER: |
             set -euo pipefail
             export OLD_TUNNEL_ID="1c7cc695-b494-4f65-a182-00bd7afb4991"
-            export NEW_NAME="paperclip-lat56-v2"
+            # unieke naam: de mislukte poging van 10-03 liet tunnel "paperclip-lat56-v2" achter (naam bezet)
+            export NEW_NAME="paperclip-lat56-v2-$(date -u +%Y%m%d%H%M)"
 
-            OLDC=$(docker ps -a --format '{{.Names}}' | grep -i cloudflared | head -1)
+            OLDC=$(docker ps -a --format '{{.Names}}' | grep -i cloudflared | grep -v lat56-v2 | head -1)
             [ -n "$OLDC" ] || { echo "::error::geen bestaande cloudflared-container gevonden — afgebroken"; exit 1; }
             IMG=$(docker inspect -f '{{.Config.Image}}' "$OLDC")
             # kan op meerdere networks zitten (paperclip-lat56 bedient meerdere stacks) — alle meenemen,
@@ -177,6 +190,21 @@ jobs:
             PRIMARY_NET=$(echo "$NETS" | head -1)
             echo "bron-container=$OLDC image=$IMG networks:"
             echo "$NETS"
+
+            # LAT-9099 incident 10-03: v2 draaide zonder de user van de oude container en kon het
+            # 600-credentials-bestand vermoedelijk niet lezen -> restart-loop -> 530. Zelfde user
+            # overnemen en het nieuwe credentials-bestand aan die uid geven.
+            RUN_USER=$(docker inspect -f '{{.Config.User}}' "$OLDC")
+            [ -n "$RUN_USER" ] || RUN_USER=$(docker image inspect -f '{{.Config.User}}' "$IMG")
+            RUN_UID="${RUN_USER%%:*}"
+            case "$RUN_UID" in
+              ""|root) RUN_UID=0 ;;
+              nonroot) RUN_UID=65532 ;;
+              *[!0-9]*) echo "::error::onbekende container-user '$RUN_USER' — kan uid niet bepalen, afgebroken voor enige write"; exit 1 ;;
+            esac
+            USER_ARGS=()
+            [ -n "$RUN_USER" ] && USER_ARGS=(--user "$RUN_USER")
+            echo "container-user=[$RUN_USER] -> credentials-eigenaar uid=$RUN_UID"
 
             set -a; source /root/.agent-secrets/cloudflare.env; set +a
 
@@ -204,7 +232,7 @@ jobs:
 
             export CREDS="/root/.agent-secrets/cloudflared-tunnel.json.new"
             python3 -c 'import json,os; creds={"AccountTag": os.environ["CF_ACCOUNT_ID"], "TunnelSecret": os.environ["TUNNEL_SECRET"], "TunnelID": os.environ["NEW_ID"]}; json.dump(creds, open(os.environ["CREDS"], "w"))'
-            chmod 600 "$CREDS"; chown root:root "$CREDS"
+            chmod 600 "$CREDS"; chown "$RUN_UID:0" "$CREDS"
             unset TUNNEL_SECRET
             echo "credentials geschreven: $CREDS sha256(8)=$(sha256sum "$CREDS" | cut -c1-8) mode=$(stat -c '%a %U:%G' "$CREDS")"
 
@@ -219,7 +247,7 @@ jobs:
             echo "=== nieuwe connector-container starten naast de oude (op alle $(echo "$NETS" | wc -l) networks) ==="
             NEWC="paperclip-cloudflared-lat56-v2"
             docker rm -f "$NEWC" >/dev/null 2>&1 || true
-            docker run -d --name "$NEWC" --restart unless-stopped --network "$PRIMARY_NET" \
+            docker run -d --name "$NEWC" --restart unless-stopped --network "$PRIMARY_NET" "${USER_ARGS[@]}" \
               -v "$CREDS:/etc/cloudflared/creds.json:ro" \
               "$IMG" tunnel --no-autoupdate --credentials-file /etc/cloudflared/creds.json run "$NEW_ID"
             echo "$NETS" | tail -n +2 | while read -r extra_net; do
@@ -227,8 +255,27 @@ jobs:
               echo "network connect: $extra_net"
               docker network connect "$extra_net" "$NEWC"
             done
-            sleep 5
-            docker inspect -f 'status={{.State.Status}}' "$NEWC"
+
+            # Health-gate VOOR de DNS-omzetting: container moet stabiel running zijn (geen restarts) EN
+            # Cloudflare moet de nieuwe tunnel als healthy zien (= actieve connectors). Anders: container
+            # stoppen en afbreken; DNS is dan nog niet aangeraakt, dus nul impact op de hostnames.
+            HEALTHY=""
+            for i in $(seq 1 18); do
+              sleep 5
+              ST=$(docker inspect -f '{{.State.Status}} {{.RestartCount}}' "$NEWC")
+              CFST=$(curl -s -H "Authorization: Bearer $CF_API_TOKEN" \
+                "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/cfd_tunnel/$NEW_ID" \
+                | python3 -c 'import json,sys; print((json.load(sys.stdin).get("result") or {}).get("status"))')
+              echo "t=$((i*5))s container=[$ST] cf-tunnel-status=$CFST"
+              if [ "$ST" != "running 0" ]; then break; fi
+              if [ "$CFST" = "healthy" ]; then HEALTHY=1; break; fi
+            done
+            if [ -z "$HEALTHY" ]; then
+              echo "::error::nieuwe connector niet healthy — DNS NIET omgezet, oude tunnel bedient alles nog"
+              docker logs --tail 40 "$NEWC" 2>&1 | sed 's/^/  /'
+              docker stop "$NEWC" >/dev/null 2>&1 || true
+              exit 1
+            fi
 
             echo "=== DNS omzetten ==="
             for host in $HOSTS; do
