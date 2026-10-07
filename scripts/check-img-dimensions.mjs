@@ -5,9 +5,12 @@
  * Uitzondering per tag: data-dim-exempt (bv. tracking-pixels). Exit 1 bij overtredingen.
  * Gebruik: node scripts/check-img-dimensions.mjs [dist] [--report]
  */
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+const ALLOW_FILE = join(fileURLToPath(new URL('.', import.meta.url)), 'img-dimensions-allowlist.json');
+const allowed = () => (existsSync(ALLOW_FILE) ? new Set(Object.keys(JSON.parse(readFileSync(ALLOW_FILE, 'utf8')))) : new Set());
 
 const IMG_RE = /<img\b(?:"[^"]*"|'[^']*'|[^>"'])*>/g;
 const attr = (tag, name) => {
@@ -39,10 +42,12 @@ function walk(dir, acc = []) {
 
 export function checkDist(dist) {
   const bad = [];
+  const skip = allowed();
   let imgs = 0;
   for (const f of walk(dist)) {
     const html = readFileSync(f, 'utf8');
     imgs += (html.match(IMG_RE) ?? []).length;
+    if (skip.has(relative(dist, f))) continue;
     for (const tag of imgViolations(html)) bad.push({ file: relative(dist, f), tag });
   }
   return { imgs, bad };
