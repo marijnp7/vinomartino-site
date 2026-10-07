@@ -1,0 +1,257 @@
+# LAT-7594 — dispatch-only ACL-diff: vinomartino-directus-1 verwijderen uit de LAT-2986
+# exec-allowlist van paperclip-devops-proxy-1 (credential-vrije schrijfroute naar
+# /directus/uploads, HARDE REGEL 29 / LAT-7592).
+#
+# Goedgekeurd: kaart e806ebed (Marijn 2026-10-07). Zelfde patroon als lat5496, nu
+# VERWIJDEREND. Consequentie: `docker exec vinomartino-directus-1 pm2 restart directus`
+# (LAT-4718 extensie-deploy) werkt niet meer vanuit agent-containers; dat loopt voortaan
+# via dit GHA->VPS SSH-kanaal.
+#
+# Geen push-trigger; `mode` kiest alleen tussen vaste scripts, niets uit de input wordt
+# geinterpoleerd. Pushen met "[skip ci]" (anders triggert .github/** een prod-release).
+
+name: LAT-7594 exec-ACL directus-removal
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'diagnose = alleen lezen; patch = ACL-regel verwijderen + herstart; verify = uitkomst nameten; rollback = regel terugzetten'
+        required: true
+        default: diagnose
+        type: choice
+        options:
+          - diagnose
+          - patch
+          - verify
+          - rollback
+
+concurrency:
+  group: lat7594-exec-acl
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          [ -n "$CF_ACCESS_CLIENT_ID" ] && [ -n "$CF_ACCESS_CLIENT_SECRET" ] \
+            || { echo "::error::CF_ACCESS_CLIENT_ID/SECRET ontbreken (LAT-3437)"; exit 1; }
+          umask 077
+          printf 'CF_ACCESS_CLIENT_ID=%s\nCF_ACCESS_CLIENT_SECRET=%s\n' \
+            "$CF_ACCESS_CLIENT_ID" "$CF_ACCESS_CLIENT_SECRET" > ~/.ssh/cf-access.env
+          umask 022
+          cat >> ~/.ssh/config <<EOF
+          Host $VPS_HOST
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+            ProxyCommand bash $GITHUB_WORKSPACE/ops/cf-ssh-proxy.sh
+          EOF
+          cat "$GITHUB_WORKSPACE/ops/ssh-config-snippet" >> ~/.ssh/config
+
+      # ---------------------------------------------------------------- diagnose
+      - name: Diagnose (read-only)
+        if: inputs.mode == 'diagnose'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          DIAG: |
+            set -uo pipefail
+            CTR=paperclip-devops-proxy-1
+            SRC=$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/usr/local/etc/haproxy"}}{{.Source}}{{end}}{{end}}' "$CTR" 2>/dev/null)
+            CFG="$SRC/haproxy.cfg"
+            echo "CFG=$CFG"
+            [ -f "$CFG" ] || { echo "::error::$CFG ontbreekt"; exit 1; }
+            echo "sha256 $(sha256sum "$CFG" | cut -d' ' -f1)"
+            echo "=== allowlist-regels ==="
+            grep -n 'p_exec_create_allowed' "$CFG"
+            echo "=== regels die vinomartino-directus-1 noemen (alle ACL's) ==="
+            grep -n 'vinomartino-directus-1' "$CFG"
+            echo "=== exec-create uitkomst per allowlist-target (niets gestart) ==="
+            for t in $(grep -o 'acl p_exec_create_allowed path_beg /containers/[^/]*/exec' "$CFG" | sed 's#.*/containers/\([^/]*\)/exec#\1#'); do
+              C=$(docker exec paperclip-devops-workspace-1 curl -s -o /dev/null -w '%{http_code}' --max-time 5 \
+                    -X POST -H 'Content-Type: application/json' -d '{"Cmd":["true"]}' \
+                    "http://paperclip-devops-proxy-1:2375/containers/$t/exec" 2>/dev/null || echo 000)
+              echo "POST /containers/$t/exec -> $C"
+            done
+            echo "LAT7594_DIAG_KLAAR"
+        run: |
+          printf '%s\n' "$DIAG" | ssh "$VPS" "bash -s"
+
+      # ---------------------------------------------------------------- patch
+      - name: Patch ACL + herstart proxy
+        if: inputs.mode == 'patch'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          PATCH: |
+            set -uo pipefail
+            CTR=paperclip-devops-proxy-1
+            TARGET=vinomartino-directus-1
+            NEEDLE="acl p_exec_create_allowed path_beg /containers/$TARGET/exec"
+            STAMP=$(date -u +%Y%m%dT%H%M%SZ)
+
+            SRC=$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/usr/local/etc/haproxy"}}{{.Source}}{{end}}{{end}}' "$CTR" 2>/dev/null)
+            [ -n "$SRC" ] || { echo "::error::geen configmount; niets aangeraakt"; exit 1; }
+            CFG="$SRC/haproxy.cfg"
+            [ -f "$CFG" ] && grep -q 'p_exec_create_allowed' "$CFG" || { echo "::error::$CFG ongeschikt; niets aangeraakt"; exit 1; }
+
+            probe() {
+              docker exec paperclip-devops-workspace-1 curl -s -o /dev/null -w '%{http_code}' \
+                --max-time 5 -X POST -H 'Content-Type: application/json' -d '{"Cmd":["true"]}' \
+                "http://paperclip-devops-proxy-1:2375/containers/$1/exec" 2>/dev/null || echo 000
+            }
+
+            echo "=== 0. idempotent ==="
+            if ! grep -qF "$NEEDLE" "$CFG"; then
+              echo "regel staat er niet (meer); niets te doen"
+              echo "LAT7594_PATCH_AL_WEG"
+              exit 0
+            fi
+            N=$(grep -cF "$NEEDLE" "$CFG")
+            [ "$N" = "1" ] || { echo "::error::verwachtte exact 1 treffer, kreeg $N; niets aangeraakt"; exit 1; }
+
+            echo "=== 0b. preconditie: control-target blijft staan ==="
+            grep -qF "acl p_exec_create_allowed path_beg /containers/paperclip-devops-workspace-1/exec" "$CFG" \
+              || { echo "::error::control-regel (devops-workspace-1) ontbreekt; niets aangeraakt"; exit 1; }
+            OTHERS=$(grep -o 'acl p_exec_create_allowed path_beg /containers/[^/]*/exec' "$CFG" | grep -vF "/$TARGET/" | sed 's#.*/containers/\([^/]*\)/exec#\1#')
+            echo "overige allowlist-targets: $(echo $OTHERS)"
+            echo "PRE directus -> $(probe $TARGET) (verwacht 201)"
+
+            BAK="$CFG.bak-lat7594-$STAMP"
+            cp -p "$CFG" "$BAK"; sha256sum "$BAK"
+
+            echo "=== 1. verwijder EEN regel ==="
+            grep -vxF "$(grep -F "$NEEDLE" "$BAK")" "$BAK" > "$CFG.new" || true
+            mv "$CFG.new" "$CFG"
+            diff "$BAK" "$CFG"
+            ADDED=$(diff "$BAK" "$CFG" | grep -c '^> ')
+            REMOVED=$(diff "$BAK" "$CFG" | grep -c '^< ')
+            echo "toegevoegd=$ADDED verwijderd=$REMOVED"
+            if [ "$ADDED" != "0" ] || [ "$REMOVED" != "1" ]; then
+              echo "::error::diff niet exact +0/-1; terugzetten zonder herstart"
+              cp -p "$BAK" "$CFG"; exit 1
+            fi
+            echo "DIFF_OK"
+
+            echo "=== 2. haproxy -c voor herstart ==="
+            if ! docker exec "$CTR" haproxy -c -f /usr/local/etc/haproxy/haproxy.cfg 2>&1; then
+              echo "::error::haproxy -c faalde; terugzetten zonder herstart"
+              cp -p "$BAK" "$CFG"; exit 1
+            fi
+            echo "CONFIGCHECK_OK"
+
+            echo "=== 3. herstart ==="
+            docker restart "$CTR"
+            ok=0
+            for i in 1 2 3 4 5 6 7 8 9 10; do
+              sleep 3
+              ST=$(docker inspect -f '{{.State.Status}}' "$CTR")
+              C=$(probe paperclip-devops-workspace-1)
+              echo "poging $i: status=$ST control_exec=$C"
+              if [ "$ST" = "running" ] && [ "$C" = "201" ]; then ok=1; break; fi
+            done
+
+            echo "=== 4. acceptatietest ==="
+            D=$(probe $TARGET)
+            echo "$TARGET -> $D (verwacht 403)"
+            [ "$D" = "403" ] || { echo "::error::directus nog niet 403"; ok=0; }
+            for t in $OTHERS; do
+              C=$(probe "$t")
+              echo "$t -> $C (verwacht: niet 403/000; 201 of 404 als container niet draait)"
+              if [ "$C" = "403" ] || [ "$C" = "000" ]; then echo "::error::$t onverwacht geblokkeerd"; ok=0; fi
+            done
+
+            if [ "$ok" != "1" ]; then
+              echo "::error::acceptatietest faalde; AUTOMATISCHE ROLLBACK"
+              cp -p "$BAK" "$CFG"
+              docker restart "$CTR"; sleep 5
+              docker inspect -f 'na-rollback status={{.State.Status}}' "$CTR"
+              echo "na-rollback directus: $(probe $TARGET) (verwacht weer 201)"
+              exit 1
+            fi
+
+            echo "=== EINDSTAAT ==="
+            grep -n 'p_exec_create_allowed' "$CFG"
+            sha256sum "$CFG" "$BAK"
+            docker inspect -f 'status={{.State.Status}} started={{.State.StartedAt}} restarts={{.RestartCount}}' "$CTR"
+            echo "LAT7594_PATCH_OK"
+        run: |
+          printf '%s\n' "$PATCH" | ssh "$VPS" "bash -s"
+
+      # ---------------------------------------------------------------- verify
+      - name: Verify
+        if: inputs.mode == 'verify'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          VERIFY: |
+            set -uo pipefail
+            probe() {
+              docker exec paperclip-devops-workspace-1 curl -s -o /dev/null -w '%{http_code}' \
+                --max-time 5 -X POST -H 'Content-Type: application/json' -d '{"Cmd":["true"]}' \
+                "http://paperclip-devops-proxy-1:2375/containers/$1/exec" 2>/dev/null || echo 000
+            }
+            echo "vinomartino-directus-1       -> $(probe vinomartino-directus-1) (verwacht 403)"
+            echo "paperclip-devops-workspace-1 -> $(probe paperclip-devops-workspace-1) (verwacht 201)"
+            echo "paperclip-paperclip-1        -> $(probe paperclip-paperclip-1) (verwacht 403)"
+            echo "proxy: $(docker inspect -f 'status={{.State.Status}} started={{.State.StartedAt}}' paperclip-devops-proxy-1)"
+            echo "LAT7594_VERIFY_KLAAR"
+        run: |
+          printf '%s\n' "$VERIFY" | ssh "$VPS" "bash -s"
+
+      # ---------------------------------------------------------------- rollback
+      - name: Rollback (regel terugzetten)
+        if: inputs.mode == 'rollback'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          ROLLBACK: |
+            set -uo pipefail
+            CTR=paperclip-devops-proxy-1
+            NEEDLE="/containers/vinomartino-directus-1/exec"
+            STAMP=$(date -u +%Y%m%dT%H%M%SZ)
+            SRC=$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/usr/local/etc/haproxy"}}{{.Source}}{{end}}{{end}}' "$CTR" 2>/dev/null)
+            [ -n "$SRC" ] || { echo "::error::geen configmount"; exit 1; }
+            CFG="$SRC/haproxy.cfg"
+            if grep -qF "$NEEDLE" "$CFG"; then echo "regel staat er al; niets te doen"; echo "LAT7594_ROLLBACK_AL_AANWEZIG"; exit 0; fi
+            BAK="$CFG.bak-lat7594-rollback-$STAMP"
+            cp -p "$CFG" "$BAK"
+            LAST=$(grep -n 'acl p_exec_create_allowed path_beg' "$CFG" | tail -1 | cut -d: -f1)
+            [ -n "$LAST" ] || { echo "::error::geen ankerregel"; exit 1; }
+            INDENT=$(sed -n "${LAST}p" "$CFG" | sed 's/[^ \t].*//')
+            awk -v n="$LAST" -v ind="$INDENT" -v needle="$NEEDLE" \
+              'NR==n{print; printf "%sacl p_exec_create_allowed path_beg %s\n", ind, needle; next} {print}' \
+              "$BAK" > "$CFG.new"
+            mv "$CFG.new" "$CFG"
+            diff "$BAK" "$CFG"
+            ADDED=$(diff "$BAK" "$CFG" | grep -c '^> ')
+            REMOVED=$(diff "$BAK" "$CFG" | grep -c '^< ')
+            if [ "$ADDED" != "1" ] || [ "$REMOVED" != "0" ]; then
+              echo "::error::diff niet exact +1/-0"; cp -p "$BAK" "$CFG"; exit 1
+            fi
+            if ! docker exec "$CTR" haproxy -c -f /usr/local/etc/haproxy/haproxy.cfg 2>&1; then
+              echo "::error::haproxy -c faalde"; cp -p "$BAK" "$CFG"; exit 1
+            fi
+            docker restart "$CTR"; sleep 6
+            C=$(docker exec paperclip-devops-workspace-1 curl -s -o /dev/null -w '%{http_code}' --max-time 5 \
+                  -X POST -H 'Content-Type: application/json' -d '{"Cmd":["true"]}' \
+                  "http://paperclip-devops-proxy-1:2375/containers/vinomartino-directus-1/exec" 2>/dev/null || echo 000)
+            echo "vinomartino-directus-1 -> $C (verwacht weer 201)"
+            [ "$C" = "201" ] || { echo "::error::rollback-uitkomst onverwacht"; exit 1; }
+            echo "LAT7594_ROLLBACK_OK"
+        run: |
+          printf '%s\n' "$ROLLBACK" | ssh "$VPS" "bash -s"
