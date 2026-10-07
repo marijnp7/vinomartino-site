@@ -126,6 +126,26 @@ test('LAT-12109: DAM-batch neemt plekken van de rotatie over, 5 per dag blijft',
   assert.deepEqual(composeDay([], ['a', 'b']), ['a', 'b']);
 });
 
+test('LAT-12765: batch 2026-10-08 (week 41) heeft vijf unieke EN-pins, valt uit de rotatie, geen verboden bestanden', () => {
+  const b = PIN_DAM_BATCHES.find((x) => x.day === '2026-10-08');
+  assert.ok(b, 'batch 2026-10-08 ontbreekt');
+  assert.equal(PIN_DAM_BATCHES.filter((x) => x.day === '2026-10-08').length, 1);
+  assert.deepEqual(b.pins.map((p) => p.articleId), [143, 144, 163, 165, 166]);
+  assert.ok(b.pins.every((p) => p.lang === 'en'));
+  assert.equal(new Set(b.pins.map((p) => p.fileId)).size, 5);
+  assert.equal(new Set(b.pins.map((p) => p.slug)).size, 5);
+  assert.deepEqual(b.pins.map((p) => p.fileId), [
+    'c6c16a58-29ad-4795-b6b2-a7a3c615db80', '0355a9d8-788e-4571-a2fb-e5ae3294602b', '4accd1e2-637d-4e2c-afbb-e6d490664914',
+    '4c2f507c-1be6-4604-a3bf-b7a2558a88fd', '61a103b8-ffaf-46f1-b710-63157dd4bc80',
+  ]);
+  const verboden = ['5d096786-28f6-431b-a38a-0842120a2970', 'a8eb13f3-2b62-404b-a81c-5aefaaff3204'];
+  assert.ok(!b.pins.some((p) => verboden.includes(p.fileId)));
+  assert.ok(b.pins.every((p) => PIN_DAM_SLUGS.has(p.slug)));
+  const all = PIN_DAM_BATCHES.flatMap((x) => x.pins);
+  assert.equal(new Set(all.map((p) => p.fileId)).size, all.length, 'fileId in twee batches');
+  assert.equal(new Set(all.map((p) => p.slug)).size, all.length, 'slug in twee batches');
+});
+
 test('LAT-12109: DAM-item in de feed: PNG-enclosure, media:content 1000x1500, lint-schoon', () => {
   const items = [{
     lang: 'en', slug: 'champagne-overnachten-reims-epernay', clusterId: 'dam', title: 'Where to stay in Champagne', description: 'Reims or Epernay?',
