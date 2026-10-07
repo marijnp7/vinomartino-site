@@ -1,0 +1,125 @@
+# LAT-12798 — schijf 91%: opruimen op de VPS-host via het GHA->VPS SSH-kanaal.
+#
+# GOEDKEURING: CTO-besluit op LAT-12798 (stap 1-3 hieronder, 2026-10-07). Dit bestand is
+# gate-set (workflow-file, R2 punt 1) en gaat dus via Marijn. Route: kaart 933eff00.
+#
+# Waarom dit kanaal: de scoped broker blokkeert `docker rmi`, `image prune` en `docker run`
+# (gemeten 2026-10-07: 403 "scoped broker: forbidden"). Op de host speelt de broker niet mee.
+#
+# Geen push-trigger. `mode` kiest alleen tussen vaste scripts; er wordt niets uit de input
+# in een commando geinterpoleerd.
+#
+# LET OP bij het pushen/mergen: .github/** staat niet in paths-ignore van deploy.yml. Gebruik
+# een merge-subject met "[skip ci]" (zie memory: skip-ci-lost-on-gh-pr-merge).
+#
+# measure : alleen lezen. docker system df + grootste mappen, om de structurele oorzaak te vinden.
+# apply   : (1) rmi paperclip-paperclip:v2026.618.0 als geen container hem gebruikt,
+#           (2) dangling anonieme volumes: per volume inhoud tonen; verwijderen ALLEEN als er
+#               geen PG_VERSION / *.sql / directus / upload / backup in zit, anders laten staan,
+#           (3) image prune (alleen dangling). Daarna df.
+# Verwijdert geen build-cache, geen containers, geen benoemde volumes.
+
+name: LAT-12798 disk cleanup (VPS host)
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'measure = alleen lezen; apply = goedgekeurde stappen 1-3'
+        required: true
+        default: measure
+        type: choice
+        options:
+          - measure
+          - apply
+
+concurrency:
+  group: lat12798-disk-cleanup
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          cat >> ~/.ssh/config <<EOF
+          Host $VPS_HOST
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+          EOF
+          cat "$GITHUB_WORKSPACE/ops/ssh-config-snippet" >> ~/.ssh/config
+          ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Measure (read-only)
+        if: inputs.mode == 'measure'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+        run: |
+          ssh "$VPS" "bash -s" <<'REMOTE'
+          set -uo pipefail
+          echo "=== df / ==="; df -h /
+          echo "=== docker system df ==="; docker system df
+          echo "=== docker system df -v (volumes) ==="; docker system df -v 2>/dev/null | sed -n '/Local Volumes space usage/,/Build cache usage/p' | head -40
+          echo "=== /var/lib/docker (top) ==="; du -xsh /var/lib/docker/* 2>/dev/null | sort -h | tail -8
+          echo "=== volumes (top 12) ==="; du -sh /var/lib/docker/volumes/* 2>/dev/null | sort -h | tail -12
+          echo "=== containers json-log (top 8) ==="; du -sh /var/lib/docker/containers/*/*-json.log 2>/dev/null | sort -h | tail -8
+          echo "=== / depth 1 (top 10) ==="; du -xh --max-depth=1 / 2>/dev/null | sort -h | tail -10
+          echo "=== /var/log + journal ==="; du -sh /var/log /var/log/journal 2>/dev/null
+          echo "=== housekeeping log (tail) ==="; tail -n 20 /var/log/paperclip-housekeeping-emergency.log 2>&1
+          echo "LAT12798_MEASURE_OK"
+          REMOTE
+
+      - name: Apply (approved steps 1-3)
+        if: inputs.mode == 'apply'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+        run: |
+          ssh "$VPS" "bash -s" <<'REMOTE'
+          set -uo pipefail
+          echo "BEFORE: $(df -h / | tail -1)"
+
+          echo "=== 1. rmi oude paperclip-paperclip image ==="
+          OLD=paperclip-paperclip:v2026.618.0
+          ID=$(docker image inspect "$OLD" --format '{{.Id}}' 2>/dev/null || true)
+          if [ -z "$ID" ]; then
+            echo "(image bestaat niet meer; niets te doen)"
+          else
+            N=$(docker ps -a --filter "ancestor=$ID" -q | wc -l)
+            echo "containers op $OLD: $N"
+            if [ "$N" = "0" ]; then docker rmi "$OLD"; else echo "::error::containers gebruiken $OLD; overgeslagen"; fi
+          fi
+
+          echo "=== 2. dangling anonieme volumes ==="
+          for v in $(docker volume ls -f dangling=true -q); do
+            d=$(docker volume inspect "$v" --format '{{.Mountpoint}}')
+            echo "-- ${v:0:12} size=$(du -sh "$d" 2>/dev/null | cut -f1)"
+            ls -A "$d" 2>/dev/null | head -8 | tr '\n' ' '; echo
+            HITS=$(find "$d" -maxdepth 3 \( -name PG_VERSION -o -name '*.sql' -o -name '*.sql.gz' -o -iname '*directus*' -o -iname '*upload*' -o -iname '*backup*' \) 2>/dev/null | head -3)
+            if [ -n "$HITS" ]; then
+              echo "KEEP ${v:0:12} (match: $HITS)"
+            else
+              docker volume rm "$v" >/dev/null && echo "removed ${v:0:12}" || echo "rm failed ${v:0:12}"
+            fi
+          done
+
+          echo "=== 3. image prune (dangling only) ==="
+          docker image prune -f
+
+          echo "AFTER: $(df -h / | tail -1)"
+          echo "LAT12798_APPLY_OK"
+          REMOTE
