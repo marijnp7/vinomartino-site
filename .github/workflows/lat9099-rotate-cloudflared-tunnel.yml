@@ -37,7 +37,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'diagnose (alleen lezen) / cutover / rollback / cleanup (verwijdert oude tunnel)'
+        description: 'diagnose (alleen lezen) / cutover / rollback / cleanup (verwijdert oude tunnel) / persist (vaste connector na cleanup)'
         required: true
         default: diagnose
         type: choice
@@ -46,6 +46,7 @@ on:
           - cutover
           - rollback
           - cleanup
+          - persist
 
 concurrency:
   group: lat9099-rotate-cloudflared-tunnel
@@ -459,3 +460,57 @@ jobs:
             echo "rotatie compleet: oude tunnel weg, credentials + config op $NEW_ID."
         run: |
           printf '%s\n' "$CLEANUP" | ssh "$VPS" "bash -s"
+
+      # ---------------------------------------------------------------- persist
+      # Na cleanup (run 37586977608): compose kende service 'cloudflared' niet meer ("no such service"),
+      # dus bedient de losse v2-container het verkeer, met een bind-mount op cloudflared-tunnel.json.new.
+      # Dat pad bestaat niet meer (hernoemd) -> bij restart/reboot start v2 niet. persist zet een
+      # connector neer met exact de oude layout (naam, config.yml + canonieke creds) en haalt v2 pas weg
+      # als die geregistreerd is.
+      - name: Persist — vaste connector op canonieke paden
+        if: inputs.mode == 'persist'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          PERSIST: |
+            set -euo pipefail
+            V2="paperclip-cloudflared-lat56-v2"
+            NAME="paperclip-cloudflared-1"
+            CFG=/opt/paperclip-cos/cloudflared-config.yml
+            CREDS=/root/.agent-secrets/cloudflared-tunnel.json
+            echo "compose-services in docker-compose.cos.yml: $(docker compose -f /opt/paperclip-cos/docker-compose.cos.yml config --services 2>&1 | tr '\n' ' ')"
+            [ -f "$CFG" ] && [ -f "$CREDS" ] || { echo "::error::config of creds ontbreekt — afgebroken"; exit 1; }
+            NEW_ID=$(sed -n 's/^tunnel: //p' "$CFG")
+            echo "config tunnel=$NEW_ID creds sha256(8)=$(sha256sum "$CREDS" | cut -c1-8)"
+            docker inspect "$V2" >/dev/null 2>&1 || { echo "::error::$V2 bestaat niet — afgebroken"; exit 1; }
+            if docker inspect "$NAME" >/dev/null 2>&1; then echo "::error::$NAME bestaat al — afgebroken"; exit 1; fi
+            IMG=$(docker inspect -f '{{.Config.Image}}' "$V2")
+            NETS=$(docker inspect -f '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{"\n"}}{{end}}' "$V2")
+            PRIMARY_NET=$(echo "$NETS" | head -1)
+            docker run -d --name "$NAME" --restart unless-stopped --user root --network "$PRIMARY_NET" \
+              -v "$CFG:/etc/cloudflared/config.yml:ro" -v "$CREDS:/etc/cloudflared/cred.json:ro" \
+              "$IMG" tunnel --no-autoupdate --config /etc/cloudflared/config.yml run
+            echo "$NETS" | tail -n +2 | while read -r n; do [ -n "$n" ] && docker network connect "$n" "$NAME"; done
+            OK=""
+            for i in $(seq 1 18); do
+              sleep 5
+              ST=$(docker inspect -f '{{.State.Status}} {{.RestartCount}}' "$NAME")
+              REG=$(docker logs "$NAME" 2>&1 | grep -c 'Registered tunnel connection' || true)
+              echo "t=$((i*5))s $NAME=[$ST] registered=$REG"
+              [ "$ST" != "running 0" ] && break
+              [ "$REG" -ge 2 ] && { OK=1; break; }
+            done
+            if [ -z "$OK" ]; then
+              echo "::error::$NAME niet geregistreerd — weggehaald, $V2 blijft het verkeer bedienen"
+              docker logs --tail 30 "$NAME" 2>&1 | sed 's/^/  /'
+              docker rm -f "$NAME" >/dev/null 2>&1 || true
+              exit 1
+            fi
+            docker stop "$V2" >/dev/null 2>&1 || true
+            docker rm "$V2" >/dev/null 2>&1 || true
+            sleep 10
+            for host in deploy-hook approval dam preview webhook cms ssh; do
+              echo "$host.vinomartino.com http_code=$(curl -s -o /dev/null -w '%{http_code}' "https://$host.vinomartino.com")"
+            done
+            docker ps --format '{{.Names}} {{.Status}}' | grep -i cloudflared
+        run: |
+          printf '%s\n' "$PERSIST" | ssh "$VPS" "bash -s"
