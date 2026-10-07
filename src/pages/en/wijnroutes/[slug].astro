@@ -21,13 +21,6 @@ export async function getStaticPaths() {
   const [entries, streken, wijnhuizen, accRoundupsByStreek] = await Promise.all([loadRoutes('en'), loadStreken('en'), loadWijnhuizen('en'), loadAccommodatieRoundupsByStreek('en')]);
   const pakketten = await loadReispakketten('en');
   const streekBySlug = new Map(streken.map(s => [s.slug, s]));
-  const wijnhuizenByStreek = new Map<string, Wijnhuis[]>();
-  for (const wh of wijnhuizen) {
-    if (!wh.streekSlug) continue;
-    const list = wijnhuizenByStreek.get(wh.streekSlug) ?? [];
-    list.push(wh);
-    wijnhuizenByStreek.set(wh.streekSlug, list);
-  }
   const wijnhuisBySlug = new Map(wijnhuizen.map(wh => [wh.slug, wh]));
   return entries.map(entry => {
     const streek = entry.streekSlug ? streekBySlug.get(entry.streekSlug) : undefined;
@@ -48,9 +41,7 @@ export async function getStaticPaths() {
         streekName: streek?.name ?? '',
         landSlug: streek?.landSlug ?? '',
         landName: streek?.country ?? '',
-        wijnhuizen: routeWijnhuizen.length > 0
-          ? routeWijnhuizen
-          : (entry.streekSlug ? (wijnhuizenByStreek.get(entry.streekSlug) ?? []) : []),
+        wijnhuizen: routeWijnhuizen,
         staysRoundup,
         verhalen: verhalenVoorRoute(pakketten, entry),
         // Deze route bestaat per definitie alleen voor EN-vertaalde routes.
