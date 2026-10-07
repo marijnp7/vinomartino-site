@@ -362,8 +362,9 @@ jobs:
             for host in $HOSTS; do
               CODE=$(curl -s -o /dev/null -w '%{http_code}' "https://$host")
               echo "$host http_code=$CODE"
+              # baseline (gemeten 10-03): deploy-hook/approval 404, webhook 403, rest 302. Alleen 5xx/000 = storing (530 = geen connector).
               case "$CODE" in
-                2*|3*) ;;
+                2*|3*|4*) ;;
                 *) echo "::error::$host geeft $CODE — cleanup afgebroken, oude tunnel blijft bestaan"; exit 1 ;;
               esac
             done
@@ -379,33 +380,82 @@ jobs:
               esac
             done
 
+            NEW_ID=""
+            for host in $HOSTS; do
+              CUR=$(curl -s -H "Authorization: Bearer $CF_API_TOKEN" \
+                "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records?name=$host" \
+                | python3 -c 'import json,sys; r=json.load(sys.stdin)["result"]; print(r[0]["content"].split(".")[0] if r else "")')
+              [ -z "$NEW_ID" ] && NEW_ID="$CUR"
+              [ "$CUR" = "$NEW_ID" ] || { echo "::error::hostnames wijzen naar verschillende tunnels ($NEW_ID vs $CUR) — afgebroken"; exit 1; }
+            done
+            echo "nieuwe tunnel volgens DNS: $NEW_ID"
+            CFG=/opt/paperclip-cos/cloudflared-config.yml
+            COMPOSE=/opt/paperclip-cos/docker-compose.cos.yml
+            [ -f "$CFG" ] && [ -f "$COMPOSE" ] && [ -f /root/.agent-secrets/cloudflared-tunnel.json.new ] \
+              || { echo "::error::config/compose/nieuw credentials-bestand ontbreekt — afgebroken voor enige write"; exit 1; }
+
             OLDC=$(docker ps -a --format '{{.Names}}' | grep -i cloudflared | grep -v lat56-v2 | head -1)
             if [ -n "$OLDC" ]; then
-              echo "stop+verwijder oude container $OLDC"
+              echo "stop+verwijder oude container $OLDC (v2 bedient al het verkeer)"
               docker stop "$OLDC" >/dev/null 2>&1 || true
               docker rm "$OLDC" >/dev/null 2>&1 || true
             fi
 
-            echo "=== oude tunnel verwijderen via CF API ==="
-            DEL=$(curl -s -X DELETE -H "Authorization: Bearer $CF_API_TOKEN" \
-              "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/cfd_tunnel/$OLD_TUNNEL_ID")
-            OK=$(printf '%s' "$DEL" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("success"))')
+            echo "=== oude tunnel verwijderen via CF API (eigenlijke mitigatie) ==="
+            OK=""
+            for i in 1 2 3 4 5 6; do
+              DEL=$(curl -s -X DELETE -H "Authorization: Bearer $CF_API_TOKEN" \
+                "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/cfd_tunnel/$OLD_TUNNEL_ID")
+              OK=$(printf '%s' "$DEL" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("success"))')
+              [ "$OK" = "True" ] && break
+              echo "poging $i: delete nog niet gelukt (connecties lopen af?), 10s wachten"
+              sleep 10
+            done
             [ "$OK" = "True" ] || { echo "::error::tunnel-delete mislukt: $DEL"; exit 1; }
             echo "oude tunnel $OLD_TUNNEL_ID verwijderd"
 
-            echo "=== oude credentials-bestand verwijderen ==="
+            echo "=== credentials + compose-config naar de nieuwe tunnel ==="
             rm -f /root/.agent-secrets/cloudflared-tunnel.json
-            if [ -f /root/.agent-secrets/cloudflared-tunnel.json.new ]; then
-              mv /root/.agent-secrets/cloudflared-tunnel.json.new /root/.agent-secrets/cloudflared-tunnel.json
-              echo "nieuw credentials-bestand hernoemd naar de canonieke naam"
-            fi
+            mv /root/.agent-secrets/cloudflared-tunnel.json.new /root/.agent-secrets/cloudflared-tunnel.json
+            cp -p "$CFG" "$CFG.bak-lat9099"
+            sed -i "s/^tunnel: .*/tunnel: $NEW_ID/" "$CFG"
+            grep '^tunnel:' "$CFG"
             ls -la /root/.agent-secrets/ | grep cloudflared
 
+            echo "=== compose-managed connector terug (zelfde service, nieuwe tunnel) ==="
             NEWC="paperclip-cloudflared-lat56-v2"
-            if docker ps --format '{{.Names}}' | grep -q "^${NEWC}$"; then
-              docker rename "$NEWC" paperclip-cloudflared-1 2>/dev/null || echo "rename overgeslagen (naam mogelijk al in gebruik)"
+            if docker compose -f "$COMPOSE" --project-directory /opt/paperclip-cos up -d --no-deps cloudflared; then
+              UP=""
+              for i in $(seq 1 18); do
+                sleep 5
+                ST=$(docker inspect -f '{{.State.Status}} {{.RestartCount}}' paperclip-cloudflared-1 2>/dev/null || echo missing)
+                echo "t=$((i*5))s paperclip-cloudflared-1=[$ST]"
+                [ "$ST" = "running 0" ] && [ "$i" -ge 3 ] && { UP=1; break; }
+              done
+              if [ -n "$UP" ]; then
+                docker stop "$NEWC" >/dev/null 2>&1 || true
+                docker rm "$NEWC" >/dev/null 2>&1 || true
+                echo "compose-connector draait; tijdelijke $NEWC verwijderd"
+              else
+                echo "::warning::compose-connector niet stabiel — $NEWC blijft draaien en bedient het verkeer"
+                docker logs --tail 30 paperclip-cloudflared-1 2>&1 | sed 's/^/  /'
+              fi
+            else
+              echo "::warning::docker compose up faalde — $NEWC blijft draaien en bedient het verkeer"
             fi
 
-            echo "rotatie compleet: oude tunnel weg, credentials-bestand vervangen."
+            echo "=== achtergebleven tunnel van de mislukte poging van 10-03 opruimen ==="
+            STALE="fbdddf9b-07a9-48b4-94ea-94f6ccdc93b1"
+            if [ "$STALE" != "$NEW_ID" ]; then
+              curl -s -X DELETE -H "Authorization: Bearer $CF_API_TOKEN" \
+                "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/cfd_tunnel/$STALE" \
+                | python3 -c 'import json,sys; d=json.load(sys.stdin); print("stale tunnel delete success=", d.get("success"), d.get("errors"))'
+            fi
+
+            sleep 10
+            for host in $HOSTS; do
+              echo "$host http_code=$(curl -s -o /dev/null -w '%{http_code}' "https://$host")"
+            done
+            echo "rotatie compleet: oude tunnel weg, credentials + config op $NEW_ID."
         run: |
           printf '%s\n' "$CLEANUP" | ssh "$VPS" "bash -s"
