@@ -1,0 +1,43 @@
+# LAT-12620 — eenmalige proefmeting (approval c3ff655c): komt Playwright-Chromium
+# vanaf een GHA-runner door Booking's anti-bot-challenge? Draait alleen op de
+# eigen branch; raakt de nightly, deploy en productie niet.
+name: LAT-12620 Booking browser-probe
+
+on:
+  push:
+    branches: [lat12620-booking-browser-probe]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Playwright installeren
+        # Losse map: in de repo-root zou npm de hele site-dependencytree meetrekken.
+        run: |
+          mkdir -p "$RUNNER_TEMP/pw" && cp scripts/lat12620/* "$RUNNER_TEMP/pw/"
+          cd "$RUNNER_TEMP/pw" && npm init -y >/dev/null
+          npm i playwright@1.49.1
+          npx playwright install --with-deps chromium
+      - name: Variant A — headless (nieuwe headless-modus)
+        working-directory: ${{ runner.temp }}/pw
+        run: node booking-browser-probe.mjs headless
+      - name: Variant B — headed onder xvfb
+        if: always()
+        working-directory: ${{ runner.temp }}/pw
+        run: xvfb-run -a node booking-browser-probe.mjs headed
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lat12620-booking-probe
+          path: |
+            ${{ runner.temp }}/pw/probe-*.json
+            ${{ runner.temp }}/pw/shots-*/
