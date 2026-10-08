@@ -1,0 +1,93 @@
+# LAT-12804 — draai een idempotent Directus-schema-script (directus/scripts/) als admin op prod.
+#
+# WAAROM DEZE ROUTE
+# Schemawerk (POST /fields, /relations, /permissions) vraagt de Directus-admin-identiteit; de
+# scoped seed-identity 403't daarop. `directus-run-internal.sh --admin` haalde het admin-token
+# via een exec in vinomartino-directus-1 over paperclip-devops-proxy-1. Die exec-route is per
+# 2026-10-08 bewust dicht (LAT-7594). Het token staat op de host in
+# /root/directus/secrets/admin_token; via dit GHA->VPS SSH-kanaal is dat een leesbaar bestand
+# (zelfde kanaal en zelfde secret-hygiene als lat5180-directus-flow-reload.yml).
+#
+# GRENZEN
+#  * Alleen scripts uit de keuzelijst hieronder, uitgecheckt van main. Geen vrije invoer.
+#    Een nieuw script toevoegen = deze lijst uitbreiden in een PR.
+#  * Scripts moeten idempotent zijn (bestaand veld/relatie/permissie = overslaan).
+#  * Het token wordt alleen op de VPS in een env-var gezet en via `docker exec -e NAAM`
+#    (zonder waarde in argv) doorgegeven. Nooit ge-echood, geen `set -x`.
+#  * Push met "[skip ci]": .github/** staat niet in de paths-ignore van deploy.yml.
+
+name: LAT-12804 directus schema migrate
+
+on:
+  workflow_dispatch:
+    inputs:
+      script:
+        description: 'Idempotent schema-script in directus/scripts/'
+        required: true
+        type: choice
+        options:
+          - add-wijnhuis-portret-fields.mjs
+
+concurrency:
+  group: lat12804-directus-schema-migrate
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          [ -n "$CF_ACCESS_CLIENT_ID" ] && [ -n "$CF_ACCESS_CLIENT_SECRET" ] \
+            || { echo "::error::CF_ACCESS_CLIENT_ID/SECRET ontbreken (LAT-3437)"; exit 1; }
+          umask 077
+          printf 'CF_ACCESS_CLIENT_ID=%s\nCF_ACCESS_CLIENT_SECRET=%s\n' \
+            "$CF_ACCESS_CLIENT_ID" "$CF_ACCESS_CLIENT_SECRET" > ~/.ssh/cf-access.env
+          umask 022
+          cat >> ~/.ssh/config <<EOF
+          Host $VPS_HOST
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+            ProxyCommand bash $GITHUB_WORKSPACE/ops/cf-ssh-proxy.sh
+          EOF
+          cat "$GITHUB_WORKSPACE/ops/ssh-config-snippet" >> ~/.ssh/config
+
+      - name: Run script as Directus admin
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          SCRIPT: directus/scripts/${{ inputs.script }}
+        run: |
+          set -euo pipefail
+          [ -f "$SCRIPT" ] || { echo "::error::$SCRIPT ontbreekt op deze ref"; exit 1; }
+          node --check "$SCRIPT"
+          echo "script sha256=$(sha256sum "$SCRIPT" | cut -c1-16)"
+          {
+            echo 'set -euo pipefail'
+            echo "B64='$(base64 -w0 "$SCRIPT")'"
+            cat <<'REMOTE'
+          CTR=vinomartino-directus-1
+          F=/root/directus/secrets/admin_token
+          [ -r "$F" ] || { echo "::error::admin-token onleesbaar: $F"; exit 1; }
+          DIRECTUS_TOKEN=$(tr -d '\r\n' < "$F"); export DIRECTUS_TOKEN
+          export DIRECTUS_URL=http://127.0.0.1:8055
+          echo "token len=${#DIRECTUS_TOKEN} sha256=$(printf '%s' "$DIRECTUS_TOKEN" | sha256sum | cut -c1-16)"
+          printf '%s' "$B64" | base64 -d \
+            | docker exec -i -e DIRECTUS_TOKEN -e DIRECTUS_URL "$CTR" node --input-type=module -
+          REMOTE
+          } | ssh "$VPS" "bash -s"

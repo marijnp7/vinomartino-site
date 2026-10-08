@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
  * LAT-12786 — Wijnhuis-portret 2.0: schema + permissions on `wijnhuizen`.
+ * LAT-12804 — adds `waarom_hier` (string[]) and `faq` ([{vraag, antwoord}]).
  * Run (admin, schema work):
  *   /paperclip/scripts/directus-run-internal.sh --admin --script directus/scripts/add-wijnhuis-portret-fields.mjs
  * Idempotent: existing fields/collections/relations/permissions are skipped.
@@ -88,6 +89,12 @@ const fields = [
       { field: "prijsband", name: "Prijsband 1–4", type: "integer", meta: { interface: "input", width: "half", options: { min: 1, max: 4 } } },
       { field: "drinkvenster", name: "Drinkvenster", type: "json", meta: { interface: "input-code", width: "half", options: { language: "json" } } },
       { field: "koop_url", name: "Koop-URL", type: "string", meta: { interface: "input", width: "full" } } ] }),
+  // LAT-12804: blok 3 "Waarom je hier heen gaat" + blok 10 "Snel antwoord" (FAQPage-markup)
+  jsonField("waarom_hier", "tags", "Max 3 korte strings (blok 3 'Waarom je hier heen gaat'). Max 3 niet door Directus afgedwongen; template toont de eerste 3."),
+  jsonField("faq", "list", "[{vraag, antwoord}] (blok 10 'Snel antwoord' + FAQPage-markup). Antwoord platte tekst, 1-3 zinnen.",
+    { template: "{{vraag}}", fields: [
+      { field: "vraag", name: "Vraag", type: "string", meta: { interface: "input", width: "full" } },
+      { field: "antwoord", name: "Antwoord", type: "text", meta: { interface: "input-multiline", width: "full" } } ] }),
 ];
 
 // --- M2M plumbing -----------------------------------------------------------
