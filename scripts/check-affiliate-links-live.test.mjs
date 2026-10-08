@@ -10,6 +10,7 @@ import {
   judgeBooking,
   isBlockOrThrottle,
   isBookingChallenge,
+  isBookingSearchRefusal,
   bookingSourceIntent,
 } from './check-affiliate-links-live.mjs';
 import { collectAffiliateUrls } from './check-affiliate-links.mjs';
@@ -157,4 +158,10 @@ test('collectAffiliateUrls: dedupe + partner-detectie op gemengde HTML', () => {
   const urls = collectAffiliateUrls(html);
   assert.equal(urls.length, 2);
   assert.deepEqual(urls.map((u) => u.partner).sort(), ['booking-cj', 'getyourguide']);
+});
+
+test('Booking: 404 op /searchresults = weigering aan de client, geen rood (LAT-12620)', () => {
+  assert.equal(isBookingSearchRefusal(new URL('https://www.booking.com/searchresults.html'), 404), true);
+  assert.equal(isBookingSearchRefusal(new URL('https://www.booking.com/searchresults.html'), 200), false);
+  assert.equal(isBookingSearchRefusal(new URL('https://www.booking.com/hotel/pt/solar-do-alenquer.nl.html'), 404), false);
 });

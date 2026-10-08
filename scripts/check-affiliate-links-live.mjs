@@ -97,6 +97,15 @@ export function isBookingChallenge(fu) {
   return fu.searchParams.has('chal_t') || fu.searchParams.has('force_referer');
 }
 
+// Booking geeft een headless browser soms 404 op /searchresults.html, terwijl
+// hetzelfde pad in een zichtbare browser 200 geeft (LAT-12620: run 37834373650
+// telde zo 35 vals rood; probe 37831642824 toonde 404 headless vs. 200 headed op
+// dezelfde La Morra-zoeklink). /searchresults bestaat altijd, dus een 404 daar is
+// een weigering aan de client, geen dood-signaal → niet beoordeeld, nooit rood.
+export function isBookingSearchRefusal(fu, status) {
+  return status === 404 && normHost(fu.hostname) === 'booking.com' && fu.pathname.toLowerCase().includes('/searchresults');
+}
+
 // Strip een leidend locale-segment (nl-nl, en, de-de) — zelfde regel als de
 // offline guard, zodat "tour" vs. "zoekpagina" op het echte pad wordt bepaald.
 function pathSegments(u) {
@@ -280,6 +289,14 @@ async function visit(browser, entry) {
             `opgelost binnen ${CHALLENGE_WAIT_MS / 1000} s; eindbestemming niet beoordeeld`,
         };
       }
+      if (isBookingSearchRefusal(finalUrl, httpStatus)) {
+        return {
+          status: 'unreachable',
+          httpStatus,
+          finalUrl: finalUrl.toString(),
+          reason: 'HTTP 404 op /searchresults — Booking weigert de zoekpagina aan deze client; niet beoordeeld',
+        };
+      }
       const reason = judge ? judge(finalUrl, httpStatus, entry.url) : null;
       return {
         status: reason ? 'red' : 'ok',
@@ -453,7 +470,10 @@ async function main() {
   );
   // channel 'chromium' = de nieuwe headless-modus (volledige browser), niet de
   // headless shell; daarmee kwam de probe in LAT-12620 door Booking's challenge.
-  const browser = await playwright.chromium.launch({ channel: 'chromium', args: ['--no-sandbox'] });
+  // AFFILIATE_LIVE_HEADED=1 (nightly, onder xvfb-run): zichtbare browser. Die
+  // kreeg in de LAT-12620-probe ook Booking's zoekpagina's te zien (200 i.p.v. 404).
+  const headless = process.env.AFFILIATE_LIVE_HEADED !== '1';
+  const browser = await playwright.chromium.launch({ channel: 'chromium', headless, args: ['--no-sandbox'] });
   let results;
   try {
     results = await runPool(entries, (entry) => visit(browser, entry), CONCURRENCY);
