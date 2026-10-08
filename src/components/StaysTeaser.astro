@@ -7,6 +7,7 @@
 import type { AccommodatieRoundup } from '../lib/accommodaties';
 import { filterRoundupOpFotos } from '../lib/accommodaties';
 import SmartImg from './SmartImg.astro';
+import { haversineKm } from '../lib/accommodatie-cluster';
 import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
 
 interface Props {
@@ -21,9 +22,12 @@ interface Props {
   context?: string;
   placement?: 'sidebar' | 'inline';
   max?: number;
+  /** LAT-12768 — alleen verblijven binnen `maxKm` van een routestop; zonder match rendert het blok niets. */
+  nearStops?: { lat: number; lng: number }[];
+  maxKm?: number;
 }
 
-const { roundup, streekSlug, regio, context, placement = 'sidebar', max = 3, locale = DEFAULT_LOCALE } = Astro.props;
+const { roundup, streekSlug, regio, context, placement = 'sidebar', max = 3, locale = DEFAULT_LOCALE, nearStops, maxKm = 40 } = Astro.props;
 
 // LAT-2704 — interne hrefs locale-aware; NL blijft byte-identiek.
 const lh = (href: string) => localizeHref(href, locale);
@@ -32,7 +36,12 @@ const lh = (href: string) => localizeHref(href, locale);
 // /accommodaties/<streek>/-pagina überhaupt bestaat (LAT-1371). Zonder foto's is
 // er geen doel om naartoe te linken, dus rendert dit blok niets.
 const fotoRoundup = filterRoundupOpFotos(roundup);
-const kaarten = fotoRoundup.clusters.flatMap((c) => c.kaarten).slice(0, max);
+const alleKaarten = fotoRoundup.clusters.flatMap((c) => c.kaarten);
+const geoStops = (nearStops ?? []).filter((s) => Number.isFinite(s.lat) && Number.isFinite(s.lng));
+const kaarten = (nearStops
+  ? alleKaarten.filter((k) => typeof k.lat === 'number' && typeof k.lng === 'number' && geoStops.some((s) => haversineKm(s.lat, s.lng, k.lat as number, k.lng as number) <= maxKm))
+  : alleKaarten
+).slice(0, max);
 const regioNaam = regio || roundup.regio || streekSlug;
 const regioHref = lh(`/accommodaties/${streekSlug}/`);
 ---

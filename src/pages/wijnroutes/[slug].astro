@@ -18,16 +18,6 @@ export async function getStaticPaths() {
   const pakketten = await loadReispakketten();
   const enSlugs = new Set(enEntries.map(e => e.slug));
   const streekBySlug = new Map(streken.map(s => [s.slug, s]));
-  // LAT-1201: wijnhuizen per streek zodat een route → wijnhuizen-selectie afgeleid
-  // wordt uit routes.streek_id (route kent zelf geen wijnhuis-relatie). Zelfde
-  // transition-safe keten als de streek-pagina's "Wijnhuizen in <streek>".
-  const wijnhuizenByStreek = new Map<string, Wijnhuis[]>();
-  for (const wh of wijnhuizen) {
-    if (!wh.streekSlug) continue;
-    const list = wijnhuizenByStreek.get(wh.streekSlug) ?? [];
-    list.push(wh);
-    wijnhuizenByStreek.set(wh.streekSlug, list);
-  }
   const wijnhuisBySlug = new Map(wijnhuizen.map(wh => [wh.slug, wh]));
   return entries.map(entry => {
     // LAT-1199: leid de keten Land → Streek af via routes.streek_id → streek→land
@@ -35,8 +25,8 @@ export async function getStaticPaths() {
     const streek = entry.streekSlug ? streekBySlug.get(entry.streekSlug) : undefined;
     // LAT-2010 [VIS-BL-11] / LAT-1994: als de route expliciet wijnhuis-stops noemt
     // (stops_geo kind=wijnhuis + slug), toon alléén die huizen — in route-volgorde —
-    // zodat de route enkel naar huizen linkt die er écht op liggen. Zonder die data
-    // (vóór de datafix) val terug op de streek-brede selectie (bestaand gedrag).
+    // zodat de route enkel naar huizen linkt die er écht op liggen. Geen stops =
+    // geen blok (LAT-12797): nooit terugvallen op alle huizen van de streek.
     const routeWijnhuisSlugs = entry.stopsGeo
       .filter(s => s.kind === 'wijnhuis' && s.slug)
       .map(s => s.slug as string);
@@ -57,9 +47,7 @@ export async function getStaticPaths() {
         streekName: streek?.name ?? '',
         landSlug: streek?.landSlug ?? '',
         landName: streek?.country ?? '',
-        wijnhuizen: routeWijnhuizen.length > 0
-          ? routeWijnhuizen
-          : (entry.streekSlug ? (wijnhuizenByStreek.get(entry.streekSlug) ?? []) : []),
+        wijnhuizen: routeWijnhuizen,
         staysRoundup,
         verhalen: verhalenVoorRoute(pakketten, entry),
         alternates: enSlugs.has(entry.slug)

@@ -88,6 +88,20 @@ test('verhalenVoorRoute koppelt eerst op route_id, dan op streek (LAT-12646)', (
   assert.deepEqual(slugs({ slug: 'x', streekSlug: null }), []);
 });
 
+test('nginx: Toscane-verhaal NL naar route 16, EN naar de bestaande route (LAT-12646)', () => {
+  for (const conf of [NGINX, NGINX_PREVIEW]) {
+    assert.match(conf, /location ~ \^\/reizen-nareizen\/toscane-italie\/\?\$ \{\s*return 301 \/wijnroutes\/toscane-chianti-montalcino-bolgheri-vier-dagen\/;/);
+    assert.match(conf, /location ~ \^\/en\/reizen-nareizen\/toscane-italie\/\?\$ \{\s*return 301 \/en\/wijnroutes\/toscane-bolgheri-montalcino-carmignano\/;/);
+  }
+});
+
+test('verhaalblok staat in beide route-layouts, ook de één-pagina-tak (LAT-12646)', () => {
+  const hits = ROUTE.match(/<ReisVerhaal verhalen=\{verhalen\}/g) ?? [];
+  assert.equal(hits.length, 2, 'route-one (itinerary.pagina) en de klassieke layout moeten allebei het verhaal tonen');
+  const paginaTak = ROUTE.slice(ROUTE.indexOf('{pagina ? ('), ROUTE.indexOf('\n    ) : (\n'));
+  assert.match(paginaTak, /<ReisVerhaal verhalen=\{verhalen\}/);
+});
+
 test('loader vraagt route_id.slug op met eigen degradatie-tier', () => {
   const L = src('../src/lib/reispakketten.ts');
   assert.match(L, /ROUTE_FIELD = 'route_id\.slug'/);
@@ -114,8 +128,7 @@ test('nginx: 301 voor de hub en elk van de vier verhalen, NL en EN', () => {
   const expect = {
     'mosel-duitsland': 'mosel-bernkastel-traben-trarbach',
     'langhe-piemonte': 'langhe-piemonte',
-    'champagne': 'champagne-aube',
-    'toscane-italie': 'toscane-bolgheri-montalcino-carmignano',
+    'champagne': 'champagne-reims-epernay-montagne-de-reims',
   };
   for (const conf of [NGINX, NGINX_PREVIEW]) {
     for (const [from, to] of Object.entries(expect)) {
