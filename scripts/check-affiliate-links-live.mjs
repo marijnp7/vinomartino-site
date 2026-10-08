@@ -53,6 +53,9 @@ const CONCURRENCY = Number(process.env.AFFILIATE_LIVE_CONCURRENCY || 2);
 // Beleefdheids-throttle per navigatie (jitter 0.5–1.5×) om Booking-rate-limit
 // (429 vanaf één runner-IP) te dempen; 0 = uit.
 const THROTTLE_MS = Number(process.env.AFFILIATE_LIVE_THROTTLE_MS || 600);
+// Booking's challenge lost zichzelf op in JS en navigeert dan door naar de echte
+// pagina. Zo lang wachten we daarop voordat de URL 'niet beoordeeld' blijft.
+const CHALLENGE_WAIT_MS = Number(process.env.AFFILIATE_LIVE_CHALLENGE_WAIT_MS || 20000);
 // Aparte, gecapte issue-body (de volledige lijst kan >65536 tekens worden en
 // laat `gh issue create` omvallen). De volledige lijst blijft in REPORT_PATH.
 const ISSUE_BODY_PATH = process.env.AFFILIATE_LIVE_ISSUE_BODY || 'affiliate-live-issue.md';
@@ -212,12 +215,9 @@ async function visit(browser, entry) {
   if (THROTTLE_MS > 0) await sleep(Math.round(THROTTLE_MS * (0.5 + Math.random())));
   let lastErr = null;
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    const context = await browser.newContext({
-      userAgent:
-        'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) ' +
-        'Chrome/124.0.0.0 Safari/537.36',
-      locale: 'nl-NL',
-    });
+    // Geen userAgent-override: een vaste Chrome/124-UA op een andere
+    // browserversie is zelf een bot-signaal (LAT-12620).
+    const context = await browser.newContext({ locale: 'nl-NL' });
     const page = await context.newPage();
     try {
       const resp = await page.goto(entry.url, {
@@ -226,7 +226,28 @@ async function visit(browser, entry) {
       });
       // Geef een client-side (JS) redirect nog even de tijd om te settelen.
       await page.waitForTimeout(1500);
-      const httpStatus = resp ? resp.status() : null;
+      let httpStatus = resp ? resp.status() : null;
+      // Booking-challenge (HTTP 202 + chal_t): wacht tot de JS hem oplost en
+      // naar de echte pagina navigeert. Gemeten in LAT-12620 (run 37831642824):
+      // 20/20 Booking-URL's kwamen zo door, tegen 0/770 met de oude 1,5 s.
+      let challenged = false;
+      try {
+        challenged = isBookingChallenge(new URL(page.url()));
+      } catch {
+        /* ongeldige URL → hieronder afgehandeld */
+      }
+      if (challenged) {
+        await page
+          .waitForURL((u) => !isBookingChallenge(u), { timeout: CHALLENGE_WAIT_MS })
+          .catch(() => {});
+        await page.waitForLoadState('domcontentloaded').catch(() => {});
+        // De status van goto() is die van de challenge (202); neem die van de
+        // pagina waar de challenge naartoe navigeerde, anders mist een 404.
+        const navStatus = await page
+          .evaluate(() => performance.getEntriesByType('navigation')[0]?.responseStatus || null)
+          .catch(() => null);
+        if (navStatus) httpStatus = navStatus;
+      }
       let finalUrl;
       try {
         finalUrl = new URL(page.url());
@@ -255,8 +276,8 @@ async function visit(browser, entry) {
           httpStatus,
           finalUrl: finalUrl.toString(),
           reason:
-            `HTTP ${httpStatus} — Booking anti-bot-challenge (chal_t/force_referer) vanaf ` +
-            'headless GHA-runner-IP; eindbestemming niet beoordeeld',
+            `HTTP ${httpStatus} — Booking anti-bot-challenge (chal_t/force_referer) niet ` +
+            `opgelost binnen ${CHALLENGE_WAIT_MS / 1000} s; eindbestemming niet beoordeeld`,
         };
       }
       const reason = judge ? judge(finalUrl, httpStatus, entry.url) : null;
@@ -430,7 +451,9 @@ async function main() {
   console.log(
     `[affiliate-live] ${entries.length} unieke affiliate-URL('s) uit ${scanned} HTML-bestanden — headless chromium…`,
   );
-  const browser = await playwright.chromium.launch({ args: ['--no-sandbox'] });
+  // channel 'chromium' = de nieuwe headless-modus (volledige browser), niet de
+  // headless shell; daarmee kwam de probe in LAT-12620 door Booking's challenge.
+  const browser = await playwright.chromium.launch({ channel: 'chromium', args: ['--no-sandbox'] });
   let results;
   try {
     results = await runPool(entries, (entry) => visit(browser, entry), CONCURRENCY);
