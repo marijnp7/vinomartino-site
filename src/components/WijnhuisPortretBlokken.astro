@@ -210,6 +210,11 @@ const heeftCombineer = Boolean(nabije.length || (routeHref && routeLabel) || (st
 
 <style>
   .wp { padding: 2.5rem 0; }
+  /* .btn is scoped in WijnhuisPageContent en bereikt deze component niet. */
+  .btn { display: inline-block; padding: 0.75rem 1.25rem; font-family: var(--font-ui); font-size: 0.8125rem; font-weight: 600; text-decoration: none; }
+  .btn:hover { opacity: 0.85; }
+  .btn--primary { background: var(--burgundy); color: var(--fixed-cream); }
+  .btn--outline { background: var(--paper); color: var(--ink); border: 1px solid var(--rule); }
   .wp__eyebrow {
     font-family: var(--font-mono);
     font-size: 0.6875rem;
