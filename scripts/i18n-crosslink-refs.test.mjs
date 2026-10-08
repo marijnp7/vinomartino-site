@@ -359,7 +359,8 @@ const LOADERS = [
 
 // Velden die per collectie NIET in de translations-junction zitten (eigennamen).
 // Een geneste selectie hierop is dus terecht niet overlayd.
-const NOT_TRANSLATABLE = new Set(['wijnhuizen_id.name', 'accommodations_id.name', 'streek_id.slug']);
+// `nabij_id` is de self-M2M van wijnhuizen (nabije_wijnhuizen, LAT-12769): ook een eigennaam.
+const NOT_TRANSLATABLE = new Set(['wijnhuizen_id.name', 'nabij_id.name', 'accommodations_id.name', 'streek_id.slug']);
 
 test('elke geneste label-selectie in de loaders wordt overlayd', () => {
   const misses = [];
