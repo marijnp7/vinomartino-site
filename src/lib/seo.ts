@@ -110,6 +110,8 @@ export interface WijnhuisSchemaData {
   country?: string;
   grapes?: string[];
   established?: number;
+  /** LAT-12769: €–€€€€ uit `prijsband` (Winery erft priceRange van LocalBusiness). */
+  priceRange?: string;
   pageUrl: string;
 }
 
@@ -136,6 +138,7 @@ export function wijnhuisSchema(data: WijnhuisSchemaData) {
     ...(data.country
       ? { addressCountry: data.country }
       : {}),
+    ...(data.priceRange ? { priceRange: data.priceRange } : {}),
     mainEntityOfPage: { '@type': 'WebPage', '@id': data.pageUrl },
     inLanguage: 'nl',
   };

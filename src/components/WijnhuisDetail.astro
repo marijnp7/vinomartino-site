@@ -10,8 +10,11 @@ import WijnhuisPageContent from './pages/WijnhuisPageContent.astro';
 import WijnhuisStayNear from './WijnhuisStayNear.astro';
 import RelatedArticles from './RelatedArticles.astro';
 import CtaStructure from './CtaStructure.astro';
+import WijnhuisInfographic from './WijnhuisInfographic.astro';
+import WijnhuisPortretBlokken from './WijnhuisPortretBlokken.astro';
+import { eurLabel, heeftBezoek } from '../lib/wijnhuis-portret';
 import { type Wijnhuis } from '../lib/wijnhuizen';
-import { wijnhuisSchema, wijnhuisMetaTitle, wijnhuisMetaDescription, breadcrumbSchema } from '../lib/seo';
+import { wijnhuisSchema, wijnhuisMetaTitle, wijnhuisMetaDescription, breadcrumbSchema, faqPageSchema } from '../lib/seo';
 import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
 import { loadUiStrings } from '../lib/ui-strings';
 
@@ -68,9 +71,14 @@ const schema = [
     country: entry.country,
     grapes: entry.grapes,
     established: entry.established ?? undefined,
+    priceRange: eurLabel(entry.portret.prijsband) || undefined,
     pageUrl,
   }),
   breadcrumbSchema(crumbs),
+  // LAT-12769: alleen naast een zichtbaar blok "Snel antwoord" (zelfde data, Google-beleid).
+  ...(entry.portret.faq.length > 0
+    ? [{ ...faqPageSchema(entry.portret.faq.map((f) => ({ question: f.vraag, answer: f.antwoord }))), inLanguage: locale }]
+    : []),
 ];
 ---
 
@@ -99,10 +107,21 @@ const schema = [
     heroImage={entry.heroImage || undefined}
     heroImageId={entry.heroImageId}
     drieluik={entry.drieluik}
+    zelfGeweest={entry.portret.zelfGeweest}
+    bezoekAnchor={heeftBezoek(entry.portret, entry.address, entry.website) ? '#bezoek' : undefined}
   >
+    <Fragment slot="after-hero">
+      <WijnhuisInfographic portret={entry.portret} established={entry.established} hectares={entry.hectares} locale={locale} />
+      <WijnhuisPortretBlokken blok="waarom" portret={entry.portret} name={entry.name} locale={locale} />
+    </Fragment>
     {entry.bodyHtml && <div slot="story" set:html={entry.bodyHtml} />}
   </WijnhuisPageContent>
+  <WijnhuisPortretBlokken blok="galerij" portret={entry.portret} galerij={entry.galerij} name={entry.name} locale={locale} />
+  <WijnhuisPortretBlokken blok="drinken" portret={entry.portret} name={entry.name} locale={locale} />
+  <WijnhuisPortretBlokken blok="bezoek" portret={entry.portret} name={entry.name} address={entry.address} website={entry.website} locale={locale} />
+  <WijnhuisStayNear naam={entry.name} region={entry.region} country={entry.country} slug={entry.slug} locale={locale} />
+  <WijnhuisPortretBlokken blok="combineer" portret={entry.portret} name={entry.name} routeHref={routeHref ? lh(routeHref) : undefined} routeLabel={routeLabel || undefined} region={entry.region} streekSlug={entry.streekSlug} locale={locale} />
+  <WijnhuisPortretBlokken blok="faq" portret={entry.portret} name={entry.name} locale={locale} />
   <CtaStructure data={entry.cta} sid={entry.slug} locale={locale} />
   <RelatedArticles items={entry.relatedArticles} locale={locale} />
-  <WijnhuisStayNear naam={entry.name} region={entry.region} country={entry.country} slug={entry.slug} locale={locale} />
 </SiteLayout>

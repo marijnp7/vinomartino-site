@@ -1,0 +1,213 @@
+---
+// LAT-12769 — Infographic "In één glas". Volledig data-gedreven: elk onderdeel
+// rendert alleen als zijn veld gevuld is; zonder data rendert het hele kader niet.
+import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
+import { druivenSegmenten, eurLabel, heeftInfographic, type WijnhuisPortret } from '../lib/wijnhuis-portret';
+
+interface Props {
+  portret: WijnhuisPortret;
+  established: number | null;
+  hectares: string;
+  locale?: Locale;
+}
+
+const { portret: p, established, hectares, locale = DEFAULT_LOCALE } = Astro.props;
+const ui = await loadUiStrings(locale);
+const show = heeftInfographic(p, { established, hectares });
+const segmenten = druivenSegmenten(p.druiven);
+const hellingY = 36 - Math.min(32, ((p.maxHellingPct ?? 0) / 100) * 56);
+
+const sliders = [
+  { key: 'zoet', v: p.stijl.zoet },
+  { key: 'vol', v: p.stijl.vol },
+  { key: 'bewaar', v: p.stijl.bewaar },
+].filter((s) => s.v !== null) as Array<{ key: 'zoet' | 'vol' | 'bewaar'; v: number }>;
+
+const feitjes = [
+  established ? { label: ui.t('wijnhuis.glas.sinds'), value: String(established) } : null,
+  p.generatie ? { label: ui.t('wijnhuis.glas.generatie'), value: String(p.generatie) } : null,
+  hectares ? { label: ui.t('wijnhuis.glas.hectares'), value: hectares } : null,
+].filter((f): f is { label: string; value: string } => f !== null);
+---
+
+{show && (
+  <section class="glas" id="in-een-glas" aria-labelledby="glas-title">
+    <div class="container">
+      <div class="glas__card">
+        <header class="glas__head">
+          <p class="glas__eyebrow">{ui.t('wijnhuis.glas.eyebrow')}</p>
+          <h2 class="glas__title" id="glas-title">{ui.t('wijnhuis.glas.title')}</h2>
+        </header>
+
+        {feitjes.length > 0 && (
+          <dl class="glas__facts">
+            {feitjes.map((f) => (
+              <div class="glas__fact">
+                <dt>{f.label}</dt>
+                <dd>{f.value}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
+
+        {p.topwijngaarden.length > 0 && (
+          <div class="glas__row">
+            <p class="glas__label">{ui.t('wijnhuis.glas.topwijngaarden')}</p>
+            <ul class="glas__chips">
+              {p.topwijngaarden.map((t) => <li>{t}</li>)}
+            </ul>
+          </div>
+        )}
+
+        {segmenten.length > 0 && (
+          <div class="glas__row">
+            <p class="glas__label">{ui.t('wijnhuis.glas.druiven')}</p>
+            <div class="glas__bar" role="img" aria-label={segmenten.map((s) => `${s.naam} ${s.pct}%`).join(', ')}>
+              {segmenten.map((s, i) => (
+                <span class={`glas__seg glas__seg--${Math.min(i, 3)}`} style={`width:${s.width.toFixed(2)}%`}></span>
+              ))}
+            </div>
+            <ul class="glas__legend">
+              {segmenten.map((s, i) => (
+                <li><i class={`glas__dot glas__seg--${Math.min(i, 3)}`}></i>{s.naam}{' '}<b>{s.pct}%</b></li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {(p.bodem || p.maxHellingPct !== null) && (
+          <div class="glas__pair">
+            {p.bodem && (
+              <div class="glas__tile">
+                <p class="glas__label">{ui.t('wijnhuis.glas.bodem')}</p>
+                <svg class="glas__icon" viewBox="0 0 64 40" width="64" height="40" aria-hidden="true">
+                  <rect x="0" y="0" width="64" height="40" fill="none" />
+                  {p.bodem === 'leisteen' && <g stroke="currentColor" stroke-width="2" fill="none"><path d="M4 12 L60 6" /><path d="M4 22 L60 16" /><path d="M4 32 L60 26" /></g>}
+                  {p.bodem === 'kalk' && <g stroke="currentColor" stroke-width="2" fill="none"><rect x="6" y="6" width="22" height="12" /><rect x="32" y="6" width="26" height="12" /><rect x="6" y="22" width="30" height="12" /><rect x="40" y="22" width="18" height="12" /></g>}
+                  {p.bodem === 'vulkanisch' && <path d="M4 36 L24 12 L32 20 L40 8 L60 36 Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />}
+                  {p.bodem === 'zand' && <g fill="currentColor">{[[10,10],[22,16],[34,8],[46,18],[16,28],[30,26],[44,32],[54,12]].map(([x, y]) => <circle cx={x} cy={y} r="2" />)}</g>}
+                  {p.bodem === 'klei' && <path d="M4 14 Q20 6 32 14 T60 14 M4 26 Q20 18 32 26 T60 26" fill="none" stroke="currentColor" stroke-width="2" />}
+                  {p.bodem === 'loess' && <g fill="currentColor">{[[8,8],[20,8],[32,8],[44,8],[56,8],[14,18],[26,18],[38,18],[50,18],[8,28],[20,28],[32,28],[44,28],[56,28]].map(([x, y]) => <circle cx={x} cy={y} r="1.4" />)}</g>}
+                  {p.bodem === 'graniet' && <path d="M6 30 L16 10 L28 24 L38 8 L50 26 L58 16 L58 34 L6 34 Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />}
+                  {p.bodem === 'overig' && <g stroke="currentColor" stroke-width="2" fill="none"><circle cx="20" cy="20" r="10" /><path d="M36 10 L58 10 M36 20 L58 20 M36 30 L58 30" /></g>}
+                </svg>
+                <p class="glas__value">{ui.t(`wijnhuis.bodem.${p.bodem}`)}</p>
+              </div>
+            )}
+            {p.maxHellingPct !== null && (
+              <div class="glas__tile">
+                <p class="glas__label">{ui.t('wijnhuis.glas.helling')}</p>
+                <svg class="glas__icon" viewBox="0 0 64 40" width="64" height="40" role="img" aria-label={`${p.maxHellingPct}%`}>
+                  <path d={`M4 36 L60 36 L60 ${hellingY.toFixed(1)} Z`} fill="currentColor" opacity="0.12" />
+                  <path d={`M4 36 L60 ${hellingY.toFixed(1)}`} stroke="currentColor" stroke-width="2" />
+                  <path d="M4 36 L60 36" stroke="currentColor" stroke-width="1" opacity="0.5" />
+                </svg>
+                <p class="glas__value">{p.maxHellingPct}%</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {sliders.length > 0 && (
+          <div class="glas__row">
+            <p class="glas__label">{ui.t('wijnhuis.glas.stijl')}</p>
+            {sliders.map((s) => (
+              <div class="glas__slider">
+                <span>{ui.t(`wijnhuis.glas.stijl.${s.key}.l`)}</span>
+                <span class="glas__track" role="img" aria-label={`${s.v} / 5`}>
+                  <i style={`left:${((s.v - 1) / 4) * 100}%`}></i>
+                </span>
+                <span>{ui.t(`wijnhuis.glas.stijl.${s.key}.r`)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {(p.prijsband || p.bezoekType || p.talen.length > 0) && (
+          <dl class="glas__facts glas__facts--foot">
+            {p.prijsband && (
+              <div class="glas__fact">
+                <dt>{ui.t('wijnhuis.glas.prijs')}</dt>
+                <dd aria-label={eurLabel(p.prijsband)}><span class="glas__eur">{eurLabel(p.prijsband)}</span><span class="glas__eur glas__eur--off">{eurLabel(4 - p.prijsband)}</span></dd>
+              </div>
+            )}
+            {p.bezoekType && (
+              <div class="glas__fact">
+                <dt>{ui.t('wijnhuis.glas.bezoek')}</dt>
+                <dd>{ui.t(`wijnhuis.bezoek.${p.bezoekType}`)}</dd>
+              </div>
+            )}
+            {p.talen.length > 0 && (
+              <div class="glas__fact">
+                <dt>{ui.t('wijnhuis.glas.talen')}</dt>
+                <dd class="glas__talen">{p.talen.join(' · ')}</dd>
+              </div>
+            )}
+          </dl>
+        )}
+      </div>
+    </div>
+  </section>
+)}
+
+<style>
+  .glas { padding: 2.5rem 0 0.5rem; background: var(--paper); }
+  .glas__card {
+    max-width: var(--max-width-narrow);
+    margin: 0 auto;
+    padding: 1.75rem 1.5rem;
+    background: var(--paperDeep);
+    border: 1px solid var(--rule);
+    display: grid;
+    gap: 1.5rem;
+    color: var(--ink);
+  }
+  .glas__eyebrow, .glas__label {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--burgundy);
+    margin: 0 0 0.5rem;
+  }
+  .glas__title {
+    font-family: var(--font-display);
+    font-size: clamp(1.75rem, 1.2rem + 2.2vw, 2.5rem);
+    font-weight: 500;
+    line-height: 1.05;
+    margin: 0;
+  }
+  .glas__facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr)); gap: 1rem; margin: 0; padding: 0; }
+  .glas__facts--foot { border-top: 1px solid var(--rule); padding-top: 1.25rem; }
+  .glas__fact { margin: 0; }
+  .glas__fact dt { font-family: var(--font-mono); font-size: 0.625rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--burgundy); }
+  .glas__fact dd { margin: 0.25rem 0 0; font-family: var(--font-display); font-size: 1.625rem; line-height: 1.1; }
+  .glas__facts--foot .glas__fact dd { font-size: 1.125rem; }
+  .glas__chips { list-style: none; display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0; padding: 0; }
+  .glas__chips li { font-family: var(--font-ui); font-size: 0.8125rem; padding: 0.25rem 0.75rem; border: 1px solid var(--rule); background: var(--paper); }
+  .glas__bar { display: flex; height: 1.25rem; overflow: hidden; border: 1px solid var(--burgundyDeep); }
+  .glas__seg--0 { background: var(--burgundy); }
+  .glas__seg--1 { background: var(--rust); }
+  .glas__seg--2 { background: var(--inkSoft); }
+  .glas__seg--3 { background: var(--rule); }
+  .glas__legend { list-style: none; display: flex; flex-wrap: wrap; gap: 0.25rem 1.25rem; margin: 0.625rem 0 0; padding: 0; font-family: var(--font-ui); font-size: 0.875rem; }
+  .glas__dot { display: inline-block; width: 0.625rem; height: 0.625rem; margin-right: 0.375rem; }
+  .glas__pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .glas__tile { background: var(--paper); border: 1px solid var(--ruleSoft); padding: 1rem; color: var(--burgundy); }
+  .glas__icon { display: block; margin: 0.25rem 0 0.5rem; }
+  .glas__value { margin: 0; font-family: var(--font-display); font-size: 1.375rem; color: var(--ink); }
+  .glas__slider { display: grid; grid-template-columns: 6.5rem 1fr 6.5rem; align-items: center; gap: 0.75rem; font-family: var(--font-ui); font-size: 0.8125rem; color: var(--inkSoft); padding: 0.25rem 0; }
+  .glas__slider span:last-child { text-align: right; }
+  .glas__track { position: relative; height: 2px; background: var(--rule); }
+  .glas__track i { position: absolute; top: 50%; width: 0.875rem; height: 0.875rem; margin: -0.4375rem 0 0 -0.4375rem; border-radius: 50%; background: var(--burgundy); border: 2px solid var(--paperDeep); }
+  .glas__eur { color: var(--burgundy); letter-spacing: 0.1em; }
+  .glas__eur--off { color: var(--rule); }
+  .glas__talen { text-transform: uppercase; letter-spacing: 0.08em; font-family: var(--font-mono) !important; font-size: 0.9375rem !important; }
+
+  @media (max-width: 640px) {
+    .glas__card { padding: 1.25rem 1rem; }
+    .glas__pair { grid-template-columns: 1fr; }
+    .glas__slider { grid-template-columns: 4.5rem 1fr 4.5rem; gap: 0.5rem; font-size: 0.75rem; }
+  }
+</style>

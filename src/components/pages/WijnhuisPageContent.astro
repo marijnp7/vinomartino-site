@@ -48,6 +48,10 @@ interface Props {
   // Rauw Directus file-UUID van de hero; voedt de verplichte beeldcredit (LAT-2478).
   heroImageId?: string | null;
   drieluik?: WijnhuisDrieluikBeeld[];
+  /** LAT-12769: alleen waar Marijn echt was; toont de badge. */
+  zelfGeweest?: boolean;
+  /** LAT-12769: anker voor de hero-CTA "Plan je bezoek"; leeg = CTA verborgen. */
+  bezoekAnchor?: string;
   storyTitle?: string;
   storyBody?: string[];
   wines?: WijnhuisWine[];
@@ -72,6 +76,8 @@ const {
   heroImage,
   heroImageId,
   drieluik = [],
+  zelfGeweest = false,
+  bezoekAnchor,
   storyTitle,
   storyBody = [],
   wines = [],
@@ -114,6 +120,13 @@ const heroCredit = await getImageCredit(heroImageId, { adapted: true });
         {subtitle && <div class="wh-eyebrow">{ui.t('wijnhuis.hero.eyebrow')}</div>}
         <h1 class="wh-hero__title">{name}</h1>
         {subtitle && <p class="wh-hero__subtitle">{subtitle}</p>}
+        {zelfGeweest && <p class="wh-badge">{ui.t('wijnhuis.badge.zelfGeweest')}</p>}
+        {(bezoekAnchor || routeHref) && (
+          <div class="wh-hero__cta">
+            {bezoekAnchor && <a class="btn btn--primary" href={bezoekAnchor}>{ui.t('wijnhuis.cta.plan')}</a>}
+            {routeHref && <a class="btn btn--outline" href={routeHref}>{ui.t('wijnhuis.cta.route')}</a>}
+          </div>
+        )}
       </div>
 
       <div class="wh-hero__meta">
@@ -172,6 +185,8 @@ const heroCredit = await getImageCredit(heroImageId, { adapted: true });
     </figure>
   )}
 </section>
+
+<slot name="after-hero" />
 
 <!-- ── DRIELUIK ──────────────────────────────────────── -->
 {drieluikBeelden.length > 0 && (
@@ -317,6 +332,22 @@ const heroCredit = await getImageCredit(heroImageId, { adapted: true });
 <AffiliateDisclosure locale={locale} />
 
 <style>
+  .wh-badge {
+    display: inline-block;
+    margin: 1rem 0 0;
+    padding: 0.25rem 0.75rem;
+    border: 1px solid var(--burgundy);
+    color: var(--burgundy);
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+  .wh-hero__cta { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.5rem; }
+  @media (max-width: 640px) {
+    .wh-hero__cta .btn { flex: 1 1 100%; text-align: center; }
+  }
+
   /* ── Shared ── */
   .wh-eyebrow {
     font-family: var(--font-mono);

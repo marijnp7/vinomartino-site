@@ -19,6 +19,7 @@
     "test:booking-overrides": "node --test scripts/booking-property-overrides.test.mjs",
     "test:i18n-body-links": "node --test scripts/i18n-body-links.test.mjs",
     "test:i18n-voetblok-copy": "node --test scripts/i18n-voetblok-copy.test.mjs",
+    "test:lat12769-wijnhuis-portret": "node --test scripts/lat12769-wijnhuis-portret.test.mjs",
     "test:img-dimensions": "node --test scripts/lat12768-img-dimensions.test.mjs",
     "test:lat12716-moezel-template": "node --test scripts/lat12716-moezel-template.test.mjs",
     "test:lat12797-route-wijnhuizen": "node --test scripts/lat12797-route-wijnhuizen-geen-fallback.test.mjs",
