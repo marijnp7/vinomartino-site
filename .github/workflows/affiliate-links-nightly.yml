@@ -39,7 +39,8 @@ concurrency:
 jobs:
   live-check:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # 60: Booking-URL's wachten nu tot hun challenge is opgelost (LAT-12620).
+    timeout-minutes: 60
     env:
       AFFILIATE_LIVE_SITE: ${{ github.event.inputs.site || 'https://vinomartino.com' }}
       AFFILIATE_LIVE_REPORT: affiliate-live-report.md
@@ -58,14 +59,15 @@ jobs:
       # Playwright CI-only installeren (niet in package.json — zie kop).
       - name: Install Playwright (chromium)
         run: |
-          npm install --no-save playwright@^1.45.0
+          npm install --no-save playwright@^1.49.0  # channel 'chromium' vraagt ≥ 1.49 (LAT-12620)
           npx playwright install --with-deps chromium
 
       - name: Run live affiliate-check
         id: check
         run: |
           set +e
-          node scripts/check-affiliate-links-live.mjs
+          # Headed onder xvfb: Booking toont zoekpagina's niet aan headless (LAT-12620).
+          AFFILIATE_LIVE_HEADED=1 xvfb-run -a node scripts/check-affiliate-links-live.mjs
           code=$?
           echo "exit_code=$code" >> "$GITHUB_OUTPUT"
           set -e
