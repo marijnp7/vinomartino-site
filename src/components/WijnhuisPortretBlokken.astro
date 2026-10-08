@@ -1,13 +1,13 @@
 ---
-// LAT-12769 — Wijnhuis-portret 2.0: blokken "De wijngaarden" (extra foto's),
-// "Wat te drinken", "Bezoek" en "Combineer met". Elk blok rendert alleen als
+// LAT-12769 — Wijnhuis-portret 2.0: blokken "Waarom je hier heen gaat", "De wijngaarden"
+// (extra foto's), "Wat te drinken", "Bezoek", "Combineer met" en "Snel antwoord". Elk blok rendert alleen als
 // zijn data gevuld is; nooit een leeg kader.
 import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
 import { loadUiStrings } from '../lib/ui-strings';
 import { DAGEN, WIJN_ROLLEN, eurLabel, heeftBezoek as bezoekGevuld, safeUrl, type WijnhuisPortret } from '../lib/wijnhuis-portret';
 import type { WijnhuisGalerijBeeld } from '../lib/wijnhuizen';
 
-type Blok = 'galerij' | 'drinken' | 'bezoek' | 'combineer';
+type Blok = 'waarom' | 'galerij' | 'drinken' | 'bezoek' | 'combineer' | 'faq';
 
 interface Props {
   blok: Blok;
@@ -46,6 +46,17 @@ const wijnen = WIJN_ROLLEN.map((r) => p.wijnen.find((w) => w.rol === r)).filter(
 const nabije = p.nabije.slice(0, 4);
 const heeftCombineer = Boolean(nabije.length || (routeHref && routeLabel) || (streekSlug && region));
 ---
+
+{blok === 'waarom' && p.waaromHier.length > 0 && (
+  <section class="wp wp--waarom" aria-labelledby="wp-waarom-title">
+    <div class="container">
+      <h2 class="wp__eyebrow" id="wp-waarom-title">{ui.t('wijnhuis.waarom.eyebrow')}</h2>
+      <ol class="wp-waarom">
+        {p.waaromHier.map((regel) => <li>{regel}</li>)}
+      </ol>
+    </div>
+  </section>
+)}
 
 {blok === 'galerij' && galerij.length > 0 && (
   <section class="wp wp--galerij" aria-label={name}>
@@ -180,6 +191,23 @@ const heeftCombineer = Boolean(nabije.length || (routeHref && routeLabel) || (st
   </section>
 )}
 
+{blok === 'faq' && p.faq.length > 0 && (
+  <section class="wp wp--faq" id="snel-antwoord" aria-labelledby="wp-faq-title">
+    <div class="container">
+      <p class="wp__eyebrow">{ui.t('wijnhuis.faq.eyebrow')}</p>
+      <h2 class="wp__title" id="wp-faq-title">{ui.t('wijnhuis.faq.title')}</h2>
+      <dl class="wp-faq">
+        {p.faq.map((f) => (
+          <div class="wp-faq__item">
+            <dt>{f.vraag}</dt>
+            <dd>{f.antwoord}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  </section>
+)}
+
 <style>
   .wp { padding: 2.5rem 0; }
   .wp__eyebrow {
@@ -249,8 +277,43 @@ const heeftCombineer = Boolean(nabije.length || (routeHref && routeLabel) || (st
   .wp-combineer a:hover { border-color: var(--burgundy); }
   .wp-combineer a span { font-family: var(--font-mono); font-size: 0.625rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--rust); }
 
+  .wp--waarom { padding-top: 0; }
+  .wp-waarom {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    counter-reset: waarom;
+  }
+  .wp-waarom li {
+    counter-increment: waarom;
+    border-top: 2px solid var(--burgundy);
+    padding-top: 0.75rem;
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    line-height: 1.3;
+    color: var(--ink);
+  }
+  .wp-waarom li::before {
+    content: counter(waarom, decimal-leading-zero);
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.18em;
+    color: var(--burgundy);
+    margin-bottom: 0.375rem;
+  }
+
+  .wp-faq { margin: 0; max-width: 46rem; }
+  .wp-faq__item { padding: 1rem 0; border-top: 1px solid var(--ruleSoft); }
+  .wp-faq__item dt { font-family: var(--font-display); font-size: 1.25rem; color: var(--ink); margin-bottom: 0.375rem; }
+  .wp-faq__item dd { margin: 0; font-family: var(--font-body); line-height: 1.6; color: var(--inkSoft); }
+
   @media (max-width: 640px) {
     .wp { padding: 1.75rem 0; }
+    .wp-waarom { grid-template-columns: 1fr; }
     .wp-galerij--2, .wp-galerij--3 { grid-template-columns: 1fr; }
     .wp-fles { grid-template-columns: 1fr; }
     .wp-bezoek { grid-template-columns: 1fr; }

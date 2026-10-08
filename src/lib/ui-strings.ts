@@ -161,6 +161,9 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'wijnhuis.combineer.title': 'Meer in de buurt',
     'wijnhuis.combineer.route': 'Wijnroute',
     'wijnhuis.combineer.streek': 'Streek',
+    'wijnhuis.waarom.eyebrow': 'Waarom je hier heen gaat',
+    'wijnhuis.faq.eyebrow': 'Snel antwoord',
+    'wijnhuis.faq.title': 'Goed om te weten',
 
     // Cross-linkblok onderaan de artikelpagina's (LAT-4911, RelatedEntities.astro).
     // Stonden als kale NL-literals — het component laadde de dictionary niet eens —
@@ -1068,6 +1071,9 @@ export const UI_STRING_EN: Record<string, string> = {
     'wijnhuis.combineer.title': 'More nearby',
     'wijnhuis.combineer.route': 'Wine route',
     'wijnhuis.combineer.streek': 'Region',
+    'wijnhuis.waarom.eyebrow': 'Why you go here',
+    'wijnhuis.faq.eyebrow': 'Quick answers',
+    'wijnhuis.faq.title': 'Good to know',
 
     // RelatedEntities.astro — cross-linkblok onderaan de artikelpagina's (LAT-4911).
     // `related.label`/`related.kind.streek`/`related.kind.wijnhuis` volgen de door de

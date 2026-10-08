@@ -31,6 +31,7 @@ export interface Openingstijden {
 }
 export interface PortretAfbeelding { id: string; width: number | null; height: number | null }
 export interface NabijWijnhuis { slug: string; name: string }
+export interface PortretFaq { vraag: string; antwoord: string }
 
 export interface WijnhuisPortret {
     generatie: number | null;
@@ -50,6 +51,10 @@ export interface WijnhuisPortret {
     routeSlugs: string[];
     nabije: NabijWijnhuis[];
     afbeeldingen: PortretAfbeelding[];
+    /** LAT-12804 — blok 3 "Waarom je hier heen gaat", max 3 regels. */
+    waaromHier: string[];
+    /** LAT-12804 — blok 10 "Snel antwoord"; voedt ook de FAQPage JSON-LD. */
+    faq: PortretFaq[];
 }
 
 function parseJson(val: unknown): unknown {
@@ -152,6 +157,21 @@ export function normalizeProeverij(val: unknown): Proeverij | null {
     return p.prijs !== null || p.duur !== null || p.talen.length || p.url ? p : null;
 }
 
+export function normalizeFaq(val: unknown): PortretFaq[] {
+    const v = parseJson(val);
+    if (!Array.isArray(v)) return [];
+    const out: PortretFaq[] = [];
+    for (const r of v) {
+        if (!r || typeof r !== 'object') continue;
+        const rec = r as Record<string, unknown>;
+        const vraag = String(rec.vraag ?? '').trim();
+        const antwoord = String(rec.antwoord ?? '').trim();
+        // Half ingevulde paren vallen weg: Google eist dat elke Question een Answer heeft.
+        if (vraag && antwoord) out.push({ vraag, antwoord });
+    }
+    return out;
+}
+
 function junctionIds<T>(val: unknown, pick: (row: Record<string, unknown>) => T | null): T[] {
     if (!Array.isArray(val)) return [];
     const out: T[] = [];
@@ -196,6 +216,9 @@ export function normalizePortret(r: Record<string, unknown>): WijnhuisPortret {
             const h = Number(inner.height);
             return { id: String(inner.id), width: w > 0 ? w : null, height: h > 0 ? h : null };
         }),
+        // Directus dwingt de max van 3 niet af (LAT-12804); de template toont de eerste 3.
+        waaromHier: strList(r.waarom_hier).slice(0, 3),
+        faq: normalizeFaq(r.faq),
     };
 }
 

@@ -6,7 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   normalizePortret, normalizeDruiven, normalizeWijnen, normalizeOpeningstijden,
-  safeUrl, heeftInfographic, heeftBezoek, druivenSegmenten,
+  safeUrl, heeftInfographic, heeftBezoek, druivenSegmenten, normalizeFaq,
 } from '../src/lib/wijnhuis-portret.ts';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -80,7 +80,23 @@ test('zelf_geweest alleen bij strikt true; onze ervaring zonder badge toont niet
 
 test('template: blokken in vaste volgorde en alleen via normalizer-data', () => {
   const d = read('src/components/WijnhuisDetail.astro');
-  const order = ['WijnhuisInfographic', 'blok="galerij"', 'blok="drinken"', 'blok="bezoek"', '<WijnhuisStayNear', 'blok="combineer"'].map((k) => d.indexOf(k));
+  const order = ['WijnhuisInfographic', 'blok="waarom"', 'blok="galerij"', 'blok="drinken"', 'blok="bezoek"', '<WijnhuisStayNear', 'blok="combineer"', 'blok="faq"'].map((k) => d.indexOf(k));
   assert.ok(order.every((i) => i > -1), 'alle blokken aanwezig');
   assert.deepEqual([...order].sort((a, b) => a - b), order, 'volgorde klopt');
+});
+
+test('waarom_hier: max 3, lege regels weg, JSON-string geaccepteerd', () => {
+  assert.deepEqual(normalizePortret({ waarom_hier: ['a', ' ', 'b', 'c', 'd'] }).waaromHier, ['a', 'b', 'c']);
+  assert.deepEqual(normalizePortret({ waarom_hier: '["x"]' }).waaromHier, ['x']);
+  assert.deepEqual(normalizePortret({ waarom_hier: null }).waaromHier, []);
+});
+
+test('faq: alleen complete paren; FAQPage-schema alleen naast zichtbaar blok', () => {
+  assert.deepEqual(normalizeFaq([{ vraag: 'Op afspraak?', antwoord: 'Ja.' }, { vraag: 'Leeg?', antwoord: '' }, null, 'x']), [{ vraag: 'Op afspraak?', antwoord: 'Ja.' }]);
+  assert.deepEqual(normalizeFaq('{"geen":"lijst"}'), []);
+  const d = read('src/components/WijnhuisDetail.astro');
+  assert.match(d, /entry\.portret\.faq\.length > 0\s*\?\s*\[\{ \.\.\.faqPageSchema/);
+  const b = read('src/components/WijnhuisPortretBlokken.astro');
+  assert.match(b, /blok === 'faq' && p\.faq\.length > 0/);
+  assert.match(b, /blok === 'waarom' && p\.waaromHier\.length > 0/);
 });

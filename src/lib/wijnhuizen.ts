@@ -197,7 +197,7 @@ function mapWijnhuis(
 const PORTRET_FIELDS = [
     'eigenaar_generatie', 'topwijngaarden', 'druiven', 'bodem', 'max_helling_pct',
     'stijl_zoet', 'stijl_vol', 'stijl_bewaar', 'prijsband', 'bezoek_type', 'talen',
-    'openingstijden', 'proeverij', 'zelf_geweest', 'onze_ervaring', 'wijnen',
+    'openingstijden', 'proeverij', 'zelf_geweest', 'onze_ervaring', 'wijnen', 'waarom_hier', 'faq',
     'routes.routes_id.slug', 'nabije_wijnhuizen.nabij_id.slug', 'nabije_wijnhuizen.nabij_id.name',
     'afbeeldingen.directus_files_id.id', 'afbeeldingen.directus_files_id.width', 'afbeeldingen.directus_files_id.height', 'afbeeldingen.sort',
 ].join(',');
