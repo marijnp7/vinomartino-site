@@ -192,6 +192,9 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
             </section>
           )}
 
+          {/* LAT-12646: ook op een één-pagina-route hoort het gekoppelde verhaal erbij (hub linkt naar #zo-reisden-wij). */}
+          {!verhaalInRouteBody(entry.slug) && <ReisVerhaal verhalen={verhalen} context={`route-${entry.slug}`} locale={locale} />}
+
           {pagina.slot && slotItems.length > 0 && (
             <section class="route-one__slot">
               {pagina.slot.kop && <h2>{pagina.slot.kop}</h2>}
