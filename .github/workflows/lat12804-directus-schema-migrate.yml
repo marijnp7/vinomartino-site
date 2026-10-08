@@ -27,6 +27,7 @@ on:
         type: choice
         options:
           - add-wijnhuis-portret-fields.mjs
+          - grant-reispakketten-create.mjs
 
 concurrency:
   group: lat12804-directus-schema-migrate
