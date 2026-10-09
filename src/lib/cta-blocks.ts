@@ -176,6 +176,24 @@ export interface CtaStructure {
 }
 
 /**
+ * LAT-12912 — de wijnretail-CTA (Wijnkring/Daisycon) mag alleen op pagina's van
+ * zelf gereisde streken (Tier 1, `streken.zelf_gereisd`; besluit Marijn 08-10 op
+ * LAT-1780). Fail-closed: `allowed` is alleen `true` als de aanroeper de tier
+ * kent. Anders vallen alle `wine-retail`-links eruit; de overige CTA's blijven.
+ */
+export function gateWineRetail(cta: CtaStructure, allowed: boolean): CtaStructure {
+  if (allowed) return cta;
+  const isRetail = (link?: CtaLink | null) => link?.partner === 'wine-retail';
+  const options = (cta.comparison?.options ?? []).filter((opt) => !isRetail(opt.link));
+  return {
+    ...cta,
+    primary: isRetail(cta.primary?.link) ? undefined : cta.primary,
+    comparison: cta.comparison && options.length ? { ...cta.comparison, options } : undefined,
+    closing: isRetail(cta.closing?.link) ? undefined : cta.closing,
+  };
+}
+
+/**
  * Laad de wijnretail-partnerconfig, maar alleen als er in dit blok daadwerkelijk
  * een `wine-retail`-CTA zit (LAT-3726).
  *

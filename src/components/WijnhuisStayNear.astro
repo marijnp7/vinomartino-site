@@ -24,9 +24,11 @@ interface Props {
   slug: string;
   /** Locale voor de UI-dictionary (LAT-2771). */
   locale?: Locale;
+  /** LAT-12912 — alleen `true` in een Tier 1-streek; default geen wijnretail-link. */
+  wineRetailAllowed?: boolean;
 }
 
-const { naam, region = '', country = '', slug, locale = DEFAULT_LOCALE } = Astro.props;
+const { naam, region = '', country = '', slug, locale = DEFAULT_LOCALE, wineRetailAllowed = false } = Astro.props;
 const ui = await loadUiStrings(locale);
 
 // Bestemming: streek (+ land) als anker; val terug op de wijnhuis-naam.
@@ -38,7 +40,7 @@ const stayLabel = region
 
 // LAT-3493 — config komt uit de Directus-singleton `wine_retail_partner`
 // (gecachet per build), niet meer uit een hardcoded const.
-const retail = await wineRetailLink(naam, locale, wineRetailSubId(region || naam, 'wijnhuis-wijnretail'));
+const retail = !wineRetailAllowed ? null : await wineRetailLink(naam, locale, wineRetailSubId(region || naam, 'wijnhuis-wijnretail'));
 ---
 
 <aside class="wh-staynear" data-wh-staynear hidden aria-label={ui.t('wijnhuis.staynear.aria')}>

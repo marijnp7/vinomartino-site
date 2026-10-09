@@ -468,7 +468,7 @@ const hasFactBox = Boolean(
       </section>
     )}
 
-    <CtaStructure data={entry.cta} sid={entry.slug} locale={locale} />
+    <CtaStructure data={entry.cta} sid={entry.slug} locale={locale} wineRetailAllowed={entry.zelfGereisd === true} />
 
     <RelatedArticles items={entry.relatedArticles} locale={locale} />
 
