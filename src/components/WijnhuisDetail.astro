@@ -14,6 +14,7 @@ import WijnhuisInfographic from './WijnhuisInfographic.astro';
 import WijnhuisPortretBlokken from './WijnhuisPortretBlokken.astro';
 import { eurLabel, heeftBezoek } from '../lib/wijnhuis-portret';
 import { type Wijnhuis } from '../lib/wijnhuizen';
+import { loadStreken } from '../lib/streken';
 import { wijnhuisSchema, wijnhuisMetaTitle, wijnhuisMetaDescription, breadcrumbSchema, faqPageSchema } from '../lib/seo';
 import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
 import { loadUiStrings } from '../lib/ui-strings';
@@ -32,6 +33,11 @@ interface Props {
 
 const { entry, landSlug, landName, routeHref, routeLabel, locale = DEFAULT_LOCALE, alternates } = Astro.props;
 const ui = await loadUiStrings(locale);
+// LAT-12912 — Wijnkring-link alleen op wijnhuizen in een zelf gereisde streek
+// (Tier 1, CMS-veld streken.zelf_gereisd). Onbekende streek → geen link.
+const wineRetailAllowed = entry.streekSlug
+  ? (await loadStreken(locale)).some((s) => s.slug === entry.streekSlug && s.zelfGereisd === true)
+  : false;
 const localePrefix = locale === DEFAULT_LOCALE ? '' : `/${locale}`;
 const pageUrl = new URL(`${localePrefix}/wijnhuizen/${entry.slug}/`, Astro.site ?? 'https://vinomartino.com').href;
 
@@ -119,9 +125,9 @@ const schema = [
   <WijnhuisPortretBlokken blok="galerij" portret={entry.portret} galerij={entry.galerij} name={entry.name} locale={locale} />
   <WijnhuisPortretBlokken blok="drinken" portret={entry.portret} name={entry.name} locale={locale} />
   <WijnhuisPortretBlokken blok="bezoek" portret={entry.portret} name={entry.name} address={entry.address} website={entry.website} locale={locale} />
-  <WijnhuisStayNear naam={entry.name} region={entry.region} country={entry.country} slug={entry.slug} locale={locale} />
+  <WijnhuisStayNear naam={entry.name} region={entry.region} country={entry.country} slug={entry.slug} locale={locale} wineRetailAllowed={wineRetailAllowed} />
   <WijnhuisPortretBlokken blok="combineer" portret={entry.portret} name={entry.name} routeHref={routeHref ? lh(routeHref) : undefined} routeLabel={routeLabel || undefined} region={entry.region} streekSlug={entry.streekSlug} locale={locale} />
   <WijnhuisPortretBlokken blok="faq" portret={entry.portret} name={entry.name} locale={locale} />
-  <CtaStructure data={entry.cta} sid={entry.slug} locale={locale} />
+  <CtaStructure data={entry.cta} sid={entry.slug} locale={locale} wineRetailAllowed={wineRetailAllowed} />
   <RelatedArticles items={entry.relatedArticles} locale={locale} />
 </SiteLayout>

@@ -1,4 +1,5 @@
 ---
+import { gateWineRetail } from '../lib/cta-blocks';
 // LAT-2693 — gedeelde accommodatie-roundup per streek. NL-route +
 // /en/-tegenhanger renderen dit component; `locale` stuurt de UI-dictionary
 // (chrome EN) en de SiteLayout-hreflang. Pagina-inhoud (roundup-tekst) blijft
@@ -39,7 +40,8 @@ const bronValuta = currencyForLand(streek?.landSlug);
 // LAT-1821: aparte 3-CTA-structuur voor de accommodatie-surface (eigen veld
 // streken.accom_cta_blocks, pre-geparsed in de loader als accomCta). Andere copy
 // dan de streek-CTA. Leeg/ontbrekend → componenten renderen niets.
-const accomCta = streek?.accomCta ?? {};
+// LAT-12912: wine-retail alleen op een Tier 1-streek.
+const accomCta = gateWineRetail(streek?.accomCta ?? {}, streek?.zelfGereisd === true);
 
 // LAT-1898 — Piemonte-funnel: redactioneel intro-blok 'Slapen in de Langhe'
 // (markdown→HTML) VÓÓR de lijst + beknopte planningspassage(s) NÁ de lijst. Beide

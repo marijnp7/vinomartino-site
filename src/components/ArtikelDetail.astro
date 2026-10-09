@@ -347,7 +347,7 @@ if (article.faqSchema) {
       </aside>
     </div>
 
-    <CtaStructure data={article.cta} sid={article.slug} locale={locale} />
+    <CtaStructure data={article.cta} sid={article.slug} locale={locale} wineRetailAllowed={article.zelfGereisd === true} />
 
     <ArtikelMeerOver items={article.meerOver} topic={article.tags?.[0] ?? undefined} locale={locale} />
 

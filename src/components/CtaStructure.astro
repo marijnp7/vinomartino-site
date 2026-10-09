@@ -10,16 +10,20 @@
 import CtaPrimary from './CtaPrimary.astro';
 import CtaComparison from './CtaComparison.astro';
 import CtaClosing from './CtaClosing.astro';
-import type { CtaStructure } from '../lib/cta-blocks';
+import { gateWineRetail, type CtaStructure } from '../lib/cta-blocks';
 import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
 
 interface Props {
   data: CtaStructure;
   sid: string;
   locale?: Locale;
+  /** LAT-12912 — `true` alleen op een Tier 1-streek (zelf_gereisd). Default
+   *  false: zonder bekende tier geen wine-retail-CTA (fail-closed). */
+  wineRetailAllowed?: boolean;
 }
 
-const { data, sid, locale = DEFAULT_LOCALE } = Astro.props;
+const { sid, locale = DEFAULT_LOCALE, wineRetailAllowed = false } = Astro.props;
+const data = gateWineRetail(Astro.props.data, wineRetailAllowed);
 ---
 
 <CtaPrimary data={data.primary} sid={sid} locale={locale} />
