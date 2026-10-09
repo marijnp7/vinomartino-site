@@ -260,10 +260,30 @@ async function fetchPakketten(url: string, token: string): Promise<Record<string
     return ((await res.json()).data || []) as Record<string, unknown>[];
 }
 
+// LAT-12642: een ruwe `<figure><img src="https://cms.vinomartino.com/assets/<uuid>">`
+// in introductie/dag_tot_dag zou gehotlinkt worden en achter CF Access een 302 geven.
+// Zelfde patroon als articles.ts (LAT-2509): UUID's verzamelen, src herschrijven naar
+// het lokale build-pad en de assets via downloadAsset ophalen.
+const BODY_UUID = '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}';
+const CMS_HOTLINK_RE = new RegExp(`https?://cms\\.vinomartino\\.com/assets/(${BODY_UUID})(?:\\?[^\\s")']*)?`, 'g');
+const LOCAL_BODY_ASSET_RE = new RegExp(`/images/reispakketten/(${BODY_UUID})\\.jpg`, 'g');
+
+export function localizeBodyImages(markdown: string): { body: string; assetIds: string[] } {
+    const ids = new Set<string>();
+    const body = markdown.replace(CMS_HOTLINK_RE, (_m, id: string) => {
+        ids.add(id.toLowerCase());
+        return `/images/reispakketten/${id.toLowerCase()}.jpg`;
+    });
+    for (const m of body.matchAll(LOCAL_BODY_ASSET_RE)) ids.add(m[1].toLowerCase());
+    return { body, assetIds: [...ids] };
+}
+
 // Redactionele `::foto`/`::boek`-directives (zie route-body.ts) werken ook in het
 // reisverhaal; zonder directives blijft de render byte-identiek aan markdownToHtml.
-async function renderVerhaalMd(md: string, slug: string, url: string, token: string): Promise<string> {
-    if (!md) return '';
+async function renderVerhaalMd(raw: string, slug: string, url: string, token: string): Promise<string> {
+    if (!raw) return '';
+    const { body: md, assetIds } = localizeBodyImages(raw);
+    await Promise.all(assetIds.map((id) => downloadAsset(id, url, token, 'reispakketten')));
     if (!hasRouteDirectives(md)) return renderMarkdown(md);
     const ui = await loadUiStrings(DEFAULT_LOCALE);
     const { html } = await renderEnrichedRouteBody(md, {

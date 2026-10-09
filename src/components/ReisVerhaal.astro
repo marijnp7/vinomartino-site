@@ -238,6 +238,11 @@ const ui = await loadUiStrings(locale);
     padding: var(--space-4); background: var(--paperDeep); border: 1px solid var(--rule); border-radius: var(--radius-sm);
     font-size: 0.9375rem; line-height: 1.5;
   }
+  /* LAT-12642: ruwe redactionele <figure><img width height> uit de CMS-body (geen ::foto).
+     width/height-attributen leveren de aspect-ratio (LAT-2432); .route-foto hieronder wint. */
+  .reis-verhaal .page-prose :global(figure) { margin: var(--space-5) 0; }
+  .reis-verhaal .page-prose :global(img) { display: block; max-width: 100%; height: auto; border-radius: var(--radius-sm); background: var(--paperDeep); }
+  .reis-verhaal .page-prose :global(figcaption) { font-family: var(--font-ui); font-size: 0.8125rem; line-height: 1.5; color: var(--inkSoft); margin-top: var(--space-2); }
   .reis-verhaal :global(.route-foto) { margin: var(--space-5) 0; }
   .reis-verhaal :global(.route-foto img) { display: block; width: 100%; height: auto; border-radius: var(--radius-sm); background: var(--paperDeep); }
   .reis-verhaal :global(.route-foto img:not([width])) { aspect-ratio: 3 / 2; object-fit: cover; }
