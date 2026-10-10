@@ -204,7 +204,7 @@ import { buildCjBookingLink } from './affiliates';
 // LAT-2819: de locale gaat mee zodat interne links in de redactionele body
 // meeschalen naar /en/ (no-op op NL).
 function renderArticleBody(markdown: string, slug: string, locale: Locale): Promise<{ html: string; toc: TocItem[] }> {
-    return markdownToHtmlWithToc(substituteAffiliateTokens(markdown, slug), { stripFirstH1: true, locale });
+    return markdownToHtmlWithToc(substituteAffiliateTokens(markdown, slug), { stripFirstH1: true, locale, editorialTables: true });
 }
 
 // LAT-2509: harde regel DAM → CMS → Site. Body-beelden mogen NIET naar het
