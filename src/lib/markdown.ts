@@ -76,7 +76,8 @@ export function normalizeEmDashes(input: string): string {
 // LAT-2554: markdown-hygiëne vóór het parsen. Twee gerichte, bron-onafhankelijke
 // fixes die op elk CMS-body draaien (single render-chokepoint):
 //  (a) "Interne links"-boilerplate met dode placeholders ("… (nog te schrijven)"
-//      / "… nog niet beschikbaar") is nooit een echte link en dupliceert de
+//      / "… nog niet beschikbaar", EN "(to be written)"/"(forthcoming)"/"not yet
+//      available", LAT-13087) is nooit een echte link en dupliceert de
 //      RelatedArticles-component onder de body. Strip die list-items zodat de
 //      lezer geen "nog te schrijven" ziet voor content die (elders) al bestaat;
 //      laat een kop vervallen die daardoor geen inhoud meer heeft.
@@ -91,7 +92,8 @@ export function preprocessBody(input: string): string {
   const isRule = (l: string) => /^ {0,3}(-{3,}|={3,})[ \t]*$/.test(l);
   const isDeadPlaceholder = (l: string) =>
     isListItem(l) &&
-    (/\(nog te schrijven\)\s*$/i.test(l) || /:\s*nog niet beschikbaar\s*$/i.test(l));
+    (/\((nog te schrijven|to be written|forthcoming|in lead editor review)[^)]*\)\s*$/i.test(l) ||
+      /:\s*(nog niet beschikbaar|not yet available)\s*$/i.test(l));
 
   // CMS-bodies gebruiken CRLF; normaliseer naar LF zodat de regels-checks
   // (setext `---$`) niet op een achterblijvende \r stuklopen. CommonMark
