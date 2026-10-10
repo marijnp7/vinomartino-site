@@ -27,6 +27,9 @@ const items = overviewFacts(facts);
  .overview__heading { font-family: var(--font-display); font-size: clamp(1.75rem, 1.5rem + 1vw, 2.5rem); font-weight: 400; line-height: 1.1; margin: 0 0 1.25rem; }
  .overview__facts { display: flex; flex-wrap: wrap; margin: 0; padding: 0; border-block: 1px solid var(--rule); }
  .overview__fact { box-sizing: border-box; flex: 1 1 calc(100% / var(--fact-columns)); min-width: 0; padding: 1.3rem 1.2rem; border-inline-start: 1px solid var(--ruleSoft); border-bottom: 1px solid var(--ruleSoft); }
+ .overview__fact:only-child { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem 2rem; }
+ .overview__fact:only-child dt { flex-direction: row; align-items: center; }
+ .overview__fact:only-child dd { margin: 0; }
  .overview__fact dt { display: flex; flex-direction: column; gap: .7rem; font-family: var(--font-mono); font-size: .625rem; font-weight: 400; letter-spacing: .09em; line-height: 1.5; text-transform: uppercase; color: var(--inkSoft); overflow-wrap: anywhere; }
  .overview__icon { color: var(--burgundy); height: 28px; }
  .overview__fact:nth-child(3n + 2) .overview__icon { color: var(--vine); }
@@ -38,13 +41,14 @@ const items = overviewFacts(facts);
  .overview__tip { background: var(--paperDeep); margin-top: 1rem; border: 1px solid var(--ruleSoft); }
  .overview__tip summary { display: flex; align-items: center; gap: .85rem; padding: 1rem; cursor: pointer; list-style: none; font-family: var(--font-body); }
  .overview__tip summary::-webkit-details-marker { display: none; }
- .overview__tip summary:focus-visible { outline: 2px solid var(--burgundy); outline-offset: 3px; }
+ .overview__tip summary:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
  .overview__tip summary :global(svg) { color: var(--burgundy); flex: none; }
  .overview__toggle { margin-left: auto; width: 14px; height: 14px; position: relative; flex: none; }
  .overview__toggle::before, .overview__toggle::after { content: ''; position: absolute; background: currentColor; width: 14px; height: 1px; top: 7px; }
  .overview__toggle::after { transform: rotate(90deg); }
  details[open] .overview__toggle::after { display: none; }
  .overview__tip p { margin: 0; padding: 0 1rem 1rem 3.6rem; font-family: var(--font-body); color: var(--inkSoft); line-height: 1.6; }
+ :global([data-theme='cellar']) .overview__icon, :global([data-theme='cellar']) .overview__tip summary :global(svg) { color: color-mix(in srgb, var(--burgundy) 45%, var(--ink)); }
  @container (max-width: 600px) { .overview__fact { flex-basis: 50%; padding: 1rem .8rem; } .overview__fact--long { flex-basis: 100%; } }
  @container (max-width: 280px) { .overview__fact { flex-basis: 100%; } }
 </style>
