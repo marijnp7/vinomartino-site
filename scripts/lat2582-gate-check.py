@@ -176,7 +176,8 @@ NL_NOUNS = {
     "artikelen": "/artikelen/",
     "bekijk": "/",
     "boek": "/",
-    "druiven": "/",
+    # Homepage cards rotate; use stable pages where these markers remain visible.
+    "druiven": "/ontdek/",
     "druivenrassen": "/landen/",
     # LAT-4908 zelf. Het woord bestaat nog volop op de NL-kant (bijschriften en
     # herocredits, o.a. /colofon/), dus het is gewoon aantoonbaar meetbaar --
@@ -200,12 +201,12 @@ NL_NOUNS = {
     "slapen": "/accommodaties/",
     "transparantie": "/voor-accommodaties/",
     "verblijven": "/accommodaties/",
-    "wijnatlas": "/",
+    "wijnatlas": "/ontdek/",
     "wijnkarakter": "/landen/",
     "wijnreisverhalen": "/artikelen/",
     "wijnroutes": "/",
     "wijngaard": "/over-ons/",
-    "wijngaarden": "/",
+    "wijngaarden": "/wijnroutes/toscane-chianti-montalcino-bolgheri-vier-dagen/",
     "wijnstreek": "/streken/",
     "wijnstreken": "/landen/",
     "streken": "/landen/",
