@@ -100,3 +100,33 @@ test('faq: alleen complete paren; FAQPage-schema alleen naast zichtbaar blok', (
   assert.match(b, /blok === 'faq' && p\.faq\.length > 0/);
   assert.match(b, /blok === 'waarom' && p\.waaromHier\.length > 0/);
 });
+
+// LAT-12924 — /en/ toont alleen EN-portrettekst; leeg EN-veld = blok weg, nooit de NL-waarde.
+test('EN-overlay: NL-leestekst lekt niet, EN wint, leeg EN = verborgen', async () => {
+  const { stripPortretLeestekst, applyPortretOpmerking } = await import('../src/lib/wijnhuis-portret.ts');
+  const nl = () => ({ id: 115, waarom_hier: ['nl1', 'nl2', 'nl3'], onze_ervaring: 'NL ervaring',
+    faq: [{ vraag: 'NL?', antwoord: 'NL.' }, { vraag: 'NL2?', antwoord: 'NL2.' }],
+    openingstijden: { za: ['10:00-12:00'], opmerking: 'alleen op afspraak' } });
+  const run = (en) => {
+    const r = nl(); stripPortretLeestekst(r);
+    // directus-i18n.ts laadt niet onder kale node (extensieloze imports); over een geleegde
+    // NL-basis is mergeTranslatedValue een vervanging, dus spiegel dat hier.
+    const out = { ...r, ...en };
+    applyPortretOpmerking(out);
+    return normalizePortret(out);
+  };
+  const leeg = run({ description: 'en' });
+  assert.deepEqual(leeg.waaromHier, []);
+  assert.equal(leeg.onzeErvaring, '');
+  assert.deepEqual(leeg.faq, []);
+  assert.equal(leeg.openingstijden.opmerking, null);
+  assert.deepEqual(Object.keys(leeg.openingstijden.dagen), ['za']);
+  const vol = run({ waarom_hier: ['en1'], onze_ervaring: 'EN', faq: [{ vraag: 'EN?', antwoord: 'EN.' }], openingstijden_opmerking: 'by appointment' });
+  assert.deepEqual(vol.waaromHier, ['en1']);
+  assert.equal(vol.onzeErvaring, 'EN');
+  assert.deepEqual(vol.faq.map((f) => f.vraag), ['EN?']);
+  assert.equal(vol.openingstijden.opmerking, 'by appointment');
+  const nlPortret = normalizePortret(nl());
+  assert.equal(nlPortret.waaromHier.length, 3);
+  assert.equal(nlPortret.openingstijden.opmerking, 'alleen op afspraak');
+});
