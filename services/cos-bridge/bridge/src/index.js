@@ -302,6 +302,11 @@ async function askCos(prompt, model = DEFAULT_MODEL, topicSlug = "algemeen") {
     "exec",
     "-u", "node",
     "-i",
+    // Opt-in (LAT-13059): when the CoS container's claude.ai OAuth login is dead (401 while
+    // `auth status` says loggedIn), let the CLI use the bridge's own ANTHROPIC_API_KEY.
+    // `-e NAME` without `=value` forwards it from this process env, so the key never
+    // appears in argv or logs.
+    ...(process.env.COS_CLI_USE_API_KEY === "1" && ANTHROPIC_API_KEY ? ["-e", "ANTHROPIC_API_KEY"] : []),
     COS_CONTAINER,
     "claude",
     "-p", prompt,
