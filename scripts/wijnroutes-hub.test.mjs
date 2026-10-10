@@ -148,3 +148,58 @@ test('i18n: /wijnroutes/ heeft een EN-tegenhanger, de oude familie staat niet me
   assert.equal(localizeHref('/wijnroutes/', 'en'), '/en/wijnroutes/');
   assert.equal(isEnMissingPath('/reizen-nareizen/'), false, 'geen i18n-uitzondering meer nodig voor een 301-URL');
 });
+
+// LAT-13075 — keuzehulp volgens goedgekeurd ontwerp (paneel 02 Wijnroutes / 03 Mobiel).
+const K = await import('../src/lib/wijnroutes-keuze.ts');
+
+test('keuzehulp: H1 en keys NL+EN, geen gedachtestreepjes', () => {
+  assert.equal(UI_STRING_DEFAULTS['wijnroutes.keuze.h1'], 'Vind jouw wijnroute.');
+  const keys = Object.keys(UI_STRING_DEFAULTS).filter((k) => k.startsWith('wijnroutes.keuze.'));
+  assert.ok(keys.length >= 25);
+  for (const k of keys) {
+    assert.ok(k in UI_STRING_EN, `ontbrekende EN-waarde voor ${k}`);
+    assert.doesNotMatch(UI_STRING_DEFAULTS[k] + UI_STRING_EN[k], /[—–]/, `gedachtestreepje in ${k}`);
+  }
+});
+
+test('keuzehulp: fragment round-trip, lege status zonder hash', () => {
+  const s = { q: 'Barolo', land: 'italie', duur: '5+' };
+  assert.deepEqual(K.parseKeuzeHash('#' + K.serializeKeuze(s)), s);
+  assert.equal(K.serializeKeuze(K.LEGE_KEUZE), '');
+  assert.deepEqual(K.parseKeuzeHash('#nareizen'), K.LEGE_KEUZE);
+});
+
+test('keuzehulp: matchen op land, duur en alle zoekwoorden', () => {
+  const c = { zoek: 'langhe piemonte alba barolo', land: 'italie', duur: '3-4' };
+  assert.ok(K.matchesKeuze(c, [], { land: '', duur: '' }));
+  assert.ok(K.matchesKeuze(c, ['alba', 'bar'], { land: 'italie', duur: '3-4' }));
+  assert.ok(!K.matchesKeuze(c, ['alba', 'mosel'], { land: '', duur: '' }));
+  assert.ok(!K.matchesKeuze(c, [], { land: 'frankrijk', duur: '' }));
+  assert.ok(!K.matchesKeuze(c, [], { land: '', duur: '5+' }));
+});
+
+test('keuzehulp: korte titel = short_title, dan streeknaam, dan titel', () => {
+  const lang = 'Langhe en Roero in vier dagen: Barolo, Barbaresco en truffels';
+  assert.equal(K.kaartTitel({ shortTitle: 'Langhe & Piemonte', title: lang }, 'Langhe'), 'Langhe & Piemonte');
+  assert.equal(K.kaartTitel({ shortTitle: '', title: lang }, 'Langhe'), 'Langhe');
+  assert.equal(K.kaartTitel({ shortTitle: '', title: lang }, ''), lang);
+});
+
+test('keuzehulp: kaart gebruikt alleen bestaande punten, <2 punten = niet op de kaart', () => {
+  assert.deepEqual(K.kaartLijn([]), []);
+  assert.deepEqual(K.kaartLijn([{ naam: 'Alba', lat: 44.7, lng: 8.03 }]), []);
+  assert.deepEqual(K.kaartLijn([{ naam: 'x', lat: NaN, lng: 1 }, { naam: 'Alba', lat: 44.7, lng: 8.03 }]), []);
+  assert.deepEqual(
+    K.kaartLijn([{ naam: 'A', lat: 1, lng: 2, kind: 'stop' }, { naam: 'W', lat: 9, lng: 9, kind: 'wijnhuis' }, { naam: 'B', lat: 3, lng: 4, kind: 'stop' }]),
+    [[1, 2], [3, 4]],
+  );
+});
+
+test('keuzehulp: hub-markup (zonder-JS lijst, aria-live, geen legenda, verhalen erna)', () => {
+  assert.match(HUB, /data-wk-telling aria-live="polite"/);
+  assert.match(HUB, /<form class="wk-form"[^>]* hidden data-wk-form>/, 'form verborgen zonder JS');
+  assert.match(HUB, /<a class="wk-btn" href=\{href\}/, 'elke kaart is een gewone link');
+  assert.doesNotMatch(HUB, /HomeRoutesMap|legend/i, 'geen 17-titel-legenda');
+  assert.ok(HUB.indexOf('data-wk-list') < HUB.indexOf('id="nareizen"'), 'reisverhalen na de resultaten');
+  assert.match(HUB, /history\.replaceState/);
+});

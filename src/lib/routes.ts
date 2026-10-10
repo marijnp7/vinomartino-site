@@ -27,6 +27,9 @@ export interface RouteStopGeo {
 export interface WijnRoute {
     slug: string;
     title: string;
+    // LAT-13075 — korte kaarttitel voor de hub (routes.short_title, nullable, nog aan te
+    // maken in Directus). Leeg = de hub valt terug op de streeknaam, daarna op title.
+    shortTitle: string;
     description: string;
     duration: string;
     transport: string;
@@ -263,6 +266,7 @@ function mapRoute(
     return {
         slug,
         title: normalizeEmDashes(String(r.title)),
+        shortTitle: '',
         description: normalizeEmDashes(String(r.description || '')),
         duration: String(r.duration || ''),
         transport: String(r.transport || ''),
@@ -481,11 +485,40 @@ async function loadRouteZelfGereisd(url: string, token: string): Promise<Map<num
     return map;
 }
 
+// LAT-13075: routes.short_title (korte kaarttitel op /wijnroutes/) fail-soft, zoals
+// zelf_gereisd. Het veld bestaat mogelijk nog niet; dan 403/400 → lege map → de hub valt
+// terug op de streeknaam. EN leest routes_translations.short_title; geen NL-fallback
+// voor EN (dan wint de EN-streeknaam).
+async function loadRouteShortTitle(url: string, token: string, locale: Locale): Promise<Map<number, string>> {
+    const map = new Map<number, string>();
+    const endpoint = locale === DEFAULT_LOCALE
+        ? `${url}/items/routes?limit=-1&fields=id,short_title`
+        : `${url}/items/routes_translations?limit=-1&fields=routes_id,short_title&filter[languages_code][_eq]=${encodeURIComponent(locale)}`;
+    try {
+        const res = await fetchDirectusCollection('loadRoutes', endpoint, { headers: { Authorization: `Bearer ${token}` } });
+        if (!res.ok) {
+            console.warn(`[loadRoutes] short_title niet leesbaar (HTTP ${res.status}); hub valt terug op streeknaam.`);
+            return map;
+        }
+        const json = await res.json();
+        for (const row of (json.data || []) as Record<string, unknown>[]) {
+            const rid = Number(locale === DEFAULT_LOCALE ? row.id : row.routes_id);
+            const v = typeof row.short_title === 'string' ? normalizeEmDashes(row.short_title.trim()) : '';
+            if (rid && v) map.set(rid, v);
+        }
+    } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn(`[loadRoutes] short_title fetch faalde: ${msg}`);
+    }
+    return map;
+}
+
 async function loadFromDirectus(url: string, token: string, locale: Locale): Promise<WijnRoute[]> {
-    const [raw, junction, zelfGereisd] = await Promise.all([
+    const [raw, junction, zelfGereisd, shortTitles] = await Promise.all([
         fetchRoutesItems(url, token),
         loadRouteStreekJunction(url, token),
         loadRouteZelfGereisd(url, token),
+        loadRouteShortTitle(url, token, locale),
     ]);
     const data = await localizeRecords(raw, {
         env: readDirectusEnv(),
@@ -533,6 +566,7 @@ async function loadFromDirectus(url: string, token: string, locale: Locale): Pro
                 : '';
             route.streekSlug = m2o || junction.get(Number(r.id)) || '';
             route.zelfGereisd = zelfGereisd.get(Number(r.id)) === true;
+            route.shortTitle = shortTitles.get(Number(r.id)) || '';
             return route;
         }),
     );
