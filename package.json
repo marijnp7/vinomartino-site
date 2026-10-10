@@ -71,7 +71,8 @@
     "test:wine-geography": "node --experimental-strip-types --test scripts/wine-geography.test.mjs",
     "test:wine-map-bounds": "node --experimental-strip-types --test scripts/wine-map-bounds.test.mjs",
     "test:overview": "node --experimental-strip-types --test scripts/overview.test.mjs",
-    "test:home-destinations": "node --experimental-strip-types --test scripts/home-destinations.test.mjs"
+    "test:home-destinations": "node --experimental-strip-types --test scripts/home-destinations.test.mjs",
+    "test:route-infographic": "node --experimental-strip-types --test scripts/route-infographic.test.mjs"
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.7.2",

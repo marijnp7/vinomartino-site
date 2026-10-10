@@ -6,6 +6,7 @@
 // de per-locale loaders in getStaticPaths. Op DEFAULT_LOCALE geeft t() de
 // bestaande NL-copy byte-identiek terug (nul NL-regressie); /en/ overlayt EN.
 import SiteLayout from '../layouts/SiteLayout.astro';
+import '../styles/route-infographic.css';
 import ReisVerhaal from './ReisVerhaal.astro';
 import RelatedArticles from './RelatedArticles.astro';
 import HubBacklink from './HubBacklink.astro';
@@ -679,15 +680,6 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
     margin: 0;
     align-self: stretch;
   }
-  .page-prose :global(.route-infographic) {
-    background: var(--paperDeep);
-    border: 1px solid var(--rule);
-    border-radius: var(--radius-sm);
-    padding: var(--space-5) var(--space-6);
-    margin: var(--space-6) 0;
-  }
-  .page-prose :global(.route-infographic > :first-child) { margin-top: 0; }
-  .page-prose :global(.route-infographic > :last-child) { margin-bottom: 0; }
   .sidebar-card {
     background: var(--paperDeep);
     border-radius: var(--radius-sm);

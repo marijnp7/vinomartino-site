@@ -36,6 +36,7 @@
 
 import { mdastToHtmlWithToc, normalizeEmDashes, type TocItem } from './markdown';
 import type { Locale } from './i18n';
+import { enhanceInfographic } from './route-infographic';
 
 // Minimale mdast-vorm die we nodig hebben; de directive-extensie hangt `name` en
 // `attributes` aan container/leaf/text-directive-nodes.
@@ -224,7 +225,8 @@ function transform(
       }
       continue; // geen href → CTA valt weg
     }
-    // infographic: behoud kinderen, render als <aside class="route-infographic">.
+    // Infographic: enhance recognised fact tables; preserve all other CMS content.
+    node.children = enhanceInfographic(node.children ?? []);
     node.data = { ...(node.data ?? {}), hName: 'aside', hProperties: { className: ['route-infographic'] } };
     out.push(node);
   }
