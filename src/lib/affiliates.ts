@@ -95,6 +95,33 @@ export function unwrapCjRedirect(raw: string): string {
   }
 }
 
+// LAT-13078: hosts waarop een verblijflink commissie oplevert (Booking via CJ, Stay22).
+// Een boeklink op elk ander domein is een DIRECTE link naar het huis zelf (bv.
+// chassy.org): die laten we ongewijzigd door en daar hoort geen affiliate-disclosure bij.
+const AFFILIATE_STAY_HOSTS = ['booking.com', 'stay22.com', ...CJ_REDIRECT_HOSTS];
+
+function hostMatches(raw: string, hosts: string[]): boolean {
+  try {
+    const host = new URL(raw).hostname.toLowerCase().replace(/^www\./, '');
+    return hosts.some((h) => host === h || host.endsWith(`.${h}`));
+  } catch {
+    return false;
+  }
+}
+
+/** Absolute http(s)-URL op een niet-affiliate-domein → directe boeklink. */
+export function isDirectBoeklink(raw: string | null | undefined): boolean {
+  const url = (raw || '').trim();
+  if (!/^https?:\/\//i.test(url)) return false;
+  return !hostMatches(url, AFFILIATE_STAY_HOSTS);
+}
+
+/** Loopt deze href via een affiliate-partner (CJ/Booking/Stay22)? Alleen dan disclosure. */
+export function isAffiliateHref(href: string | null | undefined): boolean {
+  const url = (href || '').trim();
+  return /^https?:\/\//i.test(url) && hostMatches(url, AFFILIATE_STAY_HOSTS);
+}
+
 // Booking-properties die niet (meer) bestaan. Booking stuurt deze /hotel/-slugs door naar
 // een zoeklijst, waardoor de nachtelijke affiliate-check (LAT-2532) elke dag rood werd.
 // Browsercheck 03-10-2026 via Bookings eigen autocomplete: alleen Burg Schwarzenstein
@@ -176,7 +203,8 @@ export function buildBookingSearchLink(query: string, sid: string, locale: Local
 //   1. booking.com/hotel/<slug>  → directe property-deeplink (buildCjBookingLink,
 //      krijgt keep_landing=1).
 //   2. booking.com/searchresults → behoud, zet alleen aid + label.
-//   3. leeg / Stay22 / stad-link  → best-effort zoekdeeplink op de hotelnaam.
+//   3. directe link (ander domein) → ongewijzigd (LAT-13078).
+//   4. leeg / Stay22 / stad-link  → best-effort zoekdeeplink op de hotelnaam.
 export function accommodatieBookingDeeplink(
   naam: string,
   regio: string,
@@ -185,6 +213,8 @@ export function accommodatieBookingDeeplink(
   locale: Locale = 'nl',
 ): string {
   const direct = boeklink ? unwrapCjRedirect(boeklink.trim()) : '';
+  // LAT-13078: eigen site van het huis (geen Booking-listing) → ongewijzigd door.
+  if (isDirectBoeklink(direct)) return direct;
   // Property-deeplink of al-gecureerde zoekpagina in de data → behoud host+pad,
   // zet aid + label (en keep_landing op /hotel/). Geen commissielek meer.
   if (/^https?:\/\/(www\.)?booking\.com\/(hotel|searchresults)/i.test(direct)) {

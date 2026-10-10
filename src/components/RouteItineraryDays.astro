@@ -13,7 +13,7 @@ import { deriveStopsGeoFromItinerary, localizeDuur, type RouteItinerary, type It
 import type { RouteStopKind } from '../lib/routes';
 import { loadUiStrings } from '../lib/ui-strings';
 import { loadWijnhuizen } from '../lib/wijnhuizen';
-import { accommodatieBookingDeeplink } from '../lib/affiliates';
+import { accommodatieBookingDeeplink, isAffiliateHref } from '../lib/affiliates';
 
 interface Props {
   /** LAT-2704 — locale doorgeven zodat interne links in PoiCard locale-aware zijn. */
@@ -158,7 +158,12 @@ function stopToPoi(stop: ItineraryStop, pin: CardPin): PoiCardData {
           </div>
         )}
 
-        {d.overnachting && (
+        {d.overnachting && (() => {
+          // LAT-13078: een directe link naar het huis (bv. chassy.org) gaat ongewijzigd door,
+          // zonder affiliate-tekst; Booking/Stay22 blijft via CJ met disclosure.
+          const stayHref = accommodatieBookingDeeplink(d.overnachting.naam, '', d.overnachting.bookingUrl, routeSid, locale);
+          const affiliate = isAffiliateHref(stayHref);
+          return (
           <div class="route-day__stay">
             <PoiCard
               locale={locale}
@@ -170,19 +175,20 @@ function stopToPoi(stop: ItineraryStop, pin: CardPin): PoiCardData {
                 fotoTheme: 'region',
                 badge: ui.t('route.stop.overnachting'),
                 // Elke overnachting is klikbaar: property- of zoeklink op booking.com (CJ-affiliate).
-                boeklink: accommodatieBookingDeeplink(d.overnachting.naam, '', d.overnachting.bookingUrl, routeSid, locale),
+                boeklink: stayHref,
                 cta: ui.t('streekkaart.cta.overnachten'),
-                partner: 'booking',
+                partner: affiliate ? 'booking' : 'direct',
                 placement: 'route-itinerary-overnachten',
                 context,
                 ctaKey: 'bekijk-boek',
-                disclosure: ui.t('stay.disclosure.microcopy'),
+                disclosure: affiliate ? ui.t('stay.disclosure.microcopy') : null,
                 n: overnachtingPin?.n ?? null,
                 plotted: overnachtingPin?.plotted ?? false,
               }}
             />
           </div>
-        )}
+          );
+        })()}
       </section>
     ))}
   </div>

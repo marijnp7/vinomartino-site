@@ -223,7 +223,7 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
         <img src={entry.heroImage} alt={entry.title} class="page-hero-img" loading="eager" fetchpriority="high" />
         {heroCredit && (
           <p class="page-hero-credit">
-            {heroCredit.author && <>{heroCredit.author}, </>}<a href={heroCredit.licenseUrl} rel="license noopener" target="_blank">{licenseLabelFor(heroCredit.licenseLabel, locale)}</a>{heroCredit.sourceUrl && <> — <a href={heroCredit.sourceUrl} rel="noopener" target="_blank">{heroCredit.sourceLabel ? `via ${heroCredit.sourceLabel}` : 'via bron'}</a></>}
+            {heroCredit.author && <>{heroCredit.author}, </>}<a href={heroCredit.licenseUrl} rel="license noopener" target="_blank">{licenseLabelFor(heroCredit.licenseLabel, locale)}</a>{heroCredit.sourceUrl && <>, <a href={heroCredit.sourceUrl} rel="noopener" target="_blank">{heroCredit.sourceLabel ? `via ${heroCredit.sourceLabel}` : 'via bron'}</a></>}
           </p>
         )}
       </div>

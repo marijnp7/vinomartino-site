@@ -179,7 +179,7 @@ const heroCredit = await getImageCredit(heroImageId, { adapted: true });
       <BeeldHerkomst fileId={heroImageId} src={heroImage} locale={locale} variant="inline" />
       {heroCredit && (
         <figcaption class="wh-hero__credit">
-          {heroCredit.author && <>{heroCredit.author}, </>}<a href={heroCredit.licenseUrl} rel="license noopener" target="_blank">{licenseLabelFor(heroCredit.licenseLabel, locale)}</a>{heroCredit.sourceUrl && <> — <a href={heroCredit.sourceUrl} rel="noopener" target="_blank">{heroCredit.sourceLabel ? `via ${heroCredit.sourceLabel}` : 'via bron'}</a></>}{heroCredit.adapted && <> ({adaptationNoteFor(locale)})</>}
+          {heroCredit.author && <>{heroCredit.author}, </>}<a href={heroCredit.licenseUrl} rel="license noopener" target="_blank">{licenseLabelFor(heroCredit.licenseLabel, locale)}</a>{heroCredit.sourceUrl && <>, <a href={heroCredit.sourceUrl} rel="noopener" target="_blank">{heroCredit.sourceLabel ? `via ${heroCredit.sourceLabel}` : 'via bron'}</a></>}{heroCredit.adapted && <> ({adaptationNoteFor(locale)})</>}
         </figcaption>
       )}
     </figure>
