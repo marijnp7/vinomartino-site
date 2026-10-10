@@ -341,6 +341,14 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'home.routes.title': 'Wijnroutes met karakter',
     'home.routes.sub': 'Geen Google-maps-grids, maar reizen van twee tot vijf dagen, met wijnhuizen, eetadressen en de weg ertussen.',
     'home.routes.allesCta': 'Alle routes →',
+    // LAT-13075 — homepage v2 (goedgekeurd ontwerp 2026-10-10). {streek} = streeknaam uit Directus.
+    'home.v2.title': 'Een mooie reis begint bij een goed glas.',
+    'home.v2.sub': 'Ontdek wijnstreken, ontmoet makers en vind jouw route.',
+    'home.v2.featured.aria': 'Uitgelichte wijnroute',
+    'home.v2.featured.kicker': 'Ontdek de {streek}',
+    'home.v2.featured.cta': 'Ontdek de route →',
+    'home.v2.dest.title': 'Waar wil je naartoe?',
+    'home.v2.dest.cta': 'Bekijk alle wijnroutes →',
     'home.spotlight.kicker': 'Verhaal van de week',
     'home.spotlight.cta': 'Lees het hele verhaal →',
     'home.latest.kicker': 'Laatste verhalen',
@@ -1361,6 +1369,14 @@ export const UI_STRING_EN: Record<string, string> = {
     // LAT-13056 Variant B "Uitgesproken"
     'home.hero.versLabel': 'fresh off the press',
     'home.hero.versAria': 'The newest articles',
+    // LAT-13075 — homepage v2.
+    'home.v2.title': 'A good trip starts with a good glass.',
+    'home.v2.sub': 'Discover wine regions, meet the makers and find your route.',
+    'home.v2.featured.aria': 'Featured wine route',
+    'home.v2.featured.kicker': 'Discover {streek}',
+    'home.v2.featured.cta': 'Discover the route →',
+    'home.v2.dest.title': 'Where do you want to go?',
+    'home.v2.dest.cta': 'See all wine routes →',
     'card.hand.zelfGeweest': 'been there ourselves',
     // LAT-13099 Op de proeftafel
     "proeftafel.meta.title": "On the tasting table: wines we tasted, with an honest verdict",

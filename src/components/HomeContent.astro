@@ -1,15 +1,11 @@
 ---
 import SiteLayout from '../layouts/SiteLayout.astro';
-import ZelfGereisdBadge from '../components/ZelfGereisdBadge.astro';
 import ArticleCard from '../components/ArticleCard.astro';
 import Briefkaart from '../components/Briefkaart.astro';
-import HomeRoutesMap from '../components/HomeRoutesMap.astro';
-import DiscoverMapEurope from '../components/DiscoverMapEurope.astro';
 import SubstackCta from '../components/SubstackCta.astro';
 import { loadArticles } from '../lib/articles';
 import { loadRoutes } from '../lib/routes';
 import { loadStreken } from '../lib/streken';
-import { loadLanden } from '../lib/landen';
 import { organizationSchema } from '../lib/seo';
 import { getAuthorByByline } from '../lib/authors';
 import { loadUiStrings } from '../lib/ui-strings';
@@ -46,129 +42,65 @@ const articles = await loadArticles(locale);
 // Directus. Board zet de toggle aan op het gewenste artikel; bij meerdere wint
 // het nieuwste. Geen featured-artikel → val terug op het nieuwste artikel.
 const spotlight = articles.find((a) => a.featured) ?? articles[0];
-// LAT-13056 Variant A: het nieuwste gepubliceerde artikel staat als staande
-// kaart in de split-hero; de "Net terug"-feed toont de vier daarna (zonder
-// hero- en spotlight-artikel, zodat niets dubbel staat).
-// LAT-13056 Variant B: het beeldenpaar rechts in de hero zijn de hero-beelden
-// van de twee nieuwste artikelen (alleen bestaande assets); de asymmetrische
-// feed toont vijf artikelen daarna, zonder hero-paar en spotlight.
-const heroPair = articles.filter((a) => Boolean(a.heroImage)).slice(0, 2);
-const heroPairSlugs = new Set(heroPair.map((a) => a.slug));
-const moreArticles = articles
-  .filter((a) => a.slug !== spotlight?.slug && !heroPairSlugs.has(a.slug))
-  .slice(0, 5);
+// LAT-13075 — homepage v2: de hero draagt geen artikelbeelden meer, dus de
+// asymmetrische feed toont de vijf nieuwste artikelen na het spotlight-artikel.
+const moreArticles = articles.filter((a) => a.slug !== spotlight?.slug).slice(0, 5);
 const FEED_TONES = ['bordeaux', 'vine', 'paper'] as const;
 const routes = await loadRoutes(locale);
 const allStreken = await loadStreken(locale);
-const landen = await loadLanden(locale);
 
 const schema = organizationSchema();
 
 const HERO_IMAGE = '/images/landschap-piemonte-barolo-001.jpg';
 
-// ── LAT-2451 — Atlas als primaire navigatie direct onder de hero ──────────
-// Groepeer gepubliceerde streken onder hun land (zelfde patroon als /ontdek/),
-// zodat de Europa-kaart per land de streek-telling én de kerndruif toont in de
-// hover-tooltip. Data-gedreven: nieuw land in Directus = extra kaartvlak, geen
-// hardcoded nav-item. Kleur is deterministisch per land (merk-agnostisch palet).
-const ATLAS_PALETTE = ['#5A1A1F', '#A14F2A', '#5C6B3F', '#B86030', '#6B3A4A', '#7A6A2C'];
-const strekenPerLand = new Map<string, number>();
-for (const s of allStreken) {
-  if (!s.landSlug) continue;
-  strekenPerLand.set(s.landSlug, (strekenPerLand.get(s.landSlug) ?? 0) + 1);
-}
-const atlasCountries = landen.map((land, i) => ({
-  slug: land.slug,
-  name: land.name,
-  color: ATLAS_PALETTE[i % ATLAS_PALETTE.length] as string,
-  regionCount: strekenPerLand.get(land.slug) ?? 0,
-  // Kerndruif-hover: de eerste twee hoofddruiven van het land (Directus main_grapes).
-  grapes: land.mainGrapes.slice(0, 2).join(' · '),
-}));
+// ── LAT-13075 — Homepage v2 (goedgekeurd ontwerp, plaat "01 Homepage") ────
+// Eén uitgelichte route over de volle breedte plus drie bestemmingen, allemaal
+// uit Directus `routes`. Beeld = het `hero_image` van dat route-record zelf
+// (DAM-gekoppeld, rendert al op de routepagina), nooit een pool- of conceptfoto
+// (HARDE REGEL 2/14). Streeknaam en land komen uit het gekoppelde streek-record.
+// `routes` kent geen featured-veld; daarom een deterministische voorkeurslijst
+// van route-slugs. Ontbreekt een voorkeursroute of haar hero, dan vult de eerste
+// route met hero uit een nog niet getoonde streek het gat (geen lege kaart).
+const HOME_V2_FEATURED_ROUTE = 'langhe-piemonte';
+const HOME_V2_DESTINATION_ROUTES = [
+  'champagne-reims-epernay-montagne-de-reims',
+  'mosel-bernkastel-traben-trarbach',
+  'toscane-bolgheri-montalcino-carmignano',
+];
+const HOME_V2_DESTINATIONS_MAX = 3;
 
-// ── LAT-2451 — Curated hero-streken ("Zelf gereisd" voorrang) ─────────────
-// Marijn-besluit Optie B (2026-07-14): de tile toont bij voorkeur het dedicated
-// `streken.card_blurb`-veld (max 140, redactioneel gevuld voor de 6-8 uitgelichte
-// streken). Is dat leeg, dan valt de tile terug op zinsgrens-truncatie van
-// `description`. Het ruwe `description`-veld (elders intro/meta, ~220-760 tekens)
-// blijft ONGEWIJZIGD — we korten alleen de gerenderde tegel-copy op build-tijd,
-// geen CSS-ellipsis midden in een zin.
-const HERO_STREKEN_MAX = 8;
-
-// Kap op een woordgrens met ellipsis als de tekst > max is; laat kortere tekst heel.
-function clampToWord(text: string, max = 140): string {
-  const clean = text.replace(/\s+/g, ' ').trim();
-  if (clean.length <= max) return clean;
-  const lastSpace = clean.slice(0, max).lastIndexOf(' ');
-  return `${clean.slice(0, lastSpace > 0 ? lastSpace : max).trimEnd()}…`;
-}
-
-// Neem de eerste zin (eerste .!? gevolgd door spatie/eind, met een 40-teken-
-// ondergrens zodat afkortingen als "St." niet vroeg afkappen). Is die zin langer
-// dan max, dan kap op woordgrens met een ellipsis; ontbreekt een zin-einde, dan
-// val terug op de hele tekst (met dezelfde woordgrens-cap).
-function clampToSentence(text: string, max = 140): string {
-  const clean = text.replace(/\s+/g, ' ').trim();
-  if (!clean) return clean;
-  const re = /[.!?](?=\s|$)/g;
-  let end = -1;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(clean)) !== null) {
-    if (m.index >= 40) { end = m.index + 1; break; }
-  }
-  const firstSentence = end > 0 ? clean.slice(0, end).trim() : clean;
-  return clampToWord(firstSentence, max);
-}
-
-// Kaart-blurb: dedicated card_blurb (defensief op 140 gekapt) heeft voorrang;
-// anders zinsgrens-truncatie van description.
-function heroBlurb(cardBlurb: string, description: string): string {
-  const cb = cardBlurb.trim();
-  if (cb) return clampToWord(cb);
-  return clampToSentence(description);
-}
-
-// Foto- + tekst-guard (LAT-2267/LAT-2356): alleen streken mét hero-foto én blurb.
-// Zelf-gereisd eerst (nieuwste bezoek bovenaan), daarna de overige foto-streken
-// als opvulling; harde cap op acht (VIS: curated rij van 6-8).
-const heroStreken = allStreken
-  .filter((s) => Boolean(s.heroImage) && Boolean(s.name) && Boolean(s.description?.trim()))
-  .sort((a, b) => {
-    if (a.zelfGereisd !== b.zelfGereisd) return a.zelfGereisd ? -1 : 1;
-    if (a.zelfGereisd && b.zelfGereisd) {
-      const ja = a.bezoekjaar ?? 0;
-      const jb = b.bezoekjaar ?? 0;
-      if (ja !== jb) return jb - ja;
-    }
-    return a.name.localeCompare(b.name, 'nl');
-  })
-  .slice(0, HERO_STREKEN_MAX)
-  .map((s) => ({
-    name: s.name,
-    eyebrow: s.country,
-    blurb: heroBlurb(s.cardBlurb, s.description),
-    href: `/streken/${s.slug}/`,
-    image: s.heroImage as string,
-    visited: s.zelfGereisd,
-  }));
-
-// ── LAT-2451 — Uitgelichte routes: max zes, foto verplicht, met duur + streek-tag ──
 const strekenBySlug = new Map(allStreken.map((s) => [s.slug, s]));
-const FEATURED_ROUTES_MAX = 6;
-const featuredRoutes = routes
-  .filter((r) => Boolean(r.heroImage))
-  .slice(0, FEATURED_ROUTES_MAX)
-  .map((r) => {
-    const streek = r.streekSlug ? strekenBySlug.get(r.streekSlug) : undefined;
-    return {
-      slug: r.slug,
-      title: r.title,
-      description: r.description,
-      image: r.heroImage as string,
-      duration: r.duration,
-      regionTag: streek?.name || streek?.country || '',
-    };
-  });
+const routesWithHero = routes.filter((r) => Boolean(r.heroImage) && Boolean(r.streekSlug));
+const toHomeCard = (r: (typeof routes)[number]) => {
+  const streek = strekenBySlug.get(r.streekSlug);
+  return {
+    slug: r.slug,
+    href: lh(`/wijnroutes/${r.slug}/`),
+    title: r.title,
+    image: r.heroImage as string,
+    streekSlug: r.streekSlug,
+    region: streek?.name || '',
+    country: streek?.country || '',
+  };
+};
+
+const featuredRoute =
+  routesWithHero.find((r) => r.slug === HOME_V2_FEATURED_ROUTE) ?? routesWithHero[0];
+const featured = featuredRoute ? toHomeCard(featuredRoute) : undefined;
+
+const usedStreken = new Set<string>(featured ? [featured.streekSlug] : []);
+const destinations: ReturnType<typeof toHomeCard>[] = [];
+const pushDestination = (r: (typeof routes)[number] | undefined) => {
+  if (!r || usedStreken.has(r.streekSlug) || destinations.length >= HOME_V2_DESTINATIONS_MAX) return;
+  const card = toHomeCard(r);
+  if (!card.region) return;
+  usedStreken.add(r.streekSlug);
+  destinations.push(card);
+};
+for (const slug of HOME_V2_DESTINATION_ROUTES) {
+  pushDestination(routesWithHero.find((r) => r.slug === slug));
+}
+for (const r of routesWithHero) pushDestination(r);
 
 function formatDate(value?: string | null) {
   if (!value) return '';
@@ -183,140 +115,63 @@ function formatDate(value?: string | null) {
 <SiteLayout
   title={ui.t('home.meta.title')}
   description={ui.t('home.meta.description')}
-  ogImage={HERO_IMAGE}
+  ogImage={featured?.image ?? HERO_IMAGE}
   schema={schema}
   locale={locale}
   alternates={alternates}
 >
-  <section class="hero hero--b" aria-label={ui.t('home.hero.aria')}>
-    <div class="container hero-split">
-      <div class="hero-inner">
-        <span class="hero-eyebrow">{ui.t('home.hero.eyebrow')}</span>
-        <h1 class="hero-title">
-          {ui.t('home.hero.titleLine1')}
-          <em>{ui.t('home.hero.titleEm')}</em>
-        </h1>
-        <p class="hero-lede">
-          {ui.t('home.hero.lede')}
-        </p>
-        <div class="hero-ctas">
-          <a href="#bestemmingen" class="btn btn-primary">{ui.t('home.hero.ctaBestemming')}</a>
-          <a href="#routes" class="btn btn-outline">{ui.t('home.hero.ctaRoutes')}</a>
-        </div>
-      </div>
-      {heroPair.length > 0 && (
-        <div class:list={['hero-pair', heroPair.length === 1 && 'hero-pair--single']} role="group" aria-label={ui.t('home.hero.versAria')}>
-          {heroPair.map((a, i) => (
-            <a href={lh(`/artikelen/${a.slug}/`)} class={`hero-pair__img hero-pair__img--${i + 1}`} aria-label={a.title}>
-              <img src={a.heroImage as string} alt={a.title} width="900" height="1125" fetchpriority={i === 0 ? 'high' : 'auto'} decoding="async" {...herkomst(a.heroImage)} />
-            </a>
-          ))}
-          <span class="hero-pair__label">{ui.t('home.hero.versLabel')}</span>
-        </div>
-      )}
+  <section class="home-intro" aria-labelledby="home-v2-title">
+    <div class="container home-intro__inner">
+      <h1 id="home-v2-title" class="home-intro__title">{ui.t('home.v2.title')}</h1>
+      <p class="home-intro__sub">{ui.t('home.v2.sub')}</p>
     </div>
   </section>
 
-  {atlasCountries.length > 0 && (
-    <section id="atlas" class="atlas-section" aria-label={ui.t('home.atlas.aria')}>
-      <div class="container">
-        <header class="strip-header atlas-head">
-          <span class="kicker">{ui.t('home.atlas.kicker')}</span>
-          <h2 class="strip-title">{ui.t('home.atlas.title')}</h2>
-          <p class="strip-lede">
-            {ui.t('home.atlas.lede')}
-          </p>
-        </header>
-        <DiscoverMapEurope countries={atlasCountries} locale={locale} />
-        <ul class="atlas-fallback" aria-label={ui.t('home.atlas.fallbackAria')}>
-          {atlasCountries.map((c) => (
-            <li>
-              <a href={lh(`/landen/${c.slug}/`)} class="atlas-chip" style={`--c: ${c.color};`}>
-                <span class="atlas-chip-name">{c.name}</span>
-                <span class="atlas-chip-meta">{`${c.regionCount} ${c.regionCount === 1 ? ui.t('home.atlas.regioSingular') : ui.t('home.atlas.regioPlural')}`}</span>
-              </a>
-            </li>
-          ))}
-        </ul>
-        <p class="section-cta"><a href={lh('/ontdek/')} class="btn btn-outline">{ui.t('home.atlas.allesCta')}</a></p>
+  {featured && (
+    <section class="home-feature" aria-label={ui.t('home.v2.featured.aria')}>
+      <img
+        class="home-feature__img"
+        src={featured.image}
+        alt={featured.title}
+        width="1600"
+        height="900"
+        fetchpriority="high"
+        decoding="async"
+        {...herkomst(featured.image)}
+      />
+      <div class="container home-feature__inner">
+        <div class="home-feature__card">
+          {featured.region && (
+            <span class="home-feature__kicker">{ui.t('home.v2.featured.kicker').replace('{streek}', featured.region)}</span>
+          )}
+          <h2 class="home-feature__title">{featured.title}</h2>
+          <a href={featured.href} class="home-feature__btn">{ui.t('home.v2.featured.cta')}</a>
+        </div>
       </div>
     </section>
   )}
 
-  <section id="bestemmingen" class="strip">
-    <div class="container">
-      <header class="strip-header">
-        <span class="kicker">{ui.t('home.dest.kicker')}</span>
-        <h2 class="strip-title">{ui.t('home.dest.title')}</h2>
-        <p class="strip-lede">
-          {ui.t('home.dest.lede')}
-        </p>
-      </header>
-      <div class="streken-grid">
-        {heroStreken.map((streek, idx) => (
-          <a href={lh(streek.href)} class="streek-tile">
-            <div class="streek-media">
-              <img
-                src={streek.image}
-                alt={`${streek.name}${ui.t('home.dest.tileAltSuffix')}`}
-                width="800"
-                height="1000"
-                loading={idx < 2 ? 'eager' : 'lazy'}
-                decoding="async"
-                {...herkomst(streek.image)}
-              />
-            </div>
-            {streek.visited && (
-              <div class="streek-tile-badge">
-                <ZelfGereisdBadge visited={true} locale={locale} />
-              </div>
-            )}
-            <div class="streek-body">
-              <span class="streek-eyebrow">{streek.eyebrow}</span>
-              <h3 class="streek-name">{streek.name}</h3>
-              <p class="streek-blurb">{streek.blurb}</p>
-              <span class="streek-link" aria-hidden="true">{ui.t('home.dest.tileLink')}</span>
-            </div>
-          </a>
-        ))}
-      </div>
-      <p class="section-cta"><a href={lh('/streken/')} class="btn btn-outline">{ui.t('home.dest.allesCta')}</a></p>
-    </div>
-  </section>
-
-  <section id="routes" class="cards-section">
-    <div class="container">
-      <header class="section-head">
-        <span class="kicker">{ui.t('home.routes.kicker')}</span>
-        <h2 class="section-h">{ui.t('home.routes.title')}</h2>
-        <p class="section-sub">
-          {ui.t('home.routes.sub')}
-        </p>
-      </header>
-      <HomeRoutesMap routes={routes} locale={locale} />
-      <div class="cards-grid">
-        {featuredRoutes.map((r, idx) => (
-          <a href={lh(`/wijnroutes/${r.slug}/`)} class="card-tile">
-            <div class="card-media">
-              <img src={r.image} alt={r.title} width="600" height="450" loading={idx < 3 ? 'eager' : 'lazy'} decoding="async" {...herkomst(r.image)} />
-            </div>
-            <div class="card-body">
-              {(r.duration || r.regionTag) && (
-                <span class="card-eyebrow card-meter">
-                  {r.duration && <span>{r.duration}</span>}
-                  {r.duration && r.regionTag && <span class="card-meter-dot" aria-hidden="true"> · </span>}
-                  {r.regionTag && <span>{r.regionTag}</span>}
+  {destinations.length > 0 && (
+    <section id="bestemmingen" class="home-dest" aria-labelledby="home-v2-dest-title">
+      <div class="container">
+        <h2 id="home-v2-dest-title" class="home-dest__title">{ui.t('home.v2.dest.title')}</h2>
+        <ul class="home-dest__grid">
+          {destinations.map((d) => (
+            <li>
+              <a href={d.href} class="home-dest__card">
+                <span class="home-dest__media">
+                  <img src={d.image} alt={d.title} width="600" height="550" loading="lazy" decoding="async" {...herkomst(d.image)} />
                 </span>
-              )}
-              <h3 class="card-title">{r.title}</h3>
-              {r.description && <p class="card-desc">{r.description}</p>}
-            </div>
-          </a>
-        ))}
+                <span class="home-dest__name">{d.region}</span>
+                {d.country && <span class="home-dest__country">{d.country}</span>}
+              </a>
+            </li>
+          ))}
+        </ul>
+        <p class="home-dest__cta"><a href={lh('/wijnroutes/')} class="home-dest__link">{ui.t('home.v2.dest.cta')}</a></p>
       </div>
-      <p class="section-cta"><a href={lh('/wijnroutes/')} class="btn btn-outline">{ui.t('home.routes.allesCta')}</a></p>
-    </div>
-  </section>
+    </section>
+  )}
 
   {spotlight && (
     <section class="spotlight">
@@ -437,146 +292,167 @@ function formatDate(value?: string | null) {
 </SiteLayout>
 
 <style>
-  /* ── Hero (LAT-13056 Variant A: split) ───────────────── */
-  .hero--split {
+  /* ── LAT-13075 Homepage v2: intro, uitgelichte route, bestemmingen ─── */
+  .home-intro {
     background: var(--paper);
-    color: var(--ink);
-    padding: var(--space-16) 0 var(--space-20);
+    padding: clamp(2.5rem, 6vw, 4.5rem) 0 clamp(1.75rem, 4vw, 2.5rem);
   }
-  .hero-split {
-    display: grid;
-    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
-    gap: var(--space-12);
-    align-items: center;
-  }
-  .hero-eyebrow {
-    display: inline-block;
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--inkSoft);
-  }
-  .hero-title {
+  .home-intro__title {
     font-family: var(--font-display);
     font-weight: 400;
-    font-size: clamp(2.75rem, 5vw + 0.5rem, 5.75rem);
-    line-height: 0.98;
-    letter-spacing: -0.02em;
+    font-size: clamp(2.5rem, 6.4vw, 4.75rem);
+    line-height: 1.04;
+    letter-spacing: -0.01em;
     color: var(--ink);
-    margin: var(--space-5) 0 var(--space-5);
-    max-width: 16ch;
+    max-width: 18ch;
+    margin: 0;
+    overflow-wrap: break-word;
   }
-  .hero-title em {
-    font-style: italic;
-    color: var(--color-primary);
-  }
-  .hero-lede {
+  .home-intro__sub {
     font-family: var(--font-body);
-    font-size: clamp(1.0625rem, 0.4vw + 1rem, 1.25rem);
-    line-height: 1.6;
+    font-size: clamp(1.05rem, 1.6vw, 1.3rem);
+    line-height: 1.45;
     color: var(--inkSoft);
-    max-width: 34rem;
-    margin-bottom: var(--space-8);
+    margin: var(--space-4) 0 0;
+    max-width: 44ch;
   }
-  .hero-ctas {
+  .home-feature {
+    position: relative;
+    min-height: clamp(420px, 52vw, 640px);
     display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-4);
+    align-items: flex-end;
+    overflow: hidden;
+    background: var(--paperDeep);
   }
-  .hero-newest {
-    max-width: 26rem;
+  .home-feature__img {
+    position: absolute;
+    inset: 0;
     width: 100%;
-    justify-self: end;
+    height: 100%;
+    object-fit: cover;
   }
-  @media (max-width: 860px) {
-    .hero--split { padding: var(--space-10) 0 var(--space-12); }
-    .hero-split { grid-template-columns: 1fr; gap: var(--space-8); }
-    .hero-newest { justify-self: stretch; max-width: none; }
+  .home-feature__inner {
+    position: relative;
+    width: 100%;
+    padding-bottom: clamp(1.25rem, 3vw, 2.5rem);
   }
-
-  /* ── LAT-13056 Variant B "Uitgesproken": bordeaux kleurblok-hero ──────
-     Alle tekst --fixed-cream op --burgundy (13:1); het label is --fixed-ink op
-     apricot (5.2:1). Overschrijft A's papieren split-hero, dezelfde grid. */
-  .hero--b {
+  .home-feature__card {
+    background: var(--fixed-cream);
+    color: var(--fixed-ink);
+    max-width: 24rem;
+    padding: clamp(1.25rem, 2.5vw, 1.75rem);
+    box-shadow: 0 10px 30px rgba(31, 26, 22, 0.18);
+  }
+  .home-feature__kicker {
+    display: block;
+    font-family: var(--font-body);
+    font-size: 0.72rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--fixed-ink);
+    margin-bottom: var(--space-2);
+  }
+  .home-feature__title {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: clamp(1.5rem, 2.6vw, 2rem);
+    line-height: 1.12;
+    margin: 0 0 var(--space-4);
+    color: var(--fixed-ink);
+    overflow-wrap: break-word;
+  }
+  .home-feature__btn {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0.6rem 1.25rem;
     background: var(--burgundy);
     color: var(--fixed-cream);
-    padding: var(--space-16) 0 var(--space-20);
-    overflow: hidden;
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+    text-decoration: none;
+    transition: background 0.2s ease;
   }
-  .hero--b .hero-eyebrow { color: var(--gold); }
-  .hero--b .hero-title {
-    color: var(--fixed-cream);
-    font-size: clamp(3rem, 6.4vw + 0.5rem, 7.5rem);
-    line-height: 0.94;
-    max-width: 14ch;
+  .home-feature__btn:hover,
+  .home-feature__btn:focus-visible { background: var(--burgundyDeep); color: var(--fixed-cream); }
+  .home-dest {
+    background: var(--paper);
+    padding: clamp(2.5rem, 6vw, 4.5rem) 0;
   }
-  .hero--b .hero-title em { color: var(--gold); }
-  .hero--b .hero-lede { color: var(--fixed-cream); }
-  .hero--b .btn { min-height: 48px; }
-  .hero--b .btn-primary {
-    background: var(--fixed-cream);
-    color: var(--burgundy);
-    box-shadow: 6px 6px 0 var(--fixed-ink);
-    transition: transform var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out);
-  }
-  .hero--b .btn-primary:hover {
-    background: var(--fixed-cream);
-    color: var(--burgundyDeep);
-    transform: translate(-2px, -2px);
-    box-shadow: 8px 8px 0 var(--fixed-ink);
-  }
-  .hero--b .btn-outline {
-    color: var(--fixed-cream);
-    border-color: var(--fixed-cream);
-    background: transparent;
-  }
-  .hero--b .btn-outline:hover { background: var(--fixed-cream); color: var(--burgundy); }
-  :global([data-theme='cellar']) .hero--b .btn-outline { background: transparent; color: var(--fixed-cream); }
-  .hero-pair {
-    position: relative;
-    display: grid;
-    grid-template-columns: repeat(12, minmax(0, 1fr));
-    grid-template-rows: repeat(12, minmax(0, 1fr));
-    aspect-ratio: 1 / 1;
-    width: 100%;
-    max-width: 34rem;
-    justify-self: end;
-  }
-  .hero-pair__img {
-    display: block;
-    overflow: hidden;
-    background: var(--burgundyDeep);
-  }
-  .hero-pair__img img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .hero-pair__img--1 { grid-column: 1 / 9; grid-row: 1 / 11; z-index: 1; }
-  .hero-pair__img--2 {
-    grid-column: 7 / 13; grid-row: 6 / 13; z-index: 2;
-    outline: 6px solid var(--burgundy);
-  }
-  .hero-pair--single .hero-pair__img--1 { grid-column: 1 / 13; grid-row: 1 / 13; }
-  .hero-pair__label {
-    position: absolute;
-    top: 4%;
-    right: 2%;
-    z-index: 3;
-    padding: 0.45rem 0.95rem;
-    background: var(--accent-apricot);
-    color: var(--fixed-ink);
+  .home-dest__title {
     font-family: var(--font-display);
-    font-style: italic;
-    font-size: clamp(1.15rem, 0.9rem + 0.8vw, 1.6rem);
+    font-weight: 400;
+    font-size: clamp(2rem, 4vw, 2.75rem);
     line-height: 1.1;
-    transform: rotate(6deg);
-    box-shadow: 4px 4px 0 var(--fixed-ink);
+    text-align: center;
+    color: var(--ink);
+    margin: 0 0 clamp(1.5rem, 3vw, 2.25rem);
   }
-  @media (max-width: 860px) {
-    .hero--b { padding: var(--space-10) 0 var(--space-12); }
-    .hero-pair { justify-self: stretch; max-width: none; aspect-ratio: 5 / 4; }
-    .hero--b .hero-title { font-size: clamp(2.75rem, 13vw, 4.5rem); }
+  .home-dest__grid {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: clamp(0.75rem, 2vw, 1.25rem);
   }
-
+  .home-dest__card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-decoration: none;
+    color: var(--ink);
+  }
+  .home-dest__media {
+    display: block;
+    width: 100%;
+    aspect-ratio: 12 / 11;
+    overflow: hidden;
+    background: var(--paperDeep);
+  }
+  .home-dest__media img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.4s ease;
+  }
+  .home-dest__card:hover .home-dest__media img { transform: scale(1.03); }
+  .home-dest__name {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: clamp(1.4rem, 2.2vw, 1.75rem);
+    line-height: 1.2;
+    margin-top: var(--space-3);
+  }
+  .home-dest__country {
+    font-family: var(--font-body);
+    font-size: 0.7rem;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--inkSoft);
+    margin-top: var(--space-1);
+  }
+  .home-dest__cta {
+    text-align: center;
+    margin: clamp(1.75rem, 3vw, 2.5rem) 0 0;
+  }
+  .home-dest__link {
+    font-family: var(--font-body);
+    font-size: 1.05rem;
+    color: var(--burgundy);
+    text-decoration: underline;
+    text-underline-offset: 0.35em;
+    text-decoration-thickness: 1px;
+  }
+  .home-dest__link:hover { color: var(--burgundyDeep); }
+  @media (max-width: 640px) {
+    .home-feature { min-height: 0; flex-direction: column; align-items: stretch; }
+    .home-feature__img { position: relative; height: 260px; }
+    .home-feature__inner { margin-top: -3rem; }
+    .home-feature__card { max-width: none; }
+    .home-dest__grid { grid-template-columns: 1fr; gap: var(--space-6); }
+    .home-dest__media { aspect-ratio: 16 / 10; }
+  }
   /* ── Variant B feed: asymmetrisch, eerste kaart 2x2 ─────── */
   .feed-grid--b {
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -660,165 +536,6 @@ function formatDate(value?: string | null) {
     letter-spacing: 0.22em;
     text-transform: uppercase;
     color: var(--rust);
-  }
-
-  /* ── Wijnatlas (LAT-2451): primaire navigatie direct onder de hero ─── */
-  .atlas-section {
-    padding: var(--space-20) 0 var(--space-16);
-    background: var(--paperDeep);
-    border-bottom: 1px solid var(--rule);
-  }
-  .atlas-head { margin-bottom: var(--space-8); }
-  /* Mobiele fallback: de kaart verbergt zich <760px, dus tonen we hier de
-     wijnlanden als klikbare chips (zelfde nav-doel als de kaartvlakken). */
-  .atlas-fallback {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-3);
-  }
-  .atlas-chip {
-    display: flex;
-    flex-direction: column;
-    gap: 0.15rem;
-    padding: 0.6rem 0.9rem;
-    border: 1px solid var(--ruleSoft);
-    border-left: 3px solid var(--c, var(--burgundy));
-    background: var(--paper);
-    text-decoration: none;
-    transition: background var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out);
-  }
-  .atlas-chip:hover { background: var(--paperShade); transform: translateX(2px); }
-  .atlas-chip-name {
-    font-family: var(--font-display);
-    font-style: italic;
-    font-size: 1.05rem;
-    color: var(--ink);
-    line-height: 1.1;
-  }
-  .atlas-chip-meta {
-    font-family: var(--font-mono);
-    font-size: 0.625rem;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--inkFaint);
-  }
-  @media (min-width: 760px) {
-    .atlas-fallback { display: none; }
-  }
-
-  /* ── Editorial streken-grid ───────────────────────────── */
-  .strip {
-    padding: var(--space-24) 0 var(--space-20);
-    background: var(--paper);
-  }
-  .strip-header {
-    max-width: 44rem;
-    margin: 0 0 var(--space-12);
-  }
-  .strip-title {
-    font-family: var(--font-display);
-    font-style: italic;
-    font-weight: 400;
-    font-size: clamp(2.25rem, 2vw + 1.5rem, 3.5rem);
-    line-height: 1.05;
-    color: var(--ink);
-    margin: var(--space-4) 0 var(--space-3);
-  }
-  .strip-lede {
-    font-family: var(--font-body);
-    font-size: 1.0625rem;
-    line-height: 1.6;
-    color: var(--inkSoft);
-  }
-  .streken-grid {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: var(--space-5);
-  }
-  .streek-tile {
-    position: relative;
-    display: block;
-    color: var(--fixed-cream);
-    text-decoration: none;
-    overflow: hidden;
-    aspect-ratio: 3 / 4;
-    isolation: isolate;
-  }
-  .streek-tile::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    z-index: 1;
-    background: linear-gradient(180deg, rgba(13, 10, 7, 0.05) 0%, rgba(13, 10, 7, 0.15) 45%, rgba(13, 10, 7, 0.85) 100%);
-    transition: background var(--duration-base) var(--ease-out);
-  }
-  .streek-tile:hover::after {
-    background: linear-gradient(180deg, rgba(90, 26, 31, 0.05) 0%, rgba(90, 26, 31, 0.25) 45%, rgba(61, 17, 21, 0.9) 100%);
-  }
-  .streek-media {
-    position: absolute;
-    inset: 0;
-    z-index: 0;
-    overflow: hidden;
-  }
-  .streek-media img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    transition: transform var(--duration-image) var(--ease-out);
-  }
-  .streek-tile:hover .streek-media img {
-    transform: scale(1.05);
-  }
-  .streek-body {
-    position: absolute;
-    inset: auto 0 0 0;
-    z-index: 2;
-    padding: var(--space-6) var(--space-6) var(--space-5);
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-  }
-  .streek-eyebrow {
-    font-family: var(--font-mono);
-    font-size: 0.625rem;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-    color: var(--gold);
-  }
-  .streek-name {
-    font-family: var(--font-display);
-    font-style: italic;
-    font-weight: 400;
-    font-size: clamp(1.75rem, 1vw + 1.5rem, 2.5rem);
-    line-height: 1;
-    color: var(--fixed-cream);
-  }
-  .streek-blurb {
-    font-family: var(--font-body);
-    font-size: 0.9375rem;
-    line-height: 1.5;
-    color: color-mix(in srgb, var(--fixed-cream) 88%, transparent);
-    margin-top: var(--space-2);
-    /* LAT-2451 — de blurb is op build-tijd al uniform ≤140 tekens (card_blurb of
-       zinsgrens-truncatie van description), dus geen CSS-ellipsis meer. */
-  }
-  .streek-link {
-    margin-top: var(--space-3);
-    font-family: var(--font-ui);
-    font-size: 0.8125rem;
-    letter-spacing: 0.05em;
-    color: var(--gold);
-    opacity: 0;
-    transform: translateY(4px);
-    transition: opacity var(--duration-base) var(--ease-out), transform var(--duration-base) var(--ease-out);
-  }
-  .streek-tile:hover .streek-link {
-    opacity: 1;
-    transform: translateY(0);
   }
 
   /* ── Spotlight ───────────────────────────────────────── */
@@ -1068,17 +785,6 @@ function formatDate(value?: string | null) {
   .brief-signup input:focus { border-color: var(--burgundy); }
   .brief-signup .btn { white-space: nowrap; }
 
-  /* LAT-2008 — "Zelf gereisd"-badge op de bestemmingskaart. */
-  .streek-tile-badge {
-    position: absolute;
-    top: var(--space-3);
-    left: var(--space-3);
-    z-index: 2;
-  }
-
-  /* LAT-2008 — dagen/kelders-teller op de routekaart. */
-  .card-meter { display: inline-flex; align-items: baseline; gap: 0.25rem; }
-
   /* LAT-2008 — Bewijs & gezicht-strip (VIS-BL-09 sectie 5). */
   .proof {
     background: var(--cream, #f6f1e7);
@@ -1132,7 +838,6 @@ function formatDate(value?: string | null) {
 
   /* ── Responsive ─────────────────────────────────────── */
   @media (max-width: 1024px) {
-    .streken-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .cards-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .spotlight-inner {
       grid-template-columns: 1fr;
@@ -1142,13 +847,6 @@ function formatDate(value?: string | null) {
     .proof-portrait { max-width: 24rem; }
   }
   @media (max-width: 640px) {
-    .hero { min-height: clamp(520px, 92vh, 720px); }
-    .hero-inner { padding-top: var(--space-24); padding-bottom: var(--space-16); }
-    .hero-title { font-size: clamp(2.5rem, 12vw, 4rem); }
-    .hero-ctas { flex-direction: column; align-items: flex-start; }
-    .hero-ctas .btn { width: 100%; max-width: 22rem; }
-    .streken-grid { grid-template-columns: 1fr; gap: var(--space-4); }
-    .streek-tile { aspect-ratio: 4 / 5; }
     .cards-grid { grid-template-columns: 1fr; }
     .brief-signup { width: 100%; max-width: none; }
     .brief-signup__row { flex-direction: column; }
