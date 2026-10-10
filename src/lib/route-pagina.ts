@@ -9,7 +9,7 @@
 //   hero      { h1, tagline, badge, foto, foto_alt, knop_slapen, knop_route }
 //   intro_md  hook-intro, de enige intro
 //   glance    { kop, feiten:[{label,value}], mustdos:[{titel,regel}], mustdos_kop,
-//               wijntabel:{ kop:[..], rijen:[[..]] } }
+//               wijntabel:{ kop:[..], rijen:[[..]] }, tip:{titel,tekst} }
 //   dagen     [{ n, label, titel, hook, foto, foto_alt, prose_md,
 //                wijnhuizen:[{ slug, naam, regel, label, url }],
 //                slaap:{ naam, plaats, type, why, foto, booking_url, label } }]
@@ -69,6 +69,7 @@ export interface RoutePagina {
     glance: {
         kop: string | null;
         feiten: { label: string; value: string }[];
+        tip: { title: string; text: string } | null;
         mustdosKop: string | null;
         mustdos: { titel: string; regel: string | null }[];
         wijntabel: { kop: string[]; rijen: string[][] } | null;
@@ -181,6 +182,7 @@ export function parseRoutePagina(raw: unknown): RoutePagina | null {
         glance: g ? {
             kop: str(g.kop),
             feiten: pairs(g.feiten),
+            tip: isRec(g.tip) && str(g.tip.titel) && str(g.tip.tekst) ? { title: str(g.tip.titel)!, text: str(g.tip.tekst)! } : null,
             mustdosKop: str(g.mustdos_kop),
             mustdos: arr(g.mustdos).flatMap((m) => {
                 if (!isRec(m)) return [];

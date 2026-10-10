@@ -1,6 +1,8 @@
 ---
 // LAT-12769 — Infographic "In één glas". Volledig data-gedreven: elk onderdeel
 // rendert alleen als zijn veld gevuld is; zonder data rendert het hele kader niet.
+import AtAGlance from './AtAGlance.astro';
+import { loadOverviewCopy } from '../lib/overview-copy';
 import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
 import { loadUiStrings } from '../lib/ui-strings';
 import { druivenSegmenten, eurLabel, heeftInfographic, type WijnhuisPortret } from '../lib/wijnhuis-portret';
@@ -14,6 +16,7 @@ interface Props {
 
 const { portret: p, established, hectares, locale = DEFAULT_LOCALE } = Astro.props;
 const ui = await loadUiStrings(locale);
+const factsCopy = await loadOverviewCopy(locale);
 const show = heeftInfographic(p, { established, hectares });
 const segmenten = druivenSegmenten(p.druiven);
 const hellingY = 36 - Math.min(32, ((p.maxHellingPct ?? 0) / 100) * 56);
@@ -25,9 +28,9 @@ const sliders = [
 ].filter((s) => s.v !== null) as Array<{ key: 'zoet' | 'vol' | 'bewaar'; v: number }>;
 
 const feitjes = [
-  established ? { label: ui.t('wijnhuis.glas.sinds'), value: String(established) } : null,
-  p.generatie ? { label: ui.t('wijnhuis.glas.generatie'), value: String(p.generatie) } : null,
-  hectares ? { label: ui.t('wijnhuis.glas.hectares'), value: hectares } : null,
+  established ? { label: factsCopy.t('wijnhuis.glas.sinds'), value: String(established) } : null,
+  p.generatie ? { label: factsCopy.t('wijnhuis.glas.generatie'), value: String(p.generatie) } : null,
+  hectares ? { label: factsCopy.t('wijnhuis.glas.hectares'), value: hectares } : null,
 ].filter((f): f is { label: string; value: string } => f !== null);
 ---
 
@@ -40,16 +43,7 @@ const feitjes = [
           <h2 class="glas__title" id="glas-title">{ui.t('wijnhuis.glas.title')}</h2>
         </header>
 
-        {feitjes.length > 0 && (
-          <dl class="glas__facts">
-            {feitjes.map((f) => (
-              <div class="glas__fact">
-                <dt>{f.label}</dt>
-                <dd>{f.value}</dd>
-              </div>
-            ))}
-          </dl>
-        )}
+        <AtAGlance facts={feitjes} />
 
         {p.topwijngaarden.length > 0 && (
           <div class="glas__row">

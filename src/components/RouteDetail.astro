@@ -145,6 +145,7 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
 
           <RouteGlance
             kop={pagina.glance?.kop}
+            tip={pagina.glance?.tip}
             feiten={pagina.glance?.feiten ?? []}
             mustdosKop={pagina.glance?.mustdosKop}
             mustdos={pagina.glance?.mustdos ?? []}
@@ -247,6 +248,7 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
         </header>
 
         <RouteStatStrip
+          locale={locale}
           duration={entry.duration}
           transport={entry.transport}
           style={entry.style}
