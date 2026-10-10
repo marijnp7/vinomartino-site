@@ -27,6 +27,19 @@ export function bodyContentRefs(html: string): string[] {
 }
 
 /** Symmetric edges; the supplied nodes are the exact pages generated for this locale. */
+type Ref = {slug: string};
+export interface ArticleLinkSource {slug: string; title: string; category?: string | null; bodyHtml: string;
+  relatedStreken: Ref[]; relatedWijnhuizen: Ref[]; relatedWijnroutes: Ref[]; relatedArtikelen: Ref[]; meerOver: Ref[]}
+/** Every CMS relation of an article becomes a ref — no display cap here (LAT-11584). */
+export function articleContentNode(a: ArticleLinkSource): ContentNode {
+  return {kind: 'artikelen', slug: a.slug, name: a.title, regions: a.relatedStreken.map(r => r.slug), category: a.category ?? undefined,
+    refs: [...bodyContentRefs(a.bodyHtml),
+      ...a.relatedStreken.map(r => contentKey('streken', r.slug)),
+      ...a.relatedWijnhuizen.map(r => contentKey('wijnhuizen', r.slug)),
+      ...a.relatedWijnroutes.map(r => contentKey('wijnroutes', r.slug)),
+      ...a.relatedArtikelen.map(r => contentKey('artikelen', r.slug)),
+      ...a.meerOver.map(r => contentKey('artikelen', r.slug))]};
+}
 export function buildContentLinks(nodes: ContentNode[]): Map<string, ContentNode[]> {
   const byKey = new Map(nodes.map(n => [contentKey(n.kind, n.slug), n]));
   const edges = new Map(nodes.map(n => [contentKey(n.kind, n.slug), new Map<string, number>()]));

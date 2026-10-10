@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {buildContentLinks, bodyContentRefs, canonicalContentKey, contentKey} from '../src/lib/content-links.ts';
+import {articleContentNode, buildContentLinks, bodyContentRefs, canonicalContentKey, contentKey} from '../src/lib/content-links.ts';
+import {readFileSync} from 'node:fs';
 import {localizeHref} from '../src/lib/i18n.ts';
 const node = (kind, slug, props = {}) => ({kind, slug, name: slug, regions: [], refs: [], ...props});
 const keys = links => links.map(n => contentKey(n.kind, n.slug));
@@ -45,4 +46,27 @@ test('existing aliases resolve to their keeper without removing the NL Langhe ar
   assert.equal(canonicalContentKey('artikelen/een-week-in-piemonte-barolo-barbaresco-en-alles-daartussenin','nl'),'artikelen/een-week-in-piemonte');
   assert.equal(canonicalContentKey('artikelen/overnachten-langhe-barolo-agriturismi','en'),'artikelen/waar-slapen-langhe-piemonte');
   assert.equal(canonicalContentKey('artikelen/overnachten-langhe-barolo-agriturismi','nl'),'artikelen/overnachten-langhe-barolo-agriturismi');
+});
+
+test('a fourth CMS related article outside region and category still links both ways (LAT-11584)', () => {
+  const art = (slug, region, category, rel = [], mo = []) => ({slug, title: slug, category, bodyHtml: '',
+    relatedStreken: [{slug: region}], relatedWijnhuizen: [], relatedWijnroutes: [],
+    relatedArtikelen: rel.map(slug => ({slug})), meerOver: mo.map(slug => ({slug}))});
+  const src = art('hub', 'champagne', 'Routes', ['a1', 'a2', 'a3', 'far'], ['m1', 'm2', 'm3', 'far-mo']);
+  const others = ['a1','a2','a3','m1','m2','m3'].map(s => art(s, 'champagne', 'Routes'));
+  const far = art('far', 'swartland', 'Opinie'), farMo = art('far-mo', 'mosel', 'Wijnkennis');
+  const graph = buildContentLinks([src, ...others, far, farMo].map(articleContentNode));
+  for (const t of ['artikelen/far', 'artikelen/far-mo']) {
+    assert.ok(keys(graph.get('artikelen/hub')).includes(t), `${t} missing on hub`);
+    assert.ok(keys(graph.get(t)).includes('artikelen/hub'), `no backlink on ${t}`);
+  }
+});
+test('the article loader passes every related_articles/meer_over row through; only the UI caps at three', () => {
+  const loader = readFileSync(new URL('../src/lib/articles.ts', import.meta.url), 'utf8');
+  for (const field of ['related_articles', 'meer_over']) {
+    const line = loader.split('\n').find(l => l.includes(`mapRelatedRefs(a.${field},`));
+    assert.ok(line && !/\.slice\(/.test(line), `articles.ts truncates ${field}: ${line}`);
+  }
+  const ui = readFileSync(new URL('../src/lib/content-links-loader.ts', import.meta.url), 'utf8');
+  assert.match(ui, /articles\.map\(articleContentNode\)/);
 });
