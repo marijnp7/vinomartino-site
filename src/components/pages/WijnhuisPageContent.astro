@@ -93,6 +93,12 @@ const drieluikBeelden = drieluik.filter((b) => b && b.src);
 // LAT-2478: verplichte beeldcredit (bv. Wikimedia Commons CC BY-SA) bij de hero,
 // gesleuteld op het Directus file-UUID. Null → geen figcaption (bv. AI-eigen werk).
 const heroCredit = await getImageCredit(heroImageId, { adapted: true });
+
+// LAT-13057: met foto wordt de hero een beeld-hero; zonder foto blijft de tekst-hero
+// (geen leeg kleurvlak). De chip is het bronlabel van het *portret*, nooit een beeldclaim.
+const beeldHero = Boolean(heroImage);
+const chip = zelfGeweest ? ui.t('wijnhuis.badge.zelfGeweest') : ui.t('wijnhuis.chip.redactiegids');
+const chipStreek = region.split(' · ')[0];
 ---
 
 <!-- ── HERO ──────────────────────────────────────────── -->
@@ -115,12 +121,48 @@ const heroCredit = await getImageCredit(heroImageId, { adapted: true });
       <span class="wh-breadcrumb__current">{name}</span>
     </nav>
 
-    <div class="wh-hero__grid">
-      <div class="wh-hero__left">
+    {!beeldHero && (
+      <div class="wh-hero__intro">
         {subtitle && <div class="wh-eyebrow">{ui.t('wijnhuis.hero.eyebrow')}</div>}
         <h1 class="wh-hero__title">{name}</h1>
         {subtitle && <p class="wh-hero__subtitle">{subtitle}</p>}
         {zelfGeweest && <p class="wh-badge">{ui.t('wijnhuis.badge.zelfGeweest')}</p>}
+      </div>
+    )}
+  </div>
+
+  {/* LAT-13057 blok 1: beeld-hero zoals de IG-kaart — foto tot de rand, naam en hook
+      óp het beeld, bronlabel van het portret als chip linksboven, credit rechtsonder. */}
+  {beeldHero && (
+    <figure class="wh-hero__beeld">
+      <SmartImg
+        src={heroImage}
+        alt={name}
+        theme="winery"
+        class="wh-hero__img"
+        loading="eager"
+        fetchpriority="high"
+      />
+      <p class="wh-chip">{chip}{chipStreek && <> · {chipStreek}</>}</p>
+      <div class="wh-hero__overlay">
+        <h1 class="wh-hero__title wh-hero__title--beeld">{name}</h1>
+        {subtitle && <p class="wh-hero__subtitle wh-hero__subtitle--beeld">{subtitle}</p>}
+      </div>
+      <BeeldHerkomst fileId={heroImageId} src={heroImage} locale={locale} variant="inline" />
+      {heroCredit && (
+        <figcaption class="wh-hero__credit">
+          {heroCredit.author && <>{heroCredit.author}, </>}<a href={heroCredit.licenseUrl} rel="license noopener" target="_blank">{licenseLabelFor(heroCredit.licenseLabel, locale)}</a>{heroCredit.sourceUrl && <> — <a href={heroCredit.sourceUrl} rel="noopener" target="_blank">{heroCredit.sourceLabel ? `via ${heroCredit.sourceLabel}` : 'via bron'}</a></>}{heroCredit.adapted && <> ({adaptationNoteFor(locale)})</>}
+        </figcaption>
+      )}
+      {!heroCredit && !zelfGeweest && (
+        <figcaption class="wh-hero__credit">{ui.t('wijnhuis.reeks.foto')}: {name}</figcaption>
+      )}
+    </figure>
+  )}
+
+  <div class="container">
+    <div class="wh-hero__grid">
+      <div class="wh-hero__left">
         {(bezoekAnchor || routeHref) && (
           <div class="wh-hero__cta">
             {bezoekAnchor && <a class="btn btn--primary" href={bezoekAnchor}>{ui.t('wijnhuis.cta.plan')}</a>}
@@ -165,26 +207,16 @@ const heroCredit = await getImageCredit(heroImageId, { adapted: true });
       </div>
     </div>
   </div>
-
-  {heroImage && (
-    <figure class="wh-hero__img-wrap">
-      <SmartImg
-        src={heroImage}
-        alt={name}
-        theme="winery"
-        class="wh-hero__img"
-        loading="eager"
-        fetchpriority="high"
-      />
-      <BeeldHerkomst fileId={heroImageId} src={heroImage} locale={locale} variant="inline" />
-      {heroCredit && (
-        <figcaption class="wh-hero__credit">
-          {heroCredit.author && <>{heroCredit.author}, </>}<a href={heroCredit.licenseUrl} rel="license noopener" target="_blank">{licenseLabelFor(heroCredit.licenseLabel, locale)}</a>{heroCredit.sourceUrl && <> — <a href={heroCredit.sourceUrl} rel="noopener" target="_blank">{heroCredit.sourceLabel ? `via ${heroCredit.sourceLabel}` : 'via bron'}</a></>}{heroCredit.adapted && <> ({adaptationNoteFor(locale)})</>}
-        </figcaption>
-      )}
-    </figure>
-  )}
 </section>
+
+{/* LAT-13057 blok 7: kleine sticky actie op mobiel. Verschijnt pas als de hero uit beeld
+    is, wijkt zodra het kort- of Bezoek-blok in beeld komt; padding houdt de pagina-
+    staart vrij zodat de balk nooit tekst bedekt. Desktop: nooit. */}
+{bezoekAnchor && (
+  <div class="wh-sticky" data-wh-sticky hidden>
+    <a class="btn btn--primary wh-sticky__btn" href={bezoekAnchor}>{ui.t('wijnhuis.cta.plan')}</a>
+  </div>
+)}
 
 <slot name="after-hero" />
 
@@ -330,6 +362,23 @@ const heroCredit = await getImageCredit(heroImageId, { adapted: true });
 )}
 
 <AffiliateDisclosure locale={locale} />
+
+<script>
+  // LAT-13057 blok 7 — sticky actie: zichtbaar na de hero, weg bij kort/Bezoek-blok.
+  const bar = document.querySelector<HTMLElement>('[data-wh-sticky]');
+  const hero = document.querySelector('.wh-hero');
+  if (bar && hero && 'IntersectionObserver' in window) {
+    const doelen = [hero, ...document.querySelectorAll('#bezoek, .wp--kort')];
+    const zichtbaar = new Set<Element>();
+    const io = new IntersectionObserver((entries) => {
+      for (const e of entries) e.isIntersecting ? zichtbaar.add(e.target) : zichtbaar.delete(e.target);
+      const toon = zichtbaar.size === 0 && hero.getBoundingClientRect().bottom < 0;
+      bar.hidden = !toon;
+      document.documentElement.classList.toggle('wh-sticky-aan', toon);
+    });
+    doelen.forEach((d) => io.observe(d));
+  }
+</script>
 
 <style>
   .wh-badge {
@@ -821,5 +870,78 @@ const heroCredit = await getImageCredit(heroImageId, { adapted: true });
     .wh-visit__row { grid-template-columns: 1fr; gap: 0.25rem; }
     .wh-drieluik__grid,
     .wh-drieluik__grid--2 { grid-template-columns: 1fr; }
+  }
+  /* ── Beeld-hero (LAT-13057 blok 1) ── */
+  .wh-hero:has(.wh-hero__beeld) { padding-top: 1.5rem; }
+  .wh-hero__intro { padding-bottom: 1.5rem; }
+  .wh-hero__beeld {
+    position: relative;
+    aspect-ratio: 21 / 9;
+    max-height: 78vh;
+    width: 100%;
+    margin: 0 0 1.5rem;
+    overflow: hidden;
+    background: var(--ink);
+  }
+  .wh-hero__beeld::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(20, 12, 10, 0.78) 0%, rgba(20, 12, 10, 0.35) 38%, rgba(20, 12, 10, 0) 62%);
+    pointer-events: none;
+  }
+  .wh-hero__beeld .wh-hero__img { position: absolute; inset: 0; }
+  .wh-chip {
+    position: absolute;
+    z-index: 1;
+    top: 1rem;
+    left: 1rem;
+    margin: 0;
+    padding: 0.375rem 0.625rem;
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--fixed-cream);
+    background: rgba(20, 12, 10, 0.55);
+  }
+  .wh-hero__overlay {
+    position: absolute;
+    z-index: 1;
+    left: 0;
+    bottom: 0;
+    max-width: 60%;
+    padding: 0 var(--gutter) 2.75rem;
+  }
+  .wh-hero__title--beeld { color: var(--fixed-cream); font-weight: 400; }
+  .wh-hero__subtitle--beeld { color: var(--fixed-cream); opacity: 0.92; margin-top: 0.75rem; }
+  .wh-hero__beeld .wh-hero__credit { z-index: 1; background: transparent; opacity: 0.85; }
+  .wh-hero:has(.wh-hero__beeld) .wh-hero__grid { align-items: start; }
+  .wh-hero:has(.wh-hero__beeld) .wh-hero__cta { margin-top: 0; }
+
+  /* ── Sticky actie mobiel (LAT-13057 blok 7) ── */
+  .wh-sticky {
+    position: fixed;
+    z-index: 40;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 0.625rem var(--gutter) calc(0.625rem + env(safe-area-inset-bottom));
+    background: var(--paper);
+    border-top: 1px solid var(--rule);
+    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.08);
+  }
+  .wh-sticky[hidden] { display: none; }
+  .wh-sticky__btn { display: block; text-align: center; }
+  :global(html.wh-sticky-aan body) { padding-bottom: calc(3.75rem + env(safe-area-inset-bottom)); }
+  @media (min-width: 901px) {
+    .wh-sticky { display: none !important; }
+    :global(html.wh-sticky-aan body) { padding-bottom: 0; }
+  }
+
+  @media (max-width: 640px) {
+    .wh-hero__beeld { aspect-ratio: 4 / 5; max-height: none; }
+    .wh-hero__overlay { max-width: 100%; padding-bottom: 2.5rem; }
+    .wh-hero__subtitle--beeld { font-size: 1.0625rem; }
   }
 </style>
