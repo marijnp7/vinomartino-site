@@ -8,6 +8,7 @@ import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
 // terug op de proza/regex-fallback (route-days.ts). Zo blijft élke bestaande route
 // werken zonder itinerary-data (graceful degrade, nul regressie).
 
+import type { RouteSegment } from '../lib/route-days';
 import PoiCard, { type PoiCardData } from './PoiCard.astro';
 import { deriveStopsGeoFromItinerary, localizeDuur, type RouteItinerary, type ItineraryStop } from '../lib/route-itinerary';
 import type { RouteStopKind } from '../lib/routes';
@@ -19,6 +20,7 @@ interface Props {
   /** LAT-2704 — locale doorgeven zodat interne links in PoiCard locale-aware zijn. */
   locale?: Locale;
   itinerary: RouteItinerary;
+  bodyDays?: RouteSegment[];
   /** Streek-slug voor het boekbare accommodatie-doel (/accommodaties/{streek}/). */
   streekSlug?: string;
   /** True als er een boekbare accommodatie-roundup voor de streek bestaat. */
@@ -27,7 +29,7 @@ interface Props {
   context?: string;
 }
 
-const { itinerary, streekSlug = '', boekbaar = false, context = '', locale = DEFAULT_LOCALE } = Astro.props;
+const { itinerary, bodyDays = [], streekSlug = '', boekbaar = false, context = '', locale = DEFAULT_LOCALE } = Astro.props;
 const ui = await loadUiStrings(locale);
 // Alleen linken naar wijnhuisportretten die als pagina bestaan (gepubliceerd in deze
 // locale); een slug naar een concept-wijnhuis gaf een 404.
@@ -90,13 +92,16 @@ function nextPin(geoKind: RouteStopKind, lat: number | null, lng: number | null)
 
 // Vooraf berekenen in dezelfde volgorde als deriveStopsGeoFromItinerary
 // (dag-volgorde → stops → overnachting) zodat de teller de kaart matcht.
+const dayNumbers = new Set(itinerary.days.map(d => d.n));
+const extraBodyDays = bodyDays.filter(s => s.day && !dayNumbers.has(s.day.n));
 const dayBlocks = itinerary.days.map((d) => ({
+  prose: bodyDays.find(s => s.day?.n === d.n),
   day: d,
   stops: d.stops.map((stop) => ({ stop, pin: nextPin(STOP_GEO_KIND[stop.kind], stop.lat, stop.lng) })),
   overnachtingPin: d.overnachting ? nextPin('slaap', d.overnachting.lat, d.overnachting.lng) : null,
 }));
 
-function stopToPoi(stop: ItineraryStop, pin: CardPin): PoiCardData {
+function stopToPoi(stop: ItineraryStop, pin: CardPin, hasProse = false): PoiCardData {
   const detailUrl = stop.kind === 'wijnhuis' && stop.slug && wijnhuisSlugs.has(stop.slug) ? `/wijnhuizen/${stop.slug}/` : null;
   // Geen eigen portret → officiële website (geverifieerd in de data), anders de plek op de kaart.
   const externeUrl = detailUrl ? null : (stop.website ?? mapsHref(stop.naam));
@@ -109,7 +114,7 @@ function stopToPoi(stop: ItineraryStop, pin: CardPin): PoiCardData {
     hideMediaWhenEmpty: true,
     fotoTheme: stop.kind === 'wijnhuis' ? 'winery' : 'region',
     badge: KIND_LABEL[stop.kind],
-    whyRegel: stop.why,
+    whyRegel: hasProse ? null : stop.why,
     // LAT-4911 — stonden als kale NL-literals op de 11 /en/wijnroutes/-pagina's.
     beschrijving: localizeDuur(stop.duur, locale) ? ui.t('route.stop.duur').replace('{duur}', localizeDuur(stop.duur, locale) as string) : null,
     detailUrl,
@@ -127,33 +132,40 @@ function stopToPoi(stop: ItineraryStop, pin: CardPin): PoiCardData {
   <nav class="route-daystrip" aria-label={ui.t('route.daysAria')}>
     {itinerary.days.map((d) => (
       <a class="route-daychip" href={`#${dagAnchor(d.n)}`}>
-        <span class="route-daychip__label">Dag {d.n}</span>
+        <span class="route-daychip__label">{locale === 'en' ? 'Day' : 'Dag'} {d.n}</span>
         {d.title && <span class="route-daychip__title">{d.title}</span>}
+      </a>
+    ))}
+    {extraBodyDays.map(sec => (
+      <a class="route-daychip" href={`#${sec.day!.anchor}`}>
+        <span class="route-daychip__label">{sec.day!.label}</span>
+        <span class="route-daychip__title">{sec.day!.title}</span>
       </a>
     ))}
   </nav>
 
   {totaalRijtijd > 0 && (
-    <p class="route-itinerary__total">Totale rijtijd op de route: circa {fmtRijtijd(totaalRijtijd)}.</p>
+    <p class="route-itinerary__total">{ui.t('route.totalDrivingTime').replace('{time}', fmtRijtijd(totaalRijtijd))}</p>
   )}
 
   <div class="route-days">
-    {dayBlocks.map(({ day: d, stops, overnachtingPin }) => (
+    {dayBlocks.map(({ day: d, prose, stops, overnachtingPin }) => (
       <section class="route-day" id={dagAnchor(d.n)}>
+        {prose?.day && prose.day.anchor !== dagAnchor(d.n) && <span id={prose.day.anchor} aria-hidden="true"></span>}
         <header class="route-day__head">
-          <span class="route-day__label">Dag {d.n}</span>
-          <h2 class="route-day__etappe">{d.title}</h2>
+          <span class="route-day__label">{locale === 'en' ? 'Day' : 'Dag'} {d.n}</span>
+          <h2 class="route-day__etappe">{prose?.day?.title || d.title}</h2>
           {(d.rijtijdMin != null && d.rijtijdMin > 0) && (
-            <span class="route-day__rijtijd">Rijtijd: {fmtRijtijd(d.rijtijdMin)}</span>
+            <span class="route-day__rijtijd">{ui.t('route.drivingTime')}: {fmtRijtijd(d.rijtijdMin)}</span>
           )}
         </header>
 
-        {d.summary && <p class="route-day__summary">{d.summary}</p>}
+        {prose ? <div class="page-prose route-day__body" set:html={prose.html} /> : d.summary && <p class="route-day__summary">{d.summary}</p>}
 
         {stops.length > 0 && (
           <div class="route-day__pois">
             {stops.map(({ stop, pin }) => (
-              <PoiCard poi={stopToPoi(stop, pin)} locale={locale} />
+              <PoiCard poi={stopToPoi(stop, pin, Boolean(prose))} locale={locale} />
             ))}
           </div>
         )}
@@ -192,6 +204,16 @@ function stopToPoi(stop: ItineraryStop, pin: CardPin): PoiCardData {
       </section>
     ))}
   </div>
+
+  {extraBodyDays.map(sec => (
+    <section class="route-day" id={sec.day!.anchor}>
+      <header class="route-day__head">
+        <span class="route-day__label">{sec.day!.label}</span>
+        <h2 class="route-day__etappe">{sec.day!.title}</h2>
+      </header>
+      <div class="page-prose route-day__body" set:html={sec.html} />
+    </section>
+  ))}
 
   {bookHref && (
     <a class="route-book-sticky" href={bookHref}>Boek je overnachting</a>

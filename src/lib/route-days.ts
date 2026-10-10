@@ -75,14 +75,14 @@ export function splitRouteBody(bodyHtml: string): RouteBodySplit {
       const headInner = headMatch[2];
       const text = decodeEntities(stripTags(headInner));
       // "Dag 1", "Dag 2:", "Dag 3 —", "Dag 4: vertrekdag" enz.
-      const dayMatch = text.match(/^dag\s*(\d+)\b\s*[:.–—-]?\s*(.*)$/i);
+      const dayMatch = text.match(/^(dag|day)\s*(\d+)\b\s*[:.–—-]?\s*(.*)$/i);
       if (dayMatch) {
         const idMatch = attrs.match(/\bid="([^"]+)"/i);
-        const n = Number(dayMatch[1]);
+        const n = Number(dayMatch[2]);
         const anchor = idMatch ? idMatch[1] : `dag-${n}`;
         const day: RouteDay = {
-          label: `Dag ${n}`,
-          title: stripEdgeSeparators(dayMatch[2]),
+          label: `${dayMatch[1].toLowerCase() === 'day' ? 'Day' : 'Dag'} ${n}`,
+          title: stripEdgeSeparators(dayMatch[3]),
           anchor,
           n,
         };

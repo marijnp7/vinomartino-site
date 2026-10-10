@@ -35,11 +35,9 @@ test('ontdek-promo in de header is geen <h2> meer', () => {
   assert.match(s, /<p class="ontdek-promo-title">/);
 });
 
-test('Moezel draagt het reisverhaal in de body; andere routes houden het blok', async () => {
-  const { verhaalInRouteBody } = await import('../src/lib/reis-verhaal.ts');
-  assert.equal(verhaalInRouteBody('mosel-bernkastel-traben-trarbach'), true);
-  assert.equal(verhaalInRouteBody('langhe-piemonte'), false);
-  assert.match(ROUTE, /!verhaalInRouteBody\(entry\.slug\) && <ReisVerhaal/);
+test('all routes have one narrative, including Mosel', () => {
+  assert.doesNotMatch(ROUTE, /<ReisVerhaal/);
+  assert.match(ROUTE, /bodyDays=\{bodyDays\}/);
 });
 
 test('disclosure: één per sectie, onder de laatste boekknop', async () => {

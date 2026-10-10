@@ -26,7 +26,6 @@ import { routeDagen, dagenBucket, routeLand, orderRoutes } from '../lib/reizen-h
 import { organizationSchema, breadcrumbSchema } from '../lib/seo';
 import { loadUiStrings } from '../lib/ui-strings';
 import { DEFAULT_LOCALE, localizePath, type Locale } from '../lib/i18n';
-import { VERHAAL_ANCHOR, verhaalInRouteBody } from '../lib/reis-verhaal';
 import { foldText } from '../lib/wijnhuis-filter';
 import { kaartTitel, kaartLijn } from '../lib/wijnroutes-keuze';
 
@@ -43,13 +42,13 @@ const streken = await loadStreken(locale);
 
 // Koppeling verhaal <-> route via de gedeelde streek (geen nieuw Directus-veld nodig).
 function routeFor(entry: ReisPakket) {
-  return entry.streekSlug ? routes.find((r) => r.streekSlug === entry.streekSlug) : undefined;
+  return entry.routeSlug ? routes.find(r => r.slug === entry.routeSlug) : entry.streekSlug ? routes.find((r) => r.streekSlug === entry.streekSlug) : undefined;
 }
 // Een verhaal zonder route in dezelfde streek heeft geen landingsplek meer en valt af.
 const entries = (await loadReispakketten(locale)).filter((e) => routeFor(e));
 const verhaalHref = (entry: ReisPakket) => {
-  const slug = routeFor(entry)!.slug;
-  return localizePath(`/wijnroutes/${slug}/${verhaalInRouteBody(slug) ? '' : `#${VERHAAL_ANCHOR}`}`, locale);
+  const route = routeFor(entry)!;
+  return localizePath(route.verhaalArtikelSlug ? `/artikelen/${route.verhaalArtikelSlug}/` : `/wijnroutes/${route.slug}/`, locale);
 };
 const routeHref = (entry: ReisPakket) => localizePath(`/wijnroutes/${routeFor(entry)!.slug}/`, locale);
 
@@ -271,11 +270,11 @@ const schema = [
             </a>
             <div class="rz-feat__txt">
               <span class="rz-kick">{ui.t('reizen.index.nareizen.newest')}{featured.streekName ? ` · ${featured.streekName}` : ''}</span>
-              <h3>{featured.titel}</h3>
-              {(featured.tagline || featured.metaDescription) && <p>{featured.tagline || featured.metaDescription}</p>}
+              <h3>{routeFor(featured)?.verhaalArtikelSlug ? featured.titel : routeFor(featured)!.title}</h3>
+              {(featured.tagline || featured.metaDescription) && <p>{routeFor(featured)?.verhaalArtikelSlug ? featured.tagline || featured.metaDescription : routeFor(featured)!.description}</p>}
               <div class="rz-two">
-                <a class="rz-btn" href={verhaalHref(featured)}>{ui.t('reizen.index.readStory')}</a>
-                <a class="rz-lnk" href={routeHref(featured)}>{ui.t('reizen.index.driveRoute')}</a>
+                <a class="rz-btn" href={verhaalHref(featured)}>{ui.t(routeFor(featured)?.verhaalArtikelSlug ? 'reizen.index.readStory' : 'reizen.index.driveRoute')}</a>
+                {routeFor(featured)?.verhaalArtikelSlug && <a class="rz-lnk" href={routeHref(featured)}>{ui.t('reizen.index.driveRoute')}</a>}
               </div>
             </div>
           </div>
@@ -292,11 +291,11 @@ const schema = [
                 </a>
                 <div class="rz-nb">
                   <span class="rz-kick">{ui.t('reizen.index.nareizen.kickerCard')}{entry.streekName ? ` · ${entry.streekName}` : ''}</span>
-                  <h4><a href={verhaalHref(entry)}>{entry.titel}</a></h4>
-                  {(entry.tagline || entry.metaDescription) && <p>{entry.tagline || entry.metaDescription}</p>}
+                  <h4><a href={verhaalHref(entry)}>{routeFor(entry)?.verhaalArtikelSlug ? entry.titel : routeFor(entry)!.title}</a></h4>
+                  {(entry.tagline || entry.metaDescription) && <p>{routeFor(entry)?.verhaalArtikelSlug ? entry.tagline || entry.metaDescription : routeFor(entry)!.description}</p>}
                   <div class="rz-links">
-                    <a class="rz-lnk" href={verhaalHref(entry)}>{ui.t('reizen.index.readStory')}</a>
-                    <a class="rz-lnk rz-lnk--soft" href={routeHref(entry)}>{ui.t('reizen.index.driveRoute')}</a>
+                    <a class="rz-lnk" href={verhaalHref(entry)}>{ui.t(routeFor(entry)?.verhaalArtikelSlug ? 'reizen.index.readStory' : 'reizen.index.driveRoute')}</a>
+                    {routeFor(entry)?.verhaalArtikelSlug && <a class="rz-lnk rz-lnk--soft" href={routeHref(entry)}>{ui.t('reizen.index.driveRoute')}</a>}
                   </div>
                 </div>
               </article>

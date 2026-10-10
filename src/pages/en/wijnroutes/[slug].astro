@@ -8,8 +8,6 @@
 // links blijven NL-absoluut tot de aparte link-localisatie-pas (scope #3).
 import RouteDetail from '../../../components/RouteDetail.astro';
 import { loadRoutes, type WijnRoute } from '../../../lib/routes';
-import { verhalenVoorRoute } from '../../../lib/reis-verhaal';
-import { loadReispakketten, type ReisPakket } from '../../../lib/reispakketten';
 import { loadStreken } from '../../../lib/streken';
 import { loadWijnhuizen, type Wijnhuis } from '../../../lib/wijnhuizen';
 import { loadAccommodatieRoundupsByStreek } from '../../../lib/accommodaties-loader';
@@ -19,7 +17,6 @@ const EN = 'en' as const;
 
 export async function getStaticPaths() {
   const [entries, streken, wijnhuizen, accRoundupsByStreek] = await Promise.all([loadRoutes('en'), loadStreken('en'), loadWijnhuizen('en'), loadAccommodatieRoundupsByStreek('en')]);
-  const pakketten = await loadReispakketten('en');
   const streekBySlug = new Map(streken.map(s => [s.slug, s]));
   const wijnhuisBySlug = new Map(wijnhuizen.map(wh => [wh.slug, wh]));
   return entries.map(entry => {
@@ -27,7 +24,7 @@ export async function getStaticPaths() {
     const routeWijnhuisSlugs = entry.stopsGeo
       .filter(s => s.kind === 'wijnhuis' && s.slug)
       .map(s => s.slug as string);
-    const routeWijnhuizen = routeWijnhuisSlugs
+    const routeWijnhuizen = [...new Set(routeWijnhuisSlugs)]
       .map(slug => wijnhuisBySlug.get(slug))
       .filter((wh): wh is Wijnhuis => Boolean(wh));
     const rawRoundup = entry.streekSlug ? accRoundupsByStreek.get(entry.streekSlug) : undefined;
@@ -43,7 +40,6 @@ export async function getStaticPaths() {
         landName: streek?.country ?? '',
         wijnhuizen: routeWijnhuizen,
         staysRoundup,
-        verhalen: verhalenVoorRoute(pakketten, entry),
         // Deze route bestaat per definitie alleen voor EN-vertaalde routes.
         alternates: { nl: `/wijnroutes/${entry.slug}/`, en: `/en/wijnroutes/${entry.slug}/` },
       },
@@ -51,11 +47,10 @@ export async function getStaticPaths() {
   });
 }
 
-const { entry, streekName, landSlug, landName, wijnhuizen, staysRoundup, verhalen, alternates } = Astro.props as {
-  verhalen: ReisPakket[];
+const { entry, streekName, landSlug, landName, wijnhuizen, staysRoundup, alternates } = Astro.props as {
   entry: WijnRoute; streekName: string; landSlug: string; landName: string; wijnhuizen: Wijnhuis[];
   staysRoundup: AccommodatieRoundupData | null; alternates: Record<string, string>;
 };
 ---
 
-<RouteDetail entry={entry} streekName={streekName} landSlug={landSlug} landName={landName} wijnhuizen={wijnhuizen} staysRoundup={staysRoundup} verhalen={verhalen} locale={EN} alternates={alternates} />
+<RouteDetail entry={entry} streekName={streekName} landSlug={landSlug} landName={landName} wijnhuizen={wijnhuizen} staysRoundup={staysRoundup} locale={EN} alternates={alternates} />
