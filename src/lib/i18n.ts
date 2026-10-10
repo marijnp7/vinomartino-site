@@ -140,6 +140,10 @@ export function localizeHref(href: string, locale: Locale): string {
   if (href.startsWith('//')) return href; // protocol-relatief extern
   const [pathname] = href.split(/(?=[?#])/, 1);
   if (/\.[a-z0-9]{2,5}$/i.test(pathname)) return href; // asset (.svg, .png, .json, .xml, ...)
+  // The retired EN article has a live English keeper. Avoid a language switch.
+  if (pathname.replace(/\/$/, '') === '/artikelen/overnachten-langhe-barolo-agriturismi') {
+    return `/en/artikelen/waar-slapen-langhe-piemonte/${href.slice(pathname.length)}`;
+  }
   if (isEnMissingPath(pathname)) return href;
   const suffix = href.slice(pathname.length);
   return `${localizePath(pathname, locale)}${suffix}`;

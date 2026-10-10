@@ -577,10 +577,20 @@ async function loadFromDirectus(url: string, token: string, locale: Locale): Pro
     return items;
 }
 
-export async function loadRoutes(locale: Locale = DEFAULT_LOCALE): Promise<WijnRoute[]> {
+async function fetchRoutes(locale: Locale = DEFAULT_LOCALE): Promise<WijnRoute[]> {
     const env = readDirectusEnv();
     assertDirectusConfigured('loadRoutes', env);
     const items = await loadFromDirectus(env.url, env.token, locale);
     await writeAssetDebug('directus');
     return items;
+}
+
+const contentCache = new Map<Locale, Promise<WijnRoute[]>>();
+export function loadRoutes(locale: Locale = DEFAULT_LOCALE): Promise<WijnRoute[]> {
+    const cached = contentCache.get(locale);
+    if (cached) return cached;
+    const pending = fetchRoutes(locale);
+    contentCache.set(locale, pending);
+    pending.catch(() => contentCache.delete(locale));
+    return pending;
 }

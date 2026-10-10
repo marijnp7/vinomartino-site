@@ -26,6 +26,18 @@ import { UI_COPY } from './ui-copy';
  * (content-writer vult per key de EN-`value` in `ui_strings_translations`).
  */
 export const UI_STRING_DEFAULTS: Record<string, string> = {
+    "crosslinks.title": "Ontdek verder",
+    "crosslinks.artikelen": "Artikelen",
+    "crosslinks.streken": "Streken",
+    "crosslinks.wijnroutes": "Wijnroutes",
+    "crosslinks.wijnhuizen": "Wijnhuizen",
+    "crosslinks.more": "Toon meer",
+    "crosslinks.browse": "Verder kijken",
+    "crosslinks.all.artikelen": "Alle artikelen",
+    "crosslinks.all.streken": "Alle streken",
+    "crosslinks.all.wijnroutes": "Alle wijnroutes",
+    "crosslinks.all.wijnhuizen": "Alle wijnhuizen",
+
     'ui.badge.zelfGereisd': UI_COPY.zelfGereisdBadge,
     'ui.badge.zelfGereisd.title': UI_COPY.zelfGereisdBadgeTitle,
     'ui.badge.redactiegids': UI_COPY.redactiegidsBadge,
@@ -1033,6 +1045,18 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
  * nog geen EN-values heeft.  Volgorde in t(): Directus → UI_STRING_EN → UI_STRING_DEFAULTS.
  */
 export const UI_STRING_EN: Record<string, string> = {
+    "crosslinks.title": "Explore more",
+    "crosslinks.artikelen": "Articles",
+    "crosslinks.streken": "Wine regions",
+    "crosslinks.wijnroutes": "Wine routes",
+    "crosslinks.wijnhuizen": "Wineries",
+    "crosslinks.more": "Show more",
+    "crosslinks.browse": "Keep exploring",
+    "crosslinks.all.artikelen": "All articles",
+    "crosslinks.all.streken": "All wine regions",
+    "crosslinks.all.wijnroutes": "All wine routes",
+    "crosslinks.all.wijnhuizen": "All wineries",
+
   // Besluit 2026-10-05: /en/wijnroutes/ is de ene hub (zie WijnroutesHub.astro).
   'wijnroutes.hub.meta.title': 'Wine routes to drive yourself, with places to stay and wineries | VinoMartino',
   'wijnroutes.hub.meta.description':

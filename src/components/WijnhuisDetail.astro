@@ -8,7 +8,7 @@
 import SiteLayout from '../layouts/SiteLayout.astro';
 import WijnhuisPageContent from './pages/WijnhuisPageContent.astro';
 import WijnhuisStayNear from './WijnhuisStayNear.astro';
-import RelatedArticles from './RelatedArticles.astro';
+import ContentLinks from './ContentLinks.astro';
 import CtaStructure from './CtaStructure.astro';
 import WijnhuisInfographic from './WijnhuisInfographic.astro';
 import WijnhuisPortretBlokken from './WijnhuisPortretBlokken.astro';
@@ -129,5 +129,5 @@ const schema = [
   <WijnhuisPortretBlokken blok="combineer" portret={entry.portret} name={entry.name} routeHref={routeHref ? lh(routeHref) : undefined} routeLabel={routeLabel || undefined} region={entry.region} streekSlug={entry.streekSlug} locale={locale} />
   <WijnhuisPortretBlokken blok="faq" portret={entry.portret} name={entry.name} locale={locale} />
   <CtaStructure data={entry.cta} sid={entry.slug} locale={locale} wineRetailAllowed={wineRetailAllowed} />
-  <RelatedArticles items={entry.relatedArticles} locale={locale} />
+  <ContentLinks kind="wijnhuizen" slug={entry.slug} locale={locale} />
 </SiteLayout>

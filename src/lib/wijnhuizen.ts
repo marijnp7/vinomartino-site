@@ -412,7 +412,7 @@ async function loadFromDirectus(url: string, token: string, locale: Locale): Pro
     return items;
 }
 
-export async function loadWijnhuizen(locale: Locale = DEFAULT_LOCALE): Promise<Wijnhuis[]> {
+async function fetchWijnhuizen(locale: Locale = DEFAULT_LOCALE): Promise<Wijnhuis[]> {
     const env = readDirectusEnv();
     assertDirectusConfigured('loadWijnhuizen', env);
     const items = await loadFromDirectus(env.url, env.token, locale);
@@ -469,4 +469,14 @@ export function matchWijnhuisByName(pinNaam: string, list: Wijnhuis[]): Wijnhuis
         const wk = coreWijnhuisKey(w.name);
         return wk.length >= 3 && (wk.includes(pk) || pk.includes(wk));
     }) ?? null;
+}
+
+const contentCache = new Map<Locale, Promise<Wijnhuis[]>>();
+export function loadWijnhuizen(locale: Locale = DEFAULT_LOCALE): Promise<Wijnhuis[]> {
+    const cached = contentCache.get(locale);
+    if (cached) return cached;
+    const pending = fetchWijnhuizen(locale);
+    contentCache.set(locale, pending);
+    pending.catch(() => contentCache.delete(locale));
+    return pending;
 }

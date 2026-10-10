@@ -12,7 +12,7 @@ import '../styles/article-tables.css';
 import '../styles/article-visual-blocks.css';
 import SiteLayout from '../layouts/SiteLayout.astro';
 import AffiliatePlaceholder from './AffiliatePlaceholder.astro';
-import RelatedEntities from './RelatedEntities.astro';
+import ContentLinks from './ContentLinks.astro';
 import HubBacklink from './HubBacklink.astro';
 import ArtikelGerelateerdeStukken from './ArtikelGerelateerdeStukken.astro';
 import ArtikelMeerOver from './ArtikelMeerOver.astro';
@@ -375,13 +375,7 @@ if (article.faqSchema) {
 
     <ArtikelMeerOver items={article.meerOver} topic={article.tags?.[0] ?? undefined} locale={locale} />
 
-    <RelatedEntities
-      locale={locale}
-      streken={article.relatedStreken}
-      wijnhuizen={article.relatedWijnhuizen}
-      wijnroutes={article.relatedWijnroutes}
-      landen={article.relatedLanden}
-    />
+    <ContentLinks kind="artikelen" slug={article.slug} locale={locale} />
 
     <HubBacklink type="artikel" slug={article.slug} locale={locale} />
 

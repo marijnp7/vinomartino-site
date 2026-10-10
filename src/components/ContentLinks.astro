@@ -1,0 +1,46 @@
+---
+import { loadContentLinks } from '../lib/content-links-loader';
+import { contentKey, type ContentKind } from '../lib/content-links';
+import { localizeHref, type Locale } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
+interface Props { kind: ContentKind; slug: string; locale: Locale; }
+const {kind, slug, locale} = Astro.props;
+const [network, ui] = await Promise.all([loadContentLinks(locale), loadUiStrings(locale)]);
+const links = network.get(contentKey(kind, slug)) ?? [];
+const kinds: ContentKind[] = ['streken', 'artikelen', 'wijnroutes', 'wijnhuizen'];
+const groups = kinds.map(type => ({type, items: links.filter(n => n.kind === type)}));
+const href = (type: ContentKind, slug?: string) => localizeHref(`/${type}/${slug ? `${slug}/` : ''}`, locale);
+---
+<section class="content-links" aria-labelledby={`content-links-${kind}-${slug}`}>
+  <div class="container">
+    <h2 id={`content-links-${kind}-${slug}`}>{ui.t('crosslinks.title')}</h2>
+    <div class="content-links__grid">
+      {groups.filter(g => g.items.length).map(group => (
+        <div class="content-links__group">
+          <h3>{ui.t(`crosslinks.${group.type}`)}</h3>
+          <ul>{group.items.slice(0, 4).map(item => <li><a href={href(item.kind, item.slug)}>{item.name}</a></li>)}</ul>
+          {group.items.length > 4 && <details>
+            <summary>{ui.t('crosslinks.more')} <span>({group.items.length - 4})</span></summary>
+            <ul>{group.items.slice(4).map(item => <li><a href={href(item.kind, item.slug)}>{item.name}</a></li>)}</ul>
+          </details>}
+        </div>
+      ))}
+    </div>
+    <nav class="content-links__browse" aria-label={ui.t('crosslinks.browse')}>
+      {kinds.map(type => <a href={href(type)}>{ui.t(`crosslinks.all.${type}`)}</a>)}
+    </nav>
+  </div>
+</section>
+<style>
+  .content-links { padding: 2.5rem 0; border-top: 1px solid var(--rule); }
+  h2 { font-family: var(--font-display); font-size: clamp(1.7rem,3vw,2.2rem); margin: 0 0 1.5rem; }
+  .content-links__grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,240px),1fr)); gap: 1.75rem; }
+  h3 { font-family: var(--font-display); font-size: 1.3rem; margin: 0 0 .75rem; }
+  ul { padding: 0; margin: 0; list-style: none; }
+  li { margin: 0 0 .65rem; }
+  a { color: var(--burgundy); text-underline-offset: .18em; overflow-wrap: anywhere; }
+  a:hover { color: var(--ink); }
+  summary { cursor: pointer; color: var(--burgundy); padding: .5rem 0; }
+  details ul { padding-top: .5rem; }
+  .content-links__browse { display: flex; flex-wrap: wrap; gap: .75rem 1.5rem; border-top: 1px solid var(--rule); padding-top: 1.25rem; margin-top: 1.5rem; font-size: .9rem; }
+</style>
