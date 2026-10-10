@@ -1,0 +1,145 @@
+---
+// LAT-13099: overzicht "Op de proeftafel" (NL /op-de-proeftafel/, EN /en/op-de-proeftafel/).
+// Alle copy uit ui-strings, alle wijndata uit Directus `wijn_reviews`. Lege collectie
+// = geen kaarten en geen filters (pagina bouwt wel, met noindex).
+import SiteLayout from '../../layouts/SiteLayout.astro';
+import { loadWijnReviews, prijsband, PRIJSBANDEN, KLEUREN, VERDICTS } from '../../lib/wijn-reviews';
+import { loadUiStrings } from '../../lib/ui-strings';
+import { DEFAULT_LOCALE, localizePath, type Locale } from '../../lib/i18n';
+import { organizationSchema } from '../../lib/seo';
+
+interface Props {
+  locale?: Locale;
+  alternates?: Partial<Record<Locale, string>>;
+}
+const { locale = DEFAULT_LOCALE, alternates } = Astro.props;
+const ui = await loadUiStrings(locale);
+const reviews = await loadWijnReviews(locale);
+
+const label = (prefix: string, value: string) => {
+  const k = `${prefix}.${value}`;
+  const v = ui.t(k);
+  return v === k ? value.replace(/-/g, ' ') : v;
+};
+const euro = (n: number | null) =>
+  n === null ? '' : new Intl.NumberFormat(locale === 'en' ? 'en-GB' : 'nl-NL', { style: 'currency', currency: 'EUR' }).format(n);
+
+const kleuren = KLEUREN.filter((k) => reviews.some((r) => r.kleur === k));
+const verdicts = VERDICTS.filter((v) => reviews.some((r) => r.verdict === v));
+const banden = PRIJSBANDEN.filter((b) => reviews.some((r) => prijsband(r.prijsEur) === b));
+const streken = [...new Map(reviews.filter((r) => r.streekSlug).map((r) => [r.streekSlug, r.streekName])).entries()]
+  .sort((a, b) => a[1].localeCompare(b[1], 'nl'));
+const categorieen = [...new Set(reviews.map((r) => r.categorie).filter(Boolean))];
+
+const filters = [
+  { key: 'kleur', label: ui.t('proeftafel.filter.kleur'), options: kleuren.map((k) => [k, label('proeftafel.kleur', k)]) },
+  { key: 'streek', label: ui.t('proeftafel.filter.streek'), options: streken },
+  { key: 'prijs', label: ui.t('proeftafel.filter.prijs'), options: banden.map((b) => [b, ui.t(`proeftafel.prijsband.${b}`)]) },
+  { key: 'verdict', label: ui.t('proeftafel.filter.verdict'), options: verdicts.map((v) => [v, label('proeftafel.verdict', v)]) },
+  { key: 'categorie', label: ui.t('proeftafel.filter.categorie'), options: categorieen.map((c) => [c, label('proeftafel.categorie', c)]) },
+].filter((f) => f.options.length > 1);
+
+const schema = [organizationSchema()];
+---
+
+<SiteLayout
+  title={ui.t('proeftafel.meta.title')}
+  description={ui.t('proeftafel.meta.description')}
+  schema={schema}
+  activeNav="op-de-proeftafel"
+  locale={locale}
+  alternates={alternates}
+  noindex={reviews.length === 0}
+>
+  <section class="pt-hero">
+    <div class="container">
+      <span class="section-label">{ui.t('proeftafel.label')}</span>
+      <h1>{ui.t('proeftafel.title')}</h1>
+      <p class="pt-intro">{ui.t('proeftafel.intro')}</p>
+      <p class="pt-insturen">{ui.t('proeftafel.insturen.cta.tekst')} <a href={localizePath('/op-de-proeftafel/insturen/', locale)}>{ui.t('proeftafel.insturen.cta')}</a></p>
+    </div>
+  </section>
+
+  {reviews.length > 0 && (
+    <section class="pt-list">
+      <div class="container">
+        {filters.length > 0 && (
+          <form class="pt-filters" aria-label={ui.t('proeftafel.filter.aria')} data-pt-filters>
+            {filters.map((f) => (
+              <label>
+                <span>{f.label}</span>
+                <select name={f.key}>
+                  <option value="">{ui.t('proeftafel.filter.alle')}</option>
+                  {f.options.map(([v, l]) => <option value={v}>{l}</option>)}
+                </select>
+              </label>
+            ))}
+          </form>
+        )}
+        <ul class="pt-grid" data-pt-grid>
+          {reviews.map((r) => (
+            <li
+              class="pt-card"
+              data-kleur={r.kleur}
+              data-streek={r.streekSlug}
+              data-prijs={prijsband(r.prijsEur)}
+              data-verdict={r.verdict}
+              data-categorie={r.categorie}
+            >
+              <a href={localizePath(`/op-de-proeftafel/${r.slug}/`, locale)}>
+                {r.flesImage && <img src={r.flesImage} alt={[r.wijn, r.producent, r.jaargang].filter(Boolean).join(', ')} loading="lazy" width="400" height="600" />}
+                <span class={`pt-verdict pt-verdict--${r.verdict}`}>{label('proeftafel.verdict', r.verdict)}</span>
+                <h2>{r.wijn}</h2>
+                <p class="pt-meta">{[r.producent, r.jaargang, r.streekName].filter(Boolean).join(' · ')}</p>
+                {r.prijsEur !== null && <p class="pt-prijs">{euro(r.prijsEur)}</p>}
+                {r.winkelNaam && <p class="pt-winkel">{ui.t('proeftafel.card.teKoopBij')} {r.winkelNaam}</p>}
+                <span class="pt-lees">{ui.t('proeftafel.card.lees')}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+        <p class="pt-leeg" data-pt-leeg hidden>{ui.t('proeftafel.filter.leeg')}</p>
+      </div>
+    </section>
+  )}
+</SiteLayout>
+
+<script>
+  const form = document.querySelector<HTMLFormElement>('[data-pt-filters]');
+  const cards = Array.from(document.querySelectorAll<HTMLElement>('[data-pt-grid] > li'));
+  const leeg = document.querySelector<HTMLElement>('[data-pt-leeg]');
+  if (form) {
+    const apply = () => {
+      const data = new FormData(form);
+      let shown = 0;
+      for (const card of cards) {
+        let ok = true;
+        for (const [k, v] of data.entries()) {
+          if (v && card.dataset[k] !== v) ok = false;
+        }
+        card.hidden = !ok;
+        if (ok) shown++;
+      }
+      if (leeg) leeg.hidden = shown > 0;
+    };
+    form.addEventListener('change', apply);
+  }
+</script>
+
+<style>
+  .pt-hero { padding: 3rem 0 1.5rem; }
+  .pt-intro { max-width: 40rem; font-size: 1.15rem; }
+  .pt-filters { display: flex; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem; }
+  .pt-filters label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.9rem; }
+  .pt-grid { list-style: none; padding: 0; display: grid; gap: 1.5rem; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); }
+  .pt-card a { display: flex; flex-direction: column; gap: 0.4rem; color: inherit; text-decoration: none; }
+  .pt-card img { width: 100%; height: auto; aspect-ratio: 2 / 3; object-fit: contain; background: #f6f2ec; }
+  .pt-card h2 { font-size: 1.2rem; margin: 0; }
+  .pt-meta, .pt-winkel { margin: 0; font-size: 0.9rem; opacity: 0.8; }
+  .pt-prijs { margin: 0; font-weight: 600; }
+  .pt-verdict { align-self: flex-start; padding: 0.15rem 0.6rem; border-radius: 999px; font-size: 0.8rem; font-weight: 600; background: #eee; }
+  .pt-verdict--kopen { background: #2f5d3a; color: #fff; }
+  .pt-verdict--proberen { background: #c9a227; color: #1d1d1d; }
+  .pt-verdict--laten-staan { background: #7a2e2e; color: #fff; }
+  .pt-lees { text-decoration: underline; font-size: 0.9rem; }
+</style>

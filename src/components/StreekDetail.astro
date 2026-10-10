@@ -19,6 +19,7 @@ import TourCards from './TourCards.astro';
 import ZelfGereisdBadge from './ZelfGereisdBadge.astro';
 import BeeldHerkomst from './BeeldHerkomst.astro';  // LAT-4776: §7-disclosure bij AI-beeld
 import NewsletterFooter from './NewsletterFooter.astro';
+import GeproefdUitStreek from './proeftafel/GeproefdUitStreek.astro';
 import NewsletterInline from './NewsletterInline.astro';
 import { splitAfterFirstSection } from '../lib/newsletter-inline';
 import { accommodatieBookingDeeplink, isAffiliateHref } from '../lib/affiliates';
@@ -430,6 +431,9 @@ const hasFactBox = Boolean(
     {/* LAT-2252 — gecureerde GetYourGuide-tours (activiteitenkanaal). Rendert
         alleen als er tours in Directus (streken.gyg_tours) staan. */}
     <TourCards streekSlug={entry.slug} streekName={entry.name} tours={entry.gygTours} locale={locale} />
+
+    {/* LAT-13099 — gepubliceerde proeftafel-reviews uit deze streek; leeg = niets. */}
+    <GeproefdUitStreek streekSlug={entry.slug} locale={locale} />
 
     {entry.bodyHtml && (
       <section class="streek-body">

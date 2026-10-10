@@ -24,6 +24,7 @@
     "test:lat12716-moezel-template": "node --test scripts/lat12716-moezel-template.test.mjs",
     "test:lat12797-route-wijnhuizen": "node --test scripts/lat12797-route-wijnhuizen-geen-fallback.test.mjs",
     "test:wijnroutes-hub": "node --test scripts/wijnroutes-hub.test.mjs",
+    "test:proeftafel": "node --test scripts/proeftafel.test.mjs",
     "test:i18n-crosslink-refs": "node --test scripts/i18n-crosslink-refs.test.mjs",
     "test:seizoenskalender": "node --test scripts/lat3209-seizoenskalender.test.mjs",
     "test:lat13078-directe-boeklink": "node --test scripts/lat13078-directe-boeklink.test.mjs",

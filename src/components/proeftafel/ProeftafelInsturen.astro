@@ -1,0 +1,155 @@
+---
+// LAT-13099: aanmeldformulier "Wijn insturen". Dit is een aanmelding, geen zending:
+// er staat bewust GEEN verzendadres op de site. Na acceptatie mailt Marijn dat adres.
+// POST als JSON naar /api/inzendingen/wijn (nginx-prod.conf -> Directus
+// wijn_inzendingen, public = create-only, status niet schrijfbaar).
+// Spam: honeypot-veld `website` + minimale invultijd (client) en limit_req (nginx).
+import SiteLayout from '../../layouts/SiteLayout.astro';
+import { loadStreekOpties, KLEUREN } from '../../lib/wijn-reviews';
+import { loadUiStrings } from '../../lib/ui-strings';
+import { DEFAULT_LOCALE, localizeHref, type Locale } from '../../lib/i18n';
+
+interface Props {
+  locale?: Locale;
+  alternates?: Partial<Record<Locale, string>>;
+}
+const { locale = DEFAULT_LOCALE, alternates } = Astro.props;
+const ui = await loadUiStrings(locale);
+const streken = await loadStreekOpties();
+const T = (k: string) => ui.t(`proeftafel.insturen.${k}`);
+const AFZENDERS = ['wijnwinkel', 'importeur', 'wijnhuis'];
+const AKKOORD = ['onafhankelijk', 'elk_oordeel', 'geen_garantie'];
+---
+
+<SiteLayout
+  title={T('meta.title')}
+  description={T('meta.description')}
+  activeNav="op-de-proeftafel"
+  locale={locale}
+  alternates={alternates}
+>
+  <section class="pt-insturen container">
+    <span class="section-label">{ui.t('proeftafel.label')}</span>
+    <h1>{T('title')}</h1>
+    <p class="pt-lead">{T('intro')}</p>
+    <p>{T('uitleg')}</p>
+
+    <form
+      data-pt-form
+      data-msg-succes={T('succes')}
+      data-msg-fout={T('fout')}
+      data-msg-tesnel={T('tesnel')}
+      data-msg-bezig={T('bezig')}
+    >
+      <label>{T('veld.type_afzender')}
+        <select name="type_afzender" required>
+          {AFZENDERS.map((a) => <option value={a}>{T(`optie.${a}`)}</option>)}
+        </select>
+      </label>
+      <label>{T('veld.bedrijf')}<input name="bedrijf" required maxlength="200" autocomplete="organization" /></label>
+      <label>{T('veld.contactpersoon')}<input name="contactpersoon" required maxlength="200" autocomplete="name" /></label>
+      <label>{T('veld.email')}<input name="email" type="email" required maxlength="200" autocomplete="email" /></label>
+      <label>{T('veld.wijn')}<input name="wijn" required maxlength="200" /></label>
+      <label>{T('veld.producent')}<input name="producent" required maxlength="200" /></label>
+      {streken.length > 0 && (
+        <label>{T('veld.streek')}
+          <select name="streek">
+            <option value="">{T('veld.streek.kies')}</option>
+            {streken.map((s) => <option value={String(s.id)}>{s.name}</option>)}
+          </select>
+        </label>
+      )}
+      <label>{T('veld.jaargang')}<input name="jaargang" inputmode="numeric" maxlength="10" /></label>
+      <label>{T('veld.kleur')}
+        <select name="kleur" required>
+          {KLEUREN.map((k) => <option value={k}>{ui.t(`proeftafel.kleur.${k}`)}</option>)}
+        </select>
+      </label>
+      <label>{T('veld.adviesprijs')}<input name="adviesprijs" type="number" min="0" max="10000" step="0.01" inputmode="decimal" /></label>
+      <label>{T('veld.verkoop_url')}<input name="verkoop_url" type="url" maxlength="500" /></label>
+      <label>{T('veld.toelichting')}<textarea name="toelichting" maxlength="300" rows="4"></textarea></label>
+      <label>{T('veld.aantal_flessen')}<input name="aantal_flessen" type="number" min="1" max="2" step="1" value="1" required /></label>
+
+      <div class="pt-hp" aria-hidden="true">
+        <label>{T('veld.website')}<input name="website" tabindex="-1" autocomplete="off" /></label>
+      </div>
+
+      <fieldset>
+        {AKKOORD.map((a) => (
+          <label class="pt-check"><input type="checkbox" name={`akkoord_${a}`} required /> {T(`akkoord.${a}`)}</label>
+        ))}
+        <label class="pt-check"><input type="checkbox" name="akkoord_privacy" required /> {T('akkoord.privacy')} <a href={localizeHref('/privacy/', locale)}>{T('akkoord.privacy.link')}</a>.</label>
+      </fieldset>
+
+      <button type="submit">{T('verstuur')}</button>
+      <p class="pt-status" role="status" aria-live="polite" data-pt-status></p>
+    </form>
+  </section>
+</SiteLayout>
+
+<script>
+  const form = document.querySelector<HTMLFormElement>('[data-pt-form]');
+  const status = document.querySelector<HTMLElement>('[data-pt-status]');
+  const startedAt = Date.now();
+  const MIN_FILL_MS = 4000;
+  if (form && status) {
+    form.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const d = form.dataset;
+      const fd = new FormData(form);
+      // Honeypot gevuld: doe alsof het lukte, verstuur niets.
+      if (String(fd.get('website') || '').trim()) { status.textContent = d.msgSucces || ''; form.reset(); return; }
+      if (Date.now() - startedAt < MIN_FILL_MS) { status.textContent = d.msgTesnel || ''; return; }
+      const txt = (k: string) => String(fd.get(k) || '').trim() || null;
+      const num = (k: string) => { const v = txt(k); const n = v === null ? NaN : Number(v); return Number.isFinite(n) ? n : null; };
+      const aantal = Math.min(2, Math.max(1, Math.round(num('aantal_flessen') ?? 1)));
+      const payload = {
+        type_afzender: txt('type_afzender'),
+        bedrijf: txt('bedrijf'),
+        contactpersoon: txt('contactpersoon'),
+        email: txt('email'),
+        wijn: txt('wijn'),
+        producent: txt('producent'),
+        streek: num('streek'),
+        jaargang: txt('jaargang'),
+        kleur: txt('kleur'),
+        adviesprijs: num('adviesprijs'),
+        verkoop_url: txt('verkoop_url'),
+        toelichting: (txt('toelichting') || '').slice(0, 300) || null,
+        aantal_flessen: aantal,
+        akkoord_onafhankelijk: fd.get('akkoord_onafhankelijk') === 'on',
+        akkoord_elk_oordeel: fd.get('akkoord_elk_oordeel') === 'on',
+        akkoord_geen_garantie: fd.get('akkoord_geen_garantie') === 'on',
+        akkoord_privacy: fd.get('akkoord_privacy') === 'on',
+      };
+      const button = form.querySelector<HTMLButtonElement>('button[type="submit"]');
+      if (button) button.disabled = true;
+      status.textContent = d.msgBezig || '';
+      try {
+        const res = await fetch('/api/inzendingen/wijn', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) throw new Error(String(res.status));
+        status.textContent = d.msgSucces || '';
+        form.reset();
+      } catch {
+        status.textContent = d.msgFout || '';
+      } finally {
+        if (button) button.disabled = false;
+      }
+    });
+  }
+</script>
+
+<style>
+  .pt-insturen { max-width: 40rem; padding: 2.5rem 1rem 4rem; }
+  .pt-lead { font-size: 1.15rem; font-weight: 600; }
+  form { display: grid; gap: 1rem; margin-top: 1.5rem; }
+  form label { display: flex; flex-direction: column; gap: 0.3rem; }
+  form .pt-check { flex-direction: row; align-items: flex-start; gap: 0.5rem; }
+  fieldset { border: 0; padding: 0; display: grid; gap: 0.6rem; }
+  .pt-hp { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
+  button[type="submit"] { justify-self: start; padding: 0.7rem 1.4rem; }
+</style>

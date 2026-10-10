@@ -1,0 +1,26 @@
+---
+// LAT-13099: NL detailpagina wijnreview. EN: alleen reviews met een EN-vertaling
+// (no-translation-guard in loadWijnReviews), dus geen NL-lek onder /en/.
+import ProeftafelDetail from '../../components/proeftafel/ProeftafelDetail.astro';
+import { loadWijnReviews, type WijnReview } from '../../lib/wijn-reviews';
+import { loadRoutes } from '../../lib/routes';
+
+export async function getStaticPaths() {
+  const [reviews, enReviews, routes] = await Promise.all([loadWijnReviews('nl'), loadWijnReviews('en'), loadRoutes('nl')]);
+  const enSlugs = new Set(enReviews.map((r) => r.slug));
+  return reviews.map((review) => ({
+    params: { slug: review.slug },
+    props: {
+      review,
+      routeSlug: review.streekSlug ? routes.find((r) => r.streekSlug === review.streekSlug)?.slug ?? null : null,
+      hasEn: enSlugs.has(review.slug),
+    },
+  }));
+}
+
+const { review, routeSlug, hasEn } = Astro.props as { review: WijnReview; routeSlug: string | null; hasEn: boolean };
+const nl = `/op-de-proeftafel/${review.slug}/`;
+const alternates = hasEn ? { nl, en: `/en${nl}` } : undefined;
+---
+
+<ProeftafelDetail review={review} routeSlug={routeSlug} alternates={alternates} />
