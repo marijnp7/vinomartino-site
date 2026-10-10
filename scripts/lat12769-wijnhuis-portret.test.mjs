@@ -148,6 +148,9 @@ test('kort-blok: alleen met een echt bezoekfeit, nooit op adres alleen', () => {
   const b = read('src/components/WijnhuisPortretBlokken.astro');
   assert.match(b, /ps\.prijs !== null \? `€\$\{ps\.prijs\}`/, 'geen prijs zonder bevestigde prijs');
   assert.match(b, /ps\?\.url\s*\?\s*\{ href: ps\.url/, 'reserveren alleen met proeverij-URL');
+  // LAT-13066: één werkwoord voor één actie; geen "aanvragen" zonder formulier.
+  assert.match(b, /href: '#bezoek', label: ui\.t\('wijnhuis\.cta\.plan'\)/);
+  assert.match(b, /!p\.zelfGeweest && <p class="wp-kort__noot">/, 'redactiegids-noot in gewone taal');
 });
 
 test('beeld-hero: chip = portretlabel, tekst-hero als fallback zonder foto', () => {
