@@ -23,6 +23,11 @@ const DRUIF_SYNONIEMEN: Record<string, { label: string; namen: string[] }> = {
     'syrah': { label: 'Syrah', namen: ['syrah', 'shiraz'] },
     'sangiovese': { label: 'Sangiovese', namen: ['sangiovese', 'sangiovese prugnolo gentile', 'prugnolo gentile'] },
     'sauvignon-blanc': { label: 'Sauvignon Blanc', namen: ['sauvignon blanc', 'sauvignon'] },
+    // LAT-13085 — kenner-synoniemen uit de acceptatie (LAT-13077): Spanna/Chiavennasca zijn
+    // Nebbiolo, Garnacha/Cannonau zijn Grenache, Primitivo en Zinfandel zijn Tribidrag.
+    'nebbiolo': { label: 'Nebbiolo', namen: ['nebbiolo', 'spanna', 'chiavennasca'] },
+    'grenache': { label: 'Grenache', namen: ['grenache', 'grenache noir', 'garnacha', 'garnacha tinta', 'cannonau'] },
+    'primitivo': { label: 'Primitivo', namen: ['primitivo', 'zinfandel', 'tribidrag'] },
 };
 
 const SYNONIEM_INDEX = new Map<string, string>();
