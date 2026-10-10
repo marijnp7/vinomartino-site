@@ -28,6 +28,7 @@ on:
         options:
           - add-wijnhuis-portret-fields.mjs
           - grant-reispakketten-create.mjs
+          - mint-cj-importer.mjs
 
 concurrency:
   group: lat12804-directus-schema-migrate
