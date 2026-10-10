@@ -39,7 +39,8 @@ const dagen = p.openingstijden
     }))
   : [];
 const ps = p.proeverij;
-const heeftBezoek = bezoekGevuld(p, address, website);
+// LAT-13101: zonder bevestigd bezoektype toont het blok altijd de eerlijke fallback, ook als adres en website ontbreken.
+const heeftBezoek = bezoekGevuld(p, address, website) || !p.bezoekType;
 
 const wijnen = WIJN_ROLLEN.map((r) => p.wijnen.find((w) => w.rol === r)).filter((w): w is NonNullable<typeof w> => Boolean(w));
 
