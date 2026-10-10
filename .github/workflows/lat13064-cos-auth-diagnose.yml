@@ -1,0 +1,121 @@
+# LAT-13064 — read-only diagnose van de claude-CLI-login in paperclip-cos-1
+#
+# Aanleiding (LAT-13059): `docker exec -u node paperclip-cos-1 claude -p ...` geeft
+# is_error=true / HTTP 401 terwijl `claude auth status` loggedIn=true meldt. Exec in
+# paperclip-cos-1 is voor agents dicht (devops-proxy 403, scoped broker forbidden), en
+# geen bestaande workflow raakt die container aan, vandaar dit nieuwe bestand.
+#
+# ROUTE. Zelfde GHA->VPS SSH-kanaal en secrets als lat11140-traefik-diagnose.yml.
+# Dit bestand gaat via de Marijn-gate voor de merge (R2 punt 1: elk workflow-bestand).
+#
+# ALLEEN LEZEN, op één uitzondering na: stap 4 doet één modelcall met `--max-turns 1`,
+# precies wat de bridge bij elk Telegram-bericht al doet. Die call kan de rouleerende
+# refresh-token in het enige live bestand verversen (runbook oauth-reauth §1); er wordt
+# nergens een kopie van de grant gemaakt.
+#
+# SECRET-HYGIENE. Er wordt geen token- of credentialwaarde geprint: alleen aanwezig/afwezig,
+# sha256-prefix (16) + lengte, expiresAt/refreshTokenExpiresAt, sleutelnamen. Env van de
+# container alleen als sleutelnamen (waarden op de host weggeknipt vóór output).
+# `docker inspect` alleen met smalle --format. Geen inputs, dus geen interpolatie.
+
+name: LAT-13064 CoS auth diagnose
+
+on:
+  workflow_dispatch: {}
+
+concurrency:
+  group: lat13064-cos-auth-diagnose
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          # LAT-3437: transport via de Cloudflare Tunnel (ssh.vinomartino.com).
+          [ -n "$CF_ACCESS_CLIENT_ID" ] && [ -n "$CF_ACCESS_CLIENT_SECRET" ] \
+            || { echo "::error::CF_ACCESS_CLIENT_ID/SECRET ontbreken (LAT-3437)"; exit 1; }
+          umask 077
+          printf 'CF_ACCESS_CLIENT_ID=%s\nCF_ACCESS_CLIENT_SECRET=%s\n' \
+            "$CF_ACCESS_CLIENT_ID" "$CF_ACCESS_CLIENT_SECRET" > ~/.ssh/cf-access.env
+          umask 022
+          cat >> ~/.ssh/config <<EOF
+          Host $VPS_HOST
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+            ProxyCommand bash $GITHUB_WORKSPACE/ops/cf-ssh-proxy.sh
+          EOF
+          cat "$GITHUB_WORKSPACE/ops/ssh-config-snippet" >> ~/.ssh/config
+
+      - name: Diagnose paperclip-cos-1 claude login
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          DIAG_SCRIPT: |
+            set -uo pipefail
+            C=paperclip-cos-1
+            echo "=== 1. container ==="
+            docker inspect "$C" --format '{{.Config.Image}} started={{.State.StartedAt}} health={{if .State.Health}}{{.State.Health.Status}}{{end}} user={{.Config.User}}'
+            echo "=== 2. mounts ==="
+            docker inspect "$C" --format '{{range .Mounts}}{{.Type}} {{.Name}}{{.Source}} -> {{.Destination}} rw={{.RW}}{{println}}{{end}}'
+            echo "=== 3. env key names (values stripped on host) ==="
+            docker inspect "$C" --format '{{range .Config.Env}}{{println .}}{{end}}' | sed 's/=.*//' | sort
+            echo "=== 4. credential files as node (hashes/len/timestamps only) ==="
+            docker exec -i -u node "$C" node - <<'NODE'
+            const fs = require('fs'), os = require('os'), crypto = require('crypto');
+            const h = os.homedir(), now = Date.now();
+            const fp = v => v ? `present sha256=${crypto.createHash('sha256').update(v).digest('hex').slice(0,16)} len=${v.length}` : 'MISSING';
+            const iso = t => t ? `${new Date(t).toISOString()} (${((t-now)/60000).toFixed(1)} min vanaf nu)` : 'n/a';
+            console.log('HOME', h, 'uid', process.getuid());
+            for (const k of ['ANTHROPIC_API_KEY','CLAUDE_CODE_OAUTH_TOKEN','ANTHROPIC_AUTH_TOKEN','ANTHROPIC_BASE_URL','CLAUDE_CONFIG_DIR'])
+              console.log('env', k, process.env[k] === undefined ? 'unset' : (process.env[k] ? 'set-nonempty' : 'set-EMPTY'));
+            const dir = process.env.CLAUDE_CONFIG_DIR || `${h}/.claude`;
+            const p = `${dir}/.credentials.json`;
+            try {
+              const st = fs.statSync(p), d = JSON.parse(fs.readFileSync(p, 'utf8'));
+              console.log('credentials.json mtime', st.mtime.toISOString(), 'top keys', Object.keys(d));
+              const o = d.claudeAiOauth || {};
+              console.log('claudeAiOauth keys', Object.keys(o).sort());
+              console.log('expiresAt', iso(o.expiresAt));
+              console.log('refreshTokenExpiresAt', iso(o.refreshTokenExpiresAt));
+              console.log('accessToken', fp(o.accessToken));
+              console.log('refreshToken', fp(o.refreshToken));
+              console.log('subscriptionType', o.subscriptionType, 'scopes', o.scopes);
+            } catch (e) { console.log('credentials.json', p, 'ERROR', e.code || e.message); }
+            const q = process.env.CLAUDE_CONFIG_DIR ? `${dir}/.claude.json` : `${h}/.claude.json`;
+            try {
+              const st = fs.statSync(q), c = JSON.parse(fs.readFileSync(q, 'utf8'));
+              console.log('.claude.json', q, 'mtime', st.mtime.toISOString(), 'size', st.size);
+              console.log('.claude.json top keys', Object.keys(c).sort());
+              console.log('oauthAccount', c.oauthAccount ? `present keys=${Object.keys(c.oauthAccount).sort()}` : 'MISSING');
+            } catch (e) { console.log('.claude.json', q, 'ERROR', e.code || e.message); }
+            try { console.log('backups', fs.readdirSync(`${dir}/backups`).length); } catch (e) { console.log('backups none'); }
+            NODE
+            echo "=== 5. claude version + auth status (filtered) ==="
+            docker exec -u node "$C" claude --version 2>&1 | head -1
+            docker exec -u node "$C" claude auth status --json 2>&1 \
+              | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);for(const k of Object.keys(j))if(!/mail|org.*name|account.*uuid|org.*uuid/i.test(k))console.log(k,JSON.stringify(j[k]))}catch{console.log("unparseable, len",s.length)}})'
+            echo "=== 6. modelcall (bridge-shape, max-turns 1) ==="
+            docker exec -u node "$C" claude -p "Antwoord uitsluitend met: OK" --output-format json --max-turns 1 2>/dev/null \
+              | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);console.log(JSON.stringify({is_error:j.is_error,subtype:j.subtype,api_error_status:j.api_error_status,result:String(j.result).slice(0,160)}))}catch{console.log("unparseable, len",s.length)}})'
+            echo "exit=${PIPESTATUS[0]}"
+        run: |
+          printf '%s\n' "$DIAG_SCRIPT" | ssh "$VPS" "bash -s"
