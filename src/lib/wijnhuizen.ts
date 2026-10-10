@@ -27,6 +27,8 @@ export interface Wijnhuis {
     address: string;
     website: string;
     established: number | null;
+    /** LAT-13141: eigen coördinaten (Directus `lat`/`lng`); null = valt terug op routes.stops_geo. */
+    geo?: { lat: number; lng: number } | null;
     hectares: string;
     biodynamisch: boolean;
     winemaker: string;
@@ -197,6 +199,9 @@ function mapWijnhuis(
         address: String(r.address || ''),
         website: String(r.website || ''),
         established: r.established ? Number(r.established) : null,
+        geo: r.lat != null && r.lng != null && Number.isFinite(Number(r.lat)) && Number.isFinite(Number(r.lng))
+            ? { lat: Number(r.lat), lng: Number(r.lng) }
+            : null,
         hectares: String(r.hectares || ''),
         biodynamisch: Boolean(r.biodynamisch),
         winemaker: String(r.winemaker || ''),
@@ -226,7 +231,7 @@ const PORTRET_FIELDS = [
 
 async function fetchWijnhuizenItems(url: string, token: string): Promise<Record<string, unknown>[]> {
     const env = readDirectusEnv();
-    const baseFields = 'id,slug,name,description,body,address,website,established,hectares,biodynamisch,winemaker,grapes,hero_image,status,meta_title,meta_description,streek_id.id,streek_id.name,streek_id.slug';
+    const baseFields = 'id,slug,name,description,body,address,website,established,lat,lng,hectares,biodynamisch,winemaker,grapes,hero_image,status,meta_title,meta_description,streek_id.id,streek_id.name,streek_id.slug';
     const withOg = `${baseFields},og_image`;
     // LAT-1098: reverse-relation via M2M articles.related_wijnhuizen.
     const withRelations = `${withOg},related_articles.articles_id.slug,related_articles.articles_id.title,related_articles.articles_id.pub_date,related_articles.articles_id.status`;

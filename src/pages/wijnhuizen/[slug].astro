@@ -15,7 +15,7 @@ export async function getStaticPaths() {
   const streekBySlug = new Map(streken.map(s => [s.slug, s]));
   // Only an explicit CMS route stop earns the "On the route" label.
   const routeByWijnhuisSlug = new Map<string, typeof routes[number]>();
-  // LAT-12807: coördinaten van het huis voor schema `geo`, tot wijnhuizen eigen lat/lng heeft.
+  // LAT-12807: coördinaten van het huis voor schema `geo`, fallback als wijnhuizen.lat/lng leeg is (LAT-13141).
   const geoByWijnhuisSlug = new Map<string, { lat: number; lng: number }>();
   for (const r of routes) {
     for (const stop of r.stopsGeo) {
@@ -36,7 +36,7 @@ export async function getStaticPaths() {
       params: { slug: entry.slug },
       props: {
         entry,
-        geo: geoByWijnhuisSlug.get(entry.slug) ?? null,
+        geo: entry.geo ?? geoByWijnhuisSlug.get(entry.slug) ?? null,
         landSlug: streek?.landSlug ?? '',
         landName: streek?.country ?? '',
         routeHref: route ? `/wijnroutes/${route.slug}/` : '',
