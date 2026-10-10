@@ -71,11 +71,28 @@ const enriched = orderRoutes(routes).map((route) => {
     land: routeLand(route, landByStreek),
   };
 });
+// LAT-13062 — korte routetitel = streeknaam uit het CMS (NL/EN), zolang die uniek is
+// binnen de routes; anders de redactionele titel. Geen hardcoded copy.
+const streekNaam = new Map(streken.map((s) => [s.slug, s.name]));
+const perStreek = new Map<string, number>();
+for (const { route } of enriched) if (route.streekSlug) perStreek.set(route.streekSlug, (perStreek.get(route.streekSlug) ?? 0) + 1);
+const kortVoor = (route: (typeof routes)[number]) =>
+  (route.streekSlug && perStreek.get(route.streekSlug) === 1 && streekNaam.get(route.streekSlug)) || route.title;
+const fold = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 const zelfRoutes = enriched.filter((r) => r.route.zelfGereisd);
 const redactieRoutes = enriched.filter((r) => !r.route.zelfGereisd);
 const landen = [...new Set(enriched.map((r) => r.land).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'nl'));
 const buckets = (['1-2', '3-4', '5+'] as const).filter((b) => enriched.some((r) => r.bucket === b));
 const bucketLabel = (b: string) => ui.t(`reizen.chip.dagen.${b}`);
+const lijst = [...zelfRoutes, ...redactieRoutes];
+const telling = (n: number) => (n === 1 ? ui.t('wijnroutes.hub.lijst.een') : ui.t('wijnroutes.hub.lijst.meer').replace('{n}', String(n)));
+const rzI18n = {
+  titel: ui.t('wijnroutes.hub.lijst.titel'),
+  titelLand: ui.t('wijnroutes.hub.lijst.titelLand'),
+  een: ui.t('wijnroutes.hub.lijst.een'),
+  meer: ui.t('wijnroutes.hub.lijst.meer'),
+  verwijder: ui.t('wijnhuizen.filter.chip.verwijder'),
+};
 
 // Band "Slapen waar wij sliepen": alleen accommodaties mét booking_url (CJ-wrapper in
 // AccommodatieKaart); zonder data blijft de band verborgen.
@@ -104,19 +121,96 @@ const schema = [
   noindex={routes.length === 0}
 >
   <header class="rz-hero">
-    {heroImage && (
-      <SmartImg src={heroImage} alt="" class="rz-hero__img" width={1600} loading="eager" fetchpriority="high" />
-    )}
     <div class="container rz-hero__in">
-      <span class="rz-mono">{ui.t('wijnroutes.hub.hero.label')}</span>
+      <span class="rz-kick">{ui.t('wijnroutes.hub.hero.label')}</span>
       <h1>{ui.t('wijnroutes.hub.hero.h1')}</h1>
       <p>{ui.t('wijnroutes.hub.hero.desc')}</p>
-      <div class="rz-btns">
-        {routes.length > 0 && <a class="rz-btn" href="#wijnroutes">{ui.t('reizen.index.hero.ctaRoutes')}</a>}
-        {sorted.length > 0 && <a class="rz-btn rz-btn--ghost" href="#nareizen">{ui.t('wijnroutes.hub.hero.ctaStories')}</a>}
-      </div>
     </div>
   </header>
+
+  {routes.length > 0 && (
+    <section class="rz-sec rz-sec--routes container" id="wijnroutes" data-rz-root data-i18n={JSON.stringify(rzI18n)}>
+      <form class="rz-filters" role="search" aria-label={ui.t('reizen.chip.aria')} data-rz-form hidden>
+        <div class="rz-field rz-field--q">
+          <label for="rz-q" class="rz-sr">{ui.t('wijnroutes.hub.filter.zoek')}</label>
+          <input id="rz-q" name="q" type="search" autocomplete="off" enterkeyhint="search" placeholder={ui.t('wijnroutes.hub.filter.zoek')} />
+        </div>
+        <div class="rz-field">
+          <label for="rz-land" class="rz-sr">{ui.t('reizen.chip.land')}</label>
+          <select id="rz-land" name="land">
+            <option value="">{ui.t('wijnroutes.hub.filter.landAlle')}</option>
+            {landen.map((l) => <option value={l}>{l}</option>)}
+          </select>
+        </div>
+        <div class="rz-field">
+          <label for="rz-duur" class="rz-sr">{ui.t('reizen.chip.dagen')}</label>
+          <select id="rz-duur" name="duur">
+            <option value="">{ui.t('wijnroutes.hub.filter.duurAlle')}</option>
+            {buckets.map((b) => <option value={b}>{bucketLabel(b)}</option>)}
+          </select>
+        </div>
+        <div class="rz-status">
+          <ul class="rz-chiplist" data-rz-chips aria-label={ui.t('reizen.chip.aria')}></ul>
+          <button type="button" class="rz-wis" data-rz-wis hidden>{ui.t('wijnroutes.hub.filter.wis')}</button>
+        </div>
+      </form>
+
+      <div class="rz-lh">
+        <div>
+          <h2 data-rz-titel>{ui.t('wijnroutes.hub.lijst.titel')}</h2>
+          <p class="rz-count" data-rz-count aria-live="polite" aria-atomic="true">{telling(lijst.length)}</p>
+        </div>
+        <div class="rz-view" role="group" aria-label={ui.t('wijnroutes.hub.weergave.aria')} data-rz-view hidden>
+          <button type="button" data-view="lijst" aria-pressed="true"><span aria-hidden="true">&#9776;</span> {ui.t('wijnroutes.hub.weergave.lijst')}</button>
+          <button type="button" data-view="kaart" aria-pressed="false"><span aria-hidden="true">&#9673;</span> {ui.t('wijnroutes.hub.weergave.kaart')}</button>
+        </div>
+      </div>
+
+      <div class="rz-body" data-rz-body>
+        <div class="rz-list" data-rz-list>
+          {lijst.map(({ route, dagen, bucket, wijnhuizen, land }, i) => {
+            const kort = kortVoor(route);
+            const meta = [
+              land,
+              dagen ? `${dagen} ${dagen === 1 ? ui.t('reizen.meta.dag') : ui.t('reizen.meta.dagen')}` : '',
+              wijnhuizen ? `${wijnhuizen} ${ui.t('reizen.meta.wijnhuizen')}` : '',
+            ].filter(Boolean);
+            const zoek = fold([kort, route.title, land, route.streekSlug ? streekNaam.get(route.streekSlug) ?? '' : '', route.description ?? ''].join(' '));
+            return (
+              <a href={localizePath(`/wijnroutes/${route.slug}/`, locale)} class="rz-card" data-rz-card data-slug={route.slug} data-land={land} data-dagen={bucket ?? ''} data-zoek={zoek} title={route.title !== kort ? route.title : undefined}>
+                <div class="rz-ph">
+                  <SmartImg src={route.heroImage || undefined} alt={route.title} theme="region" width={560} loading={i < 4 ? 'eager' : 'lazy'} fetchpriority={i < 2 ? 'high' : undefined} />
+                  <span class:list={['rz-badge', !route.zelfGereisd && 'rz-badge--soft']}>
+                    {route.zelfGereisd ? ui.t('reizen.label.zelfGereisd') : ui.t('reizen.label.redactiegids')}
+                  </span>
+                </div>
+                <div class="rz-cb">
+                  <h3>{kort}</h3>
+                  {meta.length > 0 && <div class="rz-meta">{meta.map((m) => <span>{m}</span>)}</div>}
+                  {route.description && <p>{route.description}</p>}
+                  <span class="rz-cta">{ui.t('reizen.index.routes.moreCta')} <span aria-hidden="true">&rarr;</span></span>
+                </div>
+              </a>
+            );
+          })}
+          <div class="rz-empty" data-rz-empty hidden>
+            <p>{ui.t('reizen.chip.empty')}</p>
+            <button type="button" class="rz-wis" data-rz-wis-leeg>{ui.t('wijnroutes.hub.filter.wis')}</button>
+          </div>
+        </div>
+        <aside class="rz-map" data-rz-map hidden>
+          <HomeRoutesMap routes={routes} title={ui.t('wijnroutes.hub.kaart.titel')} locale={locale} legend={false} neutral />
+        </aside>
+      </div>
+
+      {sorted.length > 0 && (
+        <p class="rz-inspiratie">
+          <span>{ui.t('wijnroutes.hub.inspiratie')}</span>
+          <a class="rz-lnk" href="#nareizen">{ui.t('wijnroutes.hub.hero.ctaStories')} <span aria-hidden="true">&rarr;</span></a>
+        </p>
+      )}
+    </section>
+  )}
 
   {featured && (
     <section class="rz-sec container" id="nareizen">
@@ -185,66 +279,6 @@ const schema = [
     </section>
   )}
 
-  {routes.length > 0 && (
-    <section class="rz-sec container" id="wijnroutes">
-      <div class="rz-sh">
-        <div>
-          <span class="rz-kick">{ui.t('reizen.index.routes.kicker')}</span>
-          <h2>{ui.t('reizen.index.routes.title')}</h2>
-        </div>
-        <p>{ui.t('reizen.index.routes.intro')}</p>
-      </div>
-
-      <HomeRoutesMap routes={routes} title={ui.t('reizen.index.map.title')} locale={locale} />
-
-      <div class="rz-chips" data-rz-chips role="group" aria-label={ui.t('reizen.chip.aria')}>
-        <span class="rz-chips__lbl">{ui.t('reizen.chip.land')}</span>
-        <button type="button" class="rz-chip is-on" data-kind="land" data-val="" aria-pressed="true">{ui.t('reizen.chip.all')}</button>
-        {landen.map((l) => <button type="button" class="rz-chip" data-kind="land" data-val={l} aria-pressed="false">{l}</button>)}
-        <span class="rz-chips__sep" aria-hidden="true"></span>
-        <span class="rz-chips__lbl">{ui.t('reizen.chip.dagen')}</span>
-        <button type="button" class="rz-chip is-on" data-kind="dagen" data-val="" aria-pressed="true">{ui.t('reizen.chip.all')}</button>
-        {buckets.map((b) => <button type="button" class="rz-chip" data-kind="dagen" data-val={b} aria-pressed="false">{bucketLabel(b)}</button>)}
-      </div>
-      <p class="rz-empty" data-rz-empty hidden>{ui.t('reizen.chip.empty')}</p>
-
-      {[
-        { key: 'zelf', title: ui.t('reizen.index.group.zelf'), sub: ui.t('reizen.index.group.zelfSub'), list: zelfRoutes },
-        { key: 'redactie', title: ui.t('reizen.index.group.redactie'), sub: ui.t('reizen.index.group.redactieSub'), list: redactieRoutes },
-      ].filter((g) => g.list.length > 0).map((g, gi) => (
-        <div class="rz-group" data-rz-group>
-          <div class="rz-gh"><h3>{g.title}</h3><span>{g.sub}</span></div>
-          <div class="rz-grid">
-            {g.list.map(({ route, dagen, bucket, wijnhuizen, land }, i) => {
-              const eager = gi === 0 && i < 4;
-              const meta = [
-                dagen ? `${dagen} ${dagen === 1 ? ui.t('reizen.meta.dag') : ui.t('reizen.meta.dagen')}` : '',
-                land,
-                wijnhuizen ? `${wijnhuizen} ${ui.t('reizen.meta.wijnhuizen')}` : '',
-              ].filter(Boolean);
-              return (
-                <a href={localizePath(`/wijnroutes/${route.slug}/`, locale)} class="rz-card" data-rz-card data-land={land} data-dagen={bucket ?? ''}>
-                  <div class="rz-ph">
-                    <SmartImg src={route.heroImage || undefined} alt={route.title} theme="region" width={480} loading={eager ? 'eager' : 'lazy'} fetchpriority={eager && i < 2 ? 'high' : undefined} />
-                    <span class:list={['rz-badge', !route.zelfGereisd && 'rz-badge--soft']}>
-                      {route.zelfGereisd ? ui.t('reizen.label.zelfGereisd') : ui.t('reizen.label.redactiegids')}
-                    </span>
-                  </div>
-                  <div class="rz-cb">
-                    <h4>{route.title}</h4>
-                    {meta.length > 0 && <div class="rz-meta">{meta.map((m) => <span>{m}</span>)}</div>}
-                    {route.description && <p>{route.description}</p>}
-                    <span class="rz-cta">{ui.t('reizen.index.routes.moreCta')} &rarr;</span>
-                  </div>
-                </a>
-              );
-            })}
-          </div>
-        </div>
-      ))}
-    </section>
-  )}
-
   {routes.length === 0 && (
     <section class="section container">
       <div class="rz-emptystate">
@@ -260,34 +294,128 @@ const schema = [
 </SiteLayout>
 
 <script>
-  // LAT-12451: client-side filter op land en duur. Kaarten worden alleen verborgen
-  // (hidden), nooit uit de DOM gehaald; de chipbalk heeft vaste hoogte, dus de laadstand
-  // verschuift niet. Zonder JS blijven alle kaarten zichtbaar.
-  const bar = document.querySelector<HTMLElement>('[data-rz-chips]');
-  if (bar) {
-    const sel: Record<string, string> = { land: '', dagen: '' };
-    const cards = [...document.querySelectorAll<HTMLElement>('[data-rz-card]')];
-    const groups = [...document.querySelectorAll<HTMLElement>('[data-rz-group]')];
-    const empty = document.querySelector<HTMLElement>('[data-rz-empty]');
-    bar.addEventListener('click', (ev) => {
-      const btn = (ev.target as HTMLElement).closest<HTMLButtonElement>('.rz-chip');
-      if (!btn) return;
-      const kind = btn.dataset.kind as string;
-      sel[kind] = btn.dataset.val || '';
-      bar.querySelectorAll<HTMLButtonElement>(`.rz-chip[data-kind="${kind}"]`).forEach((b) => {
-        const on = b === btn;
-        b.classList.toggle('is-on', on);
-        b.setAttribute('aria-pressed', String(on));
-      });
-      let shown = 0;
+  // LAT-13062 — keuzehulp direct boven de resultaten (ontwerpplaat 02/03): zoeken, land,
+  // duur, telling, chips en wissen. Kaarten worden alleen verborgen (hidden), nooit uit de
+  // DOM gehaald; zonder JS blijven alle routes zichtbaar en blijven filters verborgen.
+  // De selectie staat in de querystring (replaceState): deelbaar, en "terug" vanaf een
+  // route landt op dezelfde selectie. Lijst en kaart delen dezelfde selectie via het
+  // `hrm:filter`-event dat HomeRoutesMap (neutral) beluistert.
+  const root = document.querySelector<HTMLElement>('[data-rz-root]');
+  const form = root?.querySelector<HTMLFormElement>('[data-rz-form]');
+  if (root && form) {
+    const t = JSON.parse(root.dataset.i18n || '{}');
+    const q = form.querySelector<HTMLInputElement>('#rz-q')!;
+    const land = form.querySelector<HTMLSelectElement>('#rz-land')!;
+    const duur = form.querySelector<HTMLSelectElement>('#rz-duur')!;
+    const chips = form.querySelector<HTMLElement>('[data-rz-chips]')!;
+    const wis = form.querySelector<HTMLButtonElement>('[data-rz-wis]')!;
+    const cards = [...root.querySelectorAll<HTMLElement>('[data-rz-card]')];
+    const empty = root.querySelector<HTMLElement>('[data-rz-empty]');
+    const titel = root.querySelector<HTMLElement>('[data-rz-titel]');
+    const count = root.querySelector<HTMLElement>('[data-rz-count]');
+    const view = root.querySelector<HTMLElement>('[data-rz-view]');
+    const body = root.querySelector<HTMLElement>('[data-rz-body]');
+    const mapEl = root.querySelector<HTMLElement>('[data-rz-map]');
+    const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+    const has = (sel: HTMLSelectElement, v: string) => [...sel.options].some((o) => o.value === v);
+
+    form.hidden = false;
+    form.addEventListener('submit', (e) => e.preventDefault());
+    let filter: { visible: string[] | null; active?: string | null; refit?: boolean } = { visible: null };
+    const send = (d: typeof filter) => {
+      (window as any).__hrmFilter = d;
+      document.dispatchEvent(new CustomEvent('hrm:filter', { detail: d }));
+    };
+
+    const chip = (label: string, clear: () => void) => {
+      const li = document.createElement('li');
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'rz-chip';
+      b.textContent = label;
+      const x = document.createElement('span');
+      x.setAttribute('aria-hidden', 'true');
+      x.textContent = '×';
+      b.append(x);
+      b.setAttribute('aria-label', `${t.verwijder}: ${label}`);
+      b.addEventListener('click', () => { clear(); apply(); q.focus(); });
+      li.append(b);
+      return li;
+    };
+
+    function apply() {
+      const raw = q.value.trim();
+      const toks = fold(raw).split(' ').filter(Boolean);
+      const visible: string[] = [];
       for (const c of cards) {
-        const ok = (!sel.land || c.dataset.land === sel.land) && (!sel.dagen || c.dataset.dagen === sel.dagen);
+        const ok = (!land.value || c.dataset.land === land.value)
+          && (!duur.value || c.dataset.dagen === duur.value)
+          && toks.every((tk) => (c.dataset.zoek || '').includes(tk));
         c.hidden = !ok;
-        if (ok) shown++;
+        if (ok) visible.push(c.dataset.slug || '');
       }
-      for (const g of groups) g.hidden = !g.querySelector('[data-rz-card]:not([hidden])');
-      if (empty) empty.hidden = shown > 0;
-    });
+      const n = visible.length;
+      if (count) count.textContent = n === 1 ? t.een : String(t.meer).replace('{n}', String(n));
+      if (titel) titel.textContent = land.value ? String(t.titelLand).replace('{land}', land.value) : t.titel;
+      chips.replaceChildren(
+        ...(land.value ? [chip(land.value, () => { land.value = ''; })] : []),
+        ...(duur.value ? [chip(duur.selectedOptions[0]?.textContent || duur.value, () => { duur.value = ''; })] : []),
+        ...(raw ? [chip(`“${raw}”`, () => { q.value = ''; })] : []),
+      );
+      const actief = Boolean(raw || land.value || duur.value);
+      wis.hidden = !actief;
+      if (empty) empty.hidden = n > 0;
+      filter = { visible: actief ? visible : null, refit: true };
+      send(filter);
+      const p = new URLSearchParams(location.search);
+      for (const [k, v] of [['q', raw], ['land', land.value], ['duur', duur.value]] as const) v ? p.set(k, v) : p.delete(k);
+      const qs = p.toString();
+      history.replaceState(history.state, '', `${location.pathname}${qs ? `?${qs}` : ''}${location.hash}`);
+    }
+
+    const reset = () => { q.value = ''; land.value = ''; duur.value = ''; apply(); q.focus(); };
+    wis.addEventListener('click', reset);
+    root.querySelector('[data-rz-wis-leeg]')?.addEventListener('click', reset);
+    let timer = 0;
+    q.addEventListener('input', () => { clearTimeout(timer); timer = window.setTimeout(apply, 120); });
+    q.addEventListener('keydown', (e) => { if (e.key === 'Escape' && q.value) { q.value = ''; apply(); } });
+    land.addEventListener('change', apply);
+    duur.addEventListener('change', apply);
+
+    // Actieve route (hover/focus) wordt bordeaux op de kaart; de rest blijft neutraal.
+    for (const c of cards) {
+      const on = () => send({ ...filter, active: c.dataset.slug, refit: false });
+      const off = () => send({ ...filter, active: null, refit: false });
+      c.addEventListener('mouseenter', on);
+      c.addEventListener('focus', on);
+      c.addEventListener('mouseleave', off);
+      c.addEventListener('blur', off);
+    }
+
+    // Lijst/kaart: desktop toont de kaart ondergeschikt naast de lijst, mobiel alleen op verzoek.
+    const setView = (kaart: boolean) => {
+      if (!view || !mapEl || !body) return;
+      mapEl.hidden = !kaart;
+      body.classList.toggle('rz-body--kaart', kaart);
+      view.querySelectorAll<HTMLButtonElement>('button').forEach((b) => b.setAttribute('aria-pressed', String((b.dataset.view === 'kaart') === kaart)));
+      if (kaart) requestAnimationFrame(() => document.dispatchEvent(new Event('hrm:resize')));
+    };
+    if (view && mapEl?.querySelector('[data-hrm]')) {
+      view.hidden = false;
+      view.addEventListener('click', (e) => {
+        const b = (e.target as HTMLElement).closest<HTMLButtonElement>('button[data-view]');
+        if (b) setView(b.dataset.view === 'kaart');
+      });
+      setView(window.matchMedia('(min-width: 1024px)').matches);
+    }
+
+    const p = new URLSearchParams(location.search);
+    q.value = p.get('q') || '';
+    const l = p.get('land') || '';
+    if (l && has(land, l)) land.value = l;
+    const d = p.get('duur') || '';
+    if (d && has(duur, d)) duur.value = d;
+    apply();
   }
 </script>
 
@@ -378,4 +506,83 @@ const schema = [
     .rz-chips > * { flex: none; }
     .rz-gh h3 { font-size: 1.75rem; }
   }
+  .rz-hero { min-height: 0; display: block; color: var(--ink); overflow: visible; }
+  .rz-hero::before { content: none; }
+  /* ── LAT-13062 — ontwerpplaat 02/03: compacte editoriale kop, keuzehulp direct boven de
+     resultaten, lijst + ondergeschikte kaart. Cormorant 400, bordeaux, crème. ── */
+  .rz-hero { background: var(--paper); border-bottom: 1px solid var(--ruleSoft); }
+  .rz-hero__in { padding-block: clamp(2.25rem, 5vw, 3.75rem) clamp(1.5rem, 3vw, 2.25rem); }
+  .rz-hero h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(2.5rem, 1.5rem + 4vw, 4.5rem); line-height: 1; letter-spacing: -0.02em; color: var(--ink); max-width: 16ch; }
+  .rz-hero p { font-family: var(--font-body); font-size: clamp(1.05rem, 0.95rem + 0.5vw, 1.375rem); line-height: 1.45; max-width: 40rem; margin-top: var(--space-3); color: var(--inkSoft); }
+  .rz-sec--routes { padding-top: clamp(1.5rem, 3vw, 2.25rem); }
+  .rz-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+  .rz-filters { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-3); padding-bottom: var(--space-5); margin-bottom: var(--space-6); border-bottom: 1px solid var(--rule); }
+  .rz-filters[hidden] { display: none; }
+  .rz-field input, .rz-field select {
+    width: 100%; min-width: 0; min-height: 48px; padding: 0.6rem 0.9rem; font-family: var(--font-body); font-size: 1rem;
+    color: #1F1A16; background: #FFFDF8; border: 1px solid var(--rule); border-radius: 4px;
+  }
+  .rz-field--q input { padding-left: 2.5rem; background: #FFFDF8 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' fill='none' stroke='%235A4F45' stroke-width='2'%3E%3Ccircle cx='8' cy='8' r='6'/%3E%3Cpath d='m13 13 4 4'/%3E%3C/svg%3E") no-repeat 0.85rem center; }
+  .rz-status { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; min-height: 2.25rem; }
+  .rz-chiplist { list-style: none; display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0; padding: 0; }
+  .rz-chiplist :global(.rz-chip) {
+    display: inline-flex; align-items: center; gap: 0.6rem; min-height: 36px; max-width: 18rem; padding: 0.35rem 1rem;
+    font-family: var(--font-ui, var(--font-body)); font-size: 0.875rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    color: var(--fixed-cream, #FAF5E9); background: var(--burgundy); border: 1px solid var(--burgundy); border-radius: 999px; cursor: pointer;
+  }
+  .rz-chiplist :global(.rz-chip:hover) { background: var(--burgundyDeep); }
+  .rz-wis { min-height: 36px; padding: 0 0.25rem; background: none; border: 0; cursor: pointer; font-family: var(--font-ui, var(--font-body)); font-size: 0.875rem; color: var(--burgundy); text-decoration: underline; text-underline-offset: 3px; }
+  .rz-wis[hidden] { display: none; }
+  .rz-filters :focus-visible, .rz-view button:focus-visible, .rz-card:focus-visible, .rz-chiplist :global(.rz-chip:focus-visible), .rz-wis:focus-visible {
+    outline: 3px solid var(--accent-apricot, #E8643A); outline-offset: 2px; box-shadow: var(--focus-ring);
+  }
+  .rz-lh { display: flex; justify-content: space-between; align-items: flex-end; gap: var(--space-4); margin-bottom: var(--space-4); }
+  .rz-lh h2 { font-family: var(--font-display); font-weight: 400; font-size: clamp(1.75rem, 1.3rem + 1.6vw, 2.5rem); line-height: 1.05; color: var(--ink); }
+  .rz-count { margin-top: 0.25rem; font-size: 0.875rem; color: var(--inkSoft); }
+  .rz-view { display: inline-flex; flex: none; }
+  .rz-view[hidden] { display: none; }
+  .rz-view button { display: inline-flex; align-items: center; gap: 0.5rem; min-height: 44px; padding: 0 1.1rem; font-family: var(--font-ui, var(--font-body)); font-size: 0.875rem; color: var(--ink); background: #FFFDF8; border: 1px solid var(--rule); cursor: pointer; }
+  .rz-view button:first-child { border-radius: 4px 0 0 4px; }
+  .rz-view button:last-child { border-radius: 0 4px 4px 0; border-left: 0; }
+  .rz-view button[aria-pressed='true'] { background: var(--burgundy); border-color: var(--burgundy); color: var(--fixed-cream, #FAF5E9); }
+  .rz-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-5); }
+  .rz-body--kaart { grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); align-items: start; }
+  .rz-map { position: sticky; top: calc(var(--header-h, 72px) + 1rem); background: #FFFDF8; border: 1px solid var(--rule); border-radius: 6px; padding: 0.75rem; }
+  .rz-map[hidden] { display: none; }
+  .rz-map :global(.hrm) { margin: 0; }
+  .rz-map :global(.hrm__canvas) { height: clamp(360px, 62vh, 620px); }
+  .rz-list { display: grid; gap: var(--space-4); }
+  .rz-card { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); background: #FFFDF8; border: 1px solid var(--ruleSoft); border-radius: 6px; overflow: hidden; color: #1F1A16; text-decoration: none; box-shadow: var(--shadow-sm); transition: box-shadow var(--duration-base) var(--ease-out), transform var(--duration-base) var(--ease-out); }
+  .rz-card:hover { box-shadow: var(--shadow-card-lift); transform: translateY(-2px); }
+  .rz-card[hidden] { display: none; }
+  .rz-card .rz-ph { aspect-ratio: auto; min-height: 220px; }
+  .rz-card .rz-ph :global(img), .rz-card .rz-ph :global(.smart-img-placeholder) { position: absolute; inset: 0; }
+  .rz-cb { padding: clamp(1.1rem, 2vw, 1.6rem); display: flex; flex-direction: column; }
+  .rz-cb h3 { font-family: var(--font-display); font-weight: 400; font-size: clamp(1.5rem, 1.25rem + 0.8vw, 1.875rem); line-height: 1.1; color: #1F1A16; margin-bottom: var(--space-2); }
+  .rz-card .rz-meta { color: #5A4F45; font-size: 0.8125rem; }
+  .rz-card .rz-cb p { color: #5A4F45; -webkit-line-clamp: 2; }
+  .rz-card .rz-cta {
+    align-self: flex-start; display: inline-flex; gap: 0.5rem; align-items: center; margin-top: auto; padding: 0.7rem 1.2rem;
+    font-family: var(--font-ui, var(--font-body)); font-size: 0.875rem; font-weight: 500; letter-spacing: 0; text-transform: none;
+    color: var(--fixed-cream, #FAF5E9); background: #5A1A1F; border-radius: 3px;
+  }
+  .rz-empty { text-align: center; padding: var(--space-8) var(--space-4); background: var(--paperDeep); border-radius: 6px; }
+  .rz-empty[hidden] { display: none; }
+  .rz-empty p { margin-bottom: var(--space-3); }
+  .rz-inspiratie { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: baseline; margin-top: var(--space-8); padding-top: var(--space-5); border-top: 1px solid var(--rule); }
+  .rz-inspiratie > span:first-child { font-family: var(--font-display); font-size: 1.5rem; color: var(--ink); }
+  @media (max-width: 1023px) {
+    .rz-body--kaart { grid-template-columns: minmax(0, 1fr); }
+    .rz-body--kaart .rz-map { position: static; order: -1; }
+    .rz-map :global(.hrm__canvas) { height: 340px; }
+  }
+  @media (max-width: 720px) {
+    .rz-filters { grid-template-columns: minmax(0, 1fr); }
+    .rz-lh { align-items: center; }
+    .rz-view button { padding: 0 0.8rem; }
+    .rz-card { grid-template-columns: minmax(0, 1fr); }
+    .rz-card .rz-ph { aspect-ratio: 16 / 10; min-height: 0; }
+    .rz-card .rz-cta { align-self: stretch; justify-content: center; }
+  }
+  @media (prefers-reduced-motion: reduce) { .rz-card, .rz-card:hover { transition: none; transform: none; } }
 </style>

@@ -3,7 +3,6 @@ import SiteLayout from '../layouts/SiteLayout.astro';
 import ZelfGereisdBadge from '../components/ZelfGereisdBadge.astro';
 import ArticleCard from '../components/ArticleCard.astro';
 import Briefkaart from '../components/Briefkaart.astro';
-import HomeRoutesMap from '../components/HomeRoutesMap.astro';
 import DiscoverMapEurope from '../components/DiscoverMapEurope.astro';
 import SubstackCta from '../components/SubstackCta.astro';
 import { loadArticles } from '../lib/articles';
@@ -152,23 +151,20 @@ const heroStreken = allStreken
     visited: s.zelfGereisd,
   }));
 
-// ── LAT-2451 — Uitgelichte routes: max zes, foto verplicht, met duur + streek-tag ──
 const strekenBySlug = new Map(allStreken.map((s) => [s.slug, s]));
-const FEATURED_ROUTES_MAX = 6;
-const featuredRoutes = routes
-  .filter((r) => Boolean(r.heroImage))
-  .slice(0, FEATURED_ROUTES_MAX)
-  .map((r) => {
-    const streek = r.streekSlug ? strekenBySlug.get(r.streekSlug) : undefined;
-    return {
-      slug: r.slug,
-      title: r.title,
-      description: r.description,
-      image: r.heroImage as string,
-      duration: r.duration,
-      regionTag: streek?.name || streek?.country || '',
-    };
-  });
+
+// LAT-13062 — ontwerpplaat 01 "Waar wil je naartoe?": drie bestemmingen i.p.v. kaart +
+// legenda. Eén route per land (regiorotatie), alleen routes met eigen hero (DAM);
+// de naam is de streeknaam uit het CMS, het land de CMS-landnaam.
+const homeBestemmingen: { slug: string; naam: string; land: string; image: string; title: string }[] = [];
+for (const r of routes) {
+  if (homeBestemmingen.length === 3) break;
+  if (!r.heroImage) continue;
+  const streek = r.streekSlug ? strekenBySlug.get(r.streekSlug) : undefined;
+  const land = streek?.country || '';
+  if (land && homeBestemmingen.some((b) => b.land === land)) continue;
+  homeBestemmingen.push({ slug: r.slug, naam: streek?.name || r.title, land, image: r.heroImage, title: r.title });
+}
 
 function formatDate(value?: string | null) {
   if (!value) return '';
@@ -293,28 +289,18 @@ function formatDate(value?: string | null) {
           {ui.t('home.routes.sub')}
         </p>
       </header>
-      <HomeRoutesMap routes={routes} locale={locale} />
-      <div class="cards-grid">
-        {featuredRoutes.map((r, idx) => (
-          <a href={lh(`/wijnroutes/${r.slug}/`)} class="card-tile">
-            <div class="card-media">
-              <img src={r.image} alt={r.title} width="600" height="450" loading={idx < 3 ? 'eager' : 'lazy'} decoding="async" {...herkomst(r.image)} />
-            </div>
-            <div class="card-body">
-              {(r.duration || r.regionTag) && (
-                <span class="card-eyebrow card-meter">
-                  {r.duration && <span>{r.duration}</span>}
-                  {r.duration && r.regionTag && <span class="card-meter-dot" aria-hidden="true"> · </span>}
-                  {r.regionTag && <span>{r.regionTag}</span>}
-                </span>
-              )}
-              <h3 class="card-title">{r.title}</h3>
-              {r.description && <p class="card-desc">{r.description}</p>}
-            </div>
+      <div class="hr3">
+        {homeBestemmingen.map((r, idx) => (
+          <a href={lh(`/wijnroutes/${r.slug}/`)} class="hr3__card">
+            <span class="hr3__media">
+              <img src={r.image} alt={r.title} width="600" height="520" loading={idx < 3 ? 'eager' : 'lazy'} decoding="async" {...herkomst(r.image)} />
+            </span>
+            <span class="hr3__naam">{r.naam}</span>
+            {r.land && <span class="hr3__land">{r.land}</span>}
           </a>
         ))}
       </div>
-      <p class="section-cta"><a href={lh('/wijnroutes/')} class="btn btn-outline">{ui.t('home.routes.allesCta')}</a></p>
+      <p class="hr3__cta"><a href={lh('/wijnroutes/')}>{ui.t('home.routes.allesCta')}</a></p>
     </div>
   </section>
 
@@ -1154,5 +1140,21 @@ function formatDate(value?: string | null) {
     .brief-signup__row { flex-direction: column; }
     .brief-signup .btn { width: 100%; }
     .proof-stats { gap: var(--space-6); }
+  }
+  /* LAT-13062 — "Waar wil je naartoe?" (ontwerpplaat 01): drie beeldkaarten, geen kaart/legenda. */
+  .hr3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(0.75rem, 2vw, 1.5rem); margin-top: var(--space-6); }
+  .hr3__card { display: flex; flex-direction: column; align-items: center; text-align: center; color: inherit; text-decoration: none; }
+  .hr3__media { display: block; width: 100%; aspect-ratio: 6 / 5; overflow: hidden; border-radius: 4px; background: var(--paperDeep); }
+  .hr3__media img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform var(--duration-image) var(--ease-out); }
+  .hr3__card:hover .hr3__media img { transform: scale(1.03); }
+  .hr3__naam { margin-top: var(--space-3); font-family: var(--font-display); font-weight: 400; font-size: clamp(1.5rem, 1.2rem + 1vw, 2rem); line-height: 1.1; color: var(--ink); }
+  .hr3__land { margin-top: 0.35rem; font-family: var(--font-ui, var(--font-body)); font-size: 0.72rem; letter-spacing: 0.22em; text-transform: uppercase; color: var(--inkSoft); }
+  .hr3__card:focus-visible { outline: 3px solid var(--accent-apricot, #E8643A); outline-offset: 4px; box-shadow: var(--focus-ring); border-radius: 4px; }
+  .hr3__cta { text-align: center; margin-top: var(--space-6); }
+  .hr3__cta a { font-family: var(--font-display); font-size: 1.375rem; color: var(--burgundy); text-decoration: none; border-bottom: 1px solid var(--burgundy); padding-bottom: 2px; }
+  .hr3__cta a:hover { color: var(--burgundyDeep); }
+  @media (max-width: 720px) {
+    .hr3 { grid-template-columns: minmax(0, 1fr); gap: var(--space-6); }
+    .hr3__media { aspect-ratio: 16 / 10; }
   }
 </style>

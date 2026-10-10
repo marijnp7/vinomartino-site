@@ -24,9 +24,13 @@ export interface Props {
   routes: WijnRoute[];
   title?: string;
   locale?: Locale;
+  /** LAT-13062 — false op de routehub: geen titellegenda, de lijst ernaast ís de legenda. */
+  legend?: boolean;
+  /** LAT-13062 — alle routes neutraal; alleen de actieve route (event `hrm:filter`) wordt bordeaux. */
+  neutral?: boolean;
 }
 
-const { routes = [], title, locale = DEFAULT_LOCALE } = Astro.props;
+const { routes = [], title, locale = DEFAULT_LOCALE, legend = true, neutral = false } = Astro.props;
 const isEn = locale === 'en';
 // LAT-2704 — interne hrefs locale-aware; NL blijft byte-identiek.
 const lh = (href: string) => localizeHref(href, locale);
@@ -36,6 +40,7 @@ const legendAria = isEn ? 'Routes on the map' : 'Routes op de kaart';
 
 // Merk-palet: elke route een eigen, herkenbare lijnkleur (bordeaux/olijf/goud).
 const PALETTE = ['#5A1A1F', '#5C6B3F', '#B08228'] as const;
+const NEUTRAL = '#8A7E70';
 
 function lineFor(stops: RouteStopGeo[]): RouteStopGeo[] {
   const geo = stops.filter((s) => s && Number.isFinite(s.lat) && Number.isFinite(s.lng));
@@ -54,7 +59,7 @@ const mapped = routes
       // deze waarde i.p.v. zelf een NL-pad samen te stellen.
       href: lh(`/wijnroutes/${r.slug}/`),
       title: r.title,
-      color: PALETTE[i % PALETTE.length],
+      color: neutral ? NEUTRAL : PALETTE[i % PALETTE.length],
       line: line.map((s) => [s.lat, s.lng] as [number, number]),
       start: line[0].naam,
       end: line[line.length - 1].naam,
@@ -67,13 +72,13 @@ const mapData = { routes: mapped };
 ---
 
 {hasMap && (
-  <figure class="hrm" data-hrm aria-labelledby="hrm-cap">
+  <figure class:list={['hrm', neutral && 'hrm--neutral']} data-hrm data-hrm-neutral={neutral ? '1' : undefined} aria-labelledby="hrm-cap">
     <figcaption class="hrm__cap" id="hrm-cap">
       <span class="hrm__label">{mapKicker}</span>
       <span class="hrm__title">{resolvedTitle}</span>
     </figcaption>
     <div class="hrm__canvas" data-hrm-canvas role="application" aria-label={resolvedTitle}></div>
-    <ul class="hrm__legend" aria-label={legendAria}>
+    {legend && <ul class="hrm__legend" aria-label={legendAria}>
       {mapped.map((r) => (
         <li class="hrm__legend-item">
           <a href={lh(`/wijnroutes/${r.slug}/`)} class="hrm__legend-link">
@@ -82,7 +87,7 @@ const mapData = { routes: mapped };
           </a>
         </li>
       ))}
-    </ul>
+    </ul>}
     <script type="application/json" data-hrm-data set:html={JSON.stringify(mapData)} />
   </figure>
 )}
@@ -140,6 +145,7 @@ const mapData = { routes: mapped };
     await addBaseLayer(map);
 
     const allPts: [number, number][] = [];
+    const layers = new Map<string, { poly: any; marker: any; line: [number, number][]; color: string }>();
 
     for (const r of data.routes) {
       if (!r.line || r.line.length < 2) continue;
@@ -171,7 +177,9 @@ const mapData = { routes: mapped };
         iconAnchor: [8, 8],
       });
 
-      L.marker(start, { icon, title: r.title, riseOnHover: true })
+      const marker = L.marker(start, { icon, title: r.title, riseOnHover: true });
+      layers.set(r.slug, { poly, marker, line: r.line, color: r.color });
+      marker
         .addTo(map)
         .bindPopup(
           `<div class="hrm-popup"><span class="hrm-popup__role">Wijnroute &middot; ${esc(r.start)} &rarr; ${esc(r.end)}</span><h4 class="hrm-popup__name">${esc(r.title)}</h4><a class="hrm-popup__cta" href="${href}">Bekijk de route &rarr;</a></div>`,
@@ -206,6 +214,33 @@ const mapData = { routes: mapped };
       map.setView(allPts[0], 6);
     }
     setTimeout(() => map.invalidateSize(), 0);
+
+    // LAT-13062 — routehub: de lijst stuurt de kaart. `visible` = slugs in de selectie
+    // (null = alles), `active` = route onder hover/focus (bordeaux); de rest blijft neutraal.
+    if (section.dataset.hrmNeutral === '1') {
+      const ACTIVE = '#5A1A1F';
+      const apply = (d: { visible?: string[] | null; active?: string | null; refit?: boolean } = {}) => {
+        const vis = d.visible ? new Set(d.visible) : null;
+        const active = d.active ?? (vis && vis.size === 1 ? [...vis][0] : null);
+        const pts: [number, number][] = [];
+        for (const [slug, l] of layers) {
+          const show = !vis || vis.has(slug);
+          if (!show) { l.poly.remove(); l.marker.remove(); continue; }
+          if (!map.hasLayer(l.poly)) l.poly.addTo(map);
+          if (!map.hasLayer(l.marker)) l.marker.addTo(map);
+          pts.push(...l.line);
+          const on = slug === active;
+          l.poly.setStyle({ color: on ? ACTIVE : l.color, weight: on ? 5 : 3, opacity: on ? 1 : 0.75 });
+          if (on) l.poly.bringToFront();
+          l.marker.getElement()?.querySelector('.hrm-pin')?.style.setProperty('--c', on ? ACTIVE : l.color);
+          l.marker.setZIndexOffset(on ? 1000 : 0);
+        }
+        if (d.refit && pts.length >= 2) map.fitBounds(pts, { padding: [36, 36], maxZoom: 8 });
+      };
+      apply({ ...((window as any).__hrmFilter ?? {}), refit: Boolean((window as any).__hrmFilter?.visible) });
+      document.addEventListener('hrm:filter', (e) => apply((e as CustomEvent).detail));
+      document.addEventListener('hrm:resize', () => map.invalidateSize());
+    }
   }
 
   function ready(): void {
