@@ -15,6 +15,12 @@ services:
     depends_on:
       directus-db:
         condition: service_healthy
+    # LAT-13113 (approval 0c95a1f4): SMTP via info@vinomartino.com. De waarden
+    # (EMAIL_TRANSPORT, EMAIL_FROM, EMAIL_SMTP_*) staan alleen op de VPS in een
+    # env_file (0600, root), nooit in de repo. Lokaal mag het bestand ontbreken.
+    env_file:
+      - path: ${DIRECTUS_SMTP_ENV_FILE:-/opt/paperclip-cos/directus-smtp.env}
+        required: false
     environment:
       DB_CLIENT: pg
       DB_HOST: directus-db
