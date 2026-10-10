@@ -1628,15 +1628,15 @@ interface UiStringsLoad {
 }
 
 /**
- * Laadt de UI-dictionary voor `locale`. NL = geen fetch (byte-identiek aan de
- * hardcoded defaults). EN = haalt de `ui_strings`-rijen met hun `translations`
+ * Laadt de UI-dictionary voor `locale`. NL en EN halen de `ui_strings`-rijen met hun `translations`
  * op, bouwt een key→EN-value-Map en overlayt die op de NL-defaults.
  */
 async function fetchUiStrings(locale: Locale = DEFAULT_LOCALE): Promise<UiStringsLoad> {
-    // NL en "niet geconfigureerd" zijn deterministisch: geen fetch, dus niets om
-    // opnieuw te proberen — cachen is hier gratis en juist.
-    if (locale === DEFAULT_LOCALE) return { ui: fromDefaults(locale), cacheable: true };
-
+    // LAT-13075 (Codex-controle 19:55): ook NL leest de `ui_strings`-rijen, zodat een
+    // redactionele correctie in Directus (languages_code = nl) wint van de hardcoded
+    // default. Vóór deze wijziging sloeg NL de fetch over en bleef bv. de onbewezen
+    // claim "Alleen adressen waar Marijn zelf sliep" live terwijl het CMS al gecorrigeerd
+    // was. "Niet geconfigureerd" blijft deterministisch: geen fetch, gratis te cachen.
     const env = readDirectusEnv();
     if (!env.configured) return { ui: fromDefaults(locale), cacheable: true };
 
@@ -1673,7 +1673,9 @@ async function fetchUiStrings(locale: Locale = DEFAULT_LOCALE): Promise<UiString
     return {
         ui: {
             locale,
-            t: (key) => overlay.get(key) ?? UI_STRING_EN[key] ?? UI_STRING_DEFAULTS[key] ?? key,
+            t: locale === 'en'
+                ? (key) => overlay.get(key) ?? UI_STRING_EN[key] ?? UI_STRING_DEFAULTS[key] ?? key
+                : (key) => overlay.get(key) ?? UI_STRING_DEFAULTS[key] ?? key,
         },
         cacheable: true,
     };
