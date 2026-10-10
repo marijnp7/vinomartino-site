@@ -654,6 +654,7 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'wijnhuizen.filter.land.alle': 'Heel {land}',
     'wijnhuizen.filter.druif.label': 'Druif',
     'wijnhuizen.filter.druif.alle': 'Alle druiven',
+    'wijnhuizen.filter.overigeStreken': 'Overige streken',
     'wijnhuizen.filter.meer': 'Meer filters',
     'wijnhuizen.filter.actief': 'Actieve filters',
     'wijnhuizen.filter.wis': 'Alles wissen',
@@ -666,6 +667,7 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'wijnhuizen.filter.leeg.zonderDruif': 'Van {n} huizen is de druif nog niet vastgelegd; die vallen buiten een druiffilter, maar staan er zonder filter gewoon bij.',
     'wijnhuizen.filter.leeg.zoekOveral': 'Zoek "{q}" in alle bestemmingen',
     'wijnhuizen.card.druivenOnbekend': 'Druiven nog niet vastgelegd',
+    'wijnhuizen.card.bezoekOnbekend': 'Bezoekmogelijkheid nog niet bevestigd',
     'wijnhuizen.card.druifFilter': 'Toon alle huizen met {druif}',
 
     // WijnroutesIndex.astro (/wijnroutes/).
@@ -1153,6 +1155,7 @@ export const UI_STRING_EN: Record<string, string> = {
     'wijnhuizen.filter.land.alle': 'All of {land}',
     'wijnhuizen.filter.druif.label': 'Grape',
     'wijnhuizen.filter.druif.alle': 'All grapes',
+    'wijnhuizen.filter.overigeStreken': 'Other regions',
     'wijnhuizen.filter.meer': 'More filters',
     'wijnhuizen.filter.actief': 'Active filters',
     'wijnhuizen.filter.wis': 'Clear all',
@@ -1165,6 +1168,7 @@ export const UI_STRING_EN: Record<string, string> = {
     'wijnhuizen.filter.leeg.zonderDruif': 'For {n} wineries the grapes are not recorded yet; a grape filter leaves them out, but without filters they are all listed.',
     'wijnhuizen.filter.leeg.zoekOveral': 'Search "{q}" in all destinations',
     'wijnhuizen.card.druivenOnbekend': 'Grapes not recorded yet',
+    'wijnhuizen.card.bezoekOnbekend': 'Visiting options not confirmed yet',
     'wijnhuizen.card.druifFilter': 'Show all wineries with {druif}',
     // ProefnotitieKaart.astro — 'Uit de kelder' stond via UI_COPY hardcoded in het
     // component (LAT-4924 §3). EN-copy goedgekeurd door de Lead Editor.
