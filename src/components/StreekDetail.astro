@@ -12,6 +12,7 @@ import RelatedArticles from './RelatedArticles.astro';
 import CtaStructure from './CtaStructure.astro';
 import HubBacklink from './HubBacklink.astro';
 import AccommodatieRoundup from './AccommodatieRoundup.astro';
+import { getWineGeography } from '../lib/wine-geography';
 import StreekKaart, { type StreekPoiInput } from './StreekKaart.astro';
 import StreekFeitenblok from './StreekFeitenblok.astro';
 import RouteMap from './RouteMap.astro';
@@ -198,6 +199,7 @@ const activiteitenInput: StreekPoiInput[] = entry.activiteiten.map(p => ({
   partner: 'getyourguide',
 }));
 
+const hasWineGeography = Boolean(getWineGeography(entry.slug));
 const hasUnifiedPoi = wijnhuizenInput.length > 0 || overnachtenInput.length > 0 || etenInput.length > 0 || activiteitenInput.length > 0;
 
 // LAT-2009 (VIS-BL-10) — "aantal adressen" voor het feitenblok: tel de gecureerde
@@ -375,10 +377,10 @@ const hasFactBox = Boolean(
         streek geen gecureerde accommodaties, dan valt het terug op de reisjunk-
         roundup. LAT-1640: zonder gecureerde data rendert er geen blok meer
         (geen generieke Stay22-zoekwidget). */}
-    {(hasUnifiedPoi || (!hasCuratedStays && hasReisjunkRoundup)) && (
+    {(hasUnifiedPoi || hasWineGeography || (!hasCuratedStays && hasReisjunkRoundup)) && (
       <section class="streek-poi">
         <div class="container">
-          {hasUnifiedPoi && (
+          {(hasUnifiedPoi || hasWineGeography) && (
             <StreekKaart
               streek={entry.name}
               slug={entry.slug}

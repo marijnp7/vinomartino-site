@@ -20,6 +20,7 @@ const SOURCE =
 
 // Geographic projection and background framing, not wine-area definitions.
 const COUNTRIES = {
+  georgie: { admin: 'Georgia', label: 'Georgië', projection: () => d3.geoConicConformal().parallels([41,43]).rotate([-44,0]), wineSource: 'https://wine.gov.ge/En/Wine/9' },
   frankrijk: { admin: 'France', label: 'Frankrijk', projection: () => d3.geoConicConformal().parallels([44,49]).rotate([-2.5,0]), exclude: new Set(['Guadeloupe','Guyane française','Martinique','Mayotte','Réunion']) },
   italie: { admin: 'Italy', label: 'Italië', projection: () => d3.geoConicConformal().parallels([38,44]).rotate([-12,0]) },
   spanje: { admin: 'Spain', label: 'Spanje', projection: () => d3.geoConicConformal().parallels([37,43]).rotate([3.5,0]), exclude: new Set(['Canary Is.','Ceuta','Melilla','Islas Baleares']) },
@@ -198,7 +199,7 @@ function buildCountry(slug, cfg, all) {
     _meta: {
       description: 'Wine areas: Candiago et al. 2022, municipality-level PDO unions, simplified for national scale. Natural Earth administrative regions are background only. South Africa: Wine of Origin districts/wards from the public SAWIS web map.',
       geometryVersion: 'wine-pdo-2026-10-10',
-      wineSource: slug === 'zuid-afrika' ? 'https://www.sawis.co.za/cert/productionareas.php' : 'https://doi.org/10.6084/m9.figshare.19312094',
+      wineSource: cfg.wineSource ?? (slug === 'zuid-afrika' ? 'https://www.sawis.co.za/cert/productionareas.php' : 'https://doi.org/10.6084/m9.figshare.19312094'),
       wineResolution: slug === 'zuid-afrika' ? 'wine-origin' : 'municipality',
       viewBox,
       source: 'natural-earth-vector ne_10m_admin_1_states_provinces',

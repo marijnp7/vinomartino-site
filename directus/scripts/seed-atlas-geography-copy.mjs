@@ -1,5 +1,14 @@
 // CMS-owned map copy, both locales. Idempotent; no changes to article content.
 const rows = {
+ 'atlas.region.title': ['De kaart van {region}', 'The map of {region}'],
+ 'atlas.region.intro': ['Bekijk het wijngebied en zoom in op de adressen voor je reis.', 'Explore the wine region and zoom in on places for your trip.'],
+ 'atlas.region.areaLabel': ['Wijngebied {region}', '{region} wine region'],
+ 'atlas.region.locatorLabel': ['Ligging van {region}', 'Location of {region}'],
+ 'atlas.region.showArea': ['Hele wijngebied', 'Whole wine region'],
+ 'atlas.region.showAddresses': ['Adressen bekijken', 'View places'],
+ 'atlas.region.method.za': ['Het vlak toont het Wine of Origin-herkomstgebied, niet de afzonderlijke wijngaardpercelen.', 'The shape shows the Wine of Origin area, not individual vineyard parcels.'],
+ 'atlas.region.method.ge': ['Het vlak volgt de gemeenten uit de officiële Kakheti-specificatie, vereenvoudigd voor deze kaart. Het toont het herkomstgebied, niet waar alle wijngaarden liggen.', 'The shape follows the municipalities in the official Kakheti specification, simplified for this map. It shows the area of origin, not where all vineyards are planted.'],
+ 'atlas.source.ge': ['National Wine Agency, Kakheti-specificatie; contour Natural Earth', 'National Wine Agency, Kakheti specification; outline Natural Earth'],
  'atlas.kicker': ['Wijnatlas · {country}', 'Wine atlas · {country}'],
  'atlas.title': ['De wijnstreken van {country}', 'The wine regions of {country}'],
  'atlas.intro': ['Van wijngebied naar reisplan. Kies een gekleurd gebied of een nummer en ontdek de streek.', 'From wine region to travel plan. Choose a coloured area or a number to explore the region.'],

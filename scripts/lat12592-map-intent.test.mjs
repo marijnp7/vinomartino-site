@@ -16,7 +16,7 @@ test('whenUserIntent luistert op echte gebruikersacties en kent een #anker-uitwe
 });
 
 for (const [file, calls] of [
-  ['src/components/StreekKaart.astro', 2],
+  ['src/components/StreekKaart.astro', 1],
   ['src/components/RouteGeoMap.astro', 1],
 ]) {
   test(`${file}: elke init wacht op whenUserIntent vóór loadLeaflet`, () => {

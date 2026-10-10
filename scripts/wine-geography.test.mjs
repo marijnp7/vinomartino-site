@@ -7,8 +7,8 @@ const files=readdirSync(new URL('wine-areas/',root)).filter(f=>f.endsWith('.geoj
 const areas=Object.fromEntries(files.flatMap(f=>JSON.parse(readFileSync(new URL('wine-areas/'+f,root))).features.map(v=>[v.properties.slug,v])));
 function inRing(p,r){let inside=false;for(let i=0,j=r.length-1;i<r.length;j=i++){const a=r[i],b=r[j];if(((a[1]>p[1])!==(b[1]>p[1]))&&(p[0]<(b[0]-a[0])*(p[1]-a[1])/(b[1]-a[1])+a[0]))inside=!inside;}return inside;}
 function contains(slug,p){const g=areas[slug].geometry;return (g.type==='Polygon'?[g.coordinates]:g.coordinates).some(poly=>inRing(p,poly[0])&&!poly.slice(1).some(h=>inRing(p,h)));}
-test('all 39 current country-map regions have sourced wine geometry',()=>{
- assert.equal(files.length,8);assert.equal(Object.keys(areas).length,39);
+test('all 40 published regions have sourced wine geometry',()=>{
+ assert.equal(files.length,9);assert.equal(Object.keys(areas).length,40);
  for(const f of Object.values(areas)){assert.ok(f.properties.source.startsWith('https://'));assert.ok(f.properties.sourceIds.length);assert.ok(['municipality','wine-origin'].includes(f.properties.resolution));assert.ok(contains(f.properties.slug,f.properties.labelLonLat));}
 });
 test('Loire extends through Muscadet, Anjou, Touraine and Centre-Loire',()=>{
@@ -45,4 +45,10 @@ test('coincident tiny-region labels separate without changing geographic anchors
  const labels=layoutAtlasLabels(points,[0,0,200,200],10);
  assert.equal(JSON.stringify(points),copy);
  for(let i=0;i<labels.length;i++)for(let j=i+1;j<labels.length;j++)assert.ok(Math.hypot(labels[i].x-labels[j].x,labels[i].y-labels[j].y)>27.9);
+});
+
+test('Kakheti uses the PDO geographic area and excludes Tbilisi',()=>{
+ assert.ok(contains('kakheti-georgie',[45.473,41.919]));
+ assert.ok(!contains('kakheti-georgie',[44.793,41.715]));
+ assert.ok(areas['kakheti-georgie'].properties.sourceIds.includes('NWA-PDO-789:section-4'));
 });

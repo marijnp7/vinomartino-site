@@ -15,7 +15,7 @@ export function loadAtlasCopy(locale: Locale): Promise<Record<string, string>> {
         const tr = row.translations?.find((v: { languages_code: string }) => v.languages_code === locale);
         if (tr?.value) copy[row.key] = tr.value;
       }
-      for (const key of ['kicker','title','intro','method.municipality','method.wineOrigin','sources','mapLabel','source.eu','source.za','source.base']) {
+      for (const key of ['kicker','title','intro','method.municipality','method.wineOrigin','sources','mapLabel','source.eu','source.za','source.base','region.title','region.intro','region.areaLabel','region.locatorLabel','region.showArea','region.showAddresses','region.method.za','region.method.ge','source.ge']) {
         if (!copy[`atlas.${key}`]) throw new Error(`Missing CMS map copy: atlas.${key} (${locale})`);
       }
       return copy;

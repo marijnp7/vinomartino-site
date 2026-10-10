@@ -1,0 +1,19 @@
+---
+import type { WineGeography } from '../lib/wine-geography';
+interface Props { geography: WineGeography; label: string; overview?: boolean }
+const { geography, label, overview = false } = Astro.props;
+const { viewBox, paths, d, anchor } = geography.overview;
+const dotRadius = Math.max(...viewBox.split(' ').map(Number).slice(2)) * .012;
+---
+<svg class="wine-area-preview" viewBox={overview ? viewBox : geography.detail.viewBox} role="img" aria-label={label} xmlns="http://www.w3.org/2000/svg">
+  <title>{label}</title>
+  <g class="wine-area-preview__context">{overview && paths.map(path => <path d={path} />)}</g>
+  <path d={overview ? d : geography.detail.d} class="wine-area-preview__area" fill-rule="evenodd" vector-effect="non-scaling-stroke" />
+  {overview && <circle cx={anchor.x} cy={anchor.y} r={dotRadius} class="wine-area-preview__anchor" />}
+</svg>
+<style>
+.wine-area-preview { width:100%; height:100%; display:block; background:var(--paperDeep,#F0E6D0); }
+.wine-area-preview__context { fill:#8A7E70; fill-opacity:.08; stroke:#8A7E70; stroke-opacity:.35; stroke-width:.6; }
+.wine-area-preview__area { fill:#5A1A1F; fill-opacity:.26; stroke:#5A1A1F; stroke-width:1.2; }
+.wine-area-preview__anchor { fill:#5A1A1F; stroke:#F0E6D0; stroke-width:2; }
+</style>

@@ -30,7 +30,7 @@ const regions = Object.entries(file?.regions ?? {})
     linkable: meta[key].linkable !== false }));
 const labels = layoutAtlasLabels(regions.map(r => r.entry.labelAt), box, radius);
 const context = Object.values(file?.regions ?? {}).filter(e => !e.wine);
-const sourceKey = file?._meta.wineResolution === 'wine-origin' ? 'za' : 'eu';
+const sourceKey = landSlug === 'georgie' ? 'ge' : file?._meta.wineResolution === 'wine-origin' ? 'za' : 'eu';
 ---
 {file && regions.length > 0 && (
   <section class:list={['crm', className]} data-geometry-version={file._meta.geometryVersion}>
@@ -83,7 +83,7 @@ const sourceKey = file?._meta.wineResolution === 'wine-origin' ? 'za' : 'eu';
           </g>
         </svg>
       </nav>
-      <p class="crm-method">{t(file._meta.wineResolution === 'wine-origin' ? 'method.wineOrigin' : 'method.municipality')}</p>
+      <p class="crm-method">{t(sourceKey === 'ge' ? 'region.method.ge' : file._meta.wineResolution === 'wine-origin' ? 'method.wineOrigin' : 'method.municipality')}</p>
       <details class="crm-sources"><summary>{t('sources')}</summary>
         <a href={file._meta.wineSource}>{t(`source.${sourceKey}`)}</a>
         <a href="https://www.naturalearthdata.com/">{t('source.base')}</a>

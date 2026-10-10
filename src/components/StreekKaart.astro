@@ -8,8 +8,11 @@
 //
 // Affiliate-CTA's dragen de bestaande cookieless click-tracker-attributen
 // (data-affiliate-*, LAT-1019/1029). Blokken renderen alleen als er data is —
-// nooit "coming soon" (Martin-stem, plan 4b).
+// nooit "coming soon".
 
+import WineAreaPreview from './WineAreaPreview.astro';
+import { getWineGeography } from '../lib/wine-geography';
+import { loadAtlasCopy } from '../lib/atlas-copy';
 import PoiCard, { type PoiCardTheme } from './PoiCard.astro';
 import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
 import { loadUiStrings } from '../lib/ui-strings';
@@ -79,6 +82,10 @@ const {
 } = Astro.props;
 
 const ui = await loadUiStrings(locale);
+const geography = getWineGeography(slug);
+const atlas = await loadAtlasCopy(locale);
+const mapCopy = (key: string) => (atlas[`atlas.${key}`] ?? '').replace('{region}', streek);
+const methodKey = geography?.sourceKey === 'ge' ? 'region.method.ge' : geography?.sourceKey === 'za' ? 'region.method.za' : 'method.municipality';
 // LAT-2704 — interne hrefs locale-aware; NL blijft byte-identiek.
 const lh = (href: string) => localizeHref(href, locale);
 
@@ -146,18 +153,9 @@ const sections = CATEGORY_ORDER
 
 const allItems = sections.flatMap((s) => s.items);
 const geoItems = allItems.filter((it) => it.lat != null && it.lng != null);
-const hasMap = geoItems.length >= 1;
+const hasMap = geoItems.length >= 1 || Boolean(geography);
 
 const mapId = `streekkaart-${slug}`.replace(/[^a-z0-9-]/gi, '');
-
-// Locator-centroid: gemiddelde van alle geplotte POI's. Geeft de streek-context
-// op een uitgezoomde kaart (land + streek gemarkeerd).
-const centroid = hasMap
-  ? {
-      lat: geoItems.reduce((s, it) => s + (it.lat as number), 0) / geoItems.length,
-      lng: geoItems.reduce((s, it) => s + (it.lng as number), 0) / geoItems.length,
-    }
-  : null;
 
 // Affiliate-categorieën die een externe boeklink dragen (sticky-bar trigger).
 const bookableSection = sections.find((s) =>
@@ -175,6 +173,7 @@ function ctaLabel(category: CatKey): string {
 
 const mapData = {
   slug,
+  area: geography?.feature ?? null,
   leesMeer: ui.t('streekkaart.popupLeesMeer'),
   pins: geoItems.map((it) => ({
     n: it.n,
@@ -196,19 +195,18 @@ const mapData = {
 const usedCats = sections.map((s) => s.key);
 ---
 
-{sections.length > 0 && (
-  <section class="streekkaart" data-streekkaart id={mapId} aria-labelledby={`${mapId}-title`}>
+{(sections.length > 0 || geography) && (
+  <section class="streekkaart" data-streekkaart data-wine-area={geography ? slug : undefined} id={mapId} aria-labelledby={`${mapId}-title`}>
     <header class="streekkaart__head">
       <span class="streekkaart__kicker">{ui.t('streekkaart.kicker')}</span>
-      <h2 id={`${mapId}-title`} class="streekkaart__title">{`${ui.t('streekkaart.titlePrefix')} ${streek}`}</h2>
-      <p class="streekkaart__intro">{`${ui.t('streekkaart.introPrefix')} ${streek}`}{country && <>, {country}</>}{ui.t('streekkaart.introSuffix')}</p>
+      <h2 id={`${mapId}-title`} class="streekkaart__title">{mapCopy('region.title')}</h2>
+      <p class="streekkaart__intro">{mapCopy('region.intro')}</p>
     </header>
 
     {hasMap && (
       <figure class="streekkaart__map" data-skz-map>
-        {/* LAT-2009 (VIS-BL-10): één kaart met inzet. De detailkaart is de
-            hoofdkaart; de locator (land + streek gemarkeerd) zit als kleine inzet
-            in de rechterbovenhoek i.p.v. als losse tweede kaart ernaast. */}
+        {/* The source area is visible before JS. The country locator sits
+            below the map so it cannot obscure an area or address marker. */}
         <div class="streekkaart__stage">
           <div
             class="streekkaart__detail-canvas"
@@ -216,22 +214,22 @@ const usedCats = sections.map((s) => s.key);
             role="application"
             aria-label={`${ui.t('streekkaart.ariaDetailMap')} ${streek}`}
           ></div>
-          {centroid && (
-            <div class="streekkaart__locator-inset">
-              <div
-                class="streekkaart__locator-canvas"
-                data-streekkaart-locator
-                data-lat={centroid.lat}
-                data-lng={centroid.lng}
-                data-naam={streek}
-                role="img"
-                aria-label={`${ui.t('streekkaart.locatorPrefix')} ${streek}${country ? `, ${country}` : ''}${ui.t('streekkaart.locatorSuffix')}`}
-              ></div>
+          {geography && <>
+            <div class="streekkaart__preview" data-geography-preview>
+              <WineAreaPreview geography={geography} label={mapCopy('region.areaLabel')} />
             </div>
-          )}
+          </>}
         </div>
+        {geography && <div class="streekkaart__locator-inset">
+          <WineAreaPreview geography={geography} overview label={mapCopy('region.locatorLabel')} />
+        </div>}
         <script type="application/json" data-streekkaart-data set:html={JSON.stringify(mapData)} />
+        {geography && <div class="streekkaart__views" data-map-views hidden>
+          <button type="button" data-map-view="area" aria-pressed="true">{mapCopy('region.showArea')}</button>
+          {geoItems.length > 0 && <button type="button" data-map-view="pins" aria-pressed="false">{mapCopy('region.showAddresses')}</button>}
+        </div>}
         <figcaption class="streekkaart__legend">
+          {geography && <span class="streekkaart__legend-item"><span class="streekkaart__area-swatch"></span>{mapCopy('region.areaLabel')}</span>}
           {usedCats.map((key) => (
             <span class="streekkaart__legend-item">
               <span class="streekkaart__swatch" style={`background:${CATEGORY_META[key].color}`}></span>
@@ -239,6 +237,10 @@ const usedCats = sections.map((s) => s.key);
             </span>
           ))}
         </figcaption>
+        {geography && <div class="streekkaart__geography-note">
+          <p>{mapCopy(methodKey)}</p>
+          <details><summary>{mapCopy('sources')}</summary><a href={geography.feature.properties.source}>{mapCopy(`source.${geography.sourceKey}`)}</a></details>
+        </div>}
       </figure>
     )}
 
@@ -328,7 +330,7 @@ const usedCats = sections.map((s) => s.key);
     lat: number; lng: number; prijs: string | null; boeklink: string | null;
     detailUrl: string | null; cta: string; partner: string;
   };
-  type MapData = { slug: string; leesMeer?: string; pins: Pin[] };
+  type MapData = { slug: string; leesMeer?: string; pins: Pin[]; area?: any };
 
   let leafletPromise: Promise<any> | null = null;
   function loadLeaflet(): Promise<any> {
@@ -340,29 +342,6 @@ const usedCats = sections.map((s) => s.key);
     return s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string));
   }
 
-  async function initLocator(canvas: HTMLElement): Promise<void> {
-    if (canvas.dataset.ready === '1') return;
-    canvas.dataset.ready = '1';
-    const lat = Number(canvas.dataset.lat);
-    const lng = Number(canvas.dataset.lng);
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
-    await whenUserIntent();
-    const L = await loadLeaflet();
-    const map = L.map(canvas, {
-      scrollWheelZoom: false, zoomControl: false, dragging: false,
-      doubleClickZoom: false, attributionControl: true, keyboard: false,
-    });
-    await addBaseLayer(map);
-    map.setView([lat, lng], 6);
-    const icon = L.divIcon({
-      className: '',
-      html: '<span class="skz-pin skz-pin--locator" aria-hidden="true"></span>',
-      iconSize: [22, 22], iconAnchor: [11, 11],
-    });
-    L.marker([lat, lng], { icon, keyboard: false, interactive: false }).addTo(map);
-    setTimeout(() => map.invalidateSize(), 0);
-  }
-
   async function initDetail(section: HTMLElement): Promise<void> {
     const canvas = section.querySelector<HTMLElement>('[data-streekkaart-canvas]');
     const dataEl = section.querySelector<HTMLElement>('[data-streekkaart-data]');
@@ -371,12 +350,16 @@ const usedCats = sections.map((s) => s.key);
 
     let data: MapData;
     try { data = JSON.parse(dataEl.textContent || '{}'); } catch { return; }
-    if (!data.pins?.length) return;
+    if (!data.pins?.length && !data.area) return;
 
     await whenUserIntent();
     const L = await loadLeaflet();
     const map = L.map(canvas, { scrollWheelZoom: false, zoomControl: true, attributionControl: true });
-    await addBaseLayer(map);
+    // Draw the sourced boundary before loading external base tiles.
+    const areaLayer = data.area ? L.geoJSON(data.area, {
+      interactive: false,
+      style: { color: '#5A1A1F', weight: 1.5, opacity: .85, fillColor: '#5A1A1F', fillOpacity: .13 },
+    }).addTo(map) : null;
 
     const markersByN = new Map<number, any>();
     const latlngs: [number, number][] = [];
@@ -414,8 +397,24 @@ const usedCats = sections.map((s) => s.key);
       latlngs.push([p.lat, p.lng]);
     }
 
-    if (latlngs.length === 1) map.setView(latlngs[0], 12);
-    else map.fitBounds(latlngs, { padding: [40, 40], maxZoom: 13 });
+    const fitArea = () => map.fitBounds(areaLayer.getBounds(), { padding: [30, 30], maxZoom: 12 });
+    const fitPins = () => {
+      if (latlngs.length === 1) map.setView(latlngs[0], 12);
+      else if (latlngs.length) map.fitBounds(latlngs, { padding: [40, 40], maxZoom: 13 });
+    };
+    if (areaLayer) fitArea(); else fitPins();
+    section.querySelector<HTMLElement>('[data-geography-preview]')?.setAttribute('hidden', '');
+    const views = section.querySelector<HTMLElement>('[data-map-views]');
+    if (views && areaLayer) {
+      views.hidden = false;
+      views.querySelectorAll<HTMLButtonElement>('button').forEach(button => button.addEventListener('click', () => {
+        button.dataset.mapView === 'area' ? fitArea() : fitPins();
+        views.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b === button)));
+      }));
+      map.on('dragstart', () => views.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', 'false')));
+    }
+    // A tile-provider failure must not hide the area and address pins.
+    addBaseLayer(map).catch((error: unknown) => console.warn('Map base layer unavailable', error));
     setTimeout(() => map.invalidateSize(), 0);
 
     section.querySelectorAll<HTMLElement>('[data-skz-card]').forEach((card) => {
@@ -474,24 +473,22 @@ const usedCats = sections.map((s) => s.key);
   }
 
   function ready(): void {
+    // Register intent before intersection callbacks so the first scroll suffices.
+    void whenUserIntent();
     const sections = Array.from(document.querySelectorAll<HTMLElement>('section.streekkaart[data-streekkaart]'));
-    const locators = Array.from(document.querySelectorAll<HTMLElement>('[data-streekkaart-locator]'));
 
     if (!('IntersectionObserver' in window)) {
       sections.forEach((s) => initDetail(s));
-      locators.forEach((c) => initLocator(c));
     } else {
       const io = new IntersectionObserver((entries, obs) => {
         for (const entry of entries) {
           if (!entry.isIntersecting) continue;
           obs.unobserve(entry.target);
           const el = entry.target as HTMLElement;
-          if (el.matches('[data-streekkaart-locator]')) initLocator(el);
-          else initDetail(el);
+          initDetail(el);
         }
       }, { rootMargin: '200px' });
       sections.forEach((s) => io.observe(s));
-      locators.forEach((c) => io.observe(c));
     }
     initSticky();
   }
@@ -501,6 +498,18 @@ const usedCats = sections.map((s) => s.key);
 </script>
 
 <style>
+  .streekkaart__preview { position:absolute; inset:0; z-index:1; pointer-events:none; overflow:hidden; border:1px solid var(--rule,#C9B98F); }
+  .streekkaart__preview[hidden], .streekkaart__views[hidden] { display:none; }
+  .streekkaart__views { margin-right:160px; display:flex; flex-wrap:wrap; gap:.5rem; margin:.7rem 0; }
+  .streekkaart__views button { min-height:44px; padding:.5rem .9rem; background:var(--paperDeep,#F0E6D0); border:1px solid var(--rule,#C9B98F); color:var(--ink); cursor:pointer; font:inherit; font-size:.85rem; }
+  .streekkaart__views button[aria-pressed="true"] { background:#5A1A1F; border-color:#5A1A1F; color:#fffaf0; }
+  .streekkaart__views button:focus-visible { outline:2px solid #5A1A1F; outline-offset:3px; }
+  .streekkaart__area-swatch { display:inline-block; width:14px; height:10px; border:1px solid #5A1A1F; background:#5A1A1F33; margin-right:.35rem; }
+  .streekkaart__geography-note { font-size:.78rem; line-height:1.5; color:var(--inkSoft); }
+  .streekkaart__geography-note p { margin:.5rem 0; }
+  .streekkaart__geography-note summary { cursor:pointer; }
+  .streekkaart__geography-note a { color:inherit; }
+
   .streekkaart { margin: 2.5rem 0; }
   .streekkaart__kicker {
     font-family: var(--font-mono, monospace);
@@ -525,7 +534,7 @@ const usedCats = sections.map((s) => s.key);
     margin: 0 0 1.75rem;
   }
 
-  .streekkaart__map { margin: 0 0 2rem; }
+  .streekkaart__map { margin: 0 0 2rem; position:relative; }
   .streekkaart__stage {
     position: relative;
   }
@@ -538,28 +547,23 @@ const usedCats = sections.map((s) => s.key);
     background: #F0E6D0;
     z-index: 0;
   }
-  /* LAT-2009: locator als inzet rechtsboven op de hoofdkaart. z-index boven de
-     tile/overlay-panes; de zoomcontrol staat linksboven, dus geen botsing. */
+  /* Country overview stays outside the map so it never obscures geometry. */
   .streekkaart__locator-inset {
-    position: absolute;
-    top: 12px;
-    right: 12px;
-    width: 34%;
-    max-width: 190px;
-    min-width: 116px;
+    position: static;
+    float: right;
+    margin: .6rem 0 .6rem .6rem;
+    width: 140px;
+    height: 86px;
+    pointer-events: none;
     border-radius: 2px;
     border: 1px solid var(--rule, #C9B98F);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+    box-shadow: none;
     overflow: hidden;
     z-index: 500;
   }
-  .streekkaart__locator-canvas {
-    width: 100%;
-    height: 120px;
-    background: #F0E6D0;
-    z-index: 0;
-  }
   .streekkaart__legend {
+    clear: both;
+    padding-top: .25rem;
     font-family: var(--font-mono, monospace);
     font-size: 0.6875rem;
     letter-spacing: 0.08em;
@@ -672,8 +676,9 @@ const usedCats = sections.map((s) => s.key);
 
   @media (max-width: 760px) {
     .streekkaart__detail-canvas { height: 380px; }
-    .streekkaart__locator-inset { width: 38%; max-width: 150px; top: 8px; right: 8px; }
-    .streekkaart__locator-canvas { height: 96px; }
+    .streekkaart__locator-inset { position:static; float:right; width:90px; height:64px; min-width:0; margin:.6rem 0 .6rem .6rem; box-shadow:none; }
+    .streekkaart__views { margin-right:100px; }
+    .streekkaart__legend { clear:both; padding-top:.25rem; }
   }
   @media (max-width: 640px) {
     .streekkaart__cards { grid-template-columns: 1fr; }
