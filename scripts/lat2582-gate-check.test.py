@@ -173,7 +173,7 @@ class TestLiterals(unittest.TestCase):
             "affiliate-kort": "Affiliate-links · geen extra kosten",
             "cta-bekijk-boek": '<span class="cta">Bekijk &amp; boek</span>',
             "kbd-navigeren": "<kbd>&uarr;</kbd><kbd>&darr;</kbd> navigeren</span>",
-            "atlas-bijschrift": "<p>Elke streek in échte geografie. Beweeg over een gebied.</p>",
+            "atlas-bijschrift": "<p>Van wijngebied naar reisplan. Beweeg over een gebied.</p>",
             "cluster-40min": "Allemaal binnen ~40 min rijden van elkaar",
             "lege-staat-artikelen": "<h3>Geen artikelen voor deze filters</h3>",
         }

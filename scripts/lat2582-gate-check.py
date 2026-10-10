@@ -313,8 +313,8 @@ NL_LITERALS = {
         "nl_familie": "/",
     },
     "atlas-bijschrift": {
-        "pattern": "Elke streek in échte geografie",
-        "bron": "src/components/CountryRegionMap.astro",
+        "pattern": "Van wijngebied naar reisplan",
+        "bron": "Directus ui_strings: atlas.intro",
         "nl_familie": "/landen/",
     },
     "cluster-40min": {
@@ -382,7 +382,7 @@ CONTENT_DIMENSIONS = ("nl-sentences", "nl-links", "nl-literals", "nl-nouns")
 NOINDEX_SELFTEST_ROUTES = (
     "/en/infographics/",
     "/en/infographics/stijl-1-nebbiolo/",
-    "/en/infographics/atlas-italie-interactief/",
+    # The retired Italy atlas redirects to the public country atlas (PR #467).
 )
 
 
