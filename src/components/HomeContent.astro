@@ -1,7 +1,6 @@
 ---
 import SiteLayout from '../layouts/SiteLayout.astro';
 import ZelfGereisdBadge from '../components/ZelfGereisdBadge.astro';
-import ArticleCard from '../components/ArticleCard.astro';
 import Briefkaart from '../components/Briefkaart.astro';
 import HomeRoutesMap from '../components/HomeRoutesMap.astro';
 import DiscoverMapEurope from '../components/DiscoverMapEurope.astro';
@@ -46,13 +45,7 @@ const articles = await loadArticles(locale);
 // Directus. Board zet de toggle aan op het gewenste artikel; bij meerdere wint
 // het nieuwste. Geen featured-artikel → val terug op het nieuwste artikel.
 const spotlight = articles.find((a) => a.featured) ?? articles[0];
-// LAT-13056 Variant A: het nieuwste gepubliceerde artikel staat als staande
-// kaart in de split-hero; de "Net terug"-feed toont de vier daarna (zonder
-// hero- en spotlight-artikel, zodat niets dubbel staat).
-const newest = articles[0];
-const moreArticles = articles
-  .filter((a) => a.slug !== spotlight?.slug && a.slug !== newest?.slug)
-  .slice(0, 4);
+const moreArticles = articles.filter((a) => a.slug !== spotlight?.slug).slice(0, 3);
 const routes = await loadRoutes(locale);
 const allStreken = await loadStreken(locale);
 const landen = await loadLanden(locale);
@@ -183,44 +176,36 @@ function formatDate(value?: string | null) {
   locale={locale}
   alternates={alternates}
 >
-  <section class="hero hero--split" aria-label={ui.t('home.hero.aria')}>
-    <div class="container hero-split">
-      <div class="hero-inner">
-        <span class="hero-eyebrow">{ui.t('home.hero.eyebrow')}</span>
-        <h1 class="hero-title">
-          {ui.t('home.hero.titleLine1')}
-          <em>{ui.t('home.hero.titleEm')}</em>
-        </h1>
-        <p class="hero-lede">
-          {ui.t('home.hero.lede')}
-        </p>
-        <div class="hero-ctas">
-          <a href="#bestemmingen" class="btn btn-primary">{ui.t('home.hero.ctaBestemming')}</a>
-          <a href="#routes" class="btn btn-outline">{ui.t('home.hero.ctaRoutes')}</a>
-        </div>
-      </div>
-      {newest && (
-        <div class="hero-newest">
-          <ArticleCard
-            href={lh(`/artikelen/${newest.slug}/`)}
-            title={newest.title}
-            kicker={newest.category ? rubriekLabel(ui, newest.category) : null}
-            zelfGereisd={newest.zelfGereisd}
-            bezoekjaar={newest.bezoekjaar}
-            tag={ui.t('home.hero.nieuwTag')}
-            variant="hero"
-            headingLevel="h2"
-            locale={locale}
-          >
-            {newest.heroImage ? (
-              <img slot="media" src={newest.heroImage} alt={newest.title} width="900" height="1200" fetchpriority="high" decoding="async" {...herkomst(newest.heroImage)} />
-            ) : (
-              <div slot="media" class="card-placeholder" aria-hidden="true"></div>
-            )}
-          </ArticleCard>
-        </div>
-      )}
+  <section class="hero" aria-label={ui.t('home.hero.aria')}>
+    <div class="hero-media">
+      <img
+        src={HERO_IMAGE}
+        alt={ui.t('home.hero.imageAlt')}
+        width="1600"
+        height="1067"
+        fetchpriority="high"
+        decoding="async"
+      />
     </div>
+    <div class="hero-veil" aria-hidden="true"></div>
+    <div class="hero-inner container">
+      <span class="hero-eyebrow">{ui.t('home.hero.eyebrow')}</span>
+      <h1 class="hero-title">
+        {ui.t('home.hero.titleLine1')}
+        <em>{ui.t('home.hero.titleEm')}</em>
+      </h1>
+      <p class="hero-lede">
+        {ui.t('home.hero.lede')}
+      </p>
+      <div class="hero-ctas">
+        <a href="#bestemmingen" class="btn btn-primary">{ui.t('home.hero.ctaBestemming')}</a>
+        <a href="#routes" class="btn btn-ghost">{ui.t('home.hero.ctaRoutes')}</a>
+      </div>
+    </div>
+    <a href="#bestemmingen" class="hero-scroll" aria-label={ui.t('home.hero.scrollAria')}>
+      <span class="hero-scroll-line" aria-hidden="true"></span>
+      <span class="hero-scroll-label">{ui.t('home.hero.scrollLabel')}</span>
+    </a>
   </section>
 
   {atlasCountries.length > 0 && (
@@ -365,27 +350,29 @@ function formatDate(value?: string | null) {
     <section class="cards-section cards-section--alt">
       <div class="container">
         <header class="section-head">
-          <h2 class="section-h">{ui.t('home.feed.title')}</h2>
+          <span class="kicker">{ui.t('home.latest.kicker')}</span>
+          <h2 class="section-h">{ui.t('home.latest.title')}</h2>
           <p class="section-sub">
             {ui.t('home.latest.sub')}
           </p>
         </header>
-        <div class="feed-grid">
+        <div class="cards-grid">
           {moreArticles.map(article => (
-            <ArticleCard
-              href={lh(`/artikelen/${article.slug}/`)}
-              title={article.title}
-              kicker={article.category ? rubriekLabel(ui, article.category) : null}
-              zelfGereisd={article.zelfGereisd}
-              bezoekjaar={article.bezoekjaar}
-              locale={locale}
-            >
-              {article.heroImage ? (
-                <img slot="media" src={article.heroImage} alt={article.title} width="600" height="750" loading="lazy" decoding="async" {...herkomst(article.heroImage)} />
-              ) : (
-                <div slot="media" class="card-placeholder" aria-hidden="true"></div>
-              )}
-            </ArticleCard>
+            <a href={lh(`/artikelen/${article.slug}/`)} class="card-tile">
+              <div class:list={['card-media', !article.heroImage && 'is-empty']}>
+                {article.heroImage ? (
+                  <img src={article.heroImage} alt={article.title} width="600" height="450" loading="lazy" decoding="async" {...herkomst(article.heroImage)} />
+                ) : (
+                  <div class="card-placeholder" aria-hidden="true"></div>
+                )}
+              </div>
+              <div class="card-body">
+                {article.category && <span class="card-eyebrow">{article.category.replace(/-/g, ' ')}</span>}
+                <h3 class="card-title">{article.title}</h3>
+                {article.description && <p class="card-desc">{article.description}</p>}
+                <span class="card-meta">{authorName(article.author)} · {formatDate(article.pubDate)}</span>
+              </div>
+            </a>
           ))}
         </div>
         <p class="section-cta"><a href={lh('/artikelen/')} class="btn btn-outline">{ui.t('home.latest.allesCta')}</a></p>
@@ -439,47 +426,84 @@ function formatDate(value?: string | null) {
 </SiteLayout>
 
 <style>
-  /* ── Hero (LAT-13056 Variant A: split) ───────────────── */
-  .hero--split {
-    background: var(--paper);
-    color: var(--ink);
-    padding: var(--space-16) 0 var(--space-20);
+  /* ── Hero ─────────────────────────────────────────────── */
+  .hero {
+    position: relative;
+    min-height: clamp(560px, 88vh, 860px);
+    color: var(--fixed-cream);
+    overflow: hidden;
+    isolation: isolate;
+    display: flex;
+    align-items: flex-end;
   }
-  .hero-split {
-    display: grid;
-    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
-    gap: var(--space-12);
-    align-items: center;
+  .hero-media {
+    position: absolute;
+    inset: 0;
+    z-index: -2;
+    display: block;
+    overflow: hidden;
+  }
+  .hero-media img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 38%;
+    transform: scale(1.04);
+    animation: hero-zoom 28s ease-out forwards;
+  }
+  @keyframes hero-zoom {
+    from { transform: scale(1.02); }
+    to { transform: scale(1.10); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .hero-media img { animation: none; transform: scale(1.02); }
+  }
+  .hero-veil {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background:
+      linear-gradient(180deg, rgba(13, 10, 7, 0.65) 0%, rgba(13, 10, 7, 0.15) 28%, rgba(13, 10, 7, 0.15) 55%, rgba(13, 10, 7, 0.78) 100%),
+      linear-gradient(90deg, rgba(13, 10, 7, 0.45) 0%, rgba(13, 10, 7, 0) 55%);
+  }
+  .hero-inner {
+    position: relative;
+    width: 100%;
+    padding-top: var(--space-32);
+    padding-bottom: var(--space-20);
+    max-width: var(--max-width);
   }
   .hero-eyebrow {
     display: inline-block;
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.14em;
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.22em;
     text-transform: uppercase;
-    color: var(--inkSoft);
+    color: var(--gold);
+    padding-bottom: var(--space-2);
+    border-bottom: 1px solid color-mix(in srgb, var(--gold) 60%, transparent);
   }
   .hero-title {
     font-family: var(--font-display);
     font-weight: 400;
-    font-size: clamp(2.75rem, 5vw + 0.5rem, 5.75rem);
+    font-size: clamp(3rem, 7vw + 0.5rem, 6.5rem);
     line-height: 0.98;
     letter-spacing: -0.02em;
-    color: var(--ink);
-    margin: var(--space-5) 0 var(--space-5);
-    max-width: 16ch;
+    color: var(--fixed-cream);
+    margin: var(--space-6) 0 var(--space-5);
+    max-width: 22ch;
   }
   .hero-title em {
     font-style: italic;
-    color: var(--color-primary);
+    color: var(--gold);
+    display: inline-block;
   }
   .hero-lede {
     font-family: var(--font-body);
     font-size: clamp(1.0625rem, 0.4vw + 1rem, 1.25rem);
     line-height: 1.6;
-    color: var(--inkSoft);
-    max-width: 34rem;
+    color: color-mix(in srgb, var(--fixed-cream) 92%, transparent);
+    max-width: 38rem;
     margin-bottom: var(--space-8);
   }
   .hero-ctas {
@@ -487,28 +511,36 @@ function formatDate(value?: string | null) {
     flex-wrap: wrap;
     gap: var(--space-4);
   }
-  .hero-newest {
-    max-width: 26rem;
-    width: 100%;
-    justify-self: end;
+  .hero-scroll {
+    position: absolute;
+    right: var(--gutter);
+    bottom: var(--space-6);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-3);
+    color: color-mix(in srgb, var(--fixed-cream) 80%, transparent);
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    text-decoration: none;
+    z-index: 1;
   }
-  @media (max-width: 860px) {
-    .hero--split { padding: var(--space-10) 0 var(--space-12); }
-    .hero-split { grid-template-columns: 1fr; gap: var(--space-8); }
-    .hero-newest { justify-self: stretch; max-width: none; }
+  .hero-scroll-line {
+    width: 1px;
+    height: 3rem;
+    background: currentColor;
+    opacity: 0.5;
+    animation: scroll-line 2.4s ease-in-out infinite;
+    transform-origin: top;
   }
-
-  /* ── "Net terug"-feed: 4 / 2 / 1 kolommen ─────────────── */
-  .feed-grid {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: var(--space-6);
+  @keyframes scroll-line {
+    0%, 100% { transform: scaleY(0.4); }
+    50% { transform: scaleY(1); }
   }
-  @media (max-width: 1024px) {
-    .feed-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  }
-  @media (max-width: 640px) {
-    .feed-grid { grid-template-columns: 1fr; }
+  @media (min-width: 1024px) {
+    .hero-scroll { display: flex; }
   }
 
   /* ── Buttons ──────────────────────────────────────────── */

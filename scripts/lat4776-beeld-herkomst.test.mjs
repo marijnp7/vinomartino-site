@@ -291,10 +291,7 @@ test('HomeContent — elke kaart-<img> met een contentbeeld draagt de marker', (
     // Falsifieerbaarheid in de andere richting: de statische hero/portret mogen
     // NIET meegenomen zijn, anders test de filter hierboven niets.
     const statisch = tags.filter((t) => /src=\{HERO_IMAGE\}|src="\//.test(t));
-    // LAT-13056 (Variant A): de statische hero-foto is vervangen door de kaart
-    // van het nieuwste artikel (een contentbeeld mét marker); het portret blijft
-    // het statische ijkpunt.
-    assert.ok(statisch.length >= 1, 'het statische portret hoort buiten de contentbeeld-scope te vallen');
+    assert.ok(statisch.length >= 2, 'de statische hero en het portret horen buiten de contentbeeld-scope te vallen');
     assert.equal(
         statisch.filter((t) => contentImgs.includes(t)).length,
         0,
