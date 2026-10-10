@@ -10,6 +10,7 @@ import pino from "pino";
 import http from "node:http";
 import crypto from "node:crypto";
 import { execFile } from "node:child_process";
+import { parseCliResult, parseCliFailure, CosModelError } from "./cli-result.js";
 import { promisify } from "node:util";
 
 const exec = promisify(execFile);
@@ -309,19 +310,15 @@ async function askCos(prompt, model = DEFAULT_MODEL, topicSlug = "algemeen") {
     "--output-format", "json",
   ];
   log.info({ model, topicSlug, historyLen: history.length, promptPreview: prompt.slice(0, 120) }, "askCos");
-  const { stdout } = await exec("docker", args, { maxBuffer: 10 * 1024 * 1024 });
+  let stdout;
   try {
-    const parsed = JSON.parse(stdout);
-    const text = parsed.result || parsed.response || parsed.text || stdout;
-    const usage = parsed.usage || {};
-    return {
-      text: typeof text === "string" ? text : JSON.stringify(text),
-      tokensIn: usage.input_tokens ?? 0,
-      tokensOut: usage.output_tokens ?? 0,
-    };
-  } catch {
-    return { text: stdout, tokensIn: 0, tokensOut: 0 };
+    ({ stdout } = await exec("docker", args, { maxBuffer: 10 * 1024 * 1024 }));
+  } catch (err) {
+    parseCliFailure(err); // always throws CosModelError
   }
+  // Throws on is_error / non-success / empty / unparseable (LAT-13059): an error
+  // envelope must never reach Marijn or cos.conversations as a CoS answer.
+  return parseCliResult(stdout);
 }
 
 // ---- mention-based routing ----
@@ -755,8 +752,10 @@ bot.on(message("text"), async (ctx) => {
       [topicSlug, ctx.message.message_id, text, reply]
     );
   } catch (err) {
-    log.error({ err }, "message handler failed");
-    reply = `❌ Iets ging mis:\n\`${escapeMd(err.message)}\``;
+    log.error({ err, kind: err?.kind, status: err?.status }, "message handler failed");
+    reply = err instanceof CosModelError && err.kind === "auth"
+      ? "❌ CoS kan het model nu niet bereiken (authenticatie geweigerd). Je bericht is niet verwerkt; stuur het opnieuw zodra dit hersteld is."
+      : `❌ Iets ging mis:\n\`${escapeMd(err.message)}\``;
   }
 
   const trimmed = reply.length > 3800 ? reply.slice(0, 3800) + "\n…" : reply;
