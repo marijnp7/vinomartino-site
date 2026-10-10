@@ -11,6 +11,8 @@ export interface WijnhuisDrieluikBeeld {
 }
 
 export interface WijnhuisGalerijBeeld {
+    /** LAT-13057: Directus file-UUID, voor de credit per kaart in de beeldreeks. */
+    id?: string;
     src: string;
     alt: string;
     width: number | null;
@@ -403,7 +405,7 @@ async function loadFromDirectus(url: string, token: string, locale: Locale): Pro
             const galerij = (await Promise.all(portret.afbeeldingen.filter((a) => !inBody.has(a.id.toLowerCase())).map(async (a): Promise<WijnhuisGalerijBeeld | null> => {
                 const src = await downloadAsset(a.id, url, token, 'gal-');
                 // LAT-12991: beschrijvende bestandstitel als alt; huisnaam alleen als fallback.
-                return src ? { src, alt: a.alt ? normalizeEmDashes(a.alt) : naam, width: a.width, height: a.height } : null;
+                return src ? { id: a.id, src, alt: a.alt ? normalizeEmDashes(a.alt) : naam, width: a.width, height: a.height } : null;
             }))).filter((g): g is WijnhuisGalerijBeeld => g !== null);
             return mapWijnhuis(r, heroImagePath, ogImagePath, bodyHtml, drieluik, galerij);
         }),

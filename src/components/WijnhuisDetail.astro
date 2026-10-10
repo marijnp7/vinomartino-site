@@ -117,6 +117,7 @@ const schema = [
     bezoekAnchor={heeftBezoek(entry.portret, entry.address, entry.website) ? '#bezoek' : undefined}
   >
     <Fragment slot="after-hero">
+      <WijnhuisPortretBlokken blok="kort" portret={entry.portret} name={entry.name} address={entry.address} website={entry.website} locale={locale} />
       <WijnhuisInfographic portret={entry.portret} established={entry.established} hectares={entry.hectares} locale={locale} />
       <WijnhuisPortretBlokken blok="waarom" portret={entry.portret} name={entry.name} locale={locale} />
     </Fragment>
