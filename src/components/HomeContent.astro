@@ -49,10 +49,15 @@ const spotlight = articles.find((a) => a.featured) ?? articles[0];
 // LAT-13056 Variant A: het nieuwste gepubliceerde artikel staat als staande
 // kaart in de split-hero; de "Net terug"-feed toont de vier daarna (zonder
 // hero- en spotlight-artikel, zodat niets dubbel staat).
-const newest = articles[0];
+// LAT-13056 Variant B: het beeldenpaar rechts in de hero zijn de hero-beelden
+// van de twee nieuwste artikelen (alleen bestaande assets); de asymmetrische
+// feed toont vijf artikelen daarna, zonder hero-paar en spotlight.
+const heroPair = articles.filter((a) => Boolean(a.heroImage)).slice(0, 2);
+const heroPairSlugs = new Set(heroPair.map((a) => a.slug));
 const moreArticles = articles
-  .filter((a) => a.slug !== spotlight?.slug && a.slug !== newest?.slug)
-  .slice(0, 4);
+  .filter((a) => a.slug !== spotlight?.slug && !heroPairSlugs.has(a.slug))
+  .slice(0, 5);
+const FEED_TONES = ['bordeaux', 'vine', 'paper'] as const;
 const routes = await loadRoutes(locale);
 const allStreken = await loadStreken(locale);
 const landen = await loadLanden(locale);
@@ -183,7 +188,7 @@ function formatDate(value?: string | null) {
   locale={locale}
   alternates={alternates}
 >
-  <section class="hero hero--split" aria-label={ui.t('home.hero.aria')}>
+  <section class="hero hero--b" aria-label={ui.t('home.hero.aria')}>
     <div class="container hero-split">
       <div class="hero-inner">
         <span class="hero-eyebrow">{ui.t('home.hero.eyebrow')}</span>
@@ -199,25 +204,14 @@ function formatDate(value?: string | null) {
           <a href="#routes" class="btn btn-outline">{ui.t('home.hero.ctaRoutes')}</a>
         </div>
       </div>
-      {newest && (
-        <div class="hero-newest">
-          <ArticleCard
-            href={lh(`/artikelen/${newest.slug}/`)}
-            title={newest.title}
-            kicker={newest.category ? rubriekLabel(ui, newest.category) : null}
-            zelfGereisd={newest.zelfGereisd}
-            bezoekjaar={newest.bezoekjaar}
-            tag={ui.t('home.hero.nieuwTag')}
-            variant="hero"
-            headingLevel="h2"
-            locale={locale}
-          >
-            {newest.heroImage ? (
-              <img slot="media" src={newest.heroImage} alt={newest.title} width="900" height="1200" fetchpriority="high" decoding="async" {...herkomst(newest.heroImage)} />
-            ) : (
-              <div slot="media" class="card-placeholder" aria-hidden="true"></div>
-            )}
-          </ArticleCard>
+      {heroPair.length > 0 && (
+        <div class:list={['hero-pair', heroPair.length === 1 && 'hero-pair--single']} role="group" aria-label={ui.t('home.hero.versAria')}>
+          {heroPair.map((a, i) => (
+            <a href={lh(`/artikelen/${a.slug}/`)} class={`hero-pair__img hero-pair__img--${i + 1}`} aria-label={a.title}>
+              <img src={a.heroImage as string} alt={a.title} width="900" height="1125" fetchpriority={i === 0 ? 'high' : 'auto'} decoding="async" {...herkomst(a.heroImage)} />
+            </a>
+          ))}
+          <span class="hero-pair__label">{ui.t('home.hero.versLabel')}</span>
         </div>
       )}
     </div>
@@ -370,18 +364,22 @@ function formatDate(value?: string | null) {
             {ui.t('home.latest.sub')}
           </p>
         </header>
-        <div class="feed-grid">
-          {moreArticles.map(article => (
+        <div class="feed-grid feed-grid--b">
+          {moreArticles.map((article, idx) => (
             <ArticleCard
               href={lh(`/artikelen/${article.slug}/`)}
               title={article.title}
               kicker={article.category ? rubriekLabel(ui, article.category) : null}
               zelfGereisd={article.zelfGereisd}
               bezoekjaar={article.bezoekjaar}
+              variant="b"
+              index={idx + 1}
+              tone={FEED_TONES[idx % FEED_TONES.length]}
+              featured={idx === 0}
               locale={locale}
             >
               {article.heroImage ? (
-                <img slot="media" src={article.heroImage} alt={article.title} width="600" height="750" loading="lazy" decoding="async" {...herkomst(article.heroImage)} />
+                <img slot="media" src={article.heroImage} alt={article.title} width={idx === 0 ? 1200 : 800} height={idx === 0 ? 900 : 600} loading="lazy" decoding="async" {...herkomst(article.heroImage)} />
               ) : (
                 <div slot="media" class="card-placeholder" aria-hidden="true"></div>
               )}
@@ -496,6 +494,102 @@ function formatDate(value?: string | null) {
     .hero--split { padding: var(--space-10) 0 var(--space-12); }
     .hero-split { grid-template-columns: 1fr; gap: var(--space-8); }
     .hero-newest { justify-self: stretch; max-width: none; }
+  }
+
+  /* ── LAT-13056 Variant B "Uitgesproken": bordeaux kleurblok-hero ──────
+     Alle tekst --fixed-cream op --burgundy (13:1); het label is --fixed-ink op
+     apricot (5.2:1). Overschrijft A's papieren split-hero, dezelfde grid. */
+  .hero--b {
+    background: var(--burgundy);
+    color: var(--fixed-cream);
+    padding: var(--space-16) 0 var(--space-20);
+    overflow: hidden;
+  }
+  .hero--b .hero-eyebrow { color: var(--gold); }
+  .hero--b .hero-title {
+    color: var(--fixed-cream);
+    font-size: clamp(3rem, 6.4vw + 0.5rem, 7.5rem);
+    line-height: 0.94;
+    max-width: 14ch;
+  }
+  .hero--b .hero-title em { color: var(--gold); }
+  .hero--b .hero-lede { color: var(--fixed-cream); }
+  .hero--b .btn { min-height: 48px; }
+  .hero--b .btn-primary {
+    background: var(--fixed-cream);
+    color: var(--burgundy);
+    box-shadow: 6px 6px 0 var(--fixed-ink);
+    transition: transform var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out);
+  }
+  .hero--b .btn-primary:hover {
+    background: var(--fixed-cream);
+    color: var(--burgundyDeep);
+    transform: translate(-2px, -2px);
+    box-shadow: 8px 8px 0 var(--fixed-ink);
+  }
+  .hero--b .btn-outline {
+    color: var(--fixed-cream);
+    border-color: var(--fixed-cream);
+    background: transparent;
+  }
+  .hero--b .btn-outline:hover { background: var(--fixed-cream); color: var(--burgundy); }
+  :global([data-theme='cellar']) .hero--b .btn-outline { background: transparent; color: var(--fixed-cream); }
+  .hero-pair {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    grid-template-rows: repeat(12, minmax(0, 1fr));
+    aspect-ratio: 1 / 1;
+    width: 100%;
+    max-width: 34rem;
+    justify-self: end;
+  }
+  .hero-pair__img {
+    display: block;
+    overflow: hidden;
+    background: var(--burgundyDeep);
+  }
+  .hero-pair__img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .hero-pair__img--1 { grid-column: 1 / 9; grid-row: 1 / 11; z-index: 1; }
+  .hero-pair__img--2 {
+    grid-column: 7 / 13; grid-row: 6 / 13; z-index: 2;
+    outline: 6px solid var(--burgundy);
+  }
+  .hero-pair--single .hero-pair__img--1 { grid-column: 1 / 13; grid-row: 1 / 13; }
+  .hero-pair__label {
+    position: absolute;
+    top: 4%;
+    right: 2%;
+    z-index: 3;
+    padding: 0.45rem 0.95rem;
+    background: var(--accent-apricot);
+    color: var(--fixed-ink);
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: clamp(1.15rem, 0.9rem + 0.8vw, 1.6rem);
+    line-height: 1.1;
+    transform: rotate(6deg);
+    box-shadow: 4px 4px 0 var(--fixed-ink);
+  }
+  @media (max-width: 860px) {
+    .hero--b { padding: var(--space-10) 0 var(--space-12); }
+    .hero-pair { justify-self: stretch; max-width: none; aspect-ratio: 5 / 4; }
+    .hero--b .hero-title { font-size: clamp(2.75rem, 13vw, 4.5rem); }
+  }
+
+  /* ── Variant B feed: asymmetrisch, eerste kaart 2x2 ─────── */
+  .feed-grid--b {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--space-6);
+  }
+  .feed-grid--b > :global(.vm-card--featured) { grid-column: span 2; grid-row: span 2; }
+  @media (max-width: 1024px) {
+    .feed-grid--b { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+    .feed-grid--b > :global(.vm-card--featured) { grid-row: span 1; }
+  }
+  @media (max-width: 640px) {
+    .feed-grid--b { grid-template-columns: 1fr !important; }
+    .feed-grid--b > :global(.vm-card--featured) { grid-column: auto; }
   }
 
   /* ── "Net terug"-feed: 4 / 2 / 1 kolommen ─────────────── */

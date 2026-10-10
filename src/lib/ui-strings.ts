@@ -349,6 +349,10 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'home.hero.nieuwTag': 'Nieuw',
     'home.feed.title': 'Net terug',
     'artikel.facts.aria': 'Kerngegevens van dit artikel',
+    // LAT-13056 Variant B "Uitgesproken"
+    'home.hero.versLabel': 'vers van de pers',
+    'home.hero.versAria': 'De nieuwste artikelen',
+    'card.hand.zelfGeweest': 'zelf geweest',
     'home.proof.aria': 'Bewijs en gezicht',
     'home.proof.portraitAlt': 'Marijn proeft een glas wijn met wijngaarden op de achtergrond',
     'home.proof.kicker': 'Bewijs en gezicht',
@@ -1183,6 +1187,10 @@ export const UI_STRING_EN: Record<string, string> = {
     'home.hero.nieuwTag': 'New',
     'home.feed.title': 'Just back',
     'artikel.facts.aria': 'Key facts about this article',
+    // LAT-13056 Variant B "Uitgesproken"
+    'home.hero.versLabel': 'fresh off the press',
+    'home.hero.versAria': 'The newest articles',
+    'card.hand.zelfGeweest': 'been there ourselves',
 };
 
 /** Resolver over de UI-dictionary: EN-value indien aanwezig, anders NL-default. */

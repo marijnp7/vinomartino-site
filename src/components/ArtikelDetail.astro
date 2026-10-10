@@ -171,15 +171,36 @@ if (article.faqSchema) {
 >
   <article class="article-page">
 
-    {/* LAT-13056 Variant A — tekst en beeld naast elkaar (desktop), gestapeld op mobiel. */}
-    <div class:list={['container', 'article-intro', !article.heroImage && 'article-intro--noimg']}>
-    <header class="article-header">
+    {/* LAT-13056 Variant B "Uitgesproken" — breed beeld met een overlappend
+        bordeaux tekstblok (titel + lede uit `description`); op mobiel gestapeld. */}
+    <div class:list={['article-intro-b', !article.heroImage && 'article-intro-b--noimg']}>
+    <div class="container">
       <nav class="breadcrumb" aria-label="Breadcrumb">
         <a href={lh('/')}>{ui.t('streek.breadcrumb.home')}</a> / <a href={lh('/artikelen/')}>{ui.t('artikel.breadcrumb.index')}</a> / <span>{article.title}</span>
       </nav>
-      {article.category && <span class="article-cat">{rubriekLabel(ui, article.category)}</span>}
+    </div>
+    {article.heroImage && (
+      <div class="container article-b-figwrap">
+        <figure class={`article-hero article-hero--b ${article.heroIsIllustration ? 'article-hero--illustration' : 'article-hero--photo'}`}>
+          <img src={article.heroImage} alt={article.title} class="article-hero-img" loading="eager" fetchpriority="high" />
+          <PlaatsStempel text={article.plaatsstempel} variant="hero" />
+          <BeeldHerkomst fileId={article.heroImageId} src={article.heroImage} locale={locale} />
+          {heroCredit && (
+            <figcaption class="article-hero-credit">
+              {heroCredit.author && <>{heroCredit.author}, </>}<a href={heroCredit.licenseUrl} rel="license noopener" target="_blank">{licenseLabelFor(heroCredit.licenseLabel, locale)}</a>{heroCredit.sourceUrl && <> — <a href={heroCredit.sourceUrl} rel="noopener" target="_blank">{heroCredit.sourceLabel ? `via ${heroCredit.sourceLabel}` : 'via bron'}</a></>}
+            </figcaption>
+          )}
+        </figure>
+      </div>
+    )}
+    <div class="container">
+    <header class="article-header article-b-header">
+      <div class="article-b-block">
+        {article.category && <span class="article-cat">{rubriekLabel(ui, article.category)}</span>}
+        <h1>{article.title}</h1>
+        {article.description && <p class="article-b-lede">{article.description}</p>}
+      </div>
       <RubriekSignatuur rubriek={article.rubriek} tier={article.tier} />
-      <h1>{article.title}</h1>
       {/* LAT-13056 Variant A — feitenstrook uit bestaande velden. */}
       <ul class="article-facts" aria-label={ui.t('artikel.facts.aria')}>
         <li><ZelfGereisdBadge visited={article.zelfGereisd} year={article.bezoekjaar} locale={locale} /></li>
@@ -210,18 +231,7 @@ if (article.faqSchema) {
         </div>
       )}
     </header>
-    {article.heroImage && (
-        <figure class={`article-hero ${article.heroIsIllustration ? 'article-hero--illustration' : 'article-hero--photo'}`}>
-          <img src={article.heroImage} alt={article.title} class="article-hero-img" loading="eager" fetchpriority="high" />
-          <PlaatsStempel text={article.plaatsstempel} variant="hero" />
-          <BeeldHerkomst fileId={article.heroImageId} src={article.heroImage} locale={locale} />
-          {heroCredit && (
-            <figcaption class="article-hero-credit">
-              {heroCredit.author && <>{heroCredit.author}, </>}<a href={heroCredit.licenseUrl} rel="license noopener" target="_blank">{licenseLabelFor(heroCredit.licenseLabel, locale)}</a>{heroCredit.sourceUrl && <> — <a href={heroCredit.sourceUrl} rel="noopener" target="_blank">{heroCredit.sourceLabel ? `via ${heroCredit.sourceLabel}` : 'via bron'}</a></>}
-            </figcaption>
-          )}
-        </figure>
-      )}
+    </div>
     </div>
 
     <div class="container article-layout">
@@ -455,6 +465,59 @@ if (article.faqSchema) {
   .article-hero-credit a {
     color: inherit;
     text-decoration: underline;
+  }
+
+  /* LAT-13056 Variant B "Uitgesproken": breed beeld + overlappend bordeaux blok.
+     Tekst op het blok is --fixed-cream op --burgundy (13:1). */
+  .article-intro-b { padding-top: var(--space-6); }
+  .article-intro-b .breadcrumb { margin-bottom: var(--space-4); }
+  .article-hero--b {
+    aspect-ratio: 21 / 9;
+    max-height: 72vh;
+    width: 100%;
+  }
+  .article-b-header { position: relative; z-index: 2; margin-bottom: 0; }
+  .article-b-block {
+    background: var(--burgundy);
+    color: var(--fixed-cream);
+    padding: var(--space-8) var(--space-10) var(--space-10);
+    max-width: 50rem;
+    margin: -10rem 0 var(--space-6) var(--space-10);
+    box-shadow: 10px 10px 0 var(--fixed-ink);
+  }
+  .article-intro-b--noimg .article-b-block { margin-top: 0; margin-left: 0; }
+  .article-b-block .article-cat {
+    color: var(--gold);
+    font-size: 0.75rem;
+  }
+  .article-b-header .article-b-block h1 {
+    font-family: var(--font-display);
+    font-style: normal;
+    font-weight: 400;
+    font-size: clamp(2.4rem, 1.6rem + 3.2vw, 4.6rem);
+    line-height: 1.02;
+    letter-spacing: -0.01em;
+    color: var(--fixed-cream);
+    margin: 0;
+  }
+  .article-b-lede {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: clamp(1.2rem, 1rem + 0.6vw, 1.5rem);
+    line-height: 1.4;
+    color: var(--fixed-cream);
+    margin: var(--space-4) 0 0;
+    max-width: 40rem;
+  }
+  @media (max-width: 860px) {
+    .article-hero--b { aspect-ratio: 4 / 3; max-height: none; }
+    .article-b-figwrap { padding-left: 0; padding-right: 0; }
+    .article-hero--b { border-radius: 0; }
+    .article-b-block {
+      margin: -2.5rem 0 var(--space-5);
+      padding: var(--space-6) var(--space-5) var(--space-6);
+      box-shadow: 6px 6px 0 var(--fixed-ink);
+    }
   }
   .article-layout {
     display: grid;
