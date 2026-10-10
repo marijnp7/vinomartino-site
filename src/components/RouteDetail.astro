@@ -72,13 +72,21 @@ if (hasParentStreek) {
 }
 crumbs.push({ name: entry.title, url: pageUrl });
 
+const publishedWijnhuisSlugs = new Set(wijnhuizen.map((wh) => wh.slug));
+const wijnhuisStops = entry.stopsGeo.filter((stop) => stop.kind === 'wijnhuis' && stop.slug && publishedWijnhuisSlugs.has(stop.slug));
 const schema = [
   wijnrouteSchema({
     name: entry.title,
     description: entry.description,
     image: entry.heroImage,
     duration: entry.duration,
-    stops: entry.highlights.length > 0 ? entry.highlights : entry.stops,
+    // LAT-12807: wijnhuis-stops (stops_geo) wijzen naar de Winery-entiteit van een gepubliceerd huis.
+    stops: wijnhuisStops.length > 0
+      ? entry.stopsGeo.map((stop) =>
+          stop.kind === 'wijnhuis' && stop.slug && publishedWijnhuisSlugs.has(stop.slug)
+            ? { name: stop.naam, '@id': new URL(`${localePrefix}/wijnhuizen/${stop.slug}/#winery`, Astro.site ?? 'https://vinomartino.com').href }
+            : stop.naam)
+      : entry.highlights.length > 0 ? entry.highlights : entry.stops,
     pageUrl,
   }),
   breadcrumbSchema(crumbs),

@@ -15,7 +15,8 @@ import WijnhuisPortretBlokken from './WijnhuisPortretBlokken.astro';
 import { eurLabel, heeftBezoek } from '../lib/wijnhuis-portret';
 import { type Wijnhuis } from '../lib/wijnhuizen';
 import { loadStreken } from '../lib/streken';
-import { wijnhuisSchema, wijnhuisMetaTitle, wijnhuisMetaDescription, breadcrumbSchema, faqPageSchema } from '../lib/seo';
+import { wijnhuisSchema, wijnhuisMetaTitle, wijnhuisMetaDescription, faqPageSchema } from '../lib/seo';
+import { getPublicImageDimensions } from '../lib/og-image-dimensions';
 import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
 import { loadUiStrings } from '../lib/ui-strings';
 
@@ -29,9 +30,11 @@ interface Props {
   locale?: Locale;
   /** LAT-2638: pad-URLs van de tegenhanger per taal voor hreflang. */
   alternates?: Partial<Record<Locale, string>>;
+  /** LAT-12807: coördinaten (nu uit routes.stops_geo kind=wijnhuis); leeg = geen `geo`. */
+  geo?: { lat: number; lng: number } | null;
 }
 
-const { entry, landSlug, landName, routeHref, routeLabel, locale = DEFAULT_LOCALE, alternates } = Astro.props;
+const { entry, landSlug, landName, routeHref, routeLabel, locale = DEFAULT_LOCALE, alternates, geo = null } = Astro.props;
 const ui = await loadUiStrings(locale);
 // LAT-12912 — Wijnkring-link alleen op wijnhuizen in een zelf gereisde streek
 // (Tier 1, CMS-veld streken.zelf_gereisd). Onbekende streek → geen link.
@@ -66,21 +69,29 @@ crumbs.push({ name: entry.name, url: pageUrl });
 // current wijnhuis name itself, so omit the trailing crumb here).
 const visibleBreadcrumb = crumbs.slice(0, -1).map(c => ({ label: c.name, href: c.url }));
 
+const heroDims = await getPublicImageDimensions(entry.heroImage);
+const metaTitle = wijnhuisMetaTitle(entry.name, entry.region, locale);
 const schema = [
   wijnhuisSchema({
     name: entry.name,
-    description: entry.description,
+    description: entry.metaDescription || entry.description,
     website: entry.website,
     image: entry.heroImage,
+    imageWidth: heroDims?.width,
+    imageHeight: heroDims?.height,
     address: entry.address,
     region: entry.region,
-    country: entry.country,
+    regionUrl: hasParentStreek ? lh(`/streken/${entry.streekSlug}/`) : undefined,
+    country: landName || entry.country,
     grapes: entry.grapes,
     established: entry.established ?? undefined,
     priceRange: eurLabel(entry.portret.prijsband) || undefined,
+    geo,
     pageUrl,
+    pageTitle: metaTitle,
+    locale,
+    crumbs,
   }),
-  breadcrumbSchema(crumbs),
   // LAT-12769: alleen naast een zichtbaar blok "Snel antwoord" (zelfde data, Google-beleid).
   ...(entry.portret.faq.length > 0
     ? [{ ...faqPageSchema(entry.portret.faq.map((f) => ({ question: f.vraag, answer: f.antwoord }))), inLanguage: locale }]
@@ -89,7 +100,7 @@ const schema = [
 ---
 
 <SiteLayout
-  title={wijnhuisMetaTitle(entry.name, entry.region, locale)}
+  title={metaTitle}
   description={wijnhuisMetaDescription({ name: entry.name, region: entry.region, country: entry.country, description: entry.description }, locale)}
   ogImage={entry.ogImage || entry.heroImage || undefined}
   schema={schema}
