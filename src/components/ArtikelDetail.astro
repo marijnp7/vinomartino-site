@@ -173,16 +173,17 @@ if (article.faqSchema) {
 >
   <article class="article-page">
 
-    {/* LAT-13056 Variant B "Uitgesproken" — breed beeld met een overlappend
-        bordeaux tekstblok (titel + lede uit `description`); op mobiel gestapeld. */}
+    {/* LAT-13135 — goedgekeurd ontwerp Marijn 2026-10-10: breed beeld met afgeronde
+        hoeken + bordeaux titelvlak via CSS grid-overlay (foto en card delen grid-area 1/1).
+        Card valt gedeeltelijk over de foto en steekt iets onder uit. */}
     <div class:list={['article-intro-b', !article.heroImage && 'article-intro-b--noimg']}>
     <div class="container">
       <nav class="breadcrumb" aria-label="Breadcrumb">
         <a href={lh('/')}>{ui.t('streek.breadcrumb.home')}</a> / <a href={lh('/artikelen/')}>{ui.t('artikel.breadcrumb.index')}</a> / <span>{article.title}</span>
       </nav>
     </div>
-    {article.heroImage && (
-      <div class="container article-b-figwrap">
+    <div class="container article-opening">
+      {article.heroImage && (
         <figure class={`article-hero article-hero--b ${article.heroIsIllustration ? 'article-hero--illustration' : 'article-hero--photo'}`}>
           <img src={article.heroImage} alt={article.title} class="article-hero-img" loading="eager" fetchpriority="high" />
           <PlaatsStempel text={article.plaatsstempel} variant="hero" />
@@ -193,17 +194,15 @@ if (article.faqSchema) {
             </figcaption>
           )}
         </figure>
-      </div>
-    )}
-    <div class="container">
-    <header class="article-header article-b-header">
+      )}
       <div class="article-b-block">
         {article.category && <span class="article-cat">{rubriekLabel(ui, article.category)}</span>}
         <h1>{article.title}</h1>
         {article.description && <p class="article-b-lede">{article.description}</p>}
       </div>
+    </div>
+    <div class="container article-b-meta">
       <RubriekSignatuur rubriek={article.rubriek} tier={article.tier} />
-      {/* LAT-13056 Variant A — feitenstrook uit bestaande velden. */}
       <ul class="article-facts" aria-label={ui.t('artikel.facts.aria')}>
         <li><ZelfGereisdBadge visited={article.zelfGereisd} year={article.bezoekjaar} locale={locale} /></li>
         {article.relatedStreken[0] && (
@@ -221,18 +220,12 @@ if (article.faqSchema) {
         )}
         <span class="article-date">{new Date(article.pubDate).toLocaleDateString(dateLocale, { day: 'numeric', month: 'long', year: 'numeric' })}</span>
       </div>
-      {/* LAT-4911 — `article.tags` is een kale string-array op de basis-collectie:
-          er is geen `tags_translations`, dus op /en/ renderden hier NL-woorden.
-          Een EN-taxonomie optuigen voor vier artikelen is een eigen project
-          (afgewogen in LAT-4924); tot die er is tonen we het blok alleen op NL.
-          De tags blijven wél in de OG/schema-metadata staan — die zijn niet
-          zichtbaar en dienen als machine-leesbare onderwerp-hint. */}
+      {/* LAT-4911 — tags alleen NL; zie originele comment */}
       {locale === DEFAULT_LOCALE && article.tags && article.tags.length > 0 && (
         <div class="article-tags">
           {article.tags.map(tag => <span class="tag">{tag}</span>)}
         </div>
       )}
-    </header>
     </div>
     </div>
 
@@ -424,7 +417,6 @@ if (article.faqSchema) {
   .article-fact a:hover { text-decoration: underline; }
   .article-hero {
     position: relative;
-    aspect-ratio: 4 / 3;
     overflow: hidden;
     margin: 0;
     border-radius: var(--radius-card);
@@ -463,30 +455,50 @@ if (article.faqSchema) {
     text-decoration: underline;
   }
 
-  /* LAT-13056 Variant B "Uitgesproken": breed beeld + overlappend bordeaux blok.
-     Tekst op het blok is --fixed-cream op --burgundy (13:1). */
+  /* LAT-13135 — goedgekeurd ontwerp: breed beeld met afgeronde hoeken + bordeaux
+     titelvlak via CSS grid-overlay. Foto en card delen grid-area 1/1; card heeft
+     margin-top zodat hij over de onderkant van de foto valt. Contrast: 13:1. */
   .article-intro-b { padding-top: var(--space-6); }
   .article-intro-b .breadcrumb { margin-bottom: var(--space-4); }
+
+  /* Grid-overlay container: foto en card in dezelfde cel */
+  .article-opening {
+    display: grid;
+    grid-template-columns: 1fr;
+    isolation: isolate;
+    margin-bottom: var(--space-4);
+  }
+  .article-intro-b--noimg .article-opening {
+    display: block;
+  }
   .article-hero--b {
-    aspect-ratio: 21 / 9;
-    max-height: 72vh;
+    grid-area: 1/1;
+    align-self: start;
+    height: 560px;
     width: 100%;
   }
-  .article-b-header { position: relative; z-index: 2; margin-bottom: 0; }
   .article-b-block {
+    grid-area: 1/1;
+    z-index: 1;
+    align-self: start;
     background: var(--burgundy);
     color: var(--fixed-cream);
     padding: var(--space-8) var(--space-10) var(--space-10);
+    width: 72%;
     max-width: 50rem;
-    margin: -10rem 0 var(--space-6) var(--space-10);
+    margin: 380px 0 0 44px;
     box-shadow: 10px 10px 0 var(--fixed-ink);
   }
-  .article-intro-b--noimg .article-b-block { margin-top: 0; margin-left: 0; }
+  .article-intro-b--noimg .article-b-block {
+    margin: 0;
+    width: 100%;
+    max-width: 50rem;
+  }
   .article-b-block .article-cat {
     color: var(--gold);
     font-size: 0.75rem;
   }
-  .article-b-header .article-b-block h1 {
+  .article-b-block h1 {
     font-family: var(--font-display);
     font-style: normal;
     font-weight: 400;
@@ -494,24 +506,30 @@ if (article.faqSchema) {
     line-height: 1.02;
     letter-spacing: -0.01em;
     color: var(--fixed-cream);
-    margin: 0;
+    margin: var(--space-3) 0 0;
   }
   .article-b-lede {
     font-family: var(--font-display);
     font-style: italic;
     font-size: clamp(1.2rem, 1rem + 0.6vw, 1.5rem);
-    line-height: 1.4;
+    line-height: 1.45;
     color: var(--fixed-cream);
     margin: var(--space-4) 0 0;
-    max-width: 40rem;
+    opacity: 0.92;
+  }
+  .article-b-meta {
+    padding-top: var(--space-4);
+    margin-bottom: var(--space-2);
   }
   @media (max-width: 860px) {
-    .article-hero--b { aspect-ratio: 4 / 3; max-height: none; }
-    .article-b-figwrap { padding-left: 0; padding-right: 0; }
-    .article-hero--b { border-radius: 0; }
+    .article-hero--b {
+      height: 335px;
+      border-radius: 12px !important; /* afgeronde hoeken bewaard op mobiel */
+    }
     .article-b-block {
-      margin: -2.5rem 0 var(--space-5);
-      padding: var(--space-6) var(--space-5) var(--space-6);
+      margin: 240px 12px 0;
+      width: calc(100% - 24px);
+      padding: var(--space-6) var(--space-5);
       box-shadow: 6px 6px 0 var(--fixed-ink);
     }
   }
@@ -653,16 +671,16 @@ if (article.faqSchema) {
 
   .article-prose {
     font-family: var(--font-body);
-    font-size: 1.0625rem;
-    line-height: 1.8;
+    font-size: 1.125rem; /* 18px — richtwaarde brief */
+    line-height: 1.82;
     color: var(--ink);
     max-width: var(--article-body-max);
   }
   .article-prose :global(h2) {
     font-family: var(--font-display);
-    font-size: 1.625rem;
-    font-weight: 500;
-    margin: var(--space-10) 0 var(--space-4);
+    font-size: clamp(1.625rem, 1.3rem + 1vw, 2.25rem);
+    font-weight: 400;
+    margin: var(--space-12) 0 var(--space-4);
     scroll-margin-top: var(--space-8);
   }
   .article-prose :global(h3) {
