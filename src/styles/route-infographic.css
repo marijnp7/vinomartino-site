@@ -1,0 +1,48 @@
+
+.page-prose aside.route-infographic { container-type:inline-size; background:var(--paperDeep); padding:clamp(24px,4vw,40px) clamp(22px,4vw,44px); margin:var(--space-8) 0; border:0; border-top:2px solid var(--burgundy); border-radius:0; color:var(--ink); }
+.page-prose aside.route-infographic > :first-child { margin-top:0; }
+.page-prose aside.route-infographic > :last-child { margin-bottom:0; }
+.page-prose aside.route-infographic > :is(h2,h3,h4) { font:400 clamp(2rem,6cqi,3rem)/1.08 var(--font-display); letter-spacing:-.02em; margin:0 0 18px; }
+.page-prose aside.route-infographic p { font-size:1rem; line-height:1.65; color:var(--inkSoft); margin:0 0 24px; }
+.page-prose aside.route-infographic .route-infographic__route { padding:23px 0 30px; border-block:1px solid var(--rule); }
+.page-prose aside.route-infographic .route-infographic__label,
+.page-prose aside.route-infographic .route-infographic__term { font:400 .6875rem/1.5 var(--font-mono); text-transform:uppercase; letter-spacing:.1em; color:var(--inkSoft); }
+.page-prose aside.route-infographic .route-infographic__label { margin:0; }
+.page-prose aside.route-infographic .route-infographic__journey { list-style:none; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); margin:21px 0 0; padding:0; }
+.page-prose aside.route-infographic .route-infographic__stop { position:relative; text-align:center; padding:30px 4px 0; margin:0; font:400 clamp(1.2rem,3.7cqi,1.6875rem)/1.15 var(--font-display); overflow-wrap:anywhere; }
+.page-prose aside.route-infographic .route-infographic__stop::before { content:''; width:9px; height:9px; border:2px solid var(--burgundy); border-radius:50%; background:var(--paperDeep); position:absolute; left:calc(50% - 5px); top:3px; z-index:2; }
+.page-prose aside.route-infographic .route-infographic__stop:not(:last-child)::after { content:''; position:absolute; height:1px; background:var(--rule); left:50%; top:7px; width:100%; }
+.page-prose aside.route-infographic .route-infographic__distance { position:absolute; left:100%; transform:translateX(-50%); top:-3px; z-index:3; background:var(--paperDeep); padding:0 10px; white-space:nowrap; font:400 .6875rem/20px var(--font-mono); color:var(--inkSoft); }
+.page-prose aside.route-infographic .route-infographic__facts { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,160px),1fr)); margin:0; padding:28px 0 27px; border-bottom:1px solid var(--rule); gap:28px; }
+.page-prose aside.route-infographic .route-infographic__fact { min-width:0; }
+.page-prose aside.route-infographic .route-infographic__fact + .route-infographic__fact { border-left:1px solid var(--rule); padding-left:24px; }
+.page-prose aside.route-infographic .route-infographic__term { display:flex; align-items:center; gap:12px; margin:0 0 13px; }
+.page-prose aside.route-infographic .route-infographic__term strong { font:inherit; }
+.page-prose aside.route-infographic .route-infographic__term::before { content:''; flex:none; width:32px; height:32px; background:var(--burgundy); mask:var(--fact-icon) center/contain no-repeat; }
+.page-prose aside.route-infographic .route-infographic__fact:nth-child(3n+2) .route-infographic__term::before { background:var(--vine); }
+.page-prose aside.route-infographic .route-infographic__fact:nth-child(3n) .route-infographic__term::before { background:var(--rust); }
+.page-prose aside.route-infographic .route-infographic__value { margin:0; font:400 1rem/1.65 var(--font-body); overflow-wrap:anywhere; color:var(--ink); }
+.page-prose aside.route-infographic .route-infographic__note { display:flex; gap:16px; align-items:flex-start; margin-top:23px; }
+.page-prose aside.route-infographic .route-infographic__note::before { content:''; flex:none; width:32px; height:32px; background:var(--vine); mask:var(--fact-icon) center/contain no-repeat; }
+.page-prose aside.route-infographic .route-infographic__note p { font-size:.9375rem; margin:0; }
+/* Comparison tables retain column headers and relationships. */
+.page-prose aside.route-infographic table { display:block; max-width:100%; width:100%; overflow-x:auto; border-collapse:collapse; font-size:.9375rem; line-height:1.6; margin:24px 0; }
+.page-prose aside.route-infographic :is(th,td) { padding:12px 16px; text-align:left; vertical-align:top; border-bottom:1px solid var(--rule); min-width:100px; }
+.page-prose aside.route-infographic th { font:400 .6875rem/1.5 var(--font-mono); text-transform:uppercase; letter-spacing:.05em; }
+@container (max-width:535px) {
+ .page-prose aside.route-infographic .route-infographic__facts { grid-template-columns:1fr; gap:22px; padding-block:24px; }
+ .page-prose aside.route-infographic .route-infographic__fact + .route-infographic__fact { border-left:0; border-top:1px solid var(--rule); padding:20px 0 0; }
+ .page-prose aside.route-infographic .route-infographic__term { margin-bottom:9px; }
+ .page-prose aside.route-infographic .route-infographic__distance { font-size:.625rem; padding-inline:5px; }
+ .page-prose aside.route-infographic .route-infographic__note { gap:12px; }
+}
+[data-theme='cellar'] .page-prose aside.route-infographic :is(.route-infographic__term,.route-infographic__note)::before { background:var(--inkSoft); }
+.page-prose aside.route-infographic .route-infographic__fact--grapes, .page-prose aside.route-infographic .route-infographic__note--grapes { --fact-icon:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.35%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%206V3h5%20M11%209a3%203%200%201%201-6%200%203%203%200%200%201%206%200%20M19%209a3%203%200%201%201-6%200%203%203%200%200%201%206%200%20M15%2014a3%203%200%201%201-6%200%203%203%200%200%201%206%200%20M14%2019a2%202%200%201%201-4%200%202%202%200%200%201%204%200%22%2F%3E%3C%2Fsvg%3E"); }
+.page-prose aside.route-infographic .route-infographic__fact--land, .page-prose aside.route-infographic .route-infographic__note--land { --fact-icon:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.35%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M3%2020L8%204h8l5%2016z%20M6%2012h12%20M12%204v16%20M4%2017h16%22%2F%3E%3C%2Fsvg%3E"); }
+.page-prose aside.route-infographic .route-infographic__fact--wine, .page-prose aside.route-infographic .route-infographic__note--wine { --fact-icon:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.35%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M7%203h10l1%207a6%206%200%200%201-12%200z%20M6%209h12%20M12%2016v5%20M8%2021h8%22%2F%3E%3C%2Fsvg%3E"); }
+.page-prose aside.route-infographic .route-infographic__fact--home, .page-prose aside.route-infographic .route-infographic__note--home { --fact-icon:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.35%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M3%2010l9-8%209%208%20M5%209v12h14V9%20M9%2021v-8h6v8%22%2F%3E%3C%2Fsvg%3E"); }
+.page-prose aside.route-infographic { --note-icon:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.35%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M3%2010l9-8%209%208%20M5%209v12h14V9%20M9%2021v-8h6v8%22%2F%3E%3C%2Fsvg%3E"); }
+.page-prose aside.route-infographic .route-infographic__fact--pin, .page-prose aside.route-infographic .route-infographic__note--pin { --fact-icon:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.35%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%2022s8-8%208-13a8%208%200%200%200-16%200c0%205%208%2013%208%2013z%20M15%209a3%203%200%201%201-6%200%203%203%200%200%201%206%200%22%2F%3E%3C%2Fsvg%3E"); }
+.page-prose aside.route-infographic .route-infographic__fact--info, .page-prose aside.route-infographic .route-infographic__note--info { --fact-icon:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.35%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M21%2012a9%209%200%201%201-18%200%209%209%200%200%201%2018%200%20M12%2011v6%20M12%207v1%22%2F%3E%3C%2Fsvg%3E"); }
+
+@container (max-width:280px) { .page-prose aside.route-infographic .route-infographic__distance { font-size:.5625rem; padding-inline:4px; } }
