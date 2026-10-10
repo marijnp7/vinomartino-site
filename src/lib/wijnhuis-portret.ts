@@ -29,7 +29,7 @@ export interface Openingstijden {
     dagen: Partial<Record<Dag, string[]>>;
     opmerking: string | null;
 }
-export interface PortretAfbeelding { id: string; width: number | null; height: number | null }
+export interface PortretAfbeelding { id: string; alt: string; width: number | null; height: number | null }
 export interface NabijWijnhuis { slug: string; name: string }
 export interface PortretFaq { vraag: string; antwoord: string }
 
@@ -214,7 +214,8 @@ export function normalizePortret(r: Record<string, unknown>): WijnhuisPortret {
             if (!inner || typeof inner !== 'object' || !inner.id) return null;
             const w = Number(inner.width);
             const h = Number(inner.height);
-            return { id: String(inner.id), width: w > 0 ? w : null, height: h > 0 ? h : null };
+            const alt = String(inner.title || inner.description || '').trim();
+            return { id: String(inner.id), alt, width: w > 0 ? w : null, height: h > 0 ? h : null };
         }),
         // Directus dwingt de max van 3 niet af (LAT-12804); de template toont de eerste 3.
         waaromHier: strList(r.waarom_hier).slice(0, 3),

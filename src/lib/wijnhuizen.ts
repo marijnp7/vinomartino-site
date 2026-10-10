@@ -137,6 +137,24 @@ async function downloadAsset(assetId: string, directusUrl: string, token: string
     }
 }
 
+// LAT-12991: zelfde stap als articles.ts (LAT-2509/LAT-12642). Een CMS-hotlink in
+// de body (`https://cms.vinomartino.com/assets/<uuid>`) zit achter CF Access en
+// rendert kapot; herschrijf naar het lokale build-pad en verzamel de UUID's zodat
+// loadFromDirectus ze via downloadAsset ophaalt. Vangt ook reeds-lokale referenties.
+const BODY_UUID = '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}';
+const CMS_HOTLINK_RE = new RegExp(`https?://cms\\.vinomartino\\.com/assets/(${BODY_UUID})(?:\\?[^\\s")']*)?`, 'g');
+const LOCAL_BODY_ASSET_RE = new RegExp(`/images/wijnhuizen/body-(${BODY_UUID})\\.jpg`, 'g');
+
+export function localizeWijnhuisBodyImages(markdown: string): { body: string; assetIds: string[] } {
+    const ids = new Set<string>();
+    const body = markdown.replace(CMS_HOTLINK_RE, (_m, id: string) => {
+        ids.add(id.toLowerCase());
+        return `/images/wijnhuizen/body-${id.toLowerCase()}.jpg`;
+    });
+    for (const m of body.matchAll(LOCAL_BODY_ASSET_RE)) ids.add(m[1].toLowerCase());
+    return { body, assetIds: [...ids] };
+}
+
 async function writeAssetDebug(pathTaken: string): Promise<void> {
     const { writeFileSync, mkdirSync } = await import('node:fs');
     const { join } = await import('node:path');
@@ -219,9 +237,16 @@ async function fetchWijnhuizenItems(url: string, token: string): Promise<Record<
     // LAT-12769: portret-velden als hoogste tier; 400/403 (veld of junction-recht ontbreekt)
     // valt terug op withDrieluik, waarna het portret leeg is en alle nieuwe blokken verborgen blijven.
     const withPortret = `${withDrieluik},${PORTRET_FIELDS}`;
+    // LAT-12991: bestandstitel/-omschrijving voor de galerij-alt als eigen tier; mist het
+    // veldrecht op directus_files, dan valt alleen de alt terug op de huisnaam, niet het portret.
+    const withGalerijAlt = `${withPortret},afbeeldingen.directus_files_id.title,afbeeldingen.directus_files_id.description`;
     let res: Response;
     try {
-        res = await fetchDirectusCollection('loadWijnhuizen', `${url}/items/wijnhuizen?limit=-1&fields=${withPortret}${filterSort}`, { headers });
+        res = await fetchDirectusCollection('loadWijnhuizen', `${url}/items/wijnhuizen?limit=-1&fields=${withGalerijAlt}${filterSort}`, { headers });
+        if (res.status === 400 || res.status === 403) {
+            console.warn(`[loadWijnhuizen] Directus rejected galerij-alt-velden (HTTP ${res.status}) — retrying without LAT-12991 fields.`);
+            res = await fetchDirectusCollection('loadWijnhuizen', `${url}/items/wijnhuizen?limit=-1&fields=${withPortret}${filterSort}`, { headers });
+        }
         if (res.status === 400 || res.status === 403) {
             console.warn(`[loadWijnhuizen] Directus rejected portret-velden (HTTP ${res.status}) — retrying without LAT-12769 fields.`);
             res = await fetchDirectusCollection('loadWijnhuizen', `${url}/items/wijnhuizen?limit=-1&fields=${withDrieluik}${filterSort}`, { headers });
@@ -353,7 +378,9 @@ async function loadFromDirectus(url: string, token: string, locale: Locale): Pro
             const streek = r.streek_id as Record<string, unknown> | null;
             if (streek && streek.name) r.streek_name = streek.name;
             if (streek && streek.slug) r.streek_slug = streek.slug;
-            const bodyHtml = r.body ? await markdownToHtml(String(r.body), locale) : '';
+            const { body: localBody, assetIds: bodyAssetIds } = localizeWijnhuisBodyImages(String(r.body || ''));
+            await Promise.all(bodyAssetIds.map((id) => downloadAsset(id, url, token, 'body-')));
+            const bodyHtml = localBody ? await markdownToHtml(localBody, locale) : '';
             await assertHeroNotBlocked(`wijnhuizen/${String(r.slug ?? r.id)} hero_image`, r.hero_image ? String(r.hero_image) : null);
             await assertHeroNotBlocked(`wijnhuizen/${String(r.slug ?? r.id)} og_image`, r.og_image ? String(r.og_image) : null);
             const heroImagePath = r.hero_image
@@ -365,9 +392,12 @@ async function loadFromDirectus(url: string, token: string, locale: Locale): Pro
             const drieluik = await buildDrieluik(r, url, token, normalizeEmDashes(String(r.name)));
             const portret = normalizePortret(r);
             const naam = normalizeEmDashes(String(r.name));
-            const galerij = (await Promise.all(portret.afbeeldingen.map(async (a): Promise<WijnhuisGalerijBeeld | null> => {
+            // LAT-12991: een beeld dat al inline in de body staat, niet nog eens in de galerij.
+            const inBody = new Set(bodyAssetIds);
+            const galerij = (await Promise.all(portret.afbeeldingen.filter((a) => !inBody.has(a.id.toLowerCase())).map(async (a): Promise<WijnhuisGalerijBeeld | null> => {
                 const src = await downloadAsset(a.id, url, token, 'gal-');
-                return src ? { src, alt: naam, width: a.width, height: a.height } : null;
+                // LAT-12991: beschrijvende bestandstitel als alt; huisnaam alleen als fallback.
+                return src ? { src, alt: a.alt ? normalizeEmDashes(a.alt) : naam, width: a.width, height: a.height } : null;
             }))).filter((g): g is WijnhuisGalerijBeeld => g !== null);
             return mapWijnhuis(r, heroImagePath, ogImagePath, bodyHtml, drieluik, galerij);
         }),
