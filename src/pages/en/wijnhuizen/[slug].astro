@@ -18,8 +18,13 @@ export async function getStaticPaths() {
   const streekBySlug = new Map(streken.map(s => [s.slug, s]));
   // Only explicit winery stops earn the route label.
   const routeByWijnhuisSlug = new Map<string, typeof routes[number]>();
+  // LAT-12807: coördinaten van het huis voor schema `geo`, tot wijnhuizen eigen lat/lng heeft.
+  const geoByWijnhuisSlug = new Map<string, { lat: number; lng: number }>();
   for (const r of routes) {
     for (const stop of r.stopsGeo) {
+      if (stop.kind === 'wijnhuis' && stop.slug && !geoByWijnhuisSlug.has(stop.slug)) {
+        geoByWijnhuisSlug.set(stop.slug, { lat: stop.lat, lng: stop.lng });
+      }
       if (stop.kind === 'wijnhuis' && stop.slug && !routeByWijnhuisSlug.has(stop.slug)) {
         routeByWijnhuisSlug.set(stop.slug, r);
       }
@@ -32,6 +37,7 @@ export async function getStaticPaths() {
       params: { slug: entry.slug },
       props: {
         entry,
+        geo: geoByWijnhuisSlug.get(entry.slug) ?? null,
         landSlug: streek?.landSlug ?? '',
         landName: streek?.country ?? '',
         // Interne links blijven NL-absoluut tot de aparte link-localisatie-pas
@@ -47,7 +53,7 @@ export async function getStaticPaths() {
   });
 }
 
-const { entry, landSlug, landName, routeHref, routeLabel, alternates } = Astro.props as { entry: Wijnhuis; landSlug: string; landName: string; routeHref: string; routeLabel: string; alternates: Record<string, string> };
+const { entry, landSlug, landName, routeHref, routeLabel, alternates, geo } = Astro.props as { entry: Wijnhuis; geo: { lat: number; lng: number } | null; landSlug: string; landName: string; routeHref: string; routeLabel: string; alternates: Record<string, string> };
 ---
 
-<WijnhuisDetail entry={entry} landSlug={landSlug} landName={landName} routeHref={routeHref} routeLabel={routeLabel} locale={EN} alternates={alternates} />
+<WijnhuisDetail entry={entry} landSlug={landSlug} landName={landName} routeHref={routeHref} routeLabel={routeLabel} locale={EN} alternates={alternates} geo={geo} />

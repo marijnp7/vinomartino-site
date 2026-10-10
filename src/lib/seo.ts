@@ -99,20 +99,74 @@ export function articleSchema(data: ArticleSchemaData) {
 }
 
 // ─── Wijnhuis (Winery / LocalBusiness) ───────────────────────────────────────
+// LAT-12807 (spec LAT-12806 §0/§2): één @graph met WebPage + Winery +
+// BreadcrumbList. inLanguage hoort bij de WebPage (niet bij Organization),
+// addressCountry binnen PostalAddress. Onbekend of leeg = weglaten.
+
+// Landnaam (NL of EN, zoals Directus/streken hem leveren) -> ISO-3166 alpha-2.
+// Onbekend land -> geen addressCountry.
+const COUNTRY_ISO: Record<string, string> = {
+  frankrijk: 'FR', france: 'FR', italie: 'IT', italy: 'IT', spanje: 'ES', spain: 'ES',
+  duitsland: 'DE', germany: 'DE', portugal: 'PT', oostenrijk: 'AT', austria: 'AT',
+  zwitserland: 'CH', switzerland: 'CH', griekenland: 'GR', greece: 'GR',
+  hongarije: 'HU', hungary: 'HU', slovenie: 'SI', slovenia: 'SI', kroatie: 'HR', croatia: 'HR',
+  georgie: 'GE', georgia: 'GE', luxemburg: 'LU', luxembourg: 'LU', belgie: 'BE', belgium: 'BE',
+  nederland: 'NL', netherlands: 'NL', engeland: 'GB', england: 'GB', 'verenigd koninkrijk': 'GB',
+  'united kingdom': 'GB', 'zuid-afrika': 'ZA', 'south africa': 'ZA', 'verenigde staten': 'US',
+  'united states': 'US', argentinie: 'AR', argentina: 'AR', chili: 'CL', chile: 'CL',
+  australie: 'AU', australia: 'AU', 'nieuw-zeeland': 'NZ', 'new zealand': 'NZ',
+};
+
+export function countryIso(country?: string): string | undefined {
+  if (!country) return undefined;
+  const key = country.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+  return COUNTRY_ISO[key];
+}
+
+/** "Uferallee 19, 54470 Bernkastel-Wehlen" -> straat/postcode/plaats; past het patroon niet, dan hele string. */
+export function splitAddress(address: string): Record<string, string> {
+  const m = /^(.+), (\d{4,5}) (.+)$/.exec(address.trim());
+  return m
+    ? { streetAddress: m[1], postalCode: m[2], addressLocality: m[3] }
+    : { streetAddress: address.trim() };
+}
+
+function plainText(text: string, max = 300): string {
+  const plain = text
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/[*_#>`]+/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (plain.length <= max) return plain;
+  const cut = plain.slice(0, max);
+  return `${cut.slice(0, cut.lastIndexOf(' ') > 0 ? cut.lastIndexOf(' ') : max)}…`;
+}
+
+const absUrl = (url: string) => (url.startsWith('http') ? url : `${SITE_URL}${url}`);
 
 export interface WijnhuisSchemaData {
   name: string;
   description?: string;
   website?: string;
   image?: string | null;
+  /** Afmetingen van het geserveerde bestand (niet directus_files). */
+  imageWidth?: number;
+  imageHeight?: number;
   address?: string;
   region?: string;
+  /** Pad of URL van de streekpagina (locale-aware). */
+  regionUrl?: string;
   country?: string;
   grapes?: string[];
   established?: number;
   /** LAT-12769: €–€€€€ uit `prijsband` (Winery erft priceRange van LocalBusiness). */
   priceRange?: string;
+  geo?: { lat: number; lng: number } | null;
   pageUrl: string;
+  /** Title van de pagina (WebPage.name). */
+  pageTitle?: string;
+  locale?: string;
+  crumbs?: Array<{ name: string; url: string }>;
 }
 
 export function wijnhuisSchema(data: WijnhuisSchemaData) {
@@ -121,26 +175,82 @@ export function wijnhuisSchema(data: WijnhuisSchemaData) {
   const website = data.website
     ? (/^https?:\/\//i.test(data.website) ? data.website : `https://${data.website}`)
     : undefined;
-  return {
-    '@context': 'https://schema.org',
+  const wineryId = `${data.pageUrl}#winery`;
+  const breadcrumbId = `${data.pageUrl}#breadcrumb`;
+  const iso = countryIso(data.country);
+  const description = data.description ? plainText(data.description) : '';
+  const hasCrumbs = Boolean(data.crumbs && data.crumbs.length > 0);
+
+  const webPage = {
+    '@type': 'WebPage',
+    '@id': data.pageUrl,
+    url: data.pageUrl,
+    ...(data.pageTitle ? { name: data.pageTitle } : {}),
+    inLanguage: data.locale ?? 'nl',
+    mainEntity: { '@id': wineryId },
+    ...(hasCrumbs ? { breadcrumb: { '@id': breadcrumbId } } : {}),
+  };
+
+  const winery = {
     '@type': 'Winery',
+    '@id': wineryId,
     name: data.name,
-    description: data.description,
+    ...(description ? { description } : {}),
     url: website ?? data.pageUrl,
-    sameAs: website ? [website] : undefined,
-    image: data.image ?? undefined,
-    ...(data.address
-      ? { address: { '@type': 'PostalAddress', streetAddress: data.address } }
+    ...(website ? { sameAs: [website] } : {}),
+    ...(data.image
+      ? {
+          image: {
+            '@type': 'ImageObject',
+            url: absUrl(data.image),
+            ...(data.imageWidth && data.imageHeight
+              ? { width: data.imageWidth, height: data.imageHeight }
+              : {}),
+          },
+        }
       : {}),
+    ...(data.address || iso
+      ? {
+          address: {
+            '@type': 'PostalAddress',
+            ...(data.address ? splitAddress(data.address) : {}),
+            ...(iso ? { addressCountry: iso } : {}),
+          },
+        }
+      : {}),
+    ...(data.geo
+      ? { geo: { '@type': 'GeoCoordinates', latitude: data.geo.lat, longitude: data.geo.lng } }
+      : {}),
+    ...(data.established ? { foundingDate: String(data.established) } : {}),
     ...(data.region
-      ? { containedInPlace: { '@type': 'Place', name: data.region } }
-      : {}),
-    ...(data.country
-      ? { addressCountry: data.country }
+      ? {
+          containedInPlace: {
+            '@type': 'Place',
+            name: data.region,
+            ...(data.regionUrl ? { url: absUrl(data.regionUrl) } : {}),
+          },
+        }
       : {}),
     ...(data.priceRange ? { priceRange: data.priceRange } : {}),
-    mainEntityOfPage: { '@type': 'WebPage', '@id': data.pageUrl },
-    inLanguage: 'nl',
+  };
+
+  // Bestaand kruimelpatroon (Home > Landen > land > streek > huis); laatste item zonder url.
+  const breadcrumb = hasCrumbs
+    ? {
+        '@type': 'BreadcrumbList',
+        '@id': breadcrumbId,
+        itemListElement: data.crumbs!.map((crumb, i, all) => ({
+          '@type': 'ListItem',
+          position: i + 1,
+          name: crumb.name,
+          ...(i < all.length - 1 ? { item: absUrl(crumb.url) } : {}),
+        })),
+      }
+    : null;
+
+  return {
+    '@context': 'https://schema.org',
+    '@graph': [webPage, winery, ...(breadcrumb ? [breadcrumb] : [])],
   };
 }
 
@@ -153,7 +263,8 @@ export interface WijnrouteSchemaData {
   duration?: string;
   region?: string;
   country?: string;
-  stops?: string[];
+  /** LAT-12807: `@id` = wijnhuis-entiteit (`<huis-url>#winery`) voor wijnhuis-stops. */
+  stops?: Array<string | { name: string; '@id'?: string }>;
   pageUrl: string;
 }
 
@@ -163,11 +274,15 @@ export function wijnrouteSchema(data: WijnrouteSchemaData) {
       ? {
           '@type': 'ItemList',
           name: `${data.name}, stops`,
-          itemListElement: data.stops.map((stop, i) => ({
-            '@type': 'ListItem',
-            position: i + 1,
-            name: stop,
-          })),
+          itemListElement: data.stops.map((stop, i) =>
+            typeof stop === 'string' || !stop['@id']
+              ? { '@type': 'ListItem', position: i + 1, name: typeof stop === 'string' ? stop : stop.name }
+              : {
+                  '@type': 'ListItem',
+                  position: i + 1,
+                  item: { '@type': 'Winery', '@id': stop['@id'], name: stop.name },
+                },
+          ),
         }
       : undefined;
 
