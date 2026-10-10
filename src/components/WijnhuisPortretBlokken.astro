@@ -57,7 +57,7 @@ const kortUren = urenPerDag(p.openingstijden);
 const kortKnop = ps?.url
   ? { href: ps.url, label: ui.t('wijnhuis.bezoek.reserveer'), extern: true }
   : heeftBezoek
-    ? { href: '#bezoek', label: ui.t('wijnhuis.kort.aanvragen'), extern: false }
+    ? { href: '#bezoek', label: ui.t('wijnhuis.cta.plan'), extern: false }
     : null;
 
 // LAT-13057 blok 4 — beeldreeks: credit per kaart. Licentie-credit als die er is; anders
@@ -75,7 +75,7 @@ const nabije = p.nabije.slice(0, 4);
 const heeftCombineer = Boolean(nabije.length || (routeHref && routeLabel) || (streekSlug && region));
 ---
 
-{blok === 'kort' && heeftBezoekKort(p) && (
+{blok === 'kort' && (heeftBezoekKort(p) || !p.zelfGeweest) && (
   <section class="wp wp--kort" aria-labelledby="wp-kort-title">
     <div class="container">
       <div class="wp-kort">
@@ -93,6 +93,8 @@ const heeftCombineer = Boolean(nabije.length || (routeHref && routeLabel) || (st
             </div>
           )}
         </dl>
+        {/* LAT-13066 (Marketing): "Redactiegids" op de chip is jargon; hier staat het in gewone taal. */}
+        {!p.zelfGeweest && <p class="wp-kort__noot">{ui.t('wijnhuis.kort.redactiegidsNoot')}</p>}
         {kortKnop && (
           <a class="btn btn--primary wp-kort__knop" href={kortKnop.href} {...(kortKnop.extern ? { target: '_blank', rel: 'noopener' } : {})}>{kortKnop.label}</a>
         )}
@@ -370,6 +372,7 @@ const heeftCombineer = Boolean(nabije.length || (routeHref && routeLabel) || (st
     border-top: 2px solid var(--burgundy);
   }
   .wp-kort__label { margin: 0; }
+  .wp-kort__noot { grid-column: 1 / -1; margin: 0; font-family: var(--font-ui); font-size: 0.875rem; color: var(--inkSoft); }
   .wp-kort__feiten { display: flex; flex-wrap: wrap; gap: 0.5rem 2rem; margin: 0; }
   .wp-kort__feiten div { display: flex; flex-direction: column; gap: 0.125rem; }
   .wp-kort__feiten div[hidden] { display: none; }
