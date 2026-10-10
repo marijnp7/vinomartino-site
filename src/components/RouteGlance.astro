@@ -1,29 +1,21 @@
 ---
+import AtAGlance from './AtAGlance.astro';
 // LAT-12710 — "In één oogopslag": kaart (slot) + feitenrij + top-3 must-dos + compacte wijntabel.
 interface Props {
   kop?: string | null;
+  tip?: { title: string; text: string } | null;
   feiten: { label: string; value: string }[];
   mustdosKop?: string | null;
   mustdos: { titel: string; regel: string | null }[];
   wijntabel?: { kop: string[]; rijen: string[][] } | null;
 }
-const { kop, feiten, mustdosKop, mustdos, wijntabel } = Astro.props;
+const { kop, tip, feiten, mustdosKop, mustdos, wijntabel } = Astro.props;
 ---
 
 <section class="rglance" aria-label={kop || undefined}>
-  {kop && <h2 class="rglance__kop">{kop}</h2>}
+  {!feiten.length && kop && <h2 class="rglance__empty-heading">{kop}</h2>}
+  <AtAGlance heading={kop} facts={feiten} tip={tip} />
   <div class="rglance__map"><slot /></div>
-
-  {feiten.length > 0 && (
-    <dl class="rglance__feiten">
-      {feiten.map((f) => (
-        <div class="rglance__feit">
-          <dt>{f.label}</dt>
-          <dd>{f.value}</dd>
-        </div>
-      ))}
-    </dl>
-  )}
 
   {mustdos.length > 0 && (
     <div class="rglance__must">
@@ -55,38 +47,8 @@ const { kop, feiten, mustdosKop, mustdos, wijntabel } = Astro.props;
 
 <style>
   .rglance { margin: var(--space-8) 0 var(--space-10); }
-  .rglance__kop {
-    font-family: var(--font-display);
-    font-size: 1.625rem;
-    font-weight: 500;
-    margin: 0 0 var(--space-5);
-  }
-  .rglance__map { margin-bottom: var(--space-5); }
-  .rglance__feiten {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
-    gap: 1px;
-    margin: 0 0 var(--space-6);
-    background: var(--rule);
-    border: 1px solid var(--rule);
-  }
-  .rglance__feit { background: var(--paper); padding: 0.75rem 0.9rem; min-width: 0; }
-  .rglance__feit dt {
-    font-family: var(--font-mono);
-    font-size: 0.5625rem;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--inkFaint);
-    margin-bottom: 0.2rem;
-  }
-  .rglance__feit dd {
-    margin: 0;
-    font-family: var(--font-ui);
-    font-size: 0.9375rem;
-    font-weight: 600;
-    color: var(--ink);
-    overflow-wrap: anywhere;
-  }
+  .rglance__empty-heading { font-family: var(--font-display); font-size: 2rem; font-weight: 400; }
+  .rglance__map { margin-block: var(--space-6); }
   .rglance__sub {
     font-family: var(--font-ui);
     font-size: 1.0625rem;

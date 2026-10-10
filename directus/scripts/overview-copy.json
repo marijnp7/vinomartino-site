@@ -1,0 +1,82 @@
+{
+  "streek.feit.heading": [
+    "In één oogopslag",
+    "At a glance"
+  ],
+  "streek.feit.ariaLabel": [
+    "Wijnregio in het kort",
+    "Wine region at a glance"
+  ],
+  "streek.feit.druiven": [
+    "Druiven",
+    "Grapes"
+  ],
+  "streek.feit.besteSeizoen": [
+    "Beste seizoen",
+    "Best season"
+  ],
+  "streek.feit.rijdagen": [
+    "Rijdagen",
+    "Driving days"
+  ],
+  "streek.feit.vliegveld": [
+    "Dichtstbijzijnd vliegveld",
+    "Nearest airport"
+  ],
+  "streek.feit.aantalAdressen": [
+    "Aantal adressen",
+    "Number of addresses"
+  ],
+  "streek.feit.appellatieniveau": [
+    "Appellatieniveau",
+    "Appellation level"
+  ],
+  "streek.feit.besteJaargangen": [
+    "Beste jaargangen",
+    "Best vintages"
+  ],
+  "streek.feit.oogstperiode": [
+    "Oogstperiode",
+    "Harvest period"
+  ],
+  "streek.feit.minBezoektijd": [
+    "Min. bezoektijd",
+    "Min. visit time"
+  ],
+  "streek.feit.budgetProeverij": [
+    "Budget proeverij",
+    "Tasting budget"
+  ],
+  "wijnhuis.glas.sinds": [
+    "Sinds",
+    "Since"
+  ],
+  "wijnhuis.glas.generatie": [
+    "Generatie",
+    "Generation"
+  ],
+  "wijnhuis.glas.hectares": [
+    "Hectares",
+    "Hectares"
+  ],
+  "overview.duration": [
+    "Duur",
+    "Duration"
+  ],
+  "overview.transport": [
+    "Vervoer",
+    "Transport"
+  ],
+  "overview.stops": [
+    "Etappes",
+    "Stages"
+  ],
+  "overview.wineries": [
+    "Wijnhuizen",
+    "Wineries"
+  ],
+  "overview.style": [
+    "Stijl",
+    "Style"
+  ]
+}
