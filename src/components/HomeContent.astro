@@ -58,15 +58,9 @@ const HERO_IMAGE = '/images/landschap-piemonte-barolo-001.jpg';
 // uit Directus `routes`. Beeld = het `hero_image` van dat route-record zelf
 // (DAM-gekoppeld, rendert al op de routepagina), nooit een pool- of conceptfoto
 // (HARDE REGEL 2/14). Streeknaam en land komen uit het gekoppelde streek-record.
-// `routes` kent geen featured-veld; daarom een deterministische voorkeurslijst
-// van route-slugs. Ontbreekt een voorkeursroute of haar hero, dan vult de eerste
-// route met hero uit een nog niet getoonde streek het gat (geen lege kaart).
+// De uitgelichte route blijft redactioneel vast. De bestemmingskaarten gebruiken
+// de volledige beschikbare streekselectie en wisselen per paginabezoek in de browser.
 const HOME_V2_FEATURED_ROUTE = 'langhe-piemonte';
-const HOME_V2_DESTINATION_ROUTES = [
-  'champagne-reims-epernay-montagne-de-reims',
-  'mosel-bernkastel-traben-trarbach',
-  'toscane-bolgheri-montalcino-carmignano',
-];
 const HOME_V2_DESTINATIONS_MAX = 3;
 
 const strekenBySlug = new Map(allStreken.map((s) => [s.slug, s]));
@@ -91,15 +85,12 @@ const featured = featuredRoute ? toHomeCard(featuredRoute) : undefined;
 const usedStreken = new Set<string>(featured ? [featured.streekSlug] : []);
 const destinations: ReturnType<typeof toHomeCard>[] = [];
 const pushDestination = (r: (typeof routes)[number] | undefined) => {
-  if (!r || usedStreken.has(r.streekSlug) || destinations.length >= HOME_V2_DESTINATIONS_MAX) return;
+  if (!r || usedStreken.has(r.streekSlug)) return;
   const card = toHomeCard(r);
   if (!card.region) return;
   usedStreken.add(r.streekSlug);
   destinations.push(card);
 };
-for (const slug of HOME_V2_DESTINATION_ROUTES) {
-  pushDestination(routesWithHero.find((r) => r.slug === slug));
-}
 for (const r of routesWithHero) pushDestination(r);
 
 function formatDate(value?: string | null) {
@@ -155,9 +146,9 @@ function formatDate(value?: string | null) {
     <section id="bestemmingen" class="home-dest" aria-labelledby="home-v2-dest-title">
       <div class="container">
         <h2 id="home-v2-dest-title" class="home-dest__title">{ui.t('home.v2.dest.title')}</h2>
-        <ul class="home-dest__grid">
-          {destinations.map((d) => (
-            <li>
+        <ul class="home-dest__grid" data-destination-limit={HOME_V2_DESTINATIONS_MAX}>
+          {destinations.map((d, index) => (
+            <li data-destination={d.streekSlug} hidden={index >= HOME_V2_DESTINATIONS_MAX}>
               <a href={d.href} class="home-dest__card">
                 <span class="home-dest__media">
                   <img src={d.image} alt={d.title} width="600" height="550" loading="lazy" decoding="async" {...herkomst(d.image)} />
@@ -290,6 +281,30 @@ function formatDate(value?: string | null) {
     </div>
   </section>
 </SiteLayout>
+
+<script>
+  import { selectDestinations, readPreviousDestinations } from '../lib/home-destinations';
+
+  const grid = document.querySelector<HTMLUListElement>('[data-destination-limit]');
+  if (grid) {
+    const cards = Array.from(grid.querySelectorAll<HTMLLIElement>('[data-destination]'));
+    const ids = cards.map((card) => card.dataset.destination!);
+    // A shared NL/EN key avoids repeating the same regions on a language switch.
+    const storageKey = 'vinomartino.home.destinations';
+    let previous: string[] = [];
+    try {
+      previous = readPreviousDestinations(sessionStorage.getItem(storageKey));
+    } catch { /* Storage can be unavailable; random selection still works. */ }
+    const selected = selectDestinations(ids, Number(grid.dataset.destinationLimit), previous);
+    const byId = new Map(cards.map((card) => [card.dataset.destination!, card]));
+    const visible = selected.map((id) => byId.get(id)!);
+    visible.forEach((card) => { card.hidden = false; });
+    grid.replaceChildren(...visible);
+    try {
+      sessionStorage.setItem(storageKey, JSON.stringify(selected));
+    } catch { /* No storage is required to display the cards. */ }
+  }
+</script>
 
 <style>
   /* ── LAT-13075 Homepage v2: intro, uitgelichte route, bestemmingen ─── */
