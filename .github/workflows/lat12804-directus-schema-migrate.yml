@@ -26,6 +26,7 @@ on:
         required: true
         type: choice
         options:
+          - add-wijnhuis-latlng.mjs
           - add-wijnhuis-portret-fields.mjs
           - add-wijnhuis-portret-translations.mjs
           - cleanup-proeftafel-testinzending.mjs
