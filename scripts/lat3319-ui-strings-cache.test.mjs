@@ -83,13 +83,18 @@ test('EN-dictionary wordt maar één keer opgehaald, ook bij ~300 paginarenders'
     }
 });
 
-test('NL doet geen enkele fetch', async () => {
+test('NL: één fetch per build, CMS-NL wint van de default, EN-waarde lekt niet naar NL (LAT-13075)', async () => {
     const { loadUiStrings } = await loadModule();
-    const calls = stubFetch(() => okResponse(ROWS));
+    const calls = stubFetch(() => okResponse([
+        ...ROWS,
+        { key: 'reizen.index.sleep.kicker', translations: [{ languages_code: 'nl', value: 'Slapen langs de route' }] },
+    ]));
 
     const ui = await loadUiStrings('nl');
+    await Promise.all(Array.from({ length: 50 }, () => loadUiStrings('nl')));
 
-    assert.equal(calls.length, 0);
+    assert.equal(calls.length, 1);
+    assert.equal(ui.t('reizen.index.sleep.kicker'), 'Slapen langs de route');
     assert.equal(ui.t('artikelen.rubriek.regio-gidsen'), 'Regio-gidsen');
 });
 

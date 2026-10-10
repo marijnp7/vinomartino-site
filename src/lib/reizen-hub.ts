@@ -33,12 +33,27 @@ export function routeWijnhuizen(route: Pick<WijnRoute, 'itinerary' | 'stopsGeo'>
 }
 
 // routes.streek_id is bij Alto Adige leeg, dus geen land via de streek-relatie.
-const LAND_BY_ROUTE_PREFIX: Array<[string, string]> = [['alto-adige', 'Italië']];
+// LAT-13075: de fallback noemt de canonieke land-slug (Directus `landen.slug`), geen
+// weergavenaam; de naam komt per locale uit de streken met diezelfde land-slug.
+const LAND_SLUG_BY_ROUTE_PREFIX: Array<[string, string]> = [['alto-adige', 'italie']];
 
-export function routeLand(route: Pick<WijnRoute, 'slug' | 'streekSlug'>, landByStreek: Map<string, string>): string {
-  const viaStreek = route.streekSlug ? landByStreek.get(route.streekSlug) : '';
-  if (viaStreek) return viaStreek;
-  return LAND_BY_ROUTE_PREFIX.find(([p]) => route.slug.startsWith(p))?.[1] ?? '';
+export interface RouteLand { key: string; naam: string }
+
+// Filter-identiteit = canonieke land-slug, vertaald wordt alleen de weergave. Zo levert
+// /en/ nooit "Italy" én "Italië" als twee landen op (Codex-controle 19:55).
+export function routeLand(
+  route: Pick<WijnRoute, 'slug' | 'streekSlug'>,
+  streken: Array<{ slug: string; country: string; landSlug: string }>,
+): RouteLand | null {
+  const naamBySlug = new Map<string, string>();
+  for (const s of streken) if (s.landSlug && s.country && !naamBySlug.has(s.landSlug)) naamBySlug.set(s.landSlug, s.country);
+  const streek = route.streekSlug ? streken.find((s) => s.slug === route.streekSlug) : undefined;
+  if (streek?.landSlug) return { key: streek.landSlug, naam: streek.country || naamBySlug.get(streek.landSlug) || '' };
+  const viaPrefix = LAND_SLUG_BY_ROUTE_PREFIX.find(([p]) => route.slug.startsWith(p))?.[1];
+  if (viaPrefix && naamBySlug.has(viaPrefix)) return { key: viaPrefix, naam: naamBySlug.get(viaPrefix)! };
+  // Streek zonder land-relatie: val terug op de weergavenaam als sleutel (gedrag vóór LAT-13075).
+  if (streek?.country) return { key: streek.country, naam: streek.country };
+  return null;
 }
 
 // Verwachte vraag (Design Lead, niet gemeten): deze streken eerst binnen hun groep.

@@ -40,7 +40,6 @@ const ui = await loadUiStrings(locale);
 
 const routes = await loadRoutes(locale);
 const streken = await loadStreken(locale);
-const landByStreek = new Map(streken.filter((s) => s.country).map((s) => [s.slug, s.country]));
 
 // Koppeling verhaal <-> route via de gedeelde streek (geen nieuw Directus-veld nodig).
 function routeFor(entry: ReisPakket) {
@@ -79,7 +78,8 @@ for (const r of routes) {
 }
 const enriched = orderRoutes(routes).map((route) => {
   const dagen = routeDagen(route);
-  const land = routeLand(route, landByStreek);
+  const rl = routeLand(route, streken);
+  const land = rl?.naam ?? '';
   const streek = route.streekSlug ? streekNaam.get(route.streekSlug) || '' : '';
   const titel = kaartTitel(route, naamTelling.get(streek) === 1 ? streek : '');
   return {
@@ -87,7 +87,7 @@ const enriched = orderRoutes(routes).map((route) => {
     dagen,
     bucket: dagenBucket(dagen),
     land,
-    landKey: land ? landSlug(land) : '',
+    landKey: rl ? landSlug(rl.key) : '',
     titel,
     line: kaartLijn(route.stopsGeo),
     zoek: foldText([titel, route.title, streek, land, route.slug, ...route.stops, ...route.stopsGeo.map((g) => g.naam)].join(' ')),
