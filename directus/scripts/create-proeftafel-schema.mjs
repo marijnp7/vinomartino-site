@@ -90,11 +90,13 @@ const txt = (field, note = '', md = false) => ({
 const select = (field, pairs, note = '', o = {}) => ({
   field, type: 'string',
   meta: { interface: 'select-dropdown', width: 'half', note, required: Boolean(o.required), options: { choices: choices(pairs), allowOther: Boolean(o.allowOther) }, display: 'labels' },
-  schema: { is_nullable: !o.required, ...(o.default ? { default_value: o.default } : {}) },
+  // o.dbNullable: verplicht in de app, maar nullable kolom, zodat het veld ook op een
+  // collectie met bestaande rijen idempotent toe te voegen is (NOT NULL zonder default faalt daar).
+  schema: { is_nullable: o.dbNullable ? true : !o.required, ...(o.default ? { default_value: o.default } : {}) },
 });
-const bool = (field, note) => ({
+const bool = (field, note, required = true) => ({
   field, type: 'boolean',
-  meta: { interface: 'boolean', width: 'half', note, required: true },
+  meta: { interface: 'boolean', width: 'half', note, required },
   schema: { is_nullable: false, default_value: false },
 });
 const m2o = (field, note, required = false) => ({
@@ -103,11 +105,14 @@ const m2o = (field, note, required = false) => ({
   schema: { is_nullable: !required },
 });
 
+// Schrijfrichtlijn v2: een winkel nomineert één fles per baan.
+const BANEN = [['onder_20', 'Beste fles onder €20'], ['feestfles', 'Beste feestfles']];
 const KLEUREN = [['rood', 'Rood'], ['wit', 'Wit'], ['rose', 'Rosé'], ['mousserend', 'Mousserend'], ['zoet', 'Zoet'], ['oranje', 'Oranje']];
 
 // Vertaalbare tekstvelden: staan op de parent (NL) én in wijn_reviews_translations (EN).
 const TRANSLATABLE = [
-  str('titel', 'Paginatitel', { width: 'full' }),
+  str('titel', 'Paginatitel (H1)', { width: 'full' }),
+  str('seo_title', 'Optioneel: overschrijft de sitetitel. Leeg = formule "{categorie} bij {winkel} in {stad}: {wijn kort} voor {prijs}, kopen of laten staan?"', { width: 'full', max: 200 }),
   str('verdict_zin', 'Eén zin oordeel, bovenaan de pagina', { width: 'full', max: 300 }),
   txt('de_vraag', 'De vraag die deze fles beantwoordt', true),
   str('lijkt_op', 'Lijkt op ...', { width: 'full' }),
@@ -119,6 +124,7 @@ const TRANSLATABLE = [
   str('drinkvenster', 'bv. nu tot 2029'),
   txt('proef_de_streek', 'Brug naar de streek en de wijnroute', true),
   txt('voor_de_liefhebber', 'Optioneel: technische details (inklapbaar)', true),
+  str('nominatievraag', 'Optioneel: overschrijft de vaste nominatievraag onderaan (leeg = standaardvraag uit ui-strings)', { width: 'full', max: 300 }),
 ];
 
 const REVIEW_FIELDS = [
@@ -134,10 +140,14 @@ const REVIEW_FIELDS = [
   select('verdict', [['kopen', 'Kopen'], ['proberen', 'Proberen'], ['laten-staan', 'Laten staan'], ['niet-beoordeeld', 'Niet beoordeeld']], 'Oordeel', { default: 'niet-beoordeeld', required: true }),
   { field: 'prijs_eur', type: 'decimal', meta: { interface: 'input', width: 'half', note: 'Prijs in euro' }, schema: { is_nullable: true, numeric_precision: 10, numeric_scale: 2 } },
   str('winkel_naam', 'Te koop bij (naam)'),
-  str('winkel_url', 'Te koop bij (link)', { width: 'full' }),
+  str('winkel_url', 'Te koop bij (link, zonder UTM: de site voegt utm_* per aflevering toe)', { width: 'full' }),
+  str('winkel_stad', 'Stad van de winkel (voor de sitetitel), bv. Amsterdam'),
+  str('wijn_kort', 'Druif of wijn kort voor de sitetitel, bv. Syrah', { max: 80 }),
   ...TRANSLATABLE,
-  select('herkomst_type', [['toegestuurd', 'Toegestuurd'], ['zelf-gekocht', 'Zelf gekocht']], 'Herkomst van de fles', { required: true, default: 'zelf-gekocht' }),
-  str('herkomst_naam', 'Wie stuurde hem / waar gekocht'),
+  // Schrijfrichtlijn v2: herkomstregel bovenaan, verplicht, vaste tekst uit ui-strings.
+  select('herkomst', [['zelf_gekocht', 'Zelf gekocht'], ['gekregen', 'Gekregen']], 'Herkomstregel bovenaan (verplicht). Vaste tekst, alleen de naam hieronder varieert.', { required: true, dbNullable: true }),
+  str('herkomst_naam', 'Winkel of afzender in de herkomstregel (leeg = winkelnaam)'),
+  bool('affiliate_links', 'Bevat affiliate links (toont de vaste affiliate-melding bovenaan; CJ/Booking/Stay22-links worden ook automatisch herkend)', false),
   { field: 'fles_image', type: 'uuid', meta: { interface: 'file-image', width: 'half', note: 'Flesfoto (via DAM/Directus files)', special: ['file'] }, schema: { is_nullable: true } },
   { field: 'publicatiedatum', type: 'date', meta: { interface: 'datetime', width: 'half', note: 'Publicatiedatum' }, schema: { is_nullable: true } },
 ];
@@ -147,6 +157,7 @@ const INZENDING_FIELDS = [
   str('bedrijf', '', { required: true, max: 200 }),
   str('contactpersoon', '', { required: true, max: 200 }),
   str('email', '', { required: true, max: 200 }),
+  select('baan', BANEN, 'Prijsbaan van de nominatie (verplicht)', { required: true, dbNullable: true }),
   str('wijn', '', { required: true, max: 200 }),
   str('producent', '', { max: 200 }),
   m2o('streek', 'Streek (M2O streken)'),
@@ -199,6 +210,7 @@ async function ensurePermissions() {
         { aantal_flessen: { _gte: 1 } },
         { aantal_flessen: { _lte: 2 } },
         { email: { _nnull: true } },
+        { baan: { _in: BANEN.map(([v]) => v) } },
         { wijn: { _nnull: true } },
       ],
     },
@@ -221,6 +233,7 @@ const MAIL_BODY = [
   'Nieuwe aanmelding voor Op de proeftafel.',
   '',
   '- Type: {{$trigger.payload.type_afzender}}',
+  '- Baan: {{$trigger.payload.baan}}',
   '- Bedrijf: {{$trigger.payload.bedrijf}}',
   '- Contactpersoon: {{$trigger.payload.contactpersoon}}',
   '- E-mail: {{$trigger.payload.email}}',

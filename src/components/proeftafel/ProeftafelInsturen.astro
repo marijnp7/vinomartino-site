@@ -5,9 +5,9 @@
 // wijn_inzendingen, public = create-only, status niet schrijfbaar).
 // Spam: honeypot-veld `website` + minimale invultijd (client) en limit_req (nginx).
 import SiteLayout from '../../layouts/SiteLayout.astro';
-import { loadStreekOpties, KLEUREN } from '../../lib/wijn-reviews';
+import { loadStreekOpties, KLEUREN, BANEN } from '../../lib/wijn-reviews';
 import { loadUiStrings } from '../../lib/ui-strings';
-import { DEFAULT_LOCALE, localizeHref, type Locale } from '../../lib/i18n';
+import { DEFAULT_LOCALE, localizeHref, localizePath, type Locale } from '../../lib/i18n';
 
 interface Props {
   locale?: Locale;
@@ -33,6 +33,7 @@ const AKKOORD = ['onafhankelijk', 'elk_oordeel', 'geen_garantie'];
     <h1>{T('title')}</h1>
     <p class="pt-lead">{T('intro')}</p>
     <p>{T('uitleg')}</p>
+    <p class="pt-regel">{T('regel.kwartaal')} <a href={localizePath('/op-de-proeftafel/zo-werkt-het/', locale)}>{ui.t('proeftafel.zowerkthet.link')}</a></p>
 
     <form
       data-pt-form
@@ -44,6 +45,11 @@ const AKKOORD = ['onafhankelijk', 'elk_oordeel', 'geen_garantie'];
       <label>{T('veld.type_afzender')}
         <select name="type_afzender" required>
           {AFZENDERS.map((a) => <option value={a}>{T(`optie.${a}`)}</option>)}
+        </select>
+      </label>
+      <label>{T('veld.baan')}
+        <select name="baan" required>
+          {BANEN.map((b) => <option value={b}>{T(`baan.${b}`)}</option>)}
         </select>
       </label>
       <label>{T('veld.bedrijf')}<input name="bedrijf" required maxlength="200" autocomplete="organization" /></label>
@@ -105,6 +111,7 @@ const AKKOORD = ['onafhankelijk', 'elk_oordeel', 'geen_garantie'];
       const aantal = Math.min(2, Math.max(1, Math.round(num('aantal_flessen') ?? 1)));
       const payload = {
         type_afzender: txt('type_afzender'),
+        baan: txt('baan'),
         bedrijf: txt('bedrijf'),
         contactpersoon: txt('contactpersoon'),
         email: txt('email'),
@@ -146,6 +153,7 @@ const AKKOORD = ['onafhankelijk', 'elk_oordeel', 'geen_garantie'];
 <style>
   .pt-insturen { max-width: 40rem; padding: 2.5rem 1rem 4rem; }
   .pt-lead { font-size: 1.15rem; font-weight: 600; }
+  .pt-regel { font-weight: 600; }
   form { display: grid; gap: 1rem; margin-top: 1.5rem; }
   form label { display: flex; flex-direction: column; gap: 0.3rem; }
   form .pt-check { flex-direction: row; align-items: flex-start; gap: 0.5rem; }

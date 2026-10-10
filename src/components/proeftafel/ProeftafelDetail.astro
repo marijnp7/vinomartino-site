@@ -1,9 +1,11 @@
 ---
-// LAT-13099: detailpagina van één wijnreview. Blokvolgorde volgens de spec:
-// verdictblok, de vraag, lijkt op / voor wie, smaak, een leerpunt, wanneer en waarbij,
-// proef de streek, herkomstregel, <details> voor de liefhebber. Lege velden = geen blok.
+// LAT-13099: detailpagina van één wijnreview. Blokvolgorde volgens schrijfrichtlijn v2:
+// 0 herkomstregel (+ affiliate-melding) bovenaan, 1 verdictblok, 2 de vraag,
+// 3 lijkt op / voor wie, 4 smaak, 5 een leerpunt, 6 wanneer en waarbij,
+// 7 proef de streek, 8 nominatievraag (vast slot), 9 <details> voor de liefhebber.
+// Lege velden = geen blok; vaste teksten komen uit ui-strings (CMS-overschrijfbaar).
 import SiteLayout from '../../layouts/SiteLayout.astro';
-import type { WijnReview } from '../../lib/wijn-reviews';
+import { type WijnReview, fill, formatEuro, hasAffiliateLinks, reviewTitle, shopUrlWithUtm } from '../../lib/wijn-reviews';
 import { loadUiStrings } from '../../lib/ui-strings';
 import { DEFAULT_LOCALE, localizeHref, localizePath, type Locale } from '../../lib/i18n';
 import { organizationSchema } from '../../lib/seo';
@@ -21,9 +23,17 @@ const label = (prefix: string, value: string) => {
   const v = ui.t(k);
   return v === k ? value.replace(/-/g, ' ') : v;
 };
-const euro = (n: number | null) =>
-  n === null ? '' : new Intl.NumberFormat(locale === 'en' ? 'en-GB' : 'nl-NL', { style: 'currency', currency: 'EUR' }).format(n);
-const toegestuurd = r.herkomstType === 'toegestuurd';
+const euro = (n: number | null) => formatEuro(n, locale);
+const shopHref = r.winkelUrl ? shopUrlWithUtm(r.winkelUrl, r.slug) : '';
+const herkomstNaam = r.herkomstNaam || r.winkelNaam;
+const herkomstregel = r.herkomst && herkomstNaam ? fill(ui.t(`proeftafel.detail.herkomst.${r.herkomst}`), { winkel: herkomstNaam }) : '';
+const affiliate = hasAffiliateLinks(r);
+const nominatievraag = r.nominatievraag || ui.t('proeftafel.detail.nominatievraag');
+const pageTitle = reviewTitle(r, {
+  template: ui.t('proeftafel.titel.formule'),
+  categorieLabel: r.categorie ? label('proeftafel.categorie', r.categorie) : '',
+  locale,
+});
 const site = Astro.site ?? new URL('https://vinomartino.com');
 const pageUrl = new URL(localizePath(`/op-de-proeftafel/${r.slug}/`, locale), site).href;
 
@@ -31,7 +41,7 @@ const pageUrl = new URL(localizePath(`/op-de-proeftafel/${r.slug}/`, locale), si
 const reviewSchema: Record<string, unknown> = {
   '@context': 'https://schema.org',
   '@type': 'Review',
-  name: r.titel || r.wijn,
+  name: pageTitle,
   url: pageUrl,
   inLanguage: locale,
   author: { '@type': 'Person', name: ui.t('proeftafel.author.name') },
@@ -44,7 +54,7 @@ const reviewSchema: Record<string, unknown> = {
     ...(r.producent ? { brand: { '@type': 'Brand', name: r.producent } } : {}),
     ...(r.flesImage ? { image: new URL(r.flesImage, site).href } : {}),
     ...(r.prijsEur !== null && r.winkelUrl
-      ? { offers: { '@type': 'Offer', price: r.prijsEur.toFixed(2), priceCurrency: 'EUR', url: r.winkelUrl, ...(r.winkelNaam ? { seller: { '@type': 'Organization', name: r.winkelNaam } } : {}) } }
+      ? { offers: { '@type': 'Offer', price: r.prijsEur.toFixed(2), priceCurrency: 'EUR', url: shopHref, ...(r.winkelNaam ? { seller: { '@type': 'Organization', name: r.winkelNaam } } : {}) } }
       : {}),
   },
 };
@@ -52,7 +62,7 @@ const schema = [organizationSchema(), reviewSchema];
 ---
 
 <SiteLayout
-  title={r.titel || r.wijn}
+  title={pageTitle}
   description={r.verdictZin || ui.t('proeftafel.meta.description')}
   ogImage={r.flesImage ?? undefined}
   schema={schema}
@@ -66,16 +76,22 @@ const schema = [organizationSchema(), reviewSchema];
     <h1>{r.titel || r.wijn}</h1>
     <p class="pt-meta">{[r.wijn !== r.titel ? r.wijn : '', r.producent, r.jaargang, r.streekName].filter(Boolean).join(' · ')}</p>
 
+    {(herkomstregel || affiliate) && (
+      <div class="pt-herkomst" data-pt-herkomst>
+        {herkomstregel && <p>{herkomstregel}</p>}
+        {affiliate && <p class="pt-affiliate">{ui.t('proeftafel.detail.affiliate')}</p>}
+      </div>
+    )}
+
     <section class="pt-verdictblok">
       {r.flesImage && <img src={r.flesImage} alt={[r.wijn, r.producent, r.jaargang].filter(Boolean).join(', ')} width="400" height="600" />}
       <div>
         <p><span class="pt-k">{ui.t('proeftafel.detail.verdict')}</span> <strong class={`pt-verdict pt-verdict--${r.verdict}`}>{label('proeftafel.verdict', r.verdict)}</strong></p>
         {r.prijsEur !== null && <p><span class="pt-k">{ui.t('proeftafel.detail.prijs')}</span> {euro(r.prijsEur)}</p>}
         {r.winkelNaam && (
-          <p><span class="pt-k">{ui.t('proeftafel.detail.winkel')}</span> {r.winkelUrl ? <a href={r.winkelUrl} rel="noopener nofollow" target="_blank">{r.winkelNaam}</a> : r.winkelNaam}</p>
+          <p><span class="pt-k">{ui.t('proeftafel.detail.winkel')}</span> {shopHref ? <a href={shopHref} rel="noopener nofollow" target="_blank">{r.winkelNaam}</a> : r.winkelNaam}{r.winkelStad ? `, ${r.winkelStad}` : ''}</p>
         )}
         {r.verdictZin && <p class="pt-verdictzin">{r.verdictZin}</p>}
-        {toegestuurd && <p class="pt-toegestuurd">{ui.t('proeftafel.detail.toegestuurd')}</p>}
       </div>
     </section>
 
@@ -120,12 +136,9 @@ const schema = [organizationSchema(), reviewSchema];
       </section>
     )}
 
-    {toegestuurd && r.herkomstNaam && (
-      <p class="pt-herkomst">{ui.t('proeftafel.detail.herkomst.toegestuurd.prefix')} {r.herkomstNaam}. {ui.t('proeftafel.detail.herkomst.toegestuurd.suffix')}</p>
-    )}
-    {r.herkomstType === 'zelf-gekocht' && (r.herkomstNaam || r.winkelNaam) && (
-      <p class="pt-herkomst">{ui.t('proeftafel.detail.herkomst.gekocht.prefix')} {r.herkomstNaam || r.winkelNaam}.</p>
-    )}
+    <aside class="pt-nominatie" data-pt-nominatie>
+      <p>{nominatievraag}</p>
+    </aside>
 
     {r.voorDeLiefhebberHtml && (
       <details class="pt-liefhebber">
@@ -144,7 +157,11 @@ const schema = [organizationSchema(), reviewSchema];
   .pt-verdictblok p { margin: 0 0 0.5rem; }
   .pt-k { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.7; margin-right: 0.35rem; }
   .pt-verdictzin { font-size: 1.15rem; }
-  .pt-toegestuurd, .pt-herkomst { font-size: 0.9rem; font-style: italic; }
+  .pt-herkomst { margin: 1rem 0 0; font-size: 0.95rem; font-style: italic; }
+  .pt-herkomst p { margin: 0 0 0.35rem; }
+  .pt-affiliate { font-size: 0.85rem; opacity: 0.85; }
+  .pt-nominatie { margin: 2rem 0 0; padding: 1rem 1.25rem; border-left: 3px solid #7a2e2e; background: #f6f2ec; font-weight: 600; }
+  .pt-nominatie p { margin: 0; }
   .pt-verdict { padding: 0.15rem 0.6rem; border-radius: 999px; background: #eee; }
   .pt-verdict--kopen { background: #2f5d3a; color: #fff; }
   .pt-verdict--proberen { background: #c9a227; color: #1d1d1d; }
