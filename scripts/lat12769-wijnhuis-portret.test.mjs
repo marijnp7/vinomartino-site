@@ -130,3 +130,18 @@ test('EN-overlay: NL-leestekst lekt niet, EN wint, leeg EN = verborgen', async (
   assert.equal(nlPortret.waaromHier.length, 3);
   assert.equal(nlPortret.openingstijden.opmerking, 'alleen op afspraak');
 });
+
+// LAT-13101 — elk portret toont in NL en EN een Bezoek-regel: bevestigd type uit bezoek_type,
+// of eerlijk "niet bevestigd" (met verwijzing naar de site alleen als die in Directus staat).
+test('bezoek-blok: altijd zichtbaar, bevestigd type of eerlijke fallback, NL+EN-keys', () => {
+  const b = read('src/components/WijnhuisPortretBlokken.astro');
+  assert.match(b, /\{blok === 'bezoek' && \(/, 'bezoek-blok hangt niet meer aan heeftBezoek');
+  assert.match(b, /p\.bezoekType \?/);
+  assert.match(b, /ui\.t\(`wijnhuis\.bezoek\.\$\{p\.bezoekType\}`\)/);
+  assert.match(b, /websiteUrl \? 'wijnhuis\.bezoek\.onbevestigd' : 'wijnhuis\.bezoek\.onbevestigdZonderSite'/);
+  const u = read('src/lib/ui-strings.ts');
+  for (const k of ['onbevestigd', 'onbevestigdZonderSite', 'zonder_afspraak', 'vinothek', 'op_afspraak']) {
+    const n = u.split(`'wijnhuis.bezoek.${k}':`).length - 1;
+    assert.equal(n, 2, `wijnhuis.bezoek.${k} staat in NL en EN`);
+  }
+});

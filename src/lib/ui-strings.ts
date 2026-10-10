@@ -140,6 +140,8 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'wijnhuis.bezoek.eyebrow': 'Bezoek',
     'wijnhuis.bezoek.title': 'Plan je bezoek',
     'wijnhuis.bezoek.onbevestigd': 'Bezoekregeling niet bevestigd, check de site van het huis.',
+    // LAT-13101: zonder website in Directus geen verwijzing naar een site die we niet tonen.
+    'wijnhuis.bezoek.onbevestigdZonderSite': 'Bezoekregeling niet bevestigd.',
     'wijnhuis.bezoek.adres': 'Adres',
     'wijnhuis.bezoek.website': 'Website',
     'wijnhuis.bezoek.openingstijden': 'Openingstijden',
@@ -1206,6 +1208,7 @@ export const UI_STRING_EN: Record<string, string> = {
     'footer.substack.aria': 'Read the VinoMartino letter on Substack',
     'footer.substack.label': 'Read on Substack',
     'wijnhuis.bezoek.onbevestigd': "Visiting arrangements not confirmed, check the winery's website.",
+    'wijnhuis.bezoek.onbevestigdZonderSite': 'Visiting arrangements not confirmed.',
     'wijnhuis.bezoek.adres': 'Address',
     'wijnhuis.bezoek.website': 'Website',
     'wijnhuis.bezoek.openingstijden': 'Opening hours',

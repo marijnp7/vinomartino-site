@@ -4,7 +4,7 @@
 // zijn data gevuld is; nooit een leeg kader.
 import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
 import { loadUiStrings } from '../lib/ui-strings';
-import { DAGEN, WIJN_ROLLEN, eurLabel, heeftBezoek as bezoekGevuld, safeUrl, type WijnhuisPortret } from '../lib/wijnhuis-portret';
+import { DAGEN, WIJN_ROLLEN, eurLabel, safeUrl, type WijnhuisPortret } from '../lib/wijnhuis-portret';
 import type { WijnhuisGalerijBeeld } from '../lib/wijnhuizen';
 
 type Blok = 'waarom' | 'galerij' | 'drinken' | 'bezoek' | 'combineer' | 'faq';
@@ -39,7 +39,6 @@ const dagen = p.openingstijden
     }))
   : [];
 const ps = p.proeverij;
-const heeftBezoek = bezoekGevuld(p, address, website);
 
 const wijnen = WIJN_ROLLEN.map((r) => p.wijnen.find((w) => w.rol === r)).filter((w): w is NonNullable<typeof w> => Boolean(w));
 
@@ -108,17 +107,25 @@ const heeftCombineer = Boolean(nabije.length || (routeHref && routeLabel) || (st
   </section>
 )}
 
-{blok === 'bezoek' && heeftBezoek && (
+{/* LAT-13101: het Bezoek-blok staat er altijd (NL en EN), zodat elk portret óf de bevestigde
+    bezoekregeling uit Directus (bezoek_type) óf een eerlijke "niet bevestigd" toont, met de site
+    van het huis als volgende stap als die in Directus staat. */}
+{blok === 'bezoek' && (
   <section class="wp wp--bezoek" id="bezoek" aria-labelledby="wp-bezoek-title">
     <div class="container">
       <p class="wp__eyebrow">{ui.t('wijnhuis.bezoek.eyebrow')}</p>
       <h2 class="wp__title" id="wp-bezoek-title">{ui.t('wijnhuis.bezoek.title')}</h2>
       <div class="wp-bezoek">
         <dl class="wp-bezoek__lijst">
-          {!p.bezoekType && (
+          {p.bezoekType ? (
+            <div class="wp-bezoek__rij wp-bezoek__rij--bevestigd">
+              <dt>{ui.t('wijnhuis.bezoek.eyebrow')}</dt>
+              <dd>{ui.t(`wijnhuis.bezoek.${p.bezoekType}`)}</dd>
+            </div>
+          ) : (
             <div class="wp-bezoek__rij wp-bezoek__rij--onbevestigd">
               <dt>{ui.t('wijnhuis.bezoek.eyebrow')}</dt>
-              <dd>{ui.t('wijnhuis.bezoek.onbevestigd')}</dd>
+              <dd>{ui.t(websiteUrl ? 'wijnhuis.bezoek.onbevestigd' : 'wijnhuis.bezoek.onbevestigdZonderSite')}</dd>
             </div>
           )}
           {address && (
