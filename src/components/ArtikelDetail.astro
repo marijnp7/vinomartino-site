@@ -360,13 +360,13 @@ if (article.faqSchema) {
             locale={locale}
           />
         )}
-        <ArtikelGerelateerdeStukken items={article.relatedArtikelen} locale={locale} />
+        <ArtikelGerelateerdeStukken items={article.relatedArtikelen.slice(0, 3)} locale={locale} />
       </aside>
     </div>
 
     <CtaStructure data={article.cta} sid={article.slug} locale={locale} wineRetailAllowed={article.zelfGereisd === true} />
 
-    <ArtikelMeerOver items={article.meerOver} topic={article.tags?.[0] ?? undefined} locale={locale} />
+    <ArtikelMeerOver items={article.meerOver.slice(0, 3)} topic={article.tags?.[0] ?? undefined} locale={locale} />
 
     <ContentLinks kind="artikelen" slug={article.slug} locale={locale} />
 

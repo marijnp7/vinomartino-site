@@ -42,8 +42,9 @@ export interface Article {
     relatedWijnroutes: RelatedRef[];
     relatedLanden: RelatedRef[];
     // LAT-1619: redactioneel gekozen artikel→artikel cross-links.
-    // relatedArtikelen → rechterzijbalk "Gerelateerde stukken" (max 3).
-    // meerOver → voetblok "Meer over [druif/regio]" (max 3).
+    // relatedArtikelen → rechterzijbalk "Gerelateerde stukken"; meerOver → voetblok
+    // "Meer over [druif/regio]". Volledige CMS-arrays: de linkgraph (content-links-loader)
+    // moet elke relatie zien; de UI kapt zelf op drie af (ArtikelDetail.astro, LAT-11584).
     relatedArtikelen: RelatedRef[];
     meerOver: RelatedRef[];
     // LAT-1784/LAT-1795 — gestandaardiseerde 3-CTA-structuur (Directus `cta_blocks`).
@@ -457,8 +458,8 @@ function mapArticle(
           relatedLanden: mapRelatedRefs(a.related_landen, 'landen_id', 'name'),
           // LAT-1619: zelf-referentiële M2M; junction-FK naar de doel-article is
           // `related_articles_id` voor beide velden (related_articles, meer_over).
-          relatedArtikelen: mapRelatedRefs(a.related_articles, 'related_articles_id', 'title').slice(0, 3),
-          meerOver: mapRelatedRefs(a.meer_over, 'related_articles_id', 'title').slice(0, 3),
+          relatedArtikelen: mapRelatedRefs(a.related_articles, 'related_articles_id', 'title'),
+          meerOver: mapRelatedRefs(a.meer_over, 'related_articles_id', 'title'),
           cta: getCtaStructure(a),
           // LAT-1958 — twee-tier authenticiteitsmodel (regels: LAT-1957). Zelfde
           // tolerante coercion als `featured` (Directus levert true/1/'1').
