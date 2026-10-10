@@ -28,6 +28,7 @@ on:
         options:
           - add-wijnhuis-portret-fields.mjs
           - add-wijnhuis-portret-translations.mjs
+          - grant-growth-reader-site-events.mjs
           - grant-reispakketten-create.mjs
           - mint-cj-importer.mjs
 
