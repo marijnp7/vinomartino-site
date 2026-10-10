@@ -248,3 +248,24 @@ export function druivenSegmenten(druiven: Druif[]): Array<Druif & { width: numbe
     if (!total) return [];
     return druiven.map((d) => ({ ...d, width: (d.pct / total) * 100 }));
 }
+
+// LAT-12924 — EN-overlay van de portret-leestekst (zie WIJNHUIZEN_PORTRET_TRANSLATABLE in wijnhuizen.ts).
+// Eerst de NL-basis leeg, dan de vertaalrij erover, dan de opmerking terug in openingstijden.
+export function stripPortretLeestekst(r: Record<string, unknown>): void {
+    r.waarom_hier = null;
+    r.onze_ervaring = null;
+    r.faq = null;
+    const uren = r.openingstijden;
+    if (uren && typeof uren === 'object' && !Array.isArray(uren)) {
+        const { opmerking: _nl, ...rest } = uren as Record<string, unknown>;
+        r.openingstijden = rest;
+    }
+}
+
+export function applyPortretOpmerking(r: Record<string, unknown>): void {
+    const en = typeof r.openingstijden_opmerking === 'string' ? r.openingstijden_opmerking.trim() : '';
+    if (!en) return;
+    const uren = r.openingstijden;
+    const base = uren && typeof uren === 'object' && !Array.isArray(uren) ? (uren as Record<string, unknown>) : {};
+    r.openingstijden = { ...base, opmerking: en };
+}

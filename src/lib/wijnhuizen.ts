@@ -1,7 +1,7 @@
 import type { RelatedRef } from './articles';
 import { assertHeroNotBlocked } from './synthetic-images';
 import { getCtaStructure, type CtaStructure } from './cta-blocks';
-import { normalizePortret, type WijnhuisPortret } from './wijnhuis-portret';
+import { normalizePortret, stripPortretLeestekst, applyPortretOpmerking, type WijnhuisPortret } from './wijnhuis-portret';
 
 // VIS-BL-03 (LAT-2002): vaste rij van (max) 3 portretbeelden onder de intro.
 export interface WijnhuisDrieluikBeeld {
@@ -91,6 +91,10 @@ import { localizeRecords, localizeJoinedRefs, localizeNestedRefs } from './direc
 
 // LAT-2575 — vertaalbare wijnhuis-velden (native Directus translations, LAT-2574).
 const WIJNHUIZEN_TRANSLATABLE = ['description', 'body', 'meta_title', 'meta_description', 'hero_alt'];
+// LAT-12924 — portret-2.0-leestekst. Strikt vervangen, geen NL-fallback: is het EN-veld
+// leeg, dan is het blok op /en/ verborgen (HARDE REGEL 20). mergeTranslatedValue zou
+// een kortere EN-array aanvullen met de NL-staart, dus de NL-basis gaat eerst leeg.
+const WIJNHUIZEN_PORTRET_TRANSLATABLE = ['waarom_hier', 'onze_ervaring', 'faq', 'openingstijden_opmerking'];
 
 const assetDebug: Array<Record<string, unknown>> = [];
 
@@ -340,13 +344,15 @@ async function buildDrieluik(
 
 async function loadFromDirectus(url: string, token: string, locale: Locale): Promise<Wijnhuis[]> {
     const raw = await fetchWijnhuizenItems(url, token);
+    if (locale !== DEFAULT_LOCALE) raw.forEach(stripPortretLeestekst);
     const data = await localizeRecords(raw, {
         env: readDirectusEnv(),
         junction: 'wijnhuizen_translations',
         parentIdField: 'wijnhuizen_id',
-        fields: WIJNHUIZEN_TRANSLATABLE,
+        fields: [...WIJNHUIZEN_TRANSLATABLE, ...WIJNHUIZEN_PORTRET_TRANSLATABLE],
         locale,
     });
+    if (locale !== DEFAULT_LOCALE) data.forEach(applyPortretOpmerking);
     // LAT-2697 — vertaal de gejoinde streeknaam mee (anders lekt de NL-streeknaam,
     // bv. "Toscane", in de EN wijnhuis-meta-title "…, Winery in Toscane" i.p.v.
     // "Tuscany"). De streek-M2O wordt niet door localizeRecords geraakt.
