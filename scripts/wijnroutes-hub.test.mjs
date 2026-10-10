@@ -55,7 +55,7 @@ test('elke hub- en verhaalkey heeft een NL-default en een EN-waarde', () => {
 });
 
 test('de hub-copy zegt wat de pagina is: wijnroutes om zelf te rijden', () => {
-  assert.equal(UI_STRING_DEFAULTS['wijnroutes.hub.hero.h1'], 'Wijnroutes om zelf te rijden');
+  assert.equal(UI_STRING_DEFAULTS['wijnroutes.hub.hero.h1'], 'Vind jouw wijnroute.');
   assert.match(UI_STRING_DEFAULTS['wijnroutes.hub.meta.title'], /^Wijnroutes/);
   assert.match(UI_STRING_DEFAULTS['wijnroutes.hub.meta.description'], /slapen/);
   // Geen gedachtestreepjes in redactionele copy (REGEL 58).
