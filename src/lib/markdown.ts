@@ -1,9 +1,11 @@
+import { enhanceArticleVisualBlocks } from './article-visual-blocks';
 import { enhanceArticleTables } from './article-tables';
 import { DEFAULT_LOCALE, localizeHref, type Locale } from './i18n';
 import { buildCjBookingLink } from './affiliates';
 
 interface MarkdownOptions {
   editorialTables?: boolean;
+  editorialBlocks?: boolean;
   stripFirstH1?: boolean;
   // LAT-2819: locale van de pagina waarop deze body terechtkomt. Alleen gezet
   // door de loaders (die de locale al kennen); zonder deze optie blijft de
@@ -204,6 +206,7 @@ export async function mdastToHtmlWithToc(
   );
   sanitizeHast(rawHast as HastParent);
   if (options.editorialTables) enhanceArticleTables(rawHast as HastNode);
+  if (options.editorialBlocks) enhanceArticleVisualBlocks(rawHast as HastNode);
   // LAT-2819: interne links in de redactionele body locale-aware maken. Dit
   // draait ná de sanitize (de allowlist bepaalt welke href overleeft) en is een
   // no-op op NL, zodat de NL-HTML byte-identiek blijft.
