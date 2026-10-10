@@ -1,0 +1,41 @@
+---
+// LAT-13099: blok "Geproefd uit deze streek" op de streekpagina. Rendert niets
+// zonder gepubliceerde review voor deze streek.
+import { loadWijnReviews } from '../../lib/wijn-reviews';
+import { loadUiStrings } from '../../lib/ui-strings';
+import { DEFAULT_LOCALE, localizePath, type Locale } from '../../lib/i18n';
+
+interface Props { streekSlug: string; locale?: Locale }
+const { streekSlug, locale = DEFAULT_LOCALE } = Astro.props;
+const reviews = (await loadWijnReviews(locale)).filter((r) => r.streekSlug === streekSlug);
+const ui = await loadUiStrings(locale);
+const verdictLabel = (v: string) => {
+  const k = `proeftafel.verdict.${v}`;
+  const t = ui.t(k);
+  return t === k ? v.replace(/-/g, ' ') : t;
+};
+---
+{reviews.length > 0 && (
+  <section class="streek-proeftafel">
+    <div class="container">
+      <span class="section-label">{ui.t('proeftafel.streek.label')}</span>
+      <h2>{ui.t('proeftafel.streek.title')}</h2>
+      <ul>
+        {reviews.map((r) => (
+          <li>
+            <a href={localizePath(`/op-de-proeftafel/${r.slug}/`, locale)}>{r.wijn}</a>
+            {r.producent && <span>{` · ${r.producent}`}</span>}
+            <strong>{` · ${verdictLabel(r.verdict)}`}</strong>
+            {r.verdictZin && <p>{r.verdictZin}</p>}
+          </li>
+        ))}
+      </ul>
+    </div>
+  </section>
+)}
+
+<style>
+  .streek-proeftafel { padding: 2.5rem 0; }
+  .streek-proeftafel ul { list-style: none; padding: 0; display: grid; gap: 1rem; }
+  .streek-proeftafel p { margin: 0.25rem 0 0; }
+</style>

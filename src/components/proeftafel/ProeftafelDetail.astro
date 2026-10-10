@@ -1,0 +1,174 @@
+---
+// LAT-13099: detailpagina van één wijnreview. Blokvolgorde volgens schrijfrichtlijn v2:
+// 0 herkomstregel (+ affiliate-melding) bovenaan, 1 verdictblok, 2 de vraag,
+// 3 lijkt op / voor wie, 4 smaak, 5 een leerpunt, 6 wanneer en waarbij,
+// 7 proef de streek, 8 nominatievraag (vast slot), 9 <details> voor de liefhebber.
+// Lege velden = geen blok; vaste teksten komen uit ui-strings (CMS-overschrijfbaar).
+import SiteLayout from '../../layouts/SiteLayout.astro';
+import { type WijnReview, fill, formatEuro, hasAffiliateLinks, reviewTitle, shopUrlWithUtm } from '../../lib/wijn-reviews';
+import { loadUiStrings } from '../../lib/ui-strings';
+import { DEFAULT_LOCALE, localizeHref, localizePath, type Locale } from '../../lib/i18n';
+import { organizationSchema } from '../../lib/seo';
+
+interface Props {
+  review: WijnReview;
+  routeSlug: string | null;
+  locale?: Locale;
+  alternates?: Partial<Record<Locale, string>>;
+}
+const { review: r, routeSlug, locale = DEFAULT_LOCALE, alternates } = Astro.props;
+const ui = await loadUiStrings(locale);
+const label = (prefix: string, value: string) => {
+  const k = `${prefix}.${value}`;
+  const v = ui.t(k);
+  return v === k ? value.replace(/-/g, ' ') : v;
+};
+const euro = (n: number | null) => formatEuro(n, locale);
+const shopHref = r.winkelUrl ? shopUrlWithUtm(r.winkelUrl, r.slug) : '';
+const herkomstNaam = r.herkomstNaam || r.winkelNaam;
+const herkomstregel = r.herkomst && herkomstNaam ? fill(ui.t(`proeftafel.detail.herkomst.${r.herkomst}`), { winkel: herkomstNaam }) : '';
+const affiliate = hasAffiliateLinks(r);
+const nominatievraag = r.nominatievraag || ui.t('proeftafel.detail.nominatievraag');
+const pageTitle = reviewTitle(r, {
+  template: ui.t('proeftafel.titel.formule'),
+  categorieLabel: r.categorie ? label('proeftafel.categorie', r.categorie) : '',
+  locale,
+});
+const site = Astro.site ?? new URL('https://vinomartino.com');
+const pageUrl = new URL(localizePath(`/op-de-proeftafel/${r.slug}/`, locale), site).href;
+
+// Schema.org Review zonder numerieke rating: het oordeel is een woord, geen cijfer.
+const reviewSchema: Record<string, unknown> = {
+  '@context': 'https://schema.org',
+  '@type': 'Review',
+  name: pageTitle,
+  url: pageUrl,
+  inLanguage: locale,
+  author: { '@type': 'Person', name: ui.t('proeftafel.author.name') },
+  publisher: { '@type': 'Organization', name: 'VinoMartino' },
+  reviewBody: [label('proeftafel.verdict', r.verdict), r.verdictZin].filter(Boolean).join('. '),
+  ...(r.publicatiedatum ? { datePublished: r.publicatiedatum } : {}),
+  itemReviewed: {
+    '@type': 'Product',
+    name: [r.wijn, r.jaargang].filter(Boolean).join(' '),
+    ...(r.producent ? { brand: { '@type': 'Brand', name: r.producent } } : {}),
+    ...(r.flesImage ? { image: new URL(r.flesImage, site).href } : {}),
+    ...(r.prijsEur !== null && r.winkelUrl
+      ? { offers: { '@type': 'Offer', price: r.prijsEur.toFixed(2), priceCurrency: 'EUR', url: shopHref, ...(r.winkelNaam ? { seller: { '@type': 'Organization', name: r.winkelNaam } } : {}) } }
+      : {}),
+  },
+};
+const schema = [organizationSchema(), reviewSchema];
+---
+
+<SiteLayout
+  title={pageTitle}
+  description={r.verdictZin || ui.t('proeftafel.meta.description')}
+  ogImage={r.flesImage ?? undefined}
+  schema={schema}
+  activeNav="op-de-proeftafel"
+  locale={locale}
+  alternates={alternates}
+>
+  <article class="pt-detail container">
+    <p><a href={localizePath('/op-de-proeftafel/', locale)}>{ui.t('proeftafel.detail.terug')}</a></p>
+    <span class="section-label">{ui.t('proeftafel.label')}</span>
+    <h1>{r.titel || r.wijn}</h1>
+    <p class="pt-meta">{[r.wijn !== r.titel ? r.wijn : '', r.producent, r.jaargang, r.streekName].filter(Boolean).join(' · ')}</p>
+
+    {(herkomstregel || affiliate) && (
+      <div class="pt-herkomst" data-pt-herkomst>
+        {herkomstregel && <p>{herkomstregel}</p>}
+        {affiliate && <p class="pt-affiliate">{ui.t('proeftafel.detail.affiliate')}</p>}
+      </div>
+    )}
+
+    <section class="pt-verdictblok">
+      {r.flesImage && <img src={r.flesImage} alt={[r.wijn, r.producent, r.jaargang].filter(Boolean).join(', ')} width="400" height="600" />}
+      <div>
+        <p><span class="pt-k">{ui.t('proeftafel.detail.verdict')}</span> <strong class={`pt-verdict pt-verdict--${r.verdict}`}>{label('proeftafel.verdict', r.verdict)}</strong></p>
+        {r.prijsEur !== null && <p><span class="pt-k">{ui.t('proeftafel.detail.prijs')}</span> {euro(r.prijsEur)}</p>}
+        {r.winkelNaam && (
+          <p><span class="pt-k">{ui.t('proeftafel.detail.winkel')}</span> {shopHref ? <a href={shopHref} rel="noopener nofollow" target="_blank">{r.winkelNaam}</a> : r.winkelNaam}{r.winkelStad ? `, ${r.winkelStad}` : ''}</p>
+        )}
+        {r.verdictZin && <p class="pt-verdictzin">{r.verdictZin}</p>}
+      </div>
+    </section>
+
+    {r.deVraagHtml && (
+      <section><h2>{ui.t('proeftafel.detail.deVraag')}</h2><div set:html={r.deVraagHtml} /></section>
+    )}
+
+    {(r.lijktOp || r.voorWie || r.nietVoorWie) && (
+      <section class="pt-wie">
+        <dl>
+          {r.lijktOp && <><dt>{ui.t('proeftafel.detail.lijktOp')}</dt><dd>{r.lijktOp}</dd></>}
+          {r.voorWie && <><dt>{ui.t('proeftafel.detail.voorWie')}</dt><dd>{r.voorWie}</dd></>}
+          {r.nietVoorWie && <><dt>{ui.t('proeftafel.detail.nietVoorWie')}</dt><dd>{r.nietVoorWie}</dd></>}
+        </dl>
+      </section>
+    )}
+
+    {r.smaakHtml && (
+      <section><h2>{ui.t('proeftafel.detail.smaak')}</h2><div set:html={r.smaakHtml} /></section>
+    )}
+
+    {r.leerpuntHtml && (
+      <section><h2>{ui.t('proeftafel.detail.leerpunt')}</h2><div set:html={r.leerpuntHtml} /></section>
+    )}
+
+    {(r.wanneerWaarbijHtml || r.drinkvenster) && (
+      <section>
+        <h2>{ui.t('proeftafel.detail.wanneerWaarbij')}</h2>
+        {r.wanneerWaarbijHtml && <div set:html={r.wanneerWaarbijHtml} />}
+        {r.drinkvenster && <p><span class="pt-k">{ui.t('proeftafel.detail.drinkvenster')}</span> {r.drinkvenster}</p>}
+      </section>
+    )}
+
+    {(r.proefDeStreekHtml || r.streekSlug) && (
+      <section class="pt-streek">
+        <h2>{ui.t('proeftafel.detail.proefDeStreek')}</h2>
+        {r.proefDeStreekHtml && <div set:html={r.proefDeStreekHtml} />}
+        <ul>
+          {r.streekSlug && <li><a href={localizeHref(`/streken/${r.streekSlug}/`, locale)}>{ui.t('proeftafel.detail.naarStreek')}{r.streekName ? `: ${r.streekName}` : ''}</a></li>}
+          {routeSlug && <li><a href={localizeHref(`/wijnroutes/${routeSlug}/`, locale)}>{ui.t('proeftafel.detail.naarRoute')}</a></li>}
+        </ul>
+      </section>
+    )}
+
+    <aside class="pt-nominatie" data-pt-nominatie>
+      <p>{nominatievraag}</p>
+    </aside>
+
+    {r.voorDeLiefhebberHtml && (
+      <details class="pt-liefhebber">
+        <summary>{ui.t('proeftafel.detail.liefhebber')}</summary>
+        <div set:html={r.voorDeLiefhebberHtml} />
+      </details>
+    )}
+  </article>
+</SiteLayout>
+
+<style>
+  .pt-detail { max-width: 46rem; padding: 2.5rem 1rem 4rem; }
+  .pt-meta { opacity: 0.8; }
+  .pt-verdictblok { display: flex; gap: 1.5rem; align-items: flex-start; padding: 1.25rem; margin: 1.5rem 0 2rem; background: #f6f2ec; border-radius: 0.5rem; }
+  .pt-verdictblok img { width: 9rem; height: auto; object-fit: contain; }
+  .pt-verdictblok p { margin: 0 0 0.5rem; }
+  .pt-k { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.7; margin-right: 0.35rem; }
+  .pt-verdictzin { font-size: 1.15rem; }
+  .pt-herkomst { margin: 1rem 0 0; font-size: 0.95rem; font-style: italic; }
+  .pt-herkomst p { margin: 0 0 0.35rem; }
+  .pt-affiliate { font-size: 0.85rem; opacity: 0.85; }
+  .pt-nominatie { margin: 2rem 0 0; padding: 1rem 1.25rem; border-left: 3px solid #7a2e2e; background: #f6f2ec; font-weight: 600; }
+  .pt-nominatie p { margin: 0; }
+  .pt-verdict { padding: 0.15rem 0.6rem; border-radius: 999px; background: #eee; }
+  .pt-verdict--kopen { background: #2f5d3a; color: #fff; }
+  .pt-verdict--proberen { background: #c9a227; color: #1d1d1d; }
+  .pt-verdict--laten-staan { background: #7a2e2e; color: #fff; }
+  .pt-wie dt { font-weight: 600; margin-top: 0.75rem; }
+  .pt-wie dd { margin: 0.2rem 0 0; }
+  .pt-liefhebber { margin-top: 2rem; }
+  .pt-liefhebber summary { cursor: pointer; font-weight: 600; }
+  @media (max-width: 560px) { .pt-verdictblok { flex-direction: column; } }
+</style>

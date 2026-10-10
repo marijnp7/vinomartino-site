@@ -1,0 +1,60 @@
+---
+// LAT-13099 (schrijfrichtlijn v2): openbare pagina "Zo werkt Op de proeftafel".
+// Spelregels voor winkels + de publieksgerichte Nederlandse huisregels (tot STIVA of
+// een jurist antwoord geeft). Alle copy uit ui-strings. Er staat bewust GEEN
+// verzendadres op deze pagina: Marijn mailt dat na acceptatie (besluit 10-10-2026).
+import SiteLayout from '../../layouts/SiteLayout.astro';
+import { loadUiStrings } from '../../lib/ui-strings';
+import { DEFAULT_LOCALE, localizePath, type Locale } from '../../lib/i18n';
+import { organizationSchema } from '../../lib/seo';
+
+interface Props {
+  locale?: Locale;
+  alternates?: Partial<Record<Locale, string>>;
+}
+const { locale = DEFAULT_LOCALE, alternates } = Astro.props;
+const ui = await loadUiStrings(locale);
+const WINKELREGELS = ['baan', 'oordeel', 'kwartaal', 'nix18', 'klikoverzicht', 'schapkaart'];
+const HUISREGELS = ['tiktok', 'weggeven', 'leeftijd', 'nix18'];
+---
+
+<SiteLayout
+  title={ui.t('proeftafel.zowerkthet.meta.title')}
+  description={ui.t('proeftafel.zowerkthet.meta.description')}
+  schema={[organizationSchema()]}
+  activeNav="op-de-proeftafel"
+  locale={locale}
+  alternates={alternates}
+>
+  <article class="pt-zwh container">
+    <p><a href={localizePath('/op-de-proeftafel/', locale)}>{ui.t('proeftafel.detail.terug')}</a></p>
+    <span class="section-label">{ui.t('proeftafel.label')}</span>
+    <h1>{ui.t('proeftafel.zowerkthet.title')}</h1>
+    <p class="pt-lead">{ui.t('proeftafel.zowerkthet.intro')}</p>
+
+    <section data-pt-winkelregels>
+      <h2>{ui.t('proeftafel.zowerkthet.winkels.title')}</h2>
+      <ul>
+        {WINKELREGELS.map((k) => <li>{ui.t(`proeftafel.zowerkthet.winkels.${k}`)}</li>)}
+      </ul>
+    </section>
+
+    <section data-pt-huisregels>
+      <h2>{ui.t('proeftafel.zowerkthet.huisregels.title')}</h2>
+      <p>{ui.t('proeftafel.zowerkthet.huisregels.intro')}</p>
+      <ul>
+        {HUISREGELS.map((k) => <li>{ui.t(`proeftafel.zowerkthet.huisregels.${k}`)}</li>)}
+      </ul>
+    </section>
+
+    <p>{ui.t('proeftafel.zowerkthet.adres')}</p>
+    <p><a class="pt-cta" href={localizePath('/op-de-proeftafel/insturen/', locale)}>{ui.t('proeftafel.zowerkthet.cta')}</a></p>
+  </article>
+</SiteLayout>
+
+<style>
+  .pt-zwh { max-width: 44rem; padding: 2.5rem 1rem 4rem; }
+  .pt-lead { font-size: 1.15rem; }
+  .pt-zwh li { margin-bottom: 0.5rem; }
+  .pt-cta { font-weight: 600; }
+</style>

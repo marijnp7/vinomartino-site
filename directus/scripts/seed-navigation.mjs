@@ -39,6 +39,8 @@ const items = [
   { key: 'wijnhuizen', label: 'Wijnhuizen', href: '/wijnhuizen/', order: 30 },
   { key: 'accommodaties', label: 'Overnachten', href: '/accommodaties/', order: 35 },
   { key: 'artikelen', label: 'Artikelen', href: '/artikelen/', order: 50 },
+  // LAT-13099: Op de proeftafel (seed niet gedraaid in de PR; draai na schema + eerste review).
+  { key: 'op-de-proeftafel', label: 'Op de proeftafel', href: '/op-de-proeftafel/', order: 55 },
   { key: 'de-brief', label: 'De brief', href: '/de-brief/', order: 60 },
   { key: 'over-ons', label: 'Ons verhaal', href: '/over-ons/', order: 70 },
 ];
