@@ -138,8 +138,8 @@ const credit = foto ? await getImageCredit(fotoId ?? fileIdFromAccommodatiePath(
       )}
       {credit && (
         <p class="poi-card__credit">
-          {credit.author && <>{credit.author} — </>}<a href={credit.licenseUrl} rel="license noopener" target="_blank">{licenseLabelFor(credit.licenseLabel, locale)}</a>
-          {credit.sourceUrl && <> — <a href={credit.sourceUrl} rel="noopener" target="_blank">{credit.sourceLabel ? `via ${credit.sourceLabel}` : 'via bron'}</a></>}
+          {credit.author && <>{credit.author}, </>}<a href={credit.licenseUrl} rel="license noopener" target="_blank">{licenseLabelFor(credit.licenseLabel, locale)}</a>
+          {credit.sourceUrl && <>, <a href={credit.sourceUrl} rel="noopener" target="_blank">{credit.sourceLabel ? `via ${credit.sourceLabel}` : 'via bron'}</a></>}
           {credit.adapted && <> ({adaptationNoteFor(locale)})</>}
         </p>
       )}

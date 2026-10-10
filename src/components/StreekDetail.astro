@@ -21,7 +21,7 @@ import BeeldHerkomst from './BeeldHerkomst.astro';  // LAT-4776: §7-disclosure 
 import NewsletterFooter from './NewsletterFooter.astro';
 import NewsletterInline from './NewsletterInline.astro';
 import { splitAfterFirstSection } from '../lib/newsletter-inline';
-import { accommodatieBookingDeeplink } from '../lib/affiliates';
+import { accommodatieBookingDeeplink, isAffiliateHref } from '../lib/affiliates';
 import { type Streek, type Accommodation } from '../lib/streken';
 import { clustersFromCuratedStays, staySlug } from '../lib/curated-stays';
 import { matchWijnhuisByName, type Wijnhuis } from '../lib/wijnhuizen';
@@ -157,19 +157,22 @@ const overnachtenInput: StreekPoiInput[] = stayClusters.flatMap(cluster =>
   cluster.kaarten.flatMap(kaart => {
     const acc = accBySlug.get(kaart.slug);
     if (!acc) return [];
+    const boeklink = accBoeklink(acc);
+    // LAT-13078: directe link naar het huis → geen affiliate-disclosure, geen partner.
+    const affiliate = isAffiliateHref(boeklink);
     return [{
       naam: acc.naam,
       lat: acc.lat,
       lng: acc.lng,
       whyRegel: acc.whyThisOne,
-      disclosure: ui.t('stay.disclosure.microcopy'),
+      disclosure: affiliate ? ui.t('stay.disclosure.microcopy') : null,
       prijs: accPrice(acc),
-      boeklink: accBoeklink(acc),
+      boeklink,
       tier: acc.tier,
       badge: acc.tier ? ui.t(`stay.tier.${acc.tier}`) : null,
       clusterSlug: cluster.slug,
       clusterTitel: cluster.titel,
-      partner: 'booking',
+      partner: affiliate ? 'booking' : 'direct',
       foto: acc.foto ?? null,
       fotoAlt: acc.naam,
     }];
@@ -320,18 +323,18 @@ const hasFactBox = Boolean(
             <figcaption class="streek-hero-credit">
               {entry.heroCredit.author}
               {entry.heroCredit.licenseLabel && (
-                <> — {entry.heroCredit.licenseUrl
+                <>, {entry.heroCredit.licenseUrl
                   ? <a href={entry.heroCredit.licenseUrl} rel="license noopener" target="_blank">{licenseLabelFor(entry.heroCredit.licenseLabel, locale)}</a>
                   : licenseLabelFor(entry.heroCredit.licenseLabel, locale)}</>
               )}
               {entry.heroCredit.sourceUrl && (
-                <> — <a href={entry.heroCredit.sourceUrl} rel="noopener" target="_blank">{ui.t('streek.hero.bron')}</a></>
+                <>, <a href={entry.heroCredit.sourceUrl} rel="noopener" target="_blank">{ui.t('streek.hero.bron')}</a></>
               )}
             </figcaption>
           )}
           {damHeroCredit && (
             <figcaption class="streek-hero-credit">
-              {damHeroCredit.author && <>{damHeroCredit.author} — </>}<a href={damHeroCredit.licenseUrl} rel="license noopener" target="_blank">{licenseLabelFor(damHeroCredit.licenseLabel, locale)}</a>{damHeroCredit.sourceUrl && <> — <a href={damHeroCredit.sourceUrl} rel="noopener" target="_blank">{ui.t('streek.hero.bron')}</a></>}
+              {damHeroCredit.author && <>{damHeroCredit.author}, </>}<a href={damHeroCredit.licenseUrl} rel="license noopener" target="_blank">{licenseLabelFor(damHeroCredit.licenseLabel, locale)}</a>{damHeroCredit.sourceUrl && <>, <a href={damHeroCredit.sourceUrl} rel="noopener" target="_blank">{ui.t('streek.hero.bron')}</a></>}
             </figcaption>
           )}
         </figure>

@@ -10,6 +10,7 @@
 
 import type { AccommodatieKaart } from '../lib/accommodaties';
 import { accommodatieBookingHref } from '../lib/accommodaties';
+import { isAffiliateHref } from '../lib/affiliates';
 import { formatNightlyPrice } from '../lib/currency';
 import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
 import { loadUiStrings } from '../lib/ui-strings';
@@ -68,10 +69,11 @@ else if (hoog) prijs = `${ui.t('stay.price.upToPrefix')} ${hoog} ${perNight}`;
     boeklink: href,
     cta: ui.t('streekkaart.cta.overnachten'),
     ctaKey: 'bekijk-boek',
-    partner: 'booking.com',
+    partner: isAffiliateHref(href) ? 'booking.com' : 'direct',
     placement: 'accommodatie-kaart',
     context: context ? `accommodatie-${context}` : 'accommodatie',
-    disclosure: ui.t('stay.disclosure.microcopy'),
+    // LAT-13078: alleen disclosure als de link via CJ/Booking/Stay22 loopt.
+    disclosure: isAffiliateHref(href) ? ui.t('stay.disclosure.microcopy') : null,
     cardId: `acc-${kaart.slug}`,
   }}
 />
