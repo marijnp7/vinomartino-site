@@ -1,7 +1,7 @@
 // CMS-owned map copy, both locales. Idempotent; no changes to article content.
 const rows = {
  'atlas.region.title': ['De kaart van {region}', 'The map of {region}'],
- 'atlas.region.intro': ['Bekijk het wijngebied en zoom in op de adressen voor je reis.', 'Explore the wine region and zoom in on places for your trip.'],
+ 'atlas.region.intro': ['Bekijk de ligging en omvang van het wijngebied.', 'Explore the location and extent of the wine region.'],
  'atlas.region.areaLabel': ['Wijngebied {region}', '{region} wine region'],
  'atlas.region.locatorLabel': ['Ligging van {region}', 'Location of {region}'],
  'atlas.region.showArea': ['Hele wijngebied', 'Whole wine region'],
