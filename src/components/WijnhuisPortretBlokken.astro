@@ -142,7 +142,8 @@ const heeftCombineer = Boolean(nabije.length || (routeHref && routeLabel) || (st
           <figure>
             <img src={b.src} alt={b.alt} loading="lazy" decoding="async" width={b.width ?? undefined} height={b.height ?? undefined} />
             <figcaption class="wp-reeks__onder">
-              <span class="wp-reeks__titel">{b.alt}</span>
+              {/* LAT-13073: alt is een NL-bestandstitel uit Directus; op /en/ niet als zichtbare tekst tonen (i18n-nl gate). */}
+              {locale === DEFAULT_LOCALE && <span class="wp-reeks__titel">{b.alt}</span>}
               <span class="wp-reeks__meta"><span>{i + 1}/{reeks.length}</span>{b.credit && <span>{b.credit}</span>}</span>
             </figcaption>
           </figure>

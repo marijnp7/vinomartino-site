@@ -166,6 +166,9 @@ test('reeks: pas vanaf 2 foto\'s, scroll-snap; geen bronclaim bij zelf-geweest z
   assert.match(b, /blok === 'galerij' && reeks\.length >= 2/);
   assert.match(b, /scroll-snap-type: x mandatory/);
   assert.match(b, /!p\.zelfGeweest \? `\$\{ui\.t\('wijnhuis\.reeks\.foto'\)\}: \$\{name\}`/);
+
+  // LAT-13073: NL-bestandstitel (alt) alleen zichtbaar op NL, anders faalt de i18n-nl gate op /en/.
+  assert.match(b, /locale === DEFAULT_LOCALE && <span class="wp-reeks__titel">/);
 });
 
 test('combineer bordeaux en sticky alleen mobiel met safe-area', () => {
