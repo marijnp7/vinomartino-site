@@ -1,0 +1,136 @@
+# LAT-13113 -- dispatch-only: Directus SMTP via info@ (approval 0c95a1f4, Marijn, LAT-13112).
+# Route volgt lat10949: GHA -> VPS SSH. `mode` kiest alleen tussen vaste scripts; niets uit de
+# input wordt in een commando geinterpoleerd. Er gaat geen secret door GHA: het env_file
+# (/opt/paperclip-cos/directus-smtp.env, 0600 root) wordt door DevOps los op de host gezet.
+#
+# diagnose = alleen lezen (compose-labels, env-NAMEN, env_file aanwezig)
+# apply    = backup host-compose, voeg env_file toe aan de directus-service, valideer, recreate
+# rollback = zet de laatste lat13113-backup terug en recreate
+#
+# LET OP bij het pushen: elk bestand onder .github/ op main triggert normaal een productie-release;
+# push met "[skip ci]".
+
+name: LAT-13113 directus smtp
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'diagnose | apply | rollback'
+        required: true
+        default: diagnose
+        type: choice
+        options:
+          - diagnose
+          - apply
+          - rollback
+
+concurrency:
+  group: lat13113-directus-smtp
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          [ -n "$CF_ACCESS_CLIENT_ID" ] && [ -n "$CF_ACCESS_CLIENT_SECRET" ] \
+            || { echo "::error::CF_ACCESS_CLIENT_ID/SECRET ontbreken (LAT-3437)"; exit 1; }
+          umask 077
+          printf 'CF_ACCESS_CLIENT_ID=%s\nCF_ACCESS_CLIENT_SECRET=%s\n' \
+            "$CF_ACCESS_CLIENT_ID" "$CF_ACCESS_CLIENT_SECRET" > ~/.ssh/cf-access.env
+          umask 022
+          cat >> ~/.ssh/config <<EOC
+          Host $VPS_HOST
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+            ProxyCommand bash $GITHUB_WORKSPACE/ops/cf-ssh-proxy.sh
+          EOC
+          cat "$GITHUB_WORKSPACE/ops/ssh-config-snippet" >> ~/.ssh/config
+
+      - name: Run
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          MODE: ${{ inputs.mode }}
+          SCRIPT: |
+            set -uo pipefail
+            C=vinomartino-directus-1
+            ENVF=/opt/paperclip-cos/directus-smtp.env
+            lbl() { docker inspect "$C" --format "{{index .Config.Labels \"$1\"}}"; }
+            P=$(lbl com.docker.compose.project); WD=$(lbl com.docker.compose.project.working_dir)
+            CFS=$(lbl com.docker.compose.project.config_files); SVC=$(lbl com.docker.compose.service)
+            EF=$(lbl com.docker.compose.project.environment_file)
+            echo "project=$P service=$SVC wd=$WD config_files=$CFS env_file_label=$EF"
+            CF1=${CFS%%,*}
+            FARGS=""; IFS=, ; for f in $CFS; do FARGS="$FARGS -f $f"; done; unset IFS
+            EARGS=""; [ -n "$EF" ] && EARGS="--env-file $EF"
+            names() { docker inspect "$C" --format '{{range .Config.Env}}{{println .}}{{end}}' | cut -d= -f1 | grep -E '^EMAIL_' | sort | tr '\n' ' '; echo; }
+            echo "=== EMAIL_* env-namen nu: $(names)"
+            echo "=== env_file op host ==="
+            if [ -f "$ENVF" ]; then stat -c '%n %U:%G %a %s bytes' "$ENVF"; cut -d= -f1 "$ENVF" | tr '\n' ' '; echo; else echo "ONTBREEKT: $ENVF"; fi
+            echo "=== directus-service in $CF1 (zonder waarden) ==="
+            grep -n -E '^  [a-z]|env_file|directus-smtp' "$CF1" | head -30
+            recreate() {
+              cd "$WD" && docker compose -p "$P" $EARGS $FARGS config -q || return 1
+              docker compose -p "$P" $EARGS $FARGS up -d --no-deps --force-recreate "$SVC" || return 1
+              for i in $(seq 1 30); do
+                h=$(docker exec "$C" sh -c 'wget -qO- http://127.0.0.1:8055/server/health 2>/dev/null' | head -c 60)
+                case "$h" in *ok*) echo "health: $h"; return 0;; esac; sleep 3
+              done
+              echo "::error::directus niet healthy na recreate"; return 1
+            }
+            case "$MODE" in
+              diagnose) exit 0 ;;
+              apply)
+                [ -f "$ENVF" ] || { echo "::error::$ENVF ontbreekt, eerst env_file zetten"; exit 1; }
+                grep -q '^EMAIL_SMTP_PASSWORD=.' "$ENVF" || { echo "::error::EMAIL_SMTP_PASSWORD leeg"; exit 1; }
+                if grep -q 'directus-smtp.env' "$CF1"; then
+                  echo "env_file staat al in $CF1"
+                else
+                  B="$CF1.bak-lat13113-$(date +%Y%m%d%H%M%S)"; cp -p "$CF1" "$B"; echo "backup: $B"
+                  python3 - "$CF1" "$SVC" "$ENVF" <<'PY'
+            import sys
+            p, svc, envf = sys.argv[1:4]
+            lines = open(p).read().split('\n')
+            out, done, insvc = [], False, False
+            for i, l in enumerate(lines):
+                out.append(l)
+                if l.rstrip() == '  %s:' % svc and not done:
+                    out.append('    env_file:  # LAT-13113')
+                    out.append('      - %s' % envf)
+                    done = True
+            if not done:
+                sys.exit('service-regel "  %s:" niet gevonden' % svc)
+            open(p, 'w').write('\n'.join(out))
+            PY
+                  [ $? -eq 0 ] || { cp -p "$B" "$CF1"; echo "::error::insert mislukt, backup teruggezet"; exit 1; }
+                  (cd "$WD" && docker compose -p "$P" $EARGS $FARGS config -q) || { cp -p "$B" "$CF1"; echo "::error::compose config ongeldig, backup teruggezet"; exit 1; }
+                fi
+                recreate || exit 1
+                echo "=== EMAIL_* env-namen na apply: $(names)" ;;
+              rollback)
+                B=$(ls -1t "$CF1".bak-lat13113-* 2>/dev/null | head -1)
+                [ -n "$B" ] || { echo "::error::geen lat13113-backup"; exit 1; }
+                cp -p "$B" "$CF1"; echo "teruggezet: $B"
+                recreate || exit 1
+                echo "=== EMAIL_* env-namen na rollback: $(names)" ;;
+            esac
+        run: |
+          { printf 'MODE=%q\n' "$MODE"; printf '%s\n' "$SCRIPT"; } | ssh "$VPS" "bash -s"
