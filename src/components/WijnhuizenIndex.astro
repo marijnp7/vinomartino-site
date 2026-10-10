@@ -48,7 +48,7 @@ const cards = entries.map((e) => {
     seen.add(ref.id);
     druiven.push({ ...ref, naam: n });
   }
-  const zoek = foldText([e.name, streek, e.region, land, e.address, e.winemaker, ...namen.flatMap(druifZoektermen)].join(' '));
+  const zoek = foldText([e.name, streek, e.region, land, landSlug, e.streekSlug, e.address, e.winemaker, ...namen.flatMap(druifZoektermen)].join(' '));
   const route = e.portret.routeSlugs.find((r) => routeSlugs.has(r)) || null;
   return { e, landSlug, land, streek, druiven, zoek, route };
 });
@@ -155,7 +155,7 @@ const schema = [
 
         <div class="wh-leeg" data-wh-leeg hidden>
           <h2>{ui.t('wijnhuizen.filter.leeg.titel')}</h2>
-          <p>{ui.t('wijnhuizen.filter.leeg.tekst').replace('{n}', String(zonderDruif))}</p>
+          <p>{ui.t('wijnhuizen.filter.leeg.tekst')}{zonderDruif > 0 && ` ${ui.t('wijnhuizen.filter.leeg.zonderDruif').replace('{n}', String(zonderDruif))}`}</p>
           <div class="wh-leeg-acties">
             <button type="button" data-wh-overal hidden></button>
             <button type="button" data-wh-wis-leeg>{ui.t('wijnhuizen.filter.wis')}</button>
@@ -293,7 +293,8 @@ const schema = [
         tag.setAttribute('aria-pressed', String(tag.dataset.whDruif === d));
       }
       leeg.hidden = n > 0;
-      overal.hidden = !(raw && (b || d));
+      // Alleen een uitweg tonen die zelf resultaat geeft.
+      overal.hidden = !(raw && (b || d) && cards.some((c) => matches(c, q, '', '')));
       overal.textContent = t.zoekOveral.replace('{q}', raw);
       const params = new URLSearchParams();
       if (raw) params.set('q', raw);
