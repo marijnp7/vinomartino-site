@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import {
   normalizePortret, normalizeDruiven, normalizeWijnen, normalizeOpeningstijden,
   safeUrl, heeftInfographic, heeftBezoek, druivenSegmenten, normalizeFaq,
+  urenPerDag, heeftBezoekKort,
 } from '../src/lib/wijnhuis-portret.ts';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -80,7 +81,7 @@ test('zelf_geweest alleen bij strikt true; onze ervaring zonder badge toont niet
 
 test('template: blokken in vaste volgorde en alleen via normalizer-data', () => {
   const d = read('src/components/WijnhuisDetail.astro');
-  const order = ['WijnhuisInfographic', 'blok="waarom"', 'blok="galerij"', 'blok="drinken"', 'blok="bezoek"', '<WijnhuisStayNear', 'blok="combineer"', 'blok="faq"'].map((k) => d.indexOf(k));
+  const order = ['blok="kort"', '<WijnhuisInfographic', 'blok="waarom"', 'blok="galerij"', 'blok="drinken"', 'blok="bezoek"', '<WijnhuisStayNear', 'blok="combineer"', 'blok="faq"'].map((k) => d.indexOf(k));
   assert.ok(order.every((i) => i > -1), 'alle blokken aanwezig');
   assert.deepEqual([...order].sort((a, b) => a - b), order, 'volgorde klopt');
 });
@@ -129,4 +130,46 @@ test('EN-overlay: NL-leestekst lekt niet, EN wint, leeg EN = verborgen', async (
   const nlPortret = normalizePortret(nl());
   assert.equal(nlPortret.waaromHier.length, 3);
   assert.equal(nlPortret.openingstijden.opmerking, 'alleen op afspraak');
+});
+
+// LAT-13057 — portret v2 (IG-ritme): beeld-hero, kort-blok, reeks, bordeaux Combineer, sticky.
+test('urenPerDag: onbekend ontbreekt, [] = gesloten (lege tekst), meerdere blokken gejoind', () => {
+  assert.deepEqual(urenPerDag(null), {});
+  const o = normalizeOpeningstijden({ ma: [], di: ['10:00-12:00', '14:00-18:00'] });
+  const u = urenPerDag(o);
+  assert.equal(u.ma, '');
+  assert.equal(u.di, '10:00-12:00, 14:00-18:00');
+  assert.equal('wo' in u, false);
+});
+
+test('kort-blok: alleen met een echt bezoekfeit, nooit op adres alleen', () => {
+  assert.equal(heeftBezoekKort(normalizePortret({})), false);
+  assert.equal(heeftBezoekKort(normalizePortret({ bezoek_type: 'op_afspraak' })), true);
+  const b = read('src/components/WijnhuisPortretBlokken.astro');
+  assert.match(b, /ps\.prijs !== null \? `€\$\{ps\.prijs\}`/, 'geen prijs zonder bevestigde prijs');
+  assert.match(b, /ps\?\.url\s*\?\s*\{ href: ps\.url/, 'reserveren alleen met proeverij-URL');
+});
+
+test('beeld-hero: chip = portretlabel, tekst-hero als fallback zonder foto', () => {
+  const c = read('src/components/pages/WijnhuisPageContent.astro');
+  assert.match(c, /const beeldHero = Boolean\(heroImage\)/);
+  assert.match(c, /\{!beeldHero && \(/);
+  assert.match(c, /zelfGeweest \? ui\.t\('wijnhuis\.badge\.zelfGeweest'\) : ui\.t\('wijnhuis\.chip\.redactiegids'\)/);
+  assert.equal((c.match(/<h1 /g) || []).length, 2, 'één h1 per variant');
+});
+
+test('reeks: pas vanaf 2 foto\'s, scroll-snap; geen bronclaim bij zelf-geweest zonder credit', () => {
+  const b = read('src/components/WijnhuisPortretBlokken.astro');
+  assert.match(b, /blok === 'galerij' && reeks\.length >= 2/);
+  assert.match(b, /scroll-snap-type: x mandatory/);
+  assert.match(b, /!p\.zelfGeweest \? `\$\{ui\.t\('wijnhuis\.reeks\.foto'\)\}: \$\{name\}`/);
+});
+
+test('combineer bordeaux en sticky alleen mobiel met safe-area', () => {
+  const b = read('src/components/WijnhuisPortretBlokken.astro');
+  assert.match(b, /\.wp--combineer \{ background: var\(--burgundy\)/);
+  const c = read('src/components/pages/WijnhuisPageContent.astro');
+  assert.match(c, /\{bezoekAnchor && \(\s*<div class="wh-sticky"/);
+  assert.match(c, /env\(safe-area-inset-bottom\)/);
+  assert.match(c, /@media \(min-width: 901px\) \{\s*\.wh-sticky \{ display: none !important; \}/);
 });
