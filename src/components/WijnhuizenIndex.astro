@@ -68,6 +68,15 @@ for (const c of cards) {
 }
 const collator = new Intl.Collator(locale);
 const landOpties = [...landen.entries()].sort((a, b) => collator.compare(a[1].naam, b[1].naam));
+// Streken zonder land-relatie in het CMS (bv. Kakheti) blijven kiesbaar in een
+// neutrale groep; we verzinnen geen land.
+const losseStreken = new Map<string, { naam: string; n: number }>();
+for (const c of cards) {
+  if (c.landSlug || !c.e.streekSlug) continue;
+  const st = losseStreken.get(c.e.streekSlug) ?? { naam: c.streek, n: 0 };
+  st.n++;
+  losseStreken.set(c.e.streekSlug, st);
+}
 const druifTelling = new Map<string, { label: string; n: number }>();
 for (const c of cards) for (const d of c.druiven) {
   const t = druifTelling.get(d.id) ?? { label: d.label, n: 0 };
@@ -132,6 +141,13 @@ const schema = [
                   ))}
                 </optgroup>
               ))}
+              {losseStreken.size > 0 && (
+                <optgroup label={ui.t('wijnhuizen.filter.overigeStreken')}>
+                  {[...losseStreken.entries()].sort((a, b) => collator.compare(a[1].naam, b[1].naam)).map(([ss, st]) => (
+                    <option value={`streek:${ss}`} data-label={st.naam} data-base={st.naam}>{st.naam} ({st.n})</option>
+                  ))}
+                </optgroup>
+              )}
             </select>
           </div>
           <details class="wh-meer" data-wh-meer>
@@ -181,12 +197,12 @@ const schema = [
                 ) : (
                   <p class="wh-onbekend">{ui.t('wijnhuizen.card.druivenOnbekend')}</p>
                 )}
-                {(e.portret.bezoekType || route) && (
-                  <p class="wh-meta">
-                    {e.portret.bezoekType && <span>{ui.t('wijnhuis.bezoek.eyebrow')}: {ui.t(`wijnhuis.bezoek.${e.portret.bezoekType}`)}</span>}
+                <p class="wh-meta">
+                    {e.portret.bezoekType
+                      ? <span>{ui.t('wijnhuis.bezoek.eyebrow')}: {ui.t(`wijnhuis.bezoek.${e.portret.bezoekType}`)}</span>
+                      : <span class="wh-onbekend">{ui.t('wijnhuizen.card.bezoekOnbekend')}</span>}
                     {route && <a href={localizePath(`/wijnroutes/${route}/`, locale)} class="wh-route" data-wh-route>{ui.t('wijnhuis.cta.route')}</a>}
                   </p>
-                )}
               </div>
             </article>
           ))}
