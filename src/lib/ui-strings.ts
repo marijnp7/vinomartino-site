@@ -637,12 +637,12 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
 
     // WijnhuizenIndex.astro (/wijnhuizen/).
     'wijnhuizen.index.meta.title': 'Wijnhuizen, Producenten & wijnmakerijen | VinoMartino',
-    'wijnhuizen.index.meta.description': 'Ontdek de wijnhuizen achter de fles, van eigenzinnige Barolo-producenten tot vulkanische pioniers op de Etna. Persoonlijke portretten van wijnmakers die er echt toe doen.',
+    'wijnhuizen.index.meta.description': 'Wijnhuizen per streek en druif: portretten van producenten van Barolo tot de Etna, met wat er te weten valt voor een bezoek.',
     'wijnhuizen.index.hero.label': 'Wijnhuizen',
     'wijnhuizen.index.hero.h1': 'Producenten & wijnmakerijen',
     'wijnhuizen.index.hero.desc': 'Niet de fles, maar de mensen erachter: van oude Piëmontese families tot nieuwe-golfmakers op de Etna. Kies op streek of druif en plan een bezoek. Waar ik zelf ben geweest, staat dat op de kaart. De andere portretten zijn redactiegids, gebaseerd op de huizen zelf en vakbronnen.',
     'wijnhuizen.index.empty.title': 'De portretten zijn onderweg',
-    'wijnhuizen.index.empty.descPre': 'Elk wijnhuis krijgt één verhaal, geen scorekaart. De eerste portretten verschijnen zodra ik de bezoeken achter me heb. Begin ondertussen bij de ',
+    'wijnhuizen.index.empty.descPre': 'Elk wijnhuis krijgt één verhaal, geen scorekaart. De eerste portretten verschijnen binnenkort. Begin ondertussen bij de ',
     'wijnhuizen.index.empty.descLink': 'reisartikelen',
     'wijnhuizen.index.empty.descPost': '.',
     // LAT-13075 — keuzehulp op /wijnhuizen/ (zoeken, bestemming, druif).
