@@ -27,6 +27,7 @@ on:
         type: choice
         options:
           - add-wijnhuis-portret-fields.mjs
+          - add-wijnhuis-portret-translations.mjs
           - grant-reispakketten-create.mjs
           - mint-cj-importer.mjs
 
