@@ -40,3 +40,11 @@ Normal builds use the checked-in generated geometry and need no GIS dependencies
 ## Validation
 
 Six geography regression tests cover all 39 source areas, Loire west-to-east coverage, southern Rhône, Champagne in Aisne, small appellations versus their former province proxies, label collision handling and generated/source parity. Local Astro build: 667 pages. Browser inspection: all eight maps desktop, France at 390px mobile, no horizontal overflow. Local full test run passed 45 of 46 scripts; the existing container-reaper shell test assumes GNU sed/date and fails on macOS. Linux CI is the release gate.
+
+## Region detail follow-up
+
+All 40 published region pages, in both languages, reuse the same source polygons. `StreekKaart` draws the geographic area independently of address availability, initially fits the whole area, and offers a separate address view. Static SVG previews render before JavaScript; detail previews retain all source rings rather than country-scale simplification. The locator uses the country atlas and sits below the map to avoid covering shapes or pins. It no longer instantiates a second Leaflet/MapLibre map.
+
+Kakheti adds the 40th area. The National Wine Agency's PDO 789 specification, section 4, explicitly defines the geographic area through Akhmeta, Telavi, Gurjaani, Sighnaghi, Dedoplistskaro, Kvareli, Lagodekhi and Sagarejo. Source: https://wine.gov.ge/En/Wine/9 and https://wine.gov.ge/En/Files/Download/15321 (checked 2026-10-10). The simplified Natural Earth Kakheti outline represents this geographic municipal union. It does NOT represent planted vineyards or the separate 200-750m cultivation restriction in section 6. Both locales explicitly explain this distinction. Regenerate with `python scripts/cartography/build-kakheti.py /path/ne-admin1.geojson`, then `NE_LOCAL=/path/ne-admin1.geojson node scripts/gen-country-regions.mjs georgie`. Georgia provides locator context; no new country content page is published.
+
+Validation: local build 667 pages, all 80 region HTML pages checked against their exact source feature and localized controls; seven geographic tests, three detail-bounds/ring tests, and three lazy-load tests pass. Browser checks include Loire, English Etna at 390px, Hemel-en-Aarde and Kakheti, with functional area/address switching and no mobile overflow.
