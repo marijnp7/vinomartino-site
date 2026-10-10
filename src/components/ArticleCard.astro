@@ -1,0 +1,240 @@
+---
+/**
+ * LAT-13056 — Variant A "Vlot": gedeelde, beeld-gedreven artikelkaart voor de
+ * homepage-feed en de artikellijst. Puur presentatie: de aanroeper levert het
+ * beeld via de `media`-slot (eigen <img>/SmartImg, zodat beeldherkomst en
+ * loaders ongewijzigd blijven) en alle data uit het bestaande artikel-record.
+ * Alle zichtbare copy komt uit de UI-dictionary (`card.*`).
+ */
+import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
+
+interface Props {
+  href: string;
+  title: string;
+  kicker?: string | null;
+  zelfGereisd?: boolean;
+  bezoekjaar?: number | null;
+  /** Optioneel label linksboven op het beeld (bv. "Nieuw"). */
+  tag?: string | null;
+  /** 'feed' = staand 4:5, 'hero' = groter staand 3:4, 'b' = Variant B kleurblok-kaart. */
+  variant?: 'feed' | 'hero' | 'b';
+  /** Variant B: volgnummer (01, 02, ...) op het beeld. */
+  index?: number | null;
+  /** Variant B: kleur van het kaartlichaam. */
+  tone?: 'bordeaux' | 'vine' | 'paper';
+  /** Variant B: grote kaart (beslaat twee rijen in het feed-grid). */
+  featured?: boolean;
+  headingLevel?: 'h2' | 'h3';
+  locale?: Locale;
+  /** Extra attributen op de <a> (bv. data-* voor de facet-filter). */
+  attrs?: Record<string, string>;
+}
+
+const {
+  href,
+  title,
+  kicker = null,
+  zelfGereisd = false,
+  bezoekjaar = null,
+  tag = null,
+  variant = 'feed',
+  headingLevel = 'h3',
+  locale = DEFAULT_LOCALE,
+  attrs = {},
+  index = null,
+  tone = 'paper',
+  featured = false,
+} = Astro.props;
+const isB = variant === 'b';
+const indexLabel = isB && index ? String(index).padStart(2, '0') : null;
+const ui = await loadUiStrings(locale);
+const Heading = headingLevel;
+---
+<a href={href} class:list={['vm-card', `vm-card--${variant}`, isB && `vm-card--tone-${tone}`, isB && featured && 'vm-card--featured']} {...attrs}>
+  <div class="vm-card__media">
+    <slot name="media" />
+    {tag && <span class="vm-card__tag">{tag}</span>}
+    {indexLabel && <span class="vm-card__index" aria-hidden="true">{indexLabel}</span>}
+    {!isB && zelfGereisd && (
+      <span class="vm-card__sticker">
+        {ui.t('card.sticker.zelfGereisd')}{bezoekjaar ? ` · ${bezoekjaar}` : ''}
+      </span>
+    )}
+  </div>
+  <div class="vm-card__body">
+    {kicker && <span class="vm-card__kicker">{kicker}</span>}
+    <Heading class="vm-card__title">{title}</Heading>
+    {/* Variant B: handgeschreven-stijl label, alleen uit de echte velden
+        zelf_gereisd + bezoekjaar. Geen veld = geen label, geen jaartal verzinnen. */}
+    {isB && zelfGereisd && (
+      <span class="vm-card__hand">
+        {ui.t('card.hand.zelfGeweest')}{bezoekjaar ? `, ${bezoekjaar}` : ''}
+      </span>
+    )}
+    <span class="vm-card__more">{ui.t('card.leesVerder')}</span>
+  </div>
+</a>
+
+<style>
+  .vm-card {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: #fff;
+    color: var(--fixed-ink);
+    border-radius: var(--radius-card);
+    overflow: hidden;
+    text-decoration: none;
+    box-shadow: var(--shadow-sm);
+    transition: transform var(--duration-base) var(--ease-out), box-shadow var(--duration-base) var(--ease-out);
+  }
+  .vm-card[hidden] { display: none; }
+  .vm-card__media {
+    position: relative;
+    aspect-ratio: 4 / 5;
+    overflow: hidden;
+    background: var(--paperDeep);
+  }
+  .vm-card--hero .vm-card__media { aspect-ratio: 3 / 4; }
+  .vm-card__media :global(img),
+  .vm-card__media :global(.smart-img-placeholder),
+  .vm-card__media :global(.card-placeholder) {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform var(--duration-image) var(--ease-out);
+  }
+  .vm-card__tag,
+  .vm-card__sticker {
+    position: absolute;
+    left: 0.75rem;
+    z-index: 1;
+    padding: 0.3rem 0.7rem;
+    border-radius: 999px;
+    font-family: var(--font-ui);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    line-height: 1.2;
+  }
+  .vm-card__tag {
+    top: 0.75rem;
+    background: var(--fixed-ink);
+    color: var(--fixed-cream);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  /* Apricot is alleen vulling: tekst altijd --fixed-ink (5.2:1). */
+  .vm-card__sticker {
+    bottom: 0.75rem;
+    background: var(--accent-apricot);
+    color: var(--fixed-ink);
+  }
+  .vm-card__body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    padding: 1rem 1.1rem 1.2rem;
+    flex: 1;
+  }
+  .vm-card__kicker {
+    font-family: var(--font-ui);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #5A4F45;
+  }
+  .vm-card__title {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: 1.45rem;
+    line-height: 1.15;
+    margin: 0;
+    color: var(--fixed-ink);
+  }
+  .vm-card--hero .vm-card__title { font-size: clamp(1.6rem, 1.3rem + 1vw, 2.1rem); }
+  .vm-card__more {
+    margin-top: auto;
+    padding-top: 0.4rem;
+    font-family: var(--font-ui);
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--fixed-ink);
+  }
+  .vm-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-card-lift);
+  }
+  .vm-card:hover .vm-card__media :global(img) { transform: scale(1.06); }
+  .vm-card:hover .vm-card__more { text-decoration: underline; text-underline-offset: 3px; }
+
+  /* ── LAT-13056 Variant B "Uitgesproken": kleurblok-kaart ──────────────
+     Contrast: --fixed-cream op --burgundy 13:1, op --vine 5.3:1; --fixed-ink op
+     --paper 16:1. Apricot blijft alleen vulling onder --fixed-ink (5.2:1). */
+  .vm-card--b {
+    border-radius: 0;
+    box-shadow: none;
+    background: var(--paper);
+    transition: transform var(--duration-base) var(--ease-out);
+  }
+  .vm-card--b .vm-card__media { aspect-ratio: 4 / 3; flex: 1 0 auto; }
+  .vm-card--featured .vm-card__media { aspect-ratio: auto; flex: 1 1 auto; min-height: 18rem; }
+  .vm-card--featured .vm-card__title { font-size: clamp(1.8rem, 1.2rem + 1.6vw, 2.75rem); line-height: 1.05; }
+  .vm-card--b .vm-card__body { flex: 0 0 auto; padding: 1.1rem 1.2rem 1.3rem; }
+  .vm-card--b .vm-card__title { color: inherit; }
+  .vm-card--tone-bordeaux { background: var(--burgundy); color: var(--fixed-cream); }
+  .vm-card--tone-vine { background: var(--vine); color: var(--fixed-cream); }
+  .vm-card--tone-paper { background: var(--fixed-cream); color: var(--fixed-ink); outline: 1px solid var(--rule); outline-offset: -1px; }
+  .vm-card--b .vm-card__kicker { color: inherit; opacity: 1; }
+  .vm-card--tone-paper .vm-card__kicker { color: #5A4F45; }
+  .vm-card__index {
+    position: absolute;
+    top: 0.35rem;
+    left: 0.85rem;
+    z-index: 1;
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: clamp(3rem, 2rem + 3vw, 4.5rem);
+    line-height: 1;
+    color: var(--fixed-cream);
+    text-shadow: 0 2px 14px rgba(13, 10, 7, 0.65), 0 0 2px rgba(13, 10, 7, 0.5);
+    pointer-events: none;
+  }
+  .vm-card--featured .vm-card__index { font-size: clamp(4rem, 2.5rem + 5vw, 7rem); }
+  .vm-card__hand {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 400;
+    font-size: 1.3rem;
+    line-height: 1.1;
+    transform: rotate(-2deg);
+    transform-origin: left center;
+    align-self: flex-start;
+  }
+  .vm-card--tone-paper .vm-card__hand { color: var(--burgundy); }
+  .vm-card--b .vm-card__more {
+    align-self: flex-start;
+    margin-top: 0.5rem;
+    padding: 0.35rem 0.8rem;
+    background: var(--accent-apricot);
+    color: var(--fixed-ink);
+    border-radius: 999px;
+    font-size: 0.78rem;
+  }
+  .vm-card--b:hover {
+    transform: translateY(-4px) rotate(-0.6deg);
+    box-shadow: 8px 8px 0 var(--fixed-ink);
+  }
+  .vm-card--b:hover .vm-card__media :global(img) { transform: scale(1.04); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .vm-card--b:hover { transform: none; }
+    .vm-card,
+    .vm-card__media :global(img) { transition: none; }
+    .vm-card:hover { transform: none; }
+    .vm-card:hover .vm-card__media :global(img) { transform: none; }
+  }
+</style>

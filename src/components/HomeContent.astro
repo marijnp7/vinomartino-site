@@ -1,6 +1,7 @@
 ---
 import SiteLayout from '../layouts/SiteLayout.astro';
 import ZelfGereisdBadge from '../components/ZelfGereisdBadge.astro';
+import ArticleCard from '../components/ArticleCard.astro';
 import Briefkaart from '../components/Briefkaart.astro';
 import HomeRoutesMap from '../components/HomeRoutesMap.astro';
 import DiscoverMapEurope from '../components/DiscoverMapEurope.astro';
@@ -45,7 +46,18 @@ const articles = await loadArticles(locale);
 // Directus. Board zet de toggle aan op het gewenste artikel; bij meerdere wint
 // het nieuwste. Geen featured-artikel → val terug op het nieuwste artikel.
 const spotlight = articles.find((a) => a.featured) ?? articles[0];
-const moreArticles = articles.filter((a) => a.slug !== spotlight?.slug).slice(0, 3);
+// LAT-13056 Variant A: het nieuwste gepubliceerde artikel staat als staande
+// kaart in de split-hero; de "Net terug"-feed toont de vier daarna (zonder
+// hero- en spotlight-artikel, zodat niets dubbel staat).
+// LAT-13056 Variant B: het beeldenpaar rechts in de hero zijn de hero-beelden
+// van de twee nieuwste artikelen (alleen bestaande assets); de asymmetrische
+// feed toont vijf artikelen daarna, zonder hero-paar en spotlight.
+const heroPair = articles.filter((a) => Boolean(a.heroImage)).slice(0, 2);
+const heroPairSlugs = new Set(heroPair.map((a) => a.slug));
+const moreArticles = articles
+  .filter((a) => a.slug !== spotlight?.slug && !heroPairSlugs.has(a.slug))
+  .slice(0, 5);
+const FEED_TONES = ['bordeaux', 'vine', 'paper'] as const;
 const routes = await loadRoutes(locale);
 const allStreken = await loadStreken(locale);
 const landen = await loadLanden(locale);
@@ -176,36 +188,33 @@ function formatDate(value?: string | null) {
   locale={locale}
   alternates={alternates}
 >
-  <section class="hero" aria-label={ui.t('home.hero.aria')}>
-    <div class="hero-media">
-      <img
-        src={HERO_IMAGE}
-        alt={ui.t('home.hero.imageAlt')}
-        width="1600"
-        height="1067"
-        fetchpriority="high"
-        decoding="async"
-      />
-    </div>
-    <div class="hero-veil" aria-hidden="true"></div>
-    <div class="hero-inner container">
-      <span class="hero-eyebrow">{ui.t('home.hero.eyebrow')}</span>
-      <h1 class="hero-title">
-        {ui.t('home.hero.titleLine1')}
-        <em>{ui.t('home.hero.titleEm')}</em>
-      </h1>
-      <p class="hero-lede">
-        {ui.t('home.hero.lede')}
-      </p>
-      <div class="hero-ctas">
-        <a href="#bestemmingen" class="btn btn-primary">{ui.t('home.hero.ctaBestemming')}</a>
-        <a href="#routes" class="btn btn-ghost">{ui.t('home.hero.ctaRoutes')}</a>
+  <section class="hero hero--b" aria-label={ui.t('home.hero.aria')}>
+    <div class="container hero-split">
+      <div class="hero-inner">
+        <span class="hero-eyebrow">{ui.t('home.hero.eyebrow')}</span>
+        <h1 class="hero-title">
+          {ui.t('home.hero.titleLine1')}
+          <em>{ui.t('home.hero.titleEm')}</em>
+        </h1>
+        <p class="hero-lede">
+          {ui.t('home.hero.lede')}
+        </p>
+        <div class="hero-ctas">
+          <a href="#bestemmingen" class="btn btn-primary">{ui.t('home.hero.ctaBestemming')}</a>
+          <a href="#routes" class="btn btn-outline">{ui.t('home.hero.ctaRoutes')}</a>
+        </div>
       </div>
+      {heroPair.length > 0 && (
+        <div class:list={['hero-pair', heroPair.length === 1 && 'hero-pair--single']} role="group" aria-label={ui.t('home.hero.versAria')}>
+          {heroPair.map((a, i) => (
+            <a href={lh(`/artikelen/${a.slug}/`)} class={`hero-pair__img hero-pair__img--${i + 1}`} aria-label={a.title}>
+              <img src={a.heroImage as string} alt={a.title} width="900" height="1125" fetchpriority={i === 0 ? 'high' : 'auto'} decoding="async" {...herkomst(a.heroImage)} />
+            </a>
+          ))}
+          <span class="hero-pair__label">{ui.t('home.hero.versLabel')}</span>
+        </div>
+      )}
     </div>
-    <a href="#bestemmingen" class="hero-scroll" aria-label={ui.t('home.hero.scrollAria')}>
-      <span class="hero-scroll-line" aria-hidden="true"></span>
-      <span class="hero-scroll-label">{ui.t('home.hero.scrollLabel')}</span>
-    </a>
   </section>
 
   {atlasCountries.length > 0 && (
@@ -350,29 +359,31 @@ function formatDate(value?: string | null) {
     <section class="cards-section cards-section--alt">
       <div class="container">
         <header class="section-head">
-          <span class="kicker">{ui.t('home.latest.kicker')}</span>
-          <h2 class="section-h">{ui.t('home.latest.title')}</h2>
+          <h2 class="section-h">{ui.t('home.feed.title')}</h2>
           <p class="section-sub">
             {ui.t('home.latest.sub')}
           </p>
         </header>
-        <div class="cards-grid">
-          {moreArticles.map(article => (
-            <a href={lh(`/artikelen/${article.slug}/`)} class="card-tile">
-              <div class:list={['card-media', !article.heroImage && 'is-empty']}>
-                {article.heroImage ? (
-                  <img src={article.heroImage} alt={article.title} width="600" height="450" loading="lazy" decoding="async" {...herkomst(article.heroImage)} />
-                ) : (
-                  <div class="card-placeholder" aria-hidden="true"></div>
-                )}
-              </div>
-              <div class="card-body">
-                {article.category && <span class="card-eyebrow">{article.category.replace(/-/g, ' ')}</span>}
-                <h3 class="card-title">{article.title}</h3>
-                {article.description && <p class="card-desc">{article.description}</p>}
-                <span class="card-meta">{authorName(article.author)} · {formatDate(article.pubDate)}</span>
-              </div>
-            </a>
+        <div class="feed-grid feed-grid--b">
+          {moreArticles.map((article, idx) => (
+            <ArticleCard
+              href={lh(`/artikelen/${article.slug}/`)}
+              title={article.title}
+              kicker={article.category ? rubriekLabel(ui, article.category) : null}
+              zelfGereisd={article.zelfGereisd}
+              bezoekjaar={article.bezoekjaar}
+              variant="b"
+              index={idx + 1}
+              tone={FEED_TONES[idx % FEED_TONES.length]}
+              featured={idx === 0}
+              locale={locale}
+            >
+              {article.heroImage ? (
+                <img slot="media" src={article.heroImage} alt={article.title} width={idx === 0 ? 1200 : 800} height={idx === 0 ? 900 : 600} loading="lazy" decoding="async" {...herkomst(article.heroImage)} />
+              ) : (
+                <div slot="media" class="card-placeholder" aria-hidden="true"></div>
+              )}
+            </ArticleCard>
           ))}
         </div>
         <p class="section-cta"><a href={lh('/artikelen/')} class="btn btn-outline">{ui.t('home.latest.allesCta')}</a></p>
@@ -426,84 +437,47 @@ function formatDate(value?: string | null) {
 </SiteLayout>
 
 <style>
-  /* ── Hero ─────────────────────────────────────────────── */
-  .hero {
-    position: relative;
-    min-height: clamp(560px, 88vh, 860px);
-    color: var(--fixed-cream);
-    overflow: hidden;
-    isolation: isolate;
-    display: flex;
-    align-items: flex-end;
+  /* ── Hero (LAT-13056 Variant A: split) ───────────────── */
+  .hero--split {
+    background: var(--paper);
+    color: var(--ink);
+    padding: var(--space-16) 0 var(--space-20);
   }
-  .hero-media {
-    position: absolute;
-    inset: 0;
-    z-index: -2;
-    display: block;
-    overflow: hidden;
-  }
-  .hero-media img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: center 38%;
-    transform: scale(1.04);
-    animation: hero-zoom 28s ease-out forwards;
-  }
-  @keyframes hero-zoom {
-    from { transform: scale(1.02); }
-    to { transform: scale(1.10); }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .hero-media img { animation: none; transform: scale(1.02); }
-  }
-  .hero-veil {
-    position: absolute;
-    inset: 0;
-    z-index: -1;
-    background:
-      linear-gradient(180deg, rgba(13, 10, 7, 0.65) 0%, rgba(13, 10, 7, 0.15) 28%, rgba(13, 10, 7, 0.15) 55%, rgba(13, 10, 7, 0.78) 100%),
-      linear-gradient(90deg, rgba(13, 10, 7, 0.45) 0%, rgba(13, 10, 7, 0) 55%);
-  }
-  .hero-inner {
-    position: relative;
-    width: 100%;
-    padding-top: var(--space-32);
-    padding-bottom: var(--space-20);
-    max-width: var(--max-width);
+  .hero-split {
+    display: grid;
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+    gap: var(--space-12);
+    align-items: center;
   }
   .hero-eyebrow {
     display: inline-block;
-    font-family: var(--font-mono);
-    font-size: 0.6875rem;
-    letter-spacing: 0.22em;
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: var(--gold);
-    padding-bottom: var(--space-2);
-    border-bottom: 1px solid color-mix(in srgb, var(--gold) 60%, transparent);
+    color: var(--inkSoft);
   }
   .hero-title {
     font-family: var(--font-display);
     font-weight: 400;
-    font-size: clamp(3rem, 7vw + 0.5rem, 6.5rem);
+    font-size: clamp(2.75rem, 5vw + 0.5rem, 5.75rem);
     line-height: 0.98;
     letter-spacing: -0.02em;
-    color: var(--fixed-cream);
-    margin: var(--space-6) 0 var(--space-5);
-    max-width: 22ch;
+    color: var(--ink);
+    margin: var(--space-5) 0 var(--space-5);
+    max-width: 16ch;
   }
   .hero-title em {
     font-style: italic;
-    color: var(--gold);
-    display: inline-block;
+    color: var(--color-primary);
   }
   .hero-lede {
     font-family: var(--font-body);
     font-size: clamp(1.0625rem, 0.4vw + 1rem, 1.25rem);
     line-height: 1.6;
-    color: color-mix(in srgb, var(--fixed-cream) 92%, transparent);
-    max-width: 38rem;
+    color: var(--inkSoft);
+    max-width: 34rem;
     margin-bottom: var(--space-8);
   }
   .hero-ctas {
@@ -511,36 +485,124 @@ function formatDate(value?: string | null) {
     flex-wrap: wrap;
     gap: var(--space-4);
   }
-  .hero-scroll {
+  .hero-newest {
+    max-width: 26rem;
+    width: 100%;
+    justify-self: end;
+  }
+  @media (max-width: 860px) {
+    .hero--split { padding: var(--space-10) 0 var(--space-12); }
+    .hero-split { grid-template-columns: 1fr; gap: var(--space-8); }
+    .hero-newest { justify-self: stretch; max-width: none; }
+  }
+
+  /* ── LAT-13056 Variant B "Uitgesproken": bordeaux kleurblok-hero ──────
+     Alle tekst --fixed-cream op --burgundy (13:1); het label is --fixed-ink op
+     apricot (5.2:1). Overschrijft A's papieren split-hero, dezelfde grid. */
+  .hero--b {
+    background: var(--burgundy);
+    color: var(--fixed-cream);
+    padding: var(--space-16) 0 var(--space-20);
+    overflow: hidden;
+  }
+  .hero--b .hero-eyebrow { color: var(--gold); }
+  .hero--b .hero-title {
+    color: var(--fixed-cream);
+    font-size: clamp(3rem, 6.4vw + 0.5rem, 7.5rem);
+    line-height: 0.94;
+    max-width: 14ch;
+  }
+  .hero--b .hero-title em { color: var(--gold); }
+  .hero--b .hero-lede { color: var(--fixed-cream); }
+  .hero--b .btn { min-height: 48px; }
+  .hero--b .btn-primary {
+    background: var(--fixed-cream);
+    color: var(--burgundy);
+    box-shadow: 6px 6px 0 var(--fixed-ink);
+    transition: transform var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out);
+  }
+  .hero--b .btn-primary:hover {
+    background: var(--fixed-cream);
+    color: var(--burgundyDeep);
+    transform: translate(-2px, -2px);
+    box-shadow: 8px 8px 0 var(--fixed-ink);
+  }
+  .hero--b .btn-outline {
+    color: var(--fixed-cream);
+    border-color: var(--fixed-cream);
+    background: transparent;
+  }
+  .hero--b .btn-outline:hover { background: var(--fixed-cream); color: var(--burgundy); }
+  :global([data-theme='cellar']) .hero--b .btn-outline { background: transparent; color: var(--fixed-cream); }
+  .hero-pair {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    grid-template-rows: repeat(12, minmax(0, 1fr));
+    aspect-ratio: 1 / 1;
+    width: 100%;
+    max-width: 34rem;
+    justify-self: end;
+  }
+  .hero-pair__img {
+    display: block;
+    overflow: hidden;
+    background: var(--burgundyDeep);
+  }
+  .hero-pair__img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .hero-pair__img--1 { grid-column: 1 / 9; grid-row: 1 / 11; z-index: 1; }
+  .hero-pair__img--2 {
+    grid-column: 7 / 13; grid-row: 6 / 13; z-index: 2;
+    outline: 6px solid var(--burgundy);
+  }
+  .hero-pair--single .hero-pair__img--1 { grid-column: 1 / 13; grid-row: 1 / 13; }
+  .hero-pair__label {
     position: absolute;
-    right: var(--gutter);
-    bottom: var(--space-6);
-    display: none;
-    flex-direction: column;
-    align-items: center;
-    gap: var(--space-3);
-    color: color-mix(in srgb, var(--fixed-cream) 80%, transparent);
-    font-family: var(--font-mono);
-    font-size: 0.625rem;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-    text-decoration: none;
-    z-index: 1;
+    top: 4%;
+    right: 2%;
+    z-index: 3;
+    padding: 0.45rem 0.95rem;
+    background: var(--accent-apricot);
+    color: var(--fixed-ink);
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: clamp(1.15rem, 0.9rem + 0.8vw, 1.6rem);
+    line-height: 1.1;
+    transform: rotate(6deg);
+    box-shadow: 4px 4px 0 var(--fixed-ink);
   }
-  .hero-scroll-line {
-    width: 1px;
-    height: 3rem;
-    background: currentColor;
-    opacity: 0.5;
-    animation: scroll-line 2.4s ease-in-out infinite;
-    transform-origin: top;
+  @media (max-width: 860px) {
+    .hero--b { padding: var(--space-10) 0 var(--space-12); }
+    .hero-pair { justify-self: stretch; max-width: none; aspect-ratio: 5 / 4; }
+    .hero--b .hero-title { font-size: clamp(2.75rem, 13vw, 4.5rem); }
   }
-  @keyframes scroll-line {
-    0%, 100% { transform: scaleY(0.4); }
-    50% { transform: scaleY(1); }
+
+  /* ── Variant B feed: asymmetrisch, eerste kaart 2x2 ─────── */
+  .feed-grid--b {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--space-6);
   }
-  @media (min-width: 1024px) {
-    .hero-scroll { display: flex; }
+  .feed-grid--b > :global(.vm-card--featured) { grid-column: span 2; grid-row: span 2; }
+  @media (max-width: 1024px) {
+    .feed-grid--b { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+    .feed-grid--b > :global(.vm-card--featured) { grid-row: span 1; }
+  }
+  @media (max-width: 640px) {
+    .feed-grid--b { grid-template-columns: 1fr !important; }
+    .feed-grid--b > :global(.vm-card--featured) { grid-column: auto; }
+  }
+
+  /* ── "Net terug"-feed: 4 / 2 / 1 kolommen ─────────────── */
+  .feed-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--space-6);
+  }
+  @media (max-width: 1024px) {
+    .feed-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 640px) {
+    .feed-grid { grid-template-columns: 1fr; }
   }
 
   /* ── Buttons ──────────────────────────────────────────── */

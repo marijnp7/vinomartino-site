@@ -343,6 +343,16 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'home.latest.title': 'Vers van de pers',
     'home.latest.sub': 'Reisverslagen, proefnotities en achtergronden. Onze tips komen uit eigen bezoek en geteste adressen; boek je via onze links, dan steun je de site zonder dat jij meer betaalt.',
     'home.latest.allesCta': 'Alle artikelen →',
+    // LAT-13056 Variant A "Vlot"
+    'card.leesVerder': 'Lees verder →',
+    'card.sticker.zelfGereisd': '✓ Zelf gereisd',
+    'home.hero.nieuwTag': 'Nieuw',
+    'home.feed.title': 'Net terug',
+    'artikel.facts.aria': 'Kerngegevens van dit artikel',
+    // LAT-13056 Variant B "Uitgesproken"
+    'home.hero.versLabel': 'vers van de pers',
+    'home.hero.versAria': 'De nieuwste artikelen',
+    'card.hand.zelfGeweest': 'zelf geweest',
     'home.proof.aria': 'Bewijs en gezicht',
     'home.proof.portraitAlt': 'Marijn proeft een glas wijn met wijngaarden op de achtergrond',
     'home.proof.kicker': 'Bewijs en gezicht',
@@ -1171,6 +1181,16 @@ export const UI_STRING_EN: Record<string, string> = {
     'ui.maand.oktober': 'October',
     'ui.maand.november': 'November',
     'ui.maand.december': 'December',
+    // LAT-13056 Variant A "Vlot"
+    'card.leesVerder': 'Read more →',
+    'card.sticker.zelfGereisd': '✓ Travelled ourselves',
+    'home.hero.nieuwTag': 'New',
+    'home.feed.title': 'Just back',
+    'artikel.facts.aria': 'Key facts about this article',
+    // LAT-13056 Variant B "Uitgesproken"
+    'home.hero.versLabel': 'fresh off the press',
+    'home.hero.versAria': 'The newest articles',
+    'card.hand.zelfGeweest': 'been there ourselves',
 };
 
 /** Resolver over de UI-dictionary: EN-value indien aanwezig, anders NL-default. */
