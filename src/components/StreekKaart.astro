@@ -473,6 +473,8 @@ const usedCats = sections.map((s) => s.key);
   }
 
   function ready(): void {
+    // Register intent before intersection callbacks so the first scroll suffices.
+    void whenUserIntent();
     const sections = Array.from(document.querySelectorAll<HTMLElement>('section.streekkaart[data-streekkaart]'));
 
     if (!('IntersectionObserver' in window)) {
