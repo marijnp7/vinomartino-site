@@ -53,6 +53,7 @@ export interface WijnRoute {
     itinerary: RouteItinerary | null;
     // LAT-12710 — één-pagina-opbouw (itinerary.pagina). null = bestaand sjabloon.
     pagina: RoutePagina | null;
+    verhaalArtikelSlug: string | null;
 }
 
 function mapRelatedArticles(val: unknown): RelatedRef[] {
@@ -286,6 +287,8 @@ function mapRoute(
         cta: getCtaStructure(r),
         itinerary,
         pagina: parseRoutePagina(r.itinerary),
+        verhaalArtikelSlug: typeof r.itinerary === 'object' && r.itinerary && typeof (r.itinerary as Record<string, unknown>).verhaal_artikel_slug === 'string'
+            ? String((r.itinerary as Record<string, unknown>).verhaal_artikel_slug) : null,
     };
 }
 

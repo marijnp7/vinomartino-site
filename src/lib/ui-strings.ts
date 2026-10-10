@@ -735,6 +735,8 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'wijnroutes.keuze.inspiratie.titel': 'Liever eerst inspiratie?',
     'wijnroutes.keuze.inspiratie.link': 'Ontdek de reisverhalen',
     // Blok "Zo reisden wij hem" op de routepagina (ReisVerhaal.astro).
+    'route.totalDrivingTime': 'Totale rijtijd op de route: circa {time}.',
+    'route.drivingTime': 'Rijtijd',
     'route.verhaal.kicker': 'Zo reisden wij hem · zelf gereisd',
     'route.verhaal.slapen': 'Waar wij sliepen',
     'wijnroutes.index.empty.title': 'Routes zijn onderweg',
@@ -1074,6 +1076,8 @@ export const UI_STRING_EN: Record<string, string> = {
   'wijnroutes.keuze.leeg.tekst': 'Pick another country or trip length, or clear the filters.',
   'wijnroutes.keuze.inspiratie.titel': 'Rather start with inspiration?',
   'wijnroutes.keuze.inspiratie.link': 'Discover the travel stories',
+  'route.totalDrivingTime': 'Total driving time on this route: around {time}.',
+  'route.drivingTime': 'Driving time',
   'route.verhaal.kicker': 'How we drove it · travelled ourselves',
   'route.verhaal.slapen': 'Where we slept',
   // Code-level EN voor keys die de hub en het verhaalblok delen met oudere

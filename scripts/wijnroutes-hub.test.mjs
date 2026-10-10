@@ -69,10 +69,10 @@ test('de hub en het verhaalblok linken niet meer naar /reizen-nareizen/', () => 
   assert.doesNotMatch(code(HUB), /reizen-nareizen/);
   assert.doesNotMatch(code(VERHAAL), /reizen-nareizen/);
   assert.doesNotMatch(code(ROUTE), /reizen-nareizen|ReisCrossLinks/);
-  assert.match(HUB, /#\$\{VERHAAL_ANCHOR\}/, 'verhaalkaarten moeten naar het anker op de route linken');
+  assert.doesNotMatch(HUB, /#\$\{VERHAAL_ANCHOR\}/, 'hub links to the single route narrative');
   assert.match(VERHAAL, /id=\{VERHAAL_ANCHOR\}/);
   assert.equal(VERHAAL_ANCHOR, 'zo-reisden-wij');
-  assert.match(ROUTE, /<ReisVerhaal verhalen=\{verhalen\}/);
+  assert.doesNotMatch(ROUTE, /<ReisVerhaal/);
 });
 
 test('verhalenVoorRoute koppelt eerst op route_id, dan op streek (LAT-12646)', () => {
@@ -95,11 +95,9 @@ test('nginx: Toscane-verhaal NL naar route 16, EN naar de bestaande route (LAT-1
   }
 });
 
-test('verhaalblok staat in beide route-layouts, ook de één-pagina-tak (LAT-12646)', () => {
-  const hits = ROUTE.match(/<ReisVerhaal verhalen=\{verhalen\}/g) ?? [];
-  assert.equal(hits.length, 2, 'route-one (itinerary.pagina) en de klassieke layout moeten allebei het verhaal tonen');
-  const paginaTak = ROUTE.slice(ROUTE.indexOf('{pagina ? ('), ROUTE.indexOf('\n    ) : (\n'));
-  assert.match(paginaTak, /<ReisVerhaal verhalen=\{verhalen\}/);
+test('both route layouts keep old anchors without appending a second travel story', () => {
+  assert.doesNotMatch(ROUTE, /<ReisVerhaal/);
+  assert.equal((ROUTE.match(/id="zo-reisden-wij"/g) ?? []).length, 2);
 });
 
 test('loader vraagt route_id.slug op met eigen degradatie-tier', () => {
