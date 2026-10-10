@@ -16,13 +16,7 @@ const EN = 'en' as const;
 export async function getStaticPaths() {
   const [entries, streken, routes] = await Promise.all([loadWijnhuizen('en'), loadStreken('en'), loadRoutes('en')]);
   const streekBySlug = new Map(streken.map(s => [s.slug, s]));
-  const routesByStreek = new Map<string, typeof routes>();
-  for (const r of routes) {
-    if (!r.streekSlug) continue;
-    const list = routesByStreek.get(r.streekSlug) ?? [];
-    list.push(r);
-    routesByStreek.set(r.streekSlug, list);
-  }
+  // Only explicit winery stops earn the route label.
   const routeByWijnhuisSlug = new Map<string, typeof routes[number]>();
   for (const r of routes) {
     for (const stop of r.stopsGeo) {
@@ -33,8 +27,7 @@ export async function getStaticPaths() {
   }
   return entries.map(entry => {
     const streek = entry.streekSlug ? streekBySlug.get(entry.streekSlug) : undefined;
-    const route = routeByWijnhuisSlug.get(entry.slug)
-      ?? (entry.streekSlug ? routesByStreek.get(entry.streekSlug)?.[0] : undefined);
+    const route = routeByWijnhuisSlug.get(entry.slug);
     return {
       params: { slug: entry.slug },
       props: {

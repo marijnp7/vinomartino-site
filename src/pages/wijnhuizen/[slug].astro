@@ -13,17 +13,7 @@ export async function getStaticPaths() {
   const [entries, streken, routes, enEntries] = await Promise.all([loadWijnhuizen(), loadStreken(), loadRoutes(), loadWijnhuizen('en')]);
   const enSlugs = new Set(enEntries.map(e => e.slug));
   const streekBySlug = new Map(streken.map(s => [s.slug, s]));
-  // LAT-2010 [VIS-BL-11]: koppel elk wijnhuis aan een wijnroute. Voorkeur: de route
-  // die dit huis expliciet als stop noemt (stops_geo kind=wijnhuis + slug, na
-  // datafix LAT-1994). Anders val terug op de eerste route van de streek, zodat
-  // interne doorstroom ook vóór de datafix werkt. Geen route → meta-regel weg.
-  const routesByStreek = new Map<string, typeof routes>();
-  for (const r of routes) {
-    if (!r.streekSlug) continue;
-    const list = routesByStreek.get(r.streekSlug) ?? [];
-    list.push(r);
-    routesByStreek.set(r.streekSlug, list);
-  }
+  // Only an explicit CMS route stop earns the "On the route" label.
   const routeByWijnhuisSlug = new Map<string, typeof routes[number]>();
   for (const r of routes) {
     for (const stop of r.stopsGeo) {
@@ -36,8 +26,7 @@ export async function getStaticPaths() {
     // LAT-1199: leid de parent-Land af via de streek→land relatie voor de
     // verticale kruimel (wijnhuis kent zelf geen land).
     const streek = entry.streekSlug ? streekBySlug.get(entry.streekSlug) : undefined;
-    const route = routeByWijnhuisSlug.get(entry.slug)
-      ?? (entry.streekSlug ? routesByStreek.get(entry.streekSlug)?.[0] : undefined);
+    const route = routeByWijnhuisSlug.get(entry.slug);
     return {
       params: { slug: entry.slug },
       props: {

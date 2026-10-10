@@ -8,7 +8,7 @@
 import SiteLayout from '../layouts/SiteLayout.astro';
 import AffiliatePlaceholder from './AffiliatePlaceholder.astro';
 import AffiliateDisclosure from './AffiliateDisclosure.astro';
-import RelatedArticles from './RelatedArticles.astro';
+import ContentLinks from './ContentLinks.astro';
 import CtaStructure from './CtaStructure.astro';
 import HubBacklink from './HubBacklink.astro';
 import AccommodatieRoundup from './AccommodatieRoundup.astro';
@@ -479,7 +479,7 @@ const hasFactBox = Boolean(
 
     <CtaStructure data={entry.cta} sid={entry.slug} locale={locale} wineRetailAllowed={entry.zelfGereisd === true} />
 
-    <RelatedArticles items={entry.relatedArticles} locale={locale} />
+    <ContentLinks kind="streken" slug={entry.slug} locale={locale} />
 
     <HubBacklink type="streek" slug={entry.slug} locale={locale} />
 

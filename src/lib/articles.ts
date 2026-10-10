@@ -678,8 +678,18 @@ async function loadFromDirectus(url: string, token: string, locale: Locale): Pro
     return items;
 }
 
-export async function loadArticles(locale: Locale = DEFAULT_LOCALE): Promise<Article[]> {
+async function fetchArticles(locale: Locale = DEFAULT_LOCALE): Promise<Article[]> {
     const env = readDirectusEnv();
     assertDirectusConfigured('loadArticles', env);
     return loadFromDirectus(env.url, env.token, locale);
+}
+
+const contentCache = new Map<Locale, Promise<Article[]>>();
+export function loadArticles(locale: Locale = DEFAULT_LOCALE): Promise<Article[]> {
+    const cached = contentCache.get(locale);
+    if (cached) return cached;
+    const pending = fetchArticles(locale);
+    contentCache.set(locale, pending);
+    pending.catch(() => contentCache.delete(locale));
+    return pending;
 }

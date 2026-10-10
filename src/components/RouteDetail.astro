@@ -7,7 +7,7 @@
 // bestaande NL-copy byte-identiek terug (nul NL-regressie); /en/ overlayt EN.
 import SiteLayout from '../layouts/SiteLayout.astro';
 import '../styles/route-infographic.css';
-import RelatedArticles from './RelatedArticles.astro';
+import ContentLinks from './ContentLinks.astro';
 import HubBacklink from './HubBacklink.astro';
 import RouteMap from './RouteMap.astro';
 import RouteGeoMap from './RouteGeoMap.astro';
@@ -374,7 +374,7 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
       </>
     )}
 
-    <RelatedArticles items={entry.relatedArticles} locale={locale} />
+    <ContentLinks kind="wijnroutes" slug={entry.slug} locale={locale} />
 
     <HubBacklink type="route" slug={entry.slug} locale={locale} />
 
