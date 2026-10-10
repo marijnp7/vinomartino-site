@@ -1,10 +1,5 @@
 ---
-// LAT-2693 — NL interactieve Italië-atlas (prefixloos, noindex). Markup + data in
-// het gedeelde AtlasItalieInteractief-component; de /en/-tegenhanger rendert
-// hetzelfde met locale="en".
-import AtlasItalieInteractief from '../../../components/AtlasItalieInteractief.astro';
+// The legacy review mockup used schematic shapes. Keep old links useful by
+// pointing to the maintained, CMS-backed wine geography map.
+return Astro.redirect('/landen/italie/', 301);
 ---
-
-<AtlasItalieInteractief
-  alternates={{ nl: '/infographics/atlas-italie-interactief/', en: '/en/infographics/atlas-italie-interactief/' }}
-/>
