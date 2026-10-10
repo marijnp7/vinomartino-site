@@ -156,8 +156,17 @@ const strekenBySlug = new Map(allStreken.map((s) => [s.slug, s]));
 // LAT-13062 — ontwerpplaat 01 "Waar wil je naartoe?": drie bestemmingen i.p.v. kaart +
 // legenda. Eén route per land (regiorotatie), alleen routes met eigen hero (DAM);
 // de naam is de streeknaam uit het CMS, het land de CMS-landnaam.
+// Beeldherkomst per asset gecontroleerd in de DAM (10-10): champagne-reims = RS985,
+// toscane-chianti = RS1167, kaap = RS896, alle drie eigen foto's van Marijn met datum/camera.
+// Tot er een CMS-veld "uitgelicht op home" is, gaan deze drie voor; ontbreekt er een
+// (unpublished/geen hero), dan vult de regel hieronder aan met één route per land.
+const HOME_ROUTE_VOORKEUR = ['champagne-reims-epernay-montagne-de-reims', 'toscane-chianti-montalcino-bolgheri-vier-dagen', 'kaap-wijnroute'];
+const homeVolgorde = [
+  ...HOME_ROUTE_VOORKEUR.map((slug) => routes.find((r) => r.slug === slug)).filter((r): r is (typeof routes)[number] => Boolean(r)),
+  ...routes.filter((r) => !HOME_ROUTE_VOORKEUR.includes(r.slug)),
+];
 const homeBestemmingen: { slug: string; naam: string; land: string; image: string; title: string }[] = [];
-for (const r of routes) {
+for (const r of homeVolgorde) {
   if (homeBestemmingen.length === 3) break;
   if (!r.heroImage) continue;
   const streek = r.streekSlug ? strekenBySlug.get(r.streekSlug) : undefined;
