@@ -104,24 +104,6 @@
   --duration-base: 250ms;
   --duration-slow: 400ms;
   --duration-image: 600ms;
-
-  /* ── LAT-13056 Variant A "Vlot" ─────────────────────── */
-  /* Apricot is a FILL only: always with --fixed-ink text on top
-     (contrast 5.2:1). Never use it as text colour on paper. */
-  --accent-apricot: #E8643A;
-  --radius-card: 14px;
-  --shadow-card-lift: 0 14px 34px rgba(31, 26, 22, 0.16);
-  --focus-ring: 0 0 0 2px var(--fixed-ink);
-}
-
-/* LAT-13056 — visible focus ring: apricot outline plus an ink halo. */
-a:focus-visible,
-button:focus-visible,
-summary:focus-visible,
-[role='button']:focus-visible {
-  outline: 3px solid var(--accent-apricot);
-  outline-offset: 2px;
-  box-shadow: var(--focus-ring);
 }
 
 @media (max-width: 768px) {
