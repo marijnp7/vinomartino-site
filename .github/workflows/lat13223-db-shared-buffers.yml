@@ -1,0 +1,206 @@
+# LAT-13223 (vervolg LAT-13221) — Postgres-geheugeninstellingen van paperclip-db-1
+# vastleggen in de compose-definitie, DB herstarten zodat shared_buffers=1GB actief wordt,
+# en in hetzelfde onderhoudsvenster VACUUM FULL op de twee opgeschoonde run-tabellen.
+#
+# Gate: R2 punt 1 (workflow-file) + punt 3 (docker/compose). PR + request_board_approval
+# met issueIds van LAT-13223. Geen push-trigger.
+#
+# Modes (vaste scripts, er wordt niets uit de input in een commando geinterpoleerd):
+#   diagnose = alleen lezen: compose-pad via label, db-serviceblok ZONDER environment,
+#              huidige pg-settings + pending_restart, tabelgroottes.
+#   apply    = (1) VACUUM FULL heartbeat_runs, heartbeat_run_events
+#              (2) compose-bestand: `command:` op de db-service (backup ernaast, idempotent)
+#              (3) `docker compose config` valideren — bij fout backup terug, exit 1
+#              (4) `docker compose up -d --no-deps <db-service>` (data-volume blijft staan)
+#              (5) SHOW shared_buffers/effective_cache_size/work_mem + tabelgroottes
+#
+# Het apply-script weigert als de db-service al een andere `command:` heeft: dan eerst
+# diagnose bekijken en het script aanpassen, niet overschrijven.
+#
+# LET OP bij het pushen: een bestand onder .github/ op main triggert deploy.yml.
+# Mergen met expliciete --subject die "[skip ci]" bevat (gh pr merge verliest hem anders).
+
+name: LAT-13223 paperclip-db shared_buffers + VACUUM FULL
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'diagnose = alleen lezen; apply = VACUUM FULL + compose-command + up -d db'
+        required: true
+        default: diagnose
+        type: choice
+        options:
+          - diagnose
+          - apply
+
+concurrency:
+  group: lat13223-db-shared-buffers
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          # LAT-3437: transport via de Cloudflare Tunnel (ssh.vinomartino.com).
+          [ -n "$CF_ACCESS_CLIENT_ID" ] && [ -n "$CF_ACCESS_CLIENT_SECRET" ] \
+            || { echo "::error::CF_ACCESS_CLIENT_ID/SECRET ontbreken (LAT-3437)"; exit 1; }
+          umask 077
+          printf 'CF_ACCESS_CLIENT_ID=%s\nCF_ACCESS_CLIENT_SECRET=%s\n' \
+            "$CF_ACCESS_CLIENT_ID" "$CF_ACCESS_CLIENT_SECRET" > ~/.ssh/cf-access.env
+          umask 022
+          cat >> ~/.ssh/config <<EOF
+          Host $VPS_HOST
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+            ProxyCommand bash $GITHUB_WORKSPACE/ops/cf-ssh-proxy.sh
+          EOF
+          cat "$GITHUB_WORKSPACE/ops/ssh-config-snippet" >> ~/.ssh/config
+
+      # ---------------------------------------------------------------- diagnose
+      - name: Diagnose (read-only)
+        if: inputs.mode == 'diagnose'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          DIAG: |
+            set -uo pipefail
+            CTR=paperclip-db-1
+            PSQL="docker exec $CTR psql -U paperclip -d paperclip -X -At"
+
+            echo "=== compose-labels (smalle --format, nooit een kale inspect) ==="
+            docker inspect -f 'files={{index .Config.Labels "com.docker.compose.project.config_files"}}
+            project={{index .Config.Labels "com.docker.compose.project"}}
+            workdir={{index .Config.Labels "com.docker.compose.project.working_dir"}}
+            service={{index .Config.Labels "com.docker.compose.service"}}
+            status={{.State.Status}} started={{.State.StartedAt}} restart={{.HostConfig.RestartPolicy.Name}}
+            cmd={{json .Config.Cmd}}' "$CTR"
+
+            FILES=$(docker inspect -f '{{index .Config.Labels "com.docker.compose.project.config_files"}}' "$CTR")
+            SVC=$(docker inspect -f '{{index .Config.Labels "com.docker.compose.service"}}' "$CTR")
+            echo "=== db-serviceblok per compose-bestand, environment-regels weggefilterd ==="
+            IFS=',' read -ra FA <<< "$FILES"
+            for f in "${FA[@]}"; do
+              echo "--- $f ($(stat -c '%U:%G %a %s bytes' "$f" 2>/dev/null || echo 'niet leesbaar'))"
+              awk -v svc="$SVC" '
+                $0 ~ "^  "svc":[[:space:]]*$" {inb=1; print; next}
+                inb && /^  [^ #]/ {inb=0}
+                inb && /^    (environment|env_file):/ {skip=1; print "    <" $1 " weggelaten>"; next}
+                inb && skip && /^      / {next}
+                inb {skip=0; print}
+              ' "$f" | sed -E 's/(PASSWORD|SECRET|TOKEN|KEY)([^:=]*)[:=].*/\1\2=<redacted>/I'
+            done
+
+            echo "=== pg-settings ==="
+            $PSQL -c "select name, setting, unit, pending_restart, source from pg_settings where name in ('shared_buffers','effective_cache_size','work_mem')"
+            echo "=== tabelgroottes ==="
+            $PSQL -c "select relname, pg_size_pretty(pg_total_relation_size(oid)), pg_size_pretty(pg_relation_size(oid)) from pg_class where relname in ('heartbeat_runs','heartbeat_run_events')"
+            echo "=== lopende verbindingen per state ==="
+            $PSQL -c "select coalesce(state,'-'), count(*) from pg_stat_activity where datname='paperclip' group by 1"
+            echo "=== host-geheugen ==="
+            free -m
+        run: |
+          printf '%s\n' "$DIAG" | ssh "$VPS" "bash -s"
+
+      # ---------------------------------------------------------------- apply
+      - name: VACUUM FULL + compose-command + up -d db
+        if: inputs.mode == 'apply'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          APPLY: |
+            set -euo pipefail
+            CTR=paperclip-db-1
+            PSQL="docker exec $CTR psql -U paperclip -d paperclip -X -At"
+            WANT='command: ["postgres", "-c", "shared_buffers=1GB", "-c", "effective_cache_size=3GB", "-c", "work_mem=16MB"]'
+
+            FILES=$(docker inspect -f '{{index .Config.Labels "com.docker.compose.project.config_files"}}' "$CTR")
+            PROJ=$(docker inspect -f '{{index .Config.Labels "com.docker.compose.project"}}' "$CTR")
+            WD=$(docker inspect -f '{{index .Config.Labels "com.docker.compose.project.working_dir"}}' "$CTR")
+            SVC=$(docker inspect -f '{{index .Config.Labels "com.docker.compose.service"}}' "$CTR")
+            IFS=',' read -ra FA <<< "$FILES"
+            FARGS=(); for f in "${FA[@]}"; do FARGS+=(-f "$f"); done
+            echo "project=$PROJ service=$SVC files=$FILES"
+
+            echo "=== (1) VACUUM FULL (exclusive lock, live data ~146 MB + ~91 MB) ==="
+            $PSQL -c "select relname, pg_size_pretty(pg_total_relation_size(oid)) from pg_class where relname in ('heartbeat_runs','heartbeat_run_events')"
+            time $PSQL -c "VACUUM FULL heartbeat_runs"
+            time $PSQL -c "VACUUM FULL heartbeat_run_events"
+            $PSQL -c "select relname, pg_size_pretty(pg_total_relation_size(oid)) from pg_class where relname in ('heartbeat_runs','heartbeat_run_events')"
+
+            echo "=== (2) compose-bestand met de db-service vinden ==="
+            TARGET=""
+            for f in "${FA[@]}"; do
+              grep -qE "^  ${SVC}:[[:space:]]*$" "$f" && TARGET="$f"
+            done
+            [ -n "$TARGET" ] || { echo "::error::service $SVC in geen enkel compose-bestand gevonden"; exit 1; }
+            echo "doel: $TARGET"
+
+            BLOCK=$(awk -v svc="$SVC" '$0 ~ "^  "svc":[[:space:]]*$" {inb=1; next} inb && /^  [^ #]/ {inb=0} inb' "$TARGET")
+            if printf '%s\n' "$BLOCK" | grep -qE '^    command:'; then
+              if printf '%s\n' "$BLOCK" | grep -qxF "    $WANT"; then
+                echo "command staat er al (idempotent), geen bestandswijziging"
+              else
+                echo "::error::db-service heeft al een andere command:, niet overschrijven — diagnose bekijken"
+                printf '%s\n' "$BLOCK" | grep -E '^    command:'
+                exit 1
+              fi
+            else
+              BAK="$TARGET.bak-lat13223-$(date -u +%Y%m%dT%H%M%SZ)"
+              cp -p "$TARGET" "$BAK"
+              echo "backup: $BAK"
+              awk -v svc="$SVC" -v line="    $WANT" '
+                {print}
+                $0 ~ "^  "svc":[[:space:]]*$" {print line}
+              ' "$BAK" > "$TARGET.tmp-lat13223"
+              cat "$TARGET.tmp-lat13223" > "$TARGET"   # cat > behoudt owner/mode van het origineel
+              rm -f "$TARGET.tmp-lat13223"
+              diff -u "$BAK" "$TARGET" || true
+
+              echo "=== (3) docker compose config valideren ==="
+              if ! docker compose -p "$PROJ" --project-directory "$WD" "${FARGS[@]}" config --services >/dev/null; then
+                cat "$BAK" > "$TARGET"
+                echo "::error::compose config ongeldig na patch — backup teruggezet"; exit 1
+              fi
+            fi
+            GOT=$(docker compose -p "$PROJ" --project-directory "$WD" "${FARGS[@]}" config --format json \
+              | python3 -c 'import json,sys; print(json.dumps(json.load(sys.stdin)["services"][sys.argv[1]].get("command")))' "$SVC")
+            echo "geresolvede command: $GOT"
+            [ "$GOT" = '["postgres", "-c", "shared_buffers=1GB", "-c", "effective_cache_size=3GB", "-c", "work_mem=16MB"]' ] \
+              || { echo "::error::geresolvede command wijkt af"; exit 1; }
+
+            echo "=== (4) up -d --no-deps $SVC ==="
+            docker compose -p "$PROJ" --project-directory "$WD" "${FARGS[@]}" up -d --no-deps "$SVC"
+            ok=0
+            for i in $(seq 1 30); do
+              sleep 2
+              if docker exec "$CTR" pg_isready -U paperclip -d paperclip >/dev/null 2>&1; then ok=1; break; fi
+            done
+            [ "$ok" = "1" ] || { echo "::error::postgres niet ready binnen 60s — rollback: backup terugzetten en up -d --no-deps $SVC"; exit 1; }
+
+            echo "=== (5) verificatie ==="
+            docker inspect -f 'status={{.State.Status}} started={{.State.StartedAt}} cmd={{json .Config.Cmd}}' "$CTR"
+            $PSQL -c "select name, setting, unit, pending_restart, source from pg_settings where name in ('shared_buffers','effective_cache_size','work_mem')"
+            SB=$($PSQL -c "show shared_buffers")
+            echo "shared_buffers=$SB"
+            [ "$SB" = "1GB" ] || { echo "::error::shared_buffers is $SB, niet 1GB"; exit 1; }
+            curl -s -o /dev/null -w 'paperclip http=%{http_code} t=%{time_total}s\n' --max-time 10 http://localhost:3100/ || true
+            echo "LAT13223_APPLY_OK"
+        run: |
+          printf '%s\n' "$APPLY" | ssh "$VPS" "bash -s"
