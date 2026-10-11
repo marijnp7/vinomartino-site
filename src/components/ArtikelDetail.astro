@@ -171,7 +171,7 @@ if (article.faqSchema) {
   alternates={alternates}
   loadStay22={Boolean(accommodation || sidebarBlock)}
 >
-  <article class="article-page">
+  <article class="article-page" data-page-tier={article.zelfGereisd ? 'zelf-gereisd' : 'redactiegids'}>
 
     {/* LAT-13135 — goedgekeurd ontwerp Marijn 2026-10-10: breed beeld met afgeronde
         hoeken + bordeaux titelvlak via CSS grid-overlay (foto en card delen grid-area 1/1).
