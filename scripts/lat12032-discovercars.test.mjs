@@ -32,6 +32,15 @@ test('france/reims (Champagne-stuk) → a_aid + chan', () => {
   );
 });
 
+test('italy-sardinia/cagliari (Sardinië-autohuur, LAT-11996) → a_aid + chan', () => {
+  const link = { partner: 'discovercars', dest: 'italy-sardinia/cagliari' };
+  assert.equal(ctaLinkAvailable(link), true);
+  assert.equal(
+    resolveCtaHref(link, 'cta-primary-auto-huren-sardinie'),
+    'https://www.discovercars.com/italy-sardinia/cagliari?a_aid=vinomartino&chan=cta-primary-auto-huren-sardinie',
+  );
+});
+
 test('fail-closed: onbekende of geraden slug geeft geen link', () => {
   for (const dest of [undefined, '', 'italy/florence', 'italy-mainland/siena', 'https://evil.example/x']) {
     const link = { partner: 'discovercars', dest };
