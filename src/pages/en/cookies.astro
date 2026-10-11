@@ -1,6 +1,6 @@
 ---
 import SiteLayout from '../../layouts/SiteLayout.astro';
-const datum = "30 June 2026";
+const datum = "11 October 2026";
 ---
 
 <SiteLayout
@@ -21,6 +21,7 @@ const datum = "30 June 2026";
         <thead><tr><th>What</th><th>Technology</th><th>Purpose</th><th>Commercial?</th></tr></thead>
         <tbody>
           <tr><td>Theme preference (light/dark)</td><td><code>localStorage</code> (your browser)</td><td>Remembering visual setting</td><td>No</td></tr>
+          <tr><td>Tab code for statistics (<code>vm_sid</code>)</td><td><code>sessionStorage</code> (disappears when you close the tab)</td><td>Counting visits within one day without a cookie; not set with Do Not Track or Global Privacy Control</td><td>No</td></tr>
         </tbody>
       </table>
       <p>We do not place any first-party tracking cookies.</p>
@@ -34,8 +35,9 @@ const datum = "30 June 2026";
       <table>
         <thead><tr><th>Script / connection</th><th>What it does</th><th>Sets a cookie?</th></tr></thead>
         <tbody>
-          <tr><td>Stay22 <code>letmeallez.js</code> (from <code>scripts.stay22.com</code>)</td><td>Rewrites accommodation links client-side so they run via Stay22; may display an overlay</td><td><strong>No</strong>, makes a network connection but places no tracking/attribution cookie on load</td></tr>
-          <tr><td>First-party visitor statistics (<code>/api/events</code> on vinomartino.com)</td><td>Cookie-free count of page views, clicks and sign-ups; stores no personal data or IP addresses</td><td><strong>No</strong>, places no cookies; uses only a random tab code in sessionStorage that disappears when you close the tab</td></tr>
+          <tr><td>Stay22 <code>letmeallez.js</code> (from <code>scripts.stay22.com</code>), only on pages with accommodation tips</td><td>Rewrites accommodation links client-side so they run via Stay22; may display an overlay</td><td><strong>No</strong>, makes a network connection but places no tracking/attribution cookie on load</td></tr>
+          <tr><td>First-party visitor statistics (<code>/api/events</code> on vinomartino.com)</td><td>Cookie-free count of page views, clicks and sign-ups; stores no personal data or IP addresses; retained for a maximum of 12 months</td><td><strong>No</strong>, places no cookies; uses only a random tab code in sessionStorage that disappears when you close the tab</td></tr>
+          <tr><td>Map tiles from OpenFreeMap (<code>tiles.openfreemap.org</code>), only when a map loads</td><td>Shows the background map</td><td><strong>No</strong>, makes a network connection in which that service sees your IP address</td></tr>
         </tbody>
       </table>
 
@@ -48,6 +50,7 @@ const datum = "30 June 2026";
           <tr><td>Sunny Cars via TradeTracker</td><td>Car rental booking and commission attribution</td></tr>
           <tr><td>DiscoverCars via Post Affiliate Pro</td><td>Car rental booking and commission attribution</td></tr>
           <tr><td>GetYourGuide</td><td>Tasting tickets, tours and commission attribution</td></tr>
+          <tr><td>Substack (newsletter)</td><td>Signing up for and sending the newsletter; there is no sign-up form on this site</td></tr>
         </tbody>
       </table>
       <p>When you click through to one of these partners, further data processing falls under their own privacy policy.</p>
@@ -56,7 +59,7 @@ const datum = "30 June 2026";
       <ul>
         <li><strong>Clear local storage:</strong> via browser settings → Privacy → Site data. Only your theme preference will be removed.</li>
         <li><strong>Block the Stay22 script:</strong> via a content blocker. The text content of the site works normally; Stay22's accommodation link optimisation will be disabled.</li>
-        <li><strong>Opt out of analytics:</strong> via browser extensions such as uBlock Origin or via Google's opt-out: <a href="https://tools.google.com/dlpage/gaoptout" target="_blank" rel="noopener">tools.google.com/dlpage/gaoptout</a>.</li>
+        <li><strong>Opt out of analytics:</strong> turn on Do Not Track or Global Privacy Control in your browser. We then send no measurement signal at all: no page view and no click record. A content blocker such as uBlock Origin also works. We do not use Google Analytics.</li>
       </ul>
 
       <h2>Questions?</h2>
