@@ -1,6 +1,6 @@
 ---
 import SiteLayout from '../layouts/SiteLayout.astro';
-const datum = "30 juni 2026";
+const datum = "11 oktober 2026";
 ---
 
 <SiteLayout
@@ -20,6 +20,7 @@ const datum = "30 juni 2026";
         <thead><tr><th>Wat</th><th>Technologie</th><th>Doel</th><th>Commercieel?</th></tr></thead>
         <tbody>
           <tr><td>Themavoorkeur (licht/donker)</td><td><code>localStorage</code> (jouw browser)</td><td>Visuele instelling onthouden</td><td>Nee</td></tr>
+          <tr><td>Tabblad-code voor statistieken (<code>vm_sid</code>)</td><td><code>sessionStorage</code> (verdwijnt als je het tabblad sluit)</td><td>Bezoeken binnen één dag tellen zonder cookie; niet gezet bij Do Not Track of Global Privacy Control</td><td>Nee</td></tr>
         </tbody>
       </table>
       <p>We plaatsen geen eigen tracking-cookies.</p>
@@ -33,8 +34,9 @@ const datum = "30 juni 2026";
       <table>
         <thead><tr><th>Script / verbinding</th><th>Wat het doet</th><th>Zet een cookie?</th></tr></thead>
         <tbody>
-          <tr><td>Stay22 <code>letmeallez.js</code> (van <code>scripts.stay22.com</code>)</td><td>Herschrijft accommodatielinks client-side zodat ze via Stay22 lopen; kan een overlay tonen</td><td><strong>Nee</strong>, maakt een netwerkverbinding, maar plaatst géén tracking-/attributiecookie bij laden</td></tr>
-          <tr><td>Eigen bezoekersstatistieken (<code>/api/events</code> op vinomartino.com)</td><td>Cookieloze telling van paginaweergaven, klikken en aanmeldingen; slaat geen persoonsgegevens of IP-adressen op</td><td><strong>Nee</strong>, plaatst geen cookies; gebruikt alleen een willekeurige tabblad-code in sessionStorage die verdwijnt als je het tabblad sluit</td></tr>
+          <tr><td>Stay22 <code>letmeallez.js</code> (van <code>scripts.stay22.com</code>), alleen op pagina's met accommodatietips</td><td>Herschrijft accommodatielinks client-side zodat ze via Stay22 lopen; kan een overlay tonen</td><td><strong>Nee</strong>, maakt een netwerkverbinding, maar plaatst géén tracking-/attributiecookie bij laden</td></tr>
+          <tr><td>Eigen bezoekersstatistieken (<code>/api/events</code> op vinomartino.com)</td><td>Cookieloze telling van paginaweergaven, klikken en aanmeldingen; slaat geen persoonsgegevens of IP-adressen op; bewaard maximaal 12 maanden</td><td><strong>Nee</strong>, plaatst geen cookies; gebruikt alleen een willekeurige tabblad-code in sessionStorage die verdwijnt als je het tabblad sluit</td></tr>
+          <tr><td>Kaarttegels van OpenFreeMap (<code>tiles.openfreemap.org</code>), alleen als een kaart laadt</td><td>Toont de achtergrondkaart</td><td><strong>Nee</strong>, maakt een netwerkverbinding waarbij die dienst je IP-adres ziet</td></tr>
         </tbody>
       </table>
 
@@ -47,6 +49,7 @@ const datum = "30 juni 2026";
           <tr><td>Sunny Cars via TradeTracker</td><td>Huurauto-boeking en commissiemeting</td></tr>
           <tr><td>DiscoverCars via Post Affiliate Pro</td><td>Huurauto-boeking en commissiemeting</td></tr>
           <tr><td>GetYourGuide</td><td>Proeverij-tickets, tours en commissiemeting</td></tr>
+          <tr><td>Substack (nieuwsbrief)</td><td>Aanmelden en versturen van de nieuwsbrief; er staat geen aanmeldformulier op deze site</td></tr>
         </tbody>
       </table>
       <p>Op het moment dat je doorklikt naar een van deze partijen, valt de verdere verwerking onder hun eigen privacybeleid.</p>
@@ -55,7 +58,7 @@ const datum = "30 juni 2026";
       <ul>
         <li><strong>LocalStorage wissen:</strong> via browserinstellingen → Privacy → Sitedata. Alleen je themavoorkeur verdwijnt.</li>
         <li><strong>Stay22-script blokkeren:</strong> via een content-blocker. De tekst-content van de site werkt normaal; de accommodatielink-optimalisatie van Stay22 vervalt.</li>
-        <li><strong>Analytics uitsluiten:</strong> via browserextensies zoals uBlock Origin of via Google's opt-out: <a href="https://tools.google.com/dlpage/gaoptout" target="_blank" rel="noopener">tools.google.com/dlpage/gaoptout</a>.</li>
+        <li><strong>Analytics uitsluiten:</strong> zet Do Not Track of Global Privacy Control aan in je browser. Dan versturen we geen enkel meetsignaal: geen paginaweergave en geen klikregistratie. Een content-blocker zoals uBlock Origin werkt ook. We gebruiken geen Google Analytics.</li>
       </ul>
 
       <h2>Vragen?</h2>
