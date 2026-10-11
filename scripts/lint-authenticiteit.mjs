@@ -26,7 +26,7 @@
  * 1. Leest bezocht.yml voor de lijst van bezochte streken.
  * 2. Leest plaatsen.yml voor de plaatsnamen per streek.
  * 3. Wandelt dist/**\/*.html.
- * 4. Bepaalt per pagina of hij Zelf gereisd of Redactiegids is via de badge in de HTML.
+ * 4. Bepaalt per pagina de tier via data-page-tier op de pagina-root (LAT-12964).
  * 5. Past de zeven regels toe en rapporteert overtredingen.
  * Exit 0 = 0 overtredingen. Exit 1 = overtredingen gevonden.
  */
@@ -110,8 +110,14 @@ function metBronAttributen(html) {
   return html.replace(/<([a-z][^>]*?)\sdata-bron="([^"]*)"([^>]*)>/gi, '<$1$3> [bron: $2] ');
 }
 
-function isZelfGereisd(html) {
-  return /Zelf\s+gereisd/i.test(html) && !/Redactiegids/i.test(html.split(/Zelf\s+gereisd/i)[0].slice(-500));
+// LAT-12964 — tier komt uit het attribuut data-page-tier op de pagina-root (ArtikelDetail,
+// StreekDetail; waarde uit Directus zelf_gereisd), nooit uit vrije tekst. De tekst
+// "Zelf gereisd" staat ook in nav, legenda, filters en kaarten van andere pagina's;
+// daarop matchen maakte 323 van 329 pagina's Tier 1 en regel a blind.
+// Geen attribuut = pagina zonder eigen tier (index, home, overzicht): a/b/f slaan over.
+function paginaTier(html) {
+  const m = html.match(/\sdata-page-tier="(zelf-gereisd|redactiegids)"/i);
+  return m ? m[1].toLowerCase() : null;
 }
 
 function hasFaqSection(html) {
@@ -146,16 +152,18 @@ function report(rel, rule, detail) {
   }
 }
 
-const stats = { pages: 0, zelfGereisd: 0, redactiegids: 0 };
+const stats = { pages: 0, zelfGereisd: 0, redactiegids: 0, zonderTier: 0 };
 
 for await (const file of walk(DIST)) {
   const html = await readFile(file, 'utf8');
   const rel = '/' + relative(DIST, file).replace(/index\.html$/, '').replace(/\\/g, '/');
   const text = innerText(html);
   const title = extractTitle(html);
-  const zg = isZelfGereisd(html);
+  const tier = paginaTier(html);
+  const zg = tier === 'zelf-gereisd';
+  const gids = tier === 'redactiegids';
   stats.pages++;
-  if (zg) stats.zelfGereisd++; else stats.redactiegids++;
+  if (zg) stats.zelfGereisd++; else if (gids) stats.redactiegids++; else stats.zonderTier++;
 
   // c: interne labels / conceptresten
   for (const [pattern, label] of [
@@ -212,7 +220,7 @@ for await (const file of walk(DIST)) {
     if (m) report(rel, 'e', label);
   }
 
-  if (!zg) {
+  if (gids) {
     // a: Redactiegids — geen eerste persoon VT, geen Sophie, geen "geproefd"/"we sliepen"/"we zaten"
     const vtPatterns = [
       /\b(ik|we|wij)\s+(sliep|sliepen|at|aten|proefde[n]?|bezocht[e]?|dronk|dronken|zag|zagen|reed|reden|liep|liepen|stond|stonden)\b/gi,
@@ -262,6 +270,7 @@ console.log(JSON.stringify({
   pages: stats.pages,
   zelfGereisd: stats.zelfGereisd,
   redactiegids: stats.redactiegids,
+  zonderTier: stats.zonderTier,
   violations: violations.length,
   byRule: violations.reduce((acc, v) => { acc[v.rule] = (acc[v.rule] || 0) + 1; return acc; }, {}),
   lenient: LENIENT,

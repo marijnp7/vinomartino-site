@@ -92,7 +92,7 @@ test('regel e: WSET 4 geeft overtreding', () => {
 
 // Regel a: eerste persoon VT op Redactiegids-pagina is een overtreding
 test('regel a: eerste persoon VT op Redactiegids', () => {
-  withDir({ 'index.html': makeHtml('<span class="badge">Redactiegids</span><p>We sliepen in een charmant hotel.</p>') }, (dir) => {
+  withDir({ 'index.html': makeHtml('<article data-page-tier="redactiegids"><span class="badge">Redactiegids</span><p>We sliepen in een charmant hotel.</p></article>') }, (dir) => {
     const { exit, out } = runLint(dir);
     assert.match(out, /eerste persoon VT/);
     assert.equal(exit, 1);
@@ -119,8 +119,8 @@ test('schone pagina: geen overtredingen', () => {
 // --- LAT-12376: HARDE REGEL 57 herzien: [bron: marijn YYYY-MM-DD] naast [bron: RS-id] ---
 // Regel b/f draaien alleen met een gevulde plaatsen.yml, dus draai in een tempdir met fixtures.
 const LINT = join(process.cwd(), 'scripts/lint-authenticiteit.mjs');
-const ZG = '<span class="badge">Zelf gereisd</span>';
-const GIDS = '<span class="badge">Redactiegids</span>';
+const ZG = '<article data-page-tier="zelf-gereisd"><span class="badge">Zelf gereisd</span></article>';
+const GIDS = '<article data-page-tier="redactiegids"><span class="badge">Redactiegids</span></article>';
 
 function runZg(body, badge = ZG) {
   const root = join(tmpdir(), `lat12376-${Math.random().toString(36).slice(2)}`);
@@ -213,4 +213,24 @@ test('bezoekclaim op Redactiegids blijft een overtreding (regel a), ook met mari
   const { exit, out } = runZg('<p>We sliepen in Chinon. [bron: marijn 2026-10-03]</p>', GIDS);
   assert.match(out, /\[a\]/);
   assert.equal(exit, 1);
+});
+
+// LAT-12964 — redtest: "Zelf gereisd" in nav/legenda mag een Redactiegids-pagina niet tot Tier 1 maken.
+const NAV_ZG = '<nav><a href="/streken/?filter=zelf">Zelf gereisd</a></nav><p>Legenda: Zelf gereisd / Redactiegids</p>';
+
+test('regel a: Redactiegids met "Zelf gereisd" in nav + Sophie in body geeft overtreding', () => {
+  withDir({ 'index.html': makeHtml(NAV_ZG + '<article data-page-tier="redactiegids"><p>Sophie wijst naar de kelder.</p></article>') }, (dir) => {
+    const { exit, out } = runLint(dir);
+    assert.match(out, /\[a\].*Sophie/);
+    assert.match(out, /"redactiegids": 1/);
+    assert.equal(exit, 1);
+  });
+});
+
+test('tier: pagina zonder data-page-tier telt als zonderTier, niet als Zelf gereisd', () => {
+  withDir({ 'index.html': makeHtml(NAV_ZG + '<p>Overzicht.</p>') }, (dir) => {
+    const { out } = runLint(dir);
+    assert.match(out, /"zelfGereisd": 0/);
+    assert.match(out, /"zonderTier": 1/);
+  });
 });
