@@ -278,7 +278,7 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     // onderscheid zelf noemen.
     'header.ontdek.promoKicker': 'Zelf gereisd of Redactiegids',
     'header.ontdek.promoTitle': 'Elke gids zegt waar hij vandaan komt',
-    'header.ontdek.promoBody': 'Elf streken bezocht ik zelf, van de Loire tot de Kaap: daar staat wat ik proefde en wie er inschonk. De andere gidsen zijn Redactiegids, gebouwd op primaire bronnen en lokale kennis, zonder ooggetuigeclaim.',
+    'header.ontdek.promoBody': 'Twaalf streken bezocht ik zelf, van de Loire tot de Kaap: daar staat wat ik proefde en wie er inschonk. De andere gidsen zijn Redactiegids, gebouwd op primaire bronnen en lokale kennis, zonder ooggetuigeclaim.',
     'header.ontdek.alleLanden': 'Alle landen',
     'header.search.openAria': 'Zoeken openen',
     'header.search.label': 'Zoeken',
@@ -365,7 +365,7 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'home.spotlight.cta': 'Lees het hele verhaal →',
     'home.latest.kicker': 'Laatste verhalen',
     'home.latest.title': 'Vers van de pers',
-    'home.latest.sub': 'Reisverslagen, proefnotities en achtergronden. Onze tips komen uit eigen bezoek en geteste adressen; boek je via onze links, dan steun je de site zonder dat jij meer betaalt.',
+    'home.latest.sub': 'Reisverslagen, proefnotities en achtergronden. Waar we zelf waren, staat Zelf gereisd; de rest is Redactiegids, gebouwd op primaire bronnen. Boek je via onze links, dan steun je de site zonder dat jij meer betaalt.',
     'home.latest.allesCta': 'Alle artikelen →',
     // LAT-13056 Variant A "Vlot"
     'card.leesVerder': 'Lees verder →',
@@ -1163,7 +1163,7 @@ export const UI_STRING_EN: Record<string, string> = {
   // juiste claim in het Engels. Lijst van elf: src/lib/bezochte-streken.ts.
   'header.ontdek.promoKicker': 'Been there or Editorial guide',
   'header.ontdek.promoTitle': 'Every guide says where it comes from',
-  'header.ontdek.promoBody': 'Eleven regions I visited myself, from the Loire to the Cape: those pages carry what I tasted and who poured it. The other guides are editorial, built on primary sources and local knowledge, with no eyewitness claim.',
+  'header.ontdek.promoBody': 'Twelve regions I visited myself, from the Loire to the Cape: those pages carry what I tasted and who poured it. The other guides are editorial, built on primary sources and local knowledge, with no eyewitness claim.',
 
   // LAT-10472 — affiliate-blok chrome + fallback-CTA's. Deze keys worden pas
   // gebruikt als een AffiliateBlockConfig géén eigen ctaLabel/description meegeeft;

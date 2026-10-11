@@ -11,9 +11,9 @@ const schema = [
 ];
 
 const krijgt = [
-  'Een redactionele vermelding in een artikel of regio-gids, met foto’s en terroir-context',
-  'Een pin op onze interactieve regio-kaarten',
-  'Organisch bereik bij een doelgroep die actief zoekt naar dit type adres',
+  'Een eerlijke beoordeling: past het verblijf en kunnen we er eerlijk over schrijven, dan volgt mogelijk een redactionele vermelding. Die is nooit gegarandeerd',
+  'Komt er een vermelding, dan met foto’s en terroir-context en, waar een regiokaart bestaat, op die kaart volgens dezelfde regels als elk ander adres',
+  'Een zichtbare vermelding dat het verblijf door u is aangeboden',
 ];
 
 const vragen = [
@@ -25,6 +25,10 @@ const nietDoen = [
   {
     h: 'Geen betaalde plaatsingen',
     d: 'Een artikel kopen is niet mogelijk, ook niet via omwegen.',
+  },
+  {
+    h: 'Geen vermelding in ruil voor een verblijf',
+    d: 'Een aangeboden verblijf koopt geen artikel, geen kaartpin en geen positief oordeel. Na het verblijf beslissen wij of en hoe we schrijven.',
   },
   {
     h: 'Geen gegarandeerd positieve reviews',
@@ -67,10 +71,10 @@ const past = [
     <div class="container container-narrow">
       <span class="kicker kicker-burgundy">§ Wie wij zijn</span>
       <p>
-        Marijn reist 6 tot 8 keer per jaar naar Europese wijnregio’s: Piemonte, Toscane, Etna, Priorat, Mosel, Wachau, en steeds
-        vaker ook Georgië, Slovenië en Kroatië. Altijd met een concrete agenda: wijnmakers bezoeken, regio’s leren kennen, eerlijke
-        verslagen schrijven. De accommodaties die hij beschrijft, beschrijft hij omdat hij er werkelijk gebleven is. Niet omdat
-        er een betaling tegenover stond.
+        Marijn reist met een concrete agenda naar wijnregio’s: wijnmakers bezoeken, regio’s leren kennen, eerlijke verslagen
+        schrijven. Twaalf streken bezocht hij zelf, van de Loire tot de Kaap; alleen gidsen met het label Zelf gereisd gaan
+        over eigen bezoek. Alle andere gidsen zijn Redactiegids, gebouwd op primaire bronnen, zonder verblijfsclaim. Geen
+        enkele vermelding is betaald.
       </p>
     </div>
   </section>
@@ -85,7 +89,7 @@ const past = [
       </p>
       <div class="offer-grid">
         <div class="offer-card">
-          <h3>Wat u krijgt</h3>
+          <h3>Wat u kunt verwachten</h3>
           <ul>
             {krijgt.map((item) => <li>{item}</li>)}
           </ul>
