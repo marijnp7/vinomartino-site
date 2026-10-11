@@ -35,7 +35,7 @@ const cards = (tours ?? []).map(tour => ({
 ---
 
 {cards.length > 0 && (
-  <section class="streek-tours">
+  <section class="streek-tours" id="streek-tours">
     <div class="container">
       <div class="streek-tours__head">
         <span class="section-label">{ui.t('streek.tours.label')}</span>
@@ -74,6 +74,7 @@ const cards = (tours ?? []).map(tour => ({
 
 <style>
   .streek-tours {
+    scroll-margin-top: 4rem;
     padding: clamp(2rem, 5vw, 3.5rem) 0;
   }
   .streek-tours__head {

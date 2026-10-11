@@ -1,0 +1,76 @@
+---
+// LAT-13198 (red-team 8) — mobiele boekingsroute: drie keuzes bovenin de
+// streekpagina (slapen, proeverij boeken, route plannen). Elke keuze springt
+// naar een blok dat al op de pagina staat; ontbreekt het doel, dan vervalt de
+// keuze, en onder de twee keuzes rendert er niets. Alle copy staat in Directus
+// `ui_strings` (`streek.keuze.*`, NL + EN). Klikken worden als `cta_click` met
+// `cta_id = streek_keuze_<doel>` in `site_events` gemeten (data-cta-id).
+import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
+
+export interface StreekKeuze {
+  key: 'slapen' | 'proeven' | 'route';
+  href: string;
+}
+
+interface Props {
+  keuzes: StreekKeuze[];
+  locale?: Locale;
+}
+
+const { keuzes, locale = DEFAULT_LOCALE } = Astro.props;
+const ui = await loadUiStrings(locale);
+---
+
+{keuzes.length >= 2 && (
+  <nav class="streek-keuzes" aria-labelledby="streek-keuzes-title">
+    <h2 id="streek-keuzes-title" class="streek-keuzes__title">{ui.t('streek.keuze.title')}</h2>
+    <ul class="streek-keuzes__list">
+      {keuzes.map(k => (
+        <li>
+          <a class="streek-keuzes__item" href={k.href} data-cta-id={`streek_keuze_${k.key}`}>
+            <span class="streek-keuzes__label">{ui.t(`streek.keuze.${k.key}`)}</span>
+            <span class="streek-keuzes__sub">{ui.t(`streek.keuze.${k.key}.sub`)}</span>
+          </a>
+        </li>
+      ))}
+    </ul>
+  </nav>
+)}
+
+<style>
+  .streek-keuzes { margin-top: 1.5rem; }
+  .streek-keuzes__title {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 400;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin: 0 0 0.6rem;
+  }
+  .streek-keuzes__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+    gap: 0.6rem;
+  }
+  .streek-keuzes__item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-height: 44px;
+    padding: 0.75rem 0.9rem;
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--burgundy);
+    background: var(--paper);
+    color: var(--ink);
+    text-decoration: none;
+  }
+  .streek-keuzes__item:hover { border-color: var(--burgundy); }
+  .streek-keuzes__item:focus-visible { outline: 2px solid var(--burgundy); outline-offset: 2px; }
+  .streek-keuzes__label { font-family: var(--font-ui); font-weight: 600; font-size: 1rem; }
+  .streek-keuzes__label::after { content: ' \2193'; }
+  .streek-keuzes__sub { font-family: var(--font-body); font-size: 0.875rem; }
+</style>

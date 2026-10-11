@@ -407,6 +407,14 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
 
     // TourCards.astro (streek-tours, LAT-2252). `titlePrefix` staat vóór de
     // streeknaam: "<prefix> {streekName}".
+    // LAT-13198: keuzebalk bovenin de streekpagina (pilot Bourgogne).
+    'streek.keuze.title': 'Plan je reis',
+    'streek.keuze.slapen': 'Waar slapen',
+    'streek.keuze.slapen.sub': 'Gekozen adressen per budget',
+    'streek.keuze.proeven': 'Proeverij boeken',
+    'streek.keuze.proeven.sub': 'Tours en proeverijen',
+    'streek.keuze.route': 'Route plannen',
+    'streek.keuze.route.sub': 'Dag voor dag, met kaart',
     'streek.tours.label': 'Tours & tickets',
     'streek.tours.titlePrefix': 'Tours en tickets in',
     'streek.tours.intro': 'Een handvol tours en proeverijen die passen bij de streek: geen zoeklijst, maar een selectie. We werken met GetYourGuide, boek je via een van deze links dan krijgen wij een kleine commissie; jij betaalt niets extra.',
@@ -1045,6 +1053,14 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
  * nog geen EN-values heeft.  Volgorde in t(): Directus → UI_STRING_EN → UI_STRING_DEFAULTS.
  */
 export const UI_STRING_EN: Record<string, string> = {
+  // LAT-13198: keuzebalk bovenin de streekpagina (pilot Bourgogne).
+  'streek.keuze.title': 'Plan your trip',
+  'streek.keuze.slapen': 'Where to stay',
+  'streek.keuze.slapen.sub': 'Selected stays by budget',
+  'streek.keuze.proeven': 'Book a tasting',
+  'streek.keuze.proeven.sub': 'Tours and tastings',
+  'streek.keuze.route': 'Plan a route',
+  'streek.keuze.route.sub': 'Day by day, with map',
     "crosslinks.title": "Explore more",
     "crosslinks.artikelen": "Articles",
     "crosslinks.streken": "Wine regions",

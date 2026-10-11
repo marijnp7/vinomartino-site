@@ -17,6 +17,7 @@ import StreekKaart, { type StreekPoiInput } from './StreekKaart.astro';
 import StreekFeitenblok from './StreekFeitenblok.astro';
 import RouteMap from './RouteMap.astro';
 import TourCards from './TourCards.astro';
+import StreekKeuzes, { type StreekKeuze } from './StreekKeuzes.astro';
 import ZelfGereisdBadge from './ZelfGereisdBadge.astro';
 import BeeldHerkomst from './BeeldHerkomst.astro';  // LAT-4776: §7-disclosure bij AI-beeld
 import NewsletterFooter from './NewsletterFooter.astro';
@@ -201,6 +202,17 @@ const activiteitenInput: StreekPoiInput[] = entry.activiteiten.map(p => ({
 }));
 
 const hasWineGeography = Boolean(getWineGeography(entry.slug));
+// LAT-13198 (red-team 8): pilot op /streken/bourgogne/. Drie keuzes bovenin,
+// alleen naar blokken die op deze pagina echt renderen (ids hieronder).
+const KEUZE_PILOT_SLUGS = new Set(['bourgogne']);
+const keuzeMapId = `streekkaart-${entry.slug}`.replace(/[^a-z0-9-]/gi, '');
+const streekKeuzes: StreekKeuze[] = [];
+if (KEUZE_PILOT_SLUGS.has(entry.slug)) {
+  if (overnachtenInput.length > 0) streekKeuzes.push({ key: 'slapen', href: `#${keuzeMapId}-overnachten` });
+  if ((entry.gygTours ?? []).length > 0) streekKeuzes.push({ key: 'proeven', href: '#streek-tours' });
+  else if (wijnhuizenInput.length > 0) streekKeuzes.push({ key: 'proeven', href: `#${keuzeMapId}-wijnhuizen` });
+  if (routes.length > 0) streekKeuzes.push({ key: 'route', href: '#streek-routes' });
+}
 const hasUnifiedPoi = wijnhuizenInput.length > 0 || overnachtenInput.length > 0 || etenInput.length > 0 || activiteitenInput.length > 0;
 
 // LAT-2009 (VIS-BL-10) — "aantal adressen" voor het feitenblok: tel de gecureerde
@@ -284,6 +296,7 @@ const hasFactBox = Boolean(
             <h1>{entry.name}</h1>
             {entry.country && <p class="streek-country">{entry.country}</p>}
             {entry.description && <p class="streek-subtitle">{entry.description}</p>}
+            <StreekKeuzes keuzes={streekKeuzes} locale={locale} />
           </div>
           {hasStats && (
             <div class="streek-stats">
@@ -403,7 +416,7 @@ const hasFactBox = Boolean(
     {/* LAT-1608 — routes prominenter: direct na de POI-kaart, met een visueel
         van-naar kaartje per route i.p.v. onderaan de pagina. */}
     {routes.length > 0 && (
-      <section class="streek-routes">
+      <section class="streek-routes" id="streek-routes">
         <div class="container">
           <div class="streek-routes__head">
             <span class="section-label">{ui.t('streek.section.wijnroutes')}</span>
@@ -636,6 +649,7 @@ const hasFactBox = Boolean(
     padding: 2rem 0 0;
   }
   .streek-routes {
+    scroll-margin-top: 4rem;
     background: var(--paperDeep);
     padding: 4rem 0;
   }
