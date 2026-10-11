@@ -11,6 +11,7 @@ import http from "node:http";
 import crypto from "node:crypto";
 import { execFile } from "node:child_process";
 import { parseCliResult, parseCliFailure, CosModelError } from "./cli-result.js";
+import { decideRoute, findAgentByAlias, heuristicIntent, makeSeenSet, parseClassifierJson } from "./routing.js";
 import { promisify } from "node:util";
 
 const exec = promisify(execFile);
@@ -412,34 +413,26 @@ async function forwardToAgent(slug, msgText, topicSlug, agentIdOverride = null) 
 
 // ---- intent classifier ----
 
-const CLASSIFIER_SYSTEM = `Je classificeert berichten als READ of WRITE.
+const CLASSIFIER_SYSTEM = `Je classificeert een Telegram-bericht van Marijn aan zijn Chief of Staff.
 
-READ = het antwoord gaat direct terug naar de gebruiker in Telegram.
-Voorbeelden READ:
-- "wat staat er deze week open?"
-- "schrijf een samenvatting van de laatste deploys"
-- "hoe staat het met de content pipeline?"
-- "leg uit hoe de routing werkt"
-- "wat is de status van LAT-89?"
+task = Marijn wil dat een agent iets DOET (er moet werk worden neergelegd).
+  "schrijf een artikel over Sangiovese", "deploy naar productie", "leg dat bij Design neer",
+  "vraag de editor het Mosel-stuk af te ronden", "fix de kapotte link op de homepage"
+question = Marijn wil een antwoord of status terug in Telegram, geen werk.
+  "wat staat er open?", "hoe staat het met de content?", "@design hoeveel Kaap-beelden hebben we?"
+discuss = Marijn denkt hardop of wil sparren; nog geen opdracht.
+  "ik twijfel of we meer Loire moeten doen", "wat vind jij van een nieuwsbrief?"
 
-WRITE = er moet een work-item (Issue) aangemaakt worden voor een agent.
-Voorbeelden WRITE:
-- "schrijf een artikel over Sangiovese-druiven"
-- "deploy de nieuwste versie naar productie"
-- "fix de broken link op de homepage"
-- "plaats een social media post over onze nieuwe wijn"
-- "update de SEO-meta voor alle Piemonte-pagina's"
+Een vraag aan een agent ("@devops draait de backup?") is question, geen task.
+Antwoord ALLEEN met JSON: {"intent":"task"} of {"intent":"question"} of {"intent":"discuss"}`;
 
-Antwoord ALLEEN met: {"intent":"read"} of {"intent":"write"}
-Bij twijfel: {"intent":"read"}`;
-
-// Classifies a Telegram message as 'read' (answer in Telegram via Paperclip API)
-// or 'write' (create a work-item issue for the target agent).
-// Always falls back to 'read' on error or missing key.
+// Classifies a Telegram message as task / question / discuss (LAT-13059).
+// Returns { intent: null } on any failure; the caller then uses heuristicIntent()
+// and asks for clarification instead of silently treating an order as a question.
 async function classifyIntent(message, topicSlug) {
   if (!ANTHROPIC_API_KEY) {
-    log.warn({ topicSlug }, "classifyIntent: ANTHROPIC_API_KEY not set — defaulting to read");
-    return { intent: "read" };
+    log.warn({ topicSlug }, "classifyIntent: ANTHROPIC_API_KEY not set — falling back to heuristic");
+    return { intent: null };
   }
   try {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -451,26 +444,23 @@ async function classifyIntent(message, topicSlug) {
       },
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
-        max_tokens: 32,
+        max_tokens: 24,
         system: CLASSIFIER_SYSTEM,
         messages: [{ role: "user", content: message }],
       }),
     });
     if (!res.ok) {
-      log.warn({ status: res.status, topicSlug }, "classifyIntent: API error — defaulting to read");
-      return { intent: "read" };
+      log.warn({ status: res.status, topicSlug }, "classifyIntent: API error — falling back to heuristic");
+      return { intent: null };
     }
     const data = await res.json();
-    const rawText = data.content?.[0]?.text?.trim() ?? '{"intent":"read"}';
-    // Strip markdown code fences that some models add despite "answer ONLY with JSON".
-    const jsonText = rawText.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '');
-    const parsed = JSON.parse(jsonText);
-    const intent = parsed.intent === "write" ? "write" : "read";
-    log.info({ intent, topicSlug, msgPreview: message.slice(0, 80) }, "classifyIntent");
-    return { intent };
+    const rawText = data.content?.[0]?.text?.trim() ?? "";
+    const parsed = parseClassifierJson(rawText);
+    log.info({ intent: parsed?.intent ?? null, topicSlug, msgPreview: message.slice(0, 80) }, "classifyIntent");
+    return { intent: parsed?.intent ?? null };
   } catch (err) {
-    log.warn({ err: err.message, topicSlug }, "classifyIntent: exception — defaulting to read");
-    return { intent: "read" };
+    log.warn({ err: err.message, topicSlug }, "classifyIntent: exception — falling back to heuristic");
+    return { intent: null };
   }
 }
 
@@ -605,13 +595,33 @@ async function handleWriteCommand(message, targetAgentId, targetSlug, topicSlug,
   let issueData;
   try { issueData = await res.json(); } catch { issueData = {}; }
   const identifier = issueData.identifier || issueData.id || "?";
-  log.info({ targetSlug, targetAgentId, identifier }, "handleWriteCommand: issue created");
+  const assigned = issueData.assigneeAgentId === targetAgentId;
+  log.info({ targetSlug, targetAgentId, identifier, assigned }, "handleWriteCommand: issue created");
   return {
-    text: `Issue aangemaakt: ${identifier} — toegewezen aan @${targetSlug}`,
+    text: assigned
+      ? `Neergelegd bij @${targetSlug}: ${identifier} (status ${issueData.status ?? "todo"}). Ik meld het resultaat als de agent het afrondt.`
+      : `⚠️ ${identifier} aangemaakt, maar de toewijzing aan @${targetSlug} is niet bevestigd door de API. Controleer het issue.`,
     tokensIn: 0,
     tokensOut: 0,
   };
 }
+
+// LAT-13059: een opdracht die een bestaand LAT-issue noemt, wordt een comment
+// op dat issue in plaats van een nieuw issue (geen duplicaat).
+async function handleReuseIssue(identifier, message, targetSlug, telegramMsgId) {
+  const res = await paperclipFetch(`/api/issues/${identifier}/comments`, {
+    method: "POST",
+    body: JSON.stringify({ body: `${message}\n\n---\nVia Telegram (Marijn) voor @${targetSlug} | msg_id ${telegramMsgId}` }),
+  });
+  if (!res?.ok) {
+    log.error({ identifier, status: res?.status }, "handleReuseIssue: comment failed");
+    return { text: `⚠️ Comment op ${identifier} mislukt (HTTP ${res?.status}). Er is niets doorgezet.`, tokensIn: 0, tokensOut: 0 };
+  }
+  return { text: `Toegevoegd aan bestaand issue ${identifier} (geen nieuw issue).`, tokensIn: 0, tokensOut: 0 };
+}
+
+// Idempotentie (LAT-13059): dezelfde Telegram-update niet twee keer verwerken.
+const seenUpdates = makeSeenSet();
 
 // ---- bot ----
 const bot = new Telegraf(BOT_TOKEN);
@@ -704,40 +714,48 @@ bot.on(message("text"), async (ctx) => {
   }
   const topicSlug = await resolveTopicSlug(ctx);
 
-  // @-mention parsing: strip slug, determine routing target.
+  // Idempotentie: laag 1 in-proces, laag 2 de DB (overleeft een herstart).
+  const dedupKey = `${ctx.chat?.id}:${ctx.message.message_id}`;
+  if (seenUpdates.checkAndAdd(dedupKey)) {
+    log.info({ dedupKey }, "duplicate telegram update ignored");
+    return;
+  }
+  const [dup] = await q(
+    `SELECT 1 FROM cos.conversations WHERE topic_slug=$1 AND telegram_msg_id=$2 LIMIT 1`,
+    [topicSlug, ctx.message.message_id]
+  );
+  if (dup) {
+    log.info({ dedupKey }, "duplicate telegram update ignored (db)");
+    return;
+  }
+
+  // Routing (LAT-13059): rol in gewone taal, vraag ≠ opdracht, followups.
   const mention = parseMention(text);
-  // mention === undefined  → no known slug, use full text + topic/CoS routing
-  // mention.slug === 'cos' → explicit CoS mention, strip it, bypass topic routing
-  // mention.slug = other   → forward to that agent via Paperclip API
-  const msgText = mention ? mention.strippedText : text;
-  const rawMentionSlug = mention ? mention.slug : null;
-  const targetAgent = resolveTargetAgent(topicSlug, rawMentionSlug);
-
-  // Explicit @<slug> to a non-CoS agent always creates a task (write), bypassing the classifier.
-  // This avoids a failure mode where classifier error → default "read" → falls back to CoS,
-  // which is confusing when the user explicitly targeted a specific agent.
-  const explicitAgentMention = targetAgent && rawMentionSlug && rawMentionSlug !== "cos";
-
-  // Classify intent via Haiku only when routing is topic-based (no explicit @-mention).
-  const { intent } = explicitAgentMention
-    ? { intent: "write" }
-    : await classifyIntent(msgText, topicSlug);
+  const msgText = mention?.slug === "cos" ? mention.strippedText : text;
+  const topicDefaultRaw = TOPIC_AGENT_MAP[topicSlug] ?? null;
+  const topicDefault = topicDefaultRaw ? findAgentByAlias(topicDefaultRaw.slug) : null;
+  const classified = await classifyIntent(msgText, topicSlug);
+  const intent = classified.intent ?? heuristicIntent(msgText);
+  const history = await getHistory(topicSlug, 6);
+  const route = decideRoute({ text: msgText, intent, topicDefault, history });
+  log.info({ topicSlug, intent, classifierFailed: !classified.intent, action: route.action, agent: route.agent?.key }, "route");
 
   await ctx.sendChatAction("typing");
 
   let reply;
   try {
     let res;
-    if (intent === "write" && targetAgent) {
-      // Write intent with a resolved target agent → create issue via Paperclip API.
-      res = await handleWriteCommand(msgText, targetAgent.agentId, targetAgent.slug, topicSlug, ctx.message.message_id);
-    } else if (intent === "read" && targetAgent) {
-      // Read intent with a target agent → query Paperclip API for their open tasks.
-      // Falls back to askCos when no query pattern matched or the API call failed.
-      const readRes = await handleReadQuery(msgText, targetAgent.agentId, targetAgent.slug, topicSlug);
+    if (route.action === "dispatch" && route.reuseIssue) {
+      res = await handleReuseIssue(route.reuseIssue, route.body, route.agent.key, ctx.message.message_id);
+    } else if (route.action === "dispatch") {
+      res = await handleWriteCommand(route.body, route.agent.id, route.agent.key, topicSlug, ctx.message.message_id);
+    } else if (route.action === "clarify" || route.action === "reject") {
+      res = { text: route.text, tokensIn: 0, tokensOut: 0 };
+    } else if (route.agent) {
+      // Vraag over/aan een agent: eerst hun open werk uit Paperclip, anders CoS.
+      const readRes = await handleReadQuery(msgText, route.agent.id, route.agent.key, topicSlug);
       res = readRes ?? await askCos(msgText, DEFAULT_MODEL, topicSlug);
     } else {
-      // No target agent (CoS topic) or unrouted write → CoS answers in Telegram.
       res = await askCos(msgText, DEFAULT_MODEL, topicSlug);
     }
     reply = res.text.trim();
