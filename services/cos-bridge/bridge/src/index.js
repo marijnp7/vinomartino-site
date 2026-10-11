@@ -11,7 +11,8 @@ import http from "node:http";
 import crypto from "node:crypto";
 import { execFile } from "node:child_process";
 import { parseCliResult, parseCliFailure, CosModelError } from "./cli-result.js";
-import { decideRoute, findAgentByAlias, heuristicIntent, makeSeenSet, parseClassifierJson } from "./routing.js";
+import { AGENT_DIRECTORY, decideRoute, findAgentByAlias, heuristicIntent, makeSeenSet, parseClassifierJson } from "./routing.js";
+import { TERMINAL_STATUSES, buildResultText, dispatchRecord, notifiedRecord, parseRecord, pickResultComment } from "./result-notify.js";
 import { promisify } from "node:util";
 
 const exec = promisify(execFile);
@@ -82,6 +83,9 @@ const {
   PAPERCLIP_COMPANY_ID = "",
   // Optional: associate forwarded issues with a goal.
   PAPERCLIP_GOAL_ID = "",
+  // LAT-13059 resultaatmelding: optionele UI-basis voor klikbare issuelinks en de pollfrequentie.
+  PAPERCLIP_UI_URL = "",
+  COS_RESULT_POLL_MS = "120000",
   // Optional: agent ID override for content-writer slug.
   CONTENT_WRITER_AGENT_ID = "",
   // Anthropic API key for the intent classifier Haiku call.
@@ -274,7 +278,7 @@ async function bumpBudget(centsDelta, tokensIn, tokensOut) {
 async function getHistory(topicSlug, limit = 20) {
   const rows = await q(
     `SELECT role, content FROM cos.conversations
-     WHERE topic_slug=$1 ORDER BY created_at DESC LIMIT $2`,
+     WHERE topic_slug=$1 AND role IN ('user','assistant') ORDER BY created_at DESC LIMIT $2`,
     [topicSlug, limit]
   );
   return rows.reverse(); // oudste eerst
@@ -603,6 +607,7 @@ async function handleWriteCommand(message, targetAgentId, targetSlug, topicSlug,
       : `⚠️ ${identifier} aangemaakt, maar de toewijzing aan @${targetSlug} is niet bevestigd door de API. Controleer het issue.`,
     tokensIn: 0,
     tokensOut: 0,
+    dispatch: assigned && issueData.id ? { issue: issueData.id, identifier } : null,
   };
 }
 
@@ -617,7 +622,12 @@ async function handleReuseIssue(identifier, message, targetSlug, telegramMsgId) 
     log.error({ identifier, status: res?.status }, "handleReuseIssue: comment failed");
     return { text: `⚠️ Comment op ${identifier} mislukt (HTTP ${res?.status}). Er is niets doorgezet.`, tokensIn: 0, tokensOut: 0 };
   }
-  return { text: `Toegevoegd aan bestaand issue ${identifier} (geen nieuw issue).`, tokensIn: 0, tokensOut: 0 };
+  return {
+    text: `Toegevoegd aan bestaand issue ${identifier} (geen nieuw issue). Ik meld het resultaat als het issue afgerond is.`,
+    tokensIn: 0,
+    tokensOut: 0,
+    dispatch: { issue: identifier, identifier },
+  };
 }
 
 // Idempotentie (LAT-13059): dezelfde Telegram-update niet twee keer verwerken.
@@ -774,6 +784,13 @@ bot.on(message("text"), async (ctx) => {
        VALUES ($1, $2, 'user', $3), ($1, $2, 'assistant', $4)`,
       [topicSlug, ctx.message.message_id, text, reply]
     );
+    if (res.dispatch) {
+      await q(
+        `INSERT INTO cos.conversations (topic_slug, telegram_msg_id, role, content) VALUES ($1, $2, 'system', $3)`,
+        [topicSlug, ctx.message.message_id,
+         dispatchRecord({ ...res.dispatch, chatId: ctx.chat.id, threadId: ctx.message.message_thread_id })]
+      );
+    }
   } catch (err) {
     log.error({ err, kind: err?.kind, status: err?.status }, "message handler failed");
     reply = err instanceof CosModelError && err.kind === "auth"
@@ -2027,6 +2044,68 @@ setInterval(() => {
     log.error({ err: err.message }, "post-timeout reconciliation sweep failed")
   );
 }, RECONCILE_INTERVAL_MS);
+
+// ---- resultaatmelding (LAT-13059) ----
+// Een via Telegram neergelegde opdracht meldt zich terug als reply op het
+// bronbericht zodra het issue done/cancelled is. Interne poll in de bridge, geen
+// Paperclip-routine. Pauze en stille uren houden de melding vast tot later; er
+// gaat niets verloren omdat de notified-rij pas na een geslaagde send komt.
+async function sweepDispatchResults() {
+  if (!PAPERCLIP_API_URL || !PAPERCLIP_API_KEY) return;
+  const state = await getPauseState();
+  if (state.paused || isQuietHours()) return;
+  const rows = await q(
+    `SELECT d.topic_slug, d.telegram_msg_id, d.content
+       FROM cos.conversations d
+      WHERE d.role = 'system' AND d.content LIKE '{"kind":"dispatch"%'
+        AND d.created_at > NOW() - INTERVAL '14 days'
+        AND NOT EXISTS (
+          SELECT 1 FROM cos.conversations n
+           WHERE n.role = 'system' AND n.telegram_msg_id = d.telegram_msg_id
+             AND n.topic_slug = d.topic_slug AND n.content LIKE '{"kind":"result-notified"%')
+      ORDER BY d.created_at LIMIT 20`
+  );
+  for (const row of rows) {
+    const rec = parseRecord(row.content);
+    if (!rec?.issue) continue;
+    const res = await paperclipFetch(`/api/issues/${rec.issue}`, { timeoutMs: 15_000 });
+    if (!res?.ok) continue;
+    const issue = await res.json().catch(() => null);
+    if (!issue || !TERMINAL_STATUSES.has(issue.status)) continue;
+    const cRes = await paperclipFetch(`/api/issues/${issue.id}/comments`, { timeoutMs: 15_000 });
+    const comments = cRes?.ok ? await cRes.json().catch(() => []) : [];
+    const comment = pickResultComment(comments, issue.assigneeAgentId);
+    const agentLabel = AGENT_DIRECTORY.find((a) => a.id === issue.assigneeAgentId)?.key ?? null;
+    const text = buildResultText({ issue, comment, agentLabel, uiBaseUrl: PAPERCLIP_UI_URL });
+    let delivered = false;
+    try {
+      await bot.telegram.sendMessage(rec.chatId ?? OWNER_ID, text, {
+        parse_mode: "HTML",
+        ...(rec.threadId ? { message_thread_id: rec.threadId } : {}),
+        reply_parameters: { message_id: Number(row.telegram_msg_id), allow_sending_without_reply: true },
+      });
+      delivered = true;
+    } catch (err) {
+      log.error({ err: err.message, identifier: rec.identifier }, "result notify send failed");
+    }
+    if (!delivered) continue; // volgende sweep opnieuw; geen auditrij per mislukte poging
+    await q(
+      `INSERT INTO cos.notifications (request_id, agent, title, body, severity, delivered, delivery_error, truncated, suppressed)
+       VALUES ($1, $2, $3, $4, 'info', true, NULL, false, false)`,
+      [`result:${issue.id}:${row.telegram_msg_id}`, agentLabel ?? "unknown",
+       `Resultaat ${issue.identifier}`, text]
+    ).catch((err) => log.warn({ err: err.message }, "result notify audit insert failed"));
+    await q(
+      `INSERT INTO cos.conversations (topic_slug, telegram_msg_id, role, content) VALUES ($1, $2, 'system', $3)`,
+      [row.topic_slug, row.telegram_msg_id, notifiedRecord({ issue: issue.id, identifier: issue.identifier, status: issue.status })]
+    );
+    log.info({ identifier: issue.identifier, status: issue.status }, "result notified");
+  }
+}
+
+setInterval(() => {
+  sweepDispatchResults().catch((err) => log.error({ err: err.message }, "result sweep failed"));
+}, Math.max(30_000, Number(COS_RESULT_POLL_MS) || 120_000));
 
 // ---- startup ----
 (async () => {
