@@ -18,7 +18,7 @@ async function get(path) {
 }
 const f = (o) => "&filter=" + encodeURIComponent(JSON.stringify(o));
 const count = async (flt) => Number((await get("/items/affiliate_clicks?aggregate[count]=*" + f(flt)))[0].count);
-const real = { placement: { _neq: TEST } };
+const real = { _or: [{ placement: { _null: true } }, { placement: { _neq: TEST } }] };
 
 const tests = await get("/items/affiliate_clicks?fields=clicked_at,subid,first_referrer_host" + f({ placement: { _eq: TEST } }));
 console.log("[lat12562] testevents:", JSON.stringify(tests));
@@ -32,8 +32,8 @@ for (let d = Date.parse("2026-09-15T00:00:00Z"); d < Date.now(); d += day) {
   const w = { _and: [real, { clicked_at: { _gte: new Date(d).toISOString() } }, { clicked_at: { _lt: new Date(d + day).toISOString() } }] };
   const all = await count(w);
   if (!all) continue;
-  const sub = await count({ _and: [...w._and, { subid: { _nnull: true } }, { subid: { _neq: "" } }] });
-  const ref = await count({ _and: [...w._and, { first_referrer_host: { _nnull: true } }, { first_referrer_host: { _neq: "" } }] });
+  const sub = await count({ _and: [...w._and, { subid: { _nempty: true } }] });
+  const ref = await count({ _and: [...w._and, { first_referrer_host: { _nempty: true } }] });
   console.log(`${new Date(d).toISOString().slice(0, 10)} | ${all} | ${sub} | ${ref}`);
   if (d >= Date.parse("2026-10-11T00:00:00Z")) sum = [sum[0] + all, sum[1] + sub, sum[2] + ref];
 }
