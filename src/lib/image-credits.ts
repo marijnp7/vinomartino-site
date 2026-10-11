@@ -97,6 +97,22 @@ function makerFromSegment(s: string): string {
     return s.trim();
 }
 
+/**
+ * LAT-13199: Commons-bestandsnamen bevatten komma's en haakjes
+ * ("File:Rue_Nicolas_Rollin,_Beaune_-_…_(35228671040).jpg"). Knip de URL dus pas
+ * op witruimte, en daarna alleen afsluitende leestekens en een ")" zonder "(".
+ */
+function trimUrl(url: string | undefined): string | null {
+    if (!url) return null;
+    let u = url;
+    for (;;) {
+        const before = u;
+        u = u.replace(/[.,;:]+$/, '');
+        if (u.endsWith(')') && (u.match(/\(/g)?.length ?? 0) < (u.match(/\)/g)?.length ?? 0)) u = u.slice(0, -1);
+        if (u === before) return u;
+    }
+}
+
 /** Splitst een `herkomst`-tekst in maker, bronnaam en bron-URL; tolerant voor afwijkende vormen. */
 export function parseHerkomst(herkomst: string): { maker: string; sourceLabel: string | null; sourceUrl: string | null } {
     const text = herkomst.replace(/\s+/g, ' ').trim();
@@ -120,10 +136,8 @@ export function parseHerkomst(herkomst: string): { maker: string; sourceLabel: s
     }
 
     // Bron-URL: Bron:-prefix heeft voorrang, anders eerste https-link.
-    const bronM = /\bBron:\s*(https?:\/\/[^\s,;|)]+)/i.exec(text);
-    const sourceUrl = bronM
-        ? bronM[1].replace(/[.,;]+$/, '')
-        : (/(https?:\/\/[^\s,;|)]+)/.exec(text)?.[1]?.replace(/[.,;]+$/, '') ?? null);
+    const bronM = /\bBron:\s*(https?:\/\/[^\s|]+)/i.exec(text);
+    const sourceUrl = trimUrl(bronM?.[1] ?? /(https?:\/\/[^\s|]+)/.exec(text)?.[1]);
 
     // Bronnaam: uit "via <Bron>" patroon.
     const viaM = /\bvia\s+([A-Z][^\n,.;|(]+?)(?=\s*[|.(]|\s*$)/i.exec(text);
