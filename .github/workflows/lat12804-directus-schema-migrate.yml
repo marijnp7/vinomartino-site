@@ -35,6 +35,7 @@ on:
           - grant-reispakketten-create.mjs
           - lat12562-clicks-fill.mjs
           - lat13212-discovercars-clicks.mjs
+          - lat13213-retention-flow.mjs
           - mint-cj-importer.mjs
 
 concurrency:
