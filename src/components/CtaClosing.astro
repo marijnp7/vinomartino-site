@@ -48,54 +48,60 @@ const href = data && available ? resolveCtaHref(data.link, `${placement}-${sid}`
 )}
 
 <style>
+  /* LAT-13135 afwerk — donkere bordeaux achtergrond, lichte typografie (Marijn 11-10) */
   .vm-cta--closing {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
     gap: 0.5rem;
-    padding: 1.1rem 1.2rem;
+    padding: 2rem 2.25rem;
     margin: 2rem 0 1rem;
-    border: 1px solid var(--burgundy, #5a1a1f);
+    border: none;
     border-radius: var(--radius-md, 2px);
-    background: color-mix(in srgb, var(--burgundy, #5a1a1f) 5%, transparent);
+    background: var(--burgundy, #5a1a1f);
   }
   .vm-cta__heading {
     margin: 0;
     font-family: var(--font-display, serif);
     font-size: 1.1rem;
-    color: var(--ink, #2b2622);
+    color: var(--fixed-cream, #faf5e9);
   }
   .vm-cta__recommendation {
     margin: 0;
     font-family: var(--font-body, serif);
-    font-size: 0.92rem;
-    line-height: 1.6;
-    color: var(--ink, #2b2622);
+    font-size: 0.96rem;
+    line-height: 1.65;
+    color: var(--fixed-cream, #faf5e9);
   }
   .vm-cta__btn {
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
-    padding: 0.5rem 0.9rem;
-    border: 1px solid var(--burgundy, #5a1a1f);
+    padding: 0.55rem 1rem;
+    border: 1px solid var(--fixed-cream, #faf5e9);
     border-radius: var(--radius-md, 2px);
-    background: var(--burgundy, #5a1a1f);
-    color: var(--paper, #faf5e9);
+    background: transparent;
+    color: var(--fixed-cream, #faf5e9);
     font-family: var(--font-ui, system-ui, sans-serif);
     font-size: 0.82rem;
     font-weight: 600;
     text-decoration: none;
     line-height: 1;
-    transition: opacity var(--duration-fast, 150ms) var(--ease-out, ease);
+    transition: background var(--duration-fast, 150ms) var(--ease-out, ease),
+                color var(--duration-fast, 150ms) var(--ease-out, ease);
+    margin-top: 0.25rem;
   }
   .vm-cta__btn:hover,
-  .vm-cta__btn:focus-visible { opacity: 0.88; }
+  .vm-cta__btn:focus-visible {
+    background: var(--fixed-cream, #faf5e9);
+    color: var(--burgundy, #5a1a1f);
+  }
   .vm-cta__why {
     margin: 0;
     font-family: var(--font-body, serif);
     font-style: italic;
     font-size: 0.82rem;
     line-height: 1.5;
-    color: var(--inkSoft, #5a4f45);
+    color: rgba(250, 245, 233, 0.72);
   }
 </style>

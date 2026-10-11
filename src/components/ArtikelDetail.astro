@@ -936,6 +936,15 @@ if (article.faqSchema) {
     margin: 0.05em 0.07em 0 0;
     color: var(--burgundy);
   }
+  /* Reset: geen drop cap als de eerste p in een blockquote (pullquote) zit */
+  .article-prose--first :global(blockquote p:first-child::first-letter) {
+    float: none;
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
+    margin: 0;
+    color: inherit;
+  }
 
   /* LAT-13135 fase 2 — sectienummers als CSS counter vóór elke h2 */
   .article-main {

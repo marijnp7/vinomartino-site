@@ -28,3 +28,15 @@
 .article-icon--calendar { --article-icon:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.35%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M5%205h14v15H5z%20M8%203v4%20M16%203v4%20M5%2010h14%20M8%2014h2%20M14%2014h2%20M8%2017h2%22%2F%3E%3C%2Fsvg%3E"); }
 .article-icon--ticket { --article-icon:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.35%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M3%205h18v5a2%202%200%200%200%200%204v5H3v-5a2%202%200%200%200%200-4z%20M15%205v3%20M15%2011v2%20M15%2016v3%22%2F%3E%3C%2Fsvg%3E"); }
 .article-icon--info { --article-icon:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.35%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M21%2012a9%209%200%201%201-18%200%209%209%200%200%201%2018%200%20M12%2011v6%20M12%207v1%22%2F%3E%3C%2Fsvg%3E"); }
+
+/* LAT-13135 afwerk — contextuele verblijfskaart in body-HTML, plaatsbaar bij relevant hoofdstuk.
+   Gebruik: <div class="article-verblijf-kaart"> in Directus rich-text (code view). */
+.article-prose.article-prose .article-verblijf-kaart { padding:20px 24px; margin:28px 0; background:var(--paperDeep); border-left:2px solid var(--burgundy); max-width:var(--article-body-max); }
+.article-prose.article-prose .article-verblijf-kaart::before { content:'Hier sliep ik'; display:block; font-family:var(--font-mono); font-size:0.5625rem; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--burgundy); margin-bottom:10px; }
+.article-prose.article-prose .article-verblijf-kaart p { margin-bottom:0.5rem; font-size:0.9375rem; line-height:1.65; }
+.article-prose.article-prose .article-verblijf-kaart p:last-child { margin-bottom:0; }
+.article-prose.article-prose .article-verblijf-kaart a { color:var(--burgundy); font-weight:600; text-decoration:none; border-bottom:1px solid currentColor; }
+.article-prose.article-prose .article-verblijf-kaart a:hover { opacity:0.8; }
+@media(max-width:600px) {
+  .article-prose.article-prose .article-verblijf-kaart { padding:16px 18px; }
+}
