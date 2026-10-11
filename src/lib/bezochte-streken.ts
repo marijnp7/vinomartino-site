@@ -22,9 +22,10 @@ export const BEZOCHTE_STREKEN: readonly string[] = [
   'Veneto',
   'Alto Adige',
   'Slowakije',
+  'Rhône (zuid)',
 ];
 
-/** Dezelfde elf streken, met de Engelse exoniemen voor /en/-pagina's. */
+/** Dezelfde twaalf streken, met de Engelse exoniemen voor /en/-pagina's. */
 export const VISITED_REGIONS_EN: readonly string[] = [
   'Loire',
   'Burgundy',
@@ -37,4 +38,5 @@ export const VISITED_REGIONS_EN: readonly string[] = [
   'Veneto',
   'Alto Adige',
   'Slovakia',
+  'Southern Rhône',
 ];

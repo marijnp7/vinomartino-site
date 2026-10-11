@@ -11,9 +11,9 @@ const schema = [
 ];
 
 const krijgt = [
-  'An editorial mention in an article or regional guide, with photographs and terroir context',
-  'A pin on our interactive regional maps',
-  'Organic reach among an audience actively searching for this type of address',
+  'An honest assessment: if the stay fits and we can write about it honestly, an editorial mention may follow. It is never guaranteed',
+  'If there is a mention, it comes with photographs and terroir context and, where a regional map exists, a place on that map under the same rules as any other address',
+  'A visible disclosure that the stay was offered by you',
 ];
 
 const vragen = [
@@ -25,6 +25,10 @@ const nietDoen = [
   {
     h: 'No paid placements',
     d: 'Buying an article is not possible, not through any route.',
+  },
+  {
+    h: 'No mention in exchange for a stay',
+    d: 'An offered stay does not buy an article, a map pin or a positive verdict. After the stay, we decide whether and how we write.',
   },
   {
     h: 'No guaranteed positive reviews',
@@ -68,10 +72,10 @@ const past = [
     <div class="container container-narrow">
       <span class="kicker kicker-burgundy">§ Who we are</span>
       <p>
-        Marijn travels 6 to 8 times a year to European wine regions: Piedmont, Tuscany, Etna, Priorat, Mosel, Wachau, and
-        increasingly Georgia, Slovenia and Croatia. Always with a concrete agenda: visiting winemakers, getting to know
-        regions, writing honest reports. The accommodations he describes, he describes because he genuinely stayed there —
-        not because there was a payment involved.
+        Marijn travels to wine regions with a concrete agenda: visiting winemakers, getting to know regions, writing honest
+        reports. He has visited twelve regions himself, from the Loire to the Cape; only guides labelled Travelled there are
+        based on his own visits. All other guides are editorial, built on primary sources, with no claim of a stay. No
+        mention is ever paid for.
       </p>
     </div>
   </section>
@@ -86,7 +90,7 @@ const past = [
       </p>
       <div class="offer-grid">
         <div class="offer-card">
-          <h3>What you receive</h3>
+          <h3>What you can expect</h3>
           <ul>
             {krijgt.map((item) => <li>{item}</li>)}
           </ul>
