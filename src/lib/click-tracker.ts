@@ -11,7 +11,8 @@ export interface AffiliateClickPayload {
   referrer_host: string | null;
   /** LAT-11947: SubID van de plaatsing, uit de uitgaande href (CJ sid, TradeTracker r, GYG cmp, Stay22 campaign, DiscoverCars chan). */
   subid: string;
-  /** LAT-11947: eerste externe referrer (alleen hostnaam) van deze sessie, uit sessionStorage. */
+  /** LAT-11947: eerste externe referrer (alleen hostnaam) van deze sessie, uit sessionStorage.
+   *  LAT-12562: 'direct' = sessie startte zonder externe referrer; null = niet gemeten (storage geblokkeerd). */
   first_referrer_host: string | null;
 }
 
@@ -43,7 +44,8 @@ export function captureFirstReferrerHost(): void {
 function getFirstReferrerHost(): string | null {
   try {
     const v = sessionStorage.getItem(FIRST_REF_KEY);
-    return v && v !== '-' ? v : null;
+    if (!v) return null;
+    return v === '-' ? 'direct' : v;
   } catch {
     return null;
   }
