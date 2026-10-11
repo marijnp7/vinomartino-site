@@ -12,6 +12,8 @@ export const VERIFIED_DISCOVERCARS_DEST: readonly string[] = [
   'italy-mainland/pisa',
   'italy-mainland/pisa/psa',
   'france/reims',
+  // LAT-11996: Sardinië-autohuurpagina (NL/EN), op 2026-10-11 met curl op 200 geverifieerd.
+  'italy-sardinia/cagliari',
 ];
 
 export function discoverCarsDestVerified(dest: string | undefined): dest is string {
