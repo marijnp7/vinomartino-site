@@ -247,7 +247,7 @@ if (article.faqSchema) {
           </details>
         )}
 
-        <div class="article-prose" set:html={bodyFirst.head} />
+        <div class="article-prose article-prose--first" set:html={bodyFirst.head} />
         {showInlineCta && <NewsletterInline placement="artikel-inline" locale={locale} />}
         {bodyFirst.tail && <div class="article-prose" set:html={bodyFirst.tail} />}
         {rhoneMap && (
@@ -925,6 +925,39 @@ if (article.faqSchema) {
   }
   .toc-mobile nav {
     margin-top: var(--space-4);
+  }
+
+  /* LAT-13135 fase 2 — drop cap op de eerste alinea (goedgekeurd prototype) */
+  .article-prose--first :global(p:first-child::first-letter) {
+    float: left;
+    font-family: var(--font-display);
+    font-size: 4.75rem;
+    line-height: 0.85;
+    margin: 0.05em 0.07em 0 0;
+    color: var(--burgundy);
+  }
+
+  /* LAT-13135 fase 2 — sectienummers als CSS counter vóór elke h2 */
+  .article-main {
+    counter-reset: h2-counter;
+  }
+  .article-prose :global(h2) {
+    counter-increment: h2-counter;
+  }
+  .article-prose :global(h2)::before {
+    content: counter(h2-counter, decimal-leading-zero);
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.12em;
+    color: var(--inkFaint);
+    margin-bottom: 0.25rem;
+    font-weight: 400;
+  }
+  @media (max-width: 640px) {
+    .article-prose--first :global(p:first-child::first-letter) {
+      font-size: 3.75rem;
+    }
   }
 
   @media (prefers-reduced-motion: no-preference) {
