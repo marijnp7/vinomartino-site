@@ -144,6 +144,15 @@ function plainText(text: string, max = 300): string {
 
 const absUrl = (url: string) => (url.startsWith('http') ? url : `${SITE_URL}${url}`);
 
+// LAT-13200: meta-description niet midden in een woord of haakje afkappen.
+export function truncateMetaDescription(text: string, max = 155): string {
+  const d = text.trim();
+  if (d.length <= max) return d;
+  const cut = d.slice(0, max - 1);
+  const sp = cut.lastIndexOf(' ');
+  return `${(sp > 100 ? cut.slice(0, sp) : cut).replace(/[\s,;:(\-–—]+$/, '')}…`;
+}
+
 export interface WijnhuisSchemaData {
   name: string;
   description?: string;
@@ -362,7 +371,7 @@ export function wijnhuisMetaDescription(data: {
   country?: string;
   description?: string;
 }, locale: Locale = DEFAULT_LOCALE): string {
-  if (data.description) return data.description.slice(0, 155);
+  if (data.description) return truncateMetaDescription(data.description);
   const location = [data.region, data.country].filter(Boolean).join(', ');
   if (locale === 'en') {
     return `Discover ${data.name}${location ? ` in ${location}` : ''}, wines, grape varieties and production style. All about this winery on VinoMartino.`;
@@ -387,7 +396,7 @@ export function wijnrouteMetaDescription(data: {
   duration?: string;
   description?: string;
 }, locale: Locale = DEFAULT_LOCALE): string {
-  if (data.description) return data.description.slice(0, 155);
+  if (data.description) return truncateMetaDescription(data.description);
   if (locale === 'en') {
     const parts: string[] = [`Follow the ${data.name}`];
     if (data.region) parts.push(`through ${data.region}`);
@@ -419,7 +428,7 @@ export function streekMetaDescription(data: {
   grapeVarieties?: string[];
   description?: string;
 }, locale: Locale = DEFAULT_LOCALE): string {
-  if (data.description) return data.description.slice(0, 155);
+  if (data.description) return truncateMetaDescription(data.description);
   const inCountry = data.country ? ` in ${data.country}` : '';
   if (locale === 'en') {
     const grapes =
@@ -514,7 +523,7 @@ export function landMetaDescription(data: {
   grapeVarieties?: string[];
   description?: string;
 }, locale: Locale = DEFAULT_LOCALE): string {
-  if (data.description) return data.description.slice(0, 155);
+  if (data.description) return truncateMetaDescription(data.description);
   const strekenNames =
     data.wijnstreken
       ?.map((s) => (typeof s === 'string' ? s : s.name))
