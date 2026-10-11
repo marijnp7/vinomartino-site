@@ -120,6 +120,9 @@ const schema = [
 
   .edities { padding-left: 1.2rem; }
   .edities li { margin-bottom: 0.5rem; }
+  /* Briefkaart blijft crème in kelder-modus; de globale linkkleur (goud) valt daar weg. */
+  .edities a { color: var(--fixed-ink); text-decoration: underline; text-underline-offset: 3px; }
+  .edities a:hover { color: #5A1A1F; }
 
   .voorbeeld {
     padding: 0 0 clamp(56px, 10vw, 112px);
