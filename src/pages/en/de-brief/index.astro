@@ -34,9 +34,10 @@ const schema = [
         no invitations to generic wine festivals, a real letter. About a
         winemaker we just visited, a region that caught our attention again, a
         bottle that made an impression.
-        {/* LAT-12572: haal de volgende zin weg zodra de eerste editie verstuurd is. */}
-        The first edition arrives on 5 November.
-        Sign up through Substack.
+        {/* LAT-13196: geen Engelse nieuwsbrief beloven; de brief is Nederlandstalig. */}
+        The letter is written in Dutch: there is no English edition, and
+        subscribers receive the Dutch letter. It has appeared on Substack since
+        July 2026. Sign up through Substack.
       </p>
 
       <div class="signup">
@@ -47,35 +48,20 @@ const schema = [
         Already curious? Follow Marijn on
         <a href={INSTAGRAM_URL} target="_blank" rel="noopener">Instagram</a>{SUBSTACK_URL ? (
           <>, or read the letters online on <a href={SUBSTACK_URL} target="_blank" rel="noopener" data-cta-id="substack_link">Substack</a></>
-        ) : null}, where the first stories appear.
+        ) : null}, where every published letter is archived (in Dutch).
       </p>
     </div>
   </section>
 
   <section class="voorbeeld">
     <div class="container container-narrow">
-      <Briefkaart dateline="The Letter, example">
-        <p>Dear reader,</p>
-        <p>
-          It was the day after the last clusters of Nebbiolo had been picked, early
-          November, and the Langhe was empty in the particular way that only November
-          allows. Yellow and still. We drove narrow asphalt roads from La Morra to
-          Verduno, nobody ahead of us, nobody behind us.
-        </p>
-        <p>
-          At Fratelli Alessandria, a house in Verduno that does not appear in any
-          tourist guide, the winemaker opened the door as if we were simply part of
-          his afternoon and nothing out of the ordinary. We tasted the 2017
-          Monvigliero: broad, warm, with the characteristic tar and roses of Nebbiolo
-          and something I can only describe as November itself in a glass.
-        </p>
-        <p>
-          In the full edition: the complete story from the Langhe, the Piemonte
-          itinerary page coming soon, and a Sicilian winery tip.
-        </p>
-        <p>
-          This is a sample. Sign up and the next edition arrives in your inbox.
-        </p>
+      <Briefkaart dateline="The letter, published editions (in Dutch)">
+        <p>Two letters have appeared so far:</p>
+        <ul class="edities">
+          <li>16 July 2026, the Langhe: <a href="https://vinomartino.substack.com/p/waarom-de-ene-barolo-twintig-jaar" target="_blank" rel="noopener" hreflang="nl">Waarom de ene Barolo twintig jaar dichtblijft en de andere niet</a></li>
+          <li>2 October 2026, Tuscany: <a href="https://vinomartino.substack.com/p/waarom-brunello-chianti-en-vino-nobile-923" target="_blank" rel="noopener" hreflang="nl">Waarom Brunello, Chianti en Vino Nobile dezelfde druif zijn en toch niet op elkaar lijken</a></li>
+        </ul>
+        <p>The next letter does not have a date yet. Subscribers receive it as soon as it appears.</p>
       </Briefkaart>
     </div>
   </section>
@@ -131,6 +117,9 @@ const schema = [
     text-decoration: underline;
     text-underline-offset: 2px;
   }
+
+  .edities { padding-left: 1.2rem; }
+  .edities li { margin-bottom: 0.5rem; }
 
   .voorbeeld {
     padding: 0 0 clamp(56px, 10vw, 112px);
