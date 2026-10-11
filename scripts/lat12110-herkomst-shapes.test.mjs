@@ -145,3 +145,26 @@ test('bronnaam en bron-URL blijven intact na de maker-guard', () => {
     assert.equal(p.sourceLabel, 'Wikimedia Commons');
     assert.equal(p.sourceUrl, 'https://commons.wikimedia.org/wiki/File:Elciego_-_Marqu%C3%A9s_de_Riscal_Hotel_RK01.jpg');
 });
+
+// LAT-13199: bron-URL met komma's en haakjes in de Commons-bestandsnaam, plus provenance-staart.
+// Rollin is verbatim uit DAM 40a3c019; Volnay/Vougeot met ingekorte staart; het laatste geval is
+// synthetisch (URL tussen haakjes) om de ")"-balans te toetsen.
+test('LAT-13199: Commons-URL met komma en haakjes blijft heel', () => {
+    const cases = [
+        ['Foto: Elliott Brown from Birmingham, United Kingdom, CC BY-SA 2.0, via Wikimedia Commons. Bron: https://commons.wikimedia.org/wiki/File:Rue_Nicolas_Rollin,_Beaune_-_March%C3%A9_aux_Vins_-_flags_(35228671040).jpg. Gekozen op 05-10-2026 als beeld voor routestop/wijnhuis "Marché aux Vins, Beaune" na visuele keuring.',
+            'https://commons.wikimedia.org/wiki/File:Rue_Nicolas_Rollin,_Beaune_-_March%C3%A9_aux_Vins_-_flags_(35228671040).jpg', 'Elliott Brown from Birmingham, United Kingdom'],
+        ['Foto: Florian Pépellin, CC BY-SA 4.0, via Wikimedia Commons. Bron: https://commons.wikimedia.org/wiki/File:Volnay_et_ses_vignobles_en_automne_(2018).JPG. Gekozen op 05-10-2026 na visuele keuring.',
+            'https://commons.wikimedia.org/wiki/File:Volnay_et_ses_vignobles_en_automne_(2018).JPG', 'Florian Pépellin'],
+        ['Foto: Wikipedro, CC BY-SA 4.0, via Wikimedia Commons. Bron: https://commons.wikimedia.org/wiki/File:Vougeot,_le_ch%C3%A2teau_du_Clos_de_Vougeot.jpg. Gekozen op 05-10-2026.',
+            'https://commons.wikimedia.org/wiki/File:Vougeot,_le_ch%C3%A2teau_du_Clos_de_Vougeot.jpg', 'Wikipedro'],
+        ['Auteur: Neil Weightman | Licentie: CC BY 2.0 | Bron: https://commons.wikimedia.org/wiki/File:Etna.jpg (ResourceSpace 1903)',
+            'https://commons.wikimedia.org/wiki/File:Etna.jpg', 'Neil Weightman'],
+        ['Village et vignes (Côte-d\'Or) — foto: Jean de l\'Auxois / Wikimedia Commons CC BY-SA 4.0 (bron: https://commons.wikimedia.org/wiki/File:X_(Y).jpg)',
+            'https://commons.wikimedia.org/wiki/File:X_(Y).jpg', null],
+    ];
+    for (const [h, url, maker] of cases) {
+        const p = parseHerkomst(h);
+        assert.equal(p.sourceUrl, url);
+        if (maker) assert.equal(p.maker, maker);
+    }
+});
