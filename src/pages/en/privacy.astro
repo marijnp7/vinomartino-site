@@ -1,6 +1,6 @@
 ---
 import SiteLayout from '../../layouts/SiteLayout.astro';
-const datum = "5 July 2026";
+const datum = "12 October 2026";
 ---
 
 <SiteLayout
@@ -21,6 +21,7 @@ const datum = "5 July 2026";
       <ul>
         <li><strong>Statistics</strong>: we measure page views, clicks on buttons and links, newsletter sign-ups and page speed with our own cookie-free counter. We store no IP address and no personal data; a session is a random code created per browser tab and hashed together with today's date, so visits cannot be linked across days. If Do Not Track or Global Privacy Control is on, we measure nothing.</li>
         <li><strong>Anonymous click tracking</strong>: when you click an affiliate link, we record the link type, partner platform, page and timestamp. No name, email address or IP address.</li>
+        <li><strong>Newsletter (Substack)</strong>: there is no sign-up form on this site. Sign-up buttons are links to <a href="https://vinomartino.substack.com/" target="_blank" rel="noopener">vinomartino.substack.com</a>, where you enter your email address. Substack Inc. (United States) sends the newsletter under its own <a href="https://substack.com/privacy" target="_blank" rel="noopener">privacy policy</a>. In Substack we can see your email address, your sign-up date and, where Substack measures it, whether you open or click a newsletter. We use this only to send and improve the newsletter. You can unsubscribe with the link in every issue.</li>
         <li><strong>Contact</strong>: if you email us, we use your name and email address only to answer your enquiry.</li>
       </ul>
 
@@ -28,10 +29,17 @@ const datum = "5 July 2026";
       <p>See the <a href="/en/cookies/">cookie statement</a>.</p>
 
       <h2>Third parties</h2>
-      <p>If you click through to a booking or affiliate partner (such as CJ Affiliate, TradeTracker, GetYourGuide or Stay22), that party is responsible for processing your data and their own privacy policy applies.</p>
+      <p>When a page loads, your browser connects to another service in a few cases. Like any web server, that service then sees your IP address and browser details:</p>
+      <ul>
+        <li><strong>Cloudflare</strong> delivers and protects the site (network and security).</li>
+        <li><strong>OpenFreeMap</strong> (<code>tiles.openfreemap.org</code>) supplies the map tiles when a map on the page loads.</li>
+        <li><strong>Stay22</strong> (<code>scripts.stay22.com</code>, <code>www.stay22.com</code>) loads a script on pages with accommodation tips; that script routes accommodation links through Stay22 and stores a visitor id in your browser.</li>
+      </ul>
+      <p>What is stored in your browser is listed in the <a href="/en/cookies/">cookie statement</a>.</p>
+      <p>If you click through to a booking or affiliate partner (such as Booking.com via CJ Affiliate, Sunny Cars via TradeTracker, DiscoverCars, GetYourGuide or Stay22), that party is responsible for processing your data and their own privacy policy applies.</p>
 
       <h2>Retention periods</h2>
-      <p>Anonymous click records are retained for a maximum of 12 months. Contact details are deleted once your enquiry has been handled, and within 6 months at the latest.</p>
+      <p>Anonymous click records and the cookie-free visitor statistics are retained for a maximum of 12 months. Your newsletter email address stays in Substack for as long as you are subscribed; if you want us to remove it from the list after unsubscribing, email <a href="mailto:privacy@vinomartino.com">privacy@vinomartino.com</a>. Contact details are deleted once your enquiry has been handled, and within 6 months at the latest.</p>
 
       <h2>Your rights (GDPR)</h2>
       <p>You have the right to access, rectification, erasure and to object to processing. Email <a href="mailto:privacy@vinomartino.com">privacy@vinomartino.com</a>; we will respond within 30 days. Complaints can be submitted to the <a href="https://www.autoriteitpersoonsgegevens.nl" target="_blank" rel="noopener">Netherlands Data Protection Authority</a>.</p>

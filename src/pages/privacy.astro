@@ -1,6 +1,6 @@
 ---
 import SiteLayout from '../layouts/SiteLayout.astro';
-const datum = "5 juli 2026";
+const datum = "12 oktober 2026";
 ---
 
 <SiteLayout
@@ -20,6 +20,7 @@ const datum = "5 juli 2026";
       <ul>
         <li><strong>Statistieken</strong>: wij meten paginaweergaven, klikken op knoppen en links, nieuwsbriefaanmeldingen en laadsnelheid met een eigen, cookieloze telling. We bewaren geen IP-adres en geen persoonsgegevens; een sessie is een willekeurige code die per browsertabblad wordt gemaakt en met de datum van de dag wordt versleuteld, zodat bezoeken niet over dagen heen te koppelen zijn. Staat Do Not Track of Global Privacy Control aan, dan meten we niets.</li>
         <li><strong>Anonieme klikregistratie</strong>: bij het klikken op een affiliate-link registreren wij linktype, partnerplatform, pagina en tijdstip. Geen naam, e-mailadres of IP-adres.</li>
+        <li><strong>Nieuwsbrief (Substack)</strong>: op deze site staat geen aanmeldformulier. Aanmeldknoppen zijn links naar <a href="https://vinomartino.substack.com/" target="_blank" rel="noopener">vinomartino.substack.com</a>; daar vul je je e-mailadres in. Substack Inc. (Verenigde Staten) verstuurt de brief en hanteert daarbij zijn eigen <a href="https://substack.com/privacy" target="_blank" rel="noopener">privacybeleid</a>. In Substack zien wij je e-mailadres, je aanmelddatum en, voor zover Substack dat meet, of je een brief opent of aanklikt. Wij gebruiken dat alleen om de brief te versturen en te verbeteren. Afmelden kan met de link onder elke brief.</li>
         <li><strong>Contact</strong>: als je ons e-mailt, gebruiken wij je naam en e-mailadres alleen om je vraag te beantwoorden.</li>
       </ul>
 
@@ -27,10 +28,17 @@ const datum = "5 juli 2026";
       <p>Zie de <a href="/cookies/">cookieverklaring</a>.</p>
 
       <h2>Derde partijen</h2>
-      <p>Klik je door naar een boekings- of affiliatepartner (zoals CJ Affiliate, TradeTracker, GetYourGuide of Stay22), dan is die partij verantwoordelijk voor de verwerking van jouw gegevens en geldt hun eigen privacybeleid.</p>
+      <p>Bij het laden van een pagina maakt je browser in een paar gevallen verbinding met een andere dienst. Die dienst ziet dan, zoals elke webserver, je IP-adres en browsergegevens:</p>
+      <ul>
+        <li><strong>Cloudflare</strong> levert en beveiligt de site (netwerk en beveiliging).</li>
+        <li><strong>OpenFreeMap</strong> (<code>tiles.openfreemap.org</code>) levert de kaarttegels zodra een kaart op de pagina laadt.</li>
+        <li><strong>Stay22</strong> (<code>scripts.stay22.com</code>, <code>www.stay22.com</code>) laadt een script op pagina's met accommodatietips; dat script verwijst accommodatielinks door via Stay22 en slaat een bezoekers-id op in je browser.</li>
+      </ul>
+      <p>Wat er bij het laden in je browser wordt opgeslagen, staat in de <a href="/cookies/">cookieverklaring</a>.</p>
+      <p>Klik je door naar een boekings- of affiliatepartner (zoals Booking.com via CJ Affiliate, Sunny Cars via TradeTracker, DiscoverCars, GetYourGuide of Stay22), dan is die partij verantwoordelijk voor de verwerking van jouw gegevens en geldt hun eigen privacybeleid.</p>
 
       <h2>Bewaartermijnen</h2>
-      <p>Anonieme klikregistraties bewaren wij maximaal 12 maanden. Contactgegevens verwijderen wij zodra je vraag is afgehandeld, uiterlijk na 6 maanden.</p>
+      <p>Anonieme klikregistraties en de cookieloze bezoekersstatistieken bewaren wij maximaal 12 maanden. Je e-mailadres voor de nieuwsbrief blijft in Substack staan zolang je bent aangemeld; wil je dat we het na afmelden ook uit de lijst verwijderen, mail dan <a href="mailto:privacy@vinomartino.com">privacy@vinomartino.com</a>. Contactgegevens verwijderen wij zodra je vraag is afgehandeld, uiterlijk na 6 maanden.</p>
 
       <h2>Jouw rechten (AVG)</h2>
       <p>Je hebt recht op inzage, rectificatie, verwijdering en bezwaar. Mail <a href="mailto:privacy@vinomartino.com">privacy@vinomartino.com</a>; wij reageren binnen 30 dagen. Klachten kun je indienen bij de <a href="https://www.autoriteitpersoonsgegevens.nl" target="_blank" rel="noopener">Autoriteit Persoonsgegevens</a>.</p>

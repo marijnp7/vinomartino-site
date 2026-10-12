@@ -184,7 +184,9 @@ NL_NOUNS = {
     # het hoefde alleen nooit naar /en/ te lekken.
     "foto": "/colofon/",
     "geboekt": "/streken/",
-    "gerelateerde": "/wijnroutes/",
+    # 12 okt (LAT-13286): /wijnroutes/ toont het woord niet meer (Ontdek verder, build 1284);
+    # nog op 44 NL-pagina's, 0 op /en/. Exacte pagina, geen familie.
+    "gerelateerde": "/artikelen/10-wijnhuizen-rhone-benchmark/",
     "huurauto": "/affiliate-verklaring/",
     "kwaliteit": "/streken/",
     # 3 okt: nieuwsbriefformulier (MailerLite) van de homepage gehaald, het woord staat nu op /privacy/.
@@ -223,7 +225,8 @@ NL_NOUNS = {
     "domein": "/streken/bourgogne/",  # rioja had geen domein meer na content-update sept 2026
     "kaart": "/artikelen/10-wijnhuizen-rhone-benchmark/",
     "kelder": "/artikelen/waar-slapen-langhe-piemonte/",
-    "ligging": "/accommodaties/bourgogne/",
+    # 12 okt (LAT-13286): weg van /accommodaties/bourgogne/, nog op 101 NL-pagina's, 0 op /en/.
+    "ligging": "/accommodaties/constantia/",
     "noordelijke": "/artikelen/10-wijnhuizen-rhone-benchmark/",
     "oogst": "/artikelen/grower-champagne-2026-vroegste-oogst-bezoeken/",
     "streek": "/wijnhuizen/",

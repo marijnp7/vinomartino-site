@@ -238,6 +238,27 @@ export function heeftBezoek(p: WijnhuisPortret, address: string, website: string
     return Boolean(address || safeUrl(website) || dagen || p.proeverij || (p.zelfGeweest && p.onzeErvaring));
 }
 
+/**
+ * LAT-13057 — "Bezoek in het kort": tijden per weekdag als platte tekst, zodat een
+ * klein client-script alleen de dag van vandaag hoeft te kiezen (de site is statisch;
+ * "open vandaag" op bouwtijd zou verouderen). Onbekende dagen ontbreken; [] = gesloten.
+ */
+export function urenPerDag(o: Openingstijden | null): Partial<Record<Dag, string>> {
+    if (!o) return {};
+    const out: Partial<Record<Dag, string>> = {};
+    for (const d of DAGEN) {
+        const t = o.dagen[d];
+        if (t !== undefined) out[d] = t.join(', ');
+    }
+    return out;
+}
+
+/** Het kort-blok draagt zichzelf pas met minstens één echt bezoekfeit. */
+export function heeftBezoekKort(p: WijnhuisPortret): boolean {
+    const ps = p.proeverij;
+    return Boolean(p.bezoekType || (ps && (ps.prijs !== null || ps.duur !== null || ps.talen.length || ps.url)) || Object.keys(urenPerDag(p.openingstijden)).length);
+}
+
 export function eurLabel(prijsband: number | null): string {
     return prijsband ? '€'.repeat(prijsband) : '';
 }
