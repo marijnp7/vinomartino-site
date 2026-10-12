@@ -11,6 +11,7 @@
     "test:lighthouse-templates": "node --test scripts/lat12558-lighthouse-templates.test.mjs",
     "check:affiliate-links": "node scripts/check-affiliate-links.mjs",
     "check:dom-affiliate": "node scripts/check-dom-affiliate.mjs dist --lenient",
+    "test:bezoek-anker": "node --test scripts/lat13075-bezoek-anker.test.mjs",
     "test:dom-affiliate": "node --test scripts/check-dom-affiliate.test.mjs",
     "check:authenticiteit": "node scripts/lint-authenticiteit.mjs dist --lenient",
     "test:authenticiteit": "node --test scripts/lint-authenticiteit.test.mjs",
