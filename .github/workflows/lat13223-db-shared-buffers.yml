@@ -138,6 +138,21 @@ jobs:
             FARGS=(); for f in "${FA[@]}"; do FARGS+=(-f "$f"); done
             echo "project=$PROJ service=$SVC files=$FILES"
 
+            # PAPERCLIP_VOLUME_NAME is een host-shell-var (LAT-2935), niet in .env; run 38192167477
+            # faalde daarop bij `compose config`. Afleiden uit de draaiende container die paperclip_vol mount.
+            if [ -z "${PAPERCLIP_VOLUME_NAME:-}" ]; then
+              DEST=$(grep -hoE '^[[:space:]]*-[[:space:]]*"?paperclip_vol:[^:"[:space:]]+' "${FA[@]}" | head -1 | sed -E 's/.*paperclip_vol://')
+              [ -n "$DEST" ] || { echo "::error::paperclip_vol-mount niet gevonden in compose"; exit 1; }
+              for c in $(docker ps --filter "label=com.docker.compose.project=$PROJ" --format '{{.Names}}'); do
+                V=$(docker inspect -f "{{range .Mounts}}{{if and (eq .Type \"volume\") (eq .Destination \"$DEST\")}}{{.Name}}{{end}}{{end}}" "$c")
+                [ -n "$V" ] && { PAPERCLIP_VOLUME_NAME="$V"; echo "PAPERCLIP_VOLUME_NAME=$V (uit $c:$DEST)"; break; }
+              done
+              [ -n "${PAPERCLIP_VOLUME_NAME:-}" ] || { echo "::error::PAPERCLIP_VOLUME_NAME niet af te leiden"; exit 1; }
+              export PAPERCLIP_VOLUME_NAME
+            fi
+            docker compose -p "$PROJ" --project-directory "$WD" "${FARGS[@]}" config --services >/dev/null \
+              || { echo "::error::compose config faalt al vóór de patch — niets gewijzigd"; exit 1; }
+
             echo "=== (1) VACUUM FULL (exclusive lock, live data ~146 MB + ~91 MB) ==="
             $PSQL -c "select relname, pg_size_pretty(pg_total_relation_size(oid)) from pg_class where relname in ('heartbeat_runs','heartbeat_run_events')"
             time $PSQL -c "VACUUM FULL heartbeat_runs"
