@@ -21,9 +21,26 @@ const c = {
   open: isEn ? 'open' : 'openen',
   dismiss: isEn ? 'close' : 'sluiten',
 };
+// LAT-12594: index-URL en script-copy per locale; het script leest ze uit data-*.
+const indexUrl = isEn ? '/en/search-index.json' : '/search-index.json';
+const scriptCopy = isEn
+  ? {
+      empty: 'Start typing, e.g. <span class="vm-search__ex">Barolo</span>, <span class="vm-search__ex">Mosel</span> or <span class="vm-search__ex">Priorat</span>.',
+      loading: 'Loading search index…',
+      none: "No results for '{q}'.<br/>Try a region, winery or country.",
+      groups: { Streek: 'Regions', Wijnroute: 'Routes', Wijnhuis: 'Wineries', Artikel: 'Articles', Land: 'Countries' },
+      types: { Streek: 'Region', Wijnroute: 'Route', Wijnhuis: 'Winery', Artikel: 'Article', Land: 'Country' },
+    }
+  : {
+      empty: 'Begin met typen, bijv. <span class="vm-search__ex">Barolo</span>, <span class="vm-search__ex">Mosel</span> of <span class="vm-search__ex">Priorat</span>.',
+      loading: 'Zoekindex laden…',
+      none: "Geen resultaten voor '{q}'.<br/>Probeer een streek, wijnhuis of land.",
+      groups: { Streek: 'Streken', Wijnroute: 'Routes', Wijnhuis: 'Wijnhuizen', Artikel: 'Artikelen', Land: 'Landen' },
+      types: { Streek: 'Streek', Wijnroute: 'Wijnroute', Wijnhuis: 'Wijnhuis', Artikel: 'Artikel', Land: 'Land' },
+    };
 ---
 
-<div class="vm-search" data-search hidden>
+<div class="vm-search" data-search data-index-url={indexUrl} data-copy={JSON.stringify(scriptCopy)} hidden>
   <div class="vm-search__backdrop" data-search-backdrop></div>
   <div
     class="vm-search__panel"
@@ -291,13 +308,13 @@ const c = {
   }
 
   const TYPE_ORDER = ['Streek', 'Wijnroute', 'Wijnhuis', 'Artikel', 'Land'];
-  const TYPE_LABELS: Record<string, string> = {
-    Streek: 'Streken',
-    Wijnroute: 'Routes',
-    Wijnhuis: 'Wijnhuizen',
-    Artikel: 'Artikelen',
-    Land: 'Landen',
-  };
+  interface ScriptCopy {
+    empty: string;
+    loading: string;
+    none: string;
+    groups: Record<string, string>;
+    types: Record<string, string>;
+  }
   const MAX_RESULTS = 24;
 
   const root = document.querySelector<HTMLElement>('[data-search]');
@@ -307,6 +324,8 @@ const c = {
   const closeBtn = document.querySelector<HTMLElement>('[data-search-close]');
 
   if (root && input && resultsEl) {
+    const INDEX_URL = root.dataset.indexUrl || '/search-index.json';
+    const COPY = JSON.parse(root.dataset.copy || '{}') as ScriptCopy;
     let records: IndexedRecord[] | null = null;
     let loading = false;
     let active = -1;
@@ -322,7 +341,7 @@ const c = {
       if (records || loading) return;
       loading = true;
       try {
-        const res = await fetch('/search-index.json');
+        const res = await fetch(INDEX_URL);
         const data = await res.json();
         records = (data.records as SearchRecord[]).map((r) => ({
           ...r,
@@ -413,12 +432,11 @@ const c = {
 
       if (!q) {
         active = -1;
-        resultsEl.innerHTML =
-          '<div class="vm-search__empty">Begin met typen, bijv. <span class="vm-search__ex">Barolo</span>, <span class="vm-search__ex">Mosel</span> of <span class="vm-search__ex">Priorat</span>.</div>';
+        resultsEl.innerHTML = `<div class="vm-search__empty">${COPY.empty}</div>`;
         return;
       }
       if (!records) {
-        resultsEl.innerHTML = '<div class="vm-search__empty">Zoekindex laden…</div>';
+        resultsEl.innerHTML = `<div class="vm-search__empty">${COPY.loading}</div>`;
         return;
       }
 
@@ -427,7 +445,7 @@ const c = {
       active = hits.length ? 0 : -1;
 
       if (!hits.length) {
-        resultsEl.innerHTML = `<div class="vm-search__empty">Geen resultaten voor '<strong>${escapeHtml(q)}</strong>'.<br/>Probeer een streek, wijnhuis of land.</div>`;
+        resultsEl.innerHTML = `<div class="vm-search__empty">${COPY.none.replace('{q}', `<strong>${escapeHtml(q)}</strong>`)}</div>`;
         return;
       }
 
@@ -445,7 +463,7 @@ const c = {
       let html = '';
       let i = 0;
       for (const type of orderedTypes) {
-        html += `<div class="vm-search__group-label" role="presentation">${escapeHtml(TYPE_LABELS[type] ?? type)}</div>`;
+        html += `<div class="vm-search__group-label" role="presentation">${escapeHtml(COPY.groups?.[type] ?? type)}</div>`;
         for (const rec of byType.get(type)!) {
           const sub = rec.subtitle ? `${rec.subtitle} · ` : '';
           html += `<a class="vm-search__item" role="option" id="vm-search-opt-${i}" data-idx="${i}" href="${escapeHtml(rec.url)}" aria-selected="${i === 0 ? 'true' : 'false'}">
@@ -453,7 +471,7 @@ const c = {
               <span class="vm-search__item-title">${highlight(rec.title, tokens)}</span>
               <span class="vm-search__item-excerpt">${escapeHtml(sub)}${highlight(rec.excerpt, tokens)}</span>
             </span>
-            <span class="vm-search__item-type">${escapeHtml(rec.type)}</span>
+            <span class="vm-search__item-type">${escapeHtml(COPY.types?.[rec.type] ?? rec.type)}</span>
           </a>`;
           i++;
         }
