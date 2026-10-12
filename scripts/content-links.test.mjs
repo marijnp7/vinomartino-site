@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {articleContentNode, buildContentLinks, bodyContentRefs, canonicalContentKey, contentKey} from '../src/lib/content-links.ts';
+import {articleContentNode, buildContentLinks, bodyContentRefs, canonicalContentKey, contentKey, isRedirectedArticleSlug} from '../src/lib/content-links.ts';
 import {readFileSync} from 'node:fs';
 import {localizeHref} from '../src/lib/i18n.ts';
 const node = (kind, slug, props = {}) => ({kind, slug, name: slug, regions: [], refs: [], ...props});
@@ -69,4 +69,14 @@ test('the article loader passes every related_articles/meer_over row through; on
   }
   const ui = readFileSync(new URL('../src/lib/content-links-loader.ts', import.meta.url), 'utf8');
   assert.match(ui, /articles\.map\(articleContentNode\)/);
+});
+
+test('LAT-13350: artikel-index slaat slugs over die op productie 301en', () => {
+  const pub = new Set(['een-week-in-piemonte-barolo-barbaresco-en-alles-daartussenin', 'een-week-in-piemonte', 'overnachten-langhe-barolo-agriturismi', 'waar-slapen-langhe-piemonte']);
+  assert.equal(isRedirectedArticleSlug('een-week-in-piemonte-barolo-barbaresco-en-alles-daartussenin', 'nl', pub), true);
+  assert.equal(isRedirectedArticleSlug('overnachten-langhe-barolo-agriturismi', 'nl', pub), false);
+  assert.equal(isRedirectedArticleSlug('overnachten-langhe-barolo-agriturismi', 'en', pub), true);
+  assert.equal(isRedirectedArticleSlug('een-week-in-piemonte', 'nl', pub), false);
+  // bestemming niet gepubliceerd: kaart blijft staan i.p.v. content te verliezen
+  assert.equal(isRedirectedArticleSlug('overnachten-langhe-barolo-agriturismi', 'en', new Set()), false);
 });

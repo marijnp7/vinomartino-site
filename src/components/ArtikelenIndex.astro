@@ -8,6 +8,7 @@ import SiteLayout from '../layouts/SiteLayout.astro';
 import SmartImg from '../components/SmartImg.astro';
 import ArticleCard from '../components/ArticleCard.astro';
 import { loadArticles } from '../lib/articles';
+import { isRedirectedArticleSlug } from '../lib/content-links';
 import { getAuthorByByline } from '../lib/authors';
 import { loadUiStrings } from '../lib/ui-strings';
 import { rubriekLabel, rubriekSlug } from '../lib/rubriek-labels';
@@ -28,7 +29,10 @@ const dateLocale = locale === 'en' ? 'en-GB' : 'nl-NL';
 const authorName = (byline: string | null | undefined): string =>
   getAuthorByByline(byline)?.name ?? byline ?? 'VinoMartino';
 
-const articles = await loadArticles(locale);
+const allArticles = await loadArticles(locale);
+// LAT-13350: geen kaarten naar een slug die op productie 301't (nginx-prod.conf).
+const publishedSlugs = new Set(allArticles.map((a) => a.slug));
+const articles = allArticles.filter((a) => !isRedirectedArticleSlug(a.slug, locale, publishedSlugs));
 
 // LAT-1753: facet-filtering op het artikelenoverzicht. We bouwen de facetten
 // dynamisch uit de geladen artikelen, zodat een facet-groep automatisch
