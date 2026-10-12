@@ -127,7 +127,11 @@ export function parseHerkomst(herkomst: string): { maker: string; sourceLabel: s
 
     // Bronnaam: uit "via <Bron>" patroon.
     const viaM = /\bvia\s+([A-Z][^\n,.;|(]+?)(?=\s*[|.(]|\s*$)/i.exec(text);
-    const sourceLabel = viaM ? viaM[1].trim() : null;
+    // LAT-13254: of uit de slash-vorm "<maker> / <bron> / CC BY-*"; anders herleid uit de bron-URL.
+    const slashM = viaM ? null : /\s\/\s*([^/\n]+?)\s*\/\s*CC\s*BY/i.exec(text);
+    const sourceLabel = viaM ? viaM[1].trim()
+        : slashM ? slashM[1].trim()
+        : (sourceUrl && /^https?:\/\/(?:[a-z]+\.)?(?:commons\.)?wikimedia\.org\//i.test(sourceUrl) ? 'Wikimedia Commons' : null);
 
     // Maker: segment ná het LAATSTE erkende label in de tekst.
     let last: { end: number } | null = null;

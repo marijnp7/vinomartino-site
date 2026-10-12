@@ -145,3 +145,14 @@ test('bronnaam en bron-URL blijven intact na de maker-guard', () => {
     assert.equal(p.sourceLabel, 'Wikimedia Commons');
     assert.equal(p.sourceUrl, 'https://commons.wikimedia.org/wiki/File:Elciego_-_Marqu%C3%A9s_de_Riscal_Hotel_RK01.jpg');
 });
+
+test('LAT-13254: slash-vorm levert de bronnaam, niet "via bron"', () => {
+    // Letterlijk de herkomst van de cava-hero (artikel 64, file b0423972).
+    const p = parseHerkomst('Foto: Toni de la Rosa Torelló / Wikimedia Commons / CC BY-SA 4.0. Bron: https://commons.wikimedia.org/wiki/File:Cavas_subterr%C3%A1neas_bodega_Torell%C3%B3.jpg');
+    assert.equal(p.maker, 'Toni de la Rosa Torelló');
+    assert.equal(p.sourceLabel, 'Wikimedia Commons');
+    assert.equal(p.sourceUrl, 'https://commons.wikimedia.org/wiki/File:Cavas_subterr%C3%A1neas_bodega_Torell%C3%B3.jpg');
+    // Zonder slash-bron en zonder "via": herleid uit een Commons-URL.
+    assert.equal(parseHerkomst('Foto: X. Bron: https://commons.wikimedia.org/wiki/File:A.jpg').sourceLabel, 'Wikimedia Commons');
+    assert.equal(parseHerkomst('Foto: X. Bron: https://example.org/a.jpg').sourceLabel, null);
+});
