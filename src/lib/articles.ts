@@ -438,7 +438,8 @@ function mapArticle(
           description: normalizeEmDashes(String(a.description || '')),
           author: String(a.author || 'VinoMartino'),
           pubDate: String(a.pub_date || stableFallbackPubDate(String(a.slug))),
-          updatedAt: a.updated_at ? String(a.updated_at) : null,
+          // LAT-13350: redactionele `updated_date` gaat voor de systeemtijd `updated_at`.
+          updatedAt: a.updated_date ? String(a.updated_date) : a.updated_at ? String(a.updated_at) : null,
           category: String(a.category || ''),
           tags: (a.tags as string[]) || [],
           heroImage: heroImagePath,
@@ -571,7 +572,9 @@ async function fetchArticlesItems(url: string, token: string): Promise<Record<st
           }
           if (res.ok) {
                 const json = await res.json();
-                return (json.data || []) as Record<string, unknown>[];
+                const items = (json.data || []) as Record<string, unknown>[];
+                await overlayUpdatedDate(url, items, headers);
+                return items;
           }
           lastStatus = res.status;
           lastBody = await res.text().catch(() => '');
@@ -583,6 +586,30 @@ async function fetchArticlesItems(url: string, token: string): Promise<Record<st
           break;
     }
     throw new Error(`[loadArticles] Directus returned ${lastStatus} for /items/articles after all field-tier fallbacks: ${lastBody.slice(0, 300)}`);
+}
+
+// LAT-13350: `updated_date` is het redactionele "bijgewerkt op"-veld; `updated_at`
+// is in de praktijk overal null. Aparte, niet-fatale lookup i.p.v. een extra
+// veld in de tiers: mist de build-rol read-permissie, dan zakt de hoofdfetch
+// anders een tier en verliest hij rubriek/relaties. Hier valt alleen deze ene
+// datum weg (dateModified valt dan terug op updated_at/pub_date).
+async function overlayUpdatedDate(url: string, items: Record<string, unknown>[], headers: Record<string, string>): Promise<void> {
+    if (items.length === 0) return;
+    try {
+          const res = await fetchDirectusCollection('loadArticles:updated_date', `${url}/items/articles?limit=-1&fields=id,updated_date&filter[updated_date][_nnull]=true`, { headers });
+          if (!res.ok) {
+                console.warn(`[loadArticles] articles.updated_date niet leesbaar (HTTP ${res.status}); dateModified valt terug op updated_at/pub_date.`);
+                return;
+          }
+          const rows = ((await res.json()).data || []) as { id: unknown; updated_date: unknown }[];
+          const byId = new Map(rows.map((r) => [String(r.id), r.updated_date]));
+          for (const item of items) {
+                const d = byId.get(String(item.id));
+                if (d) item.updated_date = d;
+          }
+    } catch (err) {
+          console.warn(`[loadArticles] updated_date-lookup faalde: ${err instanceof Error ? err.message : String(err)}`);
+    }
 }
 
 async function loadFromDirectus(url: string, token: string, locale: Locale): Promise<Article[]> {

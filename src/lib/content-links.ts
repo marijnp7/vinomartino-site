@@ -96,3 +96,14 @@ export function canonicalContentKey(key: string, locale: string): string {
   if (locale === 'en' && key === 'artikelen/overnachten-langhe-barolo-agriturismi') return 'artikelen/waar-slapen-langhe-piemonte';
   return aliases[key] ?? key;
 }
+
+/**
+ * LAT-13350: een gepubliceerd artikel waarvan de slug een productie-301 is naar
+ * een ander, óók gepubliceerd artikel. Kaarten op zo'n slug linken via een
+ * redirect; de bestemming staat al in dezelfde lijst, dus de kaart vervalt.
+ */
+export function isRedirectedArticleSlug(slug: string, locale: string, publishedSlugs: Set<string>): boolean {
+  const key = `artikelen/${slug}`;
+  const target = canonicalContentKey(key, locale);
+  return target !== key && publishedSlugs.has(target.slice('artikelen/'.length));
+}
