@@ -185,12 +185,12 @@ if (article.faqSchema) {
     <div class="container article-opening">
       {article.heroImage && (
         <figure class={`article-hero article-hero--b ${article.heroIsIllustration ? 'article-hero--illustration' : 'article-hero--photo'}`}>
-          <img src={article.heroImage} alt={article.title} class="article-hero-img" loading="eager" fetchpriority="high" />
+          <img src={article.heroImage} alt={article.heroAlt || article.title} class="article-hero-img" loading="eager" fetchpriority="high" />
           <PlaatsStempel text={article.plaatsstempel} variant="hero" />
           <BeeldHerkomst fileId={article.heroImageId} src={article.heroImage} locale={locale} />
           {heroCredit && (
             <figcaption class="article-hero-credit">
-              {heroCredit.author && <>{heroCredit.author}, </>}<a href={heroCredit.licenseUrl} rel="license noopener" target="_blank">{licenseLabelFor(heroCredit.licenseLabel, locale)}</a>{heroCredit.sourceUrl && <>, <a href={heroCredit.sourceUrl} rel="noopener" target="_blank">{heroCredit.sourceLabel ? `via ${heroCredit.sourceLabel}` : 'via bron'}</a></>}
+              {heroCredit.author && <>{heroCredit.author}, </>}<a href={heroCredit.licenseUrl} rel="license noopener" target="_blank">{licenseLabelFor(heroCredit.licenseLabel, locale)}</a>{heroCredit.sourceUrl && <>, <a href={heroCredit.sourceUrl} rel="noopener" target="_blank">{`via ${heroCredit.sourceLabel || (locale === 'nl' ? 'bron' : 'source')}`}</a></>}
             </figcaption>
           )}
         </figure>

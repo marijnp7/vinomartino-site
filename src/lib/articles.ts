@@ -25,6 +25,8 @@ export interface Article {
     // LAT-3253, Route 2: illustratie-hero (Tier 2, gestileerd) vs. fotorealistisch (Tier 1)?
     // Determines object-fit: contain (illustration) vs cover (photo).
     heroIsIllustration: boolean;
+    // LAT-13254: beschrijvende alt van de hero (`hero_alt`, vertaalbaar); leeg = val terug op de titel.
+    heroAlt: string;
     ogImage: string | null;
     status: string;
     featured: boolean;
@@ -442,6 +444,7 @@ function mapArticle(
           heroImage: heroImagePath,
           heroImageId: a.hero_image ? String(a.hero_image) : null,
           heroIsIllustration: a.hero_is_illustration === true || a.hero_is_illustration === 1 || a.hero_is_illustration === '1',
+          heroAlt: normalizeEmDashes(String(a.hero_alt || '')).trim(),
           ogImage: ogImagePath,
           status: String(a.status || 'draft'),
           featured: a.featured === true || a.featured === 1 || a.featured === '1',
