@@ -294,6 +294,7 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'header.search.openAria': 'Zoeken openen',
     'header.search.label': 'Zoeken',
     'header.cellar.enterAria': 'Ga naar de kelder (donkere modus)',
+    'header.cellar.exitAria': 'Ga naar buiten (lichte modus)',
     'header.cellar.enterLabel': 'Naar de kelder',
     'header.cellar.exitLabel': 'Naar buiten',
     'header.cellar.tipText': 'Te fel voor je ogen? Lees in de donkere kelder-modus.',
@@ -857,6 +858,7 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'reizen.index.driveRoute': 'Rij deze route zelf',
     'reizen.index.sleep.kicker': 'Slapen waar wij sliepen',
     'reizen.index.sleep.title': 'Hier ging het licht uit',
+    'reizen.index.sleep.opRoute': 'Bij de route:',
     'reizen.index.sleep.intro': 'Alleen adressen waar Marijn zelf sliep. Boeken kan via onze partnerlink, jij betaalt niets extra.',
     'reizen.index.routes.kicker': 'Wijnroutes',
     'reizen.index.routes.title': 'Kies je route',
@@ -1141,6 +1143,7 @@ export const UI_STRING_EN: Record<string, string> = {
   'reizen.index.driveRoute': 'Drive this route yourself',
   'reizen.index.sleep.kicker': 'Where we slept',
   'reizen.index.sleep.title': 'Lights out here',
+  'reizen.index.sleep.opRoute': 'On the route:',
   'reizen.index.sleep.intro': 'Only places where Marijn slept himself. Booking goes through our partner link at no extra cost to you.',
   'reizen.index.routes.kicker': 'Wine routes',
   'reizen.index.routes.title': 'Pick your route',
@@ -1167,6 +1170,10 @@ export const UI_STRING_EN: Record<string, string> = {
   'reizen.index.routes.allCta': 'All wine routes on the map',
   // LAT-12300 — eerste-gebruik-tooltip bij de kelder-toggle.
   'header.cellar.tipText': 'Too bright? Read in dark cellar mode.',
+  // LAT-13075 — de toggle-script overschreef aria-label met hardcoded NL; beide
+  // staten komen nu uit ui_strings, ook op /en/.
+  'header.cellar.enterAria': 'Go to the cellar (dark mode)',
+  'header.cellar.exitAria': 'Go outside (light mode)',
 
   // LAT-11950 — het promoblok in "Ontdek" claimde eigen bezoek voor élke
   // landengids, ook op /en/. Deze keys stonden alleen in UI_STRING_DEFAULTS, dus

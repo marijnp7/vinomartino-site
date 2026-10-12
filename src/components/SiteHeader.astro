@@ -172,6 +172,8 @@ const ontdekPromo = {
             aria-label={ui.t('header.cellar.enterAria')}
             aria-pressed="false"
             data-cellar-toggle
+            data-aria-enter={ui.t('header.cellar.enterAria')}
+            data-aria-exit={ui.t('header.cellar.exitAria')}
           >
             <span class="cellar-icon cellar-icon--enter" aria-hidden="true">🌙</span>
             <span class="cellar-icon cellar-icon--exit" aria-hidden="true">☀️</span>
@@ -763,7 +765,7 @@ const ontdekPromo = {
     cellarToggle.setAttribute('aria-pressed', isCellar ? 'true' : 'false');
     cellarToggle.setAttribute(
       'aria-label',
-      isCellar ? 'Ga naar buiten (lichte modus)' : 'Ga naar de kelder (donkere modus)',
+      (isCellar ? cellarToggle.dataset.ariaExit : cellarToggle.dataset.ariaEnter) ?? '',
     );
   };
   cellarToggle?.addEventListener('click', () => {

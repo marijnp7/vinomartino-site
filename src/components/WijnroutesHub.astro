@@ -121,11 +121,22 @@ const i18n = {
 
 // Band "Slapen waar wij sliepen": alleen accommodaties mét booking_url (CJ-wrapper in
 // AccommodatieKaart); zonder data blijft de band verborgen.
+// LAT-13075: elke kaart noemt en linkt de route waar hij bij hoort. De hub toont
+// routes uit meerdere landen, dus "op deze route" zonder naam was misleidend.
 const slaap = [
   ...new Map(
-    sorted.flatMap((e) => e.accommodaties).filter((a) => a.bookingUrl).map((a) => [a.slug, a] as const),
+    sorted
+      .flatMap((e) => e.accommodaties.map((a) => ({ kaart: a, entry: e })))
+      .filter(({ kaart }) => kaart.bookingUrl)
+      .map((x) => [x.kaart.slug, x] as const),
   ).values(),
-].slice(0, 3);
+]
+  .slice(0, 3)
+  .map(({ kaart, entry }) => {
+    const r = routeFor(entry)!;
+    const naam = r.shortTitle || (r.streekSlug ? streekNaam.get(r.streekSlug) : '') || r.title;
+    return { kaart, href: routeHref(entry), naam };
+  });
 
 const schema = [
   organizationSchema(),
@@ -313,7 +324,12 @@ const schema = [
         <h2>{ui.t('reizen.index.sleep.title')}</h2>
         <p class="rz-sleep__intro">{ui.t('reizen.index.sleep.intro')}</p>
         <div class="rz-sleep__grid">
-          {slaap.map((kaart) => <AccommodatieKaart kaart={kaart} context="wijnroutes-hub" locale={locale} />)}
+          {slaap.map(({ kaart, href, naam }) => (
+            <div class="rz-sleep__item">
+              <AccommodatieKaart kaart={kaart} context="wijnroutes-hub" locale={locale} />
+              <p class="rz-sleep__route">{ui.t('reizen.index.sleep.opRoute')} <a href={href}>{naam}</a></p>
+            </div>
+          ))}
         </div>
       </div>
     </section>
@@ -557,6 +573,7 @@ const schema = [
   .rz-nb p { font-size: 0.9375rem; color: var(--inkSoft); }
   .rz-links { display: flex; gap: 1.125rem; flex-wrap: wrap; margin-top: var(--space-3); }
   .rz-sleep { background: var(--paperDeep); padding-block: clamp(2.25rem, 5vw, 3.5rem); border-block: 1px solid var(--rule); }
+  .rz-sleep__route { margin: var(--space-2) 0 0; font-size: 0.9rem; color: var(--inkSoft); }
   .rz-sleep__intro { color: var(--inkSoft); max-width: 36rem; margin: var(--space-2) 0 var(--space-5); }
   .rz-sleep__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--space-5); }
   .rz-more { margin: var(--space-4) 0 var(--space-6); }
