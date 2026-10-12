@@ -72,6 +72,14 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'streek.section.wijnroutes': 'Wijnroutes',
     'streek.routes.rijdPrefix': 'Rijd',
     'streek.routes.intro': 'Uitgestippelde routes door de streek, van waar naar waar, met de mooiste stops onderweg.',
+    // LAT-13198 — keuzeblok bovenin streekpagina (pilot Bourgogne).
+    'streek.keuzes.label': "Plan je reis",
+    'streek.keuzes.slapen': "Slapen",
+    'streek.keuzes.slapen.sub': "Onze adressen op de kaart",
+    'streek.keuzes.proeverij': "Proeverij boeken",
+    'streek.keuzes.proeverij.sub': "Tours met wijnproeverij",
+    'streek.keuzes.route': "Route plannen",
+    'streek.keuzes.route.sub': "Rijroute met stops onderweg",
     'streek.route.bekijkCta': 'Bekijk route',
     'streek.section.deelregios': "Deelregio's",
     'streek.section.appellations': 'Appellations',
@@ -1056,6 +1064,14 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
  * nog geen EN-values heeft.  Volgorde in t(): Directus → UI_STRING_EN → UI_STRING_DEFAULTS.
  */
 export const UI_STRING_EN: Record<string, string> = {
+    // LAT-13198 — keuzeblok bovenin streekpagina (pilot Bourgogne).
+    'streek.keuzes.label': "Plan your trip",
+    'streek.keuzes.slapen': "Where to stay",
+    'streek.keuzes.slapen.sub': "Selected stays on the map",
+    'streek.keuzes.proeverij': "Book a tasting",
+    'streek.keuzes.proeverij.sub': "Tours with wine tastings",
+    'streek.keuzes.route': "Plan a route",
+    'streek.keuzes.route.sub': "Driving route with stops along the way",
     "crosslinks.title": "Explore more",
     "crosslinks.artikelen": "Articles",
     "crosslinks.streken": "Wine regions",
