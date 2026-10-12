@@ -91,9 +91,10 @@ test('inline-copy is Marijns eigen stem (ik) en verschilt van de footer-lede', (
   assert.doesNotMatch(nl['newsletter.inline.body'], /wijnmaker die we net bezochten/);
 });
 
-test('/de-brief noemt de datum van de eerste editie', () => {
-  assert.match(read('src/pages/de-brief/index.astro'), /eerste editie verschijnt op 5 november/);
-  assert.match(read('src/pages/en/de-brief/index.astro'), /first edition arrives on 5 November/);
+test('/de-brief belooft geen eerste editie meer en de EN-pagina noemt de taal (LAT-13196)', () => {
+  assert.doesNotMatch(read('src/pages/de-brief/index.astro'), /eerste editie verschijnt|5 november/i);
+  assert.doesNotMatch(read('src/pages/en/de-brief/index.astro'), /first edition arrives|5 November/i);
+  assert.match(read('src/pages/en/de-brief/index.astro'), /written in Dutch: there is no English edition/);
 });
 
 test('geen voorbeeldbrief die zich als echte editie 1 voordoet', () => {
