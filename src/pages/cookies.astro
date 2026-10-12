@@ -1,6 +1,6 @@
 ---
 import SiteLayout from '../layouts/SiteLayout.astro';
-const datum = "11 oktober 2026";
+const datum = "12 oktober 2026";
 ---
 
 <SiteLayout
@@ -19,11 +19,15 @@ const datum = "11 oktober 2026";
       <table>
         <thead><tr><th>Wat</th><th>Technologie</th><th>Doel</th><th>Commercieel?</th></tr></thead>
         <tbody>
-          <tr><td>Themavoorkeur (licht/donker)</td><td><code>localStorage</code> (jouw browser)</td><td>Visuele instelling onthouden</td><td>Nee</td></tr>
+          <tr><td>Themavoorkeur licht/donker (<code>vm-theme</code>)</td><td><code>localStorage</code> (jouw browser)</td><td>Visuele instelling onthouden; alleen als je het thema wisselt</td><td>Nee</td></tr>
+          <tr><td>Thematip gezien (<code>vm-cellar-tip-seen</code>)</td><td><code>localStorage</code></td><td>Onthouden dat de tip over het donkere thema al één keer getoond is</td><td>Nee</td></tr>
+          <tr><td>Variant van een knoptest (<code>vm_cta_ab_variant</code>), alleen op pagina's met zo'n test</td><td><code>localStorage</code></td><td>Steeds dezelfde versie van een knop tonen, zodat we kunnen vergelijken welke beter werkt</td><td>Nee</td></tr>
           <tr><td>Tabblad-code voor statistieken (<code>vm_sid</code>)</td><td><code>sessionStorage</code> (verdwijnt als je het tabblad sluit)</td><td>Bezoeken binnen één dag tellen zonder cookie; niet gezet bij Do Not Track of Global Privacy Control</td><td>Nee</td></tr>
+          <tr><td>Herkomst van het bezoek (<code>vm_first_ref</code>)</td><td><code>sessionStorage</code></td><td>Alleen de hostnaam van de site waarvandaan je kwam, voor de klikstatistiek; niet gezet bij Do Not Track of Global Privacy Control</td><td>Nee</td></tr>
+          <tr><td>Getoonde bestemmingen op de homepage (<code>vinomartino.home.destinations</code>)</td><td><code>sessionStorage</code></td><td>Bij een volgend bezoek binnen hetzelfde tabblad andere streken laten zien</td><td>Nee</td></tr>
         </tbody>
       </table>
-      <p>We plaatsen geen eigen tracking-cookies.</p>
+      <p>We plaatsen geen eigen cookies. Wat Stay22 opslaat, staat hieronder bij de derde partijen.</p>
 
       <h2>Eigen klikregistratie bij affiliate-links</h2>
       <p>Wanneer je op een affiliate-link klikt, sturen we een anoniem kliksignaal naar onze eigen server (<code>/api/clicks/affiliate</code>). Dit bevat: het linktype, het partnerplatform, de pagina waarop je klikte en het tijdstip. Geen naam, e-mailadres of IP-adres.</p>
@@ -34,7 +38,7 @@ const datum = "11 oktober 2026";
       <table>
         <thead><tr><th>Script / verbinding</th><th>Wat het doet</th><th>Zet een cookie?</th></tr></thead>
         <tbody>
-          <tr><td>Stay22 <code>letmeallez.js</code> (van <code>scripts.stay22.com</code>), alleen op pagina's met accommodatietips</td><td>Herschrijft accommodatielinks client-side zodat ze via Stay22 lopen; kan een overlay tonen</td><td><strong>Nee</strong>, maakt een netwerkverbinding, maar plaatst géén tracking-/attributiecookie bij laden</td></tr>
+          <tr><td>Stay22 <code>letmeallez.js</code> (van <code>scripts.stay22.com</code>, daarna verbindingen met <code>www.stay22.com</code> en soms <code>id.h2.stay22.com</code>), alleen op pagina's met accommodatietips</td><td>Herschrijft accommodatielinks client-side zodat ze via Stay22 lopen; kan een overlay tonen</td><td><strong>Ja.</strong> Stay22 zet de beveiligingscookie <code>__cf_bm</code> van Cloudflare op <code>stay22.com</code> (ongeveer 30 minuten geldig) en bewaart in de localStorage van deze site de sleutels <code>sid22</code> en <code>hip22</code>, en soms <code>visitor_id_id22</code> en <code>conMeth</code>. Een bezoekers-id als <code>visitor_id_id22</code> kan Stay22 gebruiken om je te herkennen. In onze meting respecteerde het script Do Not Track en Global Privacy Control niet.</td></tr>
           <tr><td>Eigen bezoekersstatistieken (<code>/api/events</code> op vinomartino.com)</td><td>Cookieloze telling van paginaweergaven, klikken en aanmeldingen; slaat geen persoonsgegevens of IP-adressen op; bewaard maximaal 12 maanden</td><td><strong>Nee</strong>, plaatst geen cookies; gebruikt alleen een willekeurige tabblad-code in sessionStorage die verdwijnt als je het tabblad sluit</td></tr>
           <tr><td>Kaarttegels van OpenFreeMap (<code>tiles.openfreemap.org</code>), alleen als een kaart laadt</td><td>Toont de achtergrondkaart</td><td><strong>Nee</strong>, maakt een netwerkverbinding waarbij die dienst je IP-adres ziet</td></tr>
         </tbody>
@@ -56,7 +60,7 @@ const datum = "11 oktober 2026";
 
       <h2>Jouw keuzes</h2>
       <ul>
-        <li><strong>LocalStorage wissen:</strong> via browserinstellingen → Privacy → Sitedata. Alleen je themavoorkeur verdwijnt.</li>
+        <li><strong>LocalStorage wissen:</strong> via browserinstellingen → Privacy → Sitedata. Je themavoorkeur en de Stay22-sleutels verdwijnen.</li>
         <li><strong>Stay22-script blokkeren:</strong> via een content-blocker. De tekst-content van de site werkt normaal; de accommodatielink-optimalisatie van Stay22 vervalt.</li>
         <li><strong>Analytics uitsluiten:</strong> zet Do Not Track of Global Privacy Control aan in je browser. Dan versturen we geen enkel meetsignaal: geen paginaweergave en geen klikregistratie. Een content-blocker zoals uBlock Origin werkt ook. We gebruiken geen Google Analytics.</li>
       </ul>
