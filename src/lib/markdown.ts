@@ -11,6 +11,10 @@ interface MarkdownOptions {
   // door de loaders (die de locale al kennen); zonder deze optie blijft de
   // render byte-identiek aan het NL-gedrag.
   locale?: Locale;
+  // LAT-13075: ids die het omringende template al gebruikt (bv. de portretsectie
+  // `#bezoek`). Een body-kop met dezelfde slug krijgt dan `-2`, zodat het anker
+  // naar de sectie wijst en de pagina geen dubbele id heeft.
+  reservedIds?: string[];
 }
 
 export interface TocItem {
@@ -31,8 +35,8 @@ function slugify(text: string): string {
 }
 
 // Stateful slugger zodat duplicate koppen stabiele, unieke ids krijgen (`-2`, `-3`).
-function makeSlugger(): (text: string) => string {
-  const seen = new Map<string, number>();
+function makeSlugger(reservedIds: string[] = []): (text: string) => string {
+  const seen = new Map<string, number>(reservedIds.map((id) => [id, 1]));
   return (text: string): string => {
     const base = slugify(text) || 'sectie';
     const n = seen.get(base) ?? 0;
@@ -183,7 +187,7 @@ export async function mdastToHtmlWithToc(
       mdast.children.splice(h1Idx, 1);
     }
   }
-  const slug = makeSlugger();
+  const slug = makeSlugger(options.reservedIds);
   const toc: TocItem[] = [];
   for (const node of mdast.children) {
     if (node.type !== 'heading' || (node.depth !== 2 && node.depth !== 3)) continue;

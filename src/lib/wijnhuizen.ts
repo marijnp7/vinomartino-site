@@ -78,7 +78,9 @@ import { isRelatedArticleLive } from './related-article-live';
 // LAT-2819: locale erdoorheen zodat interne links in de redactionele body
 // locale-aware worden (no-op op NL).
 function markdownToHtml(markdown: string, locale: Locale): Promise<string> {
-    return renderMarkdown(markdown, { stripFirstH1: true, locale });
+    // Sectie-ids uit WijnhuisPortretBlokken.astro; een body-kop "Bezoek" gaf anders
+    // een tweede id="bezoek" (LAT-13075, o.a. Argiano).
+    return renderMarkdown(markdown, { stripFirstH1: true, locale, reservedIds: ['bezoek', 'wat-te-drinken', 'snel-antwoord'] });
 }
 
 import {
