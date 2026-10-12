@@ -1,6 +1,6 @@
 ---
 import SiteLayout from '../../layouts/SiteLayout.astro';
-const datum = "11 October 2026";
+const datum = "12 October 2026";
 ---
 
 <SiteLayout
@@ -20,11 +20,15 @@ const datum = "11 October 2026";
       <table>
         <thead><tr><th>What</th><th>Technology</th><th>Purpose</th><th>Commercial?</th></tr></thead>
         <tbody>
-          <tr><td>Theme preference (light/dark)</td><td><code>localStorage</code> (your browser)</td><td>Remembering visual setting</td><td>No</td></tr>
+          <tr><td>Light/dark theme preference (<code>vm-theme</code>)</td><td><code>localStorage</code> (your browser)</td><td>Remembering visual setting; only if you switch theme</td><td>No</td></tr>
+          <tr><td>Theme tip seen (<code>vm-cellar-tip-seen</code>)</td><td><code>localStorage</code></td><td>Remembering that the dark theme tip has been shown once</td><td>No</td></tr>
+          <tr><td>Button test variant (<code>vm_cta_ab_variant</code>), only on pages running such a test</td><td><code>localStorage</code></td><td>Showing the same version of a button each time, so we can compare which works better</td><td>No</td></tr>
           <tr><td>Tab code for statistics (<code>vm_sid</code>)</td><td><code>sessionStorage</code> (disappears when you close the tab)</td><td>Counting visits within one day without a cookie; not set with Do Not Track or Global Privacy Control</td><td>No</td></tr>
+          <tr><td>Origin of the visit (<code>vm_first_ref</code>)</td><td><code>sessionStorage</code></td><td>Only the host name of the site you came from, for click statistics; not set with Do Not Track or Global Privacy Control</td><td>No</td></tr>
+          <tr><td>Destinations shown on the homepage (<code>vinomartino.home.destinations</code>)</td><td><code>sessionStorage</code></td><td>Showing different regions on your next visit in the same tab</td><td>No</td></tr>
         </tbody>
       </table>
-      <p>We do not place any first-party tracking cookies.</p>
+      <p>We do not place any first-party cookies. What Stay22 stores is listed below under third parties.</p>
 
       <h2>First-party click tracking for affiliate links</h2>
       <p>When you click an affiliate link, we send an anonymous click signal to our own server (<code>/api/clicks/affiliate</code>). This contains: the link type, the partner platform, the page you clicked on and the timestamp. No name, email address or IP address.</p>
@@ -35,7 +39,7 @@ const datum = "11 October 2026";
       <table>
         <thead><tr><th>Script / connection</th><th>What it does</th><th>Sets a cookie?</th></tr></thead>
         <tbody>
-          <tr><td>Stay22 <code>letmeallez.js</code> (from <code>scripts.stay22.com</code>), only on pages with accommodation tips</td><td>Rewrites accommodation links client-side so they run via Stay22; may display an overlay</td><td><strong>No</strong>, makes a network connection but places no tracking/attribution cookie on load</td></tr>
+          <tr><td>Stay22 <code>letmeallez.js</code> (from <code>scripts.stay22.com</code>, followed by connections to <code>www.stay22.com</code> and sometimes <code>id.h2.stay22.com</code>), only on pages with accommodation tips</td><td>Rewrites accommodation links client-side so they run via Stay22; may display an overlay</td><td><strong>Yes.</strong> Stay22 sets Cloudflare's security cookie <code>__cf_bm</code> on <code>stay22.com</code> (valid for about 30 minutes) and stores the keys <code>sid22</code> and <code>hip22</code>, and sometimes <code>visitor_id_id22</code> and <code>conMeth</code>, in this site's localStorage. Stay22 can use a visitor id such as <code>visitor_id_id22</code> to recognise you. In our measurement the script did not respect Do Not Track or Global Privacy Control.</td></tr>
           <tr><td>First-party visitor statistics (<code>/api/events</code> on vinomartino.com)</td><td>Cookie-free count of page views, clicks and sign-ups; stores no personal data or IP addresses; retained for a maximum of 12 months</td><td><strong>No</strong>, places no cookies; uses only a random tab code in sessionStorage that disappears when you close the tab</td></tr>
           <tr><td>Map tiles from OpenFreeMap (<code>tiles.openfreemap.org</code>), only when a map loads</td><td>Shows the background map</td><td><strong>No</strong>, makes a network connection in which that service sees your IP address</td></tr>
         </tbody>
@@ -57,7 +61,7 @@ const datum = "11 October 2026";
 
       <h2>Your choices</h2>
       <ul>
-        <li><strong>Clear local storage:</strong> via browser settings → Privacy → Site data. Only your theme preference will be removed.</li>
+        <li><strong>Clear local storage:</strong> via browser settings → Privacy → Site data. Your theme preference and the Stay22 keys will be removed.</li>
         <li><strong>Block the Stay22 script:</strong> via a content blocker. The text content of the site works normally; Stay22's accommodation link optimisation will be disabled.</li>
         <li><strong>Opt out of analytics:</strong> turn on Do Not Track or Global Privacy Control in your browser. We then send no measurement signal at all: no page view and no click record. A content blocker such as uBlock Origin also works. We do not use Google Analytics.</li>
       </ul>
