@@ -14,6 +14,9 @@ export interface AffiliateClickPayload {
   /** LAT-11947: eerste externe referrer (alleen hostnaam) van deze sessie, uit sessionStorage.
    *  LAT-12562: 'direct' = sessie startte zonder externe referrer; null = niet gemeten (storage geblokkeerd). */
   first_referrer_host: string | null;
+  /** LAT-13406: Stay22 LinkSwap (letmeallez.js) was geladen op het klikmoment; de bestemming kan door
+   *  Stay22 herschreven zijn, dus reconciliatie tegen Stay22-rapportage, niet tegen CJ. */
+  via_linkswap: boolean;
 }
 
 const ENDPOINT = '/api/clicks/affiliate';
@@ -60,6 +63,11 @@ export function subidFromHref(href: string): string {
   }
 }
 
+// Het script wordt pas na load + idle ingevoegd (SiteLayout, LAT-12558): een klik daarvóór is niet geswapt.
+function linkSwapActive(): boolean {
+  return document.querySelector('script[src*="scripts.stay22.com/letmeallez"]') !== null;
+}
+
 function buildPayload(el: HTMLElement, anchor: HTMLAnchorElement | null): AffiliateClickPayload {
   return {
     placement: el.dataset.affiliatePlacement || '',
@@ -69,6 +77,7 @@ function buildPayload(el: HTMLElement, anchor: HTMLAnchorElement | null): Affili
     referrer_host: getReferrerHost(),
     subid: anchor?.href ? subidFromHref(anchor.href).slice(0, 200) : '',
     first_referrer_host: getFirstReferrerHost(),
+    via_linkswap: linkSwapActive(),
   };
 }
 
