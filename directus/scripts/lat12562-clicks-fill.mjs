@@ -20,7 +20,7 @@ const f = (o) => "&filter=" + encodeURIComponent(JSON.stringify(o));
 const count = async (flt) => Number((await get("/items/affiliate_clicks?aggregate[count]=*" + f(flt)))[0].count);
 const real = { _or: [{ placement: { _null: true } }, { placement: { _nstarts_with: TEST } }] };
 
-const tests = await get("/items/affiliate_clicks?fields=clicked_at,placement,partner,subid,first_referrer_host" + f({ placement: { _starts_with: TEST } }));
+const tests = await get("/items/affiliate_clicks?fields=clicked_at,placement,partner,context,subid,first_referrer_host,via_linkswap" + f({ placement: { _starts_with: TEST } }));
 console.log("[lat12562] testevents:", JSON.stringify(tests));
 const tot = await get("/items/affiliate_clicks?aggregate[count]=*&aggregate[max]=clicked_at" + f(real));
 console.log("[lat12562] echt totaal + max clicked_at:", JSON.stringify(tot));
