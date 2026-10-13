@@ -49,6 +49,7 @@ export function summarize(rows) {
     cls: Math.round(median(r.runs.map((x) => x.cls)) * 1000) / 1000,
     perRunPerformance: r.runs.map((x) => x.performance),
     perRunLcpMs: r.runs.map((x) => Math.round(x.lcpMs)),
+    perRunAttribution: r.runs.map(({ lcpElement, lcpPhases, layoutShifts }) => ({ lcpElement, lcpPhases, layoutShifts })),
   }));
 }
 
@@ -74,16 +75,39 @@ function findChrome() {
   return undefined;
 }
 
-function runOnce(url, chrome, tmp) {
+// LAT-12594: LCP-element, LCP-fasen en layout-shift-bronnen uit het ruwe Lighthouse-JSON, zodat
+// een FAIL te herleiden is tot een element in plaats van alleen een getal.
+export function attribution(j) {
+  const a = j.audits || {};
+  // Lighthouse 13 levert dit via insights (lcp-breakdown-insight, cls-culprits-insight); oudere
+  // versies via largest-contentful-paint-element / layout-shifts. Beide vormen worden gelezen.
+  const flat = (d) => (d?.items || []).flatMap((it) => (it?.type === 'table' || it?.type === 'list' ? flat(it) : [it]));
+  const node = (n) => (n ? { selector: n.selector, nodeLabel: n.nodeLabel, snippet: n.snippet?.slice(0, 300) } : null);
+  const lcpItems = [...flat(a['lcp-breakdown-insight']?.details), ...flat(a['largest-contentful-paint-element']?.details)];
+  const lcpNode = lcpItems.find((x) => x?.type === 'node') || lcpItems.find((x) => x?.node)?.node;
+  const lcpPhases = Object.fromEntries(lcpItems.filter((x) => (x?.subpart || x?.phase) && (x.duration ?? x.timing) != null)
+    .map((x) => [x.subpart || x.phase, Math.round(x.duration ?? x.timing)]));
+  const shiftItems = [...flat(a['cls-culprits-insight']?.details), ...flat(a['layout-shifts']?.details)];
+  const layoutShifts = shiftItems.filter((x) => x?.node && (x.value ?? x.score) != null).map((x) => ({
+    score: Math.round(Number(x.value ?? x.score) * 10000) / 10000, ...node(x.node),
+    causes: (x.subItems?.items || []).map((c) => c.cause || c.extra?.value || c.reason).filter(Boolean),
+  }));
+  return { lcpElement: node(lcpNode), lcpPhases, layoutShifts };
+}
+
+function runOnce(url, chrome, tmp, rawPath) {
   const out = join(tmp, 'lh.json');
   const args = ['--yes', `lighthouse@${LIGHTHOUSE_VERSION}`, url, '--quiet', '--output=json', `--output-path=${out}`,
     '--only-categories=performance', '--form-factor=mobile', '--throttling-method=simulate',
     '--chrome-flags=--headless=new --no-sandbox --disable-gpu'];
   const r = spawnSync('npx', args, { env: { ...process.env, ...(chrome ? { CHROME_PATH: chrome } : {}) }, encoding: 'utf8', timeout: 240000 });
   if (r.status !== 0 || !existsSync(out)) throw new Error(`lighthouse faalde op ${url}: ${(r.stderr || '').slice(-400)}`);
-  const j = JSON.parse(readFileSync(out, 'utf8'));
+  const raw = readFileSync(out, 'utf8');
+  if (rawPath) writeFileSync(rawPath, raw);
+  const j = JSON.parse(raw);
   const a = j.audits;
   return {
+    ...attribution(j),
     performance: Math.round(j.categories.performance.score * 100),
     lcpMs: a['largest-contentful-paint'].numericValue,
     fcpMs: a['first-contentful-paint'].numericValue,
@@ -110,7 +134,8 @@ async function main() {
     for (const t of TEMPLATES) {
       const url = base + t.path;
       const rs = [];
-      for (let i = 0; i < runs; i++) rs.push(withRetry(() => runOnce(url, chrome, tmp)));
+      mkdirSync(join(outDir, 'raw'), { recursive: true });
+      for (let i = 0; i < runs; i++) rs.push(withRetry(() => runOnce(url, chrome, tmp, join(outDir, 'raw', `${t.template}-run${i + 1}.json`))));
       rows.push({ ...t, url, runs: rs });
       console.log(`${t.template}: perf ${rs.map((x) => x.performance)} lcp ${rs.map((x) => Math.round(x.lcpMs))}`);
     }

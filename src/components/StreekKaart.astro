@@ -322,8 +322,7 @@ const usedCats = sections.map((s) => s.key);
 )}
 
 <script>
-  import 'leaflet/dist/leaflet.css';
-  import { addBaseLayer, whenUserIntent } from '../lib/map-base';
+  import { addBaseLayer, whenUserIntent, loadLeaflet } from '../lib/map-base';
 
   type Pin = {
     n: number; naam: string; category: string; label: string; color: string;
@@ -331,12 +330,6 @@ const usedCats = sections.map((s) => s.key);
     detailUrl: string | null; cta: string; partner: string;
   };
   type MapData = { slug: string; leesMeer?: string; pins: Pin[]; area?: any };
-
-  let leafletPromise: Promise<any> | null = null;
-  function loadLeaflet(): Promise<any> {
-    if (!leafletPromise) leafletPromise = import('leaflet').then((m: any) => m.default ?? m);
-    return leafletPromise;
-  }
 
   function esc(s: string): string {
     return s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string));

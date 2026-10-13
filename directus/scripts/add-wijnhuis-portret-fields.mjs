@@ -49,7 +49,7 @@ const jsonField = (f, iface, note, options) => ({
 });
 
 const BODEM = ["leisteen", "kalk", "vulkanisch", "zand", "klei", "loess", "graniet", "overig"];
-const BEZOEK = ["zonder_afspraak", "vinothek", "op_afspraak"];
+const BEZOEK = ["zonder_afspraak", "vinothek", "op_afspraak", "gesloten"]; // LAT-13386: gesloten
 
 const fields = [
   { field: GROUP, type: "alias", meta: { interface: "group-detail", special: ["alias", "no-data", "group"], width: "full",
