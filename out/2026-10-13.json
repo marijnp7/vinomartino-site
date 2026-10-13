@@ -1,0 +1,256 @@
+{
+  "measuredAt": "2026-10-13T01:17:33Z",
+  "base": "https://vinomartino.com",
+  "lighthouse": "13.5.0",
+  "formFactor": "mobile",
+  "throttling": "simulate",
+  "runsPerTemplate": 3,
+  "thresholds": {
+    "performance": 85,
+    "lcpMs": 2500,
+    "cls": 0.1
+  },
+  "allPass": false,
+  "templates": [
+    {
+      "template": "home",
+      "url": "https://vinomartino.com/",
+      "runs": 3,
+      "performance": 89,
+      "lcpMs": 3749,
+      "fcpMs": 2037,
+      "tbtMs": 0,
+      "cls": 0,
+      "perRunPerformance": [
+        90,
+        78,
+        89
+      ],
+      "perRunLcpMs": [
+        3196,
+        4606,
+        3749
+      ]
+    },
+    {
+      "template": "streek",
+      "url": "https://vinomartino.com/streken/langhe-piemonte/",
+      "runs": 3,
+      "performance": 68,
+      "lcpMs": 6561,
+      "fcpMs": 2951,
+      "tbtMs": 26,
+      "cls": 0,
+      "perRunPerformance": [
+        68,
+        68,
+        80
+      ],
+      "perRunLcpMs": [
+        6561,
+        7194,
+        4942
+      ]
+    },
+    {
+      "template": "artikel",
+      "url": "https://vinomartino.com/artikelen/waar-slapen-langhe-piemonte/",
+      "runs": 3,
+      "performance": 84,
+      "lcpMs": 4393,
+      "fcpMs": 1821,
+      "tbtMs": 0,
+      "cls": 0,
+      "perRunPerformance": [
+        77,
+        85,
+        84
+      ],
+      "perRunLcpMs": [
+        4855,
+        4129,
+        4393
+      ]
+    },
+    {
+      "template": "artikel-grower",
+      "url": "https://vinomartino.com/artikelen/grower-champagne-waarom-marijn-gestopt-is-met-grandes-marques/",
+      "runs": 3,
+      "performance": 80,
+      "lcpMs": 5184,
+      "fcpMs": 1786,
+      "tbtMs": 0,
+      "cls": 0,
+      "perRunPerformance": [
+        80,
+        72,
+        85
+      ],
+      "perRunLcpMs": [
+        5184,
+        5731,
+        4210
+      ]
+    },
+    {
+      "template": "route",
+      "url": "https://vinomartino.com/wijnroutes/mosel-bernkastel-traben-trarbach/",
+      "runs": 3,
+      "performance": 73,
+      "lcpMs": 5350,
+      "fcpMs": 2754,
+      "tbtMs": 0,
+      "cls": 0,
+      "perRunPerformance": [
+        70,
+        73,
+        80
+      ],
+      "perRunLcpMs": [
+        5924,
+        5350,
+        5208
+      ]
+    },
+    {
+      "template": "artikel-en",
+      "url": "https://vinomartino.com/en/artikelen/waar-slapen-langhe-piemonte/",
+      "runs": 3,
+      "performance": 75,
+      "lcpMs": 5071,
+      "fcpMs": 3027,
+      "tbtMs": 0,
+      "cls": 0,
+      "perRunPerformance": [
+        74,
+        76,
+        75
+      ],
+      "perRunLcpMs": [
+        5216,
+        5052,
+        5071
+      ]
+    },
+    {
+      "template": "index-wijnhuizen",
+      "url": "https://vinomartino.com/wijnhuizen/",
+      "runs": 3,
+      "performance": 71,
+      "lcpMs": 5872,
+      "fcpMs": 1621,
+      "tbtMs": 0,
+      "cls": 0.167,
+      "perRunPerformance": [
+        69,
+        71,
+        71
+      ],
+      "perRunLcpMs": [
+        6095,
+        5872,
+        5689
+      ]
+    },
+    {
+      "template": "index-wijnroutes",
+      "url": "https://vinomartino.com/wijnroutes/",
+      "runs": 3,
+      "performance": 74,
+      "lcpMs": 4363,
+      "fcpMs": 1872,
+      "tbtMs": 0,
+      "cls": 0.195,
+      "perRunPerformance": [
+        74,
+        74,
+        82
+      ],
+      "perRunLcpMs": [
+        4363,
+        5558,
+        3471
+      ]
+    },
+    {
+      "template": "streek-bourgogne",
+      "url": "https://vinomartino.com/streken/bourgogne/",
+      "runs": 3,
+      "performance": 72,
+      "lcpMs": 5716,
+      "fcpMs": 3356,
+      "tbtMs": 19,
+      "cls": 0,
+      "perRunPerformance": [
+        72,
+        88,
+        66
+      ],
+      "perRunLcpMs": [
+        5716,
+        3696,
+        7990
+      ]
+    },
+    {
+      "template": "route-bourgogne",
+      "url": "https://vinomartino.com/wijnroutes/bourgogne-cote-dor-villages/",
+      "runs": 3,
+      "performance": 71,
+      "lcpMs": 6112,
+      "fcpMs": 3153,
+      "tbtMs": 59,
+      "cls": 0,
+      "perRunPerformance": [
+        71,
+        74,
+        71
+      ],
+      "perRunLcpMs": [
+        6112,
+        5830,
+        6374
+      ]
+    },
+    {
+      "template": "artikel-bourgogne",
+      "url": "https://vinomartino.com/artikelen/bourgogne-villages-zonder-grand-cru/",
+      "runs": 3,
+      "performance": 81,
+      "lcpMs": 4985,
+      "fcpMs": 1761,
+      "tbtMs": 0,
+      "cls": 0,
+      "perRunPerformance": [
+        81,
+        85,
+        72
+      ],
+      "perRunLcpMs": [
+        4985,
+        4179,
+        5664
+      ]
+    },
+    {
+      "template": "streek-bourgogne-en",
+      "url": "https://vinomartino.com/en/streken/bourgogne/",
+      "runs": 3,
+      "performance": 84,
+      "lcpMs": 4233,
+      "fcpMs": 1941,
+      "tbtMs": 22,
+      "cls": 0,
+      "perRunPerformance": [
+        84,
+        90,
+        76
+      ],
+      "perRunLcpMs": [
+        4233,
+        3508,
+        5148
+      ]
+    }
+  ]
+}
