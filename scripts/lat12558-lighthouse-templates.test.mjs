@@ -1,10 +1,25 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { median, summarize, passes, TEMPLATES, THRESHOLDS } from './lighthouse-templates.mjs';
+import { median, summarize, passes, withRetry, TEMPLATES, THRESHOLDS } from './lighthouse-templates.mjs';
 
-test('zes vaste sjablonen, uniek', () => {
-  assert.equal(TEMPLATES.length, 6);
-  assert.equal(new Set(TEMPLATES.map((t) => t.path)).size, 6);
+test('twaalf vaste sjablonen, uniek, incl. indexes en Bourgogne (LAT-12594)', () => {
+  assert.equal(TEMPLATES.length, 12);
+  assert.equal(new Set(TEMPLATES.map((t) => t.path)).size, 12);
+  for (const p of ['/', '/wijnhuizen/', '/wijnroutes/', '/streken/bourgogne/']) {
+    assert.ok(TEMPLATES.some((t) => t.path === p), `${p} ontbreekt`);
+  }
+});
+
+test('passes toetst CLS <= 0,1', () => {
+  const s = { performance: 95, lcpMs: 1000, cls: 0.1 };
+  assert.ok(passes(s));
+  assert.ok(!passes({ ...s, cls: 0.11 }));
+});
+
+test('withRetry herkanst een mislukte Chrome-start, en faalt na de laatste poging', () => {
+  let n = 0;
+  assert.equal(withRetry(() => { if (++n < 3) throw new Error('debugging port'); return 'ok'; }, 3), 'ok');
+  assert.throws(() => withRetry(() => { throw new Error('altijd'); }, 2), /altijd/);
 });
 
 test('median even en oneven', () => {

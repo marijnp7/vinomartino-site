@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// LAT-12558 — labmeting op de 6 vaste sjablonen (mobiel, gesimuleerde throttling).
+// LAT-12558/LAT-12594 — labmeting op de vaste sjablonen (mobiel, gesimuleerde throttling).
 // Geen devDependency: Lighthouse draait via `npx lighthouse@<versie>`, Chrome via CHROME_PATH
 // of de Playwright/Puppeteer-cache. Schrijft JSON naar --out, voegt een samenvatting toe aan
 // dist/build-info.json (sleutel `lighthouse`) en faalt (exit 1) onder de drempel met --enforce.
@@ -11,7 +11,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 export const LIGHTHOUSE_VERSION = '13.5.0';
-export const THRESHOLDS = { performance: 85, lcpMs: 2500 };
+export const THRESHOLDS = { performance: 85, lcpMs: 2500, cls: 0.1 };
+// LAT-12594: Chrome start op de runner soms niet ("waiting for dynamic debugging port", run
+// 38255026679). Eén mislukte start gooide de hele meting weg; nu een beperkte herkansing per run.
+export const ATTEMPTS_PER_RUN = 3;
 export const TEMPLATES = [
   { template: 'home', path: '/' },
   { template: 'streek', path: '/streken/langhe-piemonte/' },
@@ -19,6 +22,13 @@ export const TEMPLATES = [
   { template: 'artikel-grower', path: '/artikelen/grower-champagne-waarom-marijn-gestopt-is-met-grandes-marques/' },
   { template: 'route', path: '/wijnroutes/mosel-bernkastel-traben-trarbach/' },
   { template: 'artikel-en', path: '/en/artikelen/waar-slapen-langhe-piemonte/' },
+  // LAT-12594 (actieplan kwaliteit-acht, vlak K): beide indexes + Bourgogne-detail.
+  { template: 'index-wijnhuizen', path: '/wijnhuizen/' },
+  { template: 'index-wijnroutes', path: '/wijnroutes/' },
+  { template: 'streek-bourgogne', path: '/streken/bourgogne/' },
+  { template: 'route-bourgogne', path: '/wijnroutes/bourgogne-cote-dor-villages/' },
+  { template: 'artikel-bourgogne', path: '/artikelen/bourgogne-villages-zonder-grand-cru/' },
+  { template: 'streek-bourgogne-en', path: '/en/streken/bourgogne/' },
 ];
 
 export const median = (xs) => {
@@ -42,7 +52,15 @@ export function summarize(rows) {
   }));
 }
 
-export const passes = (s) => s.performance >= THRESHOLDS.performance && s.lcpMs < THRESHOLDS.lcpMs;
+export const passes = (s) => s.performance >= THRESHOLDS.performance && s.lcpMs < THRESHOLDS.lcpMs && s.cls <= THRESHOLDS.cls;
+
+export function withRetry(fn, attempts = ATTEMPTS_PER_RUN) {
+  let last;
+  for (let i = 0; i < attempts; i++) {
+    try { return fn(); } catch (e) { last = e; console.error(`poging ${i + 1}/${attempts} mislukt: ${e.message.slice(0, 200)}`); }
+  }
+  throw last;
+}
 
 function findChrome() {
   if (process.env.CHROME_PATH && existsSync(process.env.CHROME_PATH)) return process.env.CHROME_PATH;
@@ -92,7 +110,7 @@ async function main() {
     for (const t of TEMPLATES) {
       const url = base + t.path;
       const rs = [];
-      for (let i = 0; i < runs; i++) rs.push(runOnce(url, chrome, tmp));
+      for (let i = 0; i < runs; i++) rs.push(withRetry(() => runOnce(url, chrome, tmp)));
       rows.push({ ...t, url, runs: rs });
       console.log(`${t.template}: perf ${rs.map((x) => x.performance)} lcp ${rs.map((x) => Math.round(x.lcpMs))}`);
     }
@@ -111,7 +129,7 @@ async function main() {
   writeFileSync(join(outDir, 'latest.json'), JSON.stringify(result, null, 2) + '\n');
   if (existsSync(buildInfo)) {
     const info = JSON.parse(readFileSync(buildInfo, 'utf8'));
-    info.lighthouse = { measuredAt: result.measuredAt, base, allPass: result.allPass, templates: templates.map(({ template, performance, lcpMs, runs: n }) => ({ template, performance, lcpMs, runs: n })) };
+    info.lighthouse = { measuredAt: result.measuredAt, base, allPass: result.allPass, templates: templates.map(({ template, performance, lcpMs, cls, runs: n }) => ({ template, performance, lcpMs, cls, runs: n })) };
     writeFileSync(buildInfo, JSON.stringify(info) + '\n');
   }
   console.log(JSON.stringify({ allPass: result.allPass, out: join(outDir, 'latest.json') }));
