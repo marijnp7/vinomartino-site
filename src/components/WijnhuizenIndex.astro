@@ -124,7 +124,9 @@ const schema = [
   <section class="section container">
     {entries.length > 0 ? (
       <div class="wh-keuzehulp" data-wh-root data-i18n={JSON.stringify(i18n)} data-totaal={cards.length}>
-        <form class="wh-filters" role="search" aria-label={ui.t('wijnhuizen.filter.label')} hidden data-wh-form>
+        {/* LAT-12594: server-side zichtbaar, anders schuift de grid bij het tonen door JS (CLS 0,167). Zonder JS werkt filteren niet: verberg dan. */}
+        <noscript><style is:inline>.wh-filters { display: none !important; }</style></noscript>
+        <form class="wh-filters" role="search" aria-label={ui.t('wijnhuizen.filter.label')} data-wh-form>
           <div class="wh-field wh-field-zoek">
             <label for="wh-zoek">{ui.t('wijnhuizen.filter.zoek.label')}</label>
             <input id="wh-zoek" name="q" type="search" autocomplete="off" enterkeyhint="search" placeholder={ui.t('wijnhuizen.filter.zoek.placeholder')} />

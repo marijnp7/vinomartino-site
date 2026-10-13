@@ -163,7 +163,9 @@ const schema = [
 
   {routes.length > 0 && (
     <section class="wk container" id="wijnroutes" data-wk-root data-i18n={JSON.stringify(i18n)} data-totaal={enriched.length}>
-      <form class="wk-form" role="search" aria-label={ui.t('wijnroutes.keuze.label')} hidden data-wk-form>
+      {/* LAT-12594: server-side zichtbaar, anders schuift de lijst bij het tonen door JS (CLS 0,195). Zonder JS werkt filteren niet: verberg dan. */}
+      <noscript><style is:inline>.wk-form, .wk-view { display: none !important; }</style></noscript>
+      <form class="wk-form" role="search" aria-label={ui.t('wijnroutes.keuze.label')} data-wk-form>
         <div class="wk-fields">
           <div class="wk-field wk-field--zoek">
             <label for="wk-zoek" class="sr-only">{ui.t('wijnroutes.keuze.zoek.label')}</label>
@@ -201,7 +203,7 @@ const schema = [
         <h2 data-wk-titel>{ui.t('wijnroutes.keuze.results.alle')}</h2>
         <p class="wk-telling" data-wk-telling aria-live="polite" aria-atomic="true">{enriched.length === 1 ? ui.t('wijnroutes.keuze.telling.een') : ui.t('wijnroutes.keuze.telling.meer').replace('{n}', String(enriched.length))}</p>
         {opKaart.length > 0 && (
-          <div class="wk-view" role="group" aria-label={ui.t('wijnroutes.keuze.weergave')} hidden data-wk-view>
+          <div class="wk-view" role="group" aria-label={ui.t('wijnroutes.keuze.weergave')} data-wk-view>
             <button type="button" class="wk-vbtn" data-wk-mode="lijst" aria-pressed="true">
               <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 6h12M4 10h12M4 14h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
               {ui.t('wijnroutes.keuze.lijst')}
