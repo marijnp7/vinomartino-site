@@ -37,6 +37,7 @@ on:
           - lat13212-discovercars-clicks.mjs
           - lat13255-cleanup-testclicks.mjs
           - lat13213-retention-flow.mjs
+          - lat13406-affiliate-clicks-via-linkswap.mjs
           - mint-cj-importer.mjs
           - lat13075-routes-short-title.mjs
           - lat13386-bezoek-type-gesloten.mjs
