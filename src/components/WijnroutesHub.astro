@@ -219,13 +219,14 @@ const schema = [
       <div class="wk-body" data-wk-body data-mode="lijst">
         <ul class="wk-list" data-wk-list>
           {enriched.map(({ route, dagen, bucket, land, landKey, titel, zoek }, i) => {
+            // LAT-12594: 2 kaarten eager, maar alleen de eerste (LCP-element) op fetchpriority=high.
             const eager = i < 2;
             const meta = [land, dagen ? `${dagen} ${dagen === 1 ? ui.t('wijnroutes.keuze.dag') : ui.t('wijnroutes.keuze.dagen')}` : ''].filter(Boolean);
             const href = localizePath(`/wijnroutes/${route.slug}/`, locale);
             return (
               <li class="wk-card" data-wk-card data-slug={route.slug} data-land={landKey} data-duur={bucket ?? ''} data-zoek={zoek}>
                 <div class="wk-ph">
-                  <SmartImg src={route.heroImage || undefined} alt="" theme="region" width={480} loading={eager ? 'eager' : 'lazy'} fetchpriority={eager ? 'high' : undefined} />
+                  <SmartImg src={route.heroImage || undefined} alt="" theme="region" width={480} loading={eager ? 'eager' : 'lazy'} fetchpriority={i === 0 ? 'high' : undefined} />
                   <span class:list={['wk-badge', !route.zelfGereisd && 'wk-badge--soft']}>
                     {route.zelfGereisd ? ui.t('reizen.label.zelfGereisd') : ui.t('reizen.label.redactiegids')}
                   </span>
