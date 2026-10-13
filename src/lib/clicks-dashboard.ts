@@ -19,6 +19,7 @@
 // "nog geen data / wacht op provisioning"-staat (vgl. LAT-1011).
 
 import { readDirectusEnv, fetchDirectusCollection } from './directus-config';
+import { isTestClick } from './click-test-placements';
 
 export interface ClickRow {
   placement: string;
@@ -215,7 +216,7 @@ export async function loadClicksDashboard(): Promise<ClicksDashboard> {
       context: String(r.context ?? ''),
       path: String(r.path ?? ''),
       clicked_at: r.clicked_at ? String(r.clicked_at) : null,
-    }));
+    })).filter((r) => !isTestClick(r));
   } catch (err) {
     return emptyDashboard('unavailable', `Kon affiliate_clicks niet laden: ${(err as Error).message}`);
   }
