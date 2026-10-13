@@ -6,6 +6,7 @@ import { loadRoutes } from './routes';
 import { loadLanden } from './landen';
 import { loadUiStrings } from './ui-strings';
 import { rubriekLabel } from './rubriek-labels';
+import { localizeContinent } from './route-labels';
 
 // LAT-1202: build-time search index. Emits one flat JSON document that the
 // client-side SearchDialog fetches once and scores locally. Static, cacheable,
@@ -83,10 +84,10 @@ export async function buildSearchIndex(locale: Locale = DEFAULT_LOCALE) {
         records.push({
             type: 'Land',
             title: l.name,
-            subtitle: clean([l.continent]).join(' · ') || (isEn ? 'Wine country' : 'Wijnland'),
+            subtitle: clean([localizeContinent(l.continent, locale, (k) => ui.t(k))]).join(' · ') || (isEn ? 'Wine country' : 'Wijnland'),
             url: `${p}/landen/${l.slug}/`,
             excerpt: l.description || excerpt(l.bodyHtml),
-            keywords: clean([l.continent, l.capital, ...(l.mainGrapes || []), ...(l.wijnstreken || []).map((w) => w.name)]),
+            keywords: clean([localizeContinent(l.continent, locale, (k) => ui.t(k)), l.capital, ...(l.mainGrapes || []), ...(l.wijnstreken || []).map((w) => w.name)]),
             body: bodyText(l.bodyHtml),
         });
     }

@@ -26,3 +26,14 @@ test('EN: NL-duur wordt telling', () => {
   assert.equal(localizeRouteDuration('4 days, 4 nights', 'en', t), '4 days, 4 nights');
   assert.equal(localizeRouteDuration('een lang weekend', 'en', t), 'een lang weekend');
 });
+
+import { localizeContinent } from '../src/lib/route-labels.ts';
+const C = { 'continent.europa': 'Europe', 'continent.azie': 'Asia' };
+const tc = (k) => C[k] ?? k;
+test('EN: continent uit de NL-woordenlijst wordt vertaald, NL blijft bron', () => {
+  assert.equal(localizeContinent('Europa', 'en', tc), 'Europe');
+  assert.equal(localizeContinent('Azië', 'en', tc), 'Asia');
+  assert.equal(localizeContinent('Europa', 'nl', tc), 'Europa');
+  assert.equal(localizeContinent('Kaukasus', 'en', tc), 'Kaukasus');
+  assert.equal(localizeContinent('', 'en', tc), '');
+});

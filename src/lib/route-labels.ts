@@ -34,3 +34,21 @@ export function localizeRouteDuration(duration: string, locale: string, t: T): s
     }
     return out;
 }
+
+// LAT-13075 — landen.continent is een NL-woordenlijst zonder EN-vertaling in het
+// CMS; de EN-zoekindex toonde daardoor "Europa". Weergave via ui_strings, de
+// bron blijft ongewijzigd. Onbekende waarden blijven letterlijk staan.
+const CONTINENT: Record<string, string> = {
+    europa: 'europa', europe: 'europa',
+    afrika: 'afrika', africa: 'afrika',
+    'noord-amerika': 'noord-amerika', 'north america': 'noord-amerika',
+    'zuid-amerika': 'zuid-amerika', 'south america': 'zuid-amerika',
+    'azië': 'azie', azie: 'azie', asia: 'azie',
+    'oceanië': 'oceanie', oceanie: 'oceanie', oceania: 'oceanie',
+};
+
+export function localizeContinent(continent: string, locale: string, t: T): string {
+    if (locale === 'nl' || !continent) return continent;
+    const key = CONTINENT[continent.trim().toLowerCase()];
+    return key ? t(`continent.${key}`) : continent;
+}
