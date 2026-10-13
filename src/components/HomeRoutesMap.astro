@@ -88,8 +88,7 @@ const mapData = { routes: mapped };
 )}
 
 <script>
-  import 'leaflet/dist/leaflet.css';
-  import { addBaseLayer } from '../lib/map-base';
+  import { addBaseLayer, loadLeaflet } from '../lib/map-base';
 
   type Route = {
     slug: string;
@@ -105,7 +104,7 @@ const mapData = { routes: mapped };
 
   let leafletPromise: Promise<any> | null = null;
   function loadLeaflet(): Promise<any> {
-    if (!leafletPromise) leafletPromise = import('leaflet').then((m: any) => m.default ?? m);
+    if (!leafletPromise) leafletPromise = loadLeaflet();
     return leafletPromise;
   }
 
