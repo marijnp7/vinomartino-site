@@ -76,7 +76,7 @@ function cjClickWrap(finalBookingUrl: string, sid: string): string {
 // in dit formaat in Directus staan: `https://www.kqzyfj.com/click-PID-ADID?url=<booking.com>`.
 // LAT-1549: we pellen die hop er at-render-time af zodat de uiteindelijke link
 // ALTIJD een directe booking.com-deeplink wordt — onafhankelijk van wat de data bevat.
-const CJ_REDIRECT_HOSTS = [
+export const CJ_REDIRECT_HOSTS = [
   'kqzyfj.com', 'anrdoezrs.net', 'jdoqocy.com', 'dpbolvw.net', 'tkqlhce.com',
   'ftjcfx.com', 'lduhtrp.net', 'emjcd.com', 'qksrv.net', 'awltovhc.com', 'cj.dotomi.com',
 ];

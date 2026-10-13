@@ -30,6 +30,8 @@ const CTAS = [
   { type: 'tour-gyg', selector: 'a[href*="getyourguide."]' },
   { type: 'autohuur', selector: 'a[href*="discovercars"], a[href*="sunnycars"], a[href*="tradetracker"]' },
   { type: 'stay22-hyperlink22', selector: 'a[data-is-hyperlink22], a[href*="stay22.com"]' },
+  // LAT-13406: een affiliate-link die de redactie in de body zette (markdown.ts trackAffiliateHastLinks).
+  { type: 'body-link', selector: 'a[data-affiliate-placement="body-link"]', placement: 'lat12562-clicktime-body-link' },
 ];
 
 const PARAM_KEYS = ['aid', 'label', 'sid', 'partner_id', 'cmp', 'a_aid', 'affiliate', 'campaign', 'utm_source', 'utm_medium', 'utm_campaign', 'chan', 'r'];
@@ -88,7 +90,7 @@ async function measure(browser, site, path, cta) {
     row.sourceParams = pickParams(row.sourceHref);
     row.tracked = (await loc.getAttribute('data-affiliate-track')) !== null;
     row.label = ((await loc.innerText().catch(() => '')) || '').trim().slice(0, 80);
-    await loc.evaluate((el) => el.setAttribute('data-affiliate-placement', 'lat12562-clicktime'));
+    await loc.evaluate((el, p) => el.setAttribute('data-affiliate-placement', p), cta.placement || 'lat12562-clicktime');
     docs.length = 0;
     const popup = context.waitForEvent('page', { timeout: AFTER_CLICK_MS }).catch(() => null);
     await loc.click({ timeout: 10000 });

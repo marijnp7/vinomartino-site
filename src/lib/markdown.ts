@@ -1,7 +1,7 @@
 import { enhanceArticleVisualBlocks } from './article-visual-blocks';
 import { enhanceArticleTables } from './article-tables';
 import { DEFAULT_LOCALE, localizeHref, type Locale } from './i18n';
-import { buildCjBookingLink } from './affiliates';
+import { buildCjBookingLink, CJ_REDIRECT_HOSTS } from './affiliates';
 
 interface MarkdownOptions {
   editorialTables?: boolean;
@@ -15,6 +15,8 @@ interface MarkdownOptions {
   // `#bezoek`). Een body-kop met dezelfde slug krijgt dan `-2`, zodat het anker
   // naar de sectie wijst en de pagina geen dubbele id heeft.
   reservedIds?: string[];
+  // LAT-13406: slug van de pagina, wordt `data-affiliate-context` op affiliate-links in de body.
+  affiliateContext?: string;
 }
 
 export interface TocItem {
@@ -216,6 +218,8 @@ export async function mdastToHtmlWithToc(
   // no-op op NL, zodat de NL-HTML byte-identiek blijft.
   localizeHastLinks(rawHast as HastParent, options.locale ?? DEFAULT_LOCALE);
   wrapBookingHastLinks(rawHast as HastParent, options.locale ?? DEFAULT_LOCALE);
+  // LAT-13406: ná de booking-wrap, zodat ook de net naar CJ gewrapte links meetellen.
+  trackAffiliateHastLinks(rawHast as HastParent, options.affiliateContext ?? '');
   return { html: toHtml(rawHast as Parameters<typeof toHtml>[0]), toc };
 }
 
@@ -390,6 +394,52 @@ export function wrapBookingHastLinks(parent: HastParent, locale: Locale): void {
       }
     }
     wrapBookingHastLinks(node as HastParent, locale);
+  }
+}
+
+// LAT-13406: affiliate-links die de redactie in de body zet waren kale <a href> zonder
+// data-affiliate-track, dus de click-tracker zag ze niet (8 van 31 op auto-huren-sardinie).
+// Draait ná de sanitize: die laat data-* door, maar deze pas hoeft daar niet op te leunen.
+const BODY_AFFILIATE_HOSTS: Array<[string[], string]> = [
+  [CJ_REDIRECT_HOSTS, 'booking'],
+  [['discovercars.com'], 'discovercars'],
+  [['getyourguide.com', 'getyourguide.nl', 'getyourguide.de', 'getyourguide.fr', 'getyourguide.it', 'getyourguide.co.uk'], 'getyourguide'],
+  [['stay22.com'], 'stay22'],
+  [['sunnycars.nl', 'sunnycars.com', 'sunnycars.de', 'sunnycars.be', 'tradetracker.net'], 'sunnycars'],
+];
+
+export function affiliatePartnerForHref(href: string): string | null {
+  let host: string;
+  try { host = new URL(href).hostname.toLowerCase(); } catch { return null; }
+  for (const [hosts, partner] of BODY_AFFILIATE_HOSTS) {
+    if (hosts.some((h) => host === h || host.endsWith(`.${h}`))) return partner;
+  }
+  return null;
+}
+
+export function trackAffiliateHastLinks(parent: HastParent, context: string): void {
+  if (!Array.isArray(parent.children)) return;
+  for (const node of parent.children) {
+    if (node.type === 'element' && node.tagName?.toLowerCase() === 'a') {
+      const props = node.properties ?? {};
+      const href = props.href;
+      const partner = typeof href === 'string' ? affiliatePartnerForHref(href) : null;
+      if (partner) {
+        const cur = props.rel;
+        const rel = new Set((Array.isArray(cur) ? cur.join(' ') : String(cur ?? '')).split(/\s+/).filter(Boolean));
+        rel.add('sponsored'); rel.add('nofollow'); rel.add('noopener');
+        const next: Record<string, unknown> = { ...props, rel: [...rel].join(' ') };
+        // Een link die al gemarkeerd is (bv. een directive-CTA) houdt zijn eigen plaatsing.
+        if (!('dataAffiliateTrack' in props) && !('data-affiliate-track' in props)) {
+          next.dataAffiliateTrack = '';
+          next.dataAffiliatePartner = partner;
+          next.dataAffiliatePlacement = 'body-link';
+          next.dataAffiliateContext = context;
+        }
+        node.properties = next;
+      }
+    }
+    trackAffiliateHastLinks(node as HastParent, context);
   }
 }
 
