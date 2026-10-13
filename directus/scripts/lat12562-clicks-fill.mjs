@@ -9,7 +9,7 @@
 const U = process.env.DIRECTUS_URL, T = process.env.DIRECTUS_TOKEN;
 if (!U || !T) { console.error("DIRECTUS_URL/DIRECTUS_TOKEN required"); process.exit(1); }
 const H = { Authorization: `Bearer ${T}` };
-const TEST = "lat12562-testklik";
+const TEST = "lat12562-"; // prefix: testklik (11-10) + clicktime (Playwright, 13-10)
 async function get(path) {
   const r = await fetch(U + path, { headers: H });
   const t = await r.text();
@@ -18,9 +18,9 @@ async function get(path) {
 }
 const f = (o) => "&filter=" + encodeURIComponent(JSON.stringify(o));
 const count = async (flt) => Number((await get("/items/affiliate_clicks?aggregate[count]=*" + f(flt)))[0].count);
-const real = { _or: [{ placement: { _null: true } }, { placement: { _neq: TEST } }] };
+const real = { _or: [{ placement: { _null: true } }, { placement: { _nstarts_with: TEST } }] };
 
-const tests = await get("/items/affiliate_clicks?fields=clicked_at,subid,first_referrer_host" + f({ placement: { _eq: TEST } }));
+const tests = await get("/items/affiliate_clicks?fields=clicked_at,placement,partner,subid,first_referrer_host" + f({ placement: { _starts_with: TEST } }));
 console.log("[lat12562] testevents:", JSON.stringify(tests));
 const tot = await get("/items/affiliate_clicks?aggregate[count]=*&aggregate[max]=clicked_at" + f(real));
 console.log("[lat12562] echt totaal + max clicked_at:", JSON.stringify(tot));
