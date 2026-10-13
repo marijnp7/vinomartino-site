@@ -31,3 +31,14 @@ test('latin-ext-faces staan op font-display: optional', () => {
   for (const b of ext) assert.match(b, /font-display: optional;/);
   for (const b of faces.filter((b) => !b.includes('latin-ext'))) assert.match(b, /font-display: swap;/);
 });
+
+test('Source Serif 4-bestanden bestaan en zijn geïnstancet (< 60 KB, opsz vastgezet)', async () => {
+  const { statSync } = await import('node:fs');
+  const css = readFileSync('src/styles/fonts.css', 'utf8');
+  const files = [...new Set(css.match(/source-serif-4-[a-z-]+-[0-9a-f]{8}\.woff2/g))];
+  assert.ok(files.length >= 2);
+  for (const f of files) {
+    const size = statSync(join('public/fonts', f)).size;
+    assert.ok(size < 60_000, `${f} is ${size} B; variabele opsz-as terug? zie LAT-12594`);
+  }
+});
