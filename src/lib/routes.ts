@@ -78,6 +78,7 @@ import { markdownToHtml as renderMarkdown, normalizeEmDashes } from './markdown'
 import { isRelatedArticleLive } from './related-article-live';
 import { hasRouteDirectives, renderEnrichedRouteBody } from './route-body';
 import { loadUiStrings } from './ui-strings';
+import { localizeRouteStyle, localizeRouteDuration } from './route-labels';
 import { buildBookingSearchLink, resolveAccommodationHref } from './affiliates';
 
 // LAT-2819: locale erdoorheen zodat interne links in de redactionele body
@@ -544,6 +545,7 @@ async function loadFromDirectus(url: string, token: string, locale: Locale): Pro
         // zou op /en/ een NL-titel tonen en naar een 404 linken.
         dropUntranslated: true,
     });
+    const ui = await loadUiStrings(locale);
     const items = await Promise.all(
         data.map(async (r) => {
             const bodyHtml = r.body
@@ -570,6 +572,8 @@ async function loadFromDirectus(url: string, token: string, locale: Locale): Pro
             route.streekSlug = m2o || junction.get(Number(r.id)) || '';
             route.zelfGereisd = zelfGereisd.get(Number(r.id)) === true;
             route.shortTitle = shortTitles.get(Number(r.id)) || '';
+            route.style = localizeRouteStyle(route.style, locale, (k) => ui.t(k));
+            route.duration = localizeRouteDuration(route.duration, locale, (k) => ui.t(k));
             return route;
         }),
     );
