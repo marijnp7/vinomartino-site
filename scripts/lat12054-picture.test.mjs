@@ -1,5 +1,5 @@
 /**
- * LAT-12054 — <picture> met AVIF/WebP + JPG-fallback, srcset 640/1024/1600, hero = fetchpriority high.
+ * LAT-12054 — <picture> met AVIF/WebP + JPG-fallback, srcset 640/768/1024/1600, hero = fetchpriority high.
  * Draait optimize-images op een tijdelijke dist/ met echte JPG's.
  */
 import assert from 'node:assert/strict';
@@ -29,8 +29,8 @@ async function noisyJpeg(w, h, amp = 24) {
 }
 
 test('widthsFor: nooit upscalen, altijd de bronbreedte als top', () => {
-    assert.deepEqual(widthsFor(2400), [640, 1024, 1600]);
-    assert.deepEqual(widthsFor(1200), [640, 1024, 1200]);
+    assert.deepEqual(widthsFor(2400), [640, 768, 1024, 1600]);
+    assert.deepEqual(widthsFor(1200), [640, 768, 1024, 1200]);
     assert.deepEqual(widthsFor(500), [500]);
 });
 
@@ -64,9 +64,9 @@ test('optimizeDist maakt varianten, houdt alles <= 400 KB en wikkelt <img> in <p
     assert.equal(md.width, 1600);
 
     const html = readFileSync(join(dist, 'index.html'), 'utf8');
-    assert.match(html, /<source type="image\/avif" srcset="\/images\/wijnhuizen\/hero-1\.w640\.avif 640w, \/images\/wijnhuizen\/hero-1\.w1024\.avif 1024w, \/images\/wijnhuizen\/hero-1\.w1600\.avif 1600w"/);
+    assert.match(html, /<source type="image\/avif" srcset="\/images\/wijnhuizen\/hero-1\.w640\.avif 640w, \/images\/wijnhuizen\/hero-1\.w768\.avif 768w, \/images\/wijnhuizen\/hero-1\.w1024\.avif 1024w, \/images\/wijnhuizen\/hero-1\.w1600\.avif 1600w"/);
     assert.match(html, /<source type="image\/webp"/);
-    assert.match(html, /srcset="\/images\/wijnhuizen\/hero-1\.w640\.jpg 640w, \/images\/wijnhuizen\/hero-1\.w1024\.jpg 1024w, \/images\/wijnhuizen\/hero-1\.jpg 1600w"/);
+    assert.match(html, /srcset="\/images\/wijnhuizen\/hero-1\.w640\.jpg 640w, \/images\/wijnhuizen\/hero-1\.w768\.jpg 768w, \/images\/wijnhuizen\/hero-1\.w1024\.jpg 1024w, \/images\/wijnhuizen\/hero-1\.jpg 1600w"/);
     assert.match(html, /alt="a > b"[^>]*fetchpriority="high"/, 'hero: fetchpriority=high');
     assert.match(html, /alt="kaart" width="600" height="450"[^>]*loading="lazy"/, 'rest: lazy');
     assert.equal((html.match(/<picture/g) || []).length, 3, 'logo.svg en bestaande <picture> blijven onaangeroerd');

@@ -2,11 +2,11 @@
 // scripts/optimize-images.mjs — LAT-12054 deel 3
 //
 // Post-build stap op dist/: lichtere beelden via <picture> (AVIF + WebP met JPG-
-// fallback, srcset 640/1024/1600 + sizes), fetchpriority=high op de hero en
+// fallback, srcset 640/768/1024/1600 + sizes), fetchpriority=high op de hero en
 // loading=lazy op de rest.
 //
 // 1. Elk dist/images/**/*.jpg en dist/over-ons-hero.jpg krijgt varianten
-//    `<naam>.w640.{avif,webp,jpg}`, `.w1024.*`, `.w1600.*` (nooit breder dan de
+//    `<naam>.w640.{avif,webp,jpg}`, `.w768.*`, `.w1024.*`, `.w1600.*` (nooit breder dan de
 //    bron; nooit upscalen). Het basis-.jpg wordt vervangen door een versie <= 400 KB.
 // 2. Elke <img src="….jpg"> in dist/**/*.html met varianten wordt in <picture>
 //    gewikkeld. Dat gebeurt op de HTML en niet in de ~20 templates, zodat ook
@@ -22,7 +22,9 @@ import { join, dirname, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
 
-export const WIDTHS = [640, 1024, 1600];
+// LAT-12594: 768 erbij. Een mobiele viewport van 412 px op DPR 1,75 vraagt ~720 px; zonder
+// 768 viel de browser terug op w1024 (~100 KB AVIF) voor de LCP-hero.
+export const WIDTHS = [640, 768, 1024, 1600];
 export const MAX_BYTES = 400 * 1024;
 const QUALITIES = { jpg: [78, 70, 62, 54, 46, 42, 38, 34], webp: [74, 66, 58, 50, 42, 36, 30, 24, 18, 12], avif: [50, 44, 38, 32, 26] };
 
