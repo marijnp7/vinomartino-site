@@ -206,6 +206,20 @@ const hasUnifiedPoi = wijnhuizenInput.length > 0 || overnachtenInput.length > 0 
 // LAT-2009 (VIS-BL-10) — "aantal adressen" voor het feitenblok: tel de gecureerde
 // POI's met coördinaten over alle vier categorieën, zodat het getal exact matcht
 // met de genummerde pins op de kaart (StreekKaart nummert enkel geplotte POI's).
+// LAT-13198 — mobiele boekingsroute (pilot): bovenin drie keuzes naar doelen die
+// al op de pagina staan. Alleen voor pilotstreken; een keuze zonder echt doel
+// valt weg, en onder twee keuzes rendert het blok niet. Copy: ui_strings streek.keuzes.*.
+const KEUZES_PILOT = new Set(['bourgogne']);
+const kaartId = `streekkaart-${entry.slug}`.replace(/[^a-z0-9-]/gi, '');
+const keuzes = KEUZES_PILOT.has(entry.slug)
+  ? [
+      overnachtenInput.length > 0 ? { key: 'slapen', href: `#${kaartId}-overnachten` } : null,
+      (entry.gygTours?.length ?? 0) > 0 ? { key: 'proeverij', href: '#proeverijen' } : null,
+      routes.length === 1
+        ? { key: 'route', href: lh(`/wijnroutes/${routes[0].slug}/`) }
+        : routes.length > 1 ? { key: 'route', href: '#wijnroutes' } : null,
+    ].filter((k): k is { key: string; href: string } => k !== null)
+  : [];
 const aantalAdressen = [...wijnhuizenInput, ...overnachtenInput, ...etenInput, ...activiteitenInput]
   .filter((p) => p.lat != null && p.lng != null).length;
 
@@ -344,6 +358,24 @@ const hasFactBox = Boolean(
       )}
     </section>
 
+    {keuzes.length >= 2 && (
+      <nav class="streek-keuzes" aria-label={ui.t('streek.keuzes.label')}>
+        <div class="container">
+          <p class="streek-keuzes__label">{ui.t('streek.keuzes.label')}</p>
+          <ul class="streek-keuzes__list">
+            {keuzes.map(k => (
+              <li>
+                <a class="streek-keuzes__link" href={k.href} data-keuze={k.key}>
+                  <span class="streek-keuzes__title">{ui.t(`streek.keuzes.${k.key}`)}</span>
+                  <span class="streek-keuzes__sub">{ui.t(`streek.keuzes.${k.key}.sub`)}</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </nav>
+    )}
+
     {/* LAT-2009 (VIS-BL-10) — Streek-feitenblok "In het kort 2.0": één monospace
         feitenblok met druiven, beste seizoen, rijdagen, dichtstbijzijnd vliegveld,
         aantal adressen en tier-badge (+ wijndetailrijen). Vervangt de oude
@@ -403,7 +435,7 @@ const hasFactBox = Boolean(
     {/* LAT-1608 — routes prominenter: direct na de POI-kaart, met een visueel
         van-naar kaartje per route i.p.v. onderaan de pagina. */}
     {routes.length > 0 && (
-      <section class="streek-routes">
+      <section class="streek-routes" id="wijnroutes">
         <div class="container">
           <div class="streek-routes__head">
             <span class="section-label">{ui.t('streek.section.wijnroutes')}</span>
@@ -432,7 +464,9 @@ const hasFactBox = Boolean(
 
     {/* LAT-2252 — gecureerde GetYourGuide-tours (activiteitenkanaal). Rendert
         alleen als er tours in Directus (streken.gyg_tours) staan. */}
-    <TourCards streekSlug={entry.slug} streekName={entry.name} tours={entry.gygTours} locale={locale} />
+    <div id="proeverijen" class="streek-anker">
+      <TourCards streekSlug={entry.slug} streekName={entry.name} tours={entry.gygTours} locale={locale} />
+    </div>
 
     {/* LAT-13099 — gepubliceerde proeftafel-reviews uit deze streek; leeg = niets. */}
     <GeproefdUitStreek streekSlug={entry.slug} locale={locale} />
@@ -490,6 +524,17 @@ const hasFactBox = Boolean(
 </SiteLayout>
 
 <style>
+  /* LAT-13198 — keuzeblok: 1 kolom op mobiel, 3 naast elkaar vanaf 640px; tikvlak >= 44px. */
+  .streek-keuzes { background: var(--paper); padding: var(--space-4) 0; border-bottom: 1px solid var(--rule); }
+  .streek-keuzes__label { font-family: var(--font-mono); font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--inkFaint); margin: 0 0 var(--space-3); }
+  .streek-keuzes__list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-3); grid-template-columns: 1fr; }
+  @media (min-width: 640px) { .streek-keuzes__list { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  .streek-keuzes__link { display: flex; flex-direction: column; justify-content: center; gap: 2px; min-height: 56px; padding: 10px 16px; border: 1px solid var(--rule); background: #fff; color: var(--ink); text-decoration: none; overflow-wrap: anywhere; }
+  .streek-keuzes__link:hover { border-color: var(--rust); }
+  .streek-keuzes__link:focus-visible { outline: 2px solid var(--rust); outline-offset: 2px; }
+  .streek-keuzes__title { font-family: var(--font-display); font-size: 1.25rem; line-height: 1.2; }
+  .streek-keuzes__sub { font-family: var(--font-body); font-size: 0.875rem; color: var(--inkSoft); }
+  #wijnroutes, .streek-anker, :global([id$="-overnachten"]) { scroll-margin-top: 80px; }
   .streek-hero {
     background: var(--paper);
     padding-top: 3rem;
