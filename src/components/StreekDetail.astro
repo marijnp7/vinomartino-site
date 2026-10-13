@@ -298,6 +298,23 @@ const hasFactBox = Boolean(
             <h1>{entry.name}</h1>
             {entry.country && <p class="streek-country">{entry.country}</p>}
             {entry.description && <p class="streek-subtitle">{entry.description}</p>}
+            {/* LAT-13198 (D3, Codex-controle 13-10): keuzes direct onder titel en korte intro,
+                vóór klimaat/bodem en hero, zodat ze op 320/390 px boven de vouw staan. */}
+            {keuzes.length >= 2 && (
+              <nav class="streek-keuzes" aria-label={ui.t('streek.keuzes.label')}>
+                <p class="streek-keuzes__label">{ui.t('streek.keuzes.label')}</p>
+                <ul class="streek-keuzes__list">
+                  {keuzes.map(k => (
+                    <li>
+                      <a class="streek-keuzes__link" href={k.href} data-keuze={k.key}>
+                        <span class="streek-keuzes__title">{ui.t(`streek.keuzes.${k.key}`)}</span>
+                        <span class="streek-keuzes__sub">{ui.t(`streek.keuzes.${k.key}.sub`)}</span>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </nav>
+            )}
           </div>
           {hasStats && (
             <div class="streek-stats">
@@ -358,23 +375,6 @@ const hasFactBox = Boolean(
       )}
     </section>
 
-    {keuzes.length >= 2 && (
-      <nav class="streek-keuzes" aria-label={ui.t('streek.keuzes.label')}>
-        <div class="container">
-          <p class="streek-keuzes__label">{ui.t('streek.keuzes.label')}</p>
-          <ul class="streek-keuzes__list">
-            {keuzes.map(k => (
-              <li>
-                <a class="streek-keuzes__link" href={k.href} data-keuze={k.key}>
-                  <span class="streek-keuzes__title">{ui.t(`streek.keuzes.${k.key}`)}</span>
-                  <span class="streek-keuzes__sub">{ui.t(`streek.keuzes.${k.key}.sub`)}</span>
-                </a>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </nav>
-    )}
 
     {/* LAT-2009 (VIS-BL-10) — Streek-feitenblok "In het kort 2.0": één monospace
         feitenblok met druiven, beste seizoen, rijdagen, dichtstbijzijnd vliegveld,
@@ -525,10 +525,11 @@ const hasFactBox = Boolean(
 
 <style>
   /* LAT-13198 — keuzeblok: 1 kolom op mobiel, 3 naast elkaar vanaf 640px; tikvlak >= 44px. */
-  .streek-keuzes { background: var(--paper); padding: var(--space-4) 0; border-bottom: 1px solid var(--rule); }
+  .streek-keuzes { margin-top: var(--space-4); }
   .streek-keuzes__label { font-family: var(--font-mono); font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--inkFaint); margin: 0 0 var(--space-3); }
   .streek-keuzes__list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-3); grid-template-columns: 1fr; }
-  @media (min-width: 640px) { .streek-keuzes__list { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  /* 3 kolommen waar de linker hero-kolom breed genoeg is (≤900 px is de hero één kolom). */
+  @media (min-width: 640px) and (max-width: 900px), (min-width: 1100px) { .streek-keuzes__list { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
   .streek-keuzes__link { display: flex; flex-direction: column; justify-content: center; gap: 2px; min-height: 56px; padding: 10px 16px; border: 1px solid var(--rule); background: #fff; color: var(--ink); text-decoration: none; overflow-wrap: anywhere; }
   .streek-keuzes__link:hover { border-color: var(--rust); }
   .streek-keuzes__link:focus-visible { outline: 2px solid var(--rust); outline-offset: 2px; }
