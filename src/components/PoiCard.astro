@@ -334,6 +334,10 @@ const credit = foto ? await getImageCredit(fotoId ?? fileIdFromAccommodatiePath(
     text-decoration: none;
     white-space: nowrap;
     transition: background 0.15s ease, opacity 0.15s ease;
+    /* LAT-13198 D2: tikvlak minimaal 44 px hoog. */
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
   }
   .poi-card__cta:hover { background: var(--burgundyDeep, #3D1115); }
   .poi-card__cta--ghost {

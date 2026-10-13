@@ -540,6 +540,10 @@ const ontdekPromo = {
     transition: color var(--duration-fast) var(--ease-out),
                 border-color var(--duration-fast) var(--ease-out);
   }
+  @media (pointer: coarse) {
+    /* LAT-13198 D2: tikvlak minimaal 44 px hoog op touch. */
+    .cellar-toggle { min-height: 44px; min-width: 44px; justify-content: center; }
+  }
   .cellar-toggle:hover {
     color: var(--burgundy);
     border-color: var(--burgundy);
@@ -614,6 +618,11 @@ const ontdekPromo = {
     border: none;
     cursor: pointer;
     padding: 4px;
+    /* LAT-13198 D2: tikvlak minimaal 44x44 px op mobiel. */
+    min-width: 44px;
+    min-height: 44px;
+    align-items: center;
+    justify-content: center;
   }
   .mobile-toggle span {
     display: block;
