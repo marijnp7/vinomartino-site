@@ -167,11 +167,10 @@ const articleTags = article?.tags?.filter((tag): tag is string => Boolean(tag &&
     {schema && (
       <script type="application/ld+json" set:html={JSON.stringify(Array.isArray(schema) ? schema : [schema])} />
     )}
-    <link rel="preload" href="/fonts/source-serif-4-latin-167ee9c3.woff2" as="font" type="font/woff2" crossorigin />
-    <link rel="preload" href="/fonts/cormorant-garamond-latin-4db21dbf.woff2" as="font" type="font/woff2" crossorigin />
+    {/* LAT-12594: alleen de kopletter (Cormorant normal, 37 KB) preloaden. De andere vier
+        preloads (~280 KB) concurreerden met de hero-afbeelding om bandbreedte vóór LCP;
+        die fonts komen via fonts.css met font-display: swap. */}
     <link rel="preload" href="/fonts/cormorant-garamond-latin-abcaa8b4.woff2" as="font" type="font/woff2" crossorigin />
-    <link rel="preload" href="/fonts/inter-latin-6ab57b19.woff2" as="font" type="font/woff2" crossorigin />
-    <link rel="preload" href="/fonts/jetbrains-mono-latin-0a7197f9.woff2" as="font" type="font/woff2" crossorigin />
     <script is:inline>
       (function () {
         try {
