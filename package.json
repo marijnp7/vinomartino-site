@@ -79,7 +79,8 @@
     "test:route-narrative": "node --test scripts/route-narrative.test.mjs",
     "test:article-tables": "node --experimental-strip-types --test scripts/article-tables.test.mjs",
     "test:article-visual-blocks": "node --experimental-strip-types --test scripts/article-visual-blocks.test.mjs",
-    "test:content-links": "node --experimental-strip-types --test scripts/content-links.test.mjs"
+    "test:content-links": "node --experimental-strip-types --test scripts/content-links.test.mjs",
+    "test:lat13075-route-labels": "node --experimental-strip-types --test scripts/lat13075-route-labels.test.mjs"
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.7.2",
