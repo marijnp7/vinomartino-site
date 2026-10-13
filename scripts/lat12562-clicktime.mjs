@@ -90,10 +90,13 @@ async function measure(browser, site, path, cta) {
     row.sourceParams = pickParams(row.sourceHref);
     row.tracked = (await loc.getAttribute('data-affiliate-track')) !== null;
     row.label = ((await loc.innerText().catch(() => '')) || '').trim().slice(0, 80);
-    await loc.evaluate((el, p) => el.setAttribute('data-affiliate-placement', p), cta.placement || 'lat12562-clicktime');
+    // Vastpinnen vóór de klik: een Playwright-locator resolvet opnieuw, en na het overschrijven van
+    // data-affiliate-placement matcht de body-link-selector anders de vólgende body-link (zonder testplacement).
+    await loc.evaluate((el, p) => { el.setAttribute('data-affiliate-placement', p); el.setAttribute('data-lat12562-target', '1'); }, cta.placement || 'lat12562-clicktime');
+    const hit = page.locator('[data-lat12562-target="1"]');
     docs.length = 0;
     const popup = context.waitForEvent('page', { timeout: AFTER_CLICK_MS }).catch(() => null);
-    await loc.click({ timeout: 10000 });
+    await hit.click({ timeout: 10000 });
     const target = (await popup) || page;
     await target.waitForLoadState('load', { timeout: AFTER_CLICK_MS }).catch(() => {});
     await target.waitForTimeout(4000);
