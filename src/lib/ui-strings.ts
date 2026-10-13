@@ -26,6 +26,30 @@ import { UI_COPY } from './ui-copy';
  * (content-writer vult per key de EN-`value` in `ui_strings_translations`).
  */
 export const UI_STRING_DEFAULTS: Record<string, string> = {
+    // LAT-13354: /de-brief/ (HARDE REGEL 3). Edities zijn genummerd (debrief.editie.N.meta/titel/url);
+    // een nieuwe editie is een nieuwe N in Directus, geen code.
+    'debrief.meta.title': 'De brief, de nieuwsbrief van VinoMartino',
+    'debrief.meta.description': 'Eens per maand stopt Marijn een brief in je inbox: over een wijnmaker die we net bezochten, een regio die opnieuw onze aandacht trok, een fles die indruk maakte. Aanmelden gaat via Substack.',
+    'debrief.breadcrumb': 'De brief',
+    'debrief.kicker': 'De brief · eens per maand',
+    'debrief.h1': 'De brief',
+    'debrief.lede': 'Eens per maand stopt Marijn een brief in je inbox. Geen persberichten, geen uitnodigingen voor generieke wijnfestivals, een echte brief. Over een wijnmaker die we net bezochten, een regio die opnieuw onze aandacht trok, een fles die indruk maakte. De brief verschijnt sinds juli 2026 op Substack, in het Nederlands. Aanmelden gaat via Substack.',
+    'debrief.cta.label': 'Schrijf je in voor De brief',
+    'debrief.follow.lead': 'Al nieuwsgierig? Volg Marijn alvast op',
+    'debrief.follow.instagram': 'Instagram',
+    'debrief.follow.substack.lead': ', of lees de brieven online op',
+    'debrief.follow.substack': 'Substack',
+    'debrief.follow.tail': ', daar staan alle verschenen brieven.',
+    'debrief.edities.dateline': 'De brief, verschenen edities',
+    'debrief.edities.intro': 'Tot nu toe verschenen:',
+    'debrief.edities.suffix': '',
+    'debrief.edities.outro': 'De volgende brief heeft nog geen datum. Wie zich aanmeldt, krijgt hem in de inbox zodra hij verschijnt.',
+    'debrief.editie.1.meta': '16 juli 2026, de Langhe',
+    'debrief.editie.1.titel': 'Waarom de ene Barolo twintig jaar dichtblijft en de andere niet',
+    'debrief.editie.1.url': 'https://vinomartino.substack.com/p/waarom-de-ene-barolo-twintig-jaar',
+    'debrief.editie.2.meta': 'Augustus 2026, Toscane (herziene versie van 2 oktober)',
+    'debrief.editie.2.titel': 'Waarom Brunello, Chianti en Vino Nobile dezelfde druif zijn en toch niet op elkaar lijken',
+    'debrief.editie.2.url': 'https://vinomartino.substack.com/p/waarom-brunello-chianti-en-vino-nobile-923',
     "crosslinks.title": "Ontdek verder",
     "crosslinks.artikelen": "Artikelen",
     "crosslinks.streken": "Streken",
@@ -1075,6 +1099,30 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
  * nog geen EN-values heeft.  Volgorde in t(): Directus → UI_STRING_EN → UI_STRING_DEFAULTS.
  */
 export const UI_STRING_EN: Record<string, string> = {
+    // LAT-13354: /de-brief/ (HARDE REGEL 3). Edities zijn genummerd (debrief.editie.N.meta/titel/url);
+    // een nieuwe editie is een nieuwe N in Directus, geen code.
+    'debrief.meta.title': 'The letter, the VinoMartino newsletter',
+    'debrief.meta.description': 'Once a month Marijn puts a letter in your inbox: about a winemaker we just visited, a region that caught our attention again, a bottle that made an impression. Sign up through Substack.',
+    'debrief.breadcrumb': 'The letter',
+    'debrief.kicker': 'The letter · once a month',
+    'debrief.h1': 'The letter',
+    'debrief.lede': 'Once a month Marijn puts a letter in your inbox. No press releases, no invitations to generic wine festivals, a real letter. About a winemaker we just visited, a region that caught our attention again, a bottle that made an impression. The letter is written in Dutch: there is no English edition, and subscribers receive the Dutch letter. It has appeared on Substack since July 2026. Sign up through Substack.',
+    'debrief.cta.label': 'Subscribe to The Letter',
+    'debrief.follow.lead': 'Already curious? Follow Marijn on',
+    'debrief.follow.instagram': 'Instagram',
+    'debrief.follow.substack.lead': ', or read the letters online on',
+    'debrief.follow.substack': 'Substack',
+    'debrief.follow.tail': ', where every published letter is archived (in Dutch).',
+    'debrief.edities.dateline': 'The letter, published editions (in Dutch)',
+    'debrief.edities.intro': 'Published so far:',
+    'debrief.edities.suffix': '(in Dutch)',
+    'debrief.edities.outro': 'The next letter does not have a date yet. Subscribers receive it as soon as it appears.',
+    'debrief.editie.1.meta': '16 July 2026, the Langhe',
+    'debrief.editie.1.titel': 'Why one Barolo stays closed for twenty years and another does not',
+    'debrief.editie.1.url': 'https://vinomartino.substack.com/p/waarom-de-ene-barolo-twintig-jaar',
+    'debrief.editie.2.meta': 'August 2026, Tuscany (revised version of 2 October)',
+    'debrief.editie.2.titel': 'Why Brunello, Chianti and Vino Nobile share a grape yet taste nothing alike',
+    'debrief.editie.2.url': 'https://vinomartino.substack.com/p/waarom-brunello-chianti-en-vino-nobile-923',
     "crosslinks.title": "Explore more",
     "crosslinks.artikelen": "Articles",
     "crosslinks.streken": "Wine regions",
