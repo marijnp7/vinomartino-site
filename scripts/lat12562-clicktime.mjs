@@ -57,7 +57,17 @@ async function measure(browser, site, path, cta) {
   const context = await browser.newContext({ locale: path.startsWith('/en/') ? 'en-GB' : 'nl-NL' });
   const docs = [];
   const beacons = [];
+  const beaconStatus = [];
   const partnerHits = new Set();
+  // LAT-13406: status van het beacon zelf (een gevangen request bewijst niet dat de rij landde).
+  context.on('requestfinished', async (req) => {
+    if (!req.url().includes('/api/clicks/affiliate')) return;
+    const res = await req.response().catch(() => null);
+    beaconStatus.push(res ? res.status() : 'geen-response');
+  });
+  context.on('requestfailed', (req) => {
+    if (req.url().includes('/api/clicks/affiliate')) beaconStatus.push(`failed: ${req.failure()?.errorText || '?'}`);
+  });
   context.on('request', (req) => {
     const url = req.url();
     if (url.includes('/api/clicks/affiliate')) {
@@ -113,6 +123,7 @@ async function measure(browser, site, path, cta) {
     row.result = `fout: ${String(err.message || err).slice(0, 200)}`;
   } finally {
     row.beacons = beacons;
+    row.beaconStatus = beaconStatus;
     row.partnerParamRequests = [...partnerHits].slice(0, 15);
     await context.close();
   }
@@ -144,7 +155,7 @@ export async function runClicktime(browser, site, reportPath) {
   for (const path of PAGES) {
     for (const cta of CTAS) {
       const row = await measure(browser, site, path, cta);
-      console.log(`[lat12562] ${path} ${cta.type}: ${row.result} → ${row.finalHost || '-'} ${JSON.stringify(row.finalParams || {})}`);
+      console.log(`[lat12562] ${path} ${cta.type}: ${row.result} → ${row.finalHost || '-'} ${JSON.stringify(row.finalParams || {})} beacon=${JSON.stringify(row.beaconStatus || [])} newTab=${row.openedNewTab}`);
       rows.push(row);
     }
   }
