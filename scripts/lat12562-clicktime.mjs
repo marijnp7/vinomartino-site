@@ -90,11 +90,15 @@ async function measure(browser, site, path, cta) {
     const page = await context.newPage();
     await page.goto(`${site}${path}?lat12562=clicktime`, { waitUntil: 'networkidle', timeout: 45000 }).catch(() => {});
     await page.waitForTimeout(SETTLE_MS);
-    const loc = page.locator(cta.selector).filter({ visible: true }).first();
-    if ((await loc.count()) === 0) {
+    // LAT-13406: vastpinnen op een ElementHandle. Een locator re-resolvet bij elke actie; na het
+    // herschrijven van data-affiliate-placement matcht `[data-affiliate-placement="body-link"]` het
+    // element niet meer en klikte hij de vólgende, ongemarkeerde body-link (echte rij i.p.v. testrij).
+    const first = page.locator(cta.selector).filter({ visible: true }).first();
+    if ((await first.count()) === 0) {
       row.result = 'geen zichtbare CTA van dit type op de pagina';
       return row;
     }
+    const loc = await first.elementHandle();
     await loc.scrollIntoViewIfNeeded();
     row.sourceHref = short(await loc.getAttribute('href'), 400);
     row.sourceParams = pickParams(row.sourceHref);
