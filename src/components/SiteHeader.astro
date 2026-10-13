@@ -590,6 +590,10 @@ const ontdekPromo = {
   @media print {
     .cellar-tip { display: none; }
   }
+  /* LAT-13062 #5: op smalle schermen lag de tip over de H1. */
+  @media (max-width: 720px) {
+    .cellar-tip { display: none; }
+  }
   .cellar-icon { font-size: 0.75rem; }
 
   /* State-afhankelijk label + icoon: lichte modus nodigt uit "naar de kelder",
