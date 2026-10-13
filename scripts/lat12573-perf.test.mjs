@@ -26,10 +26,14 @@ test('elk font-bestand uit fonts.css bestaat in public/fonts en elke preload wij
   for (const f of preloads) assert.ok(files.includes(f), `${f} staat niet in fonts.css`);
 });
 
-test('fonts.css gebruikt font-display swap voor elke face', () => {
+test('fonts.css: swap voor elke face, behalve latin-ext op optional (LAT-12594, CLS)', () => {
   const css = read('src/styles/fonts.css');
-  const faces = css.match(/@font-face/g).length;
-  assert.equal(css.match(/font-display: swap/g).length, faces);
+  const blocks = css.split('@font-face').slice(1).map((b) => b.slice(0, b.indexOf('}')));
+  assert.ok(blocks.length > 0);
+  for (const block of blocks) {
+    assert.match(block, /font-display: (swap|optional);/);
+    if (/font-display: optional/.test(block)) assert.match(block, /latin-ext/);
+  }
 });
 
 test('nginx cachet /fonts (immutable) en /images (30 dagen, niet immutable)', () => {

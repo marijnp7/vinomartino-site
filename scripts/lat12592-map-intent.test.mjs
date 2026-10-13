@@ -21,7 +21,7 @@ for (const [file, calls] of [
 ]) {
   test(`${file}: elke init wacht op whenUserIntent vóór loadLeaflet`, () => {
     const s = read(file);
-    assert.match(s, /import \{ addBaseLayer, whenUserIntent \}/);
+    assert.match(s, /import \{ addBaseLayer, whenUserIntent(, loadLeaflet)? \}/);
     const gated = s.match(/await whenUserIntent\(\);\s*\n\s*const L = await loadLeaflet\(\)/g) ?? [];
     assert.equal(gated.length, calls);
     assert.equal((s.match(/const L = await loadLeaflet\(\)/g) ?? []).length, calls);

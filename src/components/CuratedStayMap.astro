@@ -216,8 +216,7 @@ const mapData = {
 </section>
 
 <script>
-  import 'leaflet/dist/leaflet.css';
-  import { addBaseLayer } from '../lib/map-base';
+  import { addBaseLayer, loadLeaflet } from '../lib/map-base';
 
   type AccPin = {
     n: number; naam: string; tier: string; tierLabel: string; color: string;
@@ -225,14 +224,6 @@ const mapData = {
   };
   type WijnPin = { naam: string; lat: number; lng: number };
   type MapData = { slug: string; accommodaties: AccPin[]; wijnhuizen: WijnPin[] };
-
-  let leafletPromise: Promise<any> | null = null;
-  function loadLeaflet(): Promise<any> {
-    if (!leafletPromise) {
-      leafletPromise = import('leaflet').then((m: any) => m.default ?? m);
-    }
-    return leafletPromise;
-  }
 
   function esc(s: string): string {
     return s.replace(/[&<>"]/g, (c) => (

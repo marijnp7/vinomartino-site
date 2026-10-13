@@ -89,18 +89,11 @@ const mapData = {
 )}
 
 <script>
-  import 'leaflet/dist/leaflet.css';
-  import { addBaseLayer, whenUserIntent } from '../lib/map-base';
+  import { addBaseLayer, whenUserIntent, loadLeaflet } from '../lib/map-base';
 
   type StopKind = 'stop' | 'wijnhuis' | 'slaap';
   type Stop = { n: number | null; kind: StopKind; naam: string; slug: string | null; lat: number; lng: number };
   type MapData = { slug: string; wijnhuisBase?: string; portraitLabel: string; stops: Stop[]; line: [number, number][] };
-
-  let leafletPromise: Promise<any> | null = null;
-  function loadLeaflet(): Promise<any> {
-    if (!leafletPromise) leafletPromise = import('leaflet').then((m: any) => m.default ?? m);
-    return leafletPromise;
-  }
 
   function esc(s: string): string {
     return s.replace(/[&<>"]/g, (c) => (
