@@ -42,3 +42,7 @@ const byPartner = await get("/items/affiliate_clicks?aggregate[count]=*&groupBy[
 console.log("[lat12562] per partner sinds 09-01:", JSON.stringify(byPartner));
 const comm = await get("/items/affiliate_commissions?aggregate[count]=*&aggregate[max]=imported_at,event_date");
 console.log("[lat12562] commissions count + max imported_at/event_date:", JSON.stringify(comm));
+// Echte rijen van de laatste 48 uur, om testverkeer zonder testplacement te herkennen.
+// Geen paden of referrer-hosts: alleen of first_referrer_host 'direct', extern of leeg is.
+const recent = await get("/items/affiliate_clicks?limit=200&sort=clicked_at&fields=clicked_at,placement,partner,context,subid,first_referrer_host,via_linkswap" + f({ _and: [real, { clicked_at: { _gte: new Date(Date.now() - 2 * day).toISOString() } }] }));
+console.log("[lat12562] echt laatste 48u:", JSON.stringify(recent.map((r) => ({ ...r, first_referrer_host: r.first_referrer_host == null ? null : r.first_referrer_host === "direct" ? "direct" : "extern" }))));
