@@ -632,14 +632,19 @@ const schema = [
   .wk-field { position: relative; min-width: 0; }
   .wk-field input, .wk-field select {
     width: 100%; height: 3rem; font: inherit; font-family: var(--font-body); font-size: 1rem; color: var(--ink);
-    background: var(--paper, #FAF5E9); border: 1px solid var(--rule); border-radius: 3px; padding: 0 1rem;
+    background: var(--paper, #FAF5E9); border: 1px solid var(--inkFaint, #8A7E70); border-radius: 3px; padding: 0 1rem;
   }
+  /* LAT-13062 #4: veldrand ≥ 3:1 op crème (WCAG 1.4.11); --rule haalde 1.78:1. */
+  .wk-field input:hover, .wk-field select:hover, .wk-field input:focus, .wk-field select:focus { border-color: var(--inkSoft); }
   .wk-field select { appearance: none; padding-right: 2.5rem; cursor: pointer;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%231F1A16' stroke-width='1.6'/%3E%3C/svg%3E");
     background-repeat: no-repeat; background-position: right 1rem center; }
   .wk-field--zoek input { padding-left: 2.75rem; }
   .wk-ico { position: absolute; left: 1rem; top: 50%; width: 18px; height: 18px; transform: translateY(-50%); color: var(--inkSoft); pointer-events: none; }
   .wk-status { display: flex; align-items: center; gap: 0.75rem 1rem; flex-wrap: wrap; margin-top: var(--space-4); min-height: 2.25rem; }
+  /* LAT-13062 #6: zonder chips geen lege band op desktop (de filterknop staat er alleen mobiel). */
+  .wk-chips:empty { display: none; }
+  @media (min-width: 721px) { .wk-status:not(:has(.wk-chips li)):has(.wk-wis[hidden]) { display: none; } }
   .wk-chips { list-style: none; display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0; padding: 0; min-width: 0; }
   .wk-chips :global(li) { display: flex; min-width: 0; }
   .wk-chips :global(button) {
