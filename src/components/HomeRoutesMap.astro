@@ -102,12 +102,6 @@ const mapData = { routes: mapped };
   };
   type MapData = { routes: Route[] };
 
-  let leafletPromise: Promise<any> | null = null;
-  function loadLeaflet(): Promise<any> {
-    if (!leafletPromise) leafletPromise = loadLeaflet();
-    return leafletPromise;
-  }
-
   function esc(s: string): string {
     return s.replace(/[&<>"]/g, (c) => (
       { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string

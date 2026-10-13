@@ -331,12 +331,6 @@ const usedCats = sections.map((s) => s.key);
   };
   type MapData = { slug: string; leesMeer?: string; pins: Pin[]; area?: any };
 
-  let leafletPromise: Promise<any> | null = null;
-  function loadLeaflet(): Promise<any> {
-    if (!leafletPromise) leafletPromise = loadLeaflet();
-    return leafletPromise;
-  }
-
   function esc(s: string): string {
     return s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string));
   }

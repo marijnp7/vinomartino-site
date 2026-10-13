@@ -95,12 +95,6 @@ const mapData = {
   type Stop = { n: number | null; kind: StopKind; naam: string; slug: string | null; lat: number; lng: number };
   type MapData = { slug: string; wijnhuisBase?: string; portraitLabel: string; stops: Stop[]; line: [number, number][] };
 
-  let leafletPromise: Promise<any> | null = null;
-  function loadLeaflet(): Promise<any> {
-    if (!leafletPromise) leafletPromise = loadLeaflet();
-    return leafletPromise;
-  }
-
   function esc(s: string): string {
     return s.replace(/[&<>"]/g, (c) => (
       { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string

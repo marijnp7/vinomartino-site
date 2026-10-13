@@ -66,12 +66,6 @@ const mapData = {
   type Poi = { n: number; naam: string; lat: number; lng: number; kind: string; detail?: string; color: string };
   type MapData = { variant: 'route' | 'benchmark'; pois: Poi[]; routeLine: [number, number][] | null };
 
-  let leafletPromise: Promise<any> | null = null;
-  function loadLeaflet(): Promise<any> {
-    if (!leafletPromise) leafletPromise = loadLeaflet();
-    return leafletPromise;
-  }
-
   function esc(s: string): string {
     return s.replace(/[&<>"]/g, (c) => (
       { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string
