@@ -1,6 +1,10 @@
 ---
 import SiteLayout from '../../layouts/SiteLayout.astro';
 import { organizationSchema, breadcrumbSchema } from '../../lib/seo';
+import { loadUiStrings } from '../../lib/ui-strings';
+
+// LAT-13203: vertrouwenscopy komt uit Directus ui_strings (voor_accommodaties.*), NL en EN.
+const ui = await loadUiStrings('en');
 
 const schema = [
   organizationSchema(),
@@ -11,9 +15,9 @@ const schema = [
 ];
 
 const krijgt = [
-  'An honest assessment: if the stay fits and we can write about it honestly, an editorial mention may follow. It is never guaranteed',
-  'If there is a mention, it comes with photographs and terroir context and, where a regional map exists, a place on that map under the same rules as any other address',
-  'A visible disclosure that the stay was offered by you',
+  ui.t('voor_accommodaties.krijgt.1'),
+  ui.t('voor_accommodaties.krijgt.2'),
+  ui.t('voor_accommodaties.krijgt.3'),
 ];
 
 const vragen = [
@@ -27,8 +31,8 @@ const nietDoen = [
     d: 'Buying an article is not possible, not through any route.',
   },
   {
-    h: 'No mention in exchange for a stay',
-    d: 'An offered stay does not buy an article, a map pin or a positive verdict. After the stay, we decide whether and how we write.',
+    h: ui.t('voor_accommodaties.niet_doen.verblijf.titel'),
+    d: ui.t('voor_accommodaties.niet_doen.verblijf.tekst'),
   },
   {
     h: 'No guaranteed positive reviews',
@@ -49,7 +53,7 @@ const past = [
 
 <SiteLayout
   title="Working together — for accommodations, agriturismi and wine estates"
-  description="VinoMartino is open to press stays and hosted visits. An offered stay does not buy a mention, a map pin or a verdict. No paid placements."
+  description={ui.t('voor_accommodaties.meta.description')}
   schema={schema}
   locale="en"
   alternates={{ nl: '/voor-accommodaties/', en: '/en/voor-accommodaties/' }}
@@ -72,10 +76,7 @@ const past = [
     <div class="container container-narrow">
       <span class="kicker kicker-burgundy">§ Who we are</span>
       <p>
-        Marijn travels to wine regions with a concrete agenda: visiting winemakers, getting to know regions, writing honest
-        reports. He has visited twelve regions himself, from the Loire to the Cape; only guides labelled Travelled there are
-        based on his own visits. All other guides are editorial, built on primary sources, with no claim of a stay. No
-        mention is ever paid for.
+        {ui.t('voor_accommodaties.wie.body')}
       </p>
     </div>
   </section>

@@ -1,6 +1,10 @@
 ---
 import SiteLayout from '../layouts/SiteLayout.astro';
 import { organizationSchema, breadcrumbSchema } from '../lib/seo';
+import { loadUiStrings } from '../lib/ui-strings';
+
+// LAT-13203: vertrouwenscopy komt uit Directus ui_strings (voor_accommodaties.*), NL en EN.
+const ui = await loadUiStrings('nl');
 
 const schema = [
   organizationSchema(),
@@ -11,9 +15,9 @@ const schema = [
 ];
 
 const krijgt = [
-  'Een eerlijke beoordeling: past het verblijf en kunnen we er eerlijk over schrijven, dan volgt mogelijk een redactionele vermelding. Die is nooit gegarandeerd',
-  'Komt er een vermelding, dan met foto’s en terroir-context en, waar een regiokaart bestaat, op die kaart volgens dezelfde regels als elk ander adres',
-  'Een zichtbare vermelding dat het verblijf door u is aangeboden',
+  ui.t('voor_accommodaties.krijgt.1'),
+  ui.t('voor_accommodaties.krijgt.2'),
+  ui.t('voor_accommodaties.krijgt.3'),
 ];
 
 const vragen = [
@@ -27,8 +31,8 @@ const nietDoen = [
     d: 'Een artikel kopen is niet mogelijk, ook niet via omwegen.',
   },
   {
-    h: 'Geen vermelding in ruil voor een verblijf',
-    d: 'Een aangeboden verblijf koopt geen artikel, geen kaartpin en geen positief oordeel. Na het verblijf beslissen wij of en hoe we schrijven.',
+    h: ui.t('voor_accommodaties.niet_doen.verblijf.titel'),
+    d: ui.t('voor_accommodaties.niet_doen.verblijf.tekst'),
   },
   {
     h: 'Geen gegarandeerd positieve reviews',
@@ -49,7 +53,7 @@ const past = [
 
 <SiteLayout
   title="Samenwerken, voor accommodaties, agriturismi en wijngoederen"
-  description="VinoMartino staat open voor press stays en hosted visits. Een aangeboden verblijf koopt geen vermelding, geen kaartpin en geen oordeel. Geen betaalde plaatsingen."
+  description={ui.t('voor_accommodaties.meta.description')}
   schema={schema}
   alternates={{ nl: '/voor-accommodaties/', en: '/en/voor-accommodaties/' }}
 >
@@ -71,10 +75,7 @@ const past = [
     <div class="container container-narrow">
       <span class="kicker kicker-burgundy">§ Wie wij zijn</span>
       <p>
-        Marijn reist met een concrete agenda naar wijnregio’s: wijnmakers bezoeken, regio’s leren kennen, eerlijke verslagen
-        schrijven. Twaalf streken bezocht hij zelf, van de Loire tot de Kaap; alleen gidsen met het label Zelf gereisd gaan
-        over eigen bezoek. Alle andere gidsen zijn Redactiegids, gebouwd op primaire bronnen, zonder verblijfsclaim. Geen
-        enkele vermelding is betaald.
+        {ui.t('voor_accommodaties.wie.body')}
       </p>
     </div>
   </section>
