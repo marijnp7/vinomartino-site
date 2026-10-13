@@ -36,6 +36,15 @@ for (const p of perms) {
   if (r.status !== 200) process.exit(4);
 }
 console.log(`permissions checked: ${perms.length}`);
+const fv = cur.j.data.meta?.validation;
+if (fv) {
+  const next = addIn(fv);
+  if (JSON.stringify(next) !== JSON.stringify(fv)) {
+    const r = await api("PATCH", "/fields/wijnhuizen/bezoek_type", { meta: { validation: next } });
+    console.log("field validation:", r.status);
+    if (r.status !== 200) process.exit(5);
+  } else console.log("field validation: unchanged");
+} else console.log("field validation: none");
 if (choices.some((c) => c.value === "gesloten")) { console.log("gesloten: already present"); process.exit(0); }
 const next = [...choices, { text: "gesloten", value: "gesloten" }];
 const r = await api("PATCH", "/fields/wijnhuizen/bezoek_type", { meta: { options: { ...options, choices: next } } });
