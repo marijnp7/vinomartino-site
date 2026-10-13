@@ -151,10 +151,12 @@ function fotoHtml(attrs: Record<string, string>, foto: FotoResolved, eager: bool
   const dims = typeof foto.width === 'number' && typeof foto.height === 'number'
     ? ` width="${foto.width}" height="${foto.height}"`
     : '';
-  // LAT-2432: de eerste body-foto staat doorgaans boven de vouw → eager + hoge
-  // fetchpriority (LCP-winst); de rest blijft lazy.
+  // LAT-2432: de eerste body-foto laadt eager; de rest blijft lazy.
+  // LAT-12594: géén fetchpriority=high meer. De pagina heeft al een hero met
+  // fetchpriority=high (publish-guard eist hero_image); een tweede high-beeld
+  // deelt de bandbreedte met het LCP-element (route-bourgogne: 2x 55 KB op High).
   const loadAttrs = eager
-    ? ` loading="eager" fetchpriority="high" decoding="async"`
+    ? ` loading="eager" decoding="async"`
     : ` loading="lazy" decoding="async"`;
   const fig = [
     `<figure class="route-foto${fmt}">`,
