@@ -50,7 +50,7 @@ test('inline en footer hebben elk een eigen cta_id', () => {
   assert.match(read('src/components/NewsletterFooter.astro'), /ctaId="footer_signup"/);
 });
 
-const NL_KEYS = /^\s*'((?:newsletter|home\.brief|langhe\.capture)\.[^']+)':\s*(['"`])((?:\\.|(?!\2).)*)\2/gm;
+const NL_KEYS = /^\s*'((?:newsletter|home\.brief|langhe\.capture|debrief)\.[^']+)':\s*(['"`])((?:\\.|(?!\2).)*)\2/gm;
 function copy() {
   const src = read('src/lib/ui-strings.ts');
   const en = src.indexOf('export const UI_STRING_EN');
@@ -68,7 +68,7 @@ test('NL en EN hebben dezelfde nieuwsbriefsleutels (EN viel terug op NL)', () =>
 
 test('frequentiebelofte is overal eens per maand, zonder gedachtestreepjes', () => {
   const { nl, en } = copy();
-  const pages = ['src/pages/de-brief/index.astro', 'src/pages/en/de-brief/index.astro'].map(read);
+  const pages = ['src/pages/de-brief/index.astro', 'src/pages/en/de-brief/index.astro', 'src/components/DeBriefPage.astro'].map(read);
   const all = [...Object.values(nl), ...Object.values(en), ...pages].join('\n');
   assert.doesNotMatch(all, /twee weken|two weeks|paar keer per jaar|few times a year/i);
   for (const [k, v] of [...Object.entries(nl), ...Object.entries(en)]) {
@@ -92,13 +92,37 @@ test('inline-copy is Marijns eigen stem (ik) en verschilt van de footer-lede', (
 });
 
 test('/de-brief belooft geen eerste editie meer en de EN-pagina noemt de taal (LAT-13196)', () => {
-  assert.doesNotMatch(read('src/pages/de-brief/index.astro'), /eerste editie verschijnt|5 november/i);
-  assert.doesNotMatch(read('src/pages/en/de-brief/index.astro'), /first edition arrives|5 November/i);
-  assert.match(read('src/pages/en/de-brief/index.astro'), /written in Dutch: there is no English edition/);
+  const { nl, en } = copy();
+  const nlAll = Object.entries(nl).filter(([k]) => k.startsWith('debrief.')).map(([, v]) => v).join('\n');
+  const enAll = Object.entries(en).filter(([k]) => k.startsWith('debrief.')).map(([, v]) => v).join('\n');
+  assert.doesNotMatch(nlAll, /eerste editie verschijnt|5 november/i);
+  assert.doesNotMatch(enAll, /first edition arrives|5 November/i);
+  assert.match(en['debrief.lede'], /written in Dutch: there is no English edition/);
+  assert.match(nl['debrief.kicker'], /eens per maand/);
+  assert.match(en['debrief.kicker'], /once a month/);
 });
 
 test('geen voorbeeldbrief die zich als echte editie 1 voordoet', () => {
-  for (const f of ['src/pages/de-brief/index.astro', 'src/pages/en/de-brief/index.astro']) {
-    assert.doesNotMatch(read(f), /editie 1|edition 1/i);
+  const { nl, en } = copy();
+  for (const v of [...Object.values(nl), ...Object.values(en)]) assert.doesNotMatch(v, /editie 1\b|edition 1\b/i);
+});
+
+test('/de-brief copy en editielijst komen uit ui_strings, niet uit de template (LAT-13354, HARDE REGEL 3)', () => {
+  const { nl, en } = copy();
+  const keys = Object.keys(nl).filter((k) => k.startsWith('debrief.'));
+  assert.ok(keys.length >= 20, `te weinig debrief-keys: ${keys.length}`);
+  for (const k of keys) assert.ok(k in en, `EN mist ${k}`);
+  for (const k of Object.keys(en).filter((k) => k.startsWith('debrief.'))) assert.ok(k in nl, `NL mist ${k}`);
+  for (const n of [1, 2]) {
+    assert.match(nl[`debrief.editie.${n}.url`], /^https:\/\/vinomartino\.substack\.com\/p\//);
+    assert.equal(nl[`debrief.editie.${n}.url`], en[`debrief.editie.${n}.url`]);
   }
+  for (const f of ['src/pages/de-brief/index.astro', 'src/pages/en/de-brief/index.astro']) {
+    assert.match(read(f), /<DeBriefPage locale="(nl|en)" \/>/, `${f}: rendert niet via DeBriefPage`);
+  }
+  const page = read('src/components/DeBriefPage.astro');
+  assert.match(page, /loadUiStrings\(locale\)/);
+  assert.match(page, /debrief\.editie\.\$\{i\}\.url/, 'editielijst moet uit genummerde ui_strings komen');
+  const markup = page.slice(page.indexOf('<SiteLayout'), page.indexOf('<style>'));
+  assert.doesNotMatch(markup, /substack\.com\/p\/|Eens per maand|Once a month|Tot nu toe|Published so far|Schrijf je in|Subscribe/);
 });

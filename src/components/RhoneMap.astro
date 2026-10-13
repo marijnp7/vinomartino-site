@@ -61,17 +61,10 @@ const mapData = {
 </figure>
 
 <script>
-  import 'leaflet/dist/leaflet.css';
-  import { addBaseLayer } from '../lib/map-base';
+  import { addBaseLayer, loadLeaflet } from '../lib/map-base';
 
   type Poi = { n: number; naam: string; lat: number; lng: number; kind: string; detail?: string; color: string };
   type MapData = { variant: 'route' | 'benchmark'; pois: Poi[]; routeLine: [number, number][] | null };
-
-  let leafletPromise: Promise<any> | null = null;
-  function loadLeaflet(): Promise<any> {
-    if (!leafletPromise) leafletPromise = import('leaflet').then((m: any) => m.default ?? m);
-    return leafletPromise;
-  }
 
   function esc(s: string): string {
     return s.replace(/[&<>"]/g, (c) => (

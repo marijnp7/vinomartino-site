@@ -2,8 +2,7 @@
 // Eén pin per route op het eerste waypoint plus de routelijn, uitsluitend uit de
 // bestaande routes.stopsGeo (zie kaartLijn). Gekozen route bordeaux, de rest neutraal;
 // gefilterde routes verdwijnen. Geen legenda: de lijst ernaast ís de legenda.
-import 'leaflet/dist/leaflet.css';
-import { addBaseLayer } from './map-base';
+import { addBaseLayer, loadLeaflet } from './map-base';
 
 type KaartRoute = { slug: string; href: string; titel: string; meta: string; line: [number, number][] };
 type KaartData = { routes: KaartRoute[]; cta: string };
@@ -17,7 +16,7 @@ export async function mountKeuzeKaart(panel: HTMLElement, onPick: (slug: string)
   const canvas = panel.querySelector<HTMLElement>('[data-wk-canvas]')!;
   const data = JSON.parse(panel.querySelector('[data-wk-data]')?.textContent || '{}') as KaartData;
   // @ts-ignore leaflet heeft hier geen type-declaraties (zelfde als HomeRoutesMap)
-  const L: any = await import('leaflet').then((m: any) => m.default ?? m);
+  const L: any = await loadLeaflet();
   const map = L.map(canvas, { scrollWheelZoom: false, zoomControl: true, attributionControl: true });
   await addBaseLayer(map);
 

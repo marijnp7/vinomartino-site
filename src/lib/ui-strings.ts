@@ -26,6 +26,30 @@ import { UI_COPY } from './ui-copy';
  * (content-writer vult per key de EN-`value` in `ui_strings_translations`).
  */
 export const UI_STRING_DEFAULTS: Record<string, string> = {
+    // LAT-13354: /de-brief/ (HARDE REGEL 3). Edities zijn genummerd (debrief.editie.N.meta/titel/url);
+    // een nieuwe editie is een nieuwe N in Directus, geen code.
+    'debrief.meta.title': 'De brief, de nieuwsbrief van VinoMartino',
+    'debrief.meta.description': 'Eens per maand stopt Marijn een brief in je inbox: over een wijnmaker die we net bezochten, een regio die opnieuw onze aandacht trok, een fles die indruk maakte. Aanmelden gaat via Substack.',
+    'debrief.breadcrumb': 'De brief',
+    'debrief.kicker': 'De brief · eens per maand',
+    'debrief.h1': 'De brief',
+    'debrief.lede': 'Eens per maand stopt Marijn een brief in je inbox. Geen persberichten, geen uitnodigingen voor generieke wijnfestivals, een echte brief. Over een wijnmaker die we net bezochten, een regio die opnieuw onze aandacht trok, een fles die indruk maakte. De brief verschijnt sinds juli 2026 op Substack, in het Nederlands. Aanmelden gaat via Substack.',
+    'debrief.cta.label': 'Schrijf je in voor De brief',
+    'debrief.follow.lead': 'Al nieuwsgierig? Volg Marijn alvast op',
+    'debrief.follow.instagram': 'Instagram',
+    'debrief.follow.substack.lead': ', of lees de brieven online op',
+    'debrief.follow.substack': 'Substack',
+    'debrief.follow.tail': ', daar staan alle verschenen brieven.',
+    'debrief.edities.dateline': 'De brief, verschenen edities',
+    'debrief.edities.intro': 'Tot nu toe verschenen:',
+    'debrief.edities.suffix': '',
+    'debrief.edities.outro': 'De volgende brief heeft nog geen datum. Wie zich aanmeldt, krijgt hem in de inbox zodra hij verschijnt.',
+    'debrief.editie.1.meta': '16 juli 2026, de Langhe',
+    'debrief.editie.1.titel': 'Waarom de ene Barolo twintig jaar dichtblijft en de andere niet',
+    'debrief.editie.1.url': 'https://vinomartino.substack.com/p/waarom-de-ene-barolo-twintig-jaar',
+    'debrief.editie.2.meta': 'Augustus 2026, Toscane (herziene versie van 2 oktober)',
+    'debrief.editie.2.titel': 'Waarom Brunello, Chianti en Vino Nobile dezelfde druif zijn en toch niet op elkaar lijken',
+    'debrief.editie.2.url': 'https://vinomartino.substack.com/p/waarom-brunello-chianti-en-vino-nobile-923',
     "crosslinks.title": "Ontdek verder",
     "crosslinks.artikelen": "Artikelen",
     "crosslinks.streken": "Streken",
@@ -72,6 +96,14 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'streek.section.wijnroutes': 'Wijnroutes',
     'streek.routes.rijdPrefix': 'Rijd',
     'streek.routes.intro': 'Uitgestippelde routes door de streek, van waar naar waar, met de mooiste stops onderweg.',
+    // LAT-13198 — keuzeblok bovenin streekpagina (pilot Bourgogne).
+    'streek.keuzes.label': "Plan je reis",
+    'streek.keuzes.slapen': "Slapen",
+    'streek.keuzes.slapen.sub': "Onze adressen op de kaart",
+    'streek.keuzes.proeverij': "Proeverij boeken",
+    'streek.keuzes.proeverij.sub': "Tours met wijnproeverij",
+    'streek.keuzes.route': "Route plannen",
+    'streek.keuzes.route.sub': "Rijroute met stops onderweg",
     'streek.route.bekijkCta': 'Bekijk route',
     'streek.section.deelregios': "Deelregio's",
     'streek.section.appellations': 'Appellations',
@@ -1057,6 +1089,15 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     "proeftafel.zowerkthet.huisregels.nix18": "Bij elke post staat NIX18.",
     "proeftafel.zowerkthet.adres": "Een verzendadres staat bewust nergens op de site. Meld je fles aan via het formulier. Accepteren we hem, dan mailt Marijn je het verzendadres.",
     "proeftafel.zowerkthet.cta": "Fles aanmelden",
+    // LAT-13203: /voor-accommodaties/, Directus ui_strings 554-560 (NL en EN). Directus wint;
+    // deze waarden zijn alleen de terugval als Directus onbereikbaar is.
+    "voor_accommodaties.meta.description": "VinoMartino staat open voor press stays en hosted visits. Een aangeboden verblijf koopt geen vermelding, geen kaartpin en geen oordeel. Geen betaalde plaatsingen.",
+    "voor_accommodaties.wie.body": "Marijn reist met een concrete agenda naar wijnregio’s: wijnmakers bezoeken, regio’s leren kennen, eerlijke verslagen schrijven. Twaalf streken bezocht hij zelf, van de Loire tot de Kaap; alleen gidsen met het label Zelf gereisd gaan over eigen bezoek. Alle andere gidsen zijn Redactiegids, gebouwd op primaire bronnen, zonder verblijfsclaim. Geen enkele vermelding is betaald.",
+    "voor_accommodaties.krijgt.1": "Een eerlijke beoordeling: past het verblijf en kunnen we er eerlijk over schrijven, dan volgt mogelijk een redactionele vermelding. Die is nooit gegarandeerd",
+    "voor_accommodaties.krijgt.2": "Komt er een vermelding, dan met foto’s en terroir-context en, waar een regiokaart bestaat, op die kaart volgens dezelfde regels als elk ander adres",
+    "voor_accommodaties.krijgt.3": "Een zichtbare vermelding dat het verblijf door u is aangeboden",
+    "voor_accommodaties.niet_doen.verblijf.titel": "Geen vermelding in ruil voor een verblijf",
+    "voor_accommodaties.niet_doen.verblijf.tekst": "Een aangeboden verblijf koopt geen artikel, geen kaartpin en geen positief oordeel. Na het verblijf beslissen wij of en hoe we schrijven.",
 };
 
 /**
@@ -1066,6 +1107,38 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
  * nog geen EN-values heeft.  Volgorde in t(): Directus → UI_STRING_EN → UI_STRING_DEFAULTS.
  */
 export const UI_STRING_EN: Record<string, string> = {
+    // LAT-13354: /de-brief/ (HARDE REGEL 3). Edities zijn genummerd (debrief.editie.N.meta/titel/url);
+    // een nieuwe editie is een nieuwe N in Directus, geen code.
+    'debrief.meta.title': 'The letter, the VinoMartino newsletter',
+    'debrief.meta.description': 'Once a month Marijn puts a letter in your inbox: about a winemaker we just visited, a region that caught our attention again, a bottle that made an impression. Sign up through Substack.',
+    'debrief.breadcrumb': 'The letter',
+    'debrief.kicker': 'The letter · once a month',
+    'debrief.h1': 'The letter',
+    'debrief.lede': 'Once a month Marijn puts a letter in your inbox. No press releases, no invitations to generic wine festivals, a real letter. About a winemaker we just visited, a region that caught our attention again, a bottle that made an impression. The letter is written in Dutch: there is no English edition, and subscribers receive the Dutch letter. It has appeared on Substack since July 2026. Sign up through Substack.',
+    'debrief.cta.label': 'Subscribe to The Letter',
+    'debrief.follow.lead': 'Already curious? Follow Marijn on',
+    'debrief.follow.instagram': 'Instagram',
+    'debrief.follow.substack.lead': ', or read the letters online on',
+    'debrief.follow.substack': 'Substack',
+    'debrief.follow.tail': ', where every published letter is archived (in Dutch).',
+    'debrief.edities.dateline': 'The letter, published editions (in Dutch)',
+    'debrief.edities.intro': 'Published so far:',
+    'debrief.edities.suffix': '(in Dutch)',
+    'debrief.edities.outro': 'The next letter does not have a date yet. Subscribers receive it as soon as it appears.',
+    'debrief.editie.1.meta': '16 July 2026, the Langhe',
+    'debrief.editie.1.titel': 'Why one Barolo stays closed for twenty years and another does not',
+    'debrief.editie.1.url': 'https://vinomartino.substack.com/p/waarom-de-ene-barolo-twintig-jaar',
+    'debrief.editie.2.meta': 'August 2026, Tuscany (revised version of 2 October)',
+    'debrief.editie.2.titel': 'Why Brunello, Chianti and Vino Nobile share a grape yet taste nothing alike',
+    'debrief.editie.2.url': 'https://vinomartino.substack.com/p/waarom-brunello-chianti-en-vino-nobile-923',
+    // LAT-13198 — keuzeblok bovenin streekpagina (pilot Bourgogne).
+    'streek.keuzes.label': "Plan your trip",
+    'streek.keuzes.slapen': "Where to stay",
+    'streek.keuzes.slapen.sub': "Selected stays on the map",
+    'streek.keuzes.proeverij': "Book a tasting",
+    'streek.keuzes.proeverij.sub': "Tours with wine tastings",
+    'streek.keuzes.route': "Plan a route",
+    'streek.keuzes.route.sub': "Driving route with stops along the way",
     "crosslinks.title": "Explore more",
     "crosslinks.artikelen": "Articles",
     "crosslinks.streken": "Wine regions",
@@ -1633,6 +1706,15 @@ export const UI_STRING_EN: Record<string, string> = {
     "proeftafel.zowerkthet.huisregels.nix18": "Every post carries NIX18.",
     "proeftafel.zowerkthet.adres": "There is deliberately no shipping address anywhere on this site. Register your bottle through the form. If we accept it, Marijn will email you the shipping address.",
     "proeftafel.zowerkthet.cta": "Register a bottle",
+    // LAT-13203: /voor-accommodaties/, Directus ui_strings 554-560 (NL en EN). Directus wint;
+    // deze waarden zijn alleen de terugval als Directus onbereikbaar is.
+    "voor_accommodaties.meta.description": "VinoMartino is open to press stays and hosted visits. An offered stay does not buy a mention, a map pin or a verdict. No paid placements.",
+    "voor_accommodaties.wie.body": "Marijn travels to wine regions with a concrete agenda: visiting winemakers, getting to know regions, writing honest reports. He has visited twelve regions himself, from the Loire to the Cape; only guides labelled Travelled there are based on his own visits. All other guides are editorial, built on primary sources, with no claim of a stay. No mention is ever paid for.",
+    "voor_accommodaties.krijgt.1": "An honest assessment: if the stay fits and we can write about it honestly, an editorial mention may follow. It is never guaranteed",
+    "voor_accommodaties.krijgt.2": "If there is a mention, it comes with photographs and terroir context and, where a regional map exists, a place on that map under the same rules as any other address",
+    "voor_accommodaties.krijgt.3": "A visible disclosure that the stay was offered by you",
+    "voor_accommodaties.niet_doen.verblijf.titel": "No mention in exchange for a stay",
+    "voor_accommodaties.niet_doen.verblijf.tekst": "An offered stay does not buy an article, a map pin or a positive verdict. After the stay, we decide whether and how we write.",
 };
 
 /** Resolver over de UI-dictionary: EN-value indien aanwezig, anders NL-default. */

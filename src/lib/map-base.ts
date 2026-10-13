@@ -1,3 +1,6 @@
+import leafletCssUrl from 'leaflet/dist/leaflet.css?url';
+import maplibreCssUrl from 'maplibre-gl/dist/maplibre-gl.css?url';
+
 // Enige plek waar de kaartprovider staat (LAT-12030). Providerwissel = BASE_STYLE_URL aanpassen.
 export const BASE_STYLE_URL = 'https://tiles.openfreemap.org/styles/positron';
 
@@ -21,12 +24,46 @@ export function whenUserIntent(): Promise<void> {
   return intentPromise;
 }
 
+const cssPromises = new Map<string, Promise<void>>();
+
+/** Laadt een stylesheet pas bij aanroep. Een statische of dynamische CSS-import hijst Astro naar
+ *  een render-blocking <link> in <head>; dat kostte /wijnroutes/ lab-LCP (LAT-12594). */
+export function loadCss(href: string): Promise<void> {
+  let p = cssPromises.get(href);
+  if (!p) {
+    p = new Promise<void>((resolve) => {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = href;
+      link.onload = () => resolve();
+      link.onerror = () => resolve();
+      document.head.appendChild(link);
+    });
+    cssPromises.set(href, p);
+  }
+  return p;
+}
+
+let leafletPromise: Promise<any> | null = null;
+
+/** Leaflet plus zijn CSS, beide pas bij de eerste kaart-init. */
+export function loadLeaflet(): Promise<any> {
+  if (!leafletPromise) {
+    leafletPromise = Promise.all([
+      loadCss(leafletCssUrl),
+      // @ts-ignore leaflet heeft hier geen type-declaraties
+      import('leaflet').then((m: any) => m.default ?? m),
+    ]).then(([, L]) => L);
+  }
+  return leafletPromise;
+}
+
 let glPromise: Promise<(opts: Record<string, unknown>) => any> | null = null;
 
 function loadGl() {
   if (!glPromise) {
     glPromise = Promise.all([
-      import('maplibre-gl/dist/maplibre-gl.css'),
+      loadCss(maplibreCssUrl),
       import('maplibre-gl'),
       import('@maplibre/maplibre-gl-leaflet'),
     ]).then(([, , plugin]: any[]) => plugin.maplibreGL ?? plugin.default);

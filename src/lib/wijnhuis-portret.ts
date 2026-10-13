@@ -5,7 +5,8 @@
 export const BODEMS = ['leisteen', 'kalk', 'vulkanisch', 'zand', 'klei', 'loess', 'graniet', 'overig'] as const;
 export type Bodem = (typeof BODEMS)[number];
 
-export const BEZOEK_TYPES = ['zonder_afspraak', 'vinothek', 'op_afspraak'] as const;
+// LAT-13386: 'gesloten' = het huis ontvangt geen bezoek meer; de template prijst dan geen bezoek aan.
+export const BEZOEK_TYPES = ['zonder_afspraak', 'vinothek', 'op_afspraak', 'gesloten'] as const;
 export type BezoekType = (typeof BEZOEK_TYPES)[number];
 
 export const WIJN_ROLLEN = ['instap', 'signature', 'splurge'] as const;
@@ -234,6 +235,7 @@ export function heeftInfographic(p: WijnhuisPortret, extra: { established: numbe
 
 /** Heeft het Bezoek-blok iets te tonen? Ook gebruikt om de hero-CTA "Plan je bezoek" te tonen. */
 export function heeftBezoek(p: WijnhuisPortret, address: string, website: string): boolean {
+    if (p.bezoekType === 'gesloten') return false;
     const dagen = p.openingstijden ? Object.keys(p.openingstijden.dagen).length > 0 || Boolean(p.openingstijden.opmerking) : false;
     return Boolean(address || safeUrl(website) || dagen || p.proeverij || (p.zelfGeweest && p.onzeErvaring));
 }
