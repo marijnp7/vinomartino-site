@@ -61,6 +61,8 @@ export interface RouteBodyContext {
    * bestand puur/dependency-vrij blijft (zie kop). Leeg = geen voetregel.
    */
   disclosure: string;
+  /** LAT-13406: route-slug voor data-affiliate-context op body-affiliate-links. */
+  affiliateContext?: string;
   /**
    * LAT-2819 — locale van de pagina. Wordt doorgegeven aan de gedeelde
    * sanitize/toc-pas zodat interne links in de redactionele body locale-aware
@@ -274,5 +276,6 @@ export async function renderEnrichedRouteBody(
   return mdastToHtmlWithToc(mdast as unknown as Parameters<typeof mdastToHtmlWithToc>[0], {
     stripFirstH1: true,
     locale: ctx.locale,
+    affiliateContext: ctx.affiliateContext,
   });
 }
