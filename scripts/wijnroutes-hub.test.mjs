@@ -195,7 +195,9 @@ test('keuzehulp: kaart gebruikt alleen bestaande punten, <2 punten = niet op de 
 
 test('keuzehulp: hub-markup (zonder-JS lijst, aria-live, geen legenda, verhalen erna)', () => {
   assert.match(HUB, /data-wk-telling aria-live="polite"/);
-  assert.match(HUB, /<form class="wk-form"[^>]* hidden data-wk-form>/, 'form verborgen zonder JS');
+  // LAT-12594: verborgen zonder JS via <noscript>, niet via `hidden` (dat gaf CLS 0,195 bij het tonen).
+  assert.match(HUB, /<noscript><style is:inline>\.wk-form[^<]*display: none/, 'form verborgen zonder JS');
+  assert.doesNotMatch(HUB, /<form class="wk-form"[^>]* hidden/, 'form niet server-side hidden');
   assert.match(HUB, /<a class="wk-btn" href=\{href\}/, 'elke kaart is een gewone link');
   assert.doesNotMatch(HUB, /HomeRoutesMap|legend/i, 'geen 17-titel-legenda');
   assert.ok(HUB.indexOf('data-wk-list') < HUB.indexOf('id="nareizen"'), 'reisverhalen na de resultaten');
