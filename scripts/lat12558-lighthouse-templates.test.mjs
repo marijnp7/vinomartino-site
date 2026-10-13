@@ -41,3 +41,22 @@ test('summarize neemt mediaan per sjabloon en passes toetst beide drempels', () 
   assert.ok(!passes(c), 'performance onder 85 faalt');
   assert.equal(THRESHOLDS.performance, 85);
 });
+
+test('attribution leest LCP-element, fasen en shift-bronnen uit LH13-insights', async () => {
+  const { attribution } = await import('./lighthouse-templates.mjs');
+  const j = { audits: {
+    'lcp-breakdown-insight': { details: { type: 'list', items: [
+      { type: 'table', items: [{ subpart: 'timeToFirstByte', duration: 600.4 }, { subpart: 'resourceLoadDuration', duration: 2100 }] },
+      { type: 'node', selector: 'main > img.hero', nodeLabel: 'Bourgogne', snippet: '<img class="hero">' },
+    ] } },
+    'cls-culprits-insight': { details: { type: 'list', items: [{ type: 'table', items: [
+      { node: { type: 'node', selector: 'ul.grid', snippet: '<ul class="grid">' }, value: 0.1673, subItems: { items: [{ cause: 'Unsized image element' }] } },
+    ] }] } },
+  } };
+  const r = attribution(j);
+  assert.equal(r.lcpElement.selector, 'main > img.hero');
+  assert.deepEqual(r.lcpPhases, { timeToFirstByte: 600, resourceLoadDuration: 2100 });
+  assert.equal(r.layoutShifts[0].selector, 'ul.grid');
+  assert.equal(r.layoutShifts[0].score, 0.1673);
+  assert.deepEqual(r.layoutShifts[0].causes, ['Unsized image element']);
+});
