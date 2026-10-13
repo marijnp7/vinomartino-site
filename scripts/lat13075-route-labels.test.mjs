@@ -37,3 +37,10 @@ test('EN: continent uit de NL-woordenlijst wordt vertaald, NL blijft bron', () =
   assert.equal(localizeContinent('Kaukasus', 'en', tc), 'Kaukasus');
   assert.equal(localizeContinent('', 'en', tc), '');
 });
+
+import { readFileSync } from 'node:fs';
+test('EN-zoekindex: artikeltags met NL-landnaam lopen via localizeTag (H3, Frankrijk)', () => {
+  const src = readFileSync(new URL('../src/lib/search-index.ts', import.meta.url), 'utf8');
+  assert.match(src, /\(a\.tags \|\| \[\]\)\.map\(localizeTag\)/);
+  assert.match(src, /loadLandenNav\('nl'\)/);
+});

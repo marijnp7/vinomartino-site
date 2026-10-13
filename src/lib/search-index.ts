@@ -3,7 +3,7 @@ import { loadArticles } from './articles';
 import { loadStreken } from './streken';
 import { loadWijnhuizen } from './wijnhuizen';
 import { loadRoutes } from './routes';
-import { loadLanden } from './landen';
+import { loadLanden, loadLandenNav } from './landen';
 import { loadUiStrings } from './ui-strings';
 import { rubriekLabel } from './rubriek-labels';
 import { localizeContinent } from './route-labels';
@@ -62,6 +62,20 @@ export async function buildSearchIndex(locale: Locale = DEFAULT_LOCALE) {
         loadRoutes(locale),
     ]);
 
+    // LAT-13075 (H3): artikeltags zijn een NL-woordenlijst zonder EN-vertaling in het CMS.
+    // Een tag die exact een NL-landnaam is, wordt in de EN-index de EN-landnaam (zelfde slug).
+    // De bron blijft ongewijzigd; overige tags blijven letterlijk staan.
+    const landTag = new Map<string, string>();
+    if (isEn) {
+        const nlLanden = await loadLandenNav('nl');
+        const enBySlug = new Map(landen.map((l) => [l.slug, l.name]));
+        for (const l of nlLanden) {
+            const en = enBySlug.get(l.slug);
+            if (l.name && en && en !== l.name) landTag.set(l.name.toLowerCase(), en);
+        }
+    }
+    const localizeTag = (t: string) => landTag.get(String(t).trim().toLowerCase()) ?? t;
+
     const records: SearchRecord[] = [];
 
     // LAT-3306: rubrieklabel via de UI-dictionary, per locale.
@@ -75,7 +89,7 @@ export async function buildSearchIndex(locale: Locale = DEFAULT_LOCALE) {
             subtitle: rubriek || (isEn ? 'Article' : 'Artikel'),
             url: `${p}/artikelen/${a.slug}/`,
             excerpt: a.description || excerpt(a.bodyHtml),
-            keywords: clean([rubriek, a.author, ...(a.tags || [])]),
+            keywords: clean([rubriek, a.author, ...(a.tags || []).map(localizeTag)]),
             body: bodyText(a.bodyHtml),
         });
     }
