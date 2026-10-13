@@ -80,7 +80,8 @@
     "test:article-tables": "node --experimental-strip-types --test scripts/article-tables.test.mjs",
     "test:article-visual-blocks": "node --experimental-strip-types --test scripts/article-visual-blocks.test.mjs",
     "test:content-links": "node --experimental-strip-types --test scripts/content-links.test.mjs",
-    "test:lat13075-route-labels": "node --experimental-strip-types --test scripts/lat13075-route-labels.test.mjs"
+    "test:lat13075-route-labels": "node --experimental-strip-types --test scripts/lat13075-route-labels.test.mjs",
+    "test:lat13203-voor-accommodaties-cms": "node --test scripts/lat13203-voor-accommodaties-cms.test.mjs"
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.7.2",

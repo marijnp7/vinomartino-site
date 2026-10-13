@@ -1057,6 +1057,15 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     "proeftafel.zowerkthet.huisregels.nix18": "Bij elke post staat NIX18.",
     "proeftafel.zowerkthet.adres": "Een verzendadres staat bewust nergens op de site. Meld je fles aan via het formulier. Accepteren we hem, dan mailt Marijn je het verzendadres.",
     "proeftafel.zowerkthet.cta": "Fles aanmelden",
+    // LAT-13203: /voor-accommodaties/, Directus ui_strings 554-560 (NL en EN). Directus wint;
+    // deze waarden zijn alleen de terugval als Directus onbereikbaar is.
+    "voor_accommodaties.meta.description": "VinoMartino staat open voor press stays en hosted visits. Een aangeboden verblijf koopt geen vermelding, geen kaartpin en geen oordeel. Geen betaalde plaatsingen.",
+    "voor_accommodaties.wie.body": "Marijn reist met een concrete agenda naar wijnregio’s: wijnmakers bezoeken, regio’s leren kennen, eerlijke verslagen schrijven. Twaalf streken bezocht hij zelf, van de Loire tot de Kaap; alleen gidsen met het label Zelf gereisd gaan over eigen bezoek. Alle andere gidsen zijn Redactiegids, gebouwd op primaire bronnen, zonder verblijfsclaim. Geen enkele vermelding is betaald.",
+    "voor_accommodaties.krijgt.1": "Een eerlijke beoordeling: past het verblijf en kunnen we er eerlijk over schrijven, dan volgt mogelijk een redactionele vermelding. Die is nooit gegarandeerd",
+    "voor_accommodaties.krijgt.2": "Komt er een vermelding, dan met foto’s en terroir-context en, waar een regiokaart bestaat, op die kaart volgens dezelfde regels als elk ander adres",
+    "voor_accommodaties.krijgt.3": "Een zichtbare vermelding dat het verblijf door u is aangeboden",
+    "voor_accommodaties.niet_doen.verblijf.titel": "Geen vermelding in ruil voor een verblijf",
+    "voor_accommodaties.niet_doen.verblijf.tekst": "Een aangeboden verblijf koopt geen artikel, geen kaartpin en geen positief oordeel. Na het verblijf beslissen wij of en hoe we schrijven.",
 };
 
 /**
@@ -1633,6 +1642,15 @@ export const UI_STRING_EN: Record<string, string> = {
     "proeftafel.zowerkthet.huisregels.nix18": "Every post carries NIX18.",
     "proeftafel.zowerkthet.adres": "There is deliberately no shipping address anywhere on this site. Register your bottle through the form. If we accept it, Marijn will email you the shipping address.",
     "proeftafel.zowerkthet.cta": "Register a bottle",
+    // LAT-13203: /voor-accommodaties/, Directus ui_strings 554-560 (NL en EN). Directus wint;
+    // deze waarden zijn alleen de terugval als Directus onbereikbaar is.
+    "voor_accommodaties.meta.description": "VinoMartino is open to press stays and hosted visits. An offered stay does not buy a mention, a map pin or a verdict. No paid placements.",
+    "voor_accommodaties.wie.body": "Marijn travels to wine regions with a concrete agenda: visiting winemakers, getting to know regions, writing honest reports. He has visited twelve regions himself, from the Loire to the Cape; only guides labelled Travelled there are based on his own visits. All other guides are editorial, built on primary sources, with no claim of a stay. No mention is ever paid for.",
+    "voor_accommodaties.krijgt.1": "An honest assessment: if the stay fits and we can write about it honestly, an editorial mention may follow. It is never guaranteed",
+    "voor_accommodaties.krijgt.2": "If there is a mention, it comes with photographs and terroir context and, where a regional map exists, a place on that map under the same rules as any other address",
+    "voor_accommodaties.krijgt.3": "A visible disclosure that the stay was offered by you",
+    "voor_accommodaties.niet_doen.verblijf.titel": "No mention in exchange for a stay",
+    "voor_accommodaties.niet_doen.verblijf.tekst": "An offered stay does not buy an article, a map pin or a positive verdict. After the stay, we decide whether and how we write.",
 };
 
 /** Resolver over de UI-dictionary: EN-value indien aanwezig, anders NL-default. */
