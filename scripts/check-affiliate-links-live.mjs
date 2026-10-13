@@ -434,6 +434,20 @@ async function runPool(items, worker, size) {
 }
 
 async function main() {
+  // LAT-12562: handmatige dispatch met site=`…/?lat12562=clicktime` meet klik-tijd-
+  // attributie in plaats van de linkcheck. De nachtelijke (schedule-)run raakt dit niet.
+  if (process.env.GITHUB_EVENT_NAME === 'workflow_dispatch' && /[?&]lat12562=clicktime\b/.test(LIVE_SITE)) {
+    const playwright = await import('playwright');
+    const { runClicktime } = await import('./lat12562-clicktime.mjs');
+    const headless = process.env.AFFILIATE_LIVE_HEADED !== '1';
+    const browser = await playwright.chromium.launch({ channel: 'chromium', headless, args: ['--no-sandbox'] });
+    try {
+      await runClicktime(browser, new URL(LIVE_SITE).origin, REPORT_PATH);
+    } finally {
+      await browser.close();
+    }
+    return;
+  }
   const source = LIVE_SITE ? `live: ${LIVE_SITE}` : `dist: ${DIST_DIR}`;
   console.log(`[affiliate-live] bron = ${source}`);
   const { scanned, entries } = LIVE_SITE
