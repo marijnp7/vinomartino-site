@@ -41,7 +41,9 @@ const dagen = p.openingstijden
   : [];
 const ps = p.proeverij;
 // LAT-13101: zonder bevestigd bezoektype toont het blok altijd de eerlijke fallback, ook als adres en website ontbreken.
-const heeftBezoek = bezoekGevuld(p, address, website) || !p.bezoekType;
+// LAT-13386: bij 'gesloten' alleen de opmerking onder een neutrale kop, geen adres, kaart of knop.
+const gesloten = p.bezoekType === 'gesloten';
+const heeftBezoek = gesloten ? Boolean(p.openingstijden?.opmerking) : bezoekGevuld(p, address, website) || !p.bezoekType;
 
 const wijnen = WIJN_ROLLEN.map((r) => p.wijnen.find((w) => w.rol === r)).filter((w): w is NonNullable<typeof w> => Boolean(w));
 
@@ -54,8 +56,10 @@ const kortProeverij = ps
       ps.talen.length ? ps.talen.map((t) => t.toUpperCase()).join(', ') : null,
     ].filter(Boolean).join(' · ')
   : '';
-const kortUren = urenPerDag(p.openingstijden);
-const kortKnop = ps?.url
+const kortUren = gesloten ? {} : urenPerDag(p.openingstijden);
+const kortKnop = gesloten
+  ? null
+  : ps?.url
   ? { href: ps.url, label: ui.t('wijnhuis.bezoek.reserveer'), extern: true }
   : heeftBezoek
     ? { href: '#bezoek', label: ui.t('wijnhuis.cta.plan'), extern: false }
@@ -186,8 +190,11 @@ const heeftCombineer = Boolean(nabije.length || (routeHref && routeLabel) || (st
 {blok === 'bezoek' && heeftBezoek && (
   <section class="wp wp--bezoek" id="bezoek" aria-labelledby="wp-bezoek-title">
     <div class="container">
-      <p class="wp__eyebrow">{ui.t('wijnhuis.bezoek.eyebrow')}</p>
-      <h2 class="wp__title" id="wp-bezoek-title">{ui.t('wijnhuis.bezoek.title')}</h2>
+      {!gesloten && <p class="wp__eyebrow">{ui.t('wijnhuis.bezoek.eyebrow')}</p>}
+      <h2 class="wp__title" id="wp-bezoek-title">{ui.t(gesloten ? 'wijnhuis.bezoek.eyebrow' : 'wijnhuis.bezoek.title')}</h2>
+      {gesloten ? (
+        <p class="wp-bezoek__gesloten">{p.openingstijden!.opmerking}</p>
+      ) : (
       <div class="wp-bezoek">
         <dl class="wp-bezoek__lijst">
           {!p.bezoekType && (
@@ -248,6 +255,7 @@ const heeftCombineer = Boolean(nabije.length || (routeHref && routeLabel) || (st
           </aside>
         )}
       </div>
+      )}
     </div>
   </section>
 )}
@@ -337,6 +345,7 @@ const heeftCombineer = Boolean(nabije.length || (routeHref && routeLabel) || (st
 
   .wp-bezoek { display: grid; grid-template-columns: 1.4fr 1fr; gap: 2rem; align-items: start; }
   .wp-bezoek__lijst { margin: 0; }
+  .wp-bezoek__gesloten { max-width: 40rem; margin: 0; font-family: var(--font-body); color: var(--ink); }
   .wp-bezoek__rij { display: grid; grid-template-columns: 9rem 1fr; gap: 1rem; padding: 0.75rem 0; border-top: 1px solid var(--ruleSoft); }
   .wp-bezoek__rij dt { font-family: var(--font-mono); font-size: 0.6875rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--inkSoft); }
   .wp-bezoek__rij dd { margin: 0; font-family: var(--font-body); color: var(--ink); }

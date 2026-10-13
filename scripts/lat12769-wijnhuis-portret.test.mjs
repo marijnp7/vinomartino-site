@@ -179,3 +179,15 @@ test('combineer bordeaux en sticky alleen mobiel met safe-area', () => {
   assert.match(c, /env\(safe-area-inset-bottom\)/);
   assert.match(c, /@media \(min-width: 901px\) \{\s*\.wh-sticky \{ display: none !important; \}/);
 });
+
+test('LAT-13386: gesloten huis prijst geen bezoek aan', () => {
+  const p = normalizePortret({ bezoek_type: 'gesloten', openingstijden: { opmerking: 'Definitief gesloten.' } });
+  assert.equal(p.bezoekType, 'gesloten');
+  // geen hero-CTA en geen sticky "Plan je bezoek", ook met adres en website
+  assert.equal(heeftBezoek(p, 'Weg 1, Constantia', 'https://example.com'), false);
+  const b = read('src/components/WijnhuisPortretBlokken.astro');
+  assert.match(b, /const heeftBezoek = gesloten \? Boolean\(p\.openingstijden\?\.opmerking\)/);
+  assert.match(b, /const kortKnop = gesloten\s*\?\s*null/);
+  assert.match(b, /ui\.t\(gesloten \? 'wijnhuis\.bezoek\.eyebrow' : 'wijnhuis\.bezoek\.title'\)/);
+  assert.match(b, /\{gesloten \? \(\s*<p class="wp-bezoek__gesloten">/, 'geen onbevestigd-regel, adres of Maps-link');
+});
