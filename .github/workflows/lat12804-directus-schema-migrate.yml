@@ -43,6 +43,7 @@ on:
           - lat13075-wijnhuis-spotlight-schema.mjs
           - lat13075-spotlight-seed-1.mjs
           - lat13386-bezoek-type-gesloten.mjs
+          - lat13461-file-licentie-abbona.mjs
 
 concurrency:
   group: lat12804-directus-schema-migrate
