@@ -46,14 +46,29 @@ const winnerId = entries.find((e) => e.start <= buildNow && buildNow < e.end)?.i
 
 <script is:inline>
   (function () {
-    var now = Date.now();
-    document.querySelectorAll('[data-whs]').forEach(function (sec) {
-      var items = Array.prototype.slice.call(sec.querySelectorAll('[data-whs-item]'));
-      // HTML-volgorde = prioriteit (laatst gestart eerst, dan laagste id): eerste actieve wint.
-      var win = items.filter(function (el) { return +el.dataset.start <= now && now < +el.dataset.end; })[0] || null;
-      items.forEach(function (el) { el.hidden = el !== win; });
-      sec.hidden = !win;
-    });
+    // Kiest op de klok van nu en plant een herberekening op de eerstvolgende
+    // start/einde, zodat een open tabblad niet blijft hangen op een verlopen
+    // spotlight. Ook na terugkeer uit bfcache en bij weer zichtbaar worden.
+    var timer = null;
+    function apply() {
+      var now = Date.now(), next = Infinity;
+      document.querySelectorAll('[data-whs]').forEach(function (sec) {
+        var items = Array.prototype.slice.call(sec.querySelectorAll('[data-whs-item]'));
+        // HTML-volgorde = prioriteit (laatst gestart eerst, dan laagste id): eerste actieve wint.
+        var win = items.filter(function (el) { return +el.dataset.start <= now && now < +el.dataset.end; })[0] || null;
+        items.forEach(function (el) {
+          el.hidden = el !== win;
+          [+el.dataset.start, +el.dataset.end].forEach(function (t) { if (t > now && t < next) next = t; });
+        });
+        sec.hidden = !win;
+      });
+      clearTimeout(timer);
+      // setTimeout loopt over bij > 2^31-1 ms; daarna gewoon opnieuw rekenen.
+      if (next !== Infinity) timer = setTimeout(apply, Math.min(next - now + 50, 2147483647));
+    }
+    apply();
+    window.addEventListener('pageshow', apply);
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) apply(); });
   })();
 </script>
 
