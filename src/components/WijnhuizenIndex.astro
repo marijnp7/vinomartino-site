@@ -450,6 +450,8 @@ const schema = [
   /* LAT-13062 design-fix: .section (padding: x 0) overschrijft .container's gutter
      bij gelijke specificiteit; filterrij en kaarten liepen tegen de viewportrand. */
   .section.container { padding-inline: var(--gutter); }
+  /* LAT-13468 #3: direct na een zichtbare spotlight halve bovenruimte (~40 px winst op 390). */
+  :global(.whs:not([hidden])) + .section { padding-top: var(--space-8); }
   /* Filterpaneel in Variant B: wit vlak op papier, bordeaux kop-lijn, zelfde radius als kaarten. */
   .wh-filters {
     display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr);
