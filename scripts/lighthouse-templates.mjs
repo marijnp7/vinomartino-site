@@ -44,6 +44,8 @@ export const AB_VARIANTS = {
 // Alleen een meetbranch zet de A/B-modus vanzelf aan; main blijft de gewone 12-sjablonenmeting.
 export const abEnabled = (argv, env) => argv.includes('--ab') || /^lat12594-ab/.test(env.GITHUB_REF_NAME || '');
 
+export const abLocalBases = (env) => (env.AB_BASE_A && env.AB_BASE_B ? { A: env.AB_BASE_A.replace(/\/$/, ''), B: env.AB_BASE_B.replace(/\/$/, '') } : null);
+
 export function abSummary(pairs) {
   const deltas = pairs.map(({ A, B }) => Math.round(B.lcpMs - A.lcpMs));
   return {
@@ -154,11 +156,18 @@ async function mainAb(base, runs, outDir, chrome, tmp) {
   for (const name of AB_TEMPLATES) {
     const t = TEMPLATES.find((x) => x.template === name);
     const url = base + t.path;
+    // LAT-13443: met AB_BASE_A/AB_BASE_B (lokale proxy, scripts/lat12594-ab-proxy.mjs) is B een
+    // echte variant-build op hetzelfde serveerpad, dus geen geblokkeerde requests. Eén
+    // ongetelde opwarmronde per arm vult de proxycache, zodat paar 1 geen upstream-fetch meet.
+    const local = abLocalBases(process.env);
+    const target = (v) => (local ? local[v] + t.path : url);
+    const blockedFor = (v) => (local ? [] : AB_VARIANTS[v]);
+    if (local) for (const v of ['A', 'B']) withRetry(() => runOnce(target(v), chrome, tmp, join(outDir, 'raw', `${name}-${v}-warmup.json`)));
     const pairs = [];
     for (let i = 0; i < runs; i++) {
       const pair = {};
       for (const v of i % 2 ? ['B', 'A'] : ['A', 'B']) {
-        pair[v] = withRetry(() => runOnce(url, chrome, tmp, join(outDir, 'raw', `${name}-${v}-run${i + 1}.json`), AB_VARIANTS[v]));
+        pair[v] = withRetry(() => runOnce(target(v), chrome, tmp, join(outDir, 'raw', `${name}-${v}-run${i + 1}.json`), blockedFor(v)));
       }
       pairs.push(pair);
       console.log(`${name} paar ${i + 1}: A ${Math.round(pair.A.lcpMs)} B ${Math.round(pair.B.lcpMs)}`);
@@ -167,7 +176,8 @@ async function mainAb(base, runs, outDir, chrome, tmp) {
   }
   return {
     mode: 'ab', measuredAt: new Date().toISOString().replace(/\.\d+Z$/, 'Z'), base, lighthouse: LIGHTHOUSE_VERSION,
-    formFactor: 'mobile', throttling: 'simulate', pairsPerTemplate: runs, variants: AB_VARIANTS,
+    formFactor: 'mobile', throttling: 'simulate', pairsPerTemplate: runs,
+    variants: abLocalBases(process.env) ? { A: 'prod-build via lokale proxy', B: 'prod-build + variant 47a733e via lokale proxy', bases: abLocalBases(process.env) } : AB_VARIANTS,
     order: 'A,B in oneven paren; B,A in even paren', templates,
   };
 }
@@ -187,13 +197,19 @@ async function main() {
   const tmp = mkdtempSync(join(tmpdir(), `lh-${process.env.PAPERCLIP_RUN_ID || process.pid}-`));
   const rows = [];
   if (abEnabled(process.argv, process.env)) {
+    // LAT-13443: op branch lat12594-ab-local (of met --ab-local) draaien beide armen via de lokale proxy.
+    const proxy = process.argv.includes('--ab-local') || /^lat12594-ab-local/.test(process.env.GITHUB_REF_NAME || '')
+      ? await (await import('./lat12594-ab-proxy.mjs')).startProxies() : null;
+    if (proxy) { process.env.AB_BASE_A = proxy.bases.A; process.env.AB_BASE_B = proxy.bases.B; }
     try {
       const result = await mainAb(base, runs, outDir, chrome, tmp);
+      if (proxy) result.proxyReport = await proxy.report();
       // Bewust niet latest.json: de publish-stap zet die op branch lighthouse-data, en daar leest
       // het weekrapport een gewone 12-sjablonenmeting. Zonder latest.json slaat die stap af.
       writeFileSync(join(outDir, 'ab.json'), JSON.stringify(result, null, 2) + '\n');
       console.log(JSON.stringify(result.templates.map(({ template, lcpMedianA, lcpMedianB, medianPairedDeltaMs, bFasterPairs, pairs }) => ({ template, lcpMedianA, lcpMedianB, medianPairedDeltaMs, bFasterPairs, pairs }))));
     } finally {
+      proxy?.close();
       rmSync(tmp, { recursive: true, force: true });
     }
     return;
