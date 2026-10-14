@@ -31,6 +31,37 @@ export const TEMPLATES = [
   { template: 'streek-bourgogne-en', path: '/en/streken/bourgogne/' },
 ];
 
+// LAT-12594 (K2, Codex 14-10): A/B in één workflow-run. Variant A = de pagina zoals hij is,
+// variant B = dezelfde pagina met de body-webfonts geblokkeerd (alleen de gepreloade
+// Cormorant-kopfont blijft). Runs wisselen A/B/A/B af op dezelfde runner, zodat runnerdrift beide
+// varianten gelijk raakt. B is een bovengrens voor "body-fonts van het kritieke pad": geen fix,
+// en beelden blijven ongemoeid (zelfde bytes, zelfde kwaliteit).
+export const AB_TEMPLATES = ['index-wijnroutes', 'route-bourgogne'];
+export const AB_VARIANTS = {
+  A: [],
+  B: ['*/fonts/inter-*', '*/fonts/jetbrains-mono-*', '*/fonts/source-serif-4-*'],
+};
+// Alleen een meetbranch zet de A/B-modus vanzelf aan; main blijft de gewone 12-sjablonenmeting.
+export const abEnabled = (argv, env) => argv.includes('--ab') || /^lat12594-ab/.test(env.GITHUB_REF_NAME || '');
+
+export function abSummary(pairs) {
+  const deltas = pairs.map(({ A, B }) => Math.round(B.lcpMs - A.lcpMs));
+  return {
+    pairs: pairs.length,
+    lcpMedianA: Math.round(median(pairs.map((p) => p.A.lcpMs))),
+    lcpMedianB: Math.round(median(pairs.map((p) => p.B.lcpMs))),
+    medianPairedDeltaMs: Math.round(median(deltas)),
+    bFasterPairs: deltas.filter((d) => d < 0).length,
+    perPairDeltaMs: deltas,
+    perRunLcpA: pairs.map((p) => Math.round(p.A.lcpMs)),
+    perRunLcpB: pairs.map((p) => Math.round(p.B.lcpMs)),
+    perRunObservedFcpA: pairs.map((p) => p.A.observedFcpMs),
+    perRunObservedFcpB: pairs.map((p) => p.B.observedFcpMs),
+    clsMedianA: median(pairs.map((p) => p.A.cls)),
+    clsMedianB: median(pairs.map((p) => p.B.cls)),
+  };
+}
+
 export const median = (xs) => {
   const s = [...xs].sort((a, b) => a - b);
   const m = Math.floor(s.length / 2);
@@ -95,11 +126,11 @@ export function attribution(j) {
   return { lcpElement: node(lcpNode), lcpPhases, layoutShifts };
 }
 
-function runOnce(url, chrome, tmp, rawPath) {
+function runOnce(url, chrome, tmp, rawPath, blocked = []) {
   const out = join(tmp, 'lh.json');
   const args = ['--yes', `lighthouse@${LIGHTHOUSE_VERSION}`, url, '--quiet', '--output=json', `--output-path=${out}`,
     '--only-categories=performance', '--form-factor=mobile', '--throttling-method=simulate',
-    '--chrome-flags=--headless=new --no-sandbox --disable-gpu'];
+    '--chrome-flags=--headless=new --no-sandbox --disable-gpu', ...blocked.map((b) => `--blocked-url-patterns=${b}`)];
   const r = spawnSync('npx', args, { env: { ...process.env, ...(chrome ? { CHROME_PATH: chrome } : {}) }, encoding: 'utf8', timeout: 240000 });
   if (r.status !== 0 || !existsSync(out)) throw new Error(`lighthouse faalde op ${url}: ${(r.stderr || '').slice(-400)}`);
   const raw = readFileSync(out, 'utf8');
@@ -113,6 +144,31 @@ function runOnce(url, chrome, tmp, rawPath) {
     fcpMs: a['first-contentful-paint'].numericValue,
     tbtMs: a['total-blocking-time'].numericValue,
     cls: a['cumulative-layout-shift'].numericValue,
+    observedFcpMs: Math.round(a.metrics?.details?.items?.[0]?.observedFirstContentfulPaint ?? NaN),
+  };
+}
+
+async function mainAb(base, runs, outDir, chrome, tmp) {
+  mkdirSync(join(outDir, 'raw'), { recursive: true });
+  const templates = [];
+  for (const name of AB_TEMPLATES) {
+    const t = TEMPLATES.find((x) => x.template === name);
+    const url = base + t.path;
+    const pairs = [];
+    for (let i = 0; i < runs; i++) {
+      const pair = {};
+      for (const v of i % 2 ? ['B', 'A'] : ['A', 'B']) {
+        pair[v] = withRetry(() => runOnce(url, chrome, tmp, join(outDir, 'raw', `${name}-${v}-run${i + 1}.json`), AB_VARIANTS[v]));
+      }
+      pairs.push(pair);
+      console.log(`${name} paar ${i + 1}: A ${Math.round(pair.A.lcpMs)} B ${Math.round(pair.B.lcpMs)}`);
+    }
+    templates.push({ template: name, url, ...abSummary(pairs) });
+  }
+  return {
+    mode: 'ab', measuredAt: new Date().toISOString().replace(/\.\d+Z$/, 'Z'), base, lighthouse: LIGHTHOUSE_VERSION,
+    formFactor: 'mobile', throttling: 'simulate', pairsPerTemplate: runs, variants: AB_VARIANTS,
+    order: 'A,B in oneven paren; B,A in even paren', templates,
   };
 }
 
@@ -130,6 +186,18 @@ async function main() {
   const chrome = findChrome();
   const tmp = mkdtempSync(join(tmpdir(), `lh-${process.env.PAPERCLIP_RUN_ID || process.pid}-`));
   const rows = [];
+  if (abEnabled(process.argv, process.env)) {
+    try {
+      const result = await mainAb(base, runs, outDir, chrome, tmp);
+      // Bewust niet latest.json: de publish-stap zet die op branch lighthouse-data, en daar leest
+      // het weekrapport een gewone 12-sjablonenmeting. Zonder latest.json slaat die stap af.
+      writeFileSync(join(outDir, 'ab.json'), JSON.stringify(result, null, 2) + '\n');
+      console.log(JSON.stringify(result.templates.map(({ template, lcpMedianA, lcpMedianB, medianPairedDeltaMs, bFasterPairs, pairs }) => ({ template, lcpMedianA, lcpMedianB, medianPairedDeltaMs, bFasterPairs, pairs }))));
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+    return;
+  }
   try {
     for (const t of TEMPLATES) {
       const url = base + t.path;
