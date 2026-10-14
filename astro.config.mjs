@@ -56,6 +56,9 @@ export default defineConfig({
         // LAT-13411: Eagles' Nest van de site (LAT-13410), nginx 301t NL en EN naar /streken/constantia/.
         page !== 'https://vinomartino.com/wijnhuizen/eagles-nest/' &&
         page !== 'https://vinomartino.com/en/wijnhuizen/eagles-nest/' &&
+        // LAT-13458: Gaja van de site (LAT-13457), nginx 301t NL en EN naar /streken/langhe-piemonte/.
+        page !== 'https://vinomartino.com/wijnhuizen/gaja-barbaresco/' &&
+        page !== 'https://vinomartino.com/en/wijnhuizen/gaja-barbaresco/' &&
         // LAT-11952: EN-verblijfspagina samengevoegd, nginx 301t; alleen de EN-URL, NL blijft canoniek.
         page !== 'https://vinomartino.com/en/artikelen/overnachten-langhe-barolo-agriturismi/' &&
         // LAT-2769, herstel via LAT-3071: de 7 persona-auteurspagina's (NL + EN)
