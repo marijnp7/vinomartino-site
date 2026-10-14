@@ -31,7 +31,7 @@ const items = overviewFacts(facts);
  .overview__fact:only-child dt { flex-direction: row; align-items: center; }
  .overview__fact:only-child dd { margin: 0; }
  .overview__fact dt { display: flex; flex-direction: column; gap: .7rem; font-family: var(--font-mono); font-size: .625rem; font-weight: 400; letter-spacing: .09em; line-height: 1.5; text-transform: uppercase; color: var(--inkSoft); overflow-wrap: anywhere; }
- .overview__icon { color: var(--burgundy); height: 28px; }
+ .overview__icon { color: var(--burgundyInk); height: 28px; }
  .overview__fact:nth-child(3n + 2) .overview__icon { color: var(--vine); }
  .overview__fact:nth-child(3n) .overview__icon { color: var(--rust); }
  .overview__fact dd { margin: .55rem 0 0; font-family: var(--font-display); font-weight: 400; font-size: clamp(1.4rem, 3cqi, 1.875rem); line-height: 1.2; overflow-wrap: anywhere; }
@@ -42,7 +42,7 @@ const items = overviewFacts(facts);
  .overview__tip summary { display: flex; align-items: center; gap: .85rem; padding: 1rem; cursor: pointer; list-style: none; font-family: var(--font-body); }
  .overview__tip summary::-webkit-details-marker { display: none; }
  .overview__tip summary:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
- .overview__tip summary :global(svg) { color: var(--burgundy); flex: none; }
+ .overview__tip summary :global(svg) { color: var(--burgundyInk); flex: none; }
  .overview__toggle { margin-left: auto; width: 14px; height: 14px; position: relative; flex: none; }
  .overview__toggle::before, .overview__toggle::after { content: ''; position: absolute; background: currentColor; width: 14px; height: 1px; top: 7px; }
  .overview__toggle::after { transform: rotate(90deg); }

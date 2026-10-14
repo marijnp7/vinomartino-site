@@ -21,6 +21,7 @@ const { dateline, signature = 'Marijn', align = 'left' } = Astro.props;
 <style>
   .briefkaart {
     background: var(--fixed-cream);
+    --burgundyInk: var(--fixed-burgundy);
     color: var(--fixed-ink);
     border: 1px solid var(--paperShade, #E8DCC0);
     border-radius: 3px;
@@ -48,7 +49,7 @@ const { dateline, signature = 'Marijn', align = 'left' } = Astro.props;
     font-size: 0.6875rem;
     letter-spacing: 0.18em;
     text-transform: uppercase;
-    color: var(--burgundy, #5A1A1F);
+    color: var(--burgundyInk, #5A1A1F);
     margin: 0 0 1.1rem;
   }
   .briefkaart-body {
@@ -65,7 +66,7 @@ const { dateline, signature = 'Marijn', align = 'left' } = Astro.props;
     font-weight: 500;
     font-size: 1.85rem;
     line-height: 1;
-    color: var(--burgundy, #5A1A1F);
+    color: var(--burgundyInk, #5A1A1F);
     margin: 1.5rem 0 0;
   }
 </style>
