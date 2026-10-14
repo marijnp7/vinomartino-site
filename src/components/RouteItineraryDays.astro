@@ -175,6 +175,8 @@ function stopToPoi(stop: ItineraryStop, pin: CardPin, hasProse = false): PoiCard
           // zonder affiliate-tekst; Booking/Stay22 blijft via CJ met disclosure.
           const stayHref = accommodatieBookingDeeplink(d.overnachting.naam, '', d.overnachting.bookingUrl, routeSid, locale);
           const affiliate = isAffiliateHref(stayHref);
+          // LAT-13518: een Booking-zoekopdracht (searchresults) is geen hotelpagina; de knop zegt dat eerlijk.
+          const isZoek = /searchresults/i.test(stayHref);
           return (
           <div class="route-day__stay">
             <PoiCard
@@ -188,11 +190,11 @@ function stopToPoi(stop: ItineraryStop, pin: CardPin, hasProse = false): PoiCard
                 badge: ui.t('route.stop.overnachting'),
                 // Elke overnachting is klikbaar: property- of zoeklink op booking.com (CJ-affiliate).
                 boeklink: stayHref,
-                cta: ui.t('streekkaart.cta.overnachten'),
+                cta: ui.t(isZoek ? 'route.cta.zoekBooking' : 'streekkaart.cta.overnachten'),
                 partner: affiliate ? 'booking' : 'direct',
                 placement: 'route-itinerary-overnachten',
                 context,
-                ctaKey: 'bekijk-boek',
+                ctaKey: isZoek ? 'zoek-booking' : 'bekijk-boek',
                 disclosure: affiliate ? ui.t('stay.disclosure.microcopy') : null,
                 n: overnachtingPin?.n ?? null,
                 plotted: overnachtingPin?.plotted ?? false,
@@ -216,7 +218,7 @@ function stopToPoi(stop: ItineraryStop, pin: CardPin, hasProse = false): PoiCard
   ))}
 
   {bookHref && (
-    <a class="route-book-sticky" href={bookHref}>Boek je overnachting</a>
+    <a class="route-book-sticky" href={bookHref}>{ui.t('route.cta.bookSticky')}</a>
   )}
 </div>
 
