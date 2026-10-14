@@ -609,6 +609,9 @@ const chipStreek = region.split(' · ')[0];
     color: var(--ink);
   }
   .wh-story__prose :global(p) { margin-bottom: 1.25rem; }
+  /* LAT-13488 (WCAG 1.4.1): links in CMS-lopende tekst niet alleen op kleur. */
+  .wh-story__prose :global(a),
+  .wh-story__para :global(a) { text-decoration: underline; text-underline-offset: 0.2em; }
   .wh-story__prose :global(h2) {
     font-family: var(--font-display);
     font-size: 1.75rem;
