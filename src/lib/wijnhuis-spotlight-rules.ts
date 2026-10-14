@@ -74,3 +74,9 @@ export function renderCandidates(entries: SpotlightEntry[], buildNow: number): S
     return sortByPriority(entries).filter((e) => e.end > buildNow && e.start < buildNow + SPOTLIGHT_HORIZON_MS);
 }
 
+
+/** Licenties die geen bevestigd beeldrecht zijn: leeg, onbekend, onbevestigd of AI (REGEL 61/64). */
+const UNCONFIRMED_LICENSES = new Set(['', 'onbekend', 'booking-onbevestigd', 'pers-onbevestigd', 'synthetisch']);
+export function hasConfirmedLicense(licentie: string | null | undefined): boolean {
+    return !UNCONFIRMED_LICENSES.has(String(licentie ?? '').trim().toLowerCase());
+}

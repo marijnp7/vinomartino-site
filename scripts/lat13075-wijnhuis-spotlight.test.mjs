@@ -33,4 +33,8 @@ t('overlap: één deterministische winnaar', () => {
 t('locale-teaser', () => {
   assert.equal(m.validateSpotlights([row(1, 'voerzio', -1, 5)], huizen, 'en', ok).entries[0].teaser, 'Interesting now. Short.');
 });
-console.log(`${n}/4 pass`);
+t('beeldrecht = bevestigde DAM-licentie, niet alleen CC', () => {
+  for (const l of ['pers', 'eigen', 'cc0', 'cc-by-sa-4.0', 'publiek-domein']) assert.equal(m.hasConfirmedLicense(l), true, l);
+  for (const l of [null, undefined, '', 'onbekend', 'booking-onbevestigd', 'pers-onbevestigd', 'synthetisch']) assert.equal(m.hasConfirmedLicense(l), false, String(l));
+});
+console.log(`${n}/5 pass`);
