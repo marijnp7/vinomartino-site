@@ -451,7 +451,16 @@ const schema = [
      bij gelijke specificiteit; filterrij en kaarten liepen tegen de viewportrand. */
   .section.container { padding-inline: var(--gutter); }
   /* LAT-13468 #3: direct na een zichtbare spotlight halve bovenruimte (~40 px winst op 390). */
-  :global(.whs:not([hidden])) + .section { padding-top: var(--space-8); }
+  /* LAT-13479: `~` i.p.v. `+` — tussen .whs en .section staan twee <script>-tags, dus `+` greep nooit (gemeten 64 px). */
+  :global(.whs:not([hidden])) ~ .section { padding-top: var(--space-8); }
+  /* LAT-13479 (SP9): op 320 begon #wh-zoek onder de vouw (y 843 NL / 877 EN bij 844 hoog).
+     Compactere hero + krappere spotlightmarge: invoer nu op ~731/738, volledig in de eerste viewport. */
+  @media (max-width: 420px) {
+    .hero-sm { padding: var(--space-6) 0 var(--space-5); }
+    .hero-sm .hero-desc { font-size: 0.9375rem; line-height: 1.5; }
+    :global(.whs.whs--index:not([hidden])) { margin-block: 0.75rem; }
+    :global(.whs:not([hidden])) ~ .section { padding-top: var(--space-6); }
+  }
   /* Filterpaneel in Variant B: wit vlak op papier, bordeaux kop-lijn, zelfde radius als kaarten. */
   .wh-filters {
     display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr);
