@@ -9,10 +9,10 @@
 // winnaar op buildtijd; de nachtelijke deploy-cron (deploy.yml, 02:00 UTC) begrenst
 // die veroudering tot één dag. Geen nieuwe routine.
 import { readDirectusEnv, fetchDirectusCollection } from './directus-config';
-import { getImageCredit } from './image-credits';
+import { loadDamFileMeta } from './dam-file-meta';
 import type { Wijnhuis } from './wijnhuizen';
 import type { Locale } from './i18n';
-import { validateSpotlights, renderCandidates, type SpotlightRow, type SpotlightEntry } from './wijnhuis-spotlight-rules';
+import { validateSpotlights, renderCandidates, hasConfirmedLicense, type SpotlightRow, type SpotlightEntry } from './wijnhuis-spotlight-rules';
 export * from './wijnhuis-spotlight-rules';
 
 async function fetchRows(): Promise<SpotlightRow[]> {
@@ -52,8 +52,13 @@ let rowsPromise: Promise<SpotlightRow[]> | null = null;
 export async function loadSpotlight(huizen: Wijnhuis[], locale: Locale, buildNow = Date.now()): Promise<SpotlightEntry[]> {
     rowsPromise ??= fetchRows();
     const rows = await rowsPromise;
+    // Beeldrecht = een bevestigde DAM-licentie op de hero. `getImageCredit` is hier niet
+    // bruikbaar: die geeft alleen iets terug voor CC BY-licenties (attributieplicht).
+    const meta = await loadDamFileMeta();
     const credited = new Set<string>();
-    for (const h of huizen) if (h.heroImageId && await getImageCredit(h.heroImageId)) credited.add(h.slug);
+    for (const h of huizen) {
+        if (h.heroImageId && hasConfirmedLicense(meta.get(String(h.heroImageId).toLowerCase())?.licentie)) credited.add(h.slug);
+    }
     const { entries, rejected } = validateSpotlights(rows, huizen, locale, (h) => credited.has(h.slug));
     for (const r of rejected) console.warn(`[loadSpotlight] ${locale} spotlight ${r.id} afgewezen: ${r.reason}`);
     const out = renderCandidates(entries, buildNow);

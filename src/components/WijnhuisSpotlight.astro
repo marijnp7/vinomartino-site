@@ -28,6 +28,7 @@ const winnerId = entries.find((e) => e.start <= buildNow && buildNow < e.end)?.i
         <article class="whs-item" data-whs-item data-start={e.start} data-end={e.end} data-huis={e.huis.slug} data-campagne={e.campagneId} hidden={e.id !== winnerId}>
           <div class="whs-media">
             <SmartImg src={e.huis.heroImage || undefined} alt={e.huis.name} theme="winery" class="whs-img" />
+            <span class="whs-credit">{ui.t('wijnhuis.reeks.foto')}: {e.huis.name}</span>
           </div>
           <div class="whs-body">
             <span class="whs-kicker">{ui.t('wijnhuis.spotlight.kicker')}</span>
@@ -74,7 +75,8 @@ const winnerId = entries.find((e) => e.start <= buildNow && buildNow < e.end)?.i
   .whs { margin-block: 1.5rem; padding-inline: var(--gutter); }
   .whs[hidden], .whs-item[hidden] { display: none; }
   .whs-item { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); background: var(--cream, #f7f1e8); border: 1px solid var(--inkFaint, #c9bfb3); border-radius: 4px; overflow: hidden; }
-  .whs-media { display: block; aspect-ratio: 4 / 3; overflow: hidden; }
+  .whs-media { display: block; position: relative; aspect-ratio: 4 / 3; overflow: hidden; }
+  .whs-credit { position: absolute; right: 0; bottom: 0; padding: .2rem .5rem; font: .7rem/1.3 var(--font-sans, Inter, sans-serif); color: #fff; background: rgba(0, 0, 0, .55); }
   .whs-media :global(img) { width: 100%; height: 100%; object-fit: cover; display: block; }
   .whs-body { padding: 1.25rem 1.5rem; display: flex; flex-direction: column; gap: .35rem; justify-content: center; }
   .whs-kicker { font: 600 .75rem/1.2 var(--font-sans, Inter, sans-serif); letter-spacing: .08em; text-transform: uppercase; color: var(--burgundy); }
