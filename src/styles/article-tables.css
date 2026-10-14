@@ -3,14 +3,14 @@
 .article-prose .editorial-table { width:100%; border-collapse:collapse; margin:0; font:400 1rem/1.6 var(--font-body); color:var(--ink); }
 .article-prose .editorial-table :is(th,td) { padding:18px 20px; text-align:left; vertical-align:top; border-bottom:1px solid var(--rule); min-width:110px; overflow-wrap:break-word; }
 .article-prose .editorial-table thead th { font:400 .6875rem/1.5 var(--font-mono); text-transform:uppercase; letter-spacing:.055em; padding-block:20px; border-top:2px solid var(--burgundy); background:var(--paperDeep); color:var(--inkSoft); }
-.article-prose .editorial-table tbody th { font-weight:400; color:var(--burgundy); }
+.article-prose .editorial-table tbody th { font-weight:400; color:var(--burgundyInk); }
 .article-prose .editorial-table tbody tr:nth-child(even) { background:color-mix(in srgb,var(--paperDeep) 45%,var(--paper)); }
 .article-prose .editorial-table tbody tr:last-child > * { border-bottom:0; }
 .article-prose .editorial-table__mobile-label { display:none; }
 .article-prose .editorial-table :is(p,ul,ol) { margin-block:0; }
 .article-prose .editorial-table--comparison { table-layout:fixed; }
 .article-prose .editorial-table--comparison :is(th,td) { padding:20px 22px; }
-.article-prose .editorial-table--comparison thead th { font:400 2rem/1.15 var(--font-display); text-transform:none; letter-spacing:0; padding-block:24px 26px; color:var(--burgundy); }
+.article-prose .editorial-table--comparison thead th { font:400 2rem/1.15 var(--font-display); text-transform:none; letter-spacing:0; padding-block:24px 26px; color:var(--burgundyInk); }
 .article-prose .editorial-table--comparison thead th:first-child { width:108px; padding:0; border-top-color:transparent; background:none; }
 .article-prose .editorial-table--comparison thead th:nth-child(3) { border-top-color:var(--vine); color:var(--vine); }
 .article-prose .editorial-table--comparison tr > :nth-child(2) { background:color-mix(in srgb,var(--burgundy) 4%,var(--paper)); }

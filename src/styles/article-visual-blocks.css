@@ -32,10 +32,10 @@
 /* LAT-13135 afwerk — contextuele verblijfskaart in body-HTML, plaatsbaar bij relevant hoofdstuk.
    Gebruik: <div class="article-verblijf-kaart"> in Directus rich-text (code view). */
 .article-prose.article-prose .article-verblijf-kaart { padding:20px 24px; margin:28px 0; background:var(--paperDeep); border-left:2px solid var(--burgundy); max-width:var(--article-body-max); }
-.article-prose.article-prose .article-verblijf-kaart::before { content:'Hier sliep ik'; display:block; font-family:var(--font-mono); font-size:0.5625rem; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--burgundy); margin-bottom:10px; }
+.article-prose.article-prose .article-verblijf-kaart::before { content:'Hier sliep ik'; display:block; font-family:var(--font-mono); font-size:0.5625rem; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--burgundyInk); margin-bottom:10px; }
 .article-prose.article-prose .article-verblijf-kaart p { margin-bottom:0.5rem; font-size:0.9375rem; line-height:1.65; }
 .article-prose.article-prose .article-verblijf-kaart p:last-child { margin-bottom:0; }
-.article-prose.article-prose .article-verblijf-kaart a { color:var(--burgundy); font-weight:600; text-decoration:none; border-bottom:1px solid currentColor; }
+.article-prose.article-prose .article-verblijf-kaart a { color:var(--burgundyInk); font-weight:600; text-decoration:none; border-bottom:1px solid currentColor; }
 .article-prose.article-prose .article-verblijf-kaart a:hover { opacity:0.8; }
 @media(max-width:600px) {
   .article-prose.article-prose .article-verblijf-kaart { padding:16px 18px; }

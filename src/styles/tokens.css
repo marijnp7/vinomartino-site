@@ -42,6 +42,14 @@
      --paper/--ink flip with the theme and must not be used there. */
   --fixed-cream: #FAF5E9;
   --fixed-ink: #1F1A16;
+  --fixed-burgundy: #5A1A1F;
+  --fixed-vine: #5C6B3F; /* LAT-13488: vlak onder crème tekst, 5,3:1 in beide modi */
+
+  /* LAT-13488: bordeaux als tekstkleur. Gelijk aan --burgundy in licht;
+     in de kelder lichter, want #8B2733 op #0F0B09 haalt maar 2,3:1.
+     --burgundy zelf blijft de vlakkleur voor knoppen/badges. */
+  --burgundyInk: var(--burgundy);
+  --color-rust: var(--rust);
 
   /* Backward-compat aliases for existing components */
   --charcoal: var(--ink);
@@ -139,6 +147,7 @@ summary:focus-visible,
   --paperDeep: #1A1411;
   --paperShade: #1A1614;
   --burgundy: #8B2733;
+  --burgundyInk: #D4848E; /* LAT-13488: 7,0:1 op paper, 6,5:1 op paperDeep */
   --burgundyDeep: #5A1A1F;
   --rust: #C8794A;
   --vine: #7A8B5F;
