@@ -4,10 +4,6 @@ import sitemap from '@astrojs/sitemap';
 export default defineConfig({
   site: 'https://vinomartino.com',
   server: { host: '0.0.0.0', port: 4321 },
-  // LAT-12594: alle CSS inline in <head>. Prod had per pagina 4 render-blocking
-  // stylesheets (~80 KB raw) vóór de hero; in de mobiele labmeting zat die keten
-  // op elk van de 12 templates op het kritieke pad van LCP.
-  build: { inlineStylesheets: 'always' },
   trailingSlash: 'always',
   // LAT-2575: NL blijft primair en prefixloos; EN leeft onder /en/.
   // Inert zolang er nog geen /en/-pagina's worden gegenereerd (no-translation-guard).
