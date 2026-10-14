@@ -164,7 +164,9 @@ const bookableSection = sections.find((s) =>
 const hasSticky = Boolean(bookableSection);
 const stickyTargetId = bookableSection ? `${mapId}-${bookableSection.key}` : '';
 
-function ctaLabel(category: CatKey): string {
+function ctaLabel(category: CatKey, boeklink?: string | null): string {
+  // LAT-13518: een Booking-zoekopdracht is geen hotelpagina.
+  if (category === 'overnachten' && boeklink && /searchresults/i.test(boeklink)) return ui.t('route.cta.zoekBooking');
   if (category === 'overnachten') return ui.t('streekkaart.cta.overnachten');
   if (category === 'activiteiten') return ui.t('streekkaart.cta.activiteiten');
   if (category === 'eten') return ui.t('streekkaart.cta.eten');
@@ -186,7 +188,7 @@ const mapData = {
     prijs: it.prijs ?? null,
     boeklink: it.boeklink ?? null,
     detailUrl: it.detailUrl ? lh(it.detailUrl) : null,
-    cta: ctaLabel(it.category),
+    cta: ctaLabel(it.category, it.boeklink),
     partner: it.partner ?? '',
     foto: it.foto ?? null,
     fotoAlt: it.fotoAlt ?? it.naam,
@@ -287,7 +289,7 @@ const usedCats = sections.map((s) => s.key);
                     prijs: it.prijs ?? null,
                     boeklink: it.boeklink ?? null,
                     detailUrl: it.detailUrl ? lh(it.detailUrl) : null,
-                    cta: ctaLabel(it.category),
+                    cta: ctaLabel(it.category, it.boeklink),
                     ctaKey: it.category === 'overnachten' ? 'bekijk-boek' : undefined,
                     partner: it.partner || '',
                     placement: `streek-poi-${it.category}`,
