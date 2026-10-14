@@ -77,6 +77,25 @@ export const PIN_DAM_BATCHES: readonly PinDamBatch[] = [
             { articleId: 166, slug: 'wijnproeven-stellenbosch-prijzen-boeken', lang: 'en', fileId: '61a103b8-ffaf-46f1-b710-63157dd4bc80' },
         ],
     },
+    // LAT-13440: week 42. Taal nl ook voor Champagne/Toscane, want de kop op het beeld is Nederlands.
+    {
+        day: '2026-10-15',
+        pins: [
+            { articleId: 162, slug: 'auto-huren-wijnreis-champagne', lang: 'nl', fileId: '3fabb7d1-d956-433e-b60e-9d774ef3b1c8' },
+            { articleId: 176, slug: 'cote-chalonnaise-wijnhuizen-bezoeken-mercurey-givry', lang: 'nl', fileId: '30e0f85a-634e-4d74-97cb-75e40114f833' },
+            { articleId: 178, slug: 'menetou-salon-sancerre-zonder-rij', lang: 'nl', fileId: 'f53d11af-80c5-43e4-a714-e36876a97f5d' },
+            { articleId: 179, slug: 'pouilly-fume-of-sancerre-welke-oever', lang: 'nl', fileId: 'dbc56fb8-9e63-4fd6-b013-4b89ddccde1c' },
+            { articleId: 169, slug: 'toscane-chianti-montalcino-waar-begin-je', lang: 'nl', fileId: '786eba87-2c95-4be6-a592-730e693ad957' },
+        ],
+    },
+    // LAT-13440: weekendplanner Champagne. Slug 144 staat ook in 2026-10-08 als en; beeldpad,
+    // DAM-bestand en guid zijn op (taal, slug) gesleuteld, dus dat botst niet.
+    {
+        day: '2026-10-16',
+        pins: [
+            { articleId: 144, slug: 'champagne-reims-epernay-of-de-aube-waar-begin-je', lang: 'nl', fileId: '18072c6d-c3ab-4398-ac14-c5b9fa9a3bad' },
+        ],
+    },
 ];
 
 export const PIN_DAM_SLUGS: ReadonlySet<string> = new Set(PIN_DAM_BATCHES.flatMap((b) => b.pins.map((p) => p.slug)));

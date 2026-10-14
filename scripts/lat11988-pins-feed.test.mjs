@@ -143,7 +143,25 @@ test('LAT-12765: batch 2026-10-08 (week 41) heeft vijf unieke EN-pins, valt uit 
   assert.ok(b.pins.every((p) => PIN_DAM_SLUGS.has(p.slug)));
   const all = PIN_DAM_BATCHES.flatMap((x) => x.pins);
   assert.equal(new Set(all.map((p) => p.fileId)).size, all.length, 'fileId in twee batches');
-  assert.equal(new Set(all.map((p) => p.slug)).size, all.length, 'slug in twee batches');
+  assert.equal(new Set(all.map((p) => `${p.lang}/${p.slug}`)).size, all.length, 'taal/slug in twee batches');
+});
+
+test('LAT-13440: batch 2026-10-15 (week 42) vijf NL-pins en planner 2026-10-16, geen v1-bestanden of covers', () => {
+  const b = PIN_DAM_BATCHES.find((x) => x.day === '2026-10-15');
+  const w = PIN_DAM_BATCHES.find((x) => x.day === '2026-10-16');
+  assert.ok(b && w, 'batch 2026-10-15 of 2026-10-16 ontbreekt');
+  assert.deepEqual(b.pins.map((p) => p.articleId), [162, 176, 178, 179, 169]);
+  assert.deepEqual(b.pins.map((p) => p.fileId), [
+    '3fabb7d1-d956-433e-b60e-9d774ef3b1c8', '30e0f85a-634e-4d74-97cb-75e40114f833', 'f53d11af-80c5-43e4-a714-e36876a97f5d',
+    'dbc56fb8-9e63-4fd6-b013-4b89ddccde1c', '786eba87-2c95-4be6-a592-730e693ad957',
+  ]);
+  assert.deepEqual(w.pins.map((p) => [p.articleId, p.lang, p.fileId]), [[144, 'nl', '18072c6d-c3ab-4398-ac14-c5b9fa9a3bad']]);
+  assert.ok([...b.pins, ...w.pins].every((p) => p.lang === 'nl' && PIN_DAM_SLUGS.has(p.slug)));
+  const verboden = ['b4733e7e', 'e8cdc3a8', '227263a0', '279f5162', 'f3b7e4cb', '9b651386', '7a5afc26'];
+  assert.ok(![...b.pins, ...w.pins].some((p) => verboden.some((v) => p.fileId.startsWith(v))));
+  // Slug 144 in nl en en: twee verschillende beeldpaden.
+  const s144 = 'champagne-reims-epernay-of-de-aube-waar-begin-je';
+  assert.notEqual(pinImageUrl('nl', s144, 'png'), pinImageUrl('en', s144, 'png'));
 });
 
 test('LAT-12109: DAM-item in de feed: PNG-enclosure, media:content 1000x1500, lint-schoon', () => {
