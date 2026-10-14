@@ -66,7 +66,7 @@ test('NL en EN hebben dezelfde nieuwsbriefsleutels (EN viel terug op NL)', () =>
   }
 });
 
-test('frequentiebelofte is overal eens per maand, zonder gedachtestreepjes', () => {
+test('frequentiebelofte is overal ongeveer eens per maand (LAT-13487), zonder gedachtestreepjes', () => {
   const { nl, en } = copy();
   const pages = ['src/pages/de-brief/index.astro', 'src/pages/en/de-brief/index.astro', 'src/components/DeBriefPage.astro'].map(read);
   const all = [...Object.values(nl), ...Object.values(en), ...pages].join('\n');
@@ -75,10 +75,10 @@ test('frequentiebelofte is overal eens per maand, zonder gedachtestreepjes', () 
     assert.doesNotMatch(v, /[—–]/, `gedachtestreepje in ${k}`);
   }
   for (const p of pages) assert.doesNotMatch(p, /—/, 'gedachtestreepje op de-brief-pagina');
-  assert.match(nl['newsletter.inline.body'], /Eens per maand/);
-  assert.match(en['newsletter.inline.body'], /Once a month/);
-  assert.match(nl['newsletter.footer.lede'], /Eens per maand/);
-  assert.match(en['newsletter.footer.lede'], /Once a month/);
+  assert.match(nl['newsletter.inline.body'], /^Ongeveer eens per maand/);
+  assert.match(en['newsletter.inline.body'], /^Roughly once a month/);
+  assert.match(nl['newsletter.footer.lede'], /^Ongeveer eens per maand/);
+  assert.match(en['newsletter.footer.lede'], /^Roughly once a month/);
 });
 
 test('inline-copy is Marijns eigen stem (ik) en verschilt van de footer-lede', () => {
