@@ -102,4 +102,4 @@ export async function startProxies(ports = { A: 4401, B: 4402 }) {
   return { bases: { A: `http://127.0.0.1:${ports.A}`, B: `http://127.0.0.1:${ports.B}` }, report, close: () => Object.values(servers).forEach((s) => s.close()) };
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) startProxies().then((p) => console.log(p.bases));
+if (process.argv[1] && import.meta.url.endsWith(process.argv[1].replace(/^.*\/scripts\//, '/scripts/'))) startProxies().then((p) => console.log(`AB_BASES ${JSON.stringify(p.bases)}`));

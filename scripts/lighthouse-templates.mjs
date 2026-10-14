@@ -5,7 +5,7 @@
 // dist/build-info.json (sleutel `lighthouse`) en faalt (exit 1) onder de drempel met --enforce.
 //
 //   node scripts/lighthouse-templates.mjs --base https://www.vinomartino.com --runs 3 --enforce
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -150,6 +150,17 @@ function runOnce(url, chrome, tmp, rawPath, blocked = []) {
   };
 }
 
+async function startProxyChild() {
+  const child = spawn(process.execPath, [new URL('./lat12594-ab-proxy.mjs', import.meta.url).pathname], { stdio: ['ignore', 'pipe', 'inherit'] });
+  const bases = await new Promise((ok, fail) => {
+    let buf = '';
+    child.stdout.on('data', (d) => { buf += d; const m = buf.match(/^AB_BASES (.+)$/m); if (m) ok(JSON.parse(m[1])); });
+    child.on('exit', (c) => fail(new Error(`ab-proxy stopte (exit ${c})`)));
+  });
+  const report = async () => Object.fromEntries(await Promise.all(['A', 'B'].map(async (v) => [v, await (await fetch(`${bases[v]}/__ab/report`)).json()])));
+  return { bases, report, close: () => child.kill() };
+}
+
 async function mainAb(base, runs, outDir, chrome, tmp) {
   mkdirSync(join(outDir, 'raw'), { recursive: true });
   const templates = [];
@@ -198,8 +209,10 @@ async function main() {
   const rows = [];
   if (abEnabled(process.argv, process.env)) {
     // LAT-13443: op branch lat12594-ab-local (of met --ab-local) draaien beide armen via de lokale proxy.
+    // De proxy draait in een kindproces: runOnce gebruikt spawnSync, dat de event loop van dít
+    // proces blokkeert. In-process kon de proxy dus nooit antwoorden (run 38517877557: 3x timeout).
     const proxy = process.argv.includes('--ab-local') || /^lat12594-ab-local/.test(process.env.GITHUB_REF_NAME || '')
-      ? await (await import('./lat12594-ab-proxy.mjs')).startProxies() : null;
+      ? await startProxyChild() : null;
     if (proxy) { process.env.AB_BASE_A = proxy.bases.A; process.env.AB_BASE_B = proxy.bases.B; }
     try {
       const result = await mainAb(base, runs, outDir, chrome, tmp);
