@@ -41,6 +41,7 @@ on:
           - mint-cj-importer.mjs
           - lat13075-routes-short-title.mjs
           - lat13075-wijnhuis-spotlight-schema.mjs
+          - lat13075-spotlight-seed-1.mjs
           - lat13386-bezoek-type-gesloten.mjs
 
 concurrency:
