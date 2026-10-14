@@ -143,7 +143,7 @@ async function probeImageDimensions(src: string): Promise<{ width: number; heigh
   }
 }
 
-function fotoHtml(attrs: Record<string, string>, foto: FotoResolved, eager: boolean): string {
+function fotoHtml(attrs: Record<string, string>, foto: FotoResolved): string {
   const caption = attrs.bijschrift ?? '';
   const fmt = attrs.formaat === 'breed' || attrs.formaat === 'inzet' ? ` route-foto--${attrs.formaat}` : '';
   // LAT-2432: intrinsieke width/height reserveert de ruimte (CLS-fix). Ontbreken
@@ -151,13 +151,11 @@ function fotoHtml(attrs: Record<string, string>, foto: FotoResolved, eager: bool
   const dims = typeof foto.width === 'number' && typeof foto.height === 'number'
     ? ` width="${foto.width}" height="${foto.height}"`
     : '';
-  // LAT-2432: de eerste body-foto laadt eager; de rest blijft lazy.
-  // LAT-12594: géén fetchpriority=high meer. De pagina heeft al een hero met
-  // fetchpriority=high (publish-guard eist hero_image); een tweede high-beeld
-  // deelt de bandbreedte met het LCP-element (route-bourgogne: 2x 55 KB op High).
-  const loadAttrs = eager
-    ? ` loading="eager" decoding="async"`
-    : ` loading="lazy" decoding="async"`;
+  // LAT-12594: alle body-foto's lazy. De route heeft altijd een hero (publish-guard
+  // eist hero_image), dus de eerste body-foto staat ver onder de vouw (route-bourgogne
+  // mobiel: y≈9040 px) en concurreerde eager met het LCP-element (57 KB vóór LCP).
+  // width/height blijven, dus geen CLS.
+  const loadAttrs = ` loading="lazy" decoding="async"`;
   const fig = [
     `<figure class="route-foto${fmt}">`,
     `<img src="${escapeHtml(foto.src)}" alt="${escapeHtml(caption)}"${dims}${loadAttrs} />`,
@@ -187,7 +185,7 @@ function flushDisclosure(state: TransformState): void {
 // Vervangt directive-nodes in-place: foto/boek → raw-HTML-node (loopt door sanitize),
 // infographic → <aside>-wrapper met behoud van kinderen. Onbekende/onresolvbare
 // directives worden verwijderd (deploy-safe).
-type TransformState = { fotoSeen: number; disclosure: string; lastBoek: MdastNode | null };
+type TransformState = { disclosure: string; lastBoek: MdastNode | null };
 
 function transform(
   nodes: MdastNode[],
@@ -214,9 +212,7 @@ function transform(
     if (node.name === 'foto') {
       const foto = attrs.ref ? fotoMap.get(attrs.ref) : null;
       if (foto) {
-        const eager = state.fotoSeen === 0;
-        state.fotoSeen += 1;
-        out.push({ type: 'html', value: fotoHtml(attrs, foto, eager) });
+        out.push({ type: 'html', value: fotoHtml(attrs, foto) });
       }
       continue; // geen src → figuur valt weg
     }
@@ -272,7 +268,7 @@ export async function renderEnrichedRouteBody(
   ]);
 
   // 2. Synchrone directive→HTML-transform, daarna de gedeelde sanitize/toc-pas.
-  const state: TransformState = { fotoSeen: 0, disclosure: ctx.disclosure, lastBoek: null };
+  const state: TransformState = { disclosure: ctx.disclosure, lastBoek: null };
   mdast.children = transform(mdast.children, fotoMap, boekMap, state);
   flushDisclosure(state);
   return mdastToHtmlWithToc(mdast as unknown as Parameters<typeof mdastToHtmlWithToc>[0], {
