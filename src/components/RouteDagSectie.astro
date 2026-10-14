@@ -58,7 +58,10 @@ const slaap = dag.slaap;
     </div>
   )}
 
-  {slaap && (
+  {slaap && (() => {
+    const slaapHref = accommodatieBookingDeeplink(slaap.naam, slaap.plaats ?? '', slaap.bookingUrl, `route-${context}`, locale);
+    const slaapZoek = /searchresults/i.test(slaapHref);
+    return (
     <div class="rdag__slaap">
       <PoiCard
         locale={locale}
@@ -68,9 +71,10 @@ const slaap = dag.slaap;
           fotoId: slaap.fotoId,
           badge: slaap.label ?? slaap.type ?? ui.t('route.stop.overnachting'),
           whyRegel: slaap.why,
-          boeklink: accommodatieBookingDeeplink(slaap.naam, slaap.plaats ?? '', slaap.bookingUrl, `route-${context}`, locale),
-          cta: ui.t('route.stay.cta'),
-          ctaKey: 'bekijk-boek',
+          boeklink: slaapHref,
+          // LAT-13527: een Booking-zoekopdracht (searchresults) is geen hotelpagina; de knop zegt dat eerlijk.
+          cta: ui.t(slaapZoek ? 'route.cta.zoekBooking' : 'route.stay.cta'),
+          ctaKey: slaapZoek ? 'zoek-booking' : 'bekijk-boek',
           partner: 'booking',
           placement: 'route-dag-slaap',
           context: `route-${context}`,
@@ -78,7 +82,8 @@ const slaap = dag.slaap;
         }}
       />
     </div>
-  )}
+    );
+  })()}
 </section>
 
 <style>

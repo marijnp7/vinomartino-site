@@ -26,7 +26,11 @@ const disclosure = disclosureHtml || `<p>${ui.t('stay.disclosure.microcopy')}</p
     {kop && <h2 class="rslaap__kop">{kop}</h2>}
     {intro && <p class="rslaap__intro">{intro}</p>}
     <div class="rslaap__grid">
-      {items.map((it) => (
+      {items.map((it) => {
+        const href = accommodatieBookingDeeplink(it.naam, '', it.bookingUrl, `route-${context}`, locale);
+        // LAT-13527: een Booking-zoekopdracht (searchresults) is geen hotelpagina; de knop zegt dat eerlijk.
+        const zoek = /searchresults/i.test(href);
+        return (
         <PoiCard
           locale={locale}
           poi={{
@@ -37,15 +41,16 @@ const disclosure = disclosureHtml || `<p>${ui.t('stay.disclosure.microcopy')}</p
             badge: it.label ?? [it.plaats, it.type].filter(Boolean).join(' · '),
             beschrijving: it.label ? [it.plaats, it.type].filter(Boolean).join(' · ') : null,
             whyRegel: it.why,
-            boeklink: accommodatieBookingDeeplink(it.naam, '', it.bookingUrl, `route-${context}`, locale),
-            cta: ui.t('streekkaart.cta.overnachten'),
-            ctaKey: 'bekijk-boek',
+            boeklink: href,
+            cta: ui.t(zoek ? 'route.cta.zoekBooking' : 'streekkaart.cta.overnachten'),
+            ctaKey: zoek ? 'zoek-booking' : 'bekijk-boek',
             partner: 'booking',
             placement: 'route-slaapoverzicht',
             context: `route-${context}`,
           }}
         />
-      ))}
+        );
+      })}
     </div>
     <div class="rslaap__disclosure" set:html={disclosure} />
   </section>
