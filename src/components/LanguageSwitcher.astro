@@ -41,6 +41,21 @@ const hasAlternate = options.some((o) => !o.isCurrent && o.available);
   </nav>
 )}
 
+<script>
+  // LAT-13478: filterstate (#bestemming=streek%3Alanghe-piemonte, #land=italie)
+  // staat in de hash en de filterwaarden zijn taalonafhankelijke slugs. Neem die
+  // hash mee bij een taalwissel, anders verliest de bezoeker zijn selectie.
+  // Alleen key=value-hashes: een gewoon anker (#sectie) blijft achter.
+  document.addEventListener('click', (event) => {
+    const link = (event.target as Element | null)?.closest?.('a.lang-switcher__item') as HTMLAnchorElement | null;
+    const hash = window.location.hash;
+    if (!link || !hash || !hash.includes('=')) return;
+    const url = new URL(link.href, window.location.href);
+    url.hash = hash;
+    link.href = url.toString();
+  });
+</script>
+
 <style>
   .lang-switcher {
     display: inline-flex;
