@@ -52,7 +52,7 @@ const past = [
 ---
 
 <SiteLayout
-  title="Samenwerken, voor accommodaties, agriturismi en wijngoederen"
+  title={ui.t('voor_accommodaties.meta.title')}
   description={ui.t('voor_accommodaties.meta.description')}
   schema={schema}
   alternates={{ nl: '/voor-accommodaties/', en: '/en/voor-accommodaties/' }}
@@ -61,13 +61,8 @@ const past = [
     <div class="container container-narrow">
       <span class="kicker kicker-vine">Samenwerken</span>
       <h1>Voor accommodaties, agriturismi en <em>wijngoederen</em></h1>
-      <p class="lede">
-        VinoMartino is een reisblog voor mensen die hun reisagenda plannen rondom wijn. Onze lezers zijn 28 tot 45 jaar,
-        hebben een bovenmodaal inkomen en zoeken actief naar goede adressen in de wijnregio’s die we beschrijven. Ze boeken
-        boutique-hotels en agriturismi, geen ketens. Ze kopen wijn bij de gespecialiseerde slijter. Ze plannen hun proeverijen
-        weken van tevoren.
-      </p>
-      <p class="lede lede-accent">We bereiken niet de grootste aantallen. We bereiken de juiste mensen.</p>
+      <p class="lede">{ui.t('voor_accommodaties.hero.lede')}</p>
+      <p class="lede lede-accent">{ui.t('voor_accommodaties.hero.accent')}</p>
     </div>
   </section>
 
@@ -84,10 +79,7 @@ const past = [
     <div class="container container-narrow">
       <span class="kicker kicker-rust">Press stays en hosted visits</span>
       <h2>We staan open voor press stays en hosted visits</h2>
-      <p>
-        Als we een regio bezoeken die aansluit bij onze editoriaal calendar, nemen we soms contact op met accommodaties die
-        passen bij wie we zijn.
-      </p>
+      <p>{ui.t('voor_accommodaties.offer.intro')}</p>
       <div class="offer-grid">
         <div class="offer-card">
           <h3>Wat u kunt verwachten</h3>
@@ -141,12 +133,9 @@ const past = [
   <section class="contact">
     <div class="container container-narrow">
       <h2>Contact</h2>
-      <p>
-        Denkt u dat uw accommodatie past bij wat Marijn beschrijft? Stuur een korte e-mail, locatie, seizoen, en waarom u
-        denkt dat het klikt, naar:
-      </p>
+      <p>{ui.t('voor_accommodaties.contact.intro')}</p>
       <p class="contact-mail"><a href="mailto:info@vinomartino.com">info@vinomartino.com</a></p>
-      <p class="contact-sla">We reageren binnen vijf werkdagen.</p>
+      <p class="contact-sla">{ui.t('voor_accommodaties.contact.sla')}</p>
     </div>
   </section>
 </SiteLayout>

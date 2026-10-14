@@ -1107,6 +1107,12 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     "voor_accommodaties.krijgt.3": "Een zichtbare vermelding dat het verblijf door u is aangeboden",
     "voor_accommodaties.niet_doen.verblijf.titel": "Geen vermelding in ruil voor een verblijf",
     "voor_accommodaties.niet_doen.verblijf.tekst": "Een aangeboden verblijf koopt geen artikel, geen kaartpin en geen positief oordeel. Na het verblijf beslissen wij of en hoe we schrijven.",
+    "voor_accommodaties.meta.title": "Samenwerken, voor accommodaties, agriturismi en wijngoederen",
+    "voor_accommodaties.hero.lede": "VinoMartino is een reisblog voor mensen die hun reis rond wijn plannen. We schrijven over wijnhuizen, wijnroutes en slaapadressen in de wijnregio’s die we beschrijven, met een boekingslink waar die past. Over leeftijd of inkomen van onze lezers doen we geen uitspraak: dat meten we niet.",
+    "voor_accommodaties.hero.accent": "Een vermelding is nooit te koop. Een goed adres verdient hem.",
+    "voor_accommodaties.offer.intro": "Als we een regio bezoeken die in onze redactieplanning past, nemen we soms contact op met accommodaties die passen bij wie we zijn.",
+    "voor_accommodaties.contact.intro": "Denkt u dat uw accommodatie past bij wat Marijn beschrijft? Stuur een korte e-mail met de locatie, het seizoen en waarom u denkt dat het klikt naar:",
+    "voor_accommodaties.contact.sla": "We streven ernaar binnen vijf werkdagen te reageren.",
 };
 
 /**
@@ -1282,7 +1288,7 @@ export const UI_STRING_EN: Record<string, string> = {
   // landengids, ook op /en/. Deze keys stonden alleen in UI_STRING_DEFAULTS, dus
   // /en/ kreeg de Nederlandse zin; met de herschrijving krijgt /en/ nu ook de
   // juiste claim in het Engels. Lijst van elf: src/lib/bezochte-streken.ts.
-  'header.ontdek.promoKicker': 'Been there or Editorial guide',
+  'header.ontdek.promoKicker': 'Travelled there or Editorial guide',
   'header.ontdek.promoTitle': 'Every guide says where it comes from',
   'header.ontdek.promoBody': 'Twelve regions I visited myself, from the Loire to the Cape: those pages carry what I tasted and who poured it. The other guides are editorial, built on primary sources and local knowledge, with no eyewitness claim.',
 
@@ -1733,6 +1739,12 @@ export const UI_STRING_EN: Record<string, string> = {
     "voor_accommodaties.krijgt.3": "A visible disclosure that the stay was offered by you",
     "voor_accommodaties.niet_doen.verblijf.titel": "No mention in exchange for a stay",
     "voor_accommodaties.niet_doen.verblijf.tekst": "An offered stay does not buy an article, a map pin or a positive verdict. After the stay, we decide whether and how we write.",
+    "voor_accommodaties.meta.title": "Working together, for accommodations, agriturismi and wine estates",
+    "voor_accommodaties.hero.lede": "VinoMartino is a travel blog for people who plan their trips around wine. We write about wineries, wine routes and places to stay in the wine regions we cover, with a booking link where it fits. We make no claims about our readers' age or income: we do not measure it.",
+    "voor_accommodaties.hero.accent": "A mention is never for sale. A good address earns it.",
+    "voor_accommodaties.offer.intro": "When we visit a region that fits our editorial planning, we sometimes reach out to accommodations that match who we are.",
+    "voor_accommodaties.contact.intro": "Do you think your accommodation fits what Marijn describes? Send a brief email with the location, the season and why you think it's a good match to:",
+    "voor_accommodaties.contact.sla": "We aim to respond within five working days.",
 };
 
 /** Resolver over de UI-dictionary: EN-value indien aanwezig, anders NL-default. */
