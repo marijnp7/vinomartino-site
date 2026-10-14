@@ -87,8 +87,7 @@
     "test:render-blocking-css": "node --test scripts/lat12594-render-blocking-css.test.mjs",
     "test:filterform-cls": "node --test scripts/lat12594-filterform-cls.test.mjs",
     "test:font-preloads": "node --test scripts/lat12594-font-preloads.test.mjs",
-    "test:single-high-priority": "node --test scripts/lat12594-single-high-priority.test.mjs",
-    "test:inline-css": "node --test scripts/lat12594-inline-css.test.mjs"
+    "test:single-high-priority": "node --test scripts/lat12594-single-high-priority.test.mjs"
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.7.2",
