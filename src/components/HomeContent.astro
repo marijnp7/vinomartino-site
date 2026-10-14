@@ -6,7 +6,8 @@ import SubstackCta from '../components/SubstackCta.astro';
 import { loadArticles } from '../lib/articles';
 import { loadRoutes } from '../lib/routes';
 import { loadWijnhuizen } from '../lib/wijnhuizen';
-import { loadSpotlight } from '../lib/wijnhuis-spotlight';
+import { loadSpotlight, hasConfirmedLicense } from '../lib/wijnhuis-spotlight';
+import { loadDamFileMeta } from '../lib/dam-file-meta';
 import WijnhuisSpotlight from './WijnhuisSpotlight.astro';
 import { loadStreken } from '../lib/streken';
 import { organizationSchema } from '../lib/seo';
@@ -17,7 +18,6 @@ import { type Locale, DEFAULT_LOCALE, localizeHref } from '../lib/i18n';
 // LAT-5467 — de homepage rendert haar kaarten met een rauwe <img> i.p.v.
 // SmartImg, dus de beeld-niveau §7-marker moet hier apart worden meegegeven.
 import { loadSyntheticImageIds, syntheticImageAttrs, assetIdFromSrc } from '../lib/synthetic-images';
-import { getImageCredit } from '../lib/image-credits';
 
 interface Props {
   locale?: Locale;
@@ -91,16 +91,22 @@ const featured = featuredRoute ? toHomeCard(featuredRoute) : undefined;
 
 const usedStreken = new Set<string>(featured ? [featured.streekSlug] : []);
 const destinations: ReturnType<typeof toHomeCard>[] = [];
-// LAT-13062 #3: de bestemmingskaarten tonen geen beeldcredit, dus alleen routes
-// waarvan de hero geen externe licentie heeft (anders CC BY(-SA) zonder maker op
-// de kaart), en hoogstens één bestemming per land.
+// LAT-13062 #3 / LAT-13468 #5: de bestemmingskaarten tonen geen beeldcredit, dus
+// dezelfde positieve licentielijst als de spotlight (eigen/pers/toestemming-wijnhuis/
+// cc0/publiek-domein). "Geen CC BY-credit" was te ruim: een lege of onbekende licentie
+// (bv. een Commons-hero zonder DAM-licentie) glipte erdoor. Hoogstens één per land.
+const damMeta = await loadDamFileMeta();
 const usedCountries = new Set<string>();
 for (const r of routesWithHero) {
   if (usedStreken.has(r.streekSlug)) continue;
   const card = toHomeCard(r);
   if (!card.region) continue;
   if (card.country && usedCountries.has(card.country)) continue;
-  if (await getImageCredit(assetIdFromSrc(r.heroImage))) continue;
+  const heroId = assetIdFromSrc(r.heroImage);
+  if (!heroId || !hasConfirmedLicense(damMeta.get(heroId.toLowerCase())?.licentie)) {
+    console.warn(`[home] bestemming ${r.slug} overgeslagen: hero-licentie niet bevestigd`);
+    continue;
+  }
   usedStreken.add(r.streekSlug);
   if (card.country) usedCountries.add(card.country);
   destinations.push(card);
