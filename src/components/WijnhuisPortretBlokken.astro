@@ -349,7 +349,7 @@ const heeftCombineer = Boolean(nabije.length || (routeHref && routeLabel) || (st
   .wp-bezoek__rij { display: grid; grid-template-columns: 9rem 1fr; gap: 1rem; padding: 0.75rem 0; border-top: 1px solid var(--ruleSoft); }
   .wp-bezoek__rij dt { font-family: var(--font-mono); font-size: 0.6875rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--inkSoft); }
   .wp-bezoek__rij dd { margin: 0; font-family: var(--font-body); color: var(--ink); }
-  .wp-bezoek__rij a:not(.btn) { color: var(--burgundyInk); }
+  .wp-bezoek__rij a:not(.btn) { color: var(--burgundyInk); text-decoration: underline; text-underline-offset: 0.2em; } /* LAT-13488: WCAG 1.4.1 */
   .wp-uren { list-style: none; margin: 0; padding: 0; }
   .wp-uren li { display: flex; justify-content: space-between; gap: 1rem; font-size: 0.9375rem; padding: 0.125rem 0; }
   .wp-uren__noot { margin: 0.5rem 0 0; font-size: 0.875rem; color: var(--inkSoft); }
