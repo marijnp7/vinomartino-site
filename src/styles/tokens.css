@@ -4,7 +4,7 @@
   /* ── Colour palette ────────────────────────────────── */
   --ink: #1F1A16;
   --inkSoft: #5A4F45;
-  --inkFaint: #8A7E70;
+  --inkFaint: #6B6054; /* LAT-13481: ≥4,5:1 op paper/paperDeep/paperShade (was #8A7E70, 3,2:1) */
   --paper: #FAF5E9;
   --paperDeep: #F0E6D0;
   --paperShade: #E8DCC0;
@@ -134,7 +134,7 @@ summary:focus-visible,
 [data-theme='cellar'] {
   --ink: #F0E6D0;
   --inkSoft: #A89E91;
-  --inkFaint: #7A6F62;
+  --inkFaint: #938778; /* LAT-13481: ≥4,5:1 op kelder-paper/paperDeep/paperShade (was #7A6F62, 3,7:1) */
   --paper: #0F0B09;
   --paperDeep: #1A1411;
   --paperShade: #1A1614;
