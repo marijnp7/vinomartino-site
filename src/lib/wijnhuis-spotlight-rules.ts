@@ -75,8 +75,15 @@ export function renderCandidates(entries: SpotlightEntry[], buildNow: number): S
 }
 
 
-/** Licenties die geen bevestigd beeldrecht zijn: leeg, onbekend, onbevestigd of AI (REGEL 61/64). */
-const UNCONFIRMED_LICENSES = new Set(['', 'onbekend', 'booking-onbevestigd', 'pers-onbevestigd', 'synthetisch']);
+/**
+ * Positieve lijst: alleen licenties die een bevestigd beeldrecht zijn én bij de
+ * creditregel "Foto: <huis>" passen. Eigen foto, persmateriaal/toestemming van
+ * het huis (REGEL 64/65) en rechtenvrij. CC BY/BY-SA staat er bewust niet in:
+ * die eist een maker-credit die dit blok niet toont. Alles wat hier niet staat
+ * (leeg, onbekend, onbevestigd, synthetisch, nieuwe waarden) wordt afgewezen
+ * en verschijnt als reden in de buildlog.
+ */
+export const CONFIRMED_LICENSES: ReadonlySet<string> = new Set(['eigen', 'pers', 'toestemming-wijnhuis', 'cc0', 'publiek-domein']);
 export function hasConfirmedLicense(licentie: string | null | undefined): boolean {
-    return !UNCONFIRMED_LICENSES.has(String(licentie ?? '').trim().toLowerCase());
+    return CONFIRMED_LICENSES.has(String(licentie ?? '').trim().toLowerCase());
 }
