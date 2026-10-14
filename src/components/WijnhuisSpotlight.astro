@@ -5,6 +5,8 @@
 import SmartImg from './SmartImg.astro';
 import { localizePath, type Locale } from '../lib/i18n';
 import type { SpotlightEntry } from '../lib/wijnhuis-spotlight';
+import { loadStrekenNav } from '../lib/streken';
+import { loadLandenNav } from '../lib/landen';
 
 interface Props {
   entries: SpotlightEntry[];
@@ -16,6 +18,17 @@ interface Props {
 const { entries, locale, ui, plaats, buildNow = Date.now() } = Astro.props;
 // Buildtijd-winnaar zichtbaar zonder JS; het script hieronder herkiest op de klok van nu.
 const winnerId = entries.find((e) => e.start <= buildNow && buildNow < e.end)?.id ?? null;
+// LAT-13464 — "Langhe, Italië": `wijnhuizen.country` is vaak leeg; dan het land van de
+// gekoppelde streek (streek.land_id → landen, taalbewust). Lichte nav-loaders, geen assets.
+const needsLand = entries.some((e) => !e.huis.country && e.huis.streekSlug);
+const [strekenNav, landenNav] = needsLand
+  ? await Promise.all([loadStrekenNav(locale).catch(() => []), loadLandenNav(locale).catch(() => [])])
+  : [[], []];
+const landVan = (e: SpotlightEntry) => {
+  if (e.huis.country) return e.huis.country;
+  const landSlug = strekenNav.find((s) => s.slug === e.huis.streekSlug)?.landSlug;
+  return landenNav.find((l) => l.slug === landSlug)?.name ?? '';
+};
 ---
 {entries.length > 0 && (
   <section class={`whs whs--${plaats} container`} data-whs data-whs-plaats={plaats} aria-label={ui.t('wijnhuis.spotlight.aria')} hidden={winnerId === null}>
@@ -28,14 +41,15 @@ const winnerId = entries.find((e) => e.start <= buildNow && buildNow < e.end)?.i
         <article class="whs-item" data-whs-item data-start={e.start} data-end={e.end} data-huis={e.huis.slug} data-campagne={e.campagneId} hidden={e.id !== winnerId}>
           <div class="whs-media">
             <SmartImg src={e.huis.heroImage || undefined} alt={e.huis.name} theme="winery" class="whs-img" />
-            <span class="whs-credit">{ui.t('wijnhuis.reeks.foto')}: {e.huis.name}</span>
+            {/^https?:\/\//.test(e.huis.website)
+              ? <a class="whs-credit" href={e.huis.website} target="_blank" rel="noopener">{ui.t('wijnhuis.reeks.foto')}: {e.huis.name}</a>
+              : <span class="whs-credit">{ui.t('wijnhuis.reeks.foto')}: {e.huis.name}</span>}
           </div>
           <div class="whs-body">
             <span class="whs-kicker">{ui.t('wijnhuis.spotlight.kicker')}</span>
             <h2 class="whs-title">{e.huis.name}</h2>
-            <p class="whs-region">{[e.huis.region, e.huis.country].filter(Boolean).join(', ')}</p>
+            <p class="whs-meta">{(e.huis.region || landVan(e)) && <span class="whs-region">{[e.huis.region, landVan(e)].filter(Boolean).join(', ')}</span>}<span class="whs-bezoek">{bezoek}</span></p>
             <p class="whs-teaser">{e.teaser}</p>
-            <p class="whs-bezoek">{bezoek}</p>
             <a href={href} class="whs-cta" data-whs-cta>{ui.t('wijnhuis.spotlight.cta')}</a>
           </div>
         </article>
@@ -89,26 +103,32 @@ const winnerId = entries.find((e) => e.start <= buildNow && buildNow < e.end)?.i
 <style>
   .whs { margin-block: 1.5rem; padding-inline: var(--gutter); }
   .whs[hidden], .whs-item[hidden] { display: none; }
-  .whs-item { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); background: var(--cream, #f7f1e8); border: 1px solid var(--inkFaint, #c9bfb3); border-radius: 4px; overflow: hidden; }
+  .whs-item { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); background: #fff; border: 0; border-top: 3px solid var(--burgundy); box-shadow: var(--shadow-sm); border-radius: var(--radius-card); overflow: hidden; }
   .whs-media { display: block; position: relative; aspect-ratio: 4 / 3; overflow: hidden; }
-  .whs-credit { position: absolute; right: 0; bottom: 0; padding: .2rem .5rem; font: .7rem/1.3 var(--font-sans, Inter, sans-serif); color: #fff; background: rgba(0, 0, 0, .55); }
+  .whs-credit { position: absolute; right: 0; bottom: 0; padding: .2rem .5rem; font: .7rem/1.3 var(--font-sans, Inter, sans-serif); color: #fff; background: rgba(0, 0, 0, .75); text-decoration: none; }
+  /* .75 zwart: ook op een witte foto blijft wit-op-#404040 ≥10:1 (eis ≥4.5:1). */
+  a.whs-credit:hover { text-decoration: underline; }
   .whs-media :global(img) { width: 100%; height: 100%; object-fit: cover; display: block; }
   .whs-body { padding: 1.25rem 1.5rem; display: flex; flex-direction: column; gap: .35rem; justify-content: center; }
   .whs-kicker { font: 600 .75rem/1.2 var(--font-sans, Inter, sans-serif); letter-spacing: .08em; text-transform: uppercase; color: var(--burgundy); }
   .whs-title { font-family: 'Cormorant Garamond', serif; font-weight: 400; font-size: clamp(1.6rem, 3vw, 2.2rem); line-height: 1.1; margin: 0; color: var(--ink, #2a1f1a); }
-  .whs-region, .whs-bezoek { margin: 0; font-size: .9rem; color: var(--inkSoft, #5a4d44); }
+  .whs-meta { margin: 0; display: flex; flex-direction: column; gap: .35rem; font-size: .9rem; color: var(--inkSoft, #5a4d44); }
   .whs-teaser { margin: .25rem 0; }
-  .whs-cta { align-self: flex-start; margin-top: .5rem; padding: .6rem 1.1rem; background: var(--burgundy); color: var(--fixed-cream, #f7f1e8); text-decoration: none; border-radius: 999px; font: 600 .9rem/1.2 var(--font-sans, Inter, sans-serif); }
+  .whs-cta { align-self: flex-start; margin-top: .5rem; padding: .6rem 1.1rem; background: var(--burgundy); color: var(--fixed-cream, #f7f1e8); text-decoration: none; border-radius: 3px; min-height: 44px; display: inline-flex; align-items: center; box-sizing: border-box; font: 600 .9rem/1.2 var(--font-sans, Inter, sans-serif); }
   .whs-cta:hover { filter: brightness(1.1); }
-  .whs-cta:focus-visible { outline: 3px solid var(--burgundy); outline-offset: 3px; }
+  .whs-cta:focus-visible, a.whs-credit:focus-visible { outline: 3px solid var(--accent-apricot); outline-offset: 2px; box-shadow: var(--focus-ring); }
   /* Home: kleinere versie. Index: compact zodat filters op 320/390 direct bereikbaar blijven. */
   .whs--home .whs-item { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); }
   @media (max-width: 720px) {
-    .whs-item { grid-template-columns: 112px minmax(0, 1fr); }
+    .whs { margin-block: 1rem; }
+    .whs-item, .whs--home .whs-item { grid-template-columns: 88px minmax(0, 1fr); }
     .whs-media { aspect-ratio: auto; height: 100%; }
     .whs-body { padding: .75rem .9rem; gap: .2rem; }
     .whs-title { font-size: 1.35rem; }
-    .whs-teaser { font-size: .9rem; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+    .whs-teaser { display: none; }
+    .whs-meta { flex-direction: row; flex-wrap: wrap; gap: 0 .4rem; font-size: .85rem; }
+    .whs-region + .whs-bezoek::before { content: '·'; margin-right: .4rem; }
+    .whs-credit { left: 0; font-size: .6rem; padding: .1rem .3rem; text-align: right; }
     .whs-cta { padding: .5rem .9rem; }
   }
 </style>
