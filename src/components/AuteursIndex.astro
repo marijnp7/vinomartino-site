@@ -118,7 +118,8 @@ const schema = [
   }
   .breadcrumb a {
     color: var(--inkSoft);
-    text-decoration: none;
+    text-decoration: underline; /* LAT-13488: niet alleen kleur */
+    text-underline-offset: 0.2em;
   }
   .breadcrumb a:hover { text-decoration: underline; }
 

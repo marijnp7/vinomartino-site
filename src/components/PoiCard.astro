@@ -93,7 +93,7 @@ const lh = (href: string) => localizeHref(href, locale);
 const ui = await loadUiStrings(locale);
 const {
   n = null,
-  color = 'var(--burgundy, #5A1A1F)',
+  color = 'var(--burgundyInk, #5A1A1F)', // LAT-13488: tekst-badge, dus de tekstvariant (kelder 7,0:1)
   naam,
   foto = null,
   fotoId = null,

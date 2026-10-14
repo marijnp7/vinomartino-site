@@ -432,7 +432,7 @@ const chipStreek = region.split(' · ')[0];
     gap: 0.25rem;
     align-items: center;
   }
-  .wh-breadcrumb a { color: var(--inkSoft); text-decoration: none; }
+  .wh-breadcrumb a { color: var(--inkSoft); text-decoration: underline; text-underline-offset: 0.2em; } /* LAT-13488 */
   .wh-breadcrumb a:hover { color: var(--ink); }
   .wh-breadcrumb__sep { opacity: 0.5; }
   .wh-breadcrumb__current { color: var(--burgundyInk); }

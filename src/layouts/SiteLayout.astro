@@ -311,6 +311,8 @@ const articleTags = article?.tags?.filter((tag): tag is string => Boolean(tag &&
     transition: color var(--duration-fast) var(--ease-out);
   }
   a:hover { color: var(--color-primary-hover); }
+  /* LAT-13488 (WCAG 1.4.1): fotocredits in CMS-tekst niet alleen op kleur. */
+  figcaption a { text-decoration: underline; text-underline-offset: 0.2em; }
   .container {
     max-width: var(--max-width);
     margin: 0 auto;
