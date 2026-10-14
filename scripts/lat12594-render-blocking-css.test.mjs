@@ -4,6 +4,9 @@ import { join } from 'node:path';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
+// fonts.css = Cormorant (kritiek pad); body-fonts.css = Inter/Mono/Source Serif 4, geladen na window.load.
+const fontCss = () => readFileSync('src/styles/fonts.css', 'utf8') + readFileSync('public/fonts/body-fonts.css', 'utf8');
+
 const walk = (d) => readdirSync(d, { withFileTypes: true }).flatMap((e) =>
   e.isDirectory() ? walk(join(d, e.name)) : /\.(astro|ts|mjs)$/.test(e.name) ? [join(d, e.name)] : []);
 
@@ -24,7 +27,7 @@ test('leaflet wordt alleen via loadLeaflet() geladen', () => {
 });
 
 test('latin-ext-faces staan op font-display: optional', () => {
-  const css = readFileSync('src/styles/fonts.css', 'utf8');
+  const css = fontCss();
   const faces = css.match(/@font-face\s*\{[^}]*\}/g);
   const ext = faces.filter((b) => b.includes('latin-ext'));
   assert.ok(ext.length > 0);
@@ -34,7 +37,7 @@ test('latin-ext-faces staan op font-display: optional', () => {
 
 test('Source Serif 4-bestanden bestaan en zijn geïnstancet (< 60 KB, opsz vastgezet)', async () => {
   const { statSync } = await import('node:fs');
-  const css = readFileSync('src/styles/fonts.css', 'utf8');
+  const css = fontCss();
   const files = [...new Set(css.match(/source-serif-4-[a-z-]+-[0-9a-f]{8}\.woff2/g))];
   assert.ok(files.length >= 2);
   for (const f of files) {
