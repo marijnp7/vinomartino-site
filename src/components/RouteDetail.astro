@@ -210,17 +210,24 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
               {pagina.slot.kop && <h2>{pagina.slot.kop}</h2>}
               {pagina.slot.tekst && <p>{pagina.slot.tekst}</p>}
               <div class="route-one__slot-knoppen">
-                {slotItems.map((it, i) => (
+                {slotItems.map((it, i) => {
+                  const href = accommodatieBookingDeeplink(it.naam, '', it.bookingUrl, `route-${entry.slug}`, locale);
+                  // LAT-13527: knop 2+ op een zoeklink belooft geen hotelpagina maar zegt "Zoek <naam> op Booking".
+                  const label = i === 0 && pagina.slot?.knop
+                    ? pagina.slot.knop
+                    : /searchresults/i.test(href) ? ui.t('route.cta.zoekNaamBooking').replace('{naam}', it.naam) : it.naam;
+                  return (
                   <a
                     class:list={['route-one__slot-btn', i === 0 && 'route-one__slot-btn--primary']}
-                    href={accommodatieBookingDeeplink(it.naam, '', it.bookingUrl, `route-${entry.slug}`, locale)}
+                    href={href}
                     rel="sponsored noopener"
                     target="_blank"
                     data-affiliate-partner="booking"
                     data-affiliate-placement="route-slot-cta"
                     data-affiliate-context={`route-${entry.slug}`}
-                  >{i === 0 && pagina.slot?.knop ? pagina.slot.knop : it.naam}</a>
-                ))}
+                  >{label}</a>
+                  );
+                })}
               </div>
             </section>
           )}
