@@ -823,8 +823,15 @@ function formatDate(value?: string | null) {
   .brief-signup .btn { white-space: nowrap; }
 
   /* LAT-2008 — Bewijs & gezicht-strip (VIS-BL-09 sectie 5). */
+  /* LAT-13488: de strip is altijd licht, ook in de kelder. Daarom vaste
+     donkere inkt: de thematokens worden hier teruggezet naar hun lichte waarde. */
   .proof {
-    background: var(--cream, #f6f1e7);
+    --ink: var(--fixed-ink);
+    --inkSoft: #5A4F45;
+    --rust: #A14F2A;
+    --burgundyInk: var(--fixed-burgundy);
+    background: #f6f1e7;
+    color: var(--ink);
     padding: var(--space-16) 0;
     border-top: 1px solid var(--rule);
   }
