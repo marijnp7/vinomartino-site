@@ -29,11 +29,11 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     // LAT-13354: /de-brief/ (HARDE REGEL 3). Edities zijn genummerd (debrief.editie.N.meta/titel/url);
     // een nieuwe editie is een nieuwe N in Directus, geen code.
     'debrief.meta.title': 'De brief, de nieuwsbrief van VinoMartino',
-    'debrief.meta.description': 'Eens per maand stopt Marijn een brief in je inbox: over een wijnmaker die we net bezochten, een regio die opnieuw onze aandacht trok, een fles die indruk maakte. Aanmelden gaat via Substack.',
+    'debrief.meta.description': 'Ongeveer eens per maand stopt Marijn een brief in je inbox: over een wijnmaker die we net bezochten, een regio die opnieuw onze aandacht trok, een fles die indruk maakte. Aanmelden gaat via Substack.',
     'debrief.breadcrumb': 'De brief',
-    'debrief.kicker': 'De brief · eens per maand',
+    'debrief.kicker': 'De brief · ongeveer eens per maand',
     'debrief.h1': 'De brief',
-    'debrief.lede': 'Eens per maand stopt Marijn een brief in je inbox. Geen persberichten, geen uitnodigingen voor generieke wijnfestivals, een echte brief. Over een wijnmaker die we net bezochten, een regio die opnieuw onze aandacht trok, een fles die indruk maakte. De brief verschijnt sinds juli 2026 op Substack, in het Nederlands. Aanmelden gaat via Substack.',
+    'debrief.lede': 'Ongeveer eens per maand stopt Marijn een brief in je inbox. Geen persberichten, geen uitnodigingen voor generieke wijnfestivals, een echte brief. Over een wijnmaker die we net bezochten, een regio die opnieuw onze aandacht trok, een fles die indruk maakte. De brief verschijnt sinds juli 2026 op Substack, in het Nederlands. Aanmelden gaat via Substack.',
     'debrief.cta.label': 'Schrijf je in voor De brief',
     'debrief.follow.lead': 'Al nieuwsgierig? Volg Marijn alvast op',
     'debrief.follow.instagram': 'Instagram',
@@ -429,8 +429,8 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'home.proof.manifestPre': 'Waar we zelf waren, zie je dat: het label ',
     'home.proof.manifestEm': 'Zelf gereisd',
     'home.proof.cta': 'Ons verhaal →',
-    'home.brief.dateline': 'De Brief · eens per maand',
-    'home.brief.heading': 'Eens per maand een brief. Geen lijstjes.',
+    'home.brief.dateline': 'De Brief · ongeveer eens per maand',
+    'home.brief.heading': 'Een brief, ongeveer eens per maand. Geen lijstjes.',
     'home.brief.body': 'Een persoonlijke brief van Marijn: wat we recent dronken, waar we waren, en welke fles ons opviel. Geen affiliate-deals, geen nieuwsbriefformule.',
     'home.brief.submit': 'Schrijf je in voor de brief',
 
@@ -531,15 +531,15 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
 
     // NewsletterFooter.astro (LAT-2436) — artikel/streek-footer; CTA naar Substack
     // (LAT-12309). Merknaam "VinoMartino" blijft ongewijzigd.
-    'newsletter.footer.kicker': 'De brief · eens per maand',
+    'newsletter.footer.kicker': 'De brief · ongeveer eens per maand',
     'newsletter.footer.heading': 'Wijnreisverhalen in je inbox',
-    'newsletter.footer.lede': 'Eens per maand stuurt Marijn een echte brief: over een wijnmaker die we net bezochten, een regio die opnieuw onze aandacht trok, een fles die indruk maakte.',
+    'newsletter.footer.lede': 'Ongeveer eens per maand stuurt Marijn een echte brief: over een wijnmaker die we net bezochten, een regio die opnieuw onze aandacht trok, een fles die indruk maakte.',
     'newsletter.footer.submit': 'Schrijf je in voor De brief',
     'newsletter.footer.fineprint': 'Aanmelden gaat via Substack: je ontvangt een e-mail om je aanmelding te bevestigen. Afmelden kan altijd, met één klik.',
 
     // NewsletterInline.astro (LAT-12560) — CTA na de eerste sectie van artikelen en streekpagina's.
-    'newsletter.inline.heading': 'Dit soort verhalen, eens per maand in je inbox',
-    'newsletter.inline.body': 'Eens per maand schrijf ik een brief: waar we waren, wie we spraken, welke fles ons bijbleef. Afmelden kan altijd.',
+    'newsletter.inline.heading': 'Dit soort verhalen, ongeveer eens per maand in je inbox',
+    'newsletter.inline.body': 'Ongeveer eens per maand schrijf ik een brief: waar we waren, wie we spraken, welke fles ons bijbleef. Afmelden kan altijd.',
     'newsletter.inline.submit': 'Schrijf je in voor De brief',
 
 
@@ -958,13 +958,13 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     // NL-`variants` in src/components/LangheCaptureBlock.astro; nu dictionary-driven
     // zodat de /en/-artikelpagina de EN-overlay krijgt (seed: ui-strings-en-lat2832).
     'langhe.capture.a.koptekst': 'Meer uit de Langhe in je inbox',
-    'langhe.capture.a.body': 'Dit artikel geeft de kern. Wil je meer: waar we proefden, welke wijnhuizen ons bijbleven en wat zo’n reis kost? Dat staat in De Brief, die Marijn eens per maand schrijft.',
+    'langhe.capture.a.body': 'Dit artikel geeft de kern. Wil je meer: waar we proefden, welke wijnhuizen ons bijbleven en wat zo’n reis kost? Dat staat in De Brief, die Marijn ongeveer eens per maand schrijft.',
     'langhe.capture.a.ctaText': 'Schrijf je in voor De brief',
-    'langhe.capture.a.subCopy': 'Eens per maand ontvang je ook De Brief: over wijn, reizen en de mensen erachter. Uitschrijven kan altijd.',
+    'langhe.capture.a.subCopy': 'Ongeveer eens per maand ontvang je ook De Brief: over wijn, reizen en de mensen erachter. Uitschrijven kan altijd.',
     'langhe.capture.c.koptekst': 'Begin met Piemonte',
     'langhe.capture.c.body': 'Wil je weten waar te beginnen in de Langhe? In De Brief schrijf ik over routes, wijnhuizen en wat het kost, vanuit eigen ervaring.',
     'langhe.capture.c.ctaText': 'Schrijf je in voor De brief',
-    'langhe.capture.c.subCopy': 'Eens per maand volgt De Brief: over wijn en reizen vanuit eigen ervaring.',
+    'langhe.capture.c.subCopy': 'Ongeveer eens per maand volgt De Brief: over wijn en reizen vanuit eigen ervaring.',
 
     // LAT-2921 — HubBacklink (pillar-hub terugverwijzing, src/lib/hub-backlinks.ts).
     // Stond als hardcoded NL-`label` op het HubDef-target; nu dictionary-driven
@@ -1088,7 +1088,7 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     "proeftafel.zowerkthet.winkels.oordeel": "Geen betaling, geen inzage vooraf in de tekst. Elk oordeel is mogelijk: Kopen, Proberen of Laten staan. Bij Laten staan krijgt de winkel vooraf een seintje.",
     "proeftafel.zowerkthet.winkels.kwartaal": "Hoogstens één aflevering per winkel per kwartaal.",
     "proeftafel.zowerkthet.winkels.nix18": "Wie een collab-post deelt, plaatst zelf NIX18.",
-    "proeftafel.zowerkthet.winkels.klikoverzicht": "Elke winkel krijgt maandelijks een kort overzicht van de kliks naar de eigen site.",
+    "proeftafel.zowerkthet.winkels.klikoverzicht": "De link naar de winkel draagt een UTM-code, zodat de winkel de kliks vanaf VinoMartino in de eigen statistieken ziet.",
     "proeftafel.zowerkthet.winkels.schapkaart": "Een schapkaart \"Kopen op de proeftafel\" kan alleen met een openbare methode, en geldt voor die jaargang en die prijs.",
     "proeftafel.zowerkthet.huisregels.title": "Onze huisregels",
     "proeftafel.zowerkthet.huisregels.intro": "Wijn is alcohol. Zolang de regels voor reviews met gekregen flessen niet helemaal duidelijk zijn, houden we ons aan deze huisregels.",
@@ -1102,6 +1102,7 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     // deze waarden zijn alleen de terugval als Directus onbereikbaar is.
     "voor_accommodaties.meta.description": "VinoMartino staat open voor press stays en hosted visits. Een aangeboden verblijf koopt geen vermelding, geen kaartpin en geen oordeel. Geen betaalde plaatsingen.",
     "voor_accommodaties.wie.body": "Marijn reist met een concrete agenda naar wijnregio’s: wijnmakers bezoeken, regio’s leren kennen, eerlijke verslagen schrijven. Twaalf streken bezocht hij zelf, van de Loire tot de Kaap; alleen gidsen met het label Zelf gereisd gaan over eigen bezoek. Alle andere gidsen zijn Redactiegids, gebouwd op primaire bronnen, zonder verblijfsclaim. Geen enkele vermelding is betaald.",
+    "voor_accommodaties.contact.sla": "We streven ernaar binnen vijf werkdagen te reageren.",
     "voor_accommodaties.krijgt.1": "Een eerlijke beoordeling: past het verblijf en kunnen we er eerlijk over schrijven, dan volgt mogelijk een redactionele vermelding. Die is nooit gegarandeerd",
     "voor_accommodaties.krijgt.2": "Komt er een vermelding, dan met foto’s en terroir-context en, waar een regiokaart bestaat, op die kaart volgens dezelfde regels als elk ander adres",
     "voor_accommodaties.krijgt.3": "Een zichtbare vermelding dat het verblijf door u is aangeboden",
@@ -1119,11 +1120,11 @@ export const UI_STRING_EN: Record<string, string> = {
     // LAT-13354: /de-brief/ (HARDE REGEL 3). Edities zijn genummerd (debrief.editie.N.meta/titel/url);
     // een nieuwe editie is een nieuwe N in Directus, geen code.
     'debrief.meta.title': 'The letter, the VinoMartino newsletter',
-    'debrief.meta.description': 'Once a month Marijn puts a letter in your inbox: about a winemaker we just visited, a region that caught our attention again, a bottle that made an impression. Sign up through Substack.',
+    'debrief.meta.description': 'Roughly once a month Marijn puts a letter in your inbox: about a winemaker we just visited, a region that caught our attention again, a bottle that made an impression. Sign up through Substack.',
     'debrief.breadcrumb': 'The letter',
-    'debrief.kicker': 'The letter · once a month',
+    'debrief.kicker': 'The letter · roughly once a month',
     'debrief.h1': 'The letter',
-    'debrief.lede': 'Once a month Marijn puts a letter in your inbox. No press releases, no invitations to generic wine festivals, a real letter. About a winemaker we just visited, a region that caught our attention again, a bottle that made an impression. The letter is written in Dutch: there is no English edition, and subscribers receive the Dutch letter. It has appeared on Substack since July 2026. Sign up through Substack.',
+    'debrief.lede': 'Roughly once a month Marijn puts a letter in your inbox. No press releases, no invitations to generic wine festivals, a real letter. About a winemaker we just visited, a region that caught our attention again, a bottle that made an impression. The letter is written in Dutch: there is no English edition, and subscribers receive the Dutch letter. It has appeared on Substack since July 2026. Sign up through Substack.',
     'debrief.cta.label': 'Subscribe to The Letter',
     'debrief.follow.lead': 'Already curious? Follow Marijn on',
     'debrief.follow.instagram': 'Instagram',
@@ -1282,7 +1283,7 @@ export const UI_STRING_EN: Record<string, string> = {
   // landengids, ook op /en/. Deze keys stonden alleen in UI_STRING_DEFAULTS, dus
   // /en/ kreeg de Nederlandse zin; met de herschrijving krijgt /en/ nu ook de
   // juiste claim in het Engels. Lijst van elf: src/lib/bezochte-streken.ts.
-  'header.ontdek.promoKicker': 'Been there or Editorial guide',
+  'header.ontdek.promoKicker': 'Travelled there or Editorial guide',
   'header.ontdek.promoTitle': 'Every guide says where it comes from',
   'header.ontdek.promoBody': 'Twelve regions I visited myself, from the Loire to the Cape: those pages carry what I tasted and who poured it. The other guides are editorial, built on primary sources and local knowledge, with no eyewitness claim.',
 
@@ -1330,26 +1331,26 @@ export const UI_STRING_EN: Record<string, string> = {
     'streken.index.empty.descPost': '.',
 
     // NewsletterFooter.astro / NewsletterInline.astro (LAT-12560): EN had no keys and fell back to Dutch.
-    'newsletter.footer.kicker': 'The letter · once a month',
+    'newsletter.footer.kicker': 'The letter · roughly once a month',
     'newsletter.footer.heading': 'Wine travel stories in your inbox',
-    'newsletter.footer.lede': 'Once a month Marijn sends a real letter: about a winemaker we just visited, a region that caught our attention again, a bottle that made an impression.',
+    'newsletter.footer.lede': 'Roughly once a month Marijn sends a real letter: about a winemaker we just visited, a region that caught our attention again, a bottle that made an impression.',
     'newsletter.footer.submit': 'Subscribe to The Letter',
     'newsletter.footer.fineprint': 'Signing up goes through Substack: you get an email to confirm your subscription. You can unsubscribe at any time with one click.',
-    'newsletter.inline.heading': 'Stories like this, once a month in your inbox',
-    'newsletter.inline.body': 'Once a month I write a letter: where we were, who we spoke to, which bottle stayed with us. Unsubscribe at any time.',
+    'newsletter.inline.heading': 'Stories like this, roughly once a month in your inbox',
+    'newsletter.inline.body': 'Roughly once a month I write a letter: where we were, who we spoke to, which bottle stayed with us. Unsubscribe at any time.',
     'newsletter.inline.submit': 'Subscribe to The Letter',
 
     // LangheCaptureBlock.astro — Langhe capture (variant a = mid-article).
     'langhe.capture.a.koptekst': 'More from the Langhe in your inbox',
     'langhe.capture.a.body': 'This article gives you the essentials. Want more: where we tasted, which wineries stayed with us and what a trip like this costs? That is in The Letter, which Marijn writes once a month.',
     'langhe.capture.a.ctaText': 'Subscribe to The Letter',
-    'langhe.capture.a.subCopy': 'Once a month you\'ll also receive The Letter: about wine, travel, and the people behind it. Unsubscribe anytime.',
+    'langhe.capture.a.subCopy': 'Roughly once a month you\'ll also receive The Letter: about wine, travel, and the people behind it. Unsubscribe anytime.',
 
     // LangheCaptureBlock.astro — Langhe capture (variant c = homepage-style).
     'langhe.capture.c.koptekst': 'Start with Piedmont',
     'langhe.capture.c.body': 'If you want to know where to begin in the Langhe: in The Letter I write about routes, wineries and what it costs, from personal experience.',
     'langhe.capture.c.ctaText': 'Subscribe to The Letter',
-    'langhe.capture.c.subCopy': 'Once a month The Letter follows: about wine and travel from personal experience.',
+    'langhe.capture.c.subCopy': 'Roughly once a month The Letter follows: about wine and travel from personal experience.',
 
     // RhoneMap.astro — kaart-chrome (LAT-4909). `rhonemap.aria.mapPre` is in
     // Directus geseed (LAT-2848) maar had nog geen code-level fallback: bij een
@@ -1714,7 +1715,7 @@ export const UI_STRING_EN: Record<string, string> = {
     "proeftafel.zowerkthet.winkels.oordeel": "No payment, no preview of the text. Any verdict is possible: Buy, Try or Leave it. With Leave it, the shop hears from us beforehand.",
     "proeftafel.zowerkthet.winkels.kwartaal": "At most one episode per shop per quarter.",
     "proeftafel.zowerkthet.winkels.nix18": "Anyone who shares a collab post adds NIX18 themselves.",
-    "proeftafel.zowerkthet.winkels.klikoverzicht": "Every shop receives a short monthly overview of the clicks to its own site.",
+    "proeftafel.zowerkthet.winkels.klikoverzicht": "The link to the shop carries a UTM code, so the shop sees the clicks from VinoMartino in its own statistics.",
     "proeftafel.zowerkthet.winkels.schapkaart": "A shelf card \"Buy on the tasting table\" is only possible with a public method, and applies to that vintage and that price.",
     "proeftafel.zowerkthet.huisregels.title": "Our house rules",
     "proeftafel.zowerkthet.huisregels.intro": "Wine is alcohol. As long as the rules for reviews of received bottles are not fully clear, we follow these house rules.",
@@ -1728,6 +1729,8 @@ export const UI_STRING_EN: Record<string, string> = {
     // deze waarden zijn alleen de terugval als Directus onbereikbaar is.
     "voor_accommodaties.meta.description": "VinoMartino is open to press stays and hosted visits. An offered stay does not buy a mention, a map pin or a verdict. No paid placements.",
     "voor_accommodaties.wie.body": "Marijn travels to wine regions with a concrete agenda: visiting winemakers, getting to know regions, writing honest reports. He has visited twelve regions himself, from the Loire to the Cape; only guides labelled Travelled there are based on his own visits. All other guides are editorial, built on primary sources, with no claim of a stay. No mention is ever paid for.",
+    "voor_accommodaties.contact.intro": "Do you think your accommodation fits what Marijn describes? Send a brief email with the location, the season and why you think it's a good match to:",
+    "voor_accommodaties.contact.sla": "We aim to respond within five working days.",
     "voor_accommodaties.krijgt.1": "An honest assessment: if the stay fits and we can write about it honestly, an editorial mention may follow. It is never guaranteed",
     "voor_accommodaties.krijgt.2": "If there is a mention, it comes with photographs and terroir context and, where a regional map exists, a place on that map under the same rules as any other address",
     "voor_accommodaties.krijgt.3": "A visible disclosure that the stay was offered by you",

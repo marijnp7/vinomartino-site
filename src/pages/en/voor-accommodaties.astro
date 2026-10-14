@@ -52,7 +52,7 @@ const past = [
 ---
 
 <SiteLayout
-  title="Working together — for accommodations, agriturismi and wine estates"
+  title="Working together: for accommodations, agriturismi and wine estates"
   description={ui.t('voor_accommodaties.meta.description')}
   schema={schema}
   locale="en"
@@ -63,10 +63,9 @@ const past = [
       <span class="kicker kicker-vine">Working together</span>
       <h1>For accommodations, agriturismi and <em>wine estates</em></h1>
       <p class="lede">
-        VinoMartino is a travel blog for people who plan their travel calendar around wine. Our readers are 28 to 45 years
-        old, have above-average incomes and actively seek out the right addresses in the wine regions we cover. They book
-        boutique hotels and agriturismi, not chains. They buy wine from specialist shops. They plan their tastings
-        weeks in advance.
+        VinoMartino is a travel blog for people who plan their travel calendar around wine. We write for travellers who
+        seek out the right addresses in the wine regions we cover themselves: a boutique hotel or agriturismo rather than a
+        chain, wine from a specialist shop, tastings planned weeks in advance.
       </p>
       <p class="lede lede-accent">We don't reach the largest numbers. We reach the right people.</p>
     </div>
@@ -142,12 +141,9 @@ const past = [
   <section class="contact">
     <div class="container container-narrow">
       <h2>Contact</h2>
-      <p>
-        Do you think your accommodation fits what Marijn describes? Send a brief email — location, season, and why you
-        think it's a good match — to:
-      </p>
+      <p>{ui.t('voor_accommodaties.contact.intro')}</p>
       <p class="contact-mail"><a href="mailto:info@vinomartino.com">info@vinomartino.com</a></p>
-      <p class="contact-sla">We aim to respond within five working days.</p>
+      <p class="contact-sla">{ui.t('voor_accommodaties.contact.sla')}</p>
     </div>
   </section>
 </SiteLayout>
