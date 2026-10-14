@@ -93,7 +93,7 @@ const lh = (href: string) => localizeHref(href, locale);
 const ui = await loadUiStrings(locale);
 const {
   n = null,
-  color = 'var(--burgundyInk, #5A1A1F)', // LAT-13488: tekst-badge, dus de tekstvariant (kelder 7,0:1)
+  color = 'var(--burgundy, #5A1A1F)',
   naam,
   foto = null,
   fotoId = null,
@@ -117,6 +117,9 @@ const {
   plotted = false,
   hideMediaWhenEmpty = false,
 } = poi;
+// LAT-13488: `color` vult het nummer (crème erop); de badge is tekst en krijgt bij de
+// standaardkleur de tekstvariant, die in de kelder lichter is (7,0:1 i.p.v. 2,27:1).
+const badgeColor = color === 'var(--burgundy, #5A1A1F)' ? 'var(--burgundyInk, #5A1A1F)' : color;
 
 const altText = fotoAlt || naam;
 const hasNumber = n != null;
@@ -152,7 +155,7 @@ const credit = foto ? await getImageCredit(fotoId ?? fileIdFromAccommodatiePath(
         {detailUrl ? <a href={lh(detailUrl)}>{naam}</a> : boeklink ? <a href={boeklink} target="_blank" rel="sponsored noopener" data-affiliate-track data-affiliate-partner={partner} data-affiliate-placement={placement} data-affiliate-context={context}>{naam}</a> : externeUrl ? <a href={externeUrl} target="_blank" rel="noopener">{naam}</a> : naam}
       </h4>
       {badge && (
-        <span class="poi-card__badge" style={`color:${color};border-color:${color}`}>{badge}</span>
+        <span class="poi-card__badge" style={`color:${badgeColor};border-color:${badgeColor}`}>{badge}</span>
       )}
     </div>
 
