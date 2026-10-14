@@ -736,6 +736,9 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'wijnhuizen.filter.leeg.zoekOveral': 'Zoek "{q}" in alle bestemmingen',
     'wijnhuizen.card.druivenOnbekend': 'Druiven nog niet vastgelegd',
     'wijnhuizen.card.bezoekOnbekend': 'Bezoekmogelijkheid nog niet bevestigd',
+    'wijnhuis.spotlight.kicker': 'Wijnhuis in de spotlight',
+    'wijnhuis.spotlight.cta': 'Ontdek dit wijnhuis',
+    'wijnhuis.spotlight.aria': 'Uitgelicht wijnhuis',
     'wijnhuizen.card.druifFilter': 'Toon alle huizen met {druif}',
 
     // WijnroutesIndex.astro (/wijnroutes/).
@@ -1525,6 +1528,9 @@ export const UI_STRING_EN: Record<string, string> = {
     'wijnhuizen.filter.leeg.zoekOveral': 'Search "{q}" in all destinations',
     'wijnhuizen.card.druivenOnbekend': 'Grapes not recorded yet',
     'wijnhuizen.card.bezoekOnbekend': 'Visiting options not confirmed yet',
+    'wijnhuis.spotlight.kicker': 'Winery in the spotlight',
+    'wijnhuis.spotlight.cta': 'Discover this winery',
+    'wijnhuis.spotlight.aria': 'Featured winery',
     'wijnhuizen.card.druifFilter': 'Show all wineries with {druif}',
     // ProefnotitieKaart.astro — 'Uit de kelder' stond via UI_COPY hardcoded in het
     // component (LAT-4924 §3). EN-copy goedgekeurd door de Lead Editor.

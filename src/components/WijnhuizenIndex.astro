@@ -6,6 +6,8 @@
 import SiteLayout from '../layouts/SiteLayout.astro';
 import SmartImg from '../components/SmartImg.astro';
 import { loadWijnhuizen } from '../lib/wijnhuizen';
+import WijnhuisSpotlight from './WijnhuisSpotlight.astro';
+import { loadSpotlight } from '../lib/wijnhuis-spotlight';
 import { organizationSchema, breadcrumbSchema } from '../lib/seo';
 import { loadUiStrings } from '../lib/ui-strings';
 import { DEFAULT_LOCALE, localizePath, type Locale } from '../lib/i18n';
@@ -23,6 +25,7 @@ const { locale = DEFAULT_LOCALE, alternates } = Astro.props;
 const ui = await loadUiStrings(locale);
 
 const entries = await loadWijnhuizen(locale);
+const spotlight = await loadSpotlight(entries, locale);
 
 // LAT-13075 — keuzehulp. Land komt uit de CMS-relatie wijnhuis → streek → land
 // (zelfde lichte loaders als de header); geen land afgeleid uit tekst.
@@ -120,6 +123,8 @@ const schema = [
       <p class="hero-desc">{ui.t('wijnhuizen.index.hero.desc')}</p>
     </div>
   </section>
+
+  <WijnhuisSpotlight entries={spotlight} locale={locale} ui={ui} plaats="index" />
 
   <section class="section container">
     {entries.length > 0 ? (
