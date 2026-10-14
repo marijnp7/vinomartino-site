@@ -104,8 +104,19 @@ const landVan = (e: SpotlightEntry) => {
   .whs { margin-block: 1.5rem; padding-inline: var(--gutter); }
   .whs[hidden], .whs-item[hidden] { display: none; }
   .whs-item { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); background: #fff; border: 0; border-top: 3px solid var(--burgundy); box-shadow: var(--shadow-sm); border-radius: var(--radius-card); overflow: hidden; }
+  /* LAT-13488: de kaart is een vast licht vlak (wit; crème in de kelder), dus vaste donkere
+     inkt. Zonder deze reset kreeg de kaart in de kelder lichte tekst: naam 1,24:1, meta 2,64:1. */
+  .whs-item {
+    --ink: var(--fixed-ink);
+    --inkSoft: #5A4F45;
+    --inkFaint: #6B6054;
+    --burgundyInk: var(--fixed-burgundy);
+    --rust: #A14F2A;
+    color: var(--ink);
+  }
+  :global([data-theme='cellar']) .whs-item { background: var(--fixed-cream); }
   .whs-media { display: block; position: relative; aspect-ratio: 4 / 3; overflow: hidden; }
-  .whs-credit { position: absolute; right: 0; bottom: 0; padding: .2rem .5rem; font: .7rem/1.3 var(--font-sans, Inter, sans-serif); color: #fff; background: rgba(0, 0, 0, .75); text-decoration: none; }
+  .whs-credit { position: absolute; right: 0; bottom: 0; padding: .2rem .5rem; font: .7rem/1.3 var(--font-sans, Inter, sans-serif); color: #fff; background: rgba(15, 11, 9, .92); text-decoration: none; } /* LAT-13488: dekkend genoeg om meetbaar ≥4,5:1 te zijn */
   /* .75 zwart: ook op een witte foto blijft wit-op-#404040 ≥10:1 (eis ≥4.5:1). */
   a.whs-credit:hover { text-decoration: underline; }
   .whs-media :global(img) { width: 100%; height: 100%; object-fit: cover; display: block; }
