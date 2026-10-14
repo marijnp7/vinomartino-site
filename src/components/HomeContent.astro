@@ -5,6 +5,9 @@ import Briefkaart from '../components/Briefkaart.astro';
 import SubstackCta from '../components/SubstackCta.astro';
 import { loadArticles } from '../lib/articles';
 import { loadRoutes } from '../lib/routes';
+import { loadWijnhuizen } from '../lib/wijnhuizen';
+import { loadSpotlight } from '../lib/wijnhuis-spotlight';
+import WijnhuisSpotlight from './WijnhuisSpotlight.astro';
 import { loadStreken } from '../lib/streken';
 import { organizationSchema } from '../lib/seo';
 import { getAuthorByByline } from '../lib/authors';
@@ -48,6 +51,7 @@ const spotlight = articles.find((a) => a.featured) ?? articles[0];
 const moreArticles = articles.filter((a) => a.slug !== spotlight?.slug).slice(0, 5);
 const FEED_TONES = ['bordeaux', 'vine', 'paper'] as const;
 const routes = await loadRoutes(locale);
+const wijnhuisSpotlight = await loadSpotlight(await loadWijnhuizen(locale).catch(() => []), locale);
 const allStreken = await loadStreken(locale);
 
 const schema = organizationSchema();
@@ -172,6 +176,8 @@ function formatDate(value?: string | null) {
       </div>
     </section>
   )}
+
+  <WijnhuisSpotlight entries={wijnhuisSpotlight} locale={locale} ui={ui} plaats="home" />
 
   {spotlight && (
     <section class="spotlight">
