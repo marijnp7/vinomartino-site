@@ -24,3 +24,30 @@ for (const [id, ts] of Object.entries(IDS)) {
   if (d.status !== 204) { console.error(`[lat13255] ${id} DELETE HTTP ${d.status}`); process.exit(1); }
   console.log(`[lat13255] ${id} verwijderd`);
 }
+
+/* LAT-12562 —
+ zeven test-klikken van 13-10 (LAT-13406-verificatie + kliktijdmeting) landden met
+ * placement `body-link` in plaats van een testplacement (locator-bug in lat12562-clicktime.mjs).
+ * Herlabelt ze naar `lat12562-clicktime-body-link`, zodat elke testfilter (prefix `lat12562-`) ze
+ * uitsluit. Geen DELETE: omkeerbaar. Guard per rij: exact tijdstip + partner + oude placement. Idempotent.
+ * Run: GHA lat12804-directus-schema-migrate.yml.
+ */
+const HJ = { ...H, "Content-Type": "application/json" };
+const NEW = "lat12562-clicktime-body-link";
+const TS = [
+  "2026-10-13T20:28:12.341Z", "2026-10-13T20:29:46.384Z", "2026-10-13T20:31:33.179Z", "2026-10-13T20:37:30.421Z",
+  "2026-10-13T20:39:19.791Z", "2026-10-13T21:12:51.121Z", "2026-10-13T21:14:29.505Z",
+];
+const f = (o) => "&filter=" + encodeURIComponent(JSON.stringify(o));
+for (const ts of TS) {
+  const r = await fetch(`${U}/items/affiliate_clicks?fields=id,clicked_at,partner,placement` + f({ clicked_at: { _eq: ts } }), { headers: H });
+  if (!r.ok) { console.error(`[lat12562-relabel] ${ts} HTTP ${r.status}`); process.exit(1); }
+  const rows = (await r.json()).data.filter((x) => new Date(x.clicked_at).toISOString() === ts && x.partner === "discovercars");
+  if (rows.length !== 1) { console.error(`[lat12562-relabel] ${ts} verwacht 1 rij, gevonden ${rows.length}`); process.exit(1); }
+  const x = rows[0];
+  if (x.placement === NEW) { console.log(`[lat12562-relabel] ${ts} al herlabeld`); continue; }
+  if (x.placement !== "body-link") { console.error(`[lat12562-relabel] ${ts} guard faalt: placement=${x.placement}`); process.exit(1); }
+  const p = await fetch(`${U}/items/affiliate_clicks/${x.id}`, { method: "PATCH", headers: HJ, body: JSON.stringify({ placement: NEW }) });
+  if (!p.ok) { console.error(`[lat12562-relabel] ${ts} PATCH HTTP ${p.status}`); process.exit(1); }
+  console.log(`[lat12562-relabel] ${ts} body-link -> ${NEW}`);
+}
