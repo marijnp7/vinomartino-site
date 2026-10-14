@@ -43,7 +43,8 @@
   --fixed-cream: #FAF5E9;
   --fixed-ink: #1F1A16;
   --fixed-burgundy: #5A1A1F;
-  --fixed-vine: #5C6B3F; /* LAT-13488: vlak onder crème tekst, 5,3:1 in beide modi */
+  --fixed-vine: #5C6B3F;
+  --fixed-inkMuted: #A89E91; /* gedempte tekst op --fixed-ink: 6,5:1 */ /* LAT-13488: vlak onder crème tekst, 5,3:1 in beide modi */
 
   /* LAT-13488: bordeaux als tekstkleur. Gelijk aan --burgundy in licht;
      in de kelder lichter, want #8B2733 op #0F0B09 haalt maar 2,3:1.

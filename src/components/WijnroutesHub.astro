@@ -577,6 +577,7 @@ const schema = [
   .rz-links { display: flex; gap: 1.125rem; flex-wrap: wrap; margin-top: var(--space-3); }
   .rz-sleep { background: var(--paperDeep); padding-block: clamp(2.25rem, 5vw, 3.5rem); border-block: 1px solid var(--rule); }
   .rz-sleep__route { margin: var(--space-2) 0 0; font-size: 0.9rem; color: var(--inkSoft); }
+  .rz-sleep__route a { text-decoration: underline; text-underline-offset: 0.2em; } /* LAT-13488: niet alleen kleur */
   .rz-sleep__intro { color: var(--inkSoft); max-width: 36rem; margin: var(--space-2) 0 var(--space-5); }
   .rz-sleep__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--space-5); }
   .rz-more { margin: var(--space-4) 0 var(--space-6); }

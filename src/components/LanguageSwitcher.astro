@@ -66,18 +66,18 @@ const hasAlternate = options.some((o) => !o.isCurrent && o.available);
     letter-spacing: 0.02em;
   }
   .lang-switcher__item {
-    color: inherit;
+    color: var(--inkFaint); /* LAT-13488: was opacity .6 → 2,84:1 */
     text-decoration: none;
-    opacity: 0.6;
     padding: 0.1rem 0.25rem;
     border-radius: 3px;
   }
   .lang-switcher__item.is-current {
-    opacity: 1;
+    color: inherit;
     text-decoration: underline;
   }
   a.lang-switcher__item:hover,
   a.lang-switcher__item:focus-visible {
-    opacity: 1;
+    color: inherit;
+    text-decoration: underline;
   }
 </style>
