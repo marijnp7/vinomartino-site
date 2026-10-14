@@ -127,8 +127,9 @@ const landVan = (e: SpotlightEntry) => {
   }
   @media (max-width: 720px) {
     .whs { margin-block: 1rem; }
-    .whs-item, .whs--home .whs-item { grid-template-columns: 88px minmax(0, 1fr); }
-    .whs-media { aspect-ratio: auto; height: 100%; }
+    /* LAT-13473: .whs--index-regels hierboven zijn specifieker; zonder deze selectors wonnen 1fr/2fr en 3:2 op mobiel. */
+    .whs-item, .whs--home .whs-item, .whs--index .whs-item { grid-template-columns: 88px minmax(0, 1fr); }
+    .whs-media, .whs--index .whs-media { aspect-ratio: auto; height: 100%; }
     .whs-body { padding: .75rem .9rem; gap: .2rem; }
     .whs-title { font-size: 1.35rem; }
     .whs-teaser { display: none; }
