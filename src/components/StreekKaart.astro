@@ -12,6 +12,7 @@
 
 import WineAreaPreview from './WineAreaPreview.astro';
 import { getWineGeography } from '../lib/wine-geography';
+import { areaJsonUrl } from '../lib/wine-area-svg';
 import { loadAtlasCopy } from '../lib/atlas-copy';
 import PoiCard, { type PoiCardTheme } from './PoiCard.astro';
 import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
@@ -175,7 +176,7 @@ function ctaLabel(category: CatKey, boeklink?: string | null): string {
 
 const mapData = {
   slug,
-  area: geography?.feature ?? null,
+  areaUrl: geography ? areaJsonUrl(slug) : null,
   leesMeer: ui.t('streekkaart.popupLeesMeer'),
   pins: geoItems.map((it) => ({
     n: it.n,
@@ -331,7 +332,7 @@ const usedCats = sections.map((s) => s.key);
     lat: number; lng: number; prijs: string | null; boeklink: string | null;
     detailUrl: string | null; cta: string; partner: string;
   };
-  type MapData = { slug: string; leesMeer?: string; pins: Pin[]; area?: any };
+  type MapData = { slug: string; leesMeer?: string; pins: Pin[]; area?: any; areaUrl?: string | null };
 
   function esc(s: string): string {
     return s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string));
@@ -345,10 +346,14 @@ const usedCats = sections.map((s) => s.key);
 
     let data: MapData;
     try { data = JSON.parse(dataEl.textContent || '{}'); } catch { return; }
-    if (!data.pins?.length && !data.area) return;
+    if (!data.pins?.length && !data.areaUrl) return;
 
     await whenUserIntent();
-    const L = await loadLeaflet();
+    const [L, area] = await Promise.all([
+      loadLeaflet(),
+      data.areaUrl ? fetch(data.areaUrl).then((r) => (r.ok ? r.json() : null)).catch(() => null) : null,
+    ]);
+    data.area = area;
     const map = L.map(canvas, { scrollWheelZoom: false, zoomControl: true, attributionControl: true });
     // Draw the sourced boundary before loading external base tiles.
     const areaLayer = data.area ? L.geoJSON(data.area, {
