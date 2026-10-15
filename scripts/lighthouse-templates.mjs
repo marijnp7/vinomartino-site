@@ -189,7 +189,7 @@ async function mainAb(base, runs, outDir, chrome, tmp) {
   return {
     mode: 'ab', measuredAt: new Date().toISOString().replace(/\.\d+Z$/, 'Z'), base, lighthouse: LIGHTHOUSE_VERSION,
     formFactor: 'mobile', throttling: 'simulate', pairsPerTemplate: runs,
-    variants: abLocalBases(process.env) ? { A: 'prod-build via lokale proxy', B: 'prod-build + preload tweede font (Cormorant italic) met fetchpriority=low via lokale proxy', bases: abLocalBases(process.env) } : AB_VARIANTS,
+    variants: abLocalBases(process.env) ? { A: 'prod-build via lokale proxy', B: 'prod-build + streek-documentbytes PR #581 (locator-SVG en GeoJSON-grens extern) via lokale proxy', bases: abLocalBases(process.env) } : AB_VARIANTS,
     order: 'A,B in oneven paren; B,A in even paren', templates,
   };
 }
