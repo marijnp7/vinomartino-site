@@ -196,7 +196,7 @@ import {
     assertDirectusConfigured,
     assetUrl,
     assertCollectionReadableOrDegrade,
-    withAssetSlot,
+    withAssetRetry,
     fetchDirectusCollection,
 } from './directus-config';
 import { DEFAULT_LOCALE, type Locale } from './i18n';
@@ -258,36 +258,6 @@ const assetDebug: Array<Record<string, unknown>> = [];
  * TCP-connecties ("fetch failed"), waardoor een hele regio zonder foto's
  * rendert. Retry met backoff maakt de build deterministisch compleet.
  */
-async function withAssetRetry<T>(
-    url: string,
-    token: string,
-    consume: (res: Response) => Promise<T>,
-    attempts = 4,
-): Promise<T> {
-    let lastErr: unknown = new Error('fetch not attempted');
-    for (let i = 0; i < attempts; i++) {
-        try {
-            const outcome = await withAssetSlot(async () => {
-                const res = await fetch(url, {
-                    headers: { Authorization: `Bearer ${token}` },
-                    signal: AbortSignal.timeout(3000), // LAT-3331: zie accommodaties-loader.ts
-                });
-                // 2xx of niet-transiente 4xx → nu verwerken; consume logt de status.
-                if (res.ok || (res.status >= 400 && res.status < 500 && res.status !== 429)) {
-                    return { done: true as const, value: await consume(res) };
-                }
-                return { done: false as const, status: res.status };
-            });
-            if (outcome.done) return outcome.value;
-            lastErr = new Error(`HTTP ${outcome.status}`);
-        } catch (err) {
-            lastErr = err; // netwerk-drop ("fetch failed") of timeout → retry
-        }
-        if (i < attempts - 1) await new Promise((r) => setTimeout(r, 400 * 2 ** i));
-    }
-    throw lastErr instanceof Error ? lastErr : new Error(String(lastErr));
-}
-
 async function downloadAsset(assetId: string, directusUrl: string, token: string, prefix = ''): Promise<string | null> {
     if (!assertAssetAllowed(assetId)) return null; // LAT-2361: fout-gekoppeld beeld → lege hero i.p.v. verkeerde regio
     const { writeFileSync, mkdirSync, existsSync } = await import('node:fs');
@@ -298,7 +268,7 @@ async function downloadAsset(assetId: string, directusUrl: string, token: string
     if (existsSync(outPath)) return `/images/streken/${fileName}`;
     try {
         // LAT-5157: body-read + graden + wegschrijven draaien binnen het slot.
-        return await withAssetRetry(assetUrl(directusUrl, assetId), token, async (res) => {
+        return await withAssetRetry('loadStreken', assetId, assetUrl(directusUrl, assetId), token, async (res) => {
             if (!res.ok) {
                 const body = await res.text().catch(() => '');
                 console.warn(`[loadStreken] could not fetch asset ${assetId}: ${res.status} body=${body.slice(0, 300)}`);
@@ -339,7 +309,7 @@ async function downloadAccommodatieAsset(assetId: string, directusUrl: string, t
     if (existsSync(outPath)) return `/images/accommodaties/${fileName}`;
     try {
         // LAT-5157: body-read + graden + wegschrijven draaien binnen het slot.
-        return await withAssetRetry(assetUrl(directusUrl, assetId), token, async (res) => {
+        return await withAssetRetry('loadStreken', assetId, assetUrl(directusUrl, assetId), token, async (res) => {
             if (!res.ok) {
                 console.warn(`[loadStreken] kon accommodatie-foto ${assetId} niet ophalen: ${res.status}`);
                 assetDebug.push({ kind: 'accommodatie-foto', assetId, status: res.status });

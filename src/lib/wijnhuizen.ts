@@ -89,7 +89,7 @@ import {
     assertDirectusConfigured,
     assetUrl,
     assertCollectionReadableOrDegrade,
-    withAssetSlot,
+    withAssetRetry,
     fetchDirectusCollection,
 } from './directus-config';
 import { DEFAULT_LOCALE, type Locale } from './i18n';
@@ -115,11 +115,7 @@ async function downloadAsset(assetId: string, directusUrl: string, token: string
         // LAT-3423/LAT-3587: slot moet fetch + body-read + graden + wegschrijven omvatten —
         // anders geeft de semafoor het slot al vrij bij de headers en verzadigt het
         // CPU-zware graden de event-loop ongelimiteerd (zie accommodaties-loader.ts).
-        return await withAssetSlot(async () => {
-            const res = await fetch(assetUrl(directusUrl, assetId), {
-                headers: { Authorization: `Bearer ${token}` },
-                signal: AbortSignal.timeout(3000), // LAT-3331: zie accommodaties-loader.ts
-            });
+        return await withAssetRetry('loadWijnhuizen', assetId, assetUrl(directusUrl, assetId), token, async (res) => {
             if (!res.ok) {
                 const body = await res.text().catch(() => '');
                 console.warn(`[loadWijnhuizen] could not fetch asset ${assetId}: ${res.status} body=${body.slice(0, 300)}`);
