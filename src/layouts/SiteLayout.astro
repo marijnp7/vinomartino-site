@@ -186,7 +186,8 @@ const articleTags = article?.tags?.filter((tag): tag is string => Boolean(tag &&
     <!-- Stay22 "Let Me Allez" affiliate loader (LAT-1126). LinkSwap auto-converteert
          bestaande hotel/activiteit-links naar Stay22-affiliate-links. AID: vinomartino.
          LAT-12558: alleen laden op pagina's met accommodatie-blokken (loadStay22=true).
-         Pas na load + idle, zodat het scriptverzoek niet met LCP concurreert. -->
+         Pas na load + idle, zodat het scriptverzoek niet met LCP concurreert.
+         LAT-13201 (kaart b3ed2297, goedgekeurd 13-10): niet laden bij Do Not Track of GPC. -->
     {loadStay22 && (
       <script is:inline>
         (function (s, t, a, y, twenty, two) {
@@ -206,6 +207,9 @@ const articleTags = article?.tags?.filter((tag): tag is string => Boolean(tag &&
             if (s.requestIdleCallback) s.requestIdleCallback(inject, { timeout: 3000 });
             else setTimeout(inject, 1500);
           }
+          var n = s.navigator || {};
+          var dnt = n.doNotTrack || s.doNotTrack || n.msDoNotTrack;
+          if (dnt === '1' || dnt === 'yes' || n.globalPrivacyControl === true) return;
           if (t.readyState === 'complete') later();
           else s.addEventListener('load', later);
         })(window, document, 'script', 'https://scripts.stay22.com/letmeallez.js');
