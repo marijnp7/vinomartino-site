@@ -24,7 +24,8 @@ export function transformHtml(html) {
   const data = JSON.parse(dm[2]);
   if (!data.area) return { html, inserted: 'none' };
   const slug = data.slug;
-  const svg = html.match(LOCATOR)[0].replace(LOCATOR, (m, pre) => m.slice(pre.length));
+  // Astro serialiseert data-astro-cid als boolean-attribuut: ongeldige XML in een los .svg-bestand.
+  const svg = html.match(LOCATOR)[0].replace(LOCATOR, (m, pre) => m.slice(pre.length)).replace(/ data-astro-cid-[\w-]+(?==|[ >])(="[^"]*")?/g, "");
   assets.set(`/geo/locator/${slug}.svg`, { type: 'image/svg+xml', body: Buffer.from(svg) });
   assets.set(`/geo/area/${slug}.json`, { type: 'application/json', body: Buffer.from(JSON.stringify(data.area)) });
   const { area, ...rest } = data;
