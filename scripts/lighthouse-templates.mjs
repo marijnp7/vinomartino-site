@@ -36,8 +36,8 @@ export const TEMPLATES = [
 // Cormorant-kopfont blijft). Runs wisselen A/B/A/B af op dezelfde runner, zodat runnerdrift beide
 // varianten gelijk raakt. B is een bovengrens voor "body-fonts van het kritieke pad": geen fix,
 // en beelden blijven ongemoeid (zelfde bytes, zelfde kwaliteit).
-// LAT-12594 15-10: de twee FAIL-templates van run 38564958813 (build 1376).
-export const AB_TEMPLATES = ['streek', 'artikel-grower'];
+// LAT-12594 15-10 23:00 (CEO LAT-13193): FAIL-templates + grensgeval artikel-bourgogne + home als regressiecontrole.
+export const AB_TEMPLATES = ['streek', 'artikel-grower', 'artikel-bourgogne', 'home'];
 export const AB_VARIANTS = {
   A: [],
   B: ['*/fonts/inter-*', '*/fonts/jetbrains-mono-*', '*/fonts/source-serif-4-*'],
@@ -189,7 +189,7 @@ async function mainAb(base, runs, outDir, chrome, tmp) {
   return {
     mode: 'ab', measuredAt: new Date().toISOString().replace(/\.\d+Z$/, 'Z'), base, lighthouse: LIGHTHOUSE_VERSION,
     formFactor: 'mobile', throttling: 'simulate', pairsPerTemplate: runs,
-    variants: abLocalBases(process.env) ? { A: 'prod-build via lokale proxy', B: 'prod-build + CSS-consolidatie (één /_astro-stylesheet) via lokale proxy', bases: abLocalBases(process.env) } : AB_VARIANTS,
+    variants: abLocalBases(process.env) ? { A: 'prod-build via lokale proxy', B: 'prod-build + preload tweede font (Cormorant italic) met fetchpriority=low via lokale proxy', bases: abLocalBases(process.env) } : AB_VARIANTS,
     order: 'A,B in oneven paren; B,A in even paren', templates,
   };
 }

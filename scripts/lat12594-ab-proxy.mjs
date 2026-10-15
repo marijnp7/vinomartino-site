@@ -1,8 +1,7 @@
 // LAT-13443 (K2): lokale A/B-proxy. Beide armen draaien via dezelfde lokale cache-proxy op de
 // runner, zodat het serveerpad voor A en B identiek is (geen CDN, geen preview-slot).
 //   A (poort 4401) = de productie-build byte-voor-byte.
-//   B (poort 4402) = dezelfde bytes, maar de render-blocking /_astro/*.css-links samengevoegd tot één
-//                    extern bestand (CSS-consolidatie, LAT-12594 15-10). Alles verder ongewijzigd.
+//   B (poort 4402) = dezelfde bytes plus één low-priority preload van het tweede font (zie FONT2).
 // Waarom geen astro build: de build leest Directus en de runner heeft daar geen token voor
 // (de echte build draait op de VPS met een .env daar). Deze transformatie raakt alleen de bytes
 // die de variant-commit ook raakt; /__ab/report bewijst per arm wat er veranderd is.
@@ -10,20 +9,17 @@ import { createServer } from 'node:http';
 import { gzipSync } from 'node:zlib';
 
 const UPSTREAM = (process.env.AB_UPSTREAM || 'https://vinomartino.com').replace(/\/$/, '');
-// LAT-12594 (CTO, 15-10): variant B = CSS-consolidatie. Alle render-blocking /_astro/*.css-links in de
-// HTML worden één extern bestand (zelfde bytes, zelfde volgorde, zelfde map zodat url() klopt).
-// Eén variabele: geen inline CSS (#547 afgewezen), beelden en fonts ongewijzigd.
-const ASTRO_CSS = /<link rel="stylesheet" href="(\/_astro\/[^"]+\.css)"\s*\/?>/g;
-export const mergedPath = (hrefs) => `/_astro/__ab-merged-${hrefs.map((h) => h.replace(/^.*\//, '').replace(/\.css$/, '')).join('+')}.css`;
+// LAT-12594 (CTO, 15-10 23:00, CEO-besluit LAT-13193 20:34Z): variant B = prioriteit tweede font.
+// Het tweede font (Cormorant italic, 39 KB) wordt via fonts.css ontdekt en laadt op VeryHigh vóór de hero.
+// B voegt alleen een preload met fetchpriority="low" toe, direct na de bestaande Cormorant-preload.
+// Eén variabele: fontbestanden, font-display, CSS en beelden ongewijzigd.
+export const FONT2 = '/fonts/cormorant-garamond-latin-4db21dbf.woff2';
+const FONT1_PRELOAD = /<link rel="preload" href="\/fonts\/cormorant-garamond-latin-abcaa8b4\.woff2"[^>]*>/;
+export const FONT2_LINK = `<link rel="preload" href="${FONT2}" as="font" type="font/woff2" crossorigin fetchpriority="low">`;
 
-export function transformHtml(html, merged) {
-  const hrefs = [...html.matchAll(ASTRO_CSS)].map((m) => m[1]);
-  if (hrefs.length < 2) return { html, hrefs, inserted: 'none' };
-  const path = mergedPath(hrefs);
-  merged.set(path, hrefs);
-  let first = true;
-  const out = html.replace(ASTRO_CSS, () => (first ? ((first = false), `<link rel="stylesheet" href="${path}">`) : ''));
-  return { html: out, hrefs, inserted: path };
+export function transformHtml(html) {
+  if (html.includes(FONT2) || !FONT1_PRELOAD.test(html)) return { html, inserted: 'none' };
+  return { html: html.replace(FONT1_PRELOAD, (m) => m + FONT2_LINK), inserted: FONT2_LINK };
 }
 
 const cache = new Map();
@@ -45,8 +41,8 @@ function arm(variant) {
     const u = await upstream(path);
     if (variant === 'A' || u.status !== 200 || !u.type.includes('text/html')) return u;
     if (!derived.has(path)) {
-      const t = transformHtml(u.body.toString('utf8'), merged);
-      report.html[path] = { inserted: t.inserted, cssLinksBefore: t.hrefs.length, cssLinksAfter: t.inserted === 'none' ? t.hrefs.length : 1 };
+      const t = transformHtml(u.body.toString('utf8'));
+      report.html[path] = { inserted: t.inserted, bytesBefore: u.body.length, bytesAfter: Buffer.byteLength(t.html) };
       derived.set(path, { ...u, body: Buffer.from(t.html) });
     }
     return derived.get(path);
