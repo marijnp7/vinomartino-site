@@ -1,7 +1,7 @@
 // LAT-13443 (K2): lokale A/B-proxy. Beide armen draaien via dezelfde lokale cache-proxy op de
 // runner, zodat het serveerpad voor A en B identiek is (geen CDN, geen preview-slot).
 //   A (poort 4401) = de productie-build byte-voor-byte.
-//   B (poort 4402) = dezelfde bytes plus één low-priority preload van het tweede font (zie FONT2).
+//   B (poort 4402) = dezelfde bytes met de streek-documentbytes van PR #581 (zie transformHtml).
 // Waarom geen astro build: de build leest Directus en de runner heeft daar geen token voor
 // (de echte build draait op de VPS met een .env daar). Deze transformatie raakt alleen de bytes
 // die de variant-commit ook raakt; /__ab/report bewijst per arm wat er veranderd is.
@@ -9,17 +9,29 @@ import { createServer } from 'node:http';
 import { gzipSync } from 'node:zlib';
 
 const UPSTREAM = (process.env.AB_UPSTREAM || 'https://vinomartino.com').replace(/\/$/, '');
-// LAT-12594 (CTO, 15-10 23:00, CEO-besluit LAT-13193 20:34Z): variant B = prioriteit tweede font.
-// Het tweede font (Cormorant italic, 39 KB) wordt via fonts.css ontdekt en laadt op VeryHigh vóór de hero.
-// B voegt alleen een preload met fetchpriority="low" toe, direct na de bestaande Cormorant-preload.
-// Eén variabele: fontbestanden, font-display, CSS en beelden ongewijzigd.
-export const FONT2 = '/fonts/cormorant-garamond-latin-4db21dbf.woff2';
-const FONT1_PRELOAD = /<link rel="preload" href="\/fonts\/cormorant-garamond-latin-abcaa8b4\.woff2"[^>]*>/;
-export const FONT2_LINK = `<link rel="preload" href="${FONT2}" as="font" type="font/woff2" crossorigin fetchpriority="low">`;
+// LAT-12594 (CTO, 16-10, CEO-besluit LAT-13193 21:37Z): variant B = documentbytes streek, gelijk aan PR #581.
+// Eén variabele: de locator-SVG in .streekkaart__locator-inset wordt <img src=/geo/locator/<slug>.svg loading=lazy>
+// en de GeoJSON-grens in data-streekkaart-data wordt "areaUrl". De weggehaalde inhoud serveert B als statisch bestand.
+// Detailpreview, iconen, fonts, CSS en beelden ongewijzigd.
+const LOCATOR = /(<div class="streekkaart__locator-inset"[^>]*>\s*)<svg class="wine-area-preview"[^>]*aria-label="([^"]*)"[^>]*?( data-astro-cid-[\w-]+)?>[\s\S]*?<\/svg>/;
+const DATA = /(<script type="application\/json" data-streekkaart-data>)([\s\S]*?)(<\/script>)/;
+const EMPTY_CTX = /<g class="wine-area-preview__context"[^>]*><\/g>/g;
+export const assets = new Map();
 
 export function transformHtml(html) {
-  if (html.includes(FONT2) || !FONT1_PRELOAD.test(html)) return { html, inserted: 'none' };
-  return { html: html.replace(FONT1_PRELOAD, (m) => m + FONT2_LINK), inserted: FONT2_LINK };
+  const dm = html.match(DATA);
+  if (!dm || !LOCATOR.test(html)) return { html, inserted: 'none' };
+  const data = JSON.parse(dm[2]);
+  if (!data.area) return { html, inserted: 'none' };
+  const slug = data.slug;
+  const svg = html.match(LOCATOR)[0].replace(LOCATOR, (m, pre) => m.slice(pre.length));
+  assets.set(`/geo/locator/${slug}.svg`, { type: 'image/svg+xml', body: Buffer.from(svg) });
+  assets.set(`/geo/area/${slug}.json`, { type: 'application/json', body: Buffer.from(JSON.stringify(data.area)) });
+  const { area, ...rest } = data;
+  const json = JSON.stringify({ slug: rest.slug, areaUrl: `/geo/area/${slug}.json`, ...rest });
+  let out = html.replace(LOCATOR, (m, pre, label, cid = '') => `${pre}<img class="wine-area-preview" src="/geo/locator/${slug}.svg" alt="${label}" loading="lazy" decoding="async"${cid}>`);
+  out = out.replace(DATA, (m, a, b, c) => a + json + c).replace(EMPTY_CTX, '');
+  return { html: out, inserted: `locator+area -> /geo/*/${slug}` };
 }
 
 const cache = new Map();
@@ -58,7 +70,8 @@ function arm(variant) {
     const path = req.url || '/';
     try {
       if (path === '/__ab/report') return res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(report));
-      const r = variant === 'B' && merged.has(path) ? await serveMerged(path) : await serve(path);
+      const r = variant === 'B' && assets.has(path) ? { status: 200, ...assets.get(path) }
+        : variant === 'B' && merged.has(path) ? await serveMerged(path) : await serve(path);
       const headers = { 'content-type': r.type, 'cache-control': 'no-store' };
       if (r.location) headers.location = r.location.replace(UPSTREAM, '');
       let body = r.body;
