@@ -349,11 +349,9 @@ const usedCats = sections.map((s) => s.key);
     if (!data.pins?.length && !data.areaUrl) return;
 
     await whenUserIntent();
-    const [L, area] = await Promise.all([
-      loadLeaflet(),
-      data.areaUrl ? fetch(data.areaUrl).then((r) => (r.ok ? r.json() : null)).catch(() => null) : null,
-    ]);
-    data.area = area;
+    const L = await loadLeaflet();
+    // LAT-12594: the boundary is no longer inline in the document; fetch it now the map is wanted.
+    data.area = data.areaUrl ? await fetch(data.areaUrl).then((r) => (r.ok ? r.json() : null)).catch(() => null) : null;
     const map = L.map(canvas, { scrollWheelZoom: false, zoomControl: true, attributionControl: true });
     // Draw the sourced boundary before loading external base tiles.
     const areaLayer = data.area ? L.geoJSON(data.area, {
