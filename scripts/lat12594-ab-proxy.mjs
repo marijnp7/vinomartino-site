@@ -1,10 +1,8 @@
 // LAT-13443 (K2): lokale A/B-proxy. Beide armen draaien via dezelfde lokale cache-proxy op de
 // runner, zodat het serveerpad voor A en B identiek is (geen CDN, geen preview-slot).
 //   A (poort 4401) = de productie-build byte-voor-byte.
-//   B (poort 4402) = dezelfde bytes met de diff van variant 47a733e toegepast: body-@font-face
-//                    (Inter, JetBrains Mono, Source Serif 4) uit de CSS, als /fonts/body-fonts.css
-//                    pas na window.load geladen (noscript-fallback). Cormorant-preload en beelden
-//                    ongewijzigd.
+//   B (poort 4402) = dezelfde bytes, maar de render-blocking /_astro/*.css-links samengevoegd tot één
+//                    extern bestand (CSS-consolidatie, LAT-12594 15-10). Alles verder ongewijzigd.
 // Waarom geen astro build: de build leest Directus en de runner heeft daar geen token voor
 // (de echte build draait op de VPS met een .env daar). Deze transformatie raakt alleen de bytes
 // die de variant-commit ook raakt; /__ab/report bewijst per arm wat er veranderd is.
@@ -12,23 +10,20 @@ import { createServer } from 'node:http';
 import { gzipSync } from 'node:zlib';
 
 const UPSTREAM = (process.env.AB_UPSTREAM || 'https://vinomartino.com').replace(/\/$/, '');
-const BODY_FAMILIES = /font-family:\s*['"]?(Inter|JetBrains Mono|Source Serif 4)['"]?/;
-const SNIPPET = `<script>addEventListener('load',function(){var l=document.createElement('link');l.rel='stylesheet';l.href='/fonts/body-fonts.css';document.head.appendChild(l)})</script><noscript><link rel="stylesheet" href="/fonts/body-fonts.css" /></noscript>`;
+// LAT-12594 (CTO, 15-10): variant B = CSS-consolidatie. Alle render-blocking /_astro/*.css-links in de
+// HTML worden één extern bestand (zelfde bytes, zelfde volgorde, zelfde map zodat url() klopt).
+// Eén variabele: geen inline CSS (#547 afgewezen), beelden en fonts ongewijzigd.
+const ASTRO_CSS = /<link rel="stylesheet" href="(\/_astro\/[^"]+\.css)"\s*\/?>/g;
+export const mergedPath = (hrefs) => `/_astro/__ab-merged-${hrefs.map((h) => h.replace(/^.*\//, '').replace(/\.css$/, '')).join('+')}.css`;
 
-export function stripBodyFaces(css, removed) {
-  return css.replace(/@font-face\s*\{[^}]*\}/g, (block) => {
-    if (!BODY_FAMILIES.test(block)) return block;
-    removed.push(block);
-    return '';
-  });
-}
-
-export function transformHtml(html, removed) {
-  let out = html.replace(/(<style[^>]*>)([\s\S]*?)(<\/style>)/g, (_, a, css, b) => a + stripBodyFaces(css, removed) + b);
-  const preload = /<link[^>]*rel="preload"[^>]*cormorant[^>]*>/i;
-  const inserted = preload.test(out) ? 'after-cormorant-preload' : 'before-head-end';
-  out = preload.test(out) ? out.replace(preload, (m) => m + SNIPPET) : out.replace('</head>', SNIPPET + '</head>');
-  return { html: out, inserted };
+export function transformHtml(html, merged) {
+  const hrefs = [...html.matchAll(ASTRO_CSS)].map((m) => m[1]);
+  if (hrefs.length < 2) return { html, hrefs, inserted: 'none' };
+  const path = mergedPath(hrefs);
+  merged.set(path, hrefs);
+  let first = true;
+  const out = html.replace(ASTRO_CSS, () => (first ? ((first = false), `<link rel="stylesheet" href="${path}">`) : ''));
+  return { html: out, hrefs, inserted: path };
 }
 
 const cache = new Map();
@@ -43,39 +38,31 @@ async function upstream(path) {
 }
 
 function arm(variant) {
-  const report = { variant, html: {}, css: {}, removedFaces: 0 };
-  const faces = new Map();
+  const report = { variant, html: {}, merged: {} };
+  const merged = new Map();
   const derived = new Map();
   async function serve(path) {
     const u = await upstream(path);
-    if (variant === 'A' || u.status !== 200) return u;
+    if (variant === 'A' || u.status !== 200 || !u.type.includes('text/html')) return u;
     if (!derived.has(path)) {
-      const removed = [];
-      let body = u.body;
-      if (u.type.includes('text/css')) {
-        body = Buffer.from(stripBodyFaces(u.body.toString('utf8'), removed));
-        report.css[path] = removed.length;
-      } else if (u.type.includes('text/html')) {
-        const t = transformHtml(u.body.toString('utf8'), removed);
-        body = Buffer.from(t.html);
-        report.html[path] = { inserted: t.inserted, inlineFacesRemoved: removed.length };
-      }
-      for (const f of removed) faces.set(f, true);
-      report.removedFaces = faces.size;
-      derived.set(path, { ...u, body });
+      const t = transformHtml(u.body.toString('utf8'), merged);
+      report.html[path] = { inserted: t.inserted, cssLinksBefore: t.hrefs.length, cssLinksAfter: t.inserted === 'none' ? t.hrefs.length : 1 };
+      derived.set(path, { ...u, body: Buffer.from(t.html) });
     }
     return derived.get(path);
+  }
+  async function serveMerged(path) {
+    const parts = await Promise.all(merged.get(path).map(upstream));
+    if (parts.some((p) => p.status !== 200)) throw new Error(`merge-bron niet 200 voor ${path}`);
+    const body = Buffer.concat(parts.flatMap((p) => [p.body, Buffer.from('\n')]));
+    report.merged[path] = { parts: merged.get(path), bytes: body.length };
+    return { status: 200, type: 'text/css; charset=utf-8', body };
   }
   return createServer(async (req, res) => {
     const path = req.url || '/';
     try {
       if (path === '/__ab/report') return res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(report));
-      let r;
-      if (variant === 'B' && path === '/fonts/body-fonts.css') {
-        r = { status: 200, type: 'text/css', body: Buffer.from([...faces.keys()].join('\n')) };
-      } else {
-        r = await serve(path);
-      }
+      const r = variant === 'B' && merged.has(path) ? await serveMerged(path) : await serve(path);
       const headers = { 'content-type': r.type, 'cache-control': 'no-store' };
       if (r.location) headers.location = r.location.replace(UPSTREAM, '');
       let body = r.body;
