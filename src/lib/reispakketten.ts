@@ -35,7 +35,7 @@ import {
     statusFilterQuery,
     assertDirectusConfigured,
     assetUrl,
-    withAssetSlot,
+    withAssetRetry,
     fetchDirectusCollection,
 } from './directus-config';
 
@@ -95,11 +95,7 @@ async function downloadAsset(
         // LAT-3423/LAT-3587: slot moet fetch + body-read + graden + wegschrijven omvatten —
         // anders geeft de semafoor het slot al vrij bij de headers en verzadigt het
         // CPU-zware graden de event-loop ongelimiteerd (zie accommodaties-loader.ts).
-        return await withAssetSlot(async () => {
-            const res = await fetch(assetUrl(directusUrl, assetId), {
-                headers: { Authorization: `Bearer ${token}` },
-                signal: AbortSignal.timeout(3000), // LAT-3331: zie accommodaties-loader.ts
-            });
+        return await withAssetRetry('loadReispakketten', assetId, assetUrl(directusUrl, assetId), token, async (res) => {
             if (!res.ok) {
                 console.warn(`[loadReispakketten] kon asset ${assetId} niet ophalen: ${res.status}`);
                 return null;

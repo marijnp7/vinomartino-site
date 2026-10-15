@@ -138,8 +138,10 @@ export async function fetchDirectusCollection(
     for (let attempt = 0; attempt <= retries; attempt++) {
         try {
             // Per poging een vers signal: het vorige is al verlopen.
+            const t0 = Date.now();
             const res = await fetch(url, { ...init, signal: directusSignal() });
             const body = await res.text();
+            await recordCollectionFetch(loaderName, Date.now() - t0, res.ok);
             // 204/205/304 mogen per spec geen body dragen in een Response-constructor.
             const nullBody = res.status === 204 || res.status === 205 || res.status === 304;
             // Alleen content-type overnemen: de transport-headers van het
@@ -356,4 +358,152 @@ export function assertCollectionReadableOrDegrade(
             `mag geen lege pagina's publiceren. Fix de Directus-permissie, of zet ALLOW_CONTENT_DEGRADE=1 ` +
             `voor een expliciete preview/dev-build.`,
     );
+}
+
+/**
+ * LAT-13549 — gedeelde asset-fetch met timeout + retry voor álle loaders.
+ *
+ * Build 1395 (run 38645424650) verloor acht route-bodyfoto's op
+ * `AbortSignal.timeout(3000)` zonder retry (NL Bandol 4/4, NL Champagne Aube 1/3,
+ * NL Reims 3/3). Dezelfde assets gaven los gemeten 200 in 37–1235 ms; wáár de
+ * 3 s in de build bleef (Directus, VPS-load of de eigen event-loop) is
+ * **onbewezen** — daarom loggen we hier loadavg en fetchtijden in plaats van te gokken.
+ *
+ * Begrenzing (geen onbegrensde buildduur):
+ *  - per poging 15 s (fetch + body-read + consume), max 3 pogingen, backoff 500/1500 ms;
+ *  - 2xx en niet-transiente 4xx worden niet geretryd (deterministisch);
+ *  - concurrency blijft `withAssetSlot` (DIRECTUS_ASSET_CONCURRENCY, default 4);
+ *  - stroomonderbreker: na DIRECTUS_ASSET_FAIL_FAST_AFTER (default 20) definitief
+ *    mislukte assets valt de rest van de build terug op één poging van 3 s (oud gedrag),
+ *    zodat een hangende Directus de build niet ×5 verlengt.
+ * Worst case per asset: 3×15 s + 2 s = 47 s slot-tijd; vóór de onderbreker trip
+ * hooguit 20×47 s / 4 slots ≈ 4 min extra.
+ * Een mislukte download blijft `null` → geen beeld, nooit een vervangend beeld.
+ */
+export const ASSET_TIMEOUT_MS = 15_000;
+export const ASSET_ATTEMPTS = 3;
+const ASSET_RETRY_BACKOFF_MS = [500, 1500];
+const ASSET_FAIL_FAST_TIMEOUT_MS = 3000;
+
+let assetHardFailures = 0;
+let assetBreakerLogged = false;
+
+type FetchStats = { durations: number[]; ok: number; retried: number; failed: number; startLoad: number[] };
+const fetchStats = new Map<string, FetchStats>();
+let osLoadavg: (() => number[]) | null = null;
+let statsHookInstalled = false;
+
+const fmtLoad = (l: number[]) => l.map((x) => x.toFixed(2)).join('/');
+function currentLoad(): number[] {
+    return osLoadavg ? osLoadavg() : [NaN, NaN, NaN];
+}
+function percentile(sorted: number[], p: number): number {
+    if (sorted.length === 0) return NaN;
+    return sorted[Math.min(sorted.length - 1, Math.ceil((p / 100) * sorted.length) - 1)];
+}
+
+/** Eén regel per loader/soort: n, p50/p95/max fetchtijd en loadavg bij start en einde. */
+export function fetchStatsSummary(): string[] {
+    const end = fmtLoad(currentLoad());
+    return [...fetchStats.entries()].map(([key, s]) => {
+        const d = [...s.durations].sort((a, b) => a - b);
+        return (
+            `[fetch-stats] ${key} n=${d.length} ok=${s.ok} retried=${s.retried} failed=${s.failed} ` +
+            `p50=${percentile(d, 50)}ms p95=${percentile(d, 95)}ms max=${d.length ? d[d.length - 1] : NaN}ms ` +
+            `loadavg(1/5/15) start=${fmtLoad(s.startLoad)} end=${end}`
+        );
+    });
+}
+
+async function statsFor(key: string): Promise<FetchStats> {
+    if (!osLoadavg) {
+        const os = await import('node:os');
+        osLoadavg = os.loadavg;
+    }
+    if (!statsHookInstalled) {
+        statsHookInstalled = true;
+        // 'exit' is synchroon; console.log naar een pipe is dat op Linux ook.
+        process.once('exit', () => {
+            for (const line of fetchStatsSummary()) console.log(line);
+        });
+    }
+    let s = fetchStats.get(key);
+    if (!s) {
+        s = { durations: [], ok: 0, retried: 0, failed: 0, startLoad: currentLoad() };
+        fetchStats.set(key, s);
+        console.log(`[fetch-stats] ${key} eerste fetch, loadavg(1/5/15)=${fmtLoad(s.startLoad)}`);
+    }
+    return s;
+}
+
+/** Tijdmeting voor een collection-fetch (zie fetchDirectusCollection). */
+async function recordCollectionFetch(loaderName: string, ms: number, ok: boolean): Promise<void> {
+    const s = await statsFor(`${loaderName}:collection`);
+    s.durations.push(ms);
+    if (ok) s.ok++;
+    else s.failed++;
+}
+
+/**
+ * Haal een Directus-asset op binnen een asset-slot, met timeout en retry.
+ * `consume` draait binnen hetzelfde slot (LAT-3423/LAT-5157: body-read + graden
+ * + wegschrijven horen erin) en krijgt 2xx en niet-transiente 4xx; die logt zelf.
+ * Gooit na de laatste poging; de caller vangt dat af en geeft `null`.
+ */
+export async function withAssetRetry<T>(
+    loaderName: string,
+    assetId: string,
+    url: string,
+    token: string,
+    consume: (res: Response) => Promise<T>,
+): Promise<T> {
+    const stats = await statsFor(`${loaderName}:asset`);
+    const failFast = assetHardFailures >= readPositiveNonZeroIntEnv('DIRECTUS_ASSET_FAIL_FAST_AFTER', 20);
+    if (failFast && !assetBreakerLogged) {
+        assetBreakerLogged = true;
+        console.warn(
+            `[${loaderName}] ${assetHardFailures} asset-downloads definitief mislukt — rest van de build ` +
+                `één poging van ${ASSET_FAIL_FAST_TIMEOUT_MS}ms (LAT-13549 stroomonderbreker), loadavg=${fmtLoad(currentLoad())}`,
+        );
+    }
+    const attempts = failFast ? 1 : ASSET_ATTEMPTS;
+    const timeoutMs = failFast ? ASSET_FAIL_FAST_TIMEOUT_MS : ASSET_TIMEOUT_MS;
+    let lastErr: unknown = new Error('fetch not attempted');
+    for (let i = 0; i < attempts; i++) {
+        const t0 = Date.now();
+        try {
+            const outcome = await withAssetSlot(async () => {
+                const res = await fetch(url, {
+                    headers: { Authorization: `Bearer ${token}` },
+                    signal: AbortSignal.timeout(timeoutMs),
+                });
+                // 2xx of niet-transiente 4xx → nu verwerken; consume logt de status.
+                if (res.ok || (res.status >= 400 && res.status < 500 && res.status !== 429)) {
+                    return { done: true as const, value: await consume(res) };
+                }
+                await res.body?.cancel().catch(() => {});
+                return { done: false as const, status: res.status };
+            });
+            stats.durations.push(Date.now() - t0);
+            if (outcome.done) {
+                stats.ok++;
+                return outcome.value;
+            }
+            lastErr = new Error(`HTTP ${outcome.status}`);
+        } catch (err) {
+            stats.durations.push(Date.now() - t0);
+            lastErr = err; // netwerk-drop ("fetch failed") of timeout → retry
+        }
+        if (i < attempts - 1) {
+            stats.retried++;
+            console.warn(
+                `[${loaderName}] asset ${assetId} poging ${i + 1}/${attempts} mislukt na ${Date.now() - t0}ms: ` +
+                    `${describeFetchError(lastErr)} — opnieuw, loadavg=${fmtLoad(currentLoad())} (LAT-13549)`,
+            );
+            await new Promise((r) => setTimeout(r, ASSET_RETRY_BACKOFF_MS[i] ?? 1500));
+        }
+    }
+    stats.failed++;
+    assetHardFailures++;
+    throw lastErr instanceof Error ? new Error(describeFetchError(lastErr)) : new Error(String(lastErr));
 }
