@@ -187,11 +187,30 @@ function slotBearingWrappers(masked, primarySpans) {
     return names;
 }
 
+/**
+ * Gedeelde wrappers uit directus-config.ts die hun callback binnen
+ * `withAssetSlot()` aanroepen, zoals `withAssetRetry` (LAT-13549). Dezelfde
+ * bewijsregel als voor lokale helpers: alleen als de helper aantoonbaar zijn
+ * parameter in het slot aanroept.
+ */
+const SHARED_WRAPPERS = (() => {
+    const masked = maskLiterals(readFileSync(join(repoRoot, 'src', 'lib', 'directus-config.ts'), 'utf8'));
+    return slotBearingWrappers(masked, callSpans(masked, 'withAssetSlot'));
+})();
+
+test('LAT-13549: gedeelde withAssetRetry roept zijn callback binnen withAssetSlot() aan', () => {
+    assert.ok(
+        SHARED_WRAPPERS.includes('withAssetRetry'),
+        `withAssetRetry in directus-config.ts roept consume() niet (meer) binnen withAssetSlot() aan; ` +
+            `gevonden slot-wrappers: [${SHARED_WRAPPERS.join(', ')}]`,
+    );
+});
+
 /** Alle spans waarbinnen werk onder de concurrency-cap valt. */
 function boundedSpans(masked) {
     const primary = callSpans(masked, 'withAssetSlot');
     const spans = [...primary];
-    for (const wrapper of slotBearingWrappers(masked, primary)) {
+    for (const wrapper of [...slotBearingWrappers(masked, primary), ...SHARED_WRAPPERS]) {
         spans.push(...callSpans(masked, wrapper));
     }
     return spans;
