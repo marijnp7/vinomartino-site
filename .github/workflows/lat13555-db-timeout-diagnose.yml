@@ -1,0 +1,72 @@
+# LAT-13555 / LAT-12920 — dispatch-only, READ-ONLY host check: statement_timeout (57014)
+# in paperclip-db-1-logs + DB-gerelateerde env-KEYNAMEN van PID 1 in paperclip-paperclip-1.
+#
+# WAAROM EEN EIGEN WORKFLOW: de scoped docker-broker weigert zowel `docker logs paperclip-db-1`
+# als `docker exec paperclip-paperclip-1` ("scoped broker: forbidden", gemeten 2026-10-15),
+# en Postgres logt alleen naar stderr (logging_collector=off), dus de 57014-regels zijn
+# niet via SQL leesbaar. Het GHA->VPS SSH-kanaal is de enige leesroute.
+#
+# Alleen lezen: geen restart, geen config, geen query-cancel. Geen inputs; niets wordt
+# geinterpoleerd. Uitvoer = tellingen, query-koppen (120 tekens) en env-KEYNAMEN (cut -d= -f1),
+# nooit waarden of DSN. Query-koppen worden extra gefilterd op '$'-parameters (geen literals).
+#
+# Pushen met "[skip ci]" (bestand onder .github/ triggert anders deploy.yml).
+
+name: LAT-13555 db statement_timeout diagnose
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: lat13555-db-timeout-diagnose
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          cat >> ~/.ssh/config <<EOF
+          Host $VPS_HOST
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+          EOF
+          cat "$GITHUB_WORKSPACE/ops/ssh-config-snippet" >> ~/.ssh/config
+          ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Diagnose (read-only)
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          DIAG: |
+            set -uo pipefail
+            echo "=== measured_at $(date -u +%FT%TZ) ==="
+            echo "=== paperclip-paperclip-1 started_at (PID1-leeftijd) ==="
+            docker inspect -f '{{.State.StartedAt}}' paperclip-paperclip-1
+            echo "=== 57014-telling, laatste 6h ==="
+            docker logs --since 6h paperclip-db-1 2>&1 | grep -c 'canceling statement due to statement timeout'
+            echo "=== query-koppen na 'statement timeout', laatste 6h ==="
+            docker logs --since 6h paperclip-db-1 2>&1 | grep -A1 'statement timeout' | grep STATEMENT \
+              | cut -c1-120 | sed -E "s/'[^']*'/'?'/g" | sort | uniq -c | sort -rn | head -30
+            echo "=== 57014-telling per uur, laatste 24h ==="
+            docker logs --since 24h --timestamps paperclip-db-1 2>&1 | grep 'canceling statement due to statement timeout' \
+              | cut -c1-13 | sort | uniq -c
+            echo "=== PID 1 env KEYNAMEN (geen waarden) ==="
+            docker exec paperclip-paperclip-1 sh -c 'tr "\0" "\n" </proc/1/environ | cut -d= -f1 | grep -i -E "DATABASE|PG"'
+            echo "=== klaar ==="
+        run: |
+          printf '%s\n' "$DIAG" | ssh "$VPS" "bash -s"
