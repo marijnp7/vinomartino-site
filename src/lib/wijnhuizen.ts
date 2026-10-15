@@ -39,6 +39,8 @@ export interface Wijnhuis {
     // Rauw Directus file-UUID van de hero, zodat een verplichte beeldcredit
     // (image-credits.ts) het beeld kan volgen los van slug/pad (LAT-2478).
     heroImageId: string | null;
+    /** LAT-13674: Directus `hero_alt` (NL op wijnhuizen, EN via translations); '' = template valt terug op de naam. */
+    heroAlt: string;
     ogImage: string | null;
     drieluik: WijnhuisDrieluikBeeld[];
     status: string;
@@ -208,6 +210,7 @@ function mapWijnhuis(
         grapes: parseJsonField(r.grapes),
         heroImage: heroImagePath,
         heroImageId: r.hero_image ? String(r.hero_image) : null,
+        heroAlt: normalizeEmDashes(String(r.hero_alt || '')).trim(),
         ogImage: ogImagePath,
         drieluik,
         status: String(r.status || 'draft'),
@@ -231,7 +234,7 @@ const PORTRET_FIELDS = [
 
 async function fetchWijnhuizenItems(url: string, token: string): Promise<Record<string, unknown>[]> {
     const env = readDirectusEnv();
-    const baseFields = 'id,slug,name,description,body,address,website,established,lat,lng,hectares,biodynamisch,winemaker,grapes,hero_image,status,meta_title,meta_description,streek_id.id,streek_id.name,streek_id.slug';
+    const baseFields = 'id,slug,name,description,body,address,website,established,lat,lng,hectares,biodynamisch,winemaker,grapes,hero_image,hero_alt,status,meta_title,meta_description,streek_id.id,streek_id.name,streek_id.slug';
     const withOg = `${baseFields},og_image`;
     // LAT-1098: reverse-relation via M2M articles.related_wijnhuizen.
     const withRelations = `${withOg},related_articles.articles_id.slug,related_articles.articles_id.title,related_articles.articles_id.pub_date,related_articles.articles_id.status`;
