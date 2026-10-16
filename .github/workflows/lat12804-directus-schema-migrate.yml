@@ -49,6 +49,7 @@ on:
           - lat13760-file-credit-wijnhuis.mjs
           - lat13747-file-licentie-valdespino.mjs
           - lat13766-file-licentie-spinetta.mjs
+          - lat13809-brief-nulmeting.mjs
 
 concurrency:
   group: lat12804-directus-schema-migrate
