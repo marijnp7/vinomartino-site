@@ -209,7 +209,7 @@ const platteKaarten = isIndex ? groepen.flatMap((g) => g.kaarten) : [];
   }
 
   /* LAT-13771 — platte resultatengrid (variant index). */
-  .acc-roundup__grid--index { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); margin-bottom: 1.5rem; }
+  .acc-roundup__grid--index { grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr)); margin-bottom: 1.5rem; }
   .acc-roundup__item[hidden] { display: none; }
 
   .acc-roundup__disclosure {
