@@ -124,3 +124,17 @@ test('elke ui.t()-key in de vier accommodatie-templates heeft NL en EN', () => {
     assert.ok(key in UI_STRING_EN, `EN ontbreekt: ${key}`);
   }
 });
+
+// LAT-13815 — index-aantal moet uit dezelfde bron komen als de streekpagina, en de
+// HubBacklink op /en/ mag niet terugvallen op de NL-default.
+test('AccommodatiesIndex telt uit loadAccommodatieRoundupPaths, niet uit de losse collectie', () => {
+  const idx = src('../src/components/AccommodatiesIndex.astro');
+  assert.match(idx, /loadAccommodatieRoundupPaths\(locale\)/);
+  assert.doesNotMatch(idx, /loadAccommodatieRoundupsByStreek/);
+});
+
+test('hub.italie.backlinkLabel heeft een EN-waarde die afwijkt van NL', () => {
+  const en = UI_STRING_EN['hub.italie.backlinkLabel'];
+  assert.ok(en, 'EN ontbreekt');
+  assert.notEqual(en, UI_STRING_DEFAULTS['hub.italie.backlinkLabel']);
+});
