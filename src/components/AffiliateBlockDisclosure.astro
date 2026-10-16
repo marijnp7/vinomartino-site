@@ -44,9 +44,11 @@ const bezoekZin = ui
   .replace('{maand}', maand)
   .replace('{jaar}', String(bezoekJaar));
 
-const reserveringZin = ui
-  .t('affiliate.blockDisclosure.reservering')
-  .replace('{bron}', bronLabel[linkBron]);
+// LAT-13076: een directe link naar het wijnhuis levert geen commissie op.
+const reserveringZin = (linkBron === 'directe link'
+  ? ui.t('affiliate.blockDisclosure.reserveringDirect')
+  : ui.t('affiliate.blockDisclosure.reservering')
+).replace('{bron}', bronLabel[linkBron]);
 ---
 
 <p class="affiliate-block-disclosure">
