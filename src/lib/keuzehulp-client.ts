@@ -36,6 +36,13 @@ export function initKeuzehulp(root: HTMLElement): void {
   const leeg = root.querySelector<HTMLElement>('[data-kh-leeg]');
   const cards = [...root.querySelectorAll<HTMLElement>('[data-kh-card]')];
   const meerN = [...form.querySelectorAll<HTMLElement>('[data-kh-meer-n]')];
+  // "Meer filters" is alleen op mobiel inklapbaar; op desktop is de summary verborgen
+  // (keuzehulp.css), dus de <details> moet daar open staan, anders verdwijnt het veld.
+  const meer = [...form.querySelectorAll<HTMLDetailsElement>('details')];
+  const desktop = window.matchMedia('(min-width: 721px)');
+  const syncMeer = () => { if (desktop.matches) meer.forEach((d) => { d.open = true; }); };
+  syncMeer();
+  desktop.addEventListener('change', syncMeer);
 
   const hasOption = (sel: HTMLSelectElement, v: string) => [...sel.options].some((o) => o.value === v);
   const optLabel = (sel: HTMLSelectElement) => sel.selectedOptions[0]?.dataset.label || '';
