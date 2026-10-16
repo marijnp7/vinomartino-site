@@ -1,0 +1,87 @@
+# LAT-13636 — dispatch-only, ALLEEN LEZEN: docker logs van paperclip-paperclip-1 in een
+# tijdvenster, gefilterd op routine-dispatch-fouten, met secret-redactie. Geen mutatie,
+# geen restart, geen exec. Incident LAT-13633 (schedule-dispatch stil sinds 2026-10-14 18:30Z).
+name: LAT-13636 paperclip log window (read-only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      since:
+        description: 'start, ISO-8601 UTC (bv. 2026-10-15T17:20:00Z)'
+        required: true
+      until:
+        description: 'eind, ISO-8601 UTC (bv. 2026-10-15T17:22:00Z)'
+        required: true
+
+concurrency:
+  group: lat13636-paperclip-log-window
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Valideer invoer
+        env:
+          SINCE: ${{ inputs.since }}
+          UNTIL: ${{ inputs.until }}
+        run: |
+          re='^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$'
+          [[ "$SINCE" =~ $re && "$UNTIL" =~ $re ]] || { echo "::error::since/until moeten YYYY-MM-DDTHH:MM:SSZ zijn"; exit 1; }
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          # LAT-3437: transport via de Cloudflare Tunnel, niet via inbound poort 22.
+          [ -n "$CF_ACCESS_CLIENT_ID" ] && [ -n "$CF_ACCESS_CLIENT_SECRET" ] \
+            || { echo "::error::CF_ACCESS_CLIENT_ID/SECRET ontbreken (LAT-3437)"; exit 1; }
+          umask 077
+          printf 'CF_ACCESS_CLIENT_ID=%s\nCF_ACCESS_CLIENT_SECRET=%s\n' \
+            "$CF_ACCESS_CLIENT_ID" "$CF_ACCESS_CLIENT_SECRET" > ~/.ssh/cf-access.env
+          umask 022
+          cat >> ~/.ssh/config <<EOC
+          Host $VPS_HOST
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+            ProxyCommand bash $GITHUB_WORKSPACE/ops/cf-ssh-proxy.sh
+          EOC
+          cat "$GITHUB_WORKSPACE/ops/ssh-config-snippet" >> ~/.ssh/config
+
+      - name: Log-venster (read-only)
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          SINCE: ${{ inputs.since }}
+          UNTIL: ${{ inputs.until }}
+          DIAG: |
+            set -uo pipefail
+            CTR=paperclip-paperclip-1
+            echo "=== staat (smalle --format) ==="
+            docker inspect -f 'started={{.State.StartedAt}} restarts={{.RestartCount}} logdriver={{.HostConfig.LogConfig.Type}}' "$CTR"
+            echo "=== venster $SINCE .. $UNTIL: totaal regels ==="
+            docker logs "$CTR" --since "$SINCE" --until "$UNTIL" 2>&1 | wc -l
+            echo "=== routine/dispatch/500-matches met context (geredigeerd) ==="
+            docker logs "$CTR" --since "$SINCE" --until "$UNTIL" 2>&1 \
+              | grep -iE -B2 -A25 'routine|dispatch|failed to wake|Internal server error|"level":50|err(or)?:' \
+              | sed -E \
+                  -e 's/(authorization|cookie|x-api-key|cf-access-[a-z-]+)("?[:=] *"?)[^",}]+/\1\2<redacted>/Ig' \
+                  -e 's/(postgres(ql)?:\/\/[^:]+:)[^@]+@/\1<redacted>@/g' \
+                  -e 's/(gh[pousr]_|github_pat_|sk-ant-|sk-or-)[A-Za-z0-9_-]+/\1<redacted>/g' \
+                  -e 's/(Bearer +)[A-Za-z0-9._~+\/=-]+/\1<redacted>/g' \
+              | head -600
+        run: |
+          printf 'SINCE=%q\nUNTIL=%q\n%s\n' "$SINCE" "$UNTIL" "$DIAG" | ssh "$VPS" "bash -s"
