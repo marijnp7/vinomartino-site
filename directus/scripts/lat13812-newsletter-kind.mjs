@@ -52,7 +52,14 @@ else if (i24.status === "published") {
   console.log(`issue-24: published -> ${target}`);
 } else console.log(`issue-24: al ${i24.status}`);
 
-// 3. welkomstmail
+// 3. welkomstmail. issue_number was meta.required; een welkomstmail heeft geen editienummer
+//    (geen verzonnen nummer). Verplichting vervalt, `kind` draagt het onderscheid.
+const inr = await api("GET", `/fields/${C}/issue_number`);
+if (inr.j?.data?.meta?.required) {
+  const r = await api("PATCH", `/fields/${C}/issue_number`, { meta: { required: false, note: "Verplicht voor kind = edition; leeg bij welcome. LAT-13812" } });
+  if (!r.ok) { console.error(`issue_number FAIL ${r.status} ${r.text.slice(0, 300)}`); process.exit(6); }
+  console.log("issue_number: required -> false");
+} else console.log("issue_number: niet verplicht");
 const w = (await api("GET", `/items/${C}?filter[slug][_eq]=welkomstmail&fields=id,kind,status,body`)).j?.data?.[0];
 if (w) console.log(`welkomstmail: bestaat al (id ${w.id}, kind ${w.kind}, status ${w.status}, body ${w.body === WELCOME_BODY ? "identiek" : "AFWIJKEND"})`);
 else {
