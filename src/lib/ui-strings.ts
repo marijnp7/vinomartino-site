@@ -1187,6 +1187,9 @@ export const UI_STRING_EN: Record<string, string> = {
     "crosslinks.all.wijnroutes": "All wine routes",
     "crosslinks.all.wijnhuizen": "All wineries",
 
+  // LAT-13815: EN-label HubBacklink; zonder deze key viel /en/ terug op de NL-default.
+  'hub.italie.backlinkLabel': 'Part of the Italy wine guide',
+
   // Besluit 2026-10-05: /en/wijnroutes/ is de ene hub (zie WijnroutesHub.astro).
   'wijnroutes.hub.meta.title': 'Wine routes to drive yourself, with places to stay and wineries | VinoMartino',
   'wijnroutes.hub.meta.description':
