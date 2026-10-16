@@ -1,11 +1,12 @@
 ---
 import type { WineGeography } from '../lib/wine-geography';
-import { locatorSvgUrl } from '../lib/wine-area-svg';
+import { locatorSvgUrl, locatorSize } from '../lib/wine-area-svg';
 interface Props { geography: WineGeography; label: string; overview?: boolean }
 const { geography, label, overview = false } = Astro.props;
+const size = overview ? locatorSize(geography) : null;
 ---
 {overview
-  ? <img class="wine-area-preview" src={locatorSvgUrl(geography.feature.properties.slug)} alt={label} loading="lazy" decoding="async" />
+  ? <img class="wine-area-preview" src={locatorSvgUrl(geography.feature.properties.slug)} alt={label} width={size!.width} height={size!.height} loading="lazy" decoding="async" />
   : <svg class="wine-area-preview" viewBox={geography.detail.viewBox} role="img" aria-label={label} xmlns="http://www.w3.org/2000/svg">
   <title>{label}</title>
   <path d={geography.detail.d} class="wine-area-preview__area" fill-rule="evenodd" vector-effect="non-scaling-stroke" />

@@ -7,7 +7,8 @@ const src = (p) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 
 test('locator renders as a lazy <img> with alt, detail preview stays inline', () => {
   const c = src('src/components/WineAreaPreview.astro');
-  assert.match(c, /<img class="wine-area-preview" src=\{locatorSvgUrl\([^)]*\)\} alt=\{label\} loading="lazy"/);
+  assert.match(c, /<img class="wine-area-preview" src=\{locatorSvgUrl\([^)]*\)\} alt=\{label\} width=\{size!\.width\} height=\{size!\.height\} loading="lazy"/);
+  assert.match(src('src/lib/wine-area-svg.ts'), /export function locatorSize\(g: WineGeography\)/);
   assert.match(c, /<svg class="wine-area-preview" viewBox=\{geography\.detail\.viewBox\} role="img" aria-label=\{label\}/);
   assert.doesNotMatch(c, /paths\.map/);
 });

@@ -6,6 +6,13 @@ import type { WineGeography } from './wine-geography';
 export const locatorSvgUrl = (slug: string) => `/geo/locator/${slug}.svg`;
 export const areaJsonUrl = (slug: string) => `/geo/area/${slug}.json`;
 
+// Intrinsic size of the locator <img>, taken from the SVG viewBox, so check-img-dimensions passes and
+// the browser knows the aspect ratio. Rendered size stays CSS-driven (.wine-area-preview 100%/100%).
+export function locatorSize(g: WineGeography): { width: number; height: number } {
+  const [, , w, h] = g.overview.viewBox.split(/[\s,]+/).map(Number);
+  return { width: Math.max(1, Math.round(w)), height: Math.max(1, Math.round(h)) };
+}
+
 export function wineAreaLocatorSvg(g: WineGeography): string {
   const { viewBox, paths, d, anchor } = g.overview;
   const r = Math.max(...viewBox.split(' ').map(Number).slice(2)) * .012;
