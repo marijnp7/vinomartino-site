@@ -1,4 +1,5 @@
 ---
+import { plaatsKort } from '../lib/plaats-kort';
 import { gateWineRetail } from '../lib/cta-blocks';
 // LAT-2693 — gedeelde accommodatie-roundup per streek. NL-route +
 // /en/-tegenhanger renderen dit component; `locale` stuurt de UI-dictionary
@@ -56,7 +57,7 @@ const accomPlanning = streek?.accomPlanning ?? [];
 const kaarten = roundup.clusters.filter((c) => c.kaarten.length > 0).flatMap((c) => c.kaarten);
 const collator = new Intl.Collator(locale);
 const plaatsTelling = new Map<string, number>();
-for (const k of kaarten) if (k.plaats) plaatsTelling.set(k.plaats, (plaatsTelling.get(k.plaats) ?? 0) + 1);
+for (const k of kaarten) { const pk = plaatsKort(k.plaats); if (pk) plaatsTelling.set(pk, (plaatsTelling.get(pk) ?? 0) + 1); }
 const plaatsOpties = [...plaatsTelling.entries()].sort((a, b) => collator.compare(a[0], b[0]));
 const toonKlasse = kaarten.length > 0 && kaarten.every((k) => Boolean(k.tier));
 const klasseTelling = new Map<string, number>();

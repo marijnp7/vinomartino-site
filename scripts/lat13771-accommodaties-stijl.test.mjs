@@ -72,7 +72,7 @@ test('AccommodatieRoundup: default-variant houdt sprong-nav en groepskoppen', ()
   assert.match(defaultTak, /class="acc-roundup__nav"/);
   assert.match(defaultTak, /<h3 class="acc-roundup__groep-title">/);
   assert.match(defaultTak, /<AccommodatieKaart kaart=\{kaart\} context=\{context \|\| roundup\.regio\} bronValuta=\{bronValuta\} displayValuta=\{displayValuta\} locale=\{locale\} \/>/);
-  assert.match(ROUNDUP, /data-plaats=\{kaart\.plaats \|\| ''\} data-klasse=\{kaart\.tier \|\| ''\}/);
+  assert.match(ROUNDUP, /data-plaats=\{plaatsKort\(kaart\.plaats\)\} data-klasse=\{kaart\.tier \|\| ''\}/);
   assert.match(ROUNDUP, /variant="compact"/);
 });
 

@@ -1,4 +1,5 @@
 ---
+import { plaatsKort } from '../lib/plaats-kort';
 // LAT-1332 — Per-regio accommodatie-roundup (reisjunk-model, EPIC LAT-1330).
 // Sprong-navigatie (pills per sub-bestemming) + sectie-headers
 // "LEUKE HOTELS IN [PLAATS]" + responsive kaart-grid + disclosure-blok.
@@ -63,7 +64,7 @@ const platteKaarten = isIndex ? groepen.flatMap((g) => g.kaarten) : [];
     {isIndex ? (
       <div class="acc-roundup__grid acc-roundup__grid--index" data-kh-grid>
         {platteKaarten.map((kaart) => (
-          <div class="acc-roundup__item" data-kh-card data-plaats={kaart.plaats || ''} data-klasse={kaart.tier || ''}>
+          <div class="acc-roundup__item" data-kh-card data-plaats={plaatsKort(kaart.plaats)} data-klasse={kaart.tier || ''}>
             <AccommodatieKaart kaart={kaart} context={context || roundup.regio} bronValuta={bronValuta} displayValuta={displayValuta} locale={locale} variant="compact" />
           </div>
         ))}

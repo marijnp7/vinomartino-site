@@ -1,4 +1,5 @@
 ---
+import { plaatsKort } from '../lib/plaats-kort';
 // LAT-1332 / LAT-2003 (VIS-BL-04) — VinoMartino accommodatie-kaart. Sinds de
 // standaardisatie van het boekbare component (VIS-BL-04) rendert deze kaart via
 // de gedeelde PoiCard, zodat elke boekbare accommodatie site-breed identiek is:
@@ -71,7 +72,7 @@ const ctaDisclosure = isAffiliateHref(href) ? ui.t('stay.disclosure.microcopy') 
 const compactTekst = compact ? (kaart.beschrijving || kaart.whyRegel || '') : '';
 // Alleen een "Lees meer" als de tekst de twee regels waarschijnlijk overschrijdt.
 const compactLang = compactTekst.length > 110;
-const compactMeta = [kaart.plaats, tierLabel].filter(Boolean).join(' · ');
+const compactMeta = [plaatsKort(kaart.plaats), tierLabel].filter(Boolean).join(' · ');
 const credit = compact && kaart.foto ? await getImageCredit(fileIdFromAccommodatiePath(kaart.foto), { adapted: true }) : null;
 ---
 
