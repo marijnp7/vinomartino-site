@@ -471,6 +471,8 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'affiliate.blockDisclosure.bezoek': 'Wij bezochten {producent} in {maand} {jaar}.',
     'affiliate.blockDisclosure.reservering': 'Reservering via {bron}, VinoMartino ontvangt commissie, prijs voor jou identiek.',
     'affiliate.blockDisclosure.bron.directeLink': 'de directe link naar het wijnhuis',
+    // LAT-13076: een directe link naar een wijnhuis levert geen commissie op.
+    'affiliate.blockDisclosure.reserveringDirect': 'Reservering via {bron}; VinoMartino ontvangt hiervoor geen commissie.',
 
     // Maandnamen voor de bezoekregel hierboven. NL rendert kleingeschreven
     // ("in oktober 2024"), Engels met hoofdletter ("in October 2024") — vandaar
@@ -1627,6 +1629,7 @@ export const UI_STRING_EN: Record<string, string> = {
     'affiliate.blockDisclosure.bezoek': 'We visited {producent} in {maand} {jaar}.',
     'affiliate.blockDisclosure.reservering': 'Booking via {bron}. VinoMartino receives a commission — your price is unchanged.',
     'affiliate.blockDisclosure.bron.directeLink': 'the direct link to the winery',
+    'affiliate.blockDisclosure.reserveringDirect': 'Booking via {bron}; VinoMartino receives no commission for this.',
 
     'ui.maand.januari': 'January',
     'ui.maand.februari': 'February',
