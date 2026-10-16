@@ -13,7 +13,7 @@
 # een merge-subject met "[skip ci]" (zie memory: skip-ci-lost-on-gh-pr-merge).
 #
 # measure : alleen lezen. docker system df + grootste mappen, om de structurele oorzaak te vinden.
-# apply   : (1) rmi paperclip-paperclip:v2026.618.0 als geen container hem gebruikt,
+# apply   : (1) rmi ghcr.io/hostinger/hvps-openclaw:latest als geen container hem gebruikt (LAT-13687),
 #           (2) dangling anonieme volumes: per volume inhoud tonen; verwijderen ALLEEN als er
 #               geen PG_VERSION / *.sql / directus / upload / backup in zit, anders laten staan,
 #           (3) image prune (alleen dangling). Daarna df.
@@ -80,6 +80,16 @@ jobs:
           echo "=== containers json-log (top 8) ==="; du -sh /var/lib/docker/containers/*/*-json.log 2>/dev/null | sort -h | tail -8
           echo "=== / depth 1 (top 10) ==="; du -xh --max-depth=1 / 2>/dev/null | sort -h | tail -10
           echo "=== /var/log + journal ==="; du -sh /var/log /var/log/journal 2>/dev/null
+          # LAT-13687: uitbreiding na schijf 98 % (16-10). /root groeide 2,4G -> 7,8G sinds aug.
+          echo "=== HOME (\$HOME) depth 3 (top 25) ==="; du -xh --max-depth=3 "$HOME" 2>/dev/null | sort -h | tail -25
+          echo "=== /docker depth 2 (top 10) ==="; du -xh --max-depth=2 /docker 2>/dev/null | sort -h | tail -10
+          echo "=== /srv depth 2 (top 15) ==="; du -xh --max-depth=2 /srv 2>/dev/null | sort -h | tail -15
+          echo "=== /srv/vino-builds ==="; ls -la /srv/vino-builds 2>&1 | head -30
+          echo "=== dist.old-* ==="; ls -1d /srv/*/dist.old-* 2>/dev/null | while read -r d; do du -sh "$d"; done
+          echo "=== images (id, naam, grootte, containers) ==="
+          docker images --format '{{.ID}} {{.Repository}}:{{.Tag}} {{.Size}}' | while read -r i n z; do
+            echo "$i $n $z containers=$(docker ps -a --filter "ancestor=$i" -q | wc -l)"
+          done
           echo "=== housekeeping log (tail) ==="; tail -n 20 /var/log/paperclip-housekeeping-emergency.log 2>&1
           echo "LAT12798_MEASURE_OK"
           REMOTE
@@ -93,8 +103,10 @@ jobs:
           set -uo pipefail
           echo "BEFORE: $(df -h / | tail -1)"
 
-          echo "=== 1. rmi oude paperclip-paperclip image ==="
-          OLD=paperclip-paperclip:v2026.618.0
+          # LAT-13687: was paperclip-paperclip:v2026.618.0 (bestaat niet meer). node:24 bewust NIET:
+          # deploy.yml draait hem via `docker run --rm`, dus 0 containers maar wel in gebruik.
+          echo "=== 1. rmi ongebruikt hvps-openclaw image (6,1G) ==="
+          OLD=ghcr.io/hostinger/hvps-openclaw:latest
           ID=$(docker image inspect "$OLD" --format '{{.Id}}' 2>/dev/null || true)
           if [ -z "$ID" ]; then
             echo "(image bestaat niet meer; niets te doen)"
