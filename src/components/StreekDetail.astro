@@ -368,7 +368,7 @@ const hasFactBox = Boolean(
           )}
           {damHeroCredit && (
             <figcaption class="streek-hero-credit">
-              {damHeroCredit.author && <>{damHeroCredit.author}, </>}<a href={damHeroCredit.licenseUrl} rel="license noopener" target="_blank">{licenseLabelFor(damHeroCredit.licenseLabel, locale)}</a>{damHeroCredit.sourceUrl && <>, <a href={damHeroCredit.sourceUrl} rel="noopener" target="_blank">{ui.t('streek.hero.bron')}</a></>}
+              {damHeroCredit.author && <>{damHeroCredit.author}, </>}{damHeroCredit.licenseUrl ? <a href={damHeroCredit.licenseUrl} rel="license noopener" target="_blank">{licenseLabelFor(damHeroCredit.licenseLabel, locale)}</a> : licenseLabelFor(damHeroCredit.licenseLabel, locale)}{damHeroCredit.sourceUrl && <>, <a href={damHeroCredit.sourceUrl} rel="noopener" target="_blank">{ui.t('streek.hero.bron')}</a></>}
             </figcaption>
           )}
         </figure>

@@ -47,6 +47,8 @@ interface Props {
   heroImage?: string;
   // Rauw Directus file-UUID van de hero; voedt de verplichte beeldcredit (LAT-2478).
   heroImageId?: string | null;
+  /** LAT-13674: beschrijvende hero-alt uit Directus (`hero_alt`, EN via translations); leeg = huisnaam. */
+  heroAlt?: string;
   drieluik?: WijnhuisDrieluikBeeld[];
   /** LAT-12769: alleen waar Marijn echt was; toont de badge. */
   zelfGeweest?: boolean;
@@ -75,6 +77,7 @@ const {
   biologisch,
   heroImage,
   heroImageId,
+  heroAlt,
   drieluik = [],
   zelfGeweest = false,
   bezoekAnchor,
@@ -137,7 +140,7 @@ const chipStreek = region.split(' · ')[0];
     <figure class="wh-hero__beeld">
       <SmartImg
         src={heroImage}
-        alt={name}
+        alt={heroAlt || name}
         theme="winery"
         class="wh-hero__img"
         loading="eager"
@@ -151,7 +154,7 @@ const chipStreek = region.split(' · ')[0];
       <BeeldHerkomst fileId={heroImageId} src={heroImage} locale={locale} variant="inline" />
       {heroCredit && (
         <figcaption class="wh-hero__credit">
-          {heroCredit.author && <>{heroCredit.author}, </>}<a href={heroCredit.licenseUrl} rel="license noopener" target="_blank">{licenseLabelFor(heroCredit.licenseLabel, locale)}</a>{heroCredit.sourceUrl && <>, <a href={heroCredit.sourceUrl} rel="noopener" target="_blank">{heroCredit.sourceLabel ? `via ${heroCredit.sourceLabel}` : 'via bron'}</a></>}{heroCredit.adapted && <> ({adaptationNoteFor(locale)})</>}
+          {heroCredit.author && <>{heroCredit.author}, </>}{heroCredit.licenseUrl ? <a href={heroCredit.licenseUrl} rel="license noopener" target="_blank">{licenseLabelFor(heroCredit.licenseLabel, locale)}</a> : licenseLabelFor(heroCredit.licenseLabel, locale)}{heroCredit.sourceUrl && <>, <a href={heroCredit.sourceUrl} rel="noopener" target="_blank">{heroCredit.sourceLabel ? `via ${heroCredit.sourceLabel}` : 'via bron'}</a></>}{heroCredit.adapted && <> ({adaptationNoteFor(locale)})</>}
         </figcaption>
       )}
       {!heroCredit && !zelfGeweest && (

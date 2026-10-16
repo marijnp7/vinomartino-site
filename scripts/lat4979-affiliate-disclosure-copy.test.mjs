@@ -56,7 +56,10 @@ function disclosure(ui, { producent, bezoekMaand, bezoekJaar, linkBron }) {
     .replace('{producent}', producent)
     .replace('{maand}', maand)
     .replace('{jaar}', String(bezoekJaar));
-  const reservering = ui.t('affiliate.blockDisclosure.reservering').replace('{bron}', bronLabel[linkBron]);
+  // LAT-13076: directe link = geen commissie.
+  const reservering = ui
+    .t(linkBron === 'directe link' ? 'affiliate.blockDisclosure.reserveringDirect' : 'affiliate.blockDisclosure.reservering')
+    .replace('{bron}', bronLabel[linkBron]);
   return `${bezoek} ${reservering}`;
 }
 
@@ -66,7 +69,8 @@ test('NL blijft byte-identiek aan de literals die in de template stonden', async
   const nl = await loadUiStrings('nl');
 
   // Vangnet: zonder blokken bewijst de loop hieronder niets.
-  assert.ok(ALLE_BLOKKEN.length >= 6, `verwachtte >=6 affiliate-blokken, vond ${ALLE_BLOKKEN.length}`);
+  // LAT-13076: de twee Produttori-blokken zijn weg (onbewezen bezoek), dus >=4.
+  assert.ok(ALLE_BLOKKEN.length >= 4, `verwachtte >=4 affiliate-blokken, vond ${ALLE_BLOKKEN.length}`);
 
   for (const blok of ALLE_BLOKKEN) {
     const bron = {
@@ -76,7 +80,9 @@ test('NL blijft byte-identiek aan de literals die in de template stonden', async
     }[blok.linkBron];
     const verwacht =
       `Wij bezochten ${blok.producent} in ${blok.bezoekMaand.toLowerCase()} ${blok.bezoekJaar}. ` +
-      `Reservering via ${bron}, VinoMartino ontvangt commissie, prijs voor jou identiek.`;
+      (blok.linkBron === 'directe link'
+        ? `Reservering via ${bron}; VinoMartino ontvangt hiervoor geen commissie.`
+        : `Reservering via ${bron}, VinoMartino ontvangt commissie, prijs voor jou identiek.`);
     assert.equal(disclosure(nl, blok), verwacht, `NL-disclosure van ${blok.producent} is veranderd`);
   }
 
@@ -135,18 +141,15 @@ test('de EN-disclosure bevat geen NL meer en luidt zoals goedgekeurd', async () 
   // bee76a8a maakte disclosure-copy R1-self-approvable; de Lead Editor mag deze
   // zin dus aanscherpen — mits de drie M1-Optie-B-elementen intact blijven, en
   // dan verhuist die formulering hierheen.
+  // LAT-13076 (Lead Editor, R1): een directe link naar het wijnhuis levert
+  // geen commissie op. De eerdere zin "receives a commission" was daar onwaar.
   const GOEDGEKEURD =
-    'Booking via the direct link to the winery. VinoMartino receives a commission — your price is unchanged.';
+    'Booking via the direct link to the winery; VinoMartino receives no commission for this.';
   assert.ok(zin.endsWith(GOEDGEKEURD), `goedgekeurde EN-disclosure niet gevonden in: ${zin}`);
   assert.equal(zin, `We visited ${directeLink.producent} in ${en.t(`ui.maand.${directeLink.bezoekMaand.toLowerCase()}`)} ${directeLink.bezoekJaar}. ` + GOEDGEKEURD);
-
-  // De drie elementen die M1-Optie B verplicht stelt, in deze volgorde. Een
-  // herformulering die er één laat vallen is een compliance-regressie, geen
-  // stijlkeuze — daarom apart geasserteerd van de letterlijke tekst hierboven.
   const i = (s) => zin.indexOf(s);
   assert.ok(i('direct link to the winery') > 0, 'element 1 (mechanisme) ontbreekt');
-  assert.ok(i('receives a commission') > i('direct link to the winery'), 'element 2 (commissie) ontbreekt of staat voor element 1');
-  assert.ok(i('your price is unchanged') > i('receives a commission'), 'element 3 (geen meerprijs) ontbreekt of staat te vroeg');
+  assert.ok(i('receives no commission') > i('direct link to the winery'), 'element 2 (geen commissie) ontbreekt');
   assert.ok(!/\b(may|typically|usually|can)\b/.test(GOEDGEKEURD), 'voorbehoud in de disclosure — de CEO eiste een zin zonder hedging');
 
   // De gate-markers die deze regel op /en/ achterliet.

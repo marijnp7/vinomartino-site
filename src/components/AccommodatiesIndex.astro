@@ -3,6 +3,7 @@
 // /en/-tegenhanger renderen dit component; `locale` stuurt de loaders
 // (no-translation-guard) en de UI-dictionary. NL byte-identiek via NL-defaults.
 import SiteLayout from '../layouts/SiteLayout.astro';
+import '../styles/keuzehulp.css';
 import SmartImg from '../components/SmartImg.astro';
 import { loadAccommodatieRoundupsByStreek } from '../lib/accommodaties-loader';
 import { filterRoundupOpFotos, roundupKaartAantal } from '../lib/accommodaties';
@@ -10,6 +11,7 @@ import { loadStreken } from '../lib/streken';
 import { organizationSchema, breadcrumbSchema } from '../lib/seo';
 import { loadUiStrings } from '../lib/ui-strings';
 import { DEFAULT_LOCALE, localizePath, type Locale } from '../lib/i18n';
+import { foldText } from '../lib/wijnhuis-filter';
 
 interface Props {
   locale?: Locale;
@@ -32,15 +34,38 @@ for (const [streekSlug, raw] of roundups) {
   const aantal = roundupKaartAantal(roundup);
   if (aantal === 0) continue;
   const streek = streekBySlug.get(streekSlug);
+  const naam = roundup.regio || streek?.name || streekSlug;
+  const land = streek?.country || null;
+  // LAT-13771 — zoektekst: streeknaam, land en de plaatsen van de verblijven (uit de roundup).
+  const plaatsen = roundup.clusters.flatMap((c) => [...c.plaatsen, ...c.kaarten.map((k) => k.plaats)]).filter(Boolean);
   regios.push({
     slug: streekSlug,
-    naam: roundup.regio || streek?.name || streekSlug,
-    land: streek?.country ?? null,
+    naam,
+    land,
+    landSlug: streek?.landSlug || '',
     heroImage: streek?.heroImage ?? null,
     aantal,
+    zoek: foldText([naam, streek?.name, streekSlug, land, ...new Set(plaatsen)].filter(Boolean).join(' ')),
   });
 }
 regios.sort((a, b) => a.naam.localeCompare(b.naam, collation));
+
+// LAT-13771 — keuzehulp: land uit de CMS-relatie streek → land; geen land afgeleid uit tekst.
+const landTelling = new Map<string, { naam: string; n: number }>();
+for (const r of regios) {
+  if (!r.landSlug || !r.land) continue;
+  const l = landTelling.get(r.landSlug) ?? { naam: r.land, n: 0 };
+  l.n++;
+  landTelling.set(r.landSlug, l);
+}
+const landOpties = [...landTelling.entries()].sort((a, b) => a[1].naam.localeCompare(b[1].naam, collation));
+const khI18n = {
+  een: ui.t('accommodaties.filter.telling.streekEen'),
+  alle: ui.t('accommodaties.filter.telling.strekenAlle'),
+  van: ui.t('accommodaties.filter.telling.streken'),
+  verwijder: ui.t('wijnhuizen.filter.chip.verwijder'),
+};
+const tellingStart = regios.length === 1 ? khI18n.een : khI18n.alle.replace('{n}', String(regios.length));
 
 const schema = [
   organizationSchema(),
@@ -69,19 +94,53 @@ const schema = [
 
   <section class="section container">
     {regios.length > 0 ? (
-      <div class="grid">
-        {regios.map((r) => (
-          <a href={localizePath(`/accommodaties/${r.slug}/`, locale)} class="card card-link">
-            <div class="card-img-wrap">
-              <SmartImg src={r.heroImage || undefined} alt={r.naam} theme="vineyard" class="card-img" />
-            </div>
-            <div class="card-body">
-              {r.land && <span class="card-country">{r.land}</span>}
-              <h2 class="card-title">{r.naam}</h2>
-              <p class="card-desc">{r.aantal} {r.aantal === 1 ? ui.t('accommodaties.index.card.stayOne') : ui.t('accommodaties.index.card.stayMany')} {ui.t('accommodaties.index.card.selected')}</p>
-            </div>
-          </a>
-        ))}
+      <div class="acc-keuzehulp" data-kh-root data-i18n={JSON.stringify(khI18n)} data-totaal={regios.length} data-track="accommodaties">
+        {/* Zelfde CLS-aanpak als /wijnhuizen/ (LAT-12594): server-side zichtbaar, zonder JS verborgen. */}
+        <noscript><style is:inline>.wh-filters { display: none !important; }</style></noscript>
+        <form class="wh-filters kh-filters--2" role="search" aria-label={ui.t('accommodaties.filter.label')} data-kh-form>
+          <div class="wh-field">
+            <label for="acc-zoek">{ui.t('accommodaties.filter.zoek.label')}</label>
+            <input id="acc-zoek" name="q" type="search" autocomplete="off" enterkeyhint="search" data-kh-zoek />
+          </div>
+          <div class="wh-field">
+            <label for="acc-land">{ui.t('accommodaties.filter.land.label')}</label>
+            <select id="acc-land" name="land" data-kh-select>
+              <option value="">{ui.t('accommodaties.filter.land.alle')}</option>
+              {landOpties.map(([slug, l]) => (
+                <option value={slug} data-label={l.naam}>{l.naam} ({l.n})</option>
+              ))}
+            </select>
+          </div>
+          <div class="wh-status">
+            <p class="wh-telling" data-kh-telling aria-live="polite" aria-atomic="true">{tellingStart}</p>
+            <ul class="wh-chips" data-kh-chips aria-label={ui.t('wijnhuizen.filter.actief')}></ul>
+            <button type="button" class="wh-wis" data-kh-wis hidden>{ui.t('accommodaties.filter.wis')}</button>
+          </div>
+        </form>
+
+        <div class="wh-leeg" data-kh-leeg hidden>
+          <h2>{ui.t('accommodaties.filter.leeg.titel')}</h2>
+          <p>{ui.t('wijnhuizen.filter.leeg.tekst')}</p>
+          <div class="wh-leeg-acties">
+            <button type="button" data-wh-wis-leeg>{ui.t('accommodaties.filter.wis')}</button>
+          </div>
+        </div>
+
+        <div class="grid">
+          {regios.map((r) => (
+            <article class="acc-card" data-kh-card data-zoek={r.zoek} data-land={r.landSlug}>
+              <div class="card-img-wrap">
+                <SmartImg src={r.heroImage || undefined} alt={r.naam} theme="vineyard" class="card-img" />
+              </div>
+              <div class="card-body">
+                {r.land && <span class="card-country">{r.land}</span>}
+                <h2 class="card-title"><a href={localizePath(`/accommodaties/${r.slug}/`, locale)} class="acc-card__link">{r.naam}</a></h2>
+                <p class="card-desc">{r.aantal} {r.aantal === 1 ? ui.t('accommodaties.index.card.stayOne') : ui.t('accommodaties.index.card.stayMany')} {ui.t('accommodaties.index.card.selected')}</p>
+                <span class="acc-card__cta" aria-hidden="true">{ui.t('accommodaties.card.cta')}</span>
+              </div>
+            </article>
+          ))}
+        </div>
       </div>
     ) : (
       <div class="empty-state">
@@ -91,6 +150,12 @@ const schema = [
     )}
   </section>
 </SiteLayout>
+
+<script>
+  // LAT-13771 — keuzehulp (zoek + land), status in het URL-fragment.
+  import { initAlleKeuzehulpen } from '../lib/keuzehulp-client';
+  initAlleKeuzehulpen();
+</script>
 
 <style>
   .hero-sm {
@@ -122,7 +187,18 @@ const schema = [
   @media (max-width: 420px) {
     .grid { grid-template-columns: 1fr; }
   }
-  .card-link { text-decoration: none; color: inherit; display: block; }
+  /* LAT-13062: .section (padding: x 0) overschrijft de gutter van .container. */
+  .section.container { padding-inline: var(--gutter); }
+  /* LAT-13771 — kaart in wijnhuizenstijl (.wh-card): wit vlak met vaste kleuren, ook in
+     kelder-modus; de titellink is uitgerekt over de kaart (één tabstop). */
+  .acc-card { position: relative; display: flex; flex-direction: column; background: #fff; color: #1F1A16; border-radius: var(--radius-card); overflow: hidden; box-shadow: var(--shadow-sm); transition: transform var(--duration-base) var(--ease-out), box-shadow var(--duration-base) var(--ease-out); }
+  .acc-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-card-lift); }
+  .acc-card[hidden] { display: none; }
+  @media (prefers-reduced-motion: reduce) { .acc-card, .acc-card:hover { transition: none; transform: none; } }
+  .acc-card__link { color: inherit; text-decoration: none; }
+  .acc-card__link::after { content: ''; position: absolute; inset: 0; z-index: 1; }
+  .acc-card__link:focus-visible { outline: none; }
+  .acc-card:has(.acc-card__link:focus-visible) { outline: 3px solid var(--accent-apricot); outline-offset: 3px; box-shadow: var(--focus-ring); }
   .card-img-wrap {
     aspect-ratio: 16 / 11;
     overflow: hidden;
@@ -135,31 +211,33 @@ const schema = [
     object-fit: cover;
     transition: transform var(--duration-image) var(--ease-out);
   }
-  .card-link:hover .card-img-wrap :global(img) { transform: scale(1.03); }
-  .card-body { padding: 1.25rem; }
+  .acc-card:hover .card-img-wrap :global(img) { transform: scale(1.03); }
+  .card-body { padding: 1.1rem 1.1rem 1.2rem; display: flex; flex-direction: column; flex: 1; }
   .card-country {
-    font-family: var(--font-mono);
-    font-size: 0.5625rem;
-    text-transform: uppercase;
-    letter-spacing: 0.15em;
-    color: var(--rust);
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: #5A1A1F;
     display: block;
     margin-bottom: var(--space-2);
   }
   .card-title {
     font-family: var(--font-display);
-    font-size: 1.25rem;
-    font-weight: 500;
-    color: var(--ink);
+    font-size: 1.45rem;
+    font-weight: 400;
+    color: #1F1A16;
     margin-bottom: var(--space-2);
     line-height: 1.25;
   }
   .card-desc {
-    font-family: var(--font-mono);
-    font-size: 0.75rem;
-    letter-spacing: 0.05em;
-    color: var(--inkSoft);
+    font-family: var(--font-ui);
+    font-size: 0.8125rem;
+    color: #5A4F45;
+    margin: 0;
   }
+  .acc-card__cta { margin-top: auto; padding-top: var(--space-3); font-family: var(--font-ui); font-size: 0.8rem; font-weight: 600; color: #5A1A1F; }
+  .acc-card:hover .acc-card__cta { text-decoration: underline; text-underline-offset: 3px; }
   .empty-state { text-align: center; padding: var(--space-16) var(--space-4); }
   .empty-state h2 {
     font-family: var(--font-display);

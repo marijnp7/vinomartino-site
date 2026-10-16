@@ -461,8 +461,27 @@ jobs:
             # LAT-910: itemize-changes zodat we in de GHA-log kunnen zien
             # dat rsync daadwerkelijk bestanden heeft gekopieerd. Stats
             # voor explicit copy-count.
-            rsync -a --delete --stats --itemize-changes "$STAGE/dist/" "$DIST/" \
+            # LAT-13726: schijf-preflight. Door de hardlink-snapshot hierboven
+            # krijgt elk herschreven bestand een nieuwe inode, dus de sync kan
+            # tot de volle omvang van de nieuwe dist extra ruimte kosten. Build
+            # 1424 brak op ENOSPC halverwege images/ af: alles alfabetisch
+            # daarna (wijnhuizen/, wijnroutes/) bleef op de vorige build staan,
+            # terwijl en/ al nieuw was. Liever niet beginnen dan half klaar.
+            need_kb=$(( $(du -sk "$STAGE/dist" | cut -f1) + 524288 ))
+            avail_kb=$(df --output=avail -k "$DIST" | tail -1 | tr -d ' ')
+            echo "dist-sync preflight: nodig ${need_kb}K (dist + 512M marge), vrij ${avail_kb}K"
+            if [ "$avail_kb" -lt "$need_kb" ]; then
+              rm -rf "$BACKUP"
+              echo "::error::Te weinig schijfruimte voor de dist-sync (vrij ${avail_kb}K < nodig ${need_kb}K). DIST niet aangeraakt, productie blijft op de vorige build (LAT-13726)."
+              exit 1
+            fi
+
+            # LAT-13726: build-info.json pas als allerlaatste. Breekt de sync
+            # af, dan blijft productie de vorige build melden in plaats van
+            # een nieuwe build te claimen die maar half is aangekomen.
+            rsync -a --delete --stats --itemize-changes --exclude=/build-info.json "$STAGE/dist/" "$DIST/" \
               | tail -n 30
+            cp -f "$STAGE/dist/build-info.json" "$DIST/build-info.json"
             echo "DIST inhoud na rsync:"
             ls -la "$DIST/" | head -20
             if [ -f "$DIST/build-info.json" ]; then
