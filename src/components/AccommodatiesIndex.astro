@@ -92,7 +92,7 @@ const schema = [
     </div>
   </section>
 
-  <section class="section container">
+  <section class="section container acc-index">
     {regios.length > 0 ? (
       <div class="acc-keuzehulp" data-kh-root data-i18n={JSON.stringify(khI18n)} data-totaal={regios.length} data-track="accommodaties">
         {/* Zelfde CLS-aanpak als /wijnhuizen/ (LAT-12594): server-side zichtbaar, zonder JS verborgen. */}
@@ -158,6 +158,8 @@ const schema = [
 </script>
 
 <style>
+  /* LAT-13771: eerste kaart <= 450 px op 1280x800 (was 470); alleen de bovenpadding, onderkant blijft .section. */
+  .acc-index { padding-top: var(--space-8); }
   .hero-sm {
     background: var(--paperDeep);
     padding: var(--space-12) 0 var(--space-8);
