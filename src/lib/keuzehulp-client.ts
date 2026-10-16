@@ -7,8 +7,16 @@
 //   [data-kh-root]  data-i18n='{"een":"1 …","alle":"{n} …","van":"{n} van {totaal} …","verwijder":"…"}'
 //                   data-totaal="N"  data-track="<prefix voor cta_id>"
 //   [data-kh-form]  met optioneel input[data-kh-zoek] en select[data-kh-select][name=<veld>]
-//   [data-kh-card]  data-zoek="<gevouwen zoektekst>"  data-<veld>="<waarde>"
+//   [data-kh-card]  data-zoek="<gevouwen zoektekst>"  data-<veld>="<waarde> [<waarde> …]"
 //   [data-kh-telling] [data-kh-chips] [data-kh-wis] [data-kh-leeg] [data-wh-wis-leeg]
+//   optioneel [data-kh-meer-n]: telling van actieve selects binnen de omliggende <details>.
+//
+// LAT-13773 — select[data-kh-lijst]: meerwaardige kaarten (artikel met twee streken).
+// data-<veld> is dan een lijst slugs met spaties; een kaart past als één ervan past (OR
+// binnen het veld), en een optiewaarde `<veld>:<slug>` (Bestemming: `land:frankrijk`,
+// `streek:bourgogne`) toetst data-<veld> in plaats van de select-naam. Zonder het attribuut
+// blijft het exacte vergelijking (accommodaties: plaatsnamen met spaties). Optietekst =
+// data-base, anders data-label.
 import { trackEvent } from './site-events';
 
 const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
@@ -27,14 +35,21 @@ export function initKeuzehulp(root: HTMLElement): void {
   const wis = form.querySelector<HTMLButtonElement>('[data-kh-wis]')!;
   const leeg = root.querySelector<HTMLElement>('[data-kh-leeg]');
   const cards = [...root.querySelectorAll<HTMLElement>('[data-kh-card]')];
+  const meerN = [...form.querySelectorAll<HTMLElement>('[data-kh-meer-n]')];
 
   const hasOption = (sel: HTMLSelectElement, v: string) => [...sel.options].some((o) => o.value === v);
   const optLabel = (sel: HTMLSelectElement) => sel.selectedOptions[0]?.dataset.label || '';
 
+  const past = (c: HTMLElement, sel: HTMLSelectElement, v: string) => {
+    if (!('khLijst' in sel.dataset)) return c.dataset[sel.name] === v;
+    const i = v.indexOf(':');
+    const [k, w] = i > 0 ? [v.slice(0, i), v.slice(i + 1)] : [sel.name, v];
+    return (c.dataset[k] || '').split(' ').includes(w);
+  };
   const matches = (c: HTMLElement, q: string[], skip?: HTMLSelectElement, alt?: string) => {
     for (const sel of selects) {
       const v = sel === skip ? (alt ?? '') : sel.value;
-      if (v && c.dataset[sel.name] !== v) return false;
+      if (v && !past(c, sel, v)) return false;
     }
     const hay = c.dataset.zoek || '';
     return q.every((w) => hay.includes(w));
@@ -66,7 +81,7 @@ export function initKeuzehulp(root: HTMLElement): void {
       for (const o of sel.options) {
         if (!o.value) continue;
         const k = cards.filter((c) => matches(c, q, sel, o.value)).length;
-        o.textContent = `${o.dataset.label} (${k})`;
+        o.textContent = `${o.dataset.base ?? o.dataset.label} (${k})`;
       }
     }
     const actief = (q.length ? 1 : 0) + selects.filter((s) => s.value).length;
@@ -78,6 +93,11 @@ export function initKeuzehulp(root: HTMLElement): void {
       ...selects.filter((s) => s.value).map((s) => chip(optLabel(s), () => { s.value = ''; })),
     );
     wis.hidden = actief === 0;
+    for (const n of meerN) {
+      const k = selects.filter((s) => s.value && n.closest('details')?.contains(s)).length;
+      n.textContent = String(k);
+      n.hidden = k === 0;
+    }
     if (leeg) leeg.hidden = n > 0;
     const params = new URLSearchParams();
     if (raw) params.set('q', raw);
