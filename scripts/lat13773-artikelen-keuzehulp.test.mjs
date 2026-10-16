@@ -75,3 +75,11 @@ test('nieuwe keys: NL-default en EN, geen gedachtestreepjes', () => {
     assert.match(UI_STRING_EN[k], /\{n\}.*\{totaal\}/);
   }
 });
+
+test('gedeelde client opent "Meer filters" op desktop (summary is daar verborgen)', () => {
+  // Design-review build 1449: op 1280 stond <details class="wh-meer"> dicht, dus Rubriek onzichtbaar.
+  assert.match(CLIENT, /matchMedia\('\(min-width: 721px\)'\)/);
+  assert.match(CLIENT, /querySelectorAll<HTMLDetailsElement>\('details'\)/);
+  assert.match(CLIENT, /\.open = true/);
+  assert.match(src('../src/styles/keuzehulp.css'), /@media \(max-width: 720px\)/);
+});
