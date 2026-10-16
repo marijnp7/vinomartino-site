@@ -60,6 +60,11 @@ if (inr.j?.data?.meta?.required) {
   if (!r.ok) { console.error(`issue_number FAIL ${r.status} ${r.text.slice(0, 300)}`); process.exit(6); }
   console.log("issue_number: required -> false");
 } else console.log("issue_number: niet verplicht");
+if (inr.j?.data?.schema && inr.j.data.schema.is_nullable === false) {
+  const r = await api("PATCH", `/fields/${C}/issue_number`, { schema: { is_nullable: true } });
+  if (!r.ok) { console.error(`issue_number nullable FAIL ${r.status} ${r.text.slice(0, 300)}`); process.exit(7); }
+  console.log("issue_number: NOT NULL -> nullable");
+} else console.log(`issue_number: is_nullable=${inr.j?.data?.schema?.is_nullable}`);
 const w = (await api("GET", `/items/${C}?filter[slug][_eq]=welkomstmail&fields=id,kind,status,body`)).j?.data?.[0];
 if (w) console.log(`welkomstmail: bestaat al (id ${w.id}, kind ${w.kind}, status ${w.status}, body ${w.body === WELCOME_BODY ? "identiek" : "AFWIJKEND"})`);
 else {
