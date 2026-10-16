@@ -249,6 +249,19 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'routegeo.legend.dagetappe': 'Dagetappe',
     'routegeo.legend.wijnhuis': 'Wijnhuis',
     'routegeo.legend.overnachten': 'Overnachten',
+    // LAT-13816 — dagkleuren, chips per dag en datastrip.
+    'routegeo.legend.dag': 'Dag',
+    'route.chips.kop': 'Stops vandaag',
+    'route.chips.toon': 'Toon',
+    'route.chips.stop': 'stop',
+    'route.chips.opKaart': 'op de kaart',
+    'routestrip.aria': 'De route in cijfers',
+    'routestrip.dag': 'dag',
+    'routestrip.dagen': 'dagen',
+    'routestrip.stops': 'stops',
+    'routestrip.wijnhuis': 'wijnhuis',
+    'routestrip.wijnhuizen': 'wijnhuizen',
+    'routestrip.slapenIn': 'slapen in',
 
     // Wijnroute-detailpagina chrome (LAT-2638, RouteDetail.astro).
     'route.breadcrumb.index': 'Wijnroutes',
@@ -1529,6 +1542,18 @@ export const UI_STRING_EN: Record<string, string> = {
     'routegeo.legend.dagetappe': 'Day leg',
     'routegeo.legend.wijnhuis': 'Winery',
     'routegeo.legend.overnachten': 'Stay',
+    'routegeo.legend.dag': 'Day',
+    'route.chips.kop': 'Stops today',
+    'route.chips.toon': 'Show',
+    'route.chips.stop': 'stop',
+    'route.chips.opKaart': 'on the map',
+    'routestrip.aria': 'The route in numbers',
+    'routestrip.dag': 'day',
+    'routestrip.dagen': 'days',
+    'routestrip.stops': 'stops',
+    'routestrip.wijnhuis': 'winery',
+    'routestrip.wijnhuizen': 'wineries',
+    'routestrip.slapenIn': 'sleep in',
 
     // Keys die de infrastructuur al hadden in UI_STRING_DEFAULTS maar nog geen
     // EN-waarde, en daardoor op /en/ NL terugvielen (LAT-4911). Vallen buiten de

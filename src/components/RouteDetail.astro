@@ -18,6 +18,7 @@ import CtaStructure from './CtaStructure.astro';
 import RouteHero from './RouteHero.astro';
 import RouteGlance from './RouteGlance.astro';
 import RouteDagSectie from './RouteDagSectie.astro';
+import RouteDataStrip from './RouteDataStrip.astro';
 import RouteSlaapOverzicht from './RouteSlaapOverzicht.astro';
 import RouteWijnhuizenGrid from './RouteWijnhuizenGrid.astro';
 import { accommodatieBookingDeeplink } from '../lib/affiliates';
@@ -144,6 +145,7 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
         />
 
         <div class="container route-one">
+          <RouteDataStrip slug={entry.slug} stops={entry.stopsGeo} dagen={pagina.dagen.length} slaapPlaatsen={pagina.dagen.map((d) => d.slaap?.plaats ?? null)} locale={locale} />
           <nav class="breadcrumb" aria-label="Breadcrumb">
             {crumbs.slice(0, -1).map(c => (
               <><a href={lh(c.url)}>{c.name}</a> / </>
@@ -171,7 +173,7 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
           <div id="route" class="route-one__dagen">
             <span id="zo-reisden-wij" aria-hidden="true"></span>
             {pagina.dagen.map((dag) => (
-              <RouteDagSectie dag={dag} context={entry.slug} locale={locale} />
+              <RouteDagSectie dag={dag} context={entry.slug} locale={locale} stops={entry.stopsGeo} />
             ))}
           </div>
 

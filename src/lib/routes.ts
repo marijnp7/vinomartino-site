@@ -22,6 +22,9 @@ export interface RouteStopGeo {
     lng: number;
     kind?: RouteStopKind;
     slug?: string;
+    // LAT-13816 — optionele dagindeling (1-based). Zonder `dag` blijft de kaart één
+    // lijn zonder dagkleuren en zonder chips per dagsectie.
+    dag?: number;
 }
 
 export interface WijnRoute {
@@ -240,6 +243,8 @@ function parseStopsGeo(val: unknown): RouteStopGeo[] {
         else if (rawKind === 'slaap' || rawKind === 'sleep' || rawKind === 'accommodatie') stop.kind = 'slaap';
         const slug = rec.slug ?? rec.wijnhuis_slug;
         if (slug != null && String(slug).trim()) stop.slug = String(slug).trim();
+        const dag = Number(rec.dag);
+        if (Number.isInteger(dag) && dag > 0) stop.dag = dag;
         out.push(stop);
     }
     return out;

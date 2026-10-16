@@ -197,12 +197,15 @@ export function deriveStopsGeoFromItinerary(itinerary: RouteItinerary): RouteSto
                 lng: stop.lng,
                 kind: STOP_KIND_TO_GEO[stop.kind],
             };
+            // LAT-13816 — de dag van de itinerary draagt de dagkleur op de kaart.
+            if (Number.isInteger(day.n) && day.n > 0) geo.dag = day.n;
             if (stop.slug) geo.slug = stop.slug;
             out.push(geo);
         }
         const ov = day.overnachting;
         if (ov && ov.lat != null && ov.lng != null) {
             const geo: RouteStopGeo = { naam: ov.naam, lat: ov.lat, lng: ov.lng, kind: 'slaap' };
+            if (Number.isInteger(day.n) && day.n > 0) geo.dag = day.n;
             if (ov.slug) geo.slug = ov.slug;
             out.push(geo);
         }

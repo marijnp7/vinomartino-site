@@ -8,25 +8,55 @@ import { accommodatieBookingDeeplink } from '../lib/affiliates';
 import { getImageCredit, licenseLabelFor } from '../lib/image-credits';
 import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
 import { loadUiStrings } from '../lib/ui-strings';
+import type { RouteStopGeo } from '../lib/routes';
+import { dagKleur, hasDagen, stopNummers } from '../lib/route-lines';
 
 interface Props {
   dag: PaginaDag;
   context: string;
   locale?: Locale;
+  /** LAT-13816 — stops van de kaart; met `dag` krijgt deze sectie chips "Stops vandaag". */
+  stops?: RouteStopGeo[];
 }
-const { dag, context, locale = DEFAULT_LOCALE } = Astro.props;
+const { dag, context, locale = DEFAULT_LOCALE, stops = [] } = Astro.props;
 const ui = await loadUiStrings(locale);
 const bestaand = new Map((await loadWijnhuizen(locale)).map((w) => [w.slug, w]));
 const credit = dag.foto ? await getImageCredit(dag.fotoId) : null;
 const slaap = dag.slaap;
+
+// LAT-13816 — zelfde index en nummering als RouteGeoMap, zodat chip i pin i opent.
+const geo = stops.filter((s) => s && Number.isFinite(s.lat) && Number.isFinite(s.lng));
+const nummers = stopNummers(geo);
+const chips = hasDagen(geo)
+  ? geo.map((s, i) => ({ s, i, n: nummers[i] })).filter(({ s }) => s.dag === dag.n)
+  : [];
+const kleur = dagKleur(dag.n);
+const chipNaam = (s: RouteStopGeo, n: number | null) =>
+  `${ui.t('route.chips.toon')} ${n != null ? `${ui.t('route.chips.stop')} ${n}` : s.kind === 'wijnhuis' ? ui.t('routegeo.legend.wijnhuis').toLowerCase() : ui.t('routegeo.legend.overnachten').toLowerCase()}, ${s.naam}, ${ui.t('route.chips.opKaart')}`;
 ---
 
-<section class="rdag" id={`dag-${dag.n}`}>
+<section class="rdag" id={`dag-${dag.n}`} {...(chips.length ? { 'data-routedag': dag.n, 'data-routedag-slug': context } : {})}>
   <header class="rdag__head">
     <span class="rdag__label">{dag.label}</span>
     <h2 class="rdag__titel">{dag.titel}</h2>
     {dag.hook && <p class="rdag__hook">{dag.hook}</p>}
   </header>
+
+  {chips.length > 0 && (
+    <nav class="rdag__chips" aria-label={`${ui.t('route.chips.kop')}, ${dag.label}`} style={`--dagkleur:${kleur}`}>
+      <span class="rdag__chips-kop">{ui.t('route.chips.kop')}</span>
+      <ul>
+        {chips.map(({ s, i, n }) => (
+          <li>
+            <button type="button" class={`rdag__chip rdag__chip--${s.kind ?? 'stop'}`} data-routechip={i} data-routechip-slug={context} aria-label={chipNaam(s, n)}>
+              <span class="rdag__chip-nr" aria-hidden="true">{n ?? (s.kind === 'wijnhuis' ? '◆' : '☾')}</span>
+              <span class="rdag__chip-naam" aria-hidden="true">{s.naam}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  )}
 
   {dag.foto && (
     <figure class="rdag__foto">
@@ -88,6 +118,23 @@ const slaap = dag.slaap;
 
 <style>
   .rdag { margin: 0 0 var(--space-12); scroll-margin-top: var(--space-6); }
+  /* LAT-13816 — "Stops vandaag": chips in de dagkleur, nummer altijd zichtbaar, 44 px. */
+  .rdag__chips { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; margin: calc(-1 * var(--space-2)) 0 var(--space-5); }
+  .rdag__chips-kop { font-family: var(--font-mono); font-size: 0.625rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--inkSoft, #5A4F45); }
+  .rdag__chips ul { display: flex; flex-wrap: wrap; gap: 0.5rem; list-style: none; margin: 0; padding: 0; }
+  .rdag__chip {
+    display: inline-flex; align-items: center; gap: 0.5rem; min-height: 44px; padding: 0.25rem 0.85rem 0.25rem 0.3rem;
+    border: 1px solid var(--rule, #C9B98F); border-radius: 22px; background: var(--paper, #FAF5E9); color: var(--ink, #1F1A16);
+    font-family: var(--font-body); font-size: 0.875rem; line-height: 1.2; cursor: pointer; text-align: left;
+  }
+  .rdag__chip:hover { border-color: #14100E; }
+  .rdag__chip:focus-visible { outline: 2px solid #14100E; outline-offset: 2px; }
+  .rdag__chip-nr {
+    display: inline-flex; align-items: center; justify-content: center; flex: none; width: 30px; height: 30px; border-radius: 50%;
+    background: var(--dagkleur); border: 2px solid #14100E; color: #14100E;
+    font-family: 'JetBrains Mono', ui-monospace, monospace; font-weight: 700; font-size: 0.8125rem;
+  }
+  .rdag__chip--wijnhuis .rdag__chip-nr, .rdag__chip--slaap .rdag__chip-nr { background: var(--paper, #FAF5E9); border-color: var(--dagkleur); box-shadow: inset 0 0 0 1px #14100E; }
   .rdag__head { padding-bottom: var(--space-3); margin-bottom: var(--space-5); border-bottom: 2px solid var(--burgundy); }
   .rdag__label {
     display: block;
