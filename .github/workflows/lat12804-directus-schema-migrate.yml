@@ -47,6 +47,7 @@ on:
           - lat13674-wijnhuis-hero-alt.mjs
           - lat13135-spotlight-build-perms.mjs
           - lat13760-file-credit-wijnhuis.mjs
+          - lat13766-file-licentie-spinetta.mjs
 
 concurrency:
   group: lat12804-directus-schema-migrate
