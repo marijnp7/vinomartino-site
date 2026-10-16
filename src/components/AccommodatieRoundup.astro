@@ -25,15 +25,24 @@ interface Props {
   bronValuta?: string | null;
   /** Display-valuta; default EUR. Hook voor een latere valuta-switcher (LAT-1664). */
   displayValuta?: string;
+  /**
+   * LAT-13771: 'index' = platte resultatengrid voor /accommodaties/<streek>/ met
+   * compacte kaarten en data-plaats/data-klasse voor de keuzehulp; zonder
+   * sprong-nav en groepskoppen. 'default' (standaard) blijft ongewijzigd.
+   */
+  variant?: 'default' | 'index';
 }
 
-const { roundup, context, hideHead = false, bronValuta, displayValuta = 'EUR', locale = DEFAULT_LOCALE } = Astro.props;
+const { roundup, context, hideHead = false, bronValuta, displayValuta = 'EUR', locale = DEFAULT_LOCALE, variant = 'default' } = Astro.props;
 const ui = await loadUiStrings(locale);
 
 // Alleen clusters met daadwerkelijke kaarten tonen (LAT-1406).
 const groepen = roundup.clusters.filter((c) => c.kaarten.length > 0);
 const heeftNav = groepen.length > 1;
 const sectionId = `acc-roundup-${(context || roundup.regio).toLowerCase().replace(/[^a-z0-9-]/gi, '-')}`;
+const isIndex = variant === 'index';
+// LAT-13771 — platte lijst in dezelfde volgorde als de groepen; de klasse is de CMS-tier.
+const platteKaarten = isIndex ? groepen.flatMap((g) => g.kaarten) : [];
 ---
 
 {groepen.length > 0 && (
@@ -51,6 +60,15 @@ const sectionId = `acc-roundup-${(context || roundup.regio).toLowerCase().replac
       </header>
     )}
 
+    {isIndex ? (
+      <div class="acc-roundup__grid acc-roundup__grid--index" data-kh-grid>
+        {platteKaarten.map((kaart) => (
+          <div class="acc-roundup__item" data-kh-card data-plaats={kaart.plaats || ''} data-klasse={kaart.tier || ''}>
+            <AccommodatieKaart kaart={kaart} context={context || roundup.regio} bronValuta={bronValuta} displayValuta={displayValuta} locale={locale} variant="compact" />
+          </div>
+        ))}
+      </div>
+    ) : (<>
     {heeftNav && (
       <nav class="acc-roundup__nav" aria-label={ui.t('acc.navAria')}>
         <span class="acc-roundup__nav-label">{ui.t('acc.navLabel')}</span>
@@ -79,6 +97,7 @@ const sectionId = `acc-roundup-${(context || roundup.regio).toLowerCase().replac
         </div>
       </div>
     ))}
+    </>)}
 
     <p class="acc-roundup__disclosure">{ui.t('acc.disclosure')}</p>
   </section>
@@ -188,6 +207,10 @@ const sectionId = `acc-roundup-${(context || roundup.regio).toLowerCase().replac
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
     gap: 1.5rem;
   }
+
+  /* LAT-13771 — platte resultatengrid (variant index). */
+  .acc-roundup__grid--index { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); margin-bottom: 1.5rem; }
+  .acc-roundup__item[hidden] { display: none; }
 
   .acc-roundup__disclosure {
     font-family: var(--font-body, Georgia, serif);

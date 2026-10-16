@@ -15,6 +15,8 @@ import { formatNightlyPrice } from '../lib/currency';
 import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
 import { loadUiStrings } from '../lib/ui-strings';
 import PoiCard from './PoiCard.astro';
+import SmartImg from './SmartImg.astro';
+import { adaptationNoteFor, fileIdFromAccommodatiePath, getImageCredit, licenseLabelFor } from '../lib/image-credits';
 
 interface Props {
   kaart: AccommodatieKaart;
@@ -29,9 +31,14 @@ interface Props {
    * LAT-2704: en zodat de interne links in PoiCard locale-aware zijn.
    */
   locale?: Locale;
+  /**
+   * LAT-13771: 'compact' = kaart in wijnhuizenstijl voor de resultatengrid op
+   * /accommodaties/<streek>/. 'default' (standaard) blijft de gedeelde PoiCard.
+   */
+  variant?: 'default' | 'compact';
 }
 
-const { kaart, context, bronValuta, displayValuta = 'EUR', locale = DEFAULT_LOCALE } = Astro.props;
+const { kaart, context, bronValuta, displayValuta = 'EUR', locale = DEFAULT_LOCALE, variant = 'default' } = Astro.props;
 const ui = await loadUiStrings(locale);
 const href = accommodatieBookingHref(kaart);
 const altText = kaart.fotoAlt || `${kaart.naam}, ${kaart.plaats}`;
@@ -53,7 +60,62 @@ let prijs: string | null = null;
 if (laag && hoog) prijs = `${laag}–${hoog} ${perNight}`;
 else if (laag) prijs = `${ui.t('stay.price.fromPrefix')} ${laag} ${perNight}`;
 else if (hoog) prijs = `${ui.t('stay.price.upToPrefix')} ${hoog} ${perNight}`;
+
+// LAT-13771 — compacte variant. CTA-attributen zijn exact die van de PoiCard-CTA
+// (zelfde href via accommodatieBookingHref, zelfde partner/placement/context/data-cta);
+// alleen de klasse en het label verschillen. Beeld uitsluitend uit het eigen veld `foto`.
+const compact = variant === 'compact';
+const ctaPartner = isAffiliateHref(href) ? 'booking.com' : 'direct';
+const ctaContext = context ? `accommodatie-${context}` : 'accommodatie';
+const ctaDisclosure = isAffiliateHref(href) ? ui.t('stay.disclosure.microcopy') : null;
+const compactTekst = compact ? (kaart.beschrijving || kaart.whyRegel || '') : '';
+// Alleen een "Lees meer" als de tekst de twee regels waarschijnlijk overschrijdt.
+const compactLang = compactTekst.length > 110;
+const compactMeta = [kaart.plaats, tierLabel].filter(Boolean).join(' · ');
+const credit = compact && kaart.foto ? await getImageCredit(fileIdFromAccommodatiePath(kaart.foto), { adapted: true }) : null;
 ---
+
+{compact ? (
+<article class="acc-kaart" id={`acc-${kaart.slug}`}>
+  {kaart.foto && (
+    <div class="acc-kaart__media">
+      <SmartImg src={kaart.foto} alt={altText} theme="winery" class="acc-kaart__img" width={400} height={300} />
+      {credit && (
+        <p class="acc-kaart__credit">
+          {credit.author && <>{credit.author}, </>}{credit.licenseUrl ? <a href={credit.licenseUrl} rel="license noopener" target="_blank">{licenseLabelFor(credit.licenseLabel, locale)}</a> : licenseLabelFor(credit.licenseLabel, locale)}
+          {credit.sourceUrl && <>, <a href={credit.sourceUrl} rel="noopener" target="_blank">{credit.sourceLabel ? `via ${credit.sourceLabel}` : 'via bron'}</a></>}
+          {credit.adapted && <> ({adaptationNoteFor(locale)})</>}
+        </p>
+      )}
+    </div>
+  )}
+  <div class="acc-kaart__body">
+    <h3 class="acc-kaart__name">{kaart.naam}</h3>
+    {compactMeta && <p class="acc-kaart__meta">{compactMeta}</p>}
+    {compactTekst && <p class="acc-kaart__desc">{compactTekst}</p>}
+    {compactLang && (
+      <details class="acc-kaart__more"><summary>{ui.t('accommodaties.kaart.leesMeer')}</summary></details>
+    )}
+    <div class="acc-kaart__foot">
+      {prijs && <span class="acc-kaart__price">{prijs}</span>}
+      {href && (
+        <a
+          class="acc-kaart__cta"
+          href={href}
+          target="_blank"
+          rel="sponsored noopener"
+          data-affiliate-track
+          data-affiliate-partner={ctaPartner}
+          data-affiliate-placement="accommodatie-kaart"
+          data-affiliate-context={ctaContext}
+          data-cta="bekijk-boek"
+        >{ui.t('accommodaties.kaart.cta')}</a>
+      )}
+      {ctaDisclosure && <p class="acc-kaart__disclosure">{ctaDisclosure}</p>}
+    </div>
+  </div>
+</article>
+) : (
 
 <PoiCard
   locale={locale}
@@ -77,3 +139,48 @@ else if (hoog) prijs = `${ui.t('stay.price.upToPrefix')} ${hoog} ${perNight}`;
     cardId: `acc-${kaart.slug}`,
   }}
 />
+)}
+
+<style>
+  /* LAT-13771 — compacte verblijfkaart in wijnhuizenstijl (wh-card). Wit vlak met vaste
+     kleuren, ook in kelder-modus, net als .wh-card op /wijnhuizen/. */
+  .acc-kaart {
+    position: relative; display: flex; flex-direction: column; height: 100%;
+    background: #fff; color: #1F1A16; border-radius: var(--radius-card); overflow: hidden;
+    box-shadow: var(--shadow-sm); scroll-margin-top: 5rem;
+  }
+  .acc-kaart__media { position: relative; aspect-ratio: 4 / 3; overflow: hidden; background: var(--paperShade); }
+  .acc-kaart__media :global(img) { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .acc-kaart__credit {
+    position: absolute; right: 0; bottom: 0; left: 0; margin: 0; padding: 0.2rem 0.5rem;
+    font-family: var(--font-mono, monospace); font-size: 0.5625rem; line-height: 1.3;
+    color: #fff; background: rgba(0, 0, 0, 0.55);
+  }
+  .acc-kaart__credit a { color: #fff; text-decoration: underline; }
+  .acc-kaart__body { display: flex; flex-direction: column; flex: 1; padding: 1rem 1.1rem 1.1rem; }
+  .acc-kaart__name { font-family: var(--font-display); font-size: 1.35rem; font-weight: 400; line-height: 1.2; color: #1F1A16; margin: 0 0 0.25rem; }
+  .acc-kaart__meta { font-family: var(--font-ui); font-size: 0.8125rem; color: #5A4F45; margin: 0 0 0.5rem; }
+  .acc-kaart__desc {
+    font-family: var(--font-body); font-size: 0.875rem; line-height: 1.5; color: #5A4F45; margin: 0;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .acc-kaart__desc:has(+ .acc-kaart__more[open]) { display: block; -webkit-line-clamp: unset; overflow: visible; }
+  .acc-kaart__more > summary {
+    display: inline-flex; align-items: center; min-height: 32px; cursor: pointer; list-style: none;
+    font-family: var(--font-ui); font-size: 0.8rem; font-weight: 600; color: #5A1A1F;
+    text-decoration: underline; text-underline-offset: 3px;
+  }
+  .acc-kaart__more > summary::-webkit-details-marker { display: none; }
+  .acc-kaart__foot { margin-top: auto; padding-top: 0.75rem; display: flex; flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+  .acc-kaart__price { font-family: var(--font-mono, monospace); font-size: 0.8125rem; color: #5A1A1F; }
+  .acc-kaart__cta {
+    display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0.5rem 1.1rem;
+    font-family: var(--font-ui); font-size: 0.875rem; font-weight: 600; text-decoration: none;
+    color: var(--fixed-cream, #FBF7EE); background: var(--burgundy, #5A1A1F); border-radius: 3px;
+  }
+  .acc-kaart__cta:hover { background: var(--burgundyDeep, #3D1115); color: var(--fixed-cream, #FBF7EE); }
+  .acc-kaart__cta:focus-visible, .acc-kaart__more > summary:focus-visible, .acc-kaart__credit a:focus-visible {
+    outline: 3px solid var(--accent-apricot); outline-offset: 2px; box-shadow: var(--focus-ring);
+  }
+  .acc-kaart__disclosure { font-family: var(--font-body, Georgia, serif); font-style: italic; font-size: 0.6875rem; line-height: 1.4; color: #6B6054; margin: 0; }
+</style>
