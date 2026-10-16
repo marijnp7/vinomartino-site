@@ -122,3 +122,18 @@ test('de site-regex is gelijk aan die van de buildcheck', async () => {
     assert.equal(fromCheck.source, SYNTHETIC_META_RE.source);
     assert.equal(fromCheck.flags, SYNTHETIC_META_RE.flags);
 });
+
+test('LAT-13760: wijnhuisbeeld met toestemming krijgt "© <huis>" met link naar het huis, zonder licentielink', async () => {
+    const { creditFromFileMeta, licenseLabelFor } = await loadModule('credits-perm', 'src/lib/image-credits.ts');
+    const h = 'Foto: Pio Cesare. Bron: https://www.piocesare.it (toestemming wijnhuis 06-10-2026, redactioneel gebruik, geen AI-bewerking).';
+    for (const lic of ['toestemming-wijnhuis', 'pers']) {
+        const c = creditFromFileMeta(lic, h);
+        assert.equal(c.author, '© Pio Cesare');
+        assert.equal(c.licenseUrl, '');
+        assert.equal(c.sourceUrl, 'https://www.piocesare.it');
+        assert.equal(c.sourceLabel, 'piocesare.it');
+    }
+    assert.equal(licenseLabelFor('met toestemming', 'en'), 'with permission');
+    assert.equal(creditFromFileMeta('pers', null), null, 'zonder maker geen credit');
+    assert.equal(creditFromFileMeta('eigen', h), null, 'overige licenties ongewijzigd');
+});

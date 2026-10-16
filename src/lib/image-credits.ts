@@ -35,6 +35,7 @@ export interface ImageCredit {
 // Een lookup is genoeg; een schema-wijziging voor één string is dat niet.
 const LICENSE_LABEL_EN: Record<string, string> = {
     'Publiek domein': 'Public domain',
+    'met toestemming': 'with permission',
 };
 
 /** Geeft het licentielabel in `locale`; onbekende/taalneutrale labels ongewijzigd terug. */
@@ -177,13 +178,30 @@ export async function getImageCredit(
     return credit && opts.adapted ? { ...credit, adapted: true } : credit;
 }
 
+// LAT-13760: beeld dat een wijnhuis zelf aanleverde (REGEL 64) heeft geen CC-licentie,
+// maar de toestemming eist wél "Foto: <huis>" met een link naar de site van het huis.
+// Alleen als `herkomst` een maker noemt; zonder maker valt er niets te crediteren.
+const PERMISSION_LICENSES = new Set(['pers', 'toestemming-wijnhuis', 'toestemming wijnhuis']);
+
 export function creditFromFileMeta(
     licentie: string | null | undefined,
     herkomst: string | null | undefined,
 ): ImageCredit | null {
-    const lic = LICENSES[String(licentie ?? '').trim().toLowerCase()];
-    if (!lic) return null;
+    const key = String(licentie ?? '').trim().toLowerCase();
     const parsed = herkomst && herkomst.trim() ? parseHerkomst(herkomst) : null;
+    if (PERMISSION_LICENSES.has(key)) {
+        if (!parsed?.maker) return null;
+        const host = parsed.sourceUrl ? parsed.sourceUrl.replace(/^https?:\/\/(?:www\.)?/i, '').replace(/\/.*$/, '') : null;
+        return {
+            author: `© ${parsed.maker}`,
+            licenseLabel: 'met toestemming',
+            licenseUrl: '',
+            sourceUrl: parsed.sourceUrl,
+            sourceLabel: parsed.sourceLabel ?? host,
+        };
+    }
+    const lic = LICENSES[key];
+    if (!lic) return null;
     return {
         author: parsed?.maker ? `© ${parsed.maker}` : '',
         licenseLabel: lic.label,
