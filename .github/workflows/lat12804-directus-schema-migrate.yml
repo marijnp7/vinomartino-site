@@ -48,6 +48,7 @@ on:
           - lat13135-spotlight-build-perms.mjs
           - lat13760-file-credit-wijnhuis.mjs
           - lat13747-file-licentie-valdespino.mjs
+          - lat13766-file-licentie-spinetta.mjs
 
 concurrency:
   group: lat12804-directus-schema-migrate
