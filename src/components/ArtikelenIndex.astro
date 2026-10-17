@@ -222,6 +222,8 @@ const landAlle = (naam: string) => ui.t('wijnhuizen.filter.land.alle').replace('
 </script>
 
 <style>
+  /* .section (padding: … 0) wint anders van .container's gutter: filterpaneel liep tot de viewportrand (LAT-13062) */
+  .section.container { padding-inline: var(--gutter); }
   .hero-sm {
     background: var(--paperDeep);
     padding: var(--space-12) 0 var(--space-8);
