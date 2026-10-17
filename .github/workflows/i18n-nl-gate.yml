@@ -89,13 +89,7 @@ jobs:
     # duurden 7m36s / 8m49s / 16m45s; op 20 min sneuvelde run 31504188773
     # midden in de build (stap 6 `cancelled`, stappen 9/10 `skipped`) — een
     # rode gate die niets over i18n zei.
-    # LAT-13843 — gemeten, niet gegokt: onder 61-70 % hypervisor-steal
-    # (LAT-13838) duurde de volle productiebuild in deploy-run 38978600754
-    # 42 min (23:24-00:07Z, 16-10), en #581 sneuvelde drie keer op rij op 30
-    # min met de astro-build nog CPU-gebonden actief (ps: 23 min CPU-tijd op
-    # minuut 26). Geen hang maar een te krappe cap. 50 = deploy-cap (45) plus
-    # npm ci. Terug naar 30 zodra de steal weg is (LAT-13838).
-    timeout-minutes: 50
+    timeout-minutes: 30
 
     steps:
       - name: Checkout PR head
