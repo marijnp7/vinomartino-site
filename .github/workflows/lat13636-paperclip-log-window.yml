@@ -74,6 +74,9 @@ jobs:
             docker inspect -f 'started={{.State.StartedAt}} restarts={{.RestartCount}} logdriver={{.HostConfig.LogConfig.Type}}' "$CTR"
             echo "=== venster $SINCE .. $UNTIL: totaal regels ==="
             docker logs "$CTR" --since "$SINCE" --until "$UNTIL" 2>&1 | wc -l
+            echo "=== LAT-13898: 'statement timeout' totaal en per uur (UTC) ==="
+            docker logs "$CTR" --since "$SINCE" --until "$UNTIL" 2>&1 | grep -c 'statement timeout' || true
+            docker logs -t "$CTR" --since "$SINCE" --until "$UNTIL" 2>&1 | grep 'statement timeout' | cut -c1-13 | sort | uniq -c || true
             echo "=== routine/dispatch/500-matches met context (geredigeerd) ==="
             docker logs "$CTR" --since "$SINCE" --until "$UNTIL" 2>&1 \
               | grep -iE -B2 -A25 'routine|dispatch|failed to wake|Internal server error|"level":50|err(or)?:' \
