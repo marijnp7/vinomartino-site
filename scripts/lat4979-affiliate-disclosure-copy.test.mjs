@@ -48,19 +48,23 @@ function disclosure(ui, { producent, bezoekMaand, bezoekJaar, linkBron }) {
     GetYourGuide: 'GetYourGuide',
     'directe link': ui.t('affiliate.blockDisclosure.bron.directeLink'),
   };
-  const maandKey = `ui.maand.${bezoekMaand.trim().toLowerCase()}`;
-  const maandLabel = ui.t(maandKey);
-  const maand = maandLabel === maandKey ? bezoekMaand.toLowerCase() : maandLabel;
-  const bezoek = ui
-    .t('affiliate.blockDisclosure.bezoek')
-    .replace('{producent}', producent)
-    .replace('{maand}', maand)
-    .replace('{jaar}', String(bezoekJaar));
+  // LAT-13076: zonder bewezen bezoek (geen maand/jaar) geen bezoekzin.
+  let bezoek = '';
+  if (bezoekMaand && bezoekJaar) {
+    const maandKey = `ui.maand.${bezoekMaand.trim().toLowerCase()}`;
+    const maandLabel = ui.t(maandKey);
+    const maand = maandLabel === maandKey ? bezoekMaand.toLowerCase() : maandLabel;
+    bezoek = ui
+      .t('affiliate.blockDisclosure.bezoek')
+      .replace('{producent}', producent)
+      .replace('{maand}', maand)
+      .replace('{jaar}', String(bezoekJaar));
+  }
   // LAT-13076: directe link = geen commissie.
   const reservering = ui
     .t(linkBron === 'directe link' ? 'affiliate.blockDisclosure.reserveringDirect' : 'affiliate.blockDisclosure.reservering')
     .replace('{bron}', bronLabel[linkBron]);
-  return `${bezoek} ${reservering}`;
+  return bezoek ? `${bezoek} ${reservering}` : reservering;
 }
 
 const ALLE_BLOKKEN = Object.values(AFFILIATE_BLOCKS).flat();
@@ -79,7 +83,9 @@ test('NL blijft byte-identiek aan de literals die in de template stonden', async
       'directe link': 'de directe link naar het wijnhuis',
     }[blok.linkBron];
     const verwacht =
-      `Wij bezochten ${blok.producent} in ${blok.bezoekMaand.toLowerCase()} ${blok.bezoekJaar}. ` +
+      (blok.bezoekMaand && blok.bezoekJaar
+        ? `Wij bezochten ${blok.producent} in ${blok.bezoekMaand.toLowerCase()} ${blok.bezoekJaar}. `
+        : '') +
       (blok.linkBron === 'directe link'
         ? `Reservering via ${bron}; VinoMartino ontvangt hiervoor geen commissie.`
         : `Reservering via ${bron}, VinoMartino ontvangt commissie, prijs voor jou identiek.`);
@@ -92,7 +98,7 @@ test('NL blijft byte-identiek aan de literals die in de template stonden', async
 });
 
 test('elke maandnaam uit de affiliate-data heeft een dictionary-key', () => {
-  for (const blok of ALLE_BLOKKEN) {
+  for (const blok of ALLE_BLOKKEN.filter((b) => b.bezoekMaand)) {
     const key = `ui.maand.${blok.bezoekMaand.trim().toLowerCase()}`;
     assert.ok(key in UI_STRING_DEFAULTS, `${key} ontbreekt (bezoekMaand '${blok.bezoekMaand}')`);
   }
@@ -146,7 +152,10 @@ test('de EN-disclosure bevat geen NL meer en luidt zoals goedgekeurd', async () 
   const GOEDGEKEURD =
     'Booking via the direct link to the winery; VinoMartino receives no commission for this.';
   assert.ok(zin.endsWith(GOEDGEKEURD), `goedgekeurde EN-disclosure niet gevonden in: ${zin}`);
-  assert.equal(zin, `We visited ${directeLink.producent} in ${en.t(`ui.maand.${directeLink.bezoekMaand.toLowerCase()}`)} ${directeLink.bezoekJaar}. ` + GOEDGEKEURD);
+  // LAT-13076: Capezzana heeft geen bewezen bezoek meer, dus geen bezoekzin.
+  assert.equal(zin, (directeLink.bezoekMaand
+    ? `We visited ${directeLink.producent} in ${en.t(`ui.maand.${directeLink.bezoekMaand.toLowerCase()}`)} ${directeLink.bezoekJaar}. `
+    : '') + GOEDGEKEURD);
   const i = (s) => zin.indexOf(s);
   assert.ok(i('direct link to the winery') > 0, 'element 1 (mechanisme) ontbreekt');
   assert.ok(i('receives no commission') > i('direct link to the winery'), 'element 2 (geen commissie) ontbreekt');
@@ -183,4 +192,14 @@ test('geen hardcoded NL-copy meer in de affiliate-disclosure-templates', () => {
     'AffiliatePlaceholder.astro geeft `locale` niet door aan AffiliateBlockDisclosure',
   );
   assert.match(DISCLOSURE, /loadUiStrings\(locale\)/, 'AffiliateBlockDisclosure.astro leest de dictionary niet');
+});
+
+test('LAT-13076: geen bezoekzin voor Capezzana en Brolio Agriroom (bezoek niet bewezen)', async () => {
+  const nl = await loadUiStrings('nl');
+  for (const naam of ['Tenuta di Capezzana', 'Brolio Agriroom (Castello di Brolio)']) {
+    const blok = ALLE_BLOKKEN.find((b) => b.producent === naam);
+    assert.ok(blok, `${naam} niet gevonden`);
+    assert.ok(!disclosure(nl, blok).includes('Wij bezochten'), `${naam} claimt nog een bezoek`);
+  }
+  assert.match(DISCLOSURE, /if \(bezoekMaand && bezoekJaar\)/, 'component rendert de bezoekzin niet meer conditioneel');
 });
