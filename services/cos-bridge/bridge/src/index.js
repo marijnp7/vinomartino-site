@@ -278,7 +278,7 @@ async function bumpBudget(centsDelta, tokensIn, tokensOut) {
 async function getHistory(topicSlug, limit = 20) {
   const rows = await q(
     `SELECT role, content FROM cos.conversations
-     WHERE topic_slug=$1 AND role IN ('user','assistant') ORDER BY created_at DESC LIMIT $2`,
+     WHERE topic_slug=$1 AND role IN ('user','assistant') ORDER BY created_at DESC, id DESC LIMIT $2`,
     [topicSlug, limit]
   );
   return rows.reverse(); // oudste eerst
