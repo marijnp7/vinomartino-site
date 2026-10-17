@@ -24,3 +24,4 @@ for (const [path, raw] of Object.entries(sourceFiles)) {
   }
 }
 export const getWineGeography = (slug: string) => areas.get(slug);
+export const wineGeographySlugs = () => [...areas.keys()];
