@@ -1142,6 +1142,10 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     "voor_accommodaties.krijgt.3": "Een zichtbare vermelding dat het verblijf door u is aangeboden",
     "voor_accommodaties.niet_doen.verblijf.titel": "Geen vermelding in ruil voor een verblijf",
     "voor_accommodaties.niet_doen.verblijf.tekst": "Een aangeboden verblijf koopt geen artikel, geen kaartpin en geen positief oordeel. Na het verblijf beslissen wij of en hoe we schrijven.",
+    // LAT-13893: "Wat wij vragen", incl. eigen beeld met credit.
+    "voor_accommodaties.vragen.1": "Eigen beeld van uw verblijf, dat wij plaatsen met credit en een link naar uw site",
+    "voor_accommodaties.vragen.2": "Verblijf, één of twee nachten, soms meer afhankelijk van de reis",
+    "voor_accommodaties.vragen.3": "De ruimte om eerlijk te schrijven, ook als iets ons tegenvalt",
 };
 
 /**
@@ -1805,6 +1809,10 @@ export const UI_STRING_EN: Record<string, string> = {
     "voor_accommodaties.krijgt.3": "A visible disclosure that the stay was offered by you",
     "voor_accommodaties.niet_doen.verblijf.titel": "No mention in exchange for a stay",
     "voor_accommodaties.niet_doen.verblijf.tekst": "An offered stay does not buy an article, a map pin or a positive verdict. After the stay, we decide whether and how we write.",
+    // LAT-13893: "Wat wij vragen", incl. eigen beeld met credit.
+    "voor_accommodaties.vragen.1": "Your own photographs of the property, which we publish with a credit and a link to your website",
+    "voor_accommodaties.vragen.2": "Accommodation for one or two nights, sometimes more depending on the trip",
+    "voor_accommodaties.vragen.3": "The freedom to write honestly, even if something disappoints",
 };
 
 /** Resolver over de UI-dictionary: EN-value indien aanwezig, anders NL-default. */
