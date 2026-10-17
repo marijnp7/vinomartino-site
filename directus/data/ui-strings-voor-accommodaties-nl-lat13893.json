@@ -1,0 +1,6 @@
+{
+  "_note": "LAT-13893 /voor-accommodaties/ vragen; seed met seed-ui-strings-en.mjs --locale=nl",
+  "voor_accommodaties.vragen.1": "Eigen beeld van uw verblijf, dat wij plaatsen met credit en een link naar uw site",
+  "voor_accommodaties.vragen.2": "Verblijf, één of twee nachten, soms meer afhankelijk van de reis",
+  "voor_accommodaties.vragen.3": "De ruimte om eerlijk te schrijven, ook als iets ons tegenvalt"
+}
