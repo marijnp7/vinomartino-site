@@ -51,6 +51,7 @@ on:
           - lat13766-file-licentie-spinetta.mjs
           - lat13809-brief-nulmeting.mjs
           - lat13812-newsletter-kind.mjs
+          - lat13876-file-credit-lieser.mjs
 
 concurrency:
   group: lat12804-directus-schema-migrate
