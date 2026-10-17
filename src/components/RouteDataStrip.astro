@@ -40,7 +40,7 @@ const slaapIn = plaatsen.length === 1 && plaatsen[0] ? plaatsen[0] : null;
 const cellen = [
   dagen > 0 ? `${dagen} ${ui.t(dagen === 1 ? 'routestrip.dag' : 'routestrip.dagen')}` : null,
   km,
-  nStops > 0 ? `${nStops} ${ui.t('routestrip.stops')}` : null,
+  nStops > 0 ? `${nStops} ${ui.t(nStops === 1 ? 'routestrip.stop' : 'routestrip.stops')}` : null,
   nWijnhuis > 0 ? `${nWijnhuis} ${ui.t(nWijnhuis === 1 ? 'routestrip.wijnhuis' : 'routestrip.wijnhuizen')}` : null,
   slaapIn ? `${ui.t('routestrip.slapenIn')} ${slaapIn}` : null,
 ].filter(Boolean) as string[];
