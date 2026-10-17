@@ -18,6 +18,9 @@ import CtaStructure from './CtaStructure.astro';
 import RouteHero from './RouteHero.astro';
 import RouteGlance from './RouteGlance.astro';
 import RouteDagSectie from './RouteDagSectie.astro';
+import RouteDataStrip from './RouteDataStrip.astro';
+import { loadRouteLine } from '../lib/route-lines-loader';
+import { hasDagen } from '../lib/route-lines';
 import RouteSlaapOverzicht from './RouteSlaapOverzicht.astro';
 import RouteWijnhuizenGrid from './RouteWijnhuizenGrid.astro';
 import { accommodatieBookingDeeplink } from '../lib/affiliates';
@@ -114,6 +117,9 @@ const paginaHeroCredit = pagina?.hero.foto ? heroCredit : null;
 // LAT-12768 — "Etappes" telt dagen, geen losse stops. Onbekend = cel weglaten (nooit de stops-telling).
 const durationDays = Number(/(\d+)\s*(?:dagen|dag|days|day)\b/i.exec(entry.duration ?? '')?.[1]) || undefined;
 const etappeCount = pagina?.dagen.length ?? entry.itinerary?.days.length ?? (routeBody.hasDays ? routeBody.days.length : durationDays);
+// LAT-13816 — met een vooraf berekende wegroute en een dagindeling vervangt de
+// datastrip (dagen · km · stops · wijnhuizen · slapen) de losse statcellen.
+const heeftRouteLijn = loadRouteLine(entry.slug) != null && hasDagen(entry.stopsGeo);
 const wijnhuisLabels = Object.fromEntries((pagina?.wijnhuizen ?? []).map((w) => [w.slug, w.label]));
 const slotItems = pagina?.slapen?.items.slice(0, 3) ?? [];
 const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.streekSlug}/` : null;
@@ -144,6 +150,7 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
         />
 
         <div class="container route-one">
+          <RouteDataStrip slug={entry.slug} stops={entry.stopsGeo} dagen={pagina.dagen.length} slaapPlaatsen={pagina.dagen.map((d) => d.slaap?.plaats ?? null)} locale={locale} />
           <nav class="breadcrumb" aria-label="Breadcrumb">
             {crumbs.slice(0, -1).map(c => (
               <><a href={lh(c.url)}>{c.name}</a> / </>
@@ -171,7 +178,7 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
           <div id="route" class="route-one__dagen">
             <span id="zo-reisden-wij" aria-hidden="true"></span>
             {pagina.dagen.map((dag) => (
-              <RouteDagSectie dag={dag} context={entry.slug} locale={locale} />
+              <RouteDagSectie dag={dag} context={entry.slug} locale={locale} stops={entry.stopsGeo} />
             ))}
           </div>
 
@@ -263,6 +270,9 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
           <h1>{entry.title}</h1>
         </header>
 
+        {heeftRouteLijn ? (
+          <RouteDataStrip slug={entry.slug} stops={entry.stopsGeo} dagen={etappeCount ?? 0} locale={locale} />
+        ) : (
         <RouteStatStrip
           locale={locale}
           duration={entry.duration}
@@ -271,6 +281,7 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
           stopsCount={etappeCount}
           wijnhuisCount={wijnhuizen.length}
         />
+        )}
 
         <div class="page-routemap">
           {entry.stopsGeo.length >= 2 ? (
@@ -338,6 +349,8 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
             streekSlug={entry.streekSlug}
             boekbaar={Boolean(staysRoundup)}
             context={`route-${entry.slug}`}
+            stops={entry.stopsGeo}
+            slug={entry.slug}
           />
         )}
 

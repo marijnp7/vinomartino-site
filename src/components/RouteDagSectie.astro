@@ -8,25 +8,35 @@ import { accommodatieBookingDeeplink } from '../lib/affiliates';
 import { getImageCredit, licenseLabelFor } from '../lib/image-credits';
 import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
 import { loadUiStrings } from '../lib/ui-strings';
+import type { RouteStopGeo } from '../lib/routes';
+import { hasDagen } from '../lib/route-lines';
+import RouteDagChips from './RouteDagChips.astro';
 
 interface Props {
   dag: PaginaDag;
   context: string;
   locale?: Locale;
+  /** LAT-13816 — stops van de kaart; met `dag` krijgt deze sectie chips "Stops vandaag". */
+  stops?: RouteStopGeo[];
 }
-const { dag, context, locale = DEFAULT_LOCALE } = Astro.props;
+const { dag, context, locale = DEFAULT_LOCALE, stops = [] } = Astro.props;
 const ui = await loadUiStrings(locale);
 const bestaand = new Map((await loadWijnhuizen(locale)).map((w) => [w.slug, w]));
 const credit = dag.foto ? await getImageCredit(dag.fotoId) : null;
 const slaap = dag.slaap;
+
+// LAT-13816 — chips "Stops vandaag" (gedeeld met RouteItineraryDays).
+const heeftChips = hasDagen(stops.filter((s) => s && Number.isFinite(s.lat) && Number.isFinite(s.lng))) && stops.some((s) => s.dag === dag.n);
 ---
 
-<section class="rdag" id={`dag-${dag.n}`}>
+<section class="rdag" id={`dag-${dag.n}`} {...(heeftChips ? { 'data-routedag': dag.n, 'data-routedag-slug': context } : {})}>
   <header class="rdag__head">
     <span class="rdag__label">{dag.label}</span>
     <h2 class="rdag__titel">{dag.titel}</h2>
     {dag.hook && <p class="rdag__hook">{dag.hook}</p>}
   </header>
+
+  <RouteDagChips stops={stops} dag={dag.n} label={dag.label} slug={context} locale={locale} />
 
   {dag.foto && (
     <figure class="rdag__foto">

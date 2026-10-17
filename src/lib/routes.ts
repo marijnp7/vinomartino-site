@@ -3,6 +3,7 @@ import { fallbackStopsGeo } from './route-geo-fallback';
 import { getCtaStructure, type CtaStructure } from './cta-blocks';
 import { parseItinerary, deriveStopsGeoFromItinerary, type RouteItinerary } from './route-itinerary';
 import { parseRoutePagina, finalizePagina, type RoutePagina } from './route-pagina';
+import { schoneStopNaam } from './route-lines';
 
 // LAT-1635 — een stop mét coördinaten voor de geografische routekaart
 // (RouteGeoMap). Komt uit het Directus-veld routes.stops_geo (JSON-array van
@@ -22,6 +23,9 @@ export interface RouteStopGeo {
     lng: number;
     kind?: RouteStopKind;
     slug?: string;
+    // LAT-13816 — optionele dagindeling (1-based). Zonder `dag` blijft de kaart één
+    // lijn zonder dagkleuren en zonder chips per dagsectie.
+    dag?: number;
 }
 
 export interface WijnRoute {
@@ -234,12 +238,14 @@ function parseStopsGeo(val: unknown): RouteStopGeo[] {
         const lat = Number(rec.lat);
         const lng = Number(rec.lng);
         if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
-        const stop: RouteStopGeo = { naam: normalizeEmDashes(String(rec.naam ?? '')), lat, lng };
+        const stop: RouteStopGeo = { naam: schoneStopNaam(normalizeEmDashes(String(rec.naam ?? ''))), lat, lng };
         const rawKind = String(rec.kind ?? rec.type ?? '').toLowerCase();
         if (rawKind === 'wijnhuis' || rawKind === 'winery') stop.kind = 'wijnhuis';
         else if (rawKind === 'slaap' || rawKind === 'sleep' || rawKind === 'accommodatie') stop.kind = 'slaap';
         const slug = rec.slug ?? rec.wijnhuis_slug;
         if (slug != null && String(slug).trim()) stop.slug = String(slug).trim();
+        const dag = Number(rec.dag);
+        if (Number.isInteger(dag) && dag > 0) stop.dag = dag;
         out.push(stop);
     }
     return out;
