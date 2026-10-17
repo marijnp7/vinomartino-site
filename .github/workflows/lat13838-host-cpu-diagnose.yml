@@ -8,7 +8,7 @@ on:
       mode:
         description: 'diagnose = alleen lezen; deprioritize-gate = renice +19 en --cpus 1 op lopende vino-gate-pr-* (geen stop)'
         type: choice
-        options: [diagnose, deprioritize-gate]
+        options: [diagnose, deprioritize-gate, db-cpus-1]
         default: diagnose
 
 concurrency:
@@ -67,6 +67,13 @@ jobs:
                 docker inspect -f 'NanoCpus={{.HostConfig.NanoCpus}}' "$c"
               done
               sleep 20
+            fi
+            if [ "$MODE" = db-cpus-1 ]; then
+              # LAT-13838: paperclip-db-1 stond op NanoCpus=0.4 (override) en is 2,46 M keer gethrottled.
+              # Reversibel zonder herstart; terug met: docker update --cpus 0.4 paperclip-db-1. Compose-recreate zet 0.4 terug.
+              echo "=== db-cpus-1: voor ==="; docker inspect -f 'NanoCpus={{.HostConfig.NanoCpus}}' paperclip-db-1
+              docker update --cpus 1 paperclip-db-1
+              echo "=== na ==="; docker inspect -f 'NanoCpus={{.HostConfig.NanoCpus}} status={{.State.Status}} started={{.State.StartedAt}}' paperclip-db-1
             fi
             echo "=== steal-trend: vmstat 5 x4 ==="; vmstat 5 4
             echo "=== db cpu-config ==="; docker inspect -f 'NanoCpus={{.HostConfig.NanoCpus}} CpuQuota={{.HostConfig.CpuQuota}} CpuShares={{.HostConfig.CpuShares}} started={{.State.StartedAt}} compose={{index .Config.Labels "com.docker.compose.project.config_files"}}' paperclip-db-1 paperclip-paperclip-1
