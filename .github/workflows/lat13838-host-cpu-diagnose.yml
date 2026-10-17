@@ -4,6 +4,12 @@ name: LAT-13838 host CPU diagnose (read-only)
 
 on:
   workflow_dispatch:
+    inputs:
+      mode:
+        description: 'diagnose = alleen lezen; deprioritize-gate = renice +19 en --cpus 1 op lopende vino-gate-pr-* (geen stop)'
+        type: choice
+        options: [diagnose, deprioritize-gate]
+        default: diagnose
 
 concurrency:
   group: lat13838-host-cpu-diagnose
@@ -49,8 +55,21 @@ jobs:
       - name: CPU-diagnose (read-only)
         env:
           VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          MODE: ${{ inputs.mode }}
           DIAG: |
             set -uo pipefail
+            if [ "$MODE" = deprioritize-gate ]; then
+              echo "=== deprioritize-gate: renice +19 + --cpus 1 op vino-gate-pr-* (reversibel, geen stop) ==="
+              for c in $(docker ps --format '{{.Names}}' | grep '^vino-gate-pr-'); do
+                pid=$(docker inspect -f '{{.State.Pid}}' "$c")
+                echo "$c host-pid=$pid"; docker update --cpus 1 "$c"
+                for p in $(pgrep -g "$(ps -o pgid= -p "$pid" | tr -d ' ')" ; pstree -p "$pid" | grep -oE '\([0-9]+\)' | tr -d '()'); do renice -n 19 -p "$p" >/dev/null 2>&1; done
+                docker inspect -f 'NanoCpus={{.HostConfig.NanoCpus}}' "$c"
+              done
+              sleep 20
+            fi
+            echo "=== steal-trend: vmstat 5 x4 ==="; vmstat 5 4
+            echo "=== db cpu-config ==="; docker inspect -f 'NanoCpus={{.HostConfig.NanoCpus}} CpuQuota={{.HostConfig.CpuQuota}} CpuShares={{.HostConfig.CpuShares}} started={{.State.StartedAt}} compose={{index .Config.Labels "com.docker.compose.project.config_files"}}' paperclip-db-1 paperclip-paperclip-1
             red() { sed -E -e 's/(postgres(ql)?:\/\/[^:]+:)[^@]+@/\1<redacted>@/g' -e 's/(PGPASSWORD|PASSWORD|TOKEN|SECRET|KEY)=[^ ]+/\1=<redacted>/Ig' -e 's/(gh[pousr]_|github_pat_|sk-ant-|sk-or-)[A-Za-z0-9_-]+/\1<redacted>/g'; }
             echo "=== uptime / nproc / PSI ==="; uptime; nproc; cat /proc/pressure/cpu /proc/pressure/memory /proc/pressure/io
             echo "=== free ==="; free -m
@@ -67,4 +86,4 @@ jobs:
             echo "=== aantal db-connecties per state ==="
             docker exec paperclip-db-1 psql -U paperclip -d paperclip -Atc "select state, count(*) from pg_stat_activity group by 1" 2>&1
         run: |
-          printf '%s\n' "$DIAG" | ssh "$VPS" "bash -s"
+          printf 'MODE=%q\n%s\n' "$MODE" "$DIAG" | ssh "$VPS" "bash -s"
