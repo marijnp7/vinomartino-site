@@ -1,4 +1,5 @@
 ---
+import { plaatsKort } from '../lib/plaats-kort';
 import { gateWineRetail } from '../lib/cta-blocks';
 // LAT-2693 — gedeelde accommodatie-roundup per streek. NL-route +
 // /en/-tegenhanger renderen dit component; `locale` stuurt de UI-dictionary
@@ -7,6 +8,7 @@ import { gateWineRetail } from '../lib/cta-blocks';
 // Interne link-URL's blijven NL-absoluut tot de aparte link-localisatie-pas
 // (scope #3), identiek aan StreekDetail/RouteDetail.
 import SiteLayout from '../layouts/SiteLayout.astro';
+import '../styles/keuzehulp.css';
 import AccommodatieRoundup from '../components/AccommodatieRoundup.astro';
 import CtaPrimary from '../components/CtaPrimary.astro';
 import CtaComparison from '../components/CtaComparison.astro';
@@ -49,6 +51,28 @@ const accomCta = gateWineRetail(streek?.accomCta ?? {}, streek?.zelfGereisd === 
 const waarSlapenIntroHtml = streek?.waarSlapenIntroHtml ?? '';
 const accomPlanning = streek?.accomPlanning ?? [];
 
+// LAT-13771 — keuzehulp. Opties komen uit precies de kaarten die AccommodatieRoundup
+// rendert (clusters met kaarten). Klasse = CMS-tier; die select verschijnt alleen als
+// élke kaart in deze streek een tier heeft.
+const kaarten = roundup.clusters.filter((c) => c.kaarten.length > 0).flatMap((c) => c.kaarten);
+const collator = new Intl.Collator(locale);
+const plaatsTelling = new Map<string, number>();
+for (const k of kaarten) { const pk = plaatsKort(k.plaats); if (pk) plaatsTelling.set(pk, (plaatsTelling.get(pk) ?? 0) + 1); }
+const plaatsOpties = [...plaatsTelling.entries()].sort((a, b) => collator.compare(a[0], b[0]));
+const toonKlasse = kaarten.length > 0 && kaarten.every((k) => Boolean(k.tier));
+const klasseTelling = new Map<string, number>();
+if (toonKlasse) for (const k of kaarten) klasseTelling.set(k.tier!, (klasseTelling.get(k.tier!) ?? 0) + 1);
+const klasseOpties = [...klasseTelling.entries()];
+const totaal = kaarten.length;
+const khI18n = {
+  een: ui.t('accommodaties.filter.telling.verblijfEen'),
+  alle: ui.t('accommodaties.filter.telling.verblijvenAlle'),
+  van: ui.t('accommodaties.filter.telling.verblijven'),
+  verwijder: ui.t('wijnhuizen.filter.chip.verwijder'),
+};
+const tellingStart = totaal === 1 ? khI18n.een : khI18n.alle.replace('{n}', String(totaal));
+const toonMeerOver = Boolean(waarSlapenIntroHtml) || accomPlanning.length > 0;
+
 const schema = [
   organizationSchema(),
   breadcrumbSchema([
@@ -75,7 +99,6 @@ const schema = [
         <span aria-hidden="true">/</span>
         <span>{regio}</span>
       </nav>
-      <span class="section-label">{ui.t('accommodaties.roundup.heroLabel')}</span>
       <h1>{ui.t('accommodaties.roundup.h1Pre')}{regio}</h1>
       <p class="hero-desc">{ui.t('accommodaties.roundup.heroDesc')}</p>
       {streek && (
@@ -84,31 +107,73 @@ const schema = [
     </div>
   </section>
 
+  <div class="container acc-resultaten">
+    <div class="acc-keuzehulp" data-kh-root data-i18n={JSON.stringify(khI18n)} data-totaal={totaal} data-track="accommodaties_streek">
+      {/* Zelfde CLS-aanpak als /wijnhuizen/ (LAT-12594): server-side zichtbaar, zonder JS verborgen. */}
+      <noscript><style is:inline>.wh-filters { display: none !important; }</style></noscript>
+      <form class="wh-filters kh-filters--selects" role="search" aria-label={ui.t('accommodaties.filter.label')} data-kh-form>
+        <div class="wh-field">
+          <label for="acc-plaats">{ui.t('accommodaties.filter.plaats.label')}</label>
+          <select id="acc-plaats" name="plaats" data-kh-select>
+            <option value="">{ui.t('accommodaties.filter.plaats.alle')}</option>
+            {plaatsOpties.map(([plaats, n]) => (
+              <option value={plaats} data-label={plaats}>{plaats} ({n})</option>
+            ))}
+          </select>
+        </div>
+        {toonKlasse && (
+          <div class="wh-field">
+            <label for="acc-klasse">{ui.t('accommodaties.filter.klasse.label')}</label>
+            <select id="acc-klasse" name="klasse" data-kh-select>
+              <option value="">{ui.t('accommodaties.filter.klasse.alle')}</option>
+              {klasseOpties.map(([tier, n]) => (
+                <option value={tier} data-label={ui.t(`stay.tier.${tier}`)}>{ui.t(`stay.tier.${tier}`)} ({n})</option>
+              ))}
+            </select>
+          </div>
+        )}
+        <div class="wh-status">
+          <p class="wh-telling" data-kh-telling aria-live="polite" aria-atomic="true">{tellingStart}</p>
+          <ul class="wh-chips" data-kh-chips aria-label={ui.t('wijnhuizen.filter.actief')}></ul>
+          <button type="button" class="wh-wis" data-kh-wis hidden>{ui.t('accommodaties.filter.wis')}</button>
+        </div>
+      </form>
+
+      <div class="wh-leeg" data-kh-leeg hidden>
+        <h2>{ui.t('accommodaties.filter.leeg.titel')}</h2>
+        <p>{ui.t('wijnhuizen.filter.leeg.tekst')}</p>
+        <div class="wh-leeg-acties">
+          <button type="button" data-wh-wis-leeg>{ui.t('accommodaties.filter.wis')}</button>
+        </div>
+      </div>
+
+      <AccommodatieRoundup roundup={roundup} context={streekSlug} bronValuta={bronValuta} hideHead locale={locale} variant="index" />
+    </div>
+  </div>
+
   <div class="container">
     <CtaPrimary data={accomCta.primary} sid={streekSlug} />
   </div>
 
-  {waarSlapenIntroHtml && (
+  {toonMeerOver && (
     <div class="container">
-      <section class="waar-slapen-intro">
-        <div class="waar-slapen-intro__prose" set:html={waarSlapenIntroHtml} />
-      </section>
-    </div>
-  )}
-
-  <div class="container">
-    <AccommodatieRoundup roundup={roundup} context={streekSlug} bronValuta={bronValuta} hideHead locale={locale} />
-  </div>
-
-  {accomPlanning.length > 0 && (
-    <div class="container">
-      <section class="accom-planning" aria-label={ui.t('accommodaties.roundup.planningAria')}>
-        {accomPlanning.map((block) => (
-          <div class="accom-planning__block">
-            {block.heading && <h2>{block.heading}</h2>}
-            {block.text && <p>{block.text}</p>}
+      <section class="acc-meer-over" aria-labelledby="acc-meer-over-titel">
+        <h2 id="acc-meer-over-titel" class="acc-meer-over__titel">{ui.t('accommodaties.roundup.meerOver').replace('{regio}', regio)}</h2>
+        {waarSlapenIntroHtml && (
+          <div class="waar-slapen-intro">
+            <div class="waar-slapen-intro__prose" set:html={waarSlapenIntroHtml} />
           </div>
-        ))}
+        )}
+        {accomPlanning.length > 0 && (
+          <section class="accom-planning" aria-label={ui.t('accommodaties.roundup.planningAria')}>
+            {accomPlanning.map((block) => (
+              <div class="accom-planning__block">
+                {block.heading && <h2>{block.heading}</h2>}
+                {block.text && <p>{block.text}</p>}
+              </div>
+            ))}
+          </section>
+        )}
       </section>
     </div>
   )}
@@ -120,10 +185,17 @@ const schema = [
   </div>
 </SiteLayout>
 
+<script>
+  // LAT-13771 — keuzehulp (Plaats/Klasse), status in het URL-fragment.
+  import { initAlleKeuzehulpen } from '../lib/keuzehulp-client';
+  initAlleKeuzehulpen();
+</script>
+
 <style>
+  /* LAT-13771 — compacte hero: de resultaten moeten boven de vouw beginnen. */
   .hero-sm {
     background: var(--paperDeep);
-    padding: var(--space-12) 0 var(--space-8);
+    padding: var(--space-6) 0 var(--space-5);
     text-align: center;
   }
   .crumbs {
@@ -135,37 +207,56 @@ const schema = [
     display: flex;
     gap: 0.5rem;
     justify-content: center;
-    margin-bottom: var(--space-3);
+    margin-bottom: var(--space-2);
   }
   .crumbs a { color: var(--rust); text-decoration: none; }
   .hero-sm h1 {
     font-family: var(--font-display);
-    font-size: clamp(2rem, 1.6rem + 1.5vw, 3rem);
+    font-size: clamp(1.875rem, 1.5rem + 1vw, 2.375rem);
     font-weight: 400;
     font-style: italic;
+    line-height: 1.15;
     color: var(--ink);
-    margin-top: var(--space-3);
+    margin-top: 0;
   }
   .hero-desc {
     font-family: var(--font-body);
     font-size: 1rem;
+    line-height: 1.5;
     color: var(--inkSoft);
-    margin-top: var(--space-3);
-    max-width: 36rem;
+    margin-top: var(--space-2);
+    max-width: 48rem;
     margin-inline: auto;
   }
   .hero-link {
-    margin-top: var(--space-4);
+    margin-top: var(--space-2);
     font-family: var(--font-mono);
     font-size: 0.75rem;
     letter-spacing: 0.05em;
   }
   .hero-link a { color: var(--rust); text-decoration: none; }
 
-  /* LAT-1898 — intro-blok 'Slapen in de Langhe', vóór de accommodatielijst. */
+  /* LAT-13771 — resultaten direct onder de hero; keuzehulp-CSS in src/styles/keuzehulp.css. */
+  .acc-resultaten { padding-top: var(--space-5); }
+  .acc-keuzehulp :global(.wh-filters) { margin-bottom: var(--space-5); }
+  .acc-meer-over { max-width: var(--max-width-narrow); margin: var(--space-10, 2.5rem) auto var(--space-4); }
+  .acc-meer-over__titel {
+    font-family: var(--font-display);
+    font-size: clamp(1.625rem, 1.4rem + 0.8vw, 2rem);
+    font-weight: 400;
+    color: var(--ink);
+    margin: 0 0 var(--space-4);
+  }
+  @media (max-width: 420px) {
+    .hero-sm { padding: var(--space-5) 0 var(--space-4); }
+    .hero-sm .hero-desc { font-size: 0.9375rem; }
+    .acc-resultaten { padding-top: var(--space-4); }
+  }
+
+  /* LAT-1898 — intro-blok 'Slapen in de Langhe' (nu onder "Meer over slapen in …"). */
   .waar-slapen-intro {
     max-width: var(--max-width-narrow);
-    margin: var(--space-8) auto var(--space-4);
+    margin: 0 auto var(--space-4);
   }
   .waar-slapen-intro__prose {
     font-family: var(--font-body);

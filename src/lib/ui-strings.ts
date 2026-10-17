@@ -471,6 +471,8 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'affiliate.blockDisclosure.bezoek': 'Wij bezochten {producent} in {maand} {jaar}.',
     'affiliate.blockDisclosure.reservering': 'Reservering via {bron}, VinoMartino ontvangt commissie, prijs voor jou identiek.',
     'affiliate.blockDisclosure.bron.directeLink': 'de directe link naar het wijnhuis',
+    // LAT-13076: een directe link naar een wijnhuis levert geen commissie op.
+    'affiliate.blockDisclosure.reserveringDirect': 'Reservering via {bron}; VinoMartino ontvangt hiervoor geen commissie.',
 
     // Maandnamen voor de bezoekregel hierboven. NL rendert kleingeschreven
     // ("in oktober 2024"), Engels met hoofdletter ("in October 2024") — vandaar
@@ -835,6 +837,14 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'artikelen.index.filter.clear': 'Wis filters',
     'artikelen.index.filterEmpty.title': 'Geen artikelen voor deze filters',
     'artikelen.index.filterEmpty.desc': 'Pas je selectie aan of wis de filters om alles te zien.',
+    // LAT-13773 — keuzehulp op /artikelen/ (zelfde vorm als /wijnhuizen/).
+    'artikelen.filter.label': 'Vind een artikel',
+    'artikelen.filter.zoek.label': 'Zoek op titel, streek of onderwerp',
+    'artikelen.filter.zoek.placeholder': 'Bijvoorbeeld Champagne of slapen',
+    'artikelen.filter.rubriek.alle': 'Alle rubrieken',
+    'artikelen.filter.telling.een': '1 artikel',
+    'artikelen.filter.telling.alle': '{n} artikelen',
+    'artikelen.filter.telling.van': '{n} van {totaal} artikelen',
     'artikelen.index.empty.title': 'Artikelen komen eraan',
     'artikelen.index.empty.desc': 'We werken aan wijnverhalen en regiogidsen vanuit eigen bezoek aan de wijngaarden.',
 
@@ -867,6 +877,27 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'accommodaties.roundup.meta.titlePost': '? Handgekozen verblijven | VinoMartino',
     'accommodaties.roundup.meta.descPre': 'Een persoonlijke selectie verblijven in ',
     'accommodaties.roundup.meta.descPost': ", met echte foto's, locatie en prijsindicatie. Geen willekeurig hotelaanbod, maar adressen die we zelf zouden boeken.",
+    // LAT-13771: keuzehulp en compacte kaarten op /accommodaties/
+    'accommodaties.filter.label': 'Vind een verblijf',
+    'accommodaties.filter.zoek.label': 'Zoek op streek of land',
+    'accommodaties.filter.land.label': 'Land',
+    'accommodaties.filter.land.alle': 'Alle landen',
+    'accommodaties.filter.plaats.label': 'Plaats',
+    'accommodaties.filter.plaats.alle': 'Alle plaatsen',
+    'accommodaties.filter.klasse.label': 'Klasse',
+    'accommodaties.filter.klasse.alle': 'Alle klassen',
+    'accommodaties.filter.telling.streken': '{n} van {totaal} streken',
+    'accommodaties.filter.telling.strekenAlle': '{n} streken',
+    'accommodaties.filter.telling.streekEen': '1 streek',
+    'accommodaties.filter.telling.verblijven': '{n} van {totaal} verblijven',
+    'accommodaties.filter.telling.verblijvenAlle': '{n} verblijven',
+    'accommodaties.filter.telling.verblijfEen': '1 verblijf',
+    'accommodaties.filter.wis': 'Wis alles',
+    'accommodaties.filter.leeg.titel': 'Geen verblijf dat hier op past',
+    'accommodaties.card.cta': 'Bekijk verblijven',
+    'accommodaties.kaart.cta': 'Bekijk & boek',
+    'accommodaties.kaart.leesMeer': 'Lees meer',
+    'accommodaties.roundup.meerOver': 'Meer over slapen in {regio}',
 
     // LAT-2693 — auteurs-overzicht + auteur-detail (bios blijven NL; vertaling later)
     // LAT-3068 (A4): index herbouwd tot één Marijn-profiel; grid + per-auteur
@@ -1163,6 +1194,9 @@ export const UI_STRING_EN: Record<string, string> = {
     "crosslinks.all.streken": "All wine regions",
     "crosslinks.all.wijnroutes": "All wine routes",
     "crosslinks.all.wijnhuizen": "All wineries",
+
+  // LAT-13815: EN-label HubBacklink; zonder deze key viel /en/ terug op de NL-default.
+  'hub.italie.backlinkLabel': 'Part of the Italy wine guide',
 
   // Besluit 2026-10-05: /en/wijnroutes/ is de ene hub (zie WijnroutesHub.astro).
   'wijnroutes.hub.meta.title': 'Wine routes to drive yourself, with places to stay and wineries | VinoMartino',
@@ -1533,6 +1567,34 @@ export const UI_STRING_EN: Record<string, string> = {
     'wijnhuizen.filter.leeg.tekst': 'Remove a filter or search wider.',
     'wijnhuizen.filter.leeg.zonderDruif': 'For {n} wineries the grapes are not recorded yet; a grape filter leaves them out, but without filters they are all listed.',
     'wijnhuizen.filter.leeg.zoekOveral': 'Search "{q}" in all destinations',
+    // LAT-13771: keuzehulp en compacte kaarten op /accommodaties/
+    'accommodaties.filter.label': 'Find a stay',
+    'accommodaties.filter.zoek.label': 'Search by region or country',
+    'accommodaties.filter.land.label': 'Country',
+    'accommodaties.filter.land.alle': 'All countries',
+    'accommodaties.filter.plaats.label': 'Town',
+    'accommodaties.filter.plaats.alle': 'All towns',
+    'accommodaties.filter.klasse.label': 'Category',
+    'accommodaties.filter.klasse.alle': 'All categories',
+    'accommodaties.filter.telling.streken': '{n} of {totaal} regions',
+    'accommodaties.filter.telling.strekenAlle': '{n} regions',
+    'accommodaties.filter.telling.streekEen': '1 region',
+    'accommodaties.filter.telling.verblijven': '{n} of {totaal} stays',
+    'accommodaties.filter.telling.verblijvenAlle': '{n} stays',
+    'accommodaties.filter.telling.verblijfEen': '1 stay',
+    'accommodaties.filter.wis': 'Clear all',
+    'accommodaties.filter.leeg.titel': 'No stay matches this',
+    'artikelen.filter.label': 'Find an article',
+    'artikelen.filter.zoek.label': 'Search by title, region or topic',
+    'artikelen.filter.zoek.placeholder': 'For example Champagne or where to stay',
+    'artikelen.filter.rubriek.alle': 'All sections',
+    'artikelen.filter.telling.een': '1 article',
+    'artikelen.filter.telling.alle': '{n} articles',
+    'artikelen.filter.telling.van': '{n} of {totaal} articles',
+    'accommodaties.card.cta': 'View stays',
+    'accommodaties.kaart.cta': 'View & book',
+    'accommodaties.kaart.leesMeer': 'Read more',
+    'accommodaties.roundup.meerOver': 'More about staying in {regio}',
     'wijnhuizen.card.druivenOnbekend': 'Grapes not recorded yet',
     'wijnhuizen.card.bezoekOnbekend': 'Visiting options not confirmed yet',
     'wijnhuis.spotlight.kicker': 'Winery in the spotlight',
@@ -1585,6 +1647,7 @@ export const UI_STRING_EN: Record<string, string> = {
     'affiliate.blockDisclosure.bezoek': 'We visited {producent} in {maand} {jaar}.',
     'affiliate.blockDisclosure.reservering': 'Booking via {bron}. VinoMartino receives a commission — your price is unchanged.',
     'affiliate.blockDisclosure.bron.directeLink': 'the direct link to the winery',
+    'affiliate.blockDisclosure.reserveringDirect': 'Booking via {bron}; VinoMartino receives no commission for this.',
 
     'ui.maand.januari': 'January',
     'ui.maand.februari': 'February',

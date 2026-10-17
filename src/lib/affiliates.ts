@@ -261,16 +261,8 @@ export const AFFILIATE_BLOCKS: Record<string, AffiliateBlockConfig[]> = {
   // Locanda del Pilone (accommodationId=11) + Palazzo Finati (accommodationId=12):
   // booking_url in Directus, CJ-wrapper at render time (LAT-923).
   'een-week-in-piemonte-barolo-barbaresco-en-alles-daartussenin': [
-    {
-      location: 'activity',
-      producent: 'Produttori del Barbaresco',
-      bezoekMaand: 'Oktober',
-      bezoekJaar: 2024,
-      linkBron: 'directe link',
-      href: 'https://www.produttoridelbarbaresco.com',
-      ctaLabel: 'Plan je bezoek',
-      ctaLabelEn: 'Plan your visit',
-    },
+    // LAT-13076: Produttori-activity-blok verwijderd. Het eigen portret zegt
+    // "niet persoonlijk bezocht"; de bezoekclaim "Oktober 2024" was onbewezen.
     {
       location: 'accommodation',
       producent: 'Locanda del Pilone',
@@ -329,19 +321,10 @@ export const AFFILIATE_BLOCKS: Record<string, AffiliateBlockConfig[]> = {
     },
   ],
 
-  // Langhe 4-daagse route — Produttori del Barbaresco activity (LAT-1030)
-  'langhe-piemonte-4-dagen-route': [
-    {
-      location: 'activity',
-      producent: 'Produttori del Barbaresco',
-      bezoekMaand: 'Februari',
-      bezoekJaar: 2026,
-      linkBron: 'directe link',
-      href: 'https://www.produttoridelbarbaresco.com',
-      ctaLabel: 'Plan je bezoek',
-      ctaLabelEn: 'Plan your visit',
-    },
-  ],
+  // LAT-13076: 'langhe-piemonte-4-dagen-route' had een Produttori-blok met
+  // "Wij bezochten … februari 2026" en een commissieclaim op een directe link.
+  // Het portret zegt "niet persoonlijk bezocht" en een directe link levert geen
+  // commissie op. Blok verwijderd; terug alleen met [bron: marijn YYYY-MM-DD].
 };
 
 export function getAffiliateBlocks(slug: string): AffiliateBlockConfig[] {

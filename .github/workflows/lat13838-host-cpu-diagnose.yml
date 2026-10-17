@@ -1,0 +1,96 @@
+# LAT-13838 — dispatch-only, ALLEEN LEZEN: wie eet de host-CPU (2 vCPU, PSI some avg300=98 %)?
+# top, ps, docker stats, PSI, pg_dump/backup-processen en cron. Geen mutatie, geen restart, geen exec.
+name: LAT-13838 host CPU diagnose (read-only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'diagnose = alleen lezen; deprioritize-gate = renice +19 en --cpus 1 op lopende vino-gate-pr-* (geen stop)'
+        type: choice
+        options: [diagnose, deprioritize-gate, db-cpus-1]
+        default: diagnose
+
+concurrency:
+  group: lat13838-host-cpu-diagnose
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          # LAT-3437: transport via de Cloudflare Tunnel, niet via inbound poort 22.
+          [ -n "$CF_ACCESS_CLIENT_ID" ] && [ -n "$CF_ACCESS_CLIENT_SECRET" ] \
+            || { echo "::error::CF_ACCESS_CLIENT_ID/SECRET ontbreken (LAT-3437)"; exit 1; }
+          umask 077
+          printf 'CF_ACCESS_CLIENT_ID=%s\nCF_ACCESS_CLIENT_SECRET=%s\n' \
+            "$CF_ACCESS_CLIENT_ID" "$CF_ACCESS_CLIENT_SECRET" > ~/.ssh/cf-access.env
+          umask 022
+          cat >> ~/.ssh/config <<EOC
+          Host $VPS_HOST
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+            ProxyCommand bash $GITHUB_WORKSPACE/ops/cf-ssh-proxy.sh
+          EOC
+          cat "$GITHUB_WORKSPACE/ops/ssh-config-snippet" >> ~/.ssh/config
+
+      - name: CPU-diagnose (read-only)
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          MODE: ${{ inputs.mode }}
+          DIAG: |
+            set -uo pipefail
+            if [ "$MODE" = deprioritize-gate ]; then
+              echo "=== deprioritize-gate: renice +19 + --cpus 1 op vino-gate-pr-* (reversibel, geen stop) ==="
+              for c in $(docker ps --format '{{.Names}}' | grep '^vino-gate-pr-'); do
+                pid=$(docker inspect -f '{{.State.Pid}}' "$c")
+                echo "$c host-pid=$pid"; docker update --cpus 1 "$c"
+                for p in $(pgrep -g "$(ps -o pgid= -p "$pid" | tr -d ' ')" ; pstree -p "$pid" | grep -oE '\([0-9]+\)' | tr -d '()'); do renice -n 19 -p "$p" >/dev/null 2>&1; done
+                docker inspect -f 'NanoCpus={{.HostConfig.NanoCpus}}' "$c"
+              done
+              sleep 20
+            fi
+            if [ "$MODE" = db-cpus-1 ]; then
+              # LAT-13838: paperclip-db-1 stond op NanoCpus=0.4 (override) en is 2,46 M keer gethrottled.
+              # Reversibel zonder herstart; terug met: docker update --cpus 0.4 paperclip-db-1. Compose-recreate zet 0.4 terug.
+              echo "=== db-cpus-1: voor ==="; docker inspect -f 'NanoCpus={{.HostConfig.NanoCpus}}' paperclip-db-1
+              docker update --cpus 1 paperclip-db-1
+              echo "=== na ==="; docker inspect -f 'NanoCpus={{.HostConfig.NanoCpus}} status={{.State.Status}} started={{.State.StartedAt}}' paperclip-db-1
+            fi
+            echo "=== steal-trend: vmstat 5 x4 ==="; vmstat 5 4
+            echo "=== db cpu-config ==="; docker inspect -f 'NanoCpus={{.HostConfig.NanoCpus}} CpuQuota={{.HostConfig.CpuQuota}} CpuShares={{.HostConfig.CpuShares}} started={{.State.StartedAt}} compose={{index .Config.Labels "com.docker.compose.project.config_files"}}' paperclip-db-1 paperclip-paperclip-1
+            red() { sed -E -e 's/(postgres(ql)?:\/\/[^:]+:)[^@]+@/\1<redacted>@/g' -e 's/(PGPASSWORD|PASSWORD|TOKEN|SECRET|KEY)=[^ ]+/\1=<redacted>/Ig' -e 's/(gh[pousr]_|github_pat_|sk-ant-|sk-or-)[A-Za-z0-9_-]+/\1<redacted>/g'; }
+            echo "=== uptime / nproc / PSI ==="; uptime; nproc; cat /proc/pressure/cpu /proc/pressure/memory /proc/pressure/io
+            echo "=== free ==="; free -m
+            echo "=== top ==="; top -b -n1 -w 200 | head -40 | red
+            echo "=== ps top-25 cpu ==="; ps -eo pid,ppid,etimes,pcpu,pmem,stat,comm,args --sort=-pcpu | head -26 | cut -c1-220 | red
+            echo "=== docker stats ==="; timeout 60 docker stats --no-stream --format 'table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.PIDs}}'
+            echo "=== pg_dump / backup / rsync / gzip processen ==="; ps -eo pid,ppid,etimes,pcpu,stat,args | grep -iE 'pg_dump|pg_basebackup|backup|rsync|gzip|zstd|restic|borg|tar ' | grep -v grep | cut -c1-220 | red
+            echo "=== cgroup cpu.stat per container (top usage) ==="
+            for d in /sys/fs/cgroup/system.slice/docker-*.scope; do id=$(basename "$d" | sed 's/docker-//;s/.scope//'); n=$(docker inspect -f '{{.Name}}' "$id" 2>/dev/null); u=$(awk '/usage_usec/{print $2}' "$d/cpu.stat" 2>/dev/null); t=$(awk '/nr_throttled/{print $2}' "$d/cpu.stat"); echo "$u $n throttled=$t max=$(cat $d/cpu.max 2>/dev/null)"; done | sort -rn | head -15
+            echo "=== crontab root + /etc/cron.d ==="; crontab -l 2>/dev/null | grep -v '^#' | red; ls -la /etc/cron.d; grep -hv '^#' /etc/cron.d/* 2>/dev/null | grep -iE 'backup|dump|pg' | red
+            echo "=== systemd timers ==="; systemctl list-timers --all --no-pager | head -20
+            echo "=== pg_stat_activity (actief, langer dan 30 s) ==="
+            docker exec paperclip-db-1 psql -U paperclip -d paperclip -Atc "select pid, state, now()-query_start as dur, wait_event_type, left(regexp_replace(query,'\s+',' ','g'),160) from pg_stat_activity where state<>'idle' and now()-query_start > interval '30 seconds' order by dur desc limit 25" 2>&1 | red
+            echo "=== aantal db-connecties per state ==="
+            docker exec paperclip-db-1 psql -U paperclip -d paperclip -Atc "select state, count(*) from pg_stat_activity group by 1" 2>&1
+        run: |
+          printf 'MODE=%q\n%s\n' "$MODE" "$DIAG" | ssh "$VPS" "bash -s"
