@@ -5,9 +5,7 @@
 import SiteLayout from '../layouts/SiteLayout.astro';
 import '../styles/keuzehulp.css';
 import SmartImg from '../components/SmartImg.astro';
-import { loadAccommodatieRoundupsByStreek } from '../lib/accommodaties-loader';
-import { filterRoundupOpFotos, roundupKaartAantal } from '../lib/accommodaties';
-import { loadStreken } from '../lib/streken';
+import { loadAccommodatieRoundupPaths } from '../lib/accommodatie-roundup-paths';
 import { organizationSchema, breadcrumbSchema } from '../lib/seo';
 import { loadUiStrings } from '../lib/ui-strings';
 import { DEFAULT_LOCALE, localizePath, type Locale } from '../lib/i18n';
@@ -22,18 +20,14 @@ const { locale = DEFAULT_LOCALE, alternates } = Astro.props;
 const ui = await loadUiStrings(locale);
 const collation = locale === 'en' ? 'en' : 'nl';
 
-const [roundups, streken] = await Promise.all([
-  loadAccommodatieRoundupsByStreek(locale),
-  loadStreken(locale),
-]);
-const streekBySlug = new Map(streken.map((s) => [s.slug, s]));
+// LAT-13815 — zelfde bron als de streekpagina (gecureerde set eerst, daarna de
+// foto-gefilterde collectie), zodat het aantal hier gelijk is aan de kaarten daar.
+const paths = await loadAccommodatieRoundupPaths(locale);
 
 const regios = [];
-for (const [streekSlug, raw] of roundups) {
-  const roundup = filterRoundupOpFotos(raw);
-  const aantal = roundupKaartAantal(roundup);
+for (const { props: { roundup, streek, streekSlug } } of paths) {
+  const aantal = roundup.clusters.reduce((n, c) => n + c.kaarten.length, 0);
   if (aantal === 0) continue;
-  const streek = streekBySlug.get(streekSlug);
   const naam = roundup.regio || streek?.name || streekSlug;
   const land = streek?.country || null;
   // LAT-13771 — zoektekst: streeknaam, land en de plaatsen van de verblijven (uit de roundup).
@@ -158,11 +152,12 @@ const schema = [
 </script>
 
 <style>
-  /* LAT-13771: eerste kaart <= 450 px op 1280x800 (was 470); alleen de bovenpadding, onderkant blijft .section. */
-  .acc-index { padding-top: var(--space-8); }
+  /* LAT-13771: eerste kaart <= 450 px op 1280x800 en <= 700 px op 390x844 (gemeten 626/690/717 op build 1452). */
+  .acc-index { padding-top: var(--space-4); }
+  .acc-index .wh-filters { margin-bottom: var(--space-5, 1.25rem); }
   .hero-sm {
     background: var(--paperDeep);
-    padding: var(--space-12) 0 var(--space-8);
+    padding: var(--space-8) 0 var(--space-5, 1.25rem);
     text-align: center;
   }
   .hero-sm h1 {
@@ -180,6 +175,15 @@ const schema = [
     margin-top: var(--space-3);
     max-width: 36rem;
     margin-inline: auto;
+  }
+  /* Desktop: kop links, intro rechts; telling naast de velden i.p.v. op een eigen rij. */
+  @media (min-width: 721px) {
+    .hero-sm .container { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: var(--space-8); align-items: end; text-align: left; }
+    .hero-sm .section-label { grid-column: 1; grid-row: 1; }
+    .hero-sm h1 { grid-column: 1; grid-row: 2; }
+    .hero-sm .hero-desc { grid-column: 2; grid-row: 2; margin: 0; max-width: none; }
+    .acc-index .wh-filters.kh-filters--2 { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1.5fr); padding-block: var(--space-4); }
+    .acc-index .wh-status { grid-column: auto; border-top: 0; padding-top: 0; min-height: 44px; }
   }
   .grid {
     display: grid;

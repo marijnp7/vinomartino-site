@@ -1,0 +1,90 @@
+# LAT-13833 — dispatch-only, ALLEEN LEZEN: docker logs van de Postgres-container paperclip-db-1
+# in een tijdvenster, gefilterd op FATAL/ERROR/deadlock/serialize/cancel/idle-in-transaction,
+# met secret-redactie. Kopie van lat13636 met ander doel-container en filter. Geen mutatie,
+# geen restart; enige exec is één read-only SELECT op pg_settings. Incident LAT-13633 (routine_runs-rijen rollen terug om 00:00Z/18:00Z).
+name: LAT-13833 postgres log window (read-only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      since:
+        description: 'start, ISO-8601 UTC (bv. 2026-10-15T17:20:00Z)'
+        required: true
+      until:
+        description: 'eind, ISO-8601 UTC (bv. 2026-10-15T17:22:00Z)'
+        required: true
+
+concurrency:
+  group: lat13833-db-log-window
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Valideer invoer
+        env:
+          SINCE: ${{ inputs.since }}
+          UNTIL: ${{ inputs.until }}
+        run: |
+          re='^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$'
+          [[ "$SINCE" =~ $re && "$UNTIL" =~ $re ]] || { echo "::error::since/until moeten YYYY-MM-DDTHH:MM:SSZ zijn"; exit 1; }
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          # LAT-3437: transport via de Cloudflare Tunnel, niet via inbound poort 22.
+          [ -n "$CF_ACCESS_CLIENT_ID" ] && [ -n "$CF_ACCESS_CLIENT_SECRET" ] \
+            || { echo "::error::CF_ACCESS_CLIENT_ID/SECRET ontbreken (LAT-3437)"; exit 1; }
+          umask 077
+          printf 'CF_ACCESS_CLIENT_ID=%s\nCF_ACCESS_CLIENT_SECRET=%s\n' \
+            "$CF_ACCESS_CLIENT_ID" "$CF_ACCESS_CLIENT_SECRET" > ~/.ssh/cf-access.env
+          umask 022
+          cat >> ~/.ssh/config <<EOC
+          Host $VPS_HOST
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+            ProxyCommand bash $GITHUB_WORKSPACE/ops/cf-ssh-proxy.sh
+          EOC
+          cat "$GITHUB_WORKSPACE/ops/ssh-config-snippet" >> ~/.ssh/config
+
+      - name: Log-venster (read-only)
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          SINCE: ${{ inputs.since }}
+          UNTIL: ${{ inputs.until }}
+          DIAG: |
+            set -uo pipefail
+            CTR=paperclip-db-1
+            echo "=== staat (smalle --format) ==="
+            docker inspect -f 'started={{.State.StartedAt}} restarts={{.RestartCount}} logdriver={{.HostConfig.LogConfig.Type}}' "$CTR"
+            echo "=== venster $SINCE .. $UNTIL: totaal regels ==="
+            docker logs "$CTR" --since "$SINCE" --until "$UNTIL" 2>&1 | wc -l
+            echo "=== log-instellingen (pg_settings, read-only) ==="
+            docker exec "$CTR" psql -U paperclip -d paperclip -Atc "select name||'='||setting from pg_settings where name in ('logging_collector','log_destination','log_min_messages','log_min_error_statement','idle_in_transaction_session_timeout','statement_timeout','log_lock_waits')" || true
+            echo "=== FATAL/ERROR/...-matches met context (geredigeerd) ==="
+            docker logs --timestamps "$CTR" --since "$SINCE" --until "$UNTIL" 2>&1 \
+              | { grep -E -B1 -A3 'FATAL|ERROR|idle-in-transaction|idle_in_transaction|deadlock|could not serialize|canceling statement' || echo '(0 matches)'; } \
+              | sed -E \
+                  -e 's/(authorization|cookie|x-api-key|cf-access-[a-z-]+)("?[:=] *"?)[^",}]+/\1\2<redacted>/Ig' \
+                  -e 's/(postgres(ql)?:\/\/[^:]+:)[^@]+@/\1<redacted>@/g' \
+                  -e 's/(gh[pousr]_|github_pat_|sk-ant-|sk-or-)[A-Za-z0-9_-]+/\1<redacted>/g' \
+                  -e 's/(Bearer +)[A-Za-z0-9._~+\/=-]+/\1<redacted>/g' \
+              | head -600
+        run: |
+          printf 'SINCE=%q\nUNTIL=%q\n%s\n' "$SINCE" "$UNTIL" "$DIAG" | ssh "$VPS" "bash -s"

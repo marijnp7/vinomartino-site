@@ -29,6 +29,7 @@
     "test:lat12797-route-wijnhuizen": "node --test scripts/lat12797-route-wijnhuizen-geen-fallback.test.mjs",
     "test:wijnroutes-hub": "node --test scripts/wijnroutes-hub.test.mjs",
     "test:lat13771-accommodaties": "node --test scripts/lat13771-accommodaties-stijl.test.mjs",
+    "test:lat13773-artikelen": "node --test scripts/lat13773-artikelen-keuzehulp.test.mjs",
     "test:search-index-locale": "node --test scripts/lat12594-search-index-locale.test.mjs",
     "test:lat13202-meta-description": "node --test scripts/lat13202-meta-description.test.mjs",
     "test:proeftafel": "node --test scripts/proeftafel.test.mjs",
@@ -91,7 +92,8 @@
     "test:filterform-cls": "node --test scripts/lat12594-filterform-cls.test.mjs",
     "test:font-preloads": "node --test scripts/lat12594-font-preloads.test.mjs",
     "test:single-high-priority": "node --test scripts/lat12594-single-high-priority.test.mjs",
-    "test:lat13816-route-lines": "node --test scripts/lat13816-route-lines.test.mjs"
+    "test:lat13816-route-lines": "node --test scripts/lat13816-route-lines.test.mjs",
+    "test:streek-docbytes": "node --test scripts/lat12594-streek-docbytes.test.mjs"
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.7.2",

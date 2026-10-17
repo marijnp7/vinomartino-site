@@ -9,8 +9,8 @@ import { loadUiStrings } from '../lib/ui-strings';
 
 interface Props {
   producent: string;
-  bezoekMaand: string;
-  bezoekJaar: number;
+  bezoekMaand?: string;
+  bezoekJaar?: number;
   linkBron: AffiliateLinkBron;
   /**
    * LAT-4979 — deze regel stond hardgecodeerd in het Nederlands en was daarmee
@@ -34,15 +34,18 @@ const bronLabel: Record<AffiliateLinkBron, string> = {
 // `bezoekMaand` komt als NL-maandnaam met hoofdletter uit affiliates.ts. t()
 // geeft de key terug als hij onbekend is (bv. een typfout in de data); val dan
 // terug op het oude gedrag i.p.v. 'ui.maand.oktobr' te renderen.
-const maandKey = `ui.maand.${bezoekMaand.trim().toLowerCase()}`;
-const maandLabel = ui.t(maandKey);
-const maand = maandLabel === maandKey ? bezoekMaand.toLowerCase() : maandLabel;
-
-const bezoekZin = ui
-  .t('affiliate.blockDisclosure.bezoek')
-  .replace('{producent}', producent)
-  .replace('{maand}', maand)
-  .replace('{jaar}', String(bezoekJaar));
+// LAT-13076: zonder bewezen bezoek (geen maand/jaar in de config) geen bezoekzin.
+let bezoekZin = '';
+if (bezoekMaand && bezoekJaar) {
+  const maandKey = `ui.maand.${bezoekMaand.trim().toLowerCase()}`;
+  const maandLabel = ui.t(maandKey);
+  const maand = maandLabel === maandKey ? bezoekMaand.toLowerCase() : maandLabel;
+  bezoekZin = ui
+    .t('affiliate.blockDisclosure.bezoek')
+    .replace('{producent}', producent)
+    .replace('{maand}', maand)
+    .replace('{jaar}', String(bezoekJaar));
+}
 
 // LAT-13076: een directe link naar het wijnhuis levert geen commissie op.
 const reserveringZin = (linkBron === 'directe link'

@@ -35,7 +35,7 @@ import { type Article } from '../lib/articles';
 import { articleSchema, breadcrumbSchema } from '../lib/seo';
 import { getAffiliateBlock, resolveAccommodationHref } from '../lib/affiliates';
 import { getAuthorByByline } from '../lib/authors';
-import { getImageCredit, licenseLabelFor } from '../lib/image-credits';
+import { creditAuthorFor, getImageCredit, licenseLabelFor } from '../lib/image-credits';
 import { type AccommodatieRoundup as AccommodatieRoundupData } from '../lib/accommodaties';
 import { loadUiStrings } from '../lib/ui-strings';
 import { rubriekLabel } from '../lib/rubriek-labels';
@@ -190,7 +190,7 @@ if (article.faqSchema) {
           <BeeldHerkomst fileId={article.heroImageId} src={article.heroImage} locale={locale} />
           {heroCredit && (
             <figcaption class="article-hero-credit">
-              {heroCredit.author && <>{heroCredit.author}, </>}{heroCredit.licenseUrl ? <a href={heroCredit.licenseUrl} rel="license noopener" target="_blank">{licenseLabelFor(heroCredit.licenseLabel, locale)}</a> : licenseLabelFor(heroCredit.licenseLabel, locale)}{heroCredit.sourceUrl && <>, <a href={heroCredit.sourceUrl} rel="noopener" target="_blank">{`via ${heroCredit.sourceLabel || (locale === 'nl' ? 'bron' : 'source')}`}</a></>}
+              {heroCredit.author && <>{creditAuthorFor(heroCredit, locale)}, </>}{heroCredit.licenseUrl ? <a href={heroCredit.licenseUrl} rel="license noopener" target="_blank">{licenseLabelFor(heroCredit.licenseLabel, locale)}</a> : licenseLabelFor(heroCredit.licenseLabel, locale)}{heroCredit.sourceUrl && <>, <a href={heroCredit.sourceUrl} rel="noopener" target="_blank">{`via ${heroCredit.sourceLabel || (locale === 'nl' ? 'bron' : 'source')}`}</a></>}
             </figcaption>
           )}
         </figure>

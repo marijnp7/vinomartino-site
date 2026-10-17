@@ -79,7 +79,29 @@ export function heuristicIntent(text) {
 //   { action: 'answer', agent? }          — CoS antwoordt (evt. met agentstatus)
 //   { action: 'clarify', text }           — korte, noodzakelijke verduidelijking
 //   { action: 'reject', text }            — onbekende rol / gepauzeerde agent
+export const ROLE_CLARIFY_TEXT = "Bij wie moet dit neer? Noem een rol (bijv. design, editor, devops). Er is nog niets doorgezet.";
+
+// Kort antwoord op de rol-verduidelijking ("devops", "bij design", "de editor"):
+// geeft de rol terug zodat het vorige bericht alsnog wordt doorgezet.
+export function roleAnswerToClarify(text, history) {
+  const last = history[history.length - 1];
+  if (!last || last.role !== "assistant" || last.content !== ROLE_CLARIFY_TEXT) return null;
+  const t = norm(text).replace(/[.!@]/g, " ").replace(/\b(bij|aan|naar|de|het|graag|maar|dan|is|voor)\b/g, " ").replace(/\s+/g, " ").trim();
+  if (!t || t.split(" ").length > 3) return null;
+  return findAgentByAlias(t);
+}
+
 export function decideRoute({ text, intent, topicDefault = null, history = [], pausedIds = [] }) {
+  const answered = roleAnswerToClarify(text, history);
+  if (answered) {
+    const prevUser = [...history].reverse().find((h) => h.role === "user");
+    if (prevUser) {
+      if (pausedIds.includes(answered.id)) {
+        return { action: "reject", text: `${answered.name} staat op pauze; ik zet hier niets neer. Kies een andere rol.` };
+      }
+      return { action: "dispatch", agent: answered, body: `${prevUser.content}\n\n(Rol gekozen met: "${text}")`, reuseIssue: referencedIssue(prevUser.content) };
+    }
+  }
   const found = findAgentInText(text);
   if (found?.unknownRole) {
     const known = AGENT_DIRECTORY.map((a) => a.key).join(", ");
@@ -98,7 +120,7 @@ export function decideRoute({ text, intent, topicDefault = null, history = [], p
 
   if (effIntent === "task") {
     if (!agent) {
-      return { action: "clarify", text: "Bij wie moet dit neer? Noem een rol (bijv. design, editor, devops). Er is nog niets doorgezet." };
+      return { action: "clarify", text: ROLE_CLARIFY_TEXT };
     }
     if (pausedIds.includes(agent.id)) {
       return { action: "reject", text: `${agent.name} staat op pauze; ik zet hier niets neer. Kies een andere rol.` };

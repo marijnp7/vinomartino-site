@@ -850,6 +850,14 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'artikelen.index.filter.clear': 'Wis filters',
     'artikelen.index.filterEmpty.title': 'Geen artikelen voor deze filters',
     'artikelen.index.filterEmpty.desc': 'Pas je selectie aan of wis de filters om alles te zien.',
+    // LAT-13773 — keuzehulp op /artikelen/ (zelfde vorm als /wijnhuizen/).
+    'artikelen.filter.label': 'Vind een artikel',
+    'artikelen.filter.zoek.label': 'Zoek op titel, streek of onderwerp',
+    'artikelen.filter.zoek.placeholder': 'Bijvoorbeeld Champagne of slapen',
+    'artikelen.filter.rubriek.alle': 'Alle rubrieken',
+    'artikelen.filter.telling.een': '1 artikel',
+    'artikelen.filter.telling.alle': '{n} artikelen',
+    'artikelen.filter.telling.van': '{n} van {totaal} artikelen',
     'artikelen.index.empty.title': 'Artikelen komen eraan',
     'artikelen.index.empty.desc': 'We werken aan wijnverhalen en regiogidsen vanuit eigen bezoek aan de wijngaarden.',
 
@@ -1147,6 +1155,10 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     "voor_accommodaties.krijgt.3": "Een zichtbare vermelding dat het verblijf door u is aangeboden",
     "voor_accommodaties.niet_doen.verblijf.titel": "Geen vermelding in ruil voor een verblijf",
     "voor_accommodaties.niet_doen.verblijf.tekst": "Een aangeboden verblijf koopt geen artikel, geen kaartpin en geen positief oordeel. Na het verblijf beslissen wij of en hoe we schrijven.",
+    // LAT-13893: "Wat wij vragen", incl. eigen beeld met credit.
+    "voor_accommodaties.vragen.1": "Eigen beeld van uw verblijf, dat wij plaatsen met credit en een link naar uw site",
+    "voor_accommodaties.vragen.2": "Verblijf, één of twee nachten, soms meer afhankelijk van de reis",
+    "voor_accommodaties.vragen.3": "De ruimte om eerlijk te schrijven, ook als iets ons tegenvalt",
 };
 
 /**
@@ -1199,6 +1211,9 @@ export const UI_STRING_EN: Record<string, string> = {
     "crosslinks.all.streken": "All wine regions",
     "crosslinks.all.wijnroutes": "All wine routes",
     "crosslinks.all.wijnhuizen": "All wineries",
+
+  // LAT-13815: EN-label HubBacklink; zonder deze key viel /en/ terug op de NL-default.
+  'hub.italie.backlinkLabel': 'Part of the Italy wine guide',
 
   // Besluit 2026-10-05: /en/wijnroutes/ is de ene hub (zie WijnroutesHub.astro).
   'wijnroutes.hub.meta.title': 'Wine routes to drive yourself, with places to stay and wineries | VinoMartino',
@@ -1598,6 +1613,13 @@ export const UI_STRING_EN: Record<string, string> = {
     'accommodaties.filter.telling.verblijfEen': '1 stay',
     'accommodaties.filter.wis': 'Clear all',
     'accommodaties.filter.leeg.titel': 'No stay matches this',
+    'artikelen.filter.label': 'Find an article',
+    'artikelen.filter.zoek.label': 'Search by title, region or topic',
+    'artikelen.filter.zoek.placeholder': 'For example Champagne or where to stay',
+    'artikelen.filter.rubriek.alle': 'All sections',
+    'artikelen.filter.telling.een': '1 article',
+    'artikelen.filter.telling.alle': '{n} articles',
+    'artikelen.filter.telling.van': '{n} of {totaal} articles',
     'accommodaties.card.cta': 'View stays',
     'accommodaties.kaart.cta': 'View & book',
     'accommodaties.kaart.leesMeer': 'Read more',
@@ -1812,6 +1834,10 @@ export const UI_STRING_EN: Record<string, string> = {
     "voor_accommodaties.krijgt.3": "A visible disclosure that the stay was offered by you",
     "voor_accommodaties.niet_doen.verblijf.titel": "No mention in exchange for a stay",
     "voor_accommodaties.niet_doen.verblijf.tekst": "An offered stay does not buy an article, a map pin or a positive verdict. After the stay, we decide whether and how we write.",
+    // LAT-13893: "Wat wij vragen", incl. eigen beeld met credit.
+    "voor_accommodaties.vragen.1": "Your own photographs of the property, which we publish with a credit and a link to your website",
+    "voor_accommodaties.vragen.2": "Accommodation for one or two nights, sometimes more depending on the trip",
+    "voor_accommodaties.vragen.3": "The freedom to write honestly, even if something disappoints",
 };
 
 /** Resolver over de UI-dictionary: EN-value indien aanwezig, anders NL-default. */

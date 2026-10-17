@@ -137,3 +137,18 @@ test('LAT-13760: wijnhuisbeeld met toestemming krijgt "© <huis>" met link naar 
     assert.equal(creditFromFileMeta('pers', null), null, 'zonder maker geen credit');
     assert.equal(creditFromFileMeta('eigen', h), null, 'overige licenties ongewijzigd');
 });
+
+test('LAT-13914: CC-credit toont "Foto: <maker>" (EN "Photo:") zonder ©; Castiglione-herkomst geeft Christoph Strässler', async () => {
+    const { creditFromFileMeta, creditAuthorFor } = await loadModule('lat13914', 'src/lib/image-credits.ts');
+    const herkomst = 'Slug: langhe-vier-dagen-route\nArtikel-id: 54\nLicentie: CC BY-SA 2.0\nFoto: Christoph Strässler, CC BY-SA 2.0, via Wikimedia Commons. Bron: https://commons.wikimedia.org/wiki/File:Castiglione_Falletto,_Piemonte,_Italy.jpg\nKeywords: vinomartino, editorial, CC-license, Piemonte, Langhe, Castiglione Falletto,';
+    const c = creditFromFileMeta('cc-by-sa-2.0', herkomst);
+    assert.equal(c.author, '© Christoph Strässler');
+    assert.equal(c.licenseLabel, 'CC BY-SA 2.0');
+    assert.equal(c.licenseUrl, 'https://creativecommons.org/licenses/by-sa/2.0/');
+    assert.equal(c.sourceUrl, 'https://commons.wikimedia.org/wiki/File:Castiglione_Falletto,_Piemonte,_Italy.jpg');
+    assert.equal(c.sourceLabel, 'Wikimedia Commons');
+    assert.equal(creditAuthorFor(c, 'nl'), 'Foto: Christoph Strässler');
+    assert.equal(creditAuthorFor(c, 'en'), 'Photo: Christoph Strässler');
+    const perm = creditFromFileMeta('pers', 'Foto: Pio Cesare. Bron: https://www.piocesare.it');
+    assert.equal(creditAuthorFor(perm, 'nl'), '© Pio Cesare', 'toestemming-credit houdt ©');
+});

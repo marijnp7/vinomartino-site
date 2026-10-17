@@ -44,6 +44,18 @@ export function licenseLabelFor(label: string, locale: string): string {
     return LICENSE_LABEL_EN[label.trim()] ?? label;
 }
 
+// LAT-13914: bij een CC-licentie is "©" misleidend (de maker geeft juist rechten weg);
+// CC vraagt naam, bron en licentie. Toon de maker als "Foto: <maker>" / "Photo: <maker>".
+// `author` zelf blijft "© <maker>" zodat de andere credit-plekken ongewijzigd renderen.
+const PHOTO_PREFIX: Record<string, string> = { nl: 'Foto', en: 'Photo' };
+
+/** Maker-deel van een credit in `locale`: "Foto: <maker>" bij CC, anders `author` ongewijzigd. */
+export function creditAuthorFor(credit: ImageCredit, locale: string): string {
+    if (!credit.author || !/creativecommons\.org/i.test(credit.licenseUrl)) return credit.author;
+    const maker = credit.author.replace(/^\s*©\s*/, '');
+    return `${PHOTO_PREFIX[locale] ?? PHOTO_PREFIX.en}: ${maker}`;
+}
+
 const ADAPTATION_NOTE: Record<string, string> = {
     nl: 'kleur en uitsnede bewerkt',
     en: 'colour-graded and cropped',

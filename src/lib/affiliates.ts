@@ -18,8 +18,10 @@ export type AffiliateLinkBron = 'Booking.com' | 'GetYourGuide' | 'directe link';
 export interface AffiliateBlockConfig {
   location: AffiliateLocation;
   producent: string;
-  bezoekMaand: string;
-  bezoekJaar: number;
+  /** LAT-13076: alleen invullen met bewijs (REGEL 57: [bron: RS-id] of [bron: marijn …]).
+   *  Leeg = geen bezoekzin in de disclosure, de reserveringszin blijft. */
+  bezoekMaand?: string;
+  bezoekJaar?: number;
   linkBron: AffiliateLinkBron;
   href?: string;           // voor directe-link entries
   accommodationId?: number; // voor Booking.com entries — resolved from Directus at build time
@@ -299,8 +301,7 @@ export const AFFILIATE_BLOCKS: Record<string, AffiliateBlockConfig[]> = {
     {
       location: 'activity',
       producent: 'Tenuta di Capezzana',
-      bezoekMaand: 'Oktober',
-      bezoekJaar: 2024,
+      // LAT-13076: bezoek okt 2024 niet bewezen, bezoekzin weg tot [bron: marijn …].
       linkBron: 'directe link',
       href: 'https://www.capezzana.it/visita-e-degustazioni/',
       ctaLabel: 'Reserveer proeverij',
@@ -309,8 +310,7 @@ export const AFFILIATE_BLOCKS: Record<string, AffiliateBlockConfig[]> = {
     {
       location: 'accommodation',
       producent: 'Brolio Agriroom (Castello di Brolio)',
-      bezoekMaand: 'Mei',
-      bezoekJaar: 2024,
+      // LAT-13076: overnachting mei 2024 niet bewezen, bezoekzin weg tot [bron: marijn …].
       linkBron: 'Booking.com',
       accommodationId: 1,
       ctaLabel: 'Bekijk beschikbaarheid',

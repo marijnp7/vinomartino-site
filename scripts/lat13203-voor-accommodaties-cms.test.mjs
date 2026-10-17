@@ -12,6 +12,10 @@ const KEYS = [
   'voor_accommodaties.krijgt.3',
   'voor_accommodaties.niet_doen.verblijf.titel',
   'voor_accommodaties.niet_doen.verblijf.tekst',
+  // LAT-13893: "Wat wij vragen", incl. eigen beeld met credit.
+  'voor_accommodaties.vragen.1',
+  'voor_accommodaties.vragen.2',
+  'voor_accommodaties.vragen.3',
 ];
 const PAGES = {
   nl: 'src/pages/voor-accommodaties.astro',
