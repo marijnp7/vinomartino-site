@@ -114,3 +114,21 @@ test('nieuwe ui-keys hebben NL en EN', () => {
     assert.ok(UI_STRING_EN[k], `EN ${k}`);
   }
 });
+
+test('toonnaam zonder interne zoekmarker', async () => {
+  const { schoneStopNaam } = await import('../src/lib/route-lines.ts');
+  assert.equal(schoneStopNaam('Palazzo Finati (zoekresultaat Booking)'), 'Palazzo Finati');
+  assert.equal(schoneStopNaam('Mas bij Bandol (vakantieverhuur) (zoekresultaat Booking)'), 'Mas bij Bandol (vakantieverhuur)');
+  assert.equal(schoneStopNaam('Hôtel Jean Moët, Épernay'), 'Hôtel Jean Moët, Épernay');
+});
+
+test('elke gecommitte route-JSON heeft een schets en dagen in oplopende volgorde', () => {
+  const dir = new URL('../src/data/route-lines/', import.meta.url);
+  for (const f of readdirSync(dir).filter((x) => x.endsWith('.json'))) {
+    const j = JSON.parse(readFileSync(new URL(f, dir), 'utf8'));
+    assert.ok(j.sketch && j.sketch.startsWith('M'), `${f}: schets ontbreekt`);
+    const dagen = j.days.map((d) => d.dag);
+    assert.deepEqual(dagen, [...dagen].sort((a, b) => a - b), `${f}: dagen niet oplopend`);
+    assert.ok(existsSync(new URL(f.replace(/\.json$/, '.svg'), dir)), `${f}: svg ontbreekt`);
+  }
+});

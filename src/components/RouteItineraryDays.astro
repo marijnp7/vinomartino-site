@@ -11,7 +11,9 @@ import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
 import type { RouteSegment } from '../lib/route-days';
 import PoiCard, { type PoiCardData } from './PoiCard.astro';
 import { deriveStopsGeoFromItinerary, localizeDuur, type RouteItinerary, type ItineraryStop } from '../lib/route-itinerary';
-import type { RouteStopKind } from '../lib/routes';
+import type { RouteStopGeo, RouteStopKind } from '../lib/routes';
+import { hasDagen } from '../lib/route-lines';
+import RouteDagChips from './RouteDagChips.astro';
 import { loadUiStrings } from '../lib/ui-strings';
 import { loadWijnhuizen } from '../lib/wijnhuizen';
 import { accommodatieBookingDeeplink, isAffiliateHref } from '../lib/affiliates';
@@ -27,9 +29,15 @@ interface Props {
   boekbaar?: boolean;
   /** Analytics-context (bv. route-slug). */
   context?: string;
+  /** LAT-13816 — stops van de kaart (entry.stopsGeo) en de route-slug: chips per dag en dag-highlight. */
+  stops?: RouteStopGeo[];
+  slug?: string;
 }
 
-const { itinerary, bodyDays = [], streekSlug = '', boekbaar = false, context = '', locale = DEFAULT_LOCALE } = Astro.props;
+const { itinerary, bodyDays = [], streekSlug = '', boekbaar = false, context = '', locale = DEFAULT_LOCALE, stops: kaartStops = [], slug: routeSlug = '' } = Astro.props;
+// LAT-13816 — dag-highlight op de kaart alleen als de kaartstops een dagindeling hebben.
+const kaartGeo = kaartStops.filter((s) => s && Number.isFinite(s.lat) && Number.isFinite(s.lng));
+const dagAttrs = (n: number) => routeSlug && hasDagen(kaartGeo) && kaartGeo.some((s) => s.dag === n) ? { 'data-routedag': n, 'data-routedag-slug': routeSlug } : {};
 const ui = await loadUiStrings(locale);
 // Alleen linken naar wijnhuisportretten die als pagina bestaan (gepubliceerd in deze
 // locale); een slug naar een concept-wijnhuis gaf een 404.
@@ -150,7 +158,7 @@ function stopToPoi(stop: ItineraryStop, pin: CardPin, hasProse = false): PoiCard
 
   <div class="route-days">
     {dayBlocks.map(({ day: d, prose, stops, overnachtingPin }) => (
-      <section class="route-day" id={dagAnchor(d.n)}>
+      <section class="route-day" id={dagAnchor(d.n)} {...dagAttrs(d.n)}>
         {prose?.day && prose.day.anchor !== dagAnchor(d.n) && <span id={prose.day.anchor} aria-hidden="true"></span>}
         <header class="route-day__head">
           <span class="route-day__label">{locale === 'en' ? 'Day' : 'Dag'} {d.n}</span>
@@ -159,6 +167,8 @@ function stopToPoi(stop: ItineraryStop, pin: CardPin, hasProse = false): PoiCard
             <span class="route-day__rijtijd">{ui.t('route.drivingTime')}: {fmtRijtijd(d.rijtijdMin)}</span>
           )}
         </header>
+
+        {routeSlug && <RouteDagChips stops={kaartStops} dag={d.n} label={`${locale === 'en' ? 'Day' : 'Dag'} ${d.n}`} slug={routeSlug} locale={locale} />}
 
         {prose ? <div class="page-prose route-day__body" set:html={prose.html} /> : d.summary && <p class="route-day__summary">{d.summary}</p>}
 

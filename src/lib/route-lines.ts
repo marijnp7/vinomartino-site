@@ -41,6 +41,15 @@ export function formatKm(meters: number | null | undefined, step = 5): string | 
     return `± ${km} km`;
 }
 
+/**
+ * Toonnaam van een stop: haalt interne zoekmarkers als "(zoekresultaat Booking)"
+ * weg die redacteuren in het CMS achter een overnachting zetten. Die markers lekten
+ * naar kaart-popups, POI-kaarten en de JSON-LD.
+ */
+export function schoneStopNaam(naam: string): string {
+    return naam.replace(/\s*\((?:zoekresultaat|search result)[^)]*\)/gi, '').replace(/\s{2,}/g, ' ').trim();
+}
+
 export function hasDagen(stops: RouteStopGeo[]): boolean {
     return stops.some((s) => Number.isInteger(s.dag) && (s.dag as number) > 0);
 }

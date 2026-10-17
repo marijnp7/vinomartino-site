@@ -1,0 +1,64 @@
+---
+// LAT-13816 — "Stops vandaag": genummerde chips in de dagkleur boven een dagsectie.
+// Klik = kaart in beeld, zoom naar de pin, popup open (script in RouteGeoMap).
+// Zelfde index en nummering als RouteGeoMap, zodat chip i pin i opent. Gedeeld door
+// de pagina-opbouw (RouteDagSectie) en het standaardsjabloon (RouteItineraryDays).
+import type { RouteStopGeo } from '../lib/routes';
+import { dagKleur, hasDagen, stopNummers } from '../lib/route-lines';
+import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
+
+interface Props {
+  stops: RouteStopGeo[];
+  dag: number;
+  /** "Dag 1" — voor het aria-label van de rij. */
+  label: string;
+  /** Route-slug; koppelt de chip aan de juiste kaart. */
+  slug: string;
+  locale?: Locale;
+}
+const { stops = [], dag, label, slug, locale = DEFAULT_LOCALE } = Astro.props;
+const ui = await loadUiStrings(locale);
+
+const geo = stops.filter((s) => s && Number.isFinite(s.lat) && Number.isFinite(s.lng));
+const nummers = stopNummers(geo);
+const chips = hasDagen(geo)
+  ? geo.map((s, i) => ({ s, i, n: nummers[i] })).filter(({ s }) => s.dag === dag)
+  : [];
+const kleur = dagKleur(dag);
+const chipNaam = (s: RouteStopGeo, n: number | null) =>
+  `${ui.t('route.chips.toon')} ${n != null ? `${ui.t('route.chips.stop')} ${n}` : s.kind === 'wijnhuis' ? ui.t('routegeo.legend.wijnhuis').toLowerCase() : ui.t('routegeo.legend.overnachten').toLowerCase()}, ${s.naam}, ${ui.t('route.chips.opKaart')}`;
+---
+{chips.length > 0 && (
+  <nav class="rdag__chips" aria-label={`${ui.t('route.chips.kop')}, ${label}`} style={`--dagkleur:${kleur}`}>
+    <span class="rdag__chips-kop">{ui.t('route.chips.kop')}</span>
+    <ul>
+      {chips.map(({ s, i, n }) => (
+        <li>
+          <button type="button" class={`rdag__chip rdag__chip--${s.kind ?? 'stop'}`} data-routechip={i} data-routechip-slug={slug} aria-label={chipNaam(s, n)}>
+            <span class="rdag__chip-nr" aria-hidden="true">{n ?? (s.kind === 'wijnhuis' ? '◆' : '☾')}</span>
+            <span class="rdag__chip-naam" aria-hidden="true">{s.naam}</span>
+          </button>
+        </li>
+      ))}
+    </ul>
+  </nav>
+)}
+<style>
+  .rdag__chips { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; margin: 0 0 var(--space-5, 1.25rem); }
+  .rdag__chips-kop { font-family: var(--font-mono, 'JetBrains Mono', ui-monospace, monospace); font-size: 0.625rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--inkSoft, #5A4F45); }
+  .rdag__chips ul { display: flex; flex-wrap: wrap; gap: 0.5rem; list-style: none; margin: 0; padding: 0; }
+  .rdag__chip {
+    display: inline-flex; align-items: center; gap: 0.5rem; min-height: 44px; padding: 0.25rem 0.85rem 0.25rem 0.3rem;
+    border: 1px solid var(--rule, #C9B98F); border-radius: 22px; background: var(--paper, #FAF5E9); color: var(--ink, #1F1A16);
+    font-family: var(--font-body); font-size: 0.875rem; line-height: 1.2; cursor: pointer; text-align: left;
+  }
+  .rdag__chip:hover { border-color: #14100E; }
+  .rdag__chip:focus-visible { outline: 2px solid #14100E; outline-offset: 2px; }
+  .rdag__chip-nr {
+    display: inline-flex; align-items: center; justify-content: center; flex: none; width: 30px; height: 30px; border-radius: 50%;
+    background: var(--dagkleur); border: 2px solid #14100E; color: #14100E;
+    font-family: 'JetBrains Mono', ui-monospace, monospace; font-weight: 700; font-size: 0.8125rem;
+  }
+  .rdag__chip--wijnhuis .rdag__chip-nr, .rdag__chip--slaap .rdag__chip-nr { background: var(--paper, #FAF5E9); border-color: var(--dagkleur); box-shadow: inset 0 0 0 1px #14100E; }
+</style>

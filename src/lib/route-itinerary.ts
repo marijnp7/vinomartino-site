@@ -11,6 +11,7 @@
 // parseItinerary null terug en valt de route-pagina terug op de proza-fallback —
 // nul regressie, graceful degrade.
 
+import { schoneStopNaam } from './route-lines';
 import type { RouteStopGeo, RouteStopKind } from './routes';
 import { normalizeEmDashes } from './markdown';
 import { stripEdgeSeparators } from './route-days';
@@ -89,7 +90,9 @@ function normalizeStopKind(val: unknown): ItineraryStopKind {
 function parseStop(row: unknown): ItineraryStop | null {
     if (!row || typeof row !== 'object') return null;
     const rec = row as Record<string, unknown>;
-    const naam = asString(rec.naam ?? rec.name);
+    const ruwNaam = asString(rec.naam ?? rec.name);
+    // LAT-13816 — interne zoekmarker weg uit de toonnaam.
+    const naam = ruwNaam ? schoneStopNaam(ruwNaam) || null : null;
     const slug = asString(rec.slug);
     // Een stop zonder naam én zonder slug is niet renderbaar.
     if (!naam && !slug) return null;
@@ -114,7 +117,9 @@ function asHttpUrl(v: unknown): string | null {
 function parseOvernachting(row: unknown): ItineraryOvernachting | null {
     if (!row || typeof row !== 'object') return null;
     const rec = row as Record<string, unknown>;
-    const naam = asString(rec.naam ?? rec.name);
+    const ruwNaam = asString(rec.naam ?? rec.name);
+    // LAT-13816 — interne zoekmarker weg uit de toonnaam.
+    const naam = ruwNaam ? schoneStopNaam(ruwNaam) || null : null;
     const slug = asString(rec.slug);
     if (!naam && !slug) return null;
     return {
