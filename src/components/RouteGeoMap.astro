@@ -41,6 +41,10 @@ const line = (waypoints.length >= 2 ? waypoints : geo);
 // LAT-13816 — dagkleuren + vooraf berekende wegroute. Zonder `dag` of zonder
 // route-JSON blijft het gedrag van vóór LAT-13816 (rechte lijn, bordeaux pins).
 const segments = planRouteMap(geo, loadRouteLine(slug));
+// LAT-13816 — met een dagindeling staan dagen, km en stops al in de datastrip en de
+// legenda; de losse tags hieronder telden alle punten (ook wijnhuizen en slaapplekken)
+// en spraken de datastrip tegen ("10 stops" naast "4 stops").
+const toonMeta = !segments.some((s) => s.dag != null);
 const perDag = segments.some((sg) => sg.dag != null);
 const nummers = stopNummers(geo);
 const hasWijnhuis = geo.some((s: RouteStopGeo) => s.kind === 'wijnhuis');
@@ -91,7 +95,7 @@ const mapData = {
       </ul>
     )}
     <script type="application/json" data-routegeo-data set:html={JSON.stringify(mapData)} />
-    {(duration || transport) && (
+    {toonMeta && (duration || transport) && (
       <div class="routegeo__meta">
         {duration && <span class="routegeo__tag">{duration}</span>}
         {transport && <span class="routegeo__tag">{transport}</span>}
