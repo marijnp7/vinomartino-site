@@ -152,11 +152,12 @@ const schema = [
 </script>
 
 <style>
-  /* LAT-13771: eerste kaart <= 450 px op 1280x800 (was 470); alleen de bovenpadding, onderkant blijft .section. */
-  .acc-index { padding-top: var(--space-8); }
+  /* LAT-13771: eerste kaart <= 450 px op 1280x800 en <= 700 px op 390x844 (gemeten 626/690/717 op build 1452). */
+  .acc-index { padding-top: var(--space-4); }
+  .acc-index .wh-filters { margin-bottom: var(--space-5, 1.25rem); }
   .hero-sm {
     background: var(--paperDeep);
-    padding: var(--space-12) 0 var(--space-8);
+    padding: var(--space-8) 0 var(--space-5, 1.25rem);
     text-align: center;
   }
   .hero-sm h1 {
@@ -174,6 +175,15 @@ const schema = [
     margin-top: var(--space-3);
     max-width: 36rem;
     margin-inline: auto;
+  }
+  /* Desktop: kop links, intro rechts; telling naast de velden i.p.v. op een eigen rij. */
+  @media (min-width: 721px) {
+    .hero-sm .container { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: var(--space-8); align-items: end; text-align: left; }
+    .hero-sm .section-label { grid-column: 1; grid-row: 1; }
+    .hero-sm h1 { grid-column: 1; grid-row: 2; }
+    .hero-sm .hero-desc { grid-column: 2; grid-row: 2; margin: 0; max-width: none; }
+    .acc-index .wh-filters.kh-filters--2 { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1.5fr); padding-block: var(--space-4); }
+    .acc-index .wh-status { grid-column: auto; border-top: 0; padding-top: 0; min-height: 44px; }
   }
   .grid {
     display: grid;
