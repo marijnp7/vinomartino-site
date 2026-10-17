@@ -152,3 +152,18 @@ test('LAT-13914: CC-credit toont "Foto: <maker>" (EN "Photo:") zonder ©; Castig
     const perm = creditFromFileMeta('pers', 'Foto: Pio Cesare. Bron: https://www.piocesare.it');
     assert.equal(creditAuthorFor(perm, 'nl'), '© Pio Cesare', 'toestemming-credit houdt ©');
 });
+
+test('LAT-12364: cc-by-2.5 en cc-by-nd-2.0 krijgen een credit (art. 82 en 89 renderden zonder)', async () => {
+    const { creditFromFileMeta, creditAuthorFor } = await loadModule('lat12364', 'src/lib/image-credits.ts');
+    const by25 = creditFromFileMeta('cc-by-2.5', 'Foto: onbekende maker, CC BY 2.5, via Wikimedia Commons. Bron: https://commons.wikimedia.org/wiki/File%3APened%C3%A8s_montserrat01.jpg. Teruggevonden via SHA1 op 29-09-2026.');
+    assert.equal(by25.licenseLabel, 'CC BY 2.5');
+    assert.equal(by25.licenseUrl, 'https://creativecommons.org/licenses/by/2.5/');
+    assert.equal(by25.sourceUrl, 'https://commons.wikimedia.org/wiki/File%3APened%C3%A8s_montserrat01.jpg');
+    const nd = creditFromFileMeta('cc-by-nd-2.0', 'Wijngaardrijen op de meseta bij Gumiel de Mercado (Burgos), DO Ribera del Duero — zandpad, solitaire steeneik, avondlicht. Foto: CRDO Ribera del Duero, CC BY-ND 2.0 (https://creativecommons.org/licenses/by-nd/2.0/). Bron: officiele beeldbank van het DO-consortium via Flickr, https://www.flickr.com/photos/riberadelduero/8073819483 — origineel 5120x2039, opname 2009-09-09, camera Canon EOS 400D (EXIF bewaard). DAM ref 2079. Echte fotografie, niet gegenereerd; ND-clausule: uitsluitend mechanisch geschaald, niet bewerkt. Geplaatst via LAT-4804.');
+    assert.equal(nd.licenseLabel, 'CC BY-ND 2.0');
+    assert.equal(nd.licenseUrl, 'https://creativecommons.org/licenses/by-nd/2.0/');
+    assert.equal(creditAuthorFor(nd, 'nl'), 'Foto: CRDO Ribera del Duero');
+    assert.equal(nd.sourceUrl, 'https://www.flickr.com/photos/riberadelduero/8073819483', 'bron is Flickr, niet de licentie-URL');
+    assert.equal(nd.sourceLabel, 'Flickr');
+    for (const v of ['2.0', '2.5', '3.0', '4.0']) assert.ok(creditFromFileMeta(`cc-by-nd-${v}`, null), `cc-by-nd-${v}`);
+});
