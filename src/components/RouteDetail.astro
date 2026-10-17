@@ -119,6 +119,8 @@ const durationDays = Number(/(\d+)\s*(?:dagen|dag|days|day)\b/i.exec(entry.durat
 const etappeCount = pagina?.dagen.length ?? entry.itinerary?.days.length ?? (routeBody.hasDays ? routeBody.days.length : durationDays);
 // LAT-13816 — met een vooraf berekende wegroute en een dagindeling vervangt de
 // datastrip (dagen · km · stops · wijnhuizen · slapen) de losse statcellen.
+// De datastrip telt dagen uit routes.duration ("3 dagen") zodat een optionele extra dag
+// (Moezel: "Dag 4 · optioneel") de titel niet tegenspreekt; anders het aantal dagblokken.
 const heeftRouteLijn = loadRouteLine(entry.slug) != null && hasDagen(entry.stopsGeo);
 const wijnhuisLabels = Object.fromEntries((pagina?.wijnhuizen ?? []).map((w) => [w.slug, w.label]));
 const slotItems = pagina?.slapen?.items.slice(0, 3) ?? [];
@@ -150,7 +152,7 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
         />
 
         <div class="container route-one">
-          <RouteDataStrip slug={entry.slug} stops={entry.stopsGeo} dagen={pagina.dagen.length} slaapPlaatsen={pagina.dagen.map((d) => d.slaap?.plaats ?? null)} locale={locale} />
+          <RouteDataStrip slug={entry.slug} stops={entry.stopsGeo} dagen={durationDays ?? pagina.dagen.length} slaapPlaatsen={pagina.dagen.map((d) => d.slaap?.plaats ?? null)} locale={locale} />
           <nav class="breadcrumb" aria-label="Breadcrumb">
             {crumbs.slice(0, -1).map(c => (
               <><a href={lh(c.url)}>{c.name}</a> / </>
@@ -271,7 +273,7 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
         </header>
 
         {heeftRouteLijn ? (
-          <RouteDataStrip slug={entry.slug} stops={entry.stopsGeo} dagen={etappeCount ?? 0} locale={locale} />
+          <RouteDataStrip slug={entry.slug} stops={entry.stopsGeo} dagen={durationDays ?? etappeCount ?? 0} locale={locale} />
         ) : (
         <RouteStatStrip
           locale={locale}
