@@ -54,7 +54,7 @@
 # LOCK_WAIT_S
 # -----------
 # 600 s. Ondergrens is de kleinste job-cap die dit pad gebruikt: publish.yml
-# build-preview staat op `timeout-minutes: 20` (1200 s). Met een build van ~420 s
+# build-preview staat op `timeout-minutes: 30` (1800 s). Met een build van ~420 s
 # past 600 s wachten + 420 s bouwen daar nog in. Bij de realistische wachtrij
 # (één build vóór je) is de echte wachttijd ~420 s. Verlaag je ergens een
 # `timeout-minutes`, kijk dan of deze waarde nog past.

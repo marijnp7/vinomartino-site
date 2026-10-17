@@ -68,7 +68,7 @@ jobs:
   build-preview:
     needs: tests
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30 # gelijk aan deploy.yml-tests-cap; reaper MAX_AGE_MIN (40) blijft passen
     outputs:
       sha: ${{ steps.sha.outputs.sha }}
 
@@ -164,13 +164,21 @@ jobs:
             # "container name is already in use".
             # LAT-4966: serialiseer met de andere VPS-builds. Best-effort; sourcen,
             # niet uitvoeren. Let op de laagste job-cap van de drie workflows:
-            # build-preview staat op `timeout-minutes: 20`, en LOCK_WAIT_S (600s)
-            # is daarop afgestemd. Zie het script.
+            # build-preview staat op `timeout-minutes: 30`, LOCK_WAIT_S (600s)
+            # past daar ruim in. Zie het script.
             if [ -f scripts/vps-build-lock.sh ]; then . scripts/vps-build-lock.sh; fi
+            # Zelfde persistente beeldvarianten-cache als deploy.yml (LAT-12060).
+            # Zonder deze mount bouwt optimize-images.mjs elke run alle AVIF/WebP-
+            # varianten koud opnieuw en haalt build-preview de 20-minutengrens niet
+            # (twee keer afgebroken op 17-10-2026). Key is sha1-per-bron, delen is veilig.
+            mkdir -p /srv/vino-image-cache
+            echo "[image-cache] voor build: $(find /srv/vino-image-cache -type f | wc -l) bestanden"
             docker rm -f "vino-publish-$RUN_ID" >/dev/null 2>&1 || true
             docker run --rm --name "vino-publish-$RUN_ID" \
               --network directus_directus_net \
-              -v "$STAGE":/app -w /app \
+              -v "$STAGE":/app \
+              -v /srv/vino-image-cache:/image-cache -e IMAGE_VARIANT_CACHE=/image-cache \
+              -w /app \
               node:24 bash -c "npm ci && npm run build"
             printf '{"sha":"%s","runId":"%s","runNumber":"%s","builtAt":"%s"}\n' \
               "$GIT_SHA" "$RUN_ID" "$RUN_NUMBER" "$(date -u +%FT%TZ)" \
