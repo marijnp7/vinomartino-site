@@ -78,13 +78,25 @@ export interface ArticleSchemaData {
   url: string;
 }
 
+// LAT-14096 (besluit Marijn op LAT-12537): de byline is "Redactie VinoMartino".
+// Een redactie is geen persoon, dus dan is de auteur de publisher-Organization.
+const EDITORIAL_BYLINES = new Set(['redactie vinomartino', 'vinomartino editorial', 'vinomartino', '']);
+
+export function articleAuthor(name: string | null | undefined) {
+  const byline = (name ?? '').trim();
+  if (EDITORIAL_BYLINES.has(byline.toLowerCase())) {
+    return { '@type': 'Organization', name: SITE_NAME, url: SITE_URL };
+  }
+  return { '@type': 'Person', name: byline };
+}
+
 export function articleSchema(data: ArticleSchemaData) {
   return {
     '@context': 'https://schema.org',
     '@type': 'Article',
     headline: data.title,
     description: data.description,
-    author: { '@type': 'Person', name: data.author },
+    author: articleAuthor(data.author),
     publisher: {
       '@type': 'Organization',
       name: SITE_NAME,
