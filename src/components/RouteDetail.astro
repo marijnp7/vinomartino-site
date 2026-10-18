@@ -177,6 +177,15 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
             )}
           </RouteGlance>
 
+          {pagina.kaart?.foto && (
+            <figure class="route-one__kaart">
+              <a href={pagina.kaart.foto} target="_blank" rel="noopener">
+                <img src={pagina.kaart.foto} alt={pagina.kaart.fotoAlt || entry.title} loading="lazy" decoding="async" />
+              </a>
+              {pagina.kaart.bijschrift && <figcaption>{pagina.kaart.bijschrift}</figcaption>}
+            </figure>
+          )}
+
           <div id="route" class="route-one__dagen">
             <span id="zo-reisden-wij" aria-hidden="true"></span>
             {pagina.dagen.map((dag) => (
@@ -417,6 +426,10 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
 <style>
   .route-one { padding-top: var(--space-6); padding-bottom: var(--space-12); }
   .route-one > * { min-width: 0; }
+  /* LAT-13928: eigen streekkaart (DAM) onder de routekaart; bijschrift draagt de OSM-naamsvermelding. */
+  .route-one__kaart { margin: var(--space-6) 0; }
+  .route-one__kaart img { display: block; width: 100%; height: auto; border: 1px solid var(--color-border-light); }
+  .route-one__kaart figcaption { margin-top: var(--space-2); font-size: var(--text-sm, 0.875rem); color: var(--color-text-muted); }
   .route-one__intro { margin: var(--space-6) 0; }
   .route-one__praktisch { margin: var(--space-12) 0; }
   .route-one__praktisch h2, .route-one__slot h2 { font-family: var(--font-display); font-size: 1.75rem; font-weight: 500; margin: 0 0 var(--space-4); }

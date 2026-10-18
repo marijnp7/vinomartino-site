@@ -17,6 +17,7 @@
 //   wijnhuizen[{ slug, label }]   // label ("Zelf geweest") + volgorde in het grid
 //   praktisch { kop, items:[{label,value}] }
 //   slot      { kop, tekst, knop }   // CTA onderaan, gebruikt slapen.items[0..2]
+//   kaart     { foto, foto_alt, bijschrift, pin }   // LAT-13928: eigen streekkaart (DAM-UUID), onder de routekaart
 import { normalizeEmDashes } from './markdown';
 
 export interface PaginaSlaap {
@@ -79,6 +80,8 @@ export interface RoutePagina {
     wijnhuizen: { slug: string; label: string | null }[];
     praktisch: { kop: string | null; items: { label: string; value: string }[] } | null;
     slot: { kop: string | null; tekst: string | null; knop: string | null } | null;
+    /** LAT-13928: statische VinoMartino-streekkaart uit de DAM; `pin` is de 2:3-variant (Pinterest), niet gerenderd. */
+    kaart: { foto: string | null; fotoId?: string | null; fotoAlt: string | null; bijschrift: string | null; pin: string | null } | null;
 }
 
 type Rec = Record<string, unknown>;
@@ -166,6 +169,7 @@ export function parseRoutePagina(raw: unknown): RoutePagina | null {
     const s = isRec(p.slapen) ? p.slapen : null;
     const pr = isRec(p.praktisch) ? p.praktisch : null;
     const sl = isRec(p.slot) ? p.slot : null;
+    const ka = isRec(p.kaart) ? p.kaart : null;
 
     return {
         hero: {
@@ -209,6 +213,7 @@ export function parseRoutePagina(raw: unknown): RoutePagina | null {
         }),
         praktisch: pr ? { kop: str(pr.kop), items: pairs(pr.items) } : null,
         slot: sl ? { kop: str(sl.kop), tekst: str(sl.tekst), knop: str(sl.knop) } : null,
+        kaart: ka && str(ka.foto) ? { foto: str(ka.foto), fotoAlt: str(ka.foto_alt), bijschrift: str(ka.bijschrift), pin: str(ka.pin) } : null,
     };
 }
 
@@ -238,4 +243,8 @@ export async function finalizePagina(
         if (p.slapen.disclosureMd) p.slapen.disclosureHtml = await io.renderMd(p.slapen.disclosureMd);
     }
     if (p.introMd) p.introHtml = await io.renderMd(p.introMd);
+    if (p.kaart) {
+        await resolve(p.kaart);
+        if (!p.kaart.foto) p.kaart = null;
+    }
 }
