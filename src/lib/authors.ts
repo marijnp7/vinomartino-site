@@ -201,9 +201,17 @@ export function getAuthorBySlug(slug: string): Author | null {
 export function getAuthorByByline(byline: string | null | undefined): Author | null {
   if (!byline) return null;
   const lower = byline.toLowerCase();
+  // LAT-14096: heel-woord-match, geen substring. `includes('martino')` matchte
+  // "Redactie VinoMartino" op Marijn, waardoor de redactie-byline als Person
+  // "Marijn" op 131 artikelen bleef staan.
+  const words = lower.split(/[^\p{L}\p{N}-]+/u).filter(Boolean);
   for (const author of AUTHORS) {
     for (const candidate of author.matches) {
-      if (lower === candidate || lower.includes(candidate)) return author;
+      if (lower === candidate) return author;
+      const parts = candidate.split(/\s+/);
+      for (let i = 0; i + parts.length <= words.length; i++) {
+        if (parts.every((p, j) => words[i + j] === p)) return author;
+      }
     }
   }
   return null;
