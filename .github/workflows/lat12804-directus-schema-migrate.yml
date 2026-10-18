@@ -53,6 +53,7 @@ on:
           - lat13812-newsletter-kind.mjs
           - lat13876-file-credit-lieser.mjs
           - lat13914-file-credit-castiglione.mjs
+          - lat14038-file-credit-batch2.mjs
 
 concurrency:
   group: lat12804-directus-schema-migrate
