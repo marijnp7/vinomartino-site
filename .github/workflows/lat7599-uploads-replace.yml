@@ -1,0 +1,113 @@
+# LAT-7599 — per-bestand herstel van de 124 buitenom geschreven uploads-bestanden
+# (categorie A: bestaande directus_files-rij, filesize byte-exact) via de Directus-API.
+#
+# Goedgekeurd: kaart 0cd18e12 (Marijn 2026-10-18), alleen categorie A. De 13 orphans
+# (categorie B) zitten bewust NIET in ops/lat7599/category-a.txt.
+#
+# Methode (LAT-7594, niet heronderhandelen): GET /assets/:id -> PATCH /files/:id multipart
+# met dezelfde bytes, als admin, binnen vinomartino-directus-1 tegen localhost:8055. Directus
+# schrijft het bestand zelf (node:node) en logt een activity-rij. GEEN chown op de volume.
+# Per bestand: sha256 voor == na, filename_disk en filesize ongewijzigd, anders MISMATCH.
+# Het admin-token wordt binnen de container uit /run/secrets/admin_token gelezen en komt
+# nooit in argv, env of het runlog.
+#
+# Geen push-trigger; `mode` kiest alleen tussen vaste stappen, niets uit de input wordt
+# geinterpoleerd.
+
+name: LAT-7599 uploads replace (categorie A)
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'diagnose = eigenaar/modus van de 124 tellen; canary = 1 bestand; apply = alle 124; diagnose na afloop = verify'
+        required: true
+        default: diagnose
+        type: choice
+        options:
+          - diagnose
+          - canary
+          - apply
+
+concurrency:
+  group: lat7599-uploads-replace
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          [ -n "$CF_ACCESS_CLIENT_ID" ] && [ -n "$CF_ACCESS_CLIENT_SECRET" ] \
+            || { echo "::error::CF_ACCESS_CLIENT_ID/SECRET ontbreken (LAT-3437)"; exit 1; }
+          umask 077
+          printf 'CF_ACCESS_CLIENT_ID=%s\nCF_ACCESS_CLIENT_SECRET=%s\n' \
+            "$CF_ACCESS_CLIENT_ID" "$CF_ACCESS_CLIENT_SECRET" > ~/.ssh/cf-access.env
+          umask 022
+          cat >> ~/.ssh/config <<EOF
+          Host $VPS_HOST
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+            ProxyCommand bash $GITHUB_WORKSPACE/ops/cf-ssh-proxy.sh
+          EOF
+          cat "$GITHUB_WORKSPACE/ops/ssh-config-snippet" >> ~/.ssh/config
+
+      - name: Signatuur van de 124 (read-only, voor)
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+        run: |
+          ssh -o ServerAliveInterval=30 "$VPS" 'bash -s' < <(printf 'IDS="%s"\n' "$(cut -d' ' -f1 ops/lat7599/category-a.txt | tr '\n' ' ')"; cat <<'SH'
+          set -uo pipefail
+          C=vinomartino-directus-1
+          for id in $IDS; do docker exec "$C" sh -c "stat -c '%U:%G %A %n' /directus/uploads/$id.* 2>/dev/null | grep -v '__'"; done > /tmp/lat7599-sig.txt
+          echo "bestanden: $(wc -l < /tmp/lat7599-sig.txt)"
+          echo "node:node -rw-r--r--: $(grep -c '^node:node -rw-r--r-- ' /tmp/lat7599-sig.txt)"
+          echo "afwijkend:"; awk '{print $1, $2}' /tmp/lat7599-sig.txt | sort | uniq -c
+          rm -f /tmp/lat7599-sig.txt
+          SH
+          )
+
+      - name: Replace via Directus-API
+        if: inputs.mode == 'canary' || inputs.mode == 'apply'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          LIMIT: ${{ inputs.mode == 'canary' && '1' || '1000' }}
+        run: |
+          D=$(ssh "$VPS" 'mktemp -d /tmp/lat7599.XXXXXX')
+          scp -q ops/lat7599/replace.mjs ops/lat7599/category-a.txt "$VPS:$D/"
+          ssh -o ServerAliveInterval=30 "$VPS" "set -o pipefail
+            C=vinomartino-directus-1
+            docker cp $D/replace.mjs \$C:/tmp/lat7599-replace.mjs && docker cp $D/category-a.txt \$C:/tmp/lat7599-ids.txt
+            docker exec \$C node /tmp/lat7599-replace.mjs /tmp/lat7599-ids.txt $LIMIT | tee $D/out.txt
+            rc=\$?
+            docker exec -u 0 \$C rm -f /tmp/lat7599-replace.mjs /tmp/lat7599-ids.txt; rm -rf $D
+            exit \$rc" | tee out.txt
+          grep -q 'fail=0 ' out.txt || { echo "::error::niet alle bestanden OK"; exit 1; }
+
+      - name: Signatuur van de 124 (read-only, na)
+        if: inputs.mode == 'canary' || inputs.mode == 'apply'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+        run: |
+          ssh -o ServerAliveInterval=30 "$VPS" 'bash -s' < <(printf 'IDS="%s"\n' "$(cut -d' ' -f1 ops/lat7599/category-a.txt | tr '\n' ' ')"; cat <<'SH'
+          C=vinomartino-directus-1
+          for id in $IDS; do docker exec "$C" sh -c "stat -c '%U:%G %A %n' /directus/uploads/$id.* 2>/dev/null | grep -v '__'"; done | awk '{print $1, $2}' | sort | uniq -c
+          SH
+          )
