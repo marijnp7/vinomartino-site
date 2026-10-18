@@ -91,6 +91,7 @@
     "test:render-blocking-css": "node --test scripts/lat12594-render-blocking-css.test.mjs",
     "test:filterform-cls": "node --test scripts/lat12594-filterform-cls.test.mjs",
     "test:font-preloads": "node --test scripts/lat12594-font-preloads.test.mjs",
+    "test:acc-lcp-eager": "node scripts/lat12594-acc-lcp-eager.test.mjs",
     "test:single-high-priority": "node --test scripts/lat12594-single-high-priority.test.mjs",
     "test:lat13816-route-lines": "node --test scripts/lat13816-route-lines.test.mjs",
     "test:streek-docbytes": "node --test scripts/lat12594-streek-docbytes.test.mjs"

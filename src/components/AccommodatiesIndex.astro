@@ -121,10 +121,10 @@ const schema = [
         </div>
 
         <div class="grid">
-          {regios.map((r) => (
+          {regios.map((r, i) => (
             <article class="acc-card" data-kh-card data-zoek={r.zoek} data-land={r.landSlug}>
               <div class="card-img-wrap">
-                <SmartImg src={r.heroImage || undefined} alt={r.naam} theme="vineyard" class="card-img" />
+                <SmartImg src={r.heroImage || undefined} alt={r.naam} theme="vineyard" class="card-img" loading={i === 0 ? 'eager' : 'lazy'} fetchpriority={i === 0 ? 'high' : undefined} />
               </div>
               <div class="card-body">
                 {r.land && <span class="card-country">{r.land}</span>}
