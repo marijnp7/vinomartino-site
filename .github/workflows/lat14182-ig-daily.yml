@@ -13,13 +13,15 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'diagnose = alleen lezen (interface ig_publish.py + tokencheck); diagnose-hosting = alleen lezen (waar komen publieke image_urls vandaan)'
+        description: 'diagnose = alleen lezen (interface ig_publish.py + tokencheck); diagnose-hosting = alleen lezen; install = ig_daily.sh + systemd-timer 09:30 Europe/Amsterdam + dry-run; run-now = ig_daily.sh eenmalig echt'
         required: true
         default: diagnose
         type: choice
         options:
           - diagnose
           - diagnose-hosting
+          - install
+          - run-now
 
 concurrency:
   group: lat14182-ig-daily
@@ -165,3 +167,60 @@ jobs:
             history_dir=$(ls -d /root/vinomartino-site/public/images/social/post-3* 2>/dev/null | tail -3); echo "$history_dir"
         run: |
           printf '%s\n' "$DIAG" | ssh "$VPS" "bash -s"
+
+      # ---------------------------------------------------------------- install
+      - name: Install ig_daily.sh + timer
+        if: inputs.mode == 'install'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          INSTALL: |
+            set -euo pipefail
+            SRC=$(docker inspect paperclip-vinomartino-prod-1 --format '{{range .Mounts}}{{if eq .Destination "/usr/share/nginx/html"}}{{.Source}}{{end}}{{end}}')
+            echo "prod web root: ${SRC:-<geen>}"
+            WEB="$SRC/images/social"
+            [ -n "$SRC" ] && [ -d "$WEB/post-413" ] || { echo "FOUT: $WEB/post-413 niet gevonden"; docker inspect paperclip-vinomartino-prod-1 --format '{{range .Mounts}}{{.Source}} -> {{.Destination}}{{"\n"}}{{end}}'; exit 1; }
+            ls -ld "$WEB" "$WEB/post-413"
+            T=/opt/paperclip-social/bin/ig_daily.sh
+            [ -e "$T" ] && cp -p "$T" "$T.bak.$(date +%Y%m%d%H%M%S)"
+            sed "s#__WEB_DIR__#$WEB#" /tmp/lat14182-ig_daily.sh > "$T"; chmod 700 "$T"; rm -f /tmp/lat14182-ig_daily.sh
+            bash -n "$T" && echo "geinstalleerd: $(sha256sum "$T" | cut -c1-16) $T"
+            cat > /etc/systemd/system/paperclip-ig-daily.service <<'UNIT'
+            [Unit]
+            Description=LAT-14182 dagelijkse IG-plaatsing (ig_daily.sh)
+            After=network-online.target docker.service
+            [Service]
+            Type=oneshot
+            ExecStart=/opt/paperclip-social/bin/ig_daily.sh
+            StandardOutput=append:/var/log/paperclip-ig-daily.log
+            StandardError=append:/var/log/paperclip-ig-daily.log
+            UNIT
+            cat > /etc/systemd/system/paperclip-ig-daily.timer <<'UNIT'
+            [Unit]
+            Description=LAT-14182 IG daily 09:30 Europe/Amsterdam
+            [Timer]
+            OnCalendar=*-*-* 09:30:00 Europe/Amsterdam
+            Persistent=false
+            [Install]
+            WantedBy=timers.target
+            UNIT
+            sed -i 's/^            //' /etc/systemd/system/paperclip-ig-daily.service /etc/systemd/system/paperclip-ig-daily.timer
+            systemctl daemon-reload
+            systemctl enable --now paperclip-ig-daily.timer
+            systemctl cat paperclip-ig-daily.timer | grep -E 'OnCalendar'
+            systemctl list-timers paperclip-ig-daily.timer --no-pager
+            echo "=== dry-run ==="
+            "$T" --dry-run 2>&1 | sed -E 's/(EAA)[A-Za-z0-9_-]{20,}/<redacted>/g' || echo "dry-run exit $?"
+        run: |
+          { printf '%s\n' "cat > /tmp/lat14182-ig_daily.sh <<'IGDAILY_EOF'"; cat ops/lat14182/ig_daily.sh; printf '%s\n' "IGDAILY_EOF"; printf '%s\n' "$INSTALL"; } | ssh "$VPS" "bash -s"
+
+      # ---------------------------------------------------------------- run-now
+      - name: Run ig_daily.sh once
+        if: inputs.mode == 'run-now'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          RUN: |
+            set -uo pipefail
+            /opt/paperclip-social/bin/ig_daily.sh 2>&1 | tee -a /var/log/paperclip-ig-daily.log | sed -E 's/(EAA)[A-Za-z0-9_-]{20,}/<redacted>/g'
+            echo "exit ${PIPESTATUS[0]}"
+        run: |
+          printf '%s\n' "$RUN" | ssh "$VPS" "bash -s"
