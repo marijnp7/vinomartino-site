@@ -13,12 +13,13 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'diagnose = alleen lezen (interface ig_publish.py + tokencheck)'
+        description: 'diagnose = alleen lezen (interface ig_publish.py + tokencheck); diagnose-hosting = alleen lezen (waar komen publieke image_urls vandaan)'
         required: true
         default: diagnose
         type: choice
         options:
           - diagnose
+          - diagnose-hosting
 
 concurrency:
   group: lat14182-ig-daily
@@ -133,5 +134,34 @@ jobs:
                 print(f"  /me/accounts -> {s} " + json.dumps([{x: a.get(x) for x in ('id','name','instagram_business_account')} for a in j.get('data', [])] or j.get('error', {}))[:400])
             if not cands: print("GEEN token-kandidaat gevonden in", files)
             PY
+        run: |
+          printf '%s\n' "$DIAG" | ssh "$VPS" "bash -s"
+
+      # ---------------------------------------------------------- diagnose-hosting
+      - name: Diagnose hosting (read-only)
+        if: inputs.mode == 'diagnose-hosting'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          DIAG: |
+            set -uo pipefail
+            echo "=== ig_published.json: keys + image-urls van de laatste 3 ==="
+            python3 - <<'PY'
+            import json
+            s = json.load(open('/var/lib/paperclip/ig_published.json'))
+            items = list(s.items())[-3:]
+            for k, v in items:
+                print(k, json.dumps({x: v.get(x) for x in v if x not in ('caption',)}, ensure_ascii=False)[:900])
+            PY
+            echo "=== cron.d/paperclip-ig-insights ==="
+            cat /etc/cron.d/paperclip-ig-insights
+            echo "=== wie serveert vinomartino.com/images/social ==="
+            docker ps --format '{{.Names}}\t{{.Image}}' | grep -iE 'nginx|vino|caddy|web' 
+            for c in $(docker ps --format '{{.Names}}' | grep -iE 'nginx|vino.*(web|site)|caddy'); do
+              echo "-- $c"; docker inspect "$c" --format '{{range .Mounts}}{{.Source}} -> {{.Destination}} ({{.Mode}}){{"\n"}}{{end}}'
+            done
+            ls -la /root/vinomartino-site/dist/images/social 2>&1 | head -15
+            grep -rnE 'images/social|location .*/images|root |alias ' /etc/nginx/sites-enabled /opt/*/nginx* 2>/dev/null | head -20
+            curl -s -o /dev/null -w 'images/social/ probe %{http_code}\n' https://vinomartino.com/images/social/
+            history_dir=$(ls -d /root/vinomartino-site/public/images/social/post-3* 2>/dev/null | tail -3); echo "$history_dir"
         run: |
           printf '%s\n' "$DIAG" | ssh "$VPS" "bash -s"
