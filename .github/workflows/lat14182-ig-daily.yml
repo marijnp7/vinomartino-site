@@ -178,8 +178,8 @@ jobs:
             SRC=$(docker inspect paperclip-vinomartino-prod-1 --format '{{range .Mounts}}{{if eq .Destination "/usr/share/nginx/html"}}{{.Source}}{{end}}{{end}}')
             echo "prod web root: ${SRC:-<geen>}"
             WEB="$SRC/images/social"
-            [ -n "$SRC" ] && [ -d "$WEB/post-413" ] || { echo "FOUT: $WEB/post-413 niet gevonden"; docker inspect paperclip-vinomartino-prod-1 --format '{{range .Mounts}}{{.Source}} -> {{.Destination}}{{"\n"}}{{end}}'; exit 1; }
-            ls -ld "$WEB" "$WEB/post-413"
+            [ -n "$SRC" ] && [ -f "$SRC/index.html" ] || { echo "FOUT: geen prod web root met index.html"; docker inspect paperclip-vinomartino-prod-1 --format '{{range .Mounts}}{{.Source}} -> {{.Destination}}{{"\n"}}{{end}}'; exit 1; }
+            mkdir -p "$WEB"; chmod 755 "$WEB" "$SRC/images" 2>/dev/null; ls -ld "$WEB"  # tijdelijk: dist wordt bij elke deploy herbouwd; Instagram kopieert bij publish
             T=/opt/paperclip-social/bin/ig_daily.sh
             [ -e "$T" ] && cp -p "$T" "$T.bak.$(date +%Y%m%d%H%M%S)"
             sed "s#__WEB_DIR__#$WEB#" /tmp/lat14182-ig_daily.sh > "$T"; chmod 700 "$T"; rm -f /tmp/lat14182-ig_daily.sh
