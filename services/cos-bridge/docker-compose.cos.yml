@@ -1,4 +1,63 @@
 services:
+  # LAT-2811: draaiende containers die geen definitie meer hadden (orphans).
+  # Gereconstrueerd uit `docker inspect`; zonder deze twee verwijdert
+  # `--remove-orphans` de CoS-agent. Geen build: image staat lokaal.
+  cos:
+    container_name: paperclip-cos-1
+    image: paperclip-cos:latest
+    restart: unless-stopped
+    # OAuth-state van de CoS-agent; staat op volume cos-home en overleeft recreate.
+    environment:
+      - CLAUDE_CONFIG_DIR=/cos/.claude
+    volumes:
+      - cos-home:/cos
+      - cos-workspace:/cos/workspace
+    networks:
+      - paperclip_default
+
+  # LAT-1005-restant. Sinds LAT-2783 gebruikt cos-bridge cos-exec-proxy; deze
+  # proxy heeft geen consument meer. Opgenomen zoals hij draait, zodat hij niet
+  # stil verdwijnt; opheffen is een eigen besluit.
+  cos-proxy:
+    container_name: paperclip-cos-proxy-1
+    image: tecnativa/docker-socket-proxy:0.3
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      - VERSION=1
+      - IMAGES=0
+      - INFO=1
+      - SYSTEM=0
+      - ALLOW_RESTARTS=0
+      - SECRETS=0
+      - SESSION=0
+      - CONFIGS=0
+      - PING=1
+      - NODES=0
+      - AUTH=0
+      - NETWORKS=0
+      - TASKS=0
+      - DISTRIBUTION=0
+      - BUILD=0
+      - POST=1
+      - SWARM=0
+      - EVENTS=0
+      - LOG_LEVEL=warning
+      - VOLUMES=0
+      - EXEC=1
+      - CONTAINERS=1
+      - SERVICES=0
+      - PLUGINS=0
+      - GRPC=0
+      - ALLOW_STOP=0
+      - ALLOW_START=0
+      - COMMIT=0
+      - DISABLE_IPV6=0
+      - SOCKET_PATH=/var/run/docker.sock
+    networks:
+      - cos-internal
+
   # Bespoke exec-allowlist proxy (LAT-2783).
   # cos-bridge praat hier tegenaan i.p.v. tegen de rauwe docker.sock.
   # Laat uitsluitend `docker exec` op paperclip-cos-1 door; create/start/run → 403.
@@ -50,6 +109,10 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+
+volumes:
+  cos-home:
+  cos-workspace:
 
 networks:
   paperclip_default:
