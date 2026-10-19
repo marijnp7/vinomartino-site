@@ -55,6 +55,7 @@ on:
           - lat13914-file-credit-castiglione.mjs
           - lat14038-file-credit-batch2.mjs
           - lat14254-file-credit-aimasso.mjs
+          - add-accommodation-outreach-fields.mjs
 
 concurrency:
   group: lat12804-directus-schema-migrate
