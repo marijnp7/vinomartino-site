@@ -198,6 +198,8 @@ function stopToPoi(stop: ItineraryStop, pin: CardPin, hasProse = false): PoiCard
                 hideMediaWhenEmpty: true,
                 fotoTheme: 'region',
                 badge: ui.t('route.stop.overnachting'),
+                // LAT-14317: motivatie vóór de boek-CTA, alleen als de CMS hem levert.
+                whyRegel: d.overnachting.why ?? null,
                 // Elke overnachting is klikbaar: property- of zoeklink op booking.com (CJ-affiliate).
                 boeklink: stayHref,
                 cta: ui.t(isZoek ? 'route.cta.zoekBooking' : 'streekkaart.cta.overnachten'),
