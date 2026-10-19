@@ -163,8 +163,20 @@ async function selfTest() {
 
 async function main() {
   if (process.argv.includes('--self-test')) process.exit(await selfTest());
-  const all = await resolveSitemapUrls(SITE);
-  const pageUrls = all.filter(isAccommodationPage);
+  // Eerste GHA-run (39314445010) kreeg 0 pagina's uit de sitemap terwijl de
+  // linkcheck-job ernaast er 671 kreeg: opnieuw proberen en de status loggen.
+  let pageUrls = [];
+  for (let attempt = 1; attempt <= 4 && pageUrls.length === 0; attempt++) {
+    pageUrls = (await resolveSitemapUrls(SITE)).filter(isAccommodationPage);
+    if (pageUrls.length === 0) {
+      const probe = await fetchWithTimeout(`${SITE}/sitemap-index.xml`).then(
+        (r) => `HTTP ${r.status} ${r.headers.get('content-type')}`,
+        (e) => `fout: ${e.cause?.code || e.message}`,
+      );
+      console.warn(`[acc-images] poging ${attempt}: 0 accommodatiepagina's (sitemap-index: ${probe})`);
+      if (attempt < 4) await new Promise((r) => setTimeout(r, 15000 * attempt));
+    }
+  }
   console.log(`[acc-images] ${pageUrls.length} accommodatiepagina's uit sitemap van ${SITE}`);
   const res = await checkPages(pageUrls);
   await writeFile(REPORT_PATH, report({ site: SITE, ...res }), 'utf8');
