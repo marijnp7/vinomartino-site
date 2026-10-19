@@ -47,6 +47,8 @@ export interface ItineraryOvernachting {
     foto: string | null;
     /** Directus file-UUID van `foto` (na build-resolve), sleutel voor de beeldcredit. */
     fotoId?: string | null;
+    /** Eén waarom-regel uit de CMS (PoiCard whyRegel), LAT-14317. */
+    why?: string | null;
     /** booking.com-property- of zoek-URL; leeg = zoeken op de naam. */
     bookingUrl: string | null;
     /** Boekbaar → CTA op het nacht-blok. */
@@ -128,6 +130,7 @@ function parseOvernachting(row: unknown): ItineraryOvernachting | null {
         lat: asFiniteNumber(rec.lat),
         lng: asFiniteNumber(rec.lng),
         foto: asString(rec.foto ?? rec.image ?? rec.dam_image_ref),
+        why: asString(rec.why ?? rec.why_regel ?? rec.whyRegel),
         bookingUrl: asHttpUrl(rec.booking_url ?? rec.bookingUrl),
         boekbaar: rec.boekbaar === true || rec.boekbaar === 'true' || rec.bookable === true,
     };

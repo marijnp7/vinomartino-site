@@ -157,7 +157,7 @@ function toFloatOrNull(val: unknown): number | null {
 // die velden, dan vallen we terug op KERN (streek + status blijven behouden).
 const BASE_FIELDS_CORE =
     'id,slug,name,location,description,price_low,price_high,booking_url,hero_image,dam_image_ref,streek_id.name,streek_id.slug';
-const CURATIE_FIELDS = 'tier,lat,lng,why_regel';
+const CURATIE_FIELDS = 'tier,lat,lng,why_regel,why_this_one';
 const BASE_FIELDS = `${BASE_FIELDS_CORE},${CURATIE_FIELDS}`;
 
 interface RawAcc {
@@ -205,6 +205,9 @@ async function fetchAccommodations(url: string, token: string, locale: Locale): 
         throw new Error(`[loadAccommodaties] Directus gaf ${res.status}: ${body.slice(0, 300)}`);
     }
     const rawRows = ((await res.json()).data || []) as Record<string, unknown>[];
+    // LAT-14317: why_this_one is alleen een kaart-fallback; zonder EN-vertaling
+    // mag de NL-tekst niet op /en/ landen (i18n-nl gate), dus onthoud de NL-waarde.
+    const nlWhyThisOne = new Map(rawRows.map((r) => [String(r.id), r.why_this_one]));
     const rows = await localizeRecords(rawRows, {
         env,
         junction: 'accommodations_translations',
@@ -226,6 +229,11 @@ async function fetchAccommodations(url: string, token: string, locale: Locale): 
             locale,
         },
     );
+    if (locale === 'en') {
+        for (const row of rows) {
+            if (row.why_this_one && row.why_this_one === nlWhyThisOne.get(String(row.id))) row.why_this_one = null;
+        }
+    }
     return rows.map((row) => {
         const streek = (row.streek_id && typeof row.streek_id === 'object' ? row.streek_id : {}) as Record<string, unknown>;
         return { row, streekSlug: String(streek.slug || ''), streekName: String(streek.name || '') };
@@ -257,7 +265,9 @@ async function fetchAccommodatieRoundupsByStreek(locale: Locale): Promise<Map<st
                 lat: toFloatOrNull(row.lat),
                 lng: toFloatOrNull(row.lng),
                 beschrijving: normalizeEmDashes(String(row.description || '')),
-                whyRegel: row.why_regel ? normalizeEmDashes(String(row.why_regel)) : null,
+                // LAT-14317: zonder why_regel valt de kaart terug op why_this_one (zelfde
+                // motivatie die de streekpagina toont), anders staat de CTA zonder 'waarom'.
+                whyRegel: (row.why_regel || row.why_this_one) ? normalizeEmDashes(String(row.why_regel || row.why_this_one)) : null,
                 foto,
                 fotoAlt: null,
                 prijsLaag: toIntOrNull(row.price_low),
