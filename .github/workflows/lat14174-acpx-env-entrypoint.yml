@@ -96,6 +96,11 @@ jobs:
                 inb {skip=0; print}
               ' "$f" | sed -E 's/(PASSWORD|SECRET|TOKEN|KEY)([^:=]*)[:=].*/\1\2=<redacted>/I'
             done
+            echo "=== skelet per compose-bestand (alleen sleutels, waarden weg) ==="
+            for f in "${FA[@]}"; do
+              echo "--- $f"
+              sed -nE 's/^([[:space:]]*-?[[:space:]]*)([A-Za-z0-9_.-]+):.*/\1\2:/p; s/^([[:space:]]*)-[[:space:]]+([^:]+)$/\1- <item>/p' "$f" | cat -A | sed 's/\$$//' | head -80
+            done
             echo "=== /opt/paperclip/lat14174 ==="
             ls -la /opt/paperclip/lat14174 2>&1 | head
             echo "=== grep LAT-12882 in /app ==="
@@ -107,7 +112,7 @@ jobs:
             echo "=== lopende heartbeat-runs ==="
             docker exec paperclip-db-1 psql -U paperclip -d paperclip -X -At -c "select status, count(*) from heartbeat_runs where status in ('running','queued') group by 1"
             echo "=== laatste lat14174-regels in containerlog ==="
-            docker logs --tail 400 "$CTR" 2>&1 | grep -E 'lat14174|present|applied' | tail -5
+            docker logs --tail 400 "$CTR" 2>&1 | grep -E 'lat14174|present|applied' | tail -5 || true
         run: |
           printf '%s\n' "$DIAG" | ssh "$VPS" "bash -s"
 
@@ -195,7 +200,7 @@ jobs:
             ok=0
             for i in $(seq 1 60); do
               sleep 3
-              if docker logs --since "$T0" "$CTR" 2>&1 | grep -q 'Server listening'; then ok=1; break; fi
+              if docker logs --since "$T0" "$CTR" 2>&1 | grep 'Server listening' >/dev/null; then ok=1; break; fi
               code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 http://localhost:3100/ || true)
               case "$code" in 2*|3*|401|403) ok=1; break;; esac
             done
