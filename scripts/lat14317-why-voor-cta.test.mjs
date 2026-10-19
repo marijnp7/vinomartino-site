@@ -13,6 +13,11 @@ test('roundup-kaart vraagt why_this_one op en valt daarop terug', () => {
   assert.match(loader, /whyRegel: \(row\.why_regel \|\| row\.why_this_one\)/);
 });
 
+test('EN valt niet terug op een onvertaalde NL why_this_one', () => {
+  assert.match(loader, /nlWhyThisOne = new Map\(rawRows\.map/);
+  assert.match(loader, /locale === 'en'[\s\S]{0,200}row\.why_this_one === nlWhyThisOne\.get\(String\(row\.id\)\)\) row\.why_this_one = null/);
+});
+
 test('route-overnachting parseert why en geeft hem door aan PoiCard', () => {
   const parse = itin.slice(itin.indexOf('function parseOvernachting'));
   assert.match(parse.slice(0, parse.indexOf('\n}')), /why: asString\(rec\.why \?\? rec\.why_regel/);

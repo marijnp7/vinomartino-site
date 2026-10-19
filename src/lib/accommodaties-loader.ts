@@ -205,6 +205,9 @@ async function fetchAccommodations(url: string, token: string, locale: Locale): 
         throw new Error(`[loadAccommodaties] Directus gaf ${res.status}: ${body.slice(0, 300)}`);
     }
     const rawRows = ((await res.json()).data || []) as Record<string, unknown>[];
+    // LAT-14317: why_this_one is alleen een kaart-fallback; zonder EN-vertaling
+    // mag de NL-tekst niet op /en/ landen (i18n-nl gate), dus onthoud de NL-waarde.
+    const nlWhyThisOne = new Map(rawRows.map((r) => [String(r.id), r.why_this_one]));
     const rows = await localizeRecords(rawRows, {
         env,
         junction: 'accommodations_translations',
@@ -226,6 +229,11 @@ async function fetchAccommodations(url: string, token: string, locale: Locale): 
             locale,
         },
     );
+    if (locale === 'en') {
+        for (const row of rows) {
+            if (row.why_this_one && row.why_this_one === nlWhyThisOne.get(String(row.id))) row.why_this_one = null;
+        }
+    }
     return rows.map((row) => {
         const streek = (row.streek_id && typeof row.streek_id === 'object' ? row.streek_id : {}) as Record<string, unknown>;
         return { row, streekSlug: String(streek.slug || ''), streekName: String(streek.name || '') };
