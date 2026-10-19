@@ -54,6 +54,7 @@ on:
           - lat13876-file-credit-lieser.mjs
           - lat13914-file-credit-castiglione.mjs
           - lat14038-file-credit-batch2.mjs
+          - lat14254-file-credit-aimasso.mjs
 
 concurrency:
   group: lat12804-directus-schema-migrate
