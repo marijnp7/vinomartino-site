@@ -6,7 +6,7 @@
  *   - rood op de echte LAT-2529 kapotte GYG-links (7x zonder tour-id),
  *   - rood op een LAT-2251-Booking-regressie (aid/label zonder CJ-wrapper),
  *   - groen op de canonieke gerepareerde vorm (tour-id + attributie) en op de
- *     correct-gewrapte CJ-Booking-link + geldige GYG-zoeklink.
+ *     Stay22 Allez-wraps + geldige GYG-zoeklink; CJ is sinds LAT-14258 altijd rood.
  *
  * Draait zonder netwerk en zonder build: `node --test scripts/check-affiliate-links.test.mjs`.
  */
@@ -111,18 +111,76 @@ test('ROOD: directe Booking-deeplink met aid/label zonder CJ-wrapper (LAT-2251)'
   assert.match(v[0].reason, /CJ-klikdomein/);
 });
 
-test('GROEN: correct-gewrapte CJ-Booking-link (kqzyfj + url= + sid=)', () => {
+// LAT-14258: CJ is gestopt. Ook een vroeger "correct" gewrapte CJ-link is nu rood.
+test('ROOD: correct-gewrapte CJ-Booking-link (kqzyfj + url= + sid=) is na LAT-14258 rood', () => {
   const inner = encodeURIComponent('https://www.booking.com/hotel/it/brolio.html?keep_landing=1');
   const html = `<a href="https://www.kqzyfj.com/click-101734849-15734897?url=${inner}&amp;sid=accommodation-brolio">boek</a>`;
-  assert.deepEqual(scanHtml(html), []);
+  const v = scanHtml(html);
+  assert.equal(v.length, 1);
+  assert.equal(v[0].partner, 'booking-cj');
+  assert.match(v[0].reason, /CJ is gestopt/);
 });
 
-test('ROOD: CJ-klik-URL zonder sid', () => {
+test('ROOD: CJ-klik-URL zonder sid blijft rood (CJ gestopt)', () => {
   const inner = encodeURIComponent('https://www.booking.com/hotel/it/brolio.html');
   const html = `<a href="https://www.kqzyfj.com/click-101734849-15734897?url=${inner}">boek</a>`;
   const v = scanHtml(html);
   assert.equal(v.length, 1);
-  assert.match(v[0].reason, /sid/);
+  assert.match(v[0].reason, /CJ is gestopt/);
+});
+
+const stay22 = (kind, params) => `<a href="https://www.stay22.com/allez/${kind}?${params}">boek</a>`;
+const bookingInner = encodeURIComponent('https://www.booking.com/hotel/it/brolio.html?keep_landing=1');
+const gygInner = (q = 'partner_id=CRMZDZ6&utm_medium=online_publisher&cmp=streek-langhe') =>
+  encodeURIComponent(`https://www.getyourguide.com/florence-l32/x-t100899/?${q}`);
+
+test('GROEN: Stay22 Allez Booking-wrap (aid + campaign + link=booking.com)', () => {
+  assert.deepEqual(scanHtml(stay22('booking', `aid=vinomartino&amp;campaign=accommodation-brolio&amp;link=${bookingInner}`)), []);
+});
+
+test('ROOD: Stay22-wrap met verkeerde aid', () => {
+  const v = scanHtml(stay22('booking', `aid=iemandanders&amp;campaign=x&amp;link=${bookingInner}`));
+  assert.equal(v.length, 1);
+  assert.equal(v[0].partner, 'stay22');
+  assert.match(v[0].reason, /aid/);
+});
+
+test('ROOD: Stay22-wrap zonder campaign', () => {
+  const v = scanHtml(stay22('booking', `aid=vinomartino&amp;link=${bookingInner}`));
+  assert.equal(v.length, 1);
+  assert.match(v[0].reason, /campaign/);
+});
+
+test('ROOD: Stay22 /allez/booking zonder link=', () => {
+  const v = scanHtml(stay22('booking', 'aid=vinomartino&amp;campaign=x'));
+  assert.equal(v.length, 1);
+  assert.match(v[0].reason, /link=/);
+});
+
+test('ROOD: Stay22 /allez/booking met link= naar ander domein', () => {
+  const v = scanHtml(stay22('booking', `aid=vinomartino&amp;campaign=x&amp;link=${encodeURIComponent('https://www.expedia.com/h')}`));
+  assert.equal(v.length, 1);
+  assert.match(v[0].reason, /booking\.com/);
+});
+
+test('GROEN: Stay22 /allez/roam zonder link= is geldig', () => {
+  assert.deepEqual(scanHtml(stay22('roam', 'aid=vinomartino&amp;campaign=streek-langhe&amp;address=Barolo')), []);
+});
+
+test('GROEN: Stay22 GYG-wrap met geldige binnenste GYG-link', () => {
+  assert.deepEqual(scanHtml(stay22('getyourguide', `aid=vinomartino&amp;campaign=streek-langhe&amp;link=${gygInner()}`)), []);
+});
+
+test('ROOD: Stay22 GYG-wrap: binnenste GYG-link mist partner_id', () => {
+  const v = scanHtml(stay22('getyourguide', `aid=vinomartino&amp;campaign=streek-langhe&amp;link=${gygInner('utm_medium=online_publisher&cmp=streek-langhe')}`));
+  assert.equal(v.length, 1);
+  assert.match(v[0].reason, /partner_id/);
+});
+
+test('ROOD: Stay22 GYG-wrap: binnenste GYG-tour zonder tour-id', () => {
+  const inner = encodeURIComponent('https://www.getyourguide.com/florence-l32/wine-tour/?partner_id=CRMZDZ6&utm_medium=online_publisher&cmp=x');
+  const v = scanHtml(stay22('getyourguide', `aid=vinomartino&amp;campaign=x&amp;link=${inner}`));
+  assert.equal(v.length, 1);
 });
 
 test('ROOD: Awin-link met placeholder-affid', () => {

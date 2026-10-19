@@ -150,7 +150,7 @@ export function bookingSourceIntent(sourceUrl) {
     return 'unknown';
   }
   // CJ-wrapper (kqzyfj/anrdoezrs/dpbolvw): de echte bestemming zit in ?url=.
-  const inner = u.searchParams.get('url');
+  const inner = u.searchParams.get('link') || u.searchParams.get('url');
   if (inner) {
     try {
       u = new URL(inner);
@@ -203,12 +203,39 @@ export function judgeBooking(fu, status, sourceUrl) {
   return null;
 }
 
+// Stay22-wrap: oordeel op de bestemming (we bezoeken alleen de kale bestemming).
+function judgeStay22Destination(fu, status, sourceUrl) {
+  const h = normHost(fu.hostname);
+  if (/(^|\.)getyourguide\./.test(h)) return judgeGetYourGuide(fu, status);
+  return judgeBooking(fu, status, sourceUrl);
+}
+
 const JUDGES = {
   getyourguide: judgeGetYourGuide,
   'booking-cj': judgeBooking,
+  stay22: judgeStay22Destination,
   'booking-direct': judgeBooking,
   awin: judgeBooking,
 };
+
+/**
+ * LAT-14258: de nightly opent NOOIT een productie-affiliate-URL (dat is een echte klik
+ * per link per nacht, ongeldig verkeer bij CJ/Booking/Stay22). We pellen de wrapper af
+ * (Stay22 `link=`, CJ `url=`, Awin `ued=`) en strippen de affiliate-params, zodat alleen
+ * de kale bestemming (booking.com/getyourguide) wordt geladen.
+ */
+export function inertDestination(raw) {
+  let u;
+  try { u = new URL(raw); } catch { return raw; }
+  for (const k of ['link', 'url', 'ued']) {
+    const inner = u.searchParams.get(k);
+    if (inner && /^https?:\/\//i.test(inner)) {
+      try { u = new URL(inner); break; } catch { /* wrapper laten staan */ }
+    }
+  }
+  for (const k of ['aid', 'label', 'sid', 'partner_id', 'cmp', 'utm_medium', 'campaign', 'a_aid']) u.searchParams.delete(k);
+  return u.toString();
+}
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
@@ -220,6 +247,11 @@ function sleep(ms) {
  */
 async function visit(browser, entry) {
   const judge = JUDGES[entry.partner];
+  // Stay22-zoeklink zonder link= (allez/roam): geen bestemming om offline te toetsen;
+  // bezoeken zou een klik bij Stay22 zijn. Vorm is al door de statische check getoetst.
+  if (/(^|\.)stay22\.com$/i.test(new URL(inertDestination(entry.url)).hostname)) {
+    return { status: 'ok', httpStatus: null, finalUrl: null, reason: 'Stay22-zoeklink: niet bezocht (LAT-14258, geen klikken)' };
+  }
   // Jitter-throttle vóór de navigatie om rate-limits (Booking 429) te dempen.
   if (THROTTLE_MS > 0) await sleep(Math.round(THROTTLE_MS * (0.5 + Math.random())));
   let lastErr = null;
@@ -229,7 +261,7 @@ async function visit(browser, entry) {
     const context = await browser.newContext({ locale: 'nl-NL' });
     const page = await context.newPage();
     try {
-      const resp = await page.goto(entry.url, {
+      const resp = await page.goto(inertDestination(entry.url), {
         waitUntil: 'domcontentloaded',
         timeout: NAV_TIMEOUT_MS,
       });

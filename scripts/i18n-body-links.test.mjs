@@ -88,8 +88,9 @@ test('verrijkte route-body: interne links volgen dezelfde localisatie', async ()
   };
   const en = await renderEnrichedRouteBody(md, { ...ctx, locale: 'en' });
   assert.match(en.html, /href="\/en\/streken\/langhe-piemonte\/"/);
-  // LAT-11947: kale booking.com-links in de body lopen via de CJ-klik met subID n14-body.
-  assert.match(en.html, /href="https:\/\/www\.kqzyfj\.com\/click-[^"]*booking\.com[^"]*sid=n14-body"/);
+  // LAT-11947 + LAT-14258: kale booking.com-links in de body lopen via Stay22 Allez met campaign n14-body.
+  assert.match(en.html, /href="https:\/\/www\.stay22\.com\/allez\/booking\?aid=vinomartino(&#x26;|&amp;|&)campaign=n14-body(&#x26;|&amp;|&)link=https%3A%2F%2F(www\.)?booking\.com[^"]*"/);
+  assert.doesNotMatch(en.html, /kqzyfj/);
   assert.match(en.html, /rel="[^"]*sponsored/);
 
   const nl = await renderEnrichedRouteBody(md, ctx);

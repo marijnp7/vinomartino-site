@@ -121,6 +121,31 @@ function validateBookingCj(u) {
   return null;
 }
 
+// LAT-14258: CJ is gestopt (besluit Marijn 19-10-2026). Elke CJ-hop is nu rood.
+function validateCjRetired() {
+  return 'CJ-klikdomein (kqzyfj/dpbolvw/…) gerenderd, maar CJ is gestopt: boekingen lopen via Stay22 (LAT-14258)';
+}
+
+// Stay22 Allez link-wrap (src/lib/affiliates.ts stay22Wrap):
+// /allez/{booking|getyourguide}?aid=vinomartino&campaign=<label>&link=<bestemming>
+function validateStay22(u) {
+  if (u.searchParams.get('aid') !== 'vinomartino') return `Stay22-link aid="${u.searchParams.get('aid')}" ≠ "vinomartino" → attributie naar verkeerd account`;
+  if (!u.searchParams.get('campaign')) return 'Stay22-link mist campaign= → geen per-pagina rapportage';
+  const m = u.pathname.match(/^\/allez\/([a-z]+)/);
+  if (!m || m[1] === 'roam') return null; // roam = zoeklink op address=, geen link=
+  const link = u.searchParams.get('link');
+  if (!link) return `Stay22 /allez/${m[1]} mist link= (de bestemming)`;
+  let inner;
+  try { inner = new URL(link); } catch { return 'Stay22 link= is geen geldige URL'; }
+  const ih = normHost(inner.hostname);
+  if (m[1] === 'booking' && ih !== 'booking.com') return `Stay22 /allez/booking link= wijst niet naar booking.com (host="${ih}")`;
+  if (m[1] === 'getyourguide') {
+    if (!/(^|\.)getyourguide\.[a-z.]+$/.test(ih)) return `Stay22 /allez/getyourguide link= wijst niet naar getyourguide (host="${ih}")`;
+    return validateGetYourGuide(inner);
+  }
+  return null;
+}
+
 function validateBookingDirect(u) {
   // Een DIRECTE booking.com-href die Booking's eigen affiliate-params (aid/label)
   // draagt maar niet door het CJ-klikdomein loopt = precies de LAT-2251-regressie:
@@ -145,7 +170,8 @@ function validateAwin(u) {
 // ── Partner-register (generiek; nieuwe partner = één regel) ───────────────────
 const AFFILIATE_RULES = [
   { name: 'getyourguide', matchHost: (h) => /(^|\.)getyourguide\.[a-z.]+$/.test(h), validate: validateGetYourGuide },
-  { name: 'booking-cj', matchHost: (h) => CJ_REDIRECT_HOSTS.has(h), validate: validateBookingCj },
+  { name: 'booking-cj', matchHost: (h) => CJ_REDIRECT_HOSTS.has(h), validate: validateCjRetired },
+  { name: 'stay22', matchHost: (h) => h === 'stay22.com', validate: validateStay22 },
   { name: 'booking-direct', matchHost: (h) => h === 'booking.com', validate: validateBookingDirect },
   { name: 'awin', matchHost: (h) => /(^|\.)awin1\.com$/.test(h), validate: validateAwin },
   // Toekomst: Sunny Cars (TradeTracker), Stay22 → voeg hier een regel toe.

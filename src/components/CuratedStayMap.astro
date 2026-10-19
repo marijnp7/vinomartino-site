@@ -194,7 +194,7 @@ const mapData = {
                   href={bookingHref(acc)}
                   data-cj-href={bookingHref(acc)}
                   target="_blank"
-                  rel="sponsored noopener"
+                  rel="sponsored nofollow noopener"
                   data-affiliate-track
                   data-affiliate-partner={affiliatePartner(bookingHref(acc))}
                   data-affiliate-placement="stay-card"
@@ -290,7 +290,7 @@ const mapData = {
         `<span class="csm-popup__tier" style="color:${a.color}">${esc(a.tierLabel)}</span>` +
         `<h4 class="csm-popup__name">${esc(a.naam)}</h4>` +
         priceHtml +
-        `<a class="csm-popup__cta" href="${esc(a.boeklink)}" data-cj-href="${esc(a.boeklink)}" target="_blank" rel="sponsored noopener"` +
+        `<a class="csm-popup__cta" href="${esc(a.boeklink)}" data-cj-href="${esc(a.boeklink)}" target="_blank" rel="sponsored nofollow noopener"` +
         ` data-affiliate-track data-affiliate-partner="${esc(a.partner)}" data-affiliate-placement="map-popup"` +
         ` data-affiliate-context="streek-${esc(data.slug)}" data-cta="bekijk-boek">Bekijk &amp; boek →</a>` +
         `</div>`;

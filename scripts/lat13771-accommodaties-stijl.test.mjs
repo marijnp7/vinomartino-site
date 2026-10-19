@@ -80,7 +80,7 @@ test('compacte kaart: CTA via accommodatieBookingHref met dezelfde tracking als 
   assert.match(KAART, /const href = accommodatieBookingHref\(kaart\);/);
   const cta = KAART.match(/<a\s+class="acc-kaart__cta"[\s\S]*?>/);
   assert.ok(cta, 'compacte CTA niet gevonden');
-  for (const attr of ['href={href}', 'target="_blank"', 'rel="sponsored noopener"', 'data-affiliate-track',
+  for (const attr of ['href={href}', 'target="_blank"', 'rel="sponsored nofollow noopener"', 'data-affiliate-track',
     'data-affiliate-partner={ctaPartner}', 'data-affiliate-placement="accommodatie-kaart"',
     'data-affiliate-context={ctaContext}', 'data-cta="bekijk-boek"']) {
     assert.ok(cta[0].includes(attr), `CTA mist ${attr}`);

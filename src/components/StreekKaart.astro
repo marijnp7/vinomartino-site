@@ -371,7 +371,7 @@ const usedCats = sections.map((s) => s.key);
       const priceHtml = p.prijs ? `<span class="skz-popup__price">${esc(p.prijs)}</span>` : '';
       let ctaHtml = '';
       if (p.boeklink) {
-        ctaHtml = `<a class="skz-popup__cta" href="${esc(p.boeklink)}" target="_blank" rel="sponsored noopener"`
+        ctaHtml = `<a class="skz-popup__cta" href="${esc(p.boeklink)}" target="_blank" rel="sponsored nofollow noopener"`
           + ` data-affiliate-track data-affiliate-partner="${esc(p.partner)}"`
           + ` data-affiliate-placement="streek-map-${esc(p.category)}" data-affiliate-context="streek-${esc(data.slug)}">`
           + `${esc(p.cta)} &rarr;</a>`;

@@ -26,12 +26,18 @@ test('directe boeklink blijft ongewijzigd', () => {
   assert.equal(isAffiliateHref(chassy), false);
 });
 
-test('booking.com en lege links lopen via CJ en zijn affiliate', () => {
+test('booking.com en lege links lopen via Stay22 Allez (LAT-14258) en zijn affiliate', () => {
   const hotel = accommodatieBookingDeeplink('X', 'Loire', 'https://www.booking.com/hotel/fr/x.html', 'sid');
   const zoek = accommodatieBookingDeeplink('X', 'Loire', null, 'sid');
   const stay22 = accommodatieBookingDeeplink('X', 'Loire', 'https://www.stay22.com/allez/x', 'sid');
   for (const href of [hotel, zoek, stay22]) {
-    assert.match(href, /kqzyfj\.com/);
+    assert.doesNotMatch(href, /kqzyfj|click-101734849/);
+    const u = new URL(href);
+    assert.equal(u.hostname, 'www.stay22.com');
+    assert.equal(u.pathname, '/allez/booking');
+    assert.equal(u.searchParams.get('aid'), 'vinomartino');
+    assert.equal(u.searchParams.get('campaign'), 'sid');
+    assert.equal(new URL(u.searchParams.get('link')).hostname, 'www.booking.com');
     assert.equal(isAffiliateHref(href), true);
   }
   assert.equal(isDirectBoeklink('https://www.stay22.com/allez/x'), false);

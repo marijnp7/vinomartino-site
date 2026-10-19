@@ -62,16 +62,27 @@ export const CJ_CONFIG = {
   cjLinkId: '15734897',
 } as const;
 
-/** CJ-klikdomein voor de redirect-hop (kqzyfj.com = dpbolvw.net = anrdoezrs.net). */
-const CJ_CLICK_BASE = 'https://www.kqzyfj.com';
+// LAT-14258 (besluit Marijn 19-10-2026): CJ stopt, alle boekingen lopen via Stay22.
+// CJ_CONFIG blijft alleen staan zodat oude Directus-data herkend en afgepeld kan worden;
+// er wordt geen enkele kqzyfj-/dpbolvw-link meer gerenderd.
+//
+// Stay22 Allez link-wrapping, hetzelfde formaat dat LinkSwap (letmeallez.js) zelf
+// client-side maakt (gemeten in de LAT-13406-captures):
+//   https://www.stay22.com/allez/{booking|getyourguide}?aid=vinomartino&campaign=<sid>&link=<url>
+// Server-side gerenderd, dus ook attributie bij Do Not Track/GPC (dan laadt LinkSwap niet).
+export const STAY22_ALLEZ_BASE = 'https://www.stay22.com/allez';
+export const STAY22_AFFILIATE_AID = 'vinomartino';
 
-// Wrap een schone booking.com-deeplink door de evergreen CJ-klik-URL. De property-URL
-// gaat correct ge-encodeURIComponent als `url`-param mee; `sid` draagt de per-pagina SubID.
-function cjClickWrap(finalBookingUrl: string, sid: string): string {
-  const u = new URL(`${CJ_CLICK_BASE}/click-${CJ_CONFIG.cjWebsiteId}-${CJ_CONFIG.cjLinkId}`);
-  u.searchParams.set('url', finalBookingUrl);
-  u.searchParams.set('sid', sid);
+export function stay22Wrap(product: 'booking' | 'getyourguide', destination: string, campaign: string): string {
+  const u = new URL(`${STAY22_ALLEZ_BASE}/${product}`);
+  u.searchParams.set('aid', STAY22_AFFILIATE_AID);
+  u.searchParams.set('campaign', campaign);
+  u.searchParams.set('link', destination);
   return u.toString();
+}
+
+function cjClickWrap(finalBookingUrl: string, sid: string): string {
+  return stay22Wrap('booking', finalBookingUrl, sid);
 }
 
 // CJ-redirectdomeinen (de blokkeerbare tussenhops). Een legacy boeklink kan nog
@@ -87,6 +98,9 @@ export function unwrapCjRedirect(raw: string): string {
   try {
     const u = new URL(raw);
     const host = u.hostname.toLowerCase().replace(/^www\./, '');
+    if (host === 'stay22.com' && u.pathname.startsWith('/allez/') && u.searchParams.get('link')) {
+      return u.searchParams.get('link') as string;
+    }
     const isCjHop = CJ_REDIRECT_HOSTS.some((h) => host === h || host.endsWith(`.${h}`));
     if (!isCjHop) return raw;
     const target = u.searchParams.get('url');
@@ -187,7 +201,7 @@ export function buildBookingSearchLink(query: string, sid: string, locale: Local
     u.searchParams.set('ss', query);
     return cjClickWrap(applyBookingLocale(u.toString(), locale), sid);
   } catch {
-    return `${CJ_CLICK_BASE}/click-${CJ_CONFIG.cjWebsiteId}-${CJ_CONFIG.cjLinkId}`;
+    return stay22Wrap('booking', 'https://www.booking.com/', sid);
   }
 }
 

@@ -12,6 +12,7 @@ import {
   isBookingChallenge,
   isBookingSearchRefusal,
   bookingSourceIntent,
+  inertDestination,
 } from './check-affiliate-links-live.mjs';
 import { collectAffiliateUrls } from './check-affiliate-links.mjs';
 
@@ -164,4 +165,30 @@ test('Booking: 404 op /searchresults = weigering aan de client, geen rood (LAT-1
   assert.equal(isBookingSearchRefusal(new URL('https://www.booking.com/searchresults.html'), 404), true);
   assert.equal(isBookingSearchRefusal(new URL('https://www.booking.com/searchresults.html'), 200), false);
   assert.equal(isBookingSearchRefusal(new URL('https://www.booking.com/hotel/pt/solar-do-alenquer.nl.html'), 404), false);
+});
+
+// LAT-14258: de live check bezoekt nooit de affiliate-URL zelf (geen klik bij
+// Stay22/CJ), maar de kale bestemming zonder attributieparameters.
+test('inertDestination: Stay22- en CJ-wrap worden een kale booking.com-URL zonder affiliate-params', () => {
+  const booking = 'https://www.booking.com/hotel/it/brolio.html?keep_landing=1&aid=818285&label=pub-x';
+  const wraps = [
+    `https://www.stay22.com/allez/booking?aid=vinomartino&campaign=accommodation-brolio&link=${encodeURIComponent(booking)}`,
+    `https://www.kqzyfj.com/click-101734849-15734897?url=${encodeURIComponent(booking)}&sid=accommodation-brolio`,
+  ];
+  for (const w of wraps) {
+    const d = new URL(inertDestination(w));
+    assert.equal(d.hostname, 'www.booking.com', w);
+    assert.equal(d.pathname, '/hotel/it/brolio.html', w);
+    assert.doesNotMatch(d.hostname, /stay22|kqzyfj/, w);
+    for (const k of ['aid', 'label', 'sid', 'partner_id', 'campaign']) assert.equal(d.searchParams.has(k), false, `${k} in ${d}`);
+    assert.equal(d.searchParams.get('keep_landing'), '1');
+  }
+});
+
+test('inertDestination: Stay22 GYG-wrap wordt kale GYG-tour zonder partner_id/cmp', () => {
+  const gygUrl = 'https://www.getyourguide.com/florence-l32/x-t100899/?partner_id=CRMZDZ6&utm_medium=online_publisher&cmp=streek-langhe';
+  const d = new URL(inertDestination(`https://www.stay22.com/allez/getyourguide?aid=vinomartino&campaign=streek-langhe&link=${encodeURIComponent(gygUrl)}`));
+  assert.equal(d.hostname, 'www.getyourguide.com');
+  assert.equal(d.pathname, '/florence-l32/x-t100899/');
+  for (const k of ['partner_id', 'cmp', 'utm_medium', 'aid', 'campaign']) assert.equal(d.searchParams.has(k), false, k);
 });
