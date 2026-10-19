@@ -1,7 +1,7 @@
 import { enhanceArticleVisualBlocks } from './article-visual-blocks';
 import { enhanceArticleTables } from './article-tables';
 import { DEFAULT_LOCALE, localizeHref, type Locale } from './i18n';
-import { buildCjBookingLink, CJ_REDIRECT_HOSTS } from './affiliates';
+import { buildCjBookingLink, CJ_REDIRECT_HOSTS, stay22Wrap } from './affiliates';
 
 interface MarkdownOptions {
   editorialTables?: boolean;
@@ -381,16 +381,27 @@ export function localizeHastLinks(parent: HastParent, locale: Locale): void {
 
 // LAT-11947: een kale booking.com-link in de redactionele body lekte attributie. Wrap ze
 // bij het renderen door de CJ-klik (eigen subID `n14-body`) en markeer ze als gesponsord.
+// LAT-14258: een oude CJ-hop uit de CMS-body wordt afgepeld en via Stay22 opnieuw gewrapt.
+function isCjHopHref(href: string): boolean {
+  try {
+    const h = new URL(href).hostname.toLowerCase().replace(/^www\./, '');
+    return CJ_REDIRECT_HOSTS.some((c) => h === c || h.endsWith(`.${c}`));
+  } catch { return false; }
+}
+
 export function wrapBookingHastLinks(parent: HastParent, locale: Locale): void {
   if (!Array.isArray(parent.children)) return;
   for (const node of parent.children) {
     if (node.type === 'element' && node.tagName?.toLowerCase() === 'a') {
       const href = node.properties?.href;
-      if (typeof href === 'string' && /^https?:\/\/(www\.)?booking\.com\//i.test(href)) {
+      if (typeof href === 'string' && (/^https?:\/\/(www\.)?booking\.com\//i.test(href) || isCjHopHref(href))) {
         const cur = node.properties?.rel;
         const rel = new Set((Array.isArray(cur) ? cur.join(' ') : String(cur ?? '')).split(/\s+/).filter(Boolean));
         rel.add('sponsored'); rel.add('nofollow');
         node.properties = { ...node.properties, href: buildCjBookingLink(href, 'n14-body', locale), rel: [...rel].join(' ') };
+      } else if (typeof href === 'string' && /^https?:\/\/([a-z0-9-]+\.)*getyourguide\.[a-z.]+\//i.test(href)) {
+        // LAT-14258: GYG-bodylinks lopen ook via Stay22.
+        node.properties = { ...node.properties, href: stay22Wrap('getyourguide', href, 'n14-body') };
       }
     }
     wrapBookingHastLinks(node as HastParent, locale);
@@ -410,7 +421,13 @@ const BODY_AFFILIATE_HOSTS: Array<[string[], string]> = [
 
 export function affiliatePartnerForHref(href: string): string | null {
   let host: string;
-  try { host = new URL(href).hostname.toLowerCase(); } catch { return null; }
+  let path = '';
+  try { const u = new URL(href); host = u.hostname.toLowerCase(); path = u.pathname; } catch { return null; }
+  // LAT-14258: een Stay22-wrap telt onder de partner waar hij naartoe leidt.
+  if (/(^|\.)stay22\.com$/.test(host)) {
+    if (path.startsWith('/allez/booking')) return 'booking';
+    if (path.startsWith('/allez/getyourguide')) return 'getyourguide';
+  }
   for (const [hosts, partner] of BODY_AFFILIATE_HOSTS) {
     if (hosts.some((h) => host === h || host.endsWith(`.${h}`))) return partner;
   }

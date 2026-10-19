@@ -43,7 +43,7 @@ test('partner wordt van de host afgeleid', () => {
 test('elke affiliate-link in de body is getrackt, interne en gewone externe links niet', async () => {
   const html = await markdownToHtml(BODY, { affiliateContext: 'auto-huren-sardinie' });
   const as = anchors(html);
-  const aff = as.filter((a) => /discovercars|kqzyfj|getyourguide|tradetracker/.test(a));
+  const aff = as.filter((a) => /discovercars|kqzyfj|stay22|getyourguide|tradetracker/.test(a));
   assert.equal(aff.length, 5, html);
   for (const a of aff) {
     assert.match(a, /data-affiliate-track/);
@@ -58,12 +58,32 @@ test('elke affiliate-link in de body is getrackt, interne en gewone externe link
   for (const a of as.filter((x) => /sardegna|wikipedia/.test(x))) assert.doesNotMatch(a, /data-affiliate/);
 });
 
-test('regressie: kale booking.com wordt nog steeds via CJ n14-body gewrapt, en daarna getrackt', async () => {
+test('regressie: kale booking.com wordt via Stay22 Allez n14-body gewrapt (LAT-14258), en daarna getrackt', async () => {
   const html = await markdownToHtml('[B](https://www.booking.com/hotel/it/x.html)', { affiliateContext: 'x' });
   const [a] = anchors(html);
-  assert.match(a, /kqzyfj\.com\/click-101734849/);
-  assert.match(a, /sid=n14-body/);
+  assert.doesNotMatch(a, /kqzyfj|click-101734849/);
+  const href = a.match(/href="([^"]+)"/)[1].replace(/&#x26;|&amp;/g, '&');
+  const u = new URL(href);
+  assert.equal(u.hostname, 'www.stay22.com');
+  assert.equal(u.pathname, '/allez/booking');
+  assert.equal(u.searchParams.get('aid'), 'vinomartino');
+  assert.equal(u.searchParams.get('campaign'), 'n14-body');
+  assert.match(u.searchParams.get('link'), /^https:\/\/www\.booking\.com\/hotel\/it\/x\.html/);
+  assert.match(a, /rel="[^"]*sponsored[^"]*"/);
   assert.match(a, /data-affiliate-partner="booking"/);
+});
+
+test('GYG-bodylink wordt via Stay22 Allez gewrapt met partner_id in de binnenste link', async () => {
+  const html = await markdownToHtml('[G](https://www.getyourguide.com/x-l1/y-t123/?partner_id=CRMZDZ6)', { affiliateContext: 'x' });
+  const [a] = anchors(html);
+  const u = new URL(a.match(/href="([^"]+)"/)[1].replace(/&#x26;|&amp;/g, '&'));
+  assert.equal(u.hostname, 'www.stay22.com');
+  assert.equal(u.pathname, '/allez/getyourguide');
+  assert.equal(u.searchParams.get('aid'), 'vinomartino');
+  assert.equal(u.searchParams.get('campaign'), 'n14-body');
+  assert.equal(new URL(u.searchParams.get('link')).searchParams.get('partner_id'), 'CRMZDZ6');
+  assert.match(a, /rel="[^"]*sponsored[^"]*nofollow|rel="[^"]*nofollow[^"]*sponsored/);
+  assert.match(a, /data-affiliate-track/);
 });
 
 test('een al gemarkeerde link houdt zijn eigen plaatsing', async () => {
