@@ -26,7 +26,8 @@
  * 1. Leest bezocht.yml voor de lijst van bezochte streken.
  * 2. Leest plaatsen.yml voor de plaatsnamen per streek.
  * 3. Wandelt dist/**\/*.html.
- * 4. Bepaalt per pagina de tier via data-page-tier op de pagina-root (LAT-12964).
+ * 4. Bepaalt per pagina de tier via data-page-tier op de pagina-root (LAT-12964); regel
+ *    a/b/f scannen alleen die root, zonder het gedeelde blok Ontdek verder.
  * 5. Past de zeven regels toe en rapporteert overtredingen.
  * Exit 0 = 0 overtredingen. Exit 1 = overtredingen gevonden.
  */
@@ -120,6 +121,46 @@ function paginaTier(html) {
   return m ? m[1].toLowerCase() : null;
 }
 
+// LAT-12964 stap 3 — regel a/b/f lezen alleen de eigen redactionele tekst: het element met
+// data-page-tier (de <article>-root van ArtikelDetail/StreekDetail), zonder het gedeelde
+// blok "Ontdek verder" (section.content-links). Gedeelde blokken buiten die root (header
+// met de disclosure-promo "Twaalf streken bezocht ik zelf…", nav, footer) gaven op vrijwel
+// elke Redactiegids-pagina een vals regel-a-signaal.
+// Einde van het element dat op `start` opent, met nesting van dezelfde tag meegeteld.
+function eindVanElement(html, start, tag) {
+  const rx = new RegExp(`<(\\/?)${tag}\\b[^>]*>`, 'gi');
+  rx.lastIndex = start;
+  let depth = 0;
+  for (let m; (m = rx.exec(html));) {
+    depth += m[1] ? -1 : 1;
+    if (depth === 0) return m.index + m[0].length;
+  }
+  return html.length;
+}
+
+function paginaScope(html) {
+  const start = html.search(/<article\b[^>]*\sdata-page-tier="/i);
+  if (start < 0) return '';
+  let scope = html.slice(start, eindVanElement(html, start, 'article'));
+  for (let i; (i = scope.search(/<section\b[^>]*class="[^"]*\bcontent-links\b/i)) >= 0;) {
+    scope = scope.slice(0, i) + ' ' + scope.slice(eindVanElement(scope, i, 'section'));
+  }
+  return scope;
+}
+
+// LAT-12964 stap 4 — regel d: accommodatienamen ("Pieve Aldina - Relais & Châteaux",
+// "Franschhoek Boutique Hotel – Lion Roars") zijn eigennamen uit de partnerdata, geen
+// gedachtestreep. Namen uit de accommodatiekaarten worden vóór regel d gemaskeerd, ook
+// waar dezelfde naam in lopende tekst staat. Overige " - " in titels en tekst blijft rood.
+function accommodatieNamen(html) {
+  const out = new Set();
+  for (const m of html.matchAll(/<(h[1-6]|p|span|a)\b[^>]*class="[^"]*\b(?:poi-card__name|acc-kaart__name)\b[^"]*"[^>]*>([\s\S]*?)<\/\1>/gi)) {
+    const naam = innerText(m[2]).replace(/&#39;/g, "'").trim();
+    if (/\s[-–]\s/.test(naam)) out.add(naam);
+  }
+  return [...out].sort((x, y) => y.length - x.length);
+}
+
 function hasFaqSection(html) {
   return /<div[^>]*faq|<section[^>]*faq|<dl|<details/i.test(html);
 }
@@ -185,7 +226,8 @@ for await (const file of walk(DIST)) {
   // Spatie-koppelteken-spatie ( - ) is verboden als gedachtestreep; bereiken zijn altijd
   //   getal-koppelteken-getal (al afgevangen door de anchor) of hotelnaamparen — die echter
   //   altijd in naam-tekst staan zonder spaties rondom als bereik, dus spatie - spatie is verboden.
-  const fullText = title + ' ' + text;
+  let fullText = (title + ' ' + text).replace(/&#39;/g, "'");
+  for (const naam of accommodatieNamen(html)) fullText = fullText.split(naam).join(' ');
 
   // Em-dash: altijd verboden
   for (const m of fullText.matchAll(/—/g)) {
@@ -198,7 +240,8 @@ for await (const file of walk(DIST)) {
   for (const m of fullText.matchAll(/–/g)) {
     const before = fullText.slice(Math.max(0, m.index - 4), m.index);
     const after  = fullText.slice(m.index + 1, m.index + 5);
-    const isBereik = /[0-9€$]$/.test(before) || /^[0-9€$]/.test(after)
+    // "Nu – 2035", "2019 – 2024": een bereik met spaties naar een jaartal/getal.
+    const isBereik = /[0-9€$]\s?$/.test(before) || /^\s?[0-9€$]/.test(after)
       || (/[a-zA-ZÀ-ÖØ-öø-ÿ]$/.test(before) && /^[a-zA-ZÀ-ÖØ-öø-ÿ]/.test(after));
     if (!isBereik) {
       const ctx = fullText.slice(Math.max(0, m.index - 40), m.index + 40).trim();
@@ -220,11 +263,16 @@ for await (const file of walk(DIST)) {
     if (m) report(rel, 'e', label);
   }
 
+  const scopeText = innerText(paginaScope(html));
+
   if (gids) {
+    const text = scopeText;
     // a: Redactiegids — geen eerste persoon VT, geen Sophie, geen "geproefd"/"we sliepen"/"we zaten"
     const vtPatterns = [
       /\b(ik|we|wij)\s+(sliep|sliepen|at|aten|proefde[n]?|bezocht[e]?|dronk|dronken|zag|zagen|reed|reden|liep|liepen|stond|stonden)\b/gi,
-      /\bgeproefd\b/gi,
+      // "geproefd" alleen met een eerste persoon in dezelfde zin; passief ("wordt geproefd",
+      // "als het is geproefd") is geen bezoekclaim (LAT-12964).
+      /\b(?:ik|we|wij|mijn|ons|onze)\b[^.!?:]{0,80}\bgeproefd\b|\bgeproefd\b[^.!?]{0,80}\b(?:ik|we|wij|mijn)\b/gi,
       /\bwe\s+sliepen\b/gi,
       /\bwe\s+zaten\b/gi,
       /\bwe\s+aten\b/gi,
@@ -244,7 +292,7 @@ for await (const file of walk(DIST)) {
     // b + f: ooggetuige-zinnen (eerste persoon VT = bezoekclaim). Meningen als "hier zou ik
     // slapen" matchen niet. Een geldige bron-markering (RS-id of marijn datum) is het bewijs
     // en maakt de zin vrij van b en f.
-    const bronText = innerText(metBronAttributen(html));
+    const bronText = innerText(metBronAttributen(paginaScope(html)));
     const vtRx = /[^.!?]*\b(ik|we|wij)\s+(sliep|sliepen|at|aten|proefde[n]?|bezocht[e]?|dronk|dronken|zag|zagen)\b[^.!?]*/gi;
     for (const m of bronText.matchAll(vtRx)) {
       const zin = m[0];

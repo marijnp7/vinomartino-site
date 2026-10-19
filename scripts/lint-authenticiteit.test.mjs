@@ -7,7 +7,10 @@ import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 function makeHtml(body, badge = '') {
-  return `<!doctype html><html><head><title>Test</title></head><body>${badge}${body}</body></html>`;
+  // Zoals op productie staat de body binnen de tier-root (<article data-page-tier>); de lint
+  // scant regel a/b/f alleen daarbinnen (LAT-12964).
+  const inhoud = badge.endsWith('</article>') ? badge.replace(/<\/article>$/, `${body}</article>`) : badge + body;
+  return `<!doctype html><html><head><title>Test</title></head><body>${inhoud}</body></html>`;
 }
 
 function runLint(dir, lenient = false) {
@@ -232,5 +235,45 @@ test('tier: pagina zonder data-page-tier telt als zonderTier, niet als Zelf gere
     const { out } = runLint(dir);
     assert.match(out, /"zelfGereisd": 0/);
     assert.match(out, /"zonderTier": 1/);
+  });
+});
+
+// LAT-12964 stap 3: gedeelde blokken buiten de pagina-root (header-disclosure met ik-zin,
+// Ontdek verder) mogen regel a niet laten afgaan; Sophie in de eigen body wel.
+const disclosure = '<header><aside class="ontdek-promo"><p>Twaalf streken bezocht ik zelf, daar staat wat ik proefde. Zelf gereisd</p></aside></header>';
+const ontdek = (t) => `<section class="content-links"><section class="content-links__group"><a href="/x/">${t}</a></section></section>`;
+
+test('regel a: disclosure-ik-zin en Ontdek verder buiten de body geven geen overtreding', () => {
+  withDir({ 'index.html': makeHtml(`${disclosure}<article data-page-tier="redactiegids"><p>De Douro is steil.</p>${ontdek('Wat Marijn &amp; Sophie eten')}</article>`) }, (dir) => {
+    const { out } = runLint(dir, true);
+    assert.match(out, /"redactiegids": 1/);
+    assert.doesNotMatch(out, /\[a\]/);
+  });
+});
+
+test('regel a: Sophie in de body van een Redactiegids-pagina blijft rood', () => {
+  withDir({ 'index.html': makeHtml(`${disclosure}<article data-page-tier="redactiegids"><div class="article-prose"><p>Sophie kiest bij Muga altijd de Reserva.</p></div>${ontdek('x')}</article>`) }, (dir) => {
+    const { exit, out } = runLint(dir);
+    assert.match(out, /\[a\].*Sophie/);
+    assert.equal(exit, 1);
+  });
+});
+
+test('regel a: passief "wordt geproefd" is geen bezoekclaim, "we proefden" wel', () => {
+  withDir({ 'index.html': makeHtml('<article data-page-tier="redactiegids"><p>De lava wordt niet rechtstreeks geproefd.</p></article>'),
+    'b.html': makeHtml('<article data-page-tier="redactiegids"><p>De 2018 die we proefden was amber.</p></article>') }, (dir) => {
+    const { out } = runLint(dir, true);
+    assert.equal((out.match(/^\[a\]/gm) || []).length, 1);
+    assert.match(out, /we proefden/);
+  });
+});
+
+// LAT-12964 stap 4: accommodatienamen met " - " zijn eigennamen; een gewone gedachtestreep niet.
+test('regel d: accommodatienaam met spatie-koppelteken is geen overtreding, titelstreep wel', () => {
+  withDir({ 'index.html': makeHtml('<h3 class="acc-kaart__name">Pieve Aldina - Relais &amp; Châteaux</h3><p>Pieve Aldina - Relais &amp; Châteaux ligt in Radda. Drinkrijp Nu – 2035.</p>'),
+    'b.html': makeHtml('<h1>Waar slapen in de Langhe - van agriturismo tot estate</h1>') }, (dir) => {
+    const { out } = runLint(dir, true);
+    assert.equal((out.match(/^\[d\]/gm) || []).length, 1);
+    assert.match(out, /Langhe - van/);
   });
 });
