@@ -6,9 +6,9 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'diagnose = alleen lezen'
+        description: 'diagnose = alleen lezen; retire-host-cron = /etc/cron.d/paperclip-groen-check naar /root/*.disabled (omkeerbaar)'
         type: choice
-        options: [diagnose]
+        options: [diagnose, retire-host-cron]
         default: diagnose
 
 concurrency:
@@ -74,5 +74,16 @@ jobs:
             IP=$(docker inspect paperclip-cos-bridge-1 --format '{{range .NetworkSettings.Networks}}{{.IPAddress}} {{end}}' 2>/dev/null); echo "bridge IPs: $IP"
             for ip in $IP; do printf '%s ' "$ip"; curl -s -o /dev/null -m 5 -w '%{http_code}\n' "http://$ip:3200/health"; done
             docker ps --format '{{.Names}} {{.Ports}}' | grep -Ei 'bridge|3200'
+            echo "== host-kopie groen-check (probe-doel) =="
+            ls -la /paperclip/ops/groen-check.sh /paperclip/ops/lat2903-groen-probe.py 2>&1
+            grep -nE 'DEFAULT_URL|3200|groen-check-cron' /paperclip/ops/groen-check.sh /paperclip/ops/lat2903-groen-probe.py 2>/dev/null | head -10 | red
+            if [ "$MODE" = retire-host-cron ]; then
+              echo "== RETIRE host-cron =="
+              if [ -f /etc/cron.d/paperclip-groen-check ]; then
+                mv /etc/cron.d/paperclip-groen-check /root/lat10088-paperclip-groen-check.cron.disabled && echo "verplaatst"
+              else echo "al weg"; fi
+              ls -la /etc/cron.d/ | grep -i groen || echo "geen groen-cron meer in /etc/cron.d"
+              ls -la /root/lat10088-paperclip-groen-check.cron.disabled
+            fi
         run: |
           printf 'MODE=%q\n%s\n' "$MODE" "$DIAG" | ssh "$VPS" "bash -s"
