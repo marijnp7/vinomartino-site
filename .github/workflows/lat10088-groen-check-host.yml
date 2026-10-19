@@ -1,0 +1,78 @@
+# LAT-10088 — dispatch-only: vind de host-cron die als 'groen-check-cron' bridge-3200-down issues mint.
+# diagnose = alleen lezen (crontabs, timers, scriptinhoud met geredigeerde secrets). Geen mutatie.
+name: LAT-10088 host groen-check diagnose
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'diagnose = alleen lezen'
+        type: choice
+        options: [diagnose]
+        default: diagnose
+
+concurrency:
+  group: lat10088-groen-check-host
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          # LAT-3437: transport via de Cloudflare Tunnel, niet via inbound poort 22.
+          [ -n "$CF_ACCESS_CLIENT_ID" ] && [ -n "$CF_ACCESS_CLIENT_SECRET" ] \
+            || { echo "::error::CF_ACCESS_CLIENT_ID/SECRET ontbreken (LAT-3437)"; exit 1; }
+          umask 077
+          printf 'CF_ACCESS_CLIENT_ID=%s\nCF_ACCESS_CLIENT_SECRET=%s\n' \
+            "$CF_ACCESS_CLIENT_ID" "$CF_ACCESS_CLIENT_SECRET" > ~/.ssh/cf-access.env
+          umask 022
+          cat >> ~/.ssh/config <<EOC
+          Host $VPS_HOST
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+            ProxyCommand bash $GITHUB_WORKSPACE/ops/cf-ssh-proxy.sh
+          EOC
+          cat "$GITHUB_WORKSPACE/ops/ssh-config-snippet" >> ~/.ssh/config
+
+      - name: groen-check diagnose (read-only)
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          MODE: ${{ inputs.mode }}
+          DIAG: |
+            set -uo pipefail
+            red() { sed -E 's/((TOKEN|KEY|SECRET|PASSWORD|Bearer)[A-Za-z_]*[=: ]+)[^ "'"'"']+/\1<redacted>/Ig; s/(pcp_|sk-|ghp_)[A-Za-z0-9_-]+/<redacted>/g'; }
+            echo "== crontabs met groen/3200/bridge =="
+            for u in root ubuntu $(cut -d: -f1 /etc/passwd); do crontab -l -u "$u" 2>/dev/null | grep -nEi 'groen|3200|bridge' | sed "s/^/[$u] /"; done | sort -u | red
+            grep -rnEi 'groen|3200|bridge' /etc/crontab /etc/cron.d /etc/cron.hourly 2>/dev/null | red
+            echo "== systemd timers =="
+            systemctl list-timers --all --no-pager 2>/dev/null | grep -Ei 'groen|bridge|3200' || echo geen
+            grep -rlEi 'groen|bridge-3200' /etc/systemd/system 2>/dev/null
+            echo "== scripts die groen-check-cron of bridge-3200-down noemen =="
+            F=$(grep -rlE 'groen-check-cron|bridge-3200-down' /root /opt /usr/local/bin /home 2>/dev/null --include='*.sh' --include='*.py' --include='*.js' --include='*.mjs' | grep -v node_modules | head -20)
+            echo "$F"
+            for f in $F; do echo "----- $f ($(stat -c '%U %a %y' "$f"))"; grep -nEi '3200|127\.0\.0\.1|localhost|curl|wget|groen-check-cron|title|bridge' "$f" | head -60 | red; done
+            echo "== bridge-bereikbaarheid vanaf host =="
+            for u in http://127.0.0.1:3200/health http://localhost:3200/health; do printf '%s ' "$u"; curl -s -o /dev/null -m 5 -w '%{http_code}\n' "$u"; done
+            IP=$(docker inspect paperclip-cos-bridge-1 --format '{{range .NetworkSettings.Networks}}{{.IPAddress}} {{end}}' 2>/dev/null); echo "bridge IPs: $IP"
+            for ip in $IP; do printf '%s ' "$ip"; curl -s -o /dev/null -m 5 -w '%{http_code}\n' "http://$ip:3200/health"; done
+            docker ps --format '{{.Names}} {{.Ports}}' | grep -Ei 'bridge|3200'
+        run: |
+          printf 'MODE=%q\n%s\n' "$MODE" "$DIAG" | ssh "$VPS" "bash -s"
