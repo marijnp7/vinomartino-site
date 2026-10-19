@@ -19,7 +19,7 @@
     "check:authenticiteit": "node scripts/lint-authenticiteit.mjs dist --lenient",
     "test:authenticiteit": "node --test scripts/lint-authenticiteit.test.mjs",
     "check:affiliate-links:live": "node scripts/check-affiliate-links-live.mjs",
-    "test:affiliate-links": "node --test scripts/check-affiliate-links.test.mjs scripts/check-affiliate-links-live.test.mjs",
+    "test:affiliate-links": "node --test scripts/check-affiliate-links.test.mjs scripts/check-affiliate-links-live.test.mjs scripts/check-accommodation-images-live.test.mjs",
     "test:booking-overrides": "node --test scripts/booking-property-overrides.test.mjs",
     "test:i18n-body-links": "node --test scripts/i18n-body-links.test.mjs",
     "test:i18n-voetblok-copy": "node --test scripts/i18n-voetblok-copy.test.mjs",
