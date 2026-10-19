@@ -112,6 +112,12 @@ jobs:
             services/cos-bridge/docker-compose.cos.yml \
             "$VPS:/opt/paperclip-cos/docker-compose.cos.yml"
 
+          # LAT-2811: COMPOSE_FILE/COMPOSE_PROJECT_NAME, zodat een kale `docker compose`
+          # in /opt/paperclip-cos de volledige stack laadt en geen orphans meer ziet.
+          rsync -avz \
+            services/cos-bridge/compose.env \
+            "$VPS:/opt/paperclip-cos/.env"
+
       - name: Add missing env vars
         env:
           VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
