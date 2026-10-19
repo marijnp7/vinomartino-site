@@ -201,6 +201,22 @@ export async function getImageCredit(
 // Alleen als `herkomst` een maker noemt; zonder maker valt er niets te crediteren.
 const PERMISSION_LICENSES = new Set(['pers', 'toestemming-wijnhuis', 'toestemming wijnhuis']);
 
+/**
+ * LAT-14220: mag een beeld zonder eigen credit de fallback "Foto: <huis>" krijgen?
+ * Alleen als het huis het beeld zelf aanleverde (`pers`/`toestemming-wijnhuis`).
+ * Eigen beeld van Marijn, CC0, onbekend of null: nooit het huis crediteren.
+ */
+export function isHouseSuppliedLicense(licentie: string | null | undefined): boolean {
+    return PERMISSION_LICENSES.has(String(licentie ?? '').trim().toLowerCase());
+}
+
+/** Async variant op het Directus file-UUID; leest dezelfde DAM-meta als `getImageCredit`. */
+export async function isHouseSuppliedImage(fileId: string | null | undefined): Promise<boolean> {
+    if (!fileId) return false;
+    const file = (await loadDamFileMeta()).get(String(fileId).toLowerCase());
+    return isHouseSuppliedLicense(file?.licentie);
+}
+
 export function creditFromFileMeta(
     licentie: string | null | undefined,
     herkomst: string | null | undefined,

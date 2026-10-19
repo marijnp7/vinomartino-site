@@ -165,7 +165,9 @@ test('reeks: pas vanaf 2 foto\'s, scroll-snap; geen bronclaim bij zelf-geweest z
   const b = read('src/components/WijnhuisPortretBlokken.astro');
   assert.match(b, /blok === 'galerij' && reeks\.length >= 2/);
   assert.match(b, /scroll-snap-type: x mandatory/);
-  assert.match(b, /!p\.zelfGeweest \? `\$\{ui\.t\('wijnhuis\.reeks\.foto'\)\}: \$\{name\}`/);
+  // LAT-14220: huis-credit alleen bij zelf-niet-geweest én door het huis aangeleverd beeld.
+  assert.match(b, /const huisBeeld = !p\.zelfGeweest && \(await isHouseSuppliedImage\(b\.id\)\)/);
+  assert.match(b, /huisBeeld \? `\$\{ui\.t\('wijnhuis\.reeks\.foto'\)\}: \$\{name\}`/);
 
   // LAT-13073: NL-bestandstitel (alt) alleen zichtbaar op NL, anders faalt de i18n-nl gate op /en/.
   assert.match(b, /locale === DEFAULT_LOCALE && <span class="wp-reeks__titel">/);

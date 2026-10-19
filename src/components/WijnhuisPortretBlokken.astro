@@ -5,7 +5,7 @@
 import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
 import { loadUiStrings } from '../lib/ui-strings';
 import { DAGEN, WIJN_ROLLEN, eurLabel, heeftBezoek as bezoekGevuld, heeftBezoekKort, safeUrl, urenPerDag, type WijnhuisPortret } from '../lib/wijnhuis-portret';
-import { getImageCredit } from '../lib/image-credits';
+import { getImageCredit, isHouseSuppliedImage } from '../lib/image-credits';
 import type { WijnhuisGalerijBeeld } from '../lib/wijnhuizen';
 
 type Blok = 'kort' | 'waarom' | 'galerij' | 'drinken' | 'bezoek' | 'combineer' | 'faq';
@@ -71,7 +71,9 @@ const kortKnop = gesloten
 const reeks = blok === 'galerij'
   ? await Promise.all(galerij.map(async (b) => {
       const c = b.id ? await getImageCredit(b.id) : null;
-      const credit = c?.author ? `${ui.t('wijnhuis.reeks.foto')}: ${c.author}` : !p.zelfGeweest ? `${ui.t('wijnhuis.reeks.foto')}: ${name}` : '';
+      // LAT-14220: het huis alleen crediteren als het huis het beeld aanleverde (pers/toestemming).
+      const huisBeeld = !p.zelfGeweest && (await isHouseSuppliedImage(b.id));
+      const credit = c?.author ? `${ui.t('wijnhuis.reeks.foto')}: ${c.author}` : huisBeeld ? `${ui.t('wijnhuis.reeks.foto')}: ${name}` : '';
       return { ...b, credit };
     }))
   : [];

@@ -7,6 +7,7 @@ import { localizePath, type Locale } from '../lib/i18n';
 import type { SpotlightEntry } from '../lib/wijnhuis-spotlight';
 import { loadStrekenNav } from '../lib/streken';
 import { loadLandenNav } from '../lib/landen';
+import { isHouseSuppliedImage } from '../lib/image-credits';
 
 interface Props {
   entries: SpotlightEntry[];
@@ -18,6 +19,10 @@ interface Props {
 const { entries, locale, ui, plaats, buildNow = Date.now() } = Astro.props;
 // Buildtijd-winnaar zichtbaar zonder JS; het script hieronder herkiest op de klok van nu.
 const winnerId = entries.find((e) => e.start <= buildNow && buildNow < e.end)?.id ?? null;
+// LAT-14220: "Foto: <huis>" alleen onder beeld dat het huis zelf aanleverde, nooit onder eigen beeld.
+const huisBeeld = new Set(
+  (await Promise.all(entries.map(async (e) => ((await isHouseSuppliedImage(e.huis.heroImageId)) ? e.huis.slug : null)))).filter(Boolean),
+);
 // LAT-13464 — "Langhe, Italië": `wijnhuizen.country` is vaak leeg; dan het land van de
 // gekoppelde streek (streek.land_id → landen, taalbewust). Lichte nav-loaders, geen assets.
 const needsLand = entries.some((e) => !e.huis.country && e.huis.streekSlug);
@@ -41,9 +46,9 @@ const landVan = (e: SpotlightEntry) => {
         <article class="whs-item" data-whs-item data-start={e.start} data-end={e.end} data-huis={e.huis.slug} data-campagne={e.campagneId} hidden={e.id !== winnerId}>
           <div class="whs-media">
             <SmartImg src={e.huis.heroImage || undefined} alt={e.huis.name} theme="winery" class="whs-img" />
-            {/^https?:\/\//.test(e.huis.website)
+            {huisBeeld.has(e.huis.slug) && (/^https?:\/\//.test(e.huis.website)
               ? <a class="whs-credit" href={e.huis.website} target="_blank" rel="noopener">{ui.t('wijnhuis.reeks.foto')}: {e.huis.name}</a>
-              : <span class="whs-credit">{ui.t('wijnhuis.reeks.foto')}: {e.huis.name}</span>}
+              : <span class="whs-credit">{ui.t('wijnhuis.reeks.foto')}: {e.huis.name}</span>)}
           </div>
           <div class="whs-body">
             <span class="whs-kicker">{ui.t('wijnhuis.spotlight.kicker')}</span>
