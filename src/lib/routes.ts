@@ -1,3 +1,5 @@
+import { PILOT_STAY_ROUTES, hydrateRouteStays } from './canonical-stays';
+import { loadCanonicalStays } from './canonical-stays-loader';
 import { stripEditorialHeader, type RelatedRef } from './articles';
 import { fallbackStopsGeo } from './route-geo-fallback';
 import { getCtaStructure, type CtaStructure } from './cta-blocks';
@@ -560,6 +562,9 @@ async function loadFromDirectus(url: string, token: string, locale: Locale): Pro
             const ogImagePath = r.og_image
                 ? await downloadAsset(String(r.og_image), url, token, 'og-')
                 : null;
+            if (PILOT_STAY_ROUTES.has(String(r.slug))) {
+                r.itinerary = hydrateRouteStays(r.itinerary, await loadCanonicalStays(locale), true);
+            }
             const route = mapRoute(r, heroImagePath, ogImagePath, bodyHtml);
             if (route.itinerary) await resolveItineraryFotos(route.itinerary, url, token);
             if (route.pagina) {
