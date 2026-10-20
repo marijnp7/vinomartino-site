@@ -44,3 +44,41 @@ test('isBookingEntry: Stay22-wrap naar Booking telt mee', () => {
   assert.ok(isBookingEntry({ partner: 'stay22', url: u }));
   assert.ok(!isBookingEntry({ partner: 'getyourguide', url: 'https://www.getyourguide.com/x-t1/' }));
 });
+
+// LAT-14310: explicit absent-image exceptions must never hide broken images.
+import { createServer } from 'node:http';
+import { checkPages, missingImageException, report } from './check-accommodation-images-live.mjs';
+
+test('exceptions are scoped to region + card, in NL and EN; Fonterutoli still needs an image', () => {
+  for (const locale of ['', 'en/']) {
+    assert.equal(missingImageException(`https://vinomartino.com/${locale}accommodaties/loire/`, 'acc-domaine-de-chassy')?.issue, 'LAT-14310');
+    assert.equal(missingImageException(`https://vinomartino.com/${locale}accommodaties/rhone/`, 'acc-domaine-de-chassy'), null);
+    assert.equal(missingImageException(`https://vinomartino.com/${locale}accommodaties/toscane-italie/`, 'acc-castello-di-fonterutoli-wine-resort'), null);
+  }
+  assert.equal(missingImageException('https://vinomartino.com/streken/loire/', 'acc-domaine-de-chassy'), null);
+});
+
+test('accepted blank cards are reported, while unknown blanks and broken excepted images remain red', async () => {
+  const server = createServer((req, res) => {
+    if (req.url.endsWith('/loire/')) {
+      res.writeHead(200, { 'content-type': 'text/html' }).end(
+        '<article class="acc-kaart" id="acc-domaine-de-chassy"></article>' +
+        '<article class="acc-kaart" id="acc-h-tel-famille-bourgeois"><img src="/broken.jpg"></article>' +
+        '<article class="acc-kaart" id="acc-unknown"></article>');
+    } else res.writeHead(404).end();
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  try {
+    const site = `http://127.0.0.1:${server.address().port}`;
+    const result = await checkPages([`${site}/accommodaties/loire/`, `${site}/en/accommodaties/loire/`]);
+    assert.equal(result.acceptedMissing.length, 2);
+    assert.equal(result.reds.length, 4);
+    assert.equal(result.images, 1);
+    assert.equal(result.reds.filter((r) => r.reason === 'HTTP 404').length, 2);
+    assert.equal(result.reds.filter((r) => r.reason === 'kaart zonder beeld').length, 2);
+    assert.match(report({ site, ...result }), /LAT-14310 \/ LAT-14019/);
+    assert.match(report({ site, ...result }), /Bewust zonder beeld: 2 kaarten/);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});

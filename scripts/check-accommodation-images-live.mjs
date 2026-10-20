@@ -5,7 +5,7 @@
  * Per gepubliceerde `/accommodaties/<streek>/`-pagina (NL + EN, uit de prod-sitemap)
  * wordt van elke accommodatiekaart (`article.acc-kaart`) de `<img src>` opgehaald.
  * Rood bij: non-200, `content-length` 0 / lege body, geen `image/*`-content-type
- * (de 0-byte-klasse uit HARDE REGEL 29), of een kaart zonder beeld.
+ * (de 0-byte-klasse uit HARDE REGEL 29), of een kaart zonder beeld zonder expliciet besluit.
  *
  * Alleen eigen domein-beelden; er wordt geen affiliate-link geopend (REGEL 11).
  *
@@ -14,13 +14,21 @@
  */
 
 import { createServer } from 'node:http';
-import { writeFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { resolveSitemapUrls } from './check-affiliate-links-live.mjs';
 
 const SITE = (process.env.ACC_IMAGES_SITE || process.env.AFFILIATE_LIVE_SITE || 'https://vinomartino.com')
   .replace(/[?#].*$/, '')
   .replace(/\/+$/, '');
 const REPORT_PATH = process.env.ACC_IMAGES_REPORT || 'accommodation-images-report.md';
+const missingImageExceptions = JSON.parse(await readFile(new URL('./accommodation-image-exceptions.json', import.meta.url), 'utf8'));
+
+// Exceptions cover absent images only, scoped to region + card in both languages.
+export function missingImageException(pageUrl, cardId) {
+  const match = new URL(pageUrl).pathname.match(/^\/(?:en\/)?accommodaties\/([^/]+)\/?$/);
+  return match ? missingImageExceptions.find((e) => e.region === match[1] && e.card === cardId) ?? null : null;
+}
+
 const UA = 'vinomartino-acc-images/1.0 (+LAT-14304)';
 
 /** `/accommodaties/<streek>/` en `/en/accommodaties/<streek>/`, niet de index. */
@@ -76,6 +84,7 @@ async function probeImage(url) {
 /** Controleer de opgegeven pagina's; geeft { pages, images, reds, cards }. */
 export async function checkPages(pageUrls) {
   const reds = [];
+  const acceptedMissing = [];
   const seen = new Map(); // img-url → oordeel (dedup over NL/EN)
   let cards = 0;
   let pages = 0;
@@ -96,7 +105,9 @@ export async function checkPages(pageUrls) {
     for (const c of extractCards(html)) {
       cards++;
       if (!c.src) {
-        reds.push({ page: pageUrl, card: c.id, src: null, reason: 'kaart zonder beeld' });
+        const exception = missingImageException(pageUrl, c.id);
+        if (exception) acceptedMissing.push({ page: pageUrl, card: c.id, ...exception });
+        else reds.push({ page: pageUrl, card: c.id, src: null, reason: 'kaart zonder beeld' });
         continue;
       }
       const abs = new URL(c.src, pageUrl).toString();
@@ -105,10 +116,10 @@ export async function checkPages(pageUrls) {
       if (reason) reds.push({ page: pageUrl, card: c.id, src: abs, reason });
     }
   }
-  return { pages, cards, images: seen.size, reds };
+  return { pages, cards, images: seen.size, reds, acceptedMissing };
 }
 
-function report({ site, pages, cards, images, reds }) {
+export function report({ site, pages, cards, images, reds, acceptedMissing = [] }) {
   const l = ['## Accommodatiebeelden live (LAT-14304, C5)', ''];
   l.push(`- Site: ${site}`);
   l.push(`- Gecontroleerd: ${pages} accommodatiepagina's (NL+EN), ${cards} kaarten, ${images} unieke beelden`);
@@ -116,6 +127,10 @@ function report({ site, pages, cards, images, reds }) {
   if (reds.length) {
     l.push('', '| pagina | kaart | beeld | reden |', '|---|---|---|---|');
     for (const r of reds) l.push(`| ${r.page} | ${r.card} | ${r.src || '-'} | ${r.reason} |`);
+  }
+  if (acceptedMissing.length) {
+    l.push('', `### Bewust zonder beeld: ${acceptedMissing.length} kaarten`, '', '| pagina | kaart | reden | besluit / bronvraag |', '|---|---|---|---|');
+    for (const e of acceptedMissing) l.push(`| ${e.page} | ${e.card} | ${e.reason} | ${e.issue} / ${e.sourceIssue} |`);
   }
   return l.join('\n') + '\n';
 }
@@ -180,7 +195,7 @@ async function main() {
   console.log(`[acc-images] ${pageUrls.length} accommodatiepagina's uit sitemap van ${SITE}`);
   const res = await checkPages(pageUrls);
   await writeFile(REPORT_PATH, report({ site: SITE, ...res }), 'utf8');
-  console.log(`[acc-images] ${res.pages} pagina's, ${res.cards} kaarten, ${res.images} unieke beelden, ${res.reds.length} rood.`);
+  console.log(`[acc-images] ${res.pages} pagina's, ${res.cards} kaarten, ${res.images} unieke beelden, ${res.reds.length} rood, ${res.acceptedMissing.length} bewust zonder beeld.`);
   for (const r of res.reds) console.error(`  ✗ ${r.page} [${r.card}] ${r.src || ''} — ${r.reason}`);
   if (res.pages === 0 || res.cards === 0) {
     console.error('[acc-images] FAIL: niets gecontroleerd — een lege meting is geen groen.');

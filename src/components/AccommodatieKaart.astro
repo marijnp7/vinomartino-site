@@ -17,7 +17,7 @@ import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
 import { loadUiStrings } from '../lib/ui-strings';
 import PoiCard from './PoiCard.astro';
 import SmartImg from './SmartImg.astro';
-import { adaptationNoteFor, fileIdFromAccommodatiePath, getImageCredit, licenseLabelFor } from '../lib/image-credits';
+import { creditAuthorFor, adaptationNoteFor, fileIdFromAccommodatiePath, getImageCredit, licenseLabelFor } from '../lib/image-credits';
 
 interface Props {
   kaart: AccommodatieKaart;
@@ -83,7 +83,7 @@ const credit = compact && kaart.foto ? await getImageCredit(fileIdFromAccommodat
       <SmartImg src={kaart.foto} alt={altText} theme="winery" class="acc-kaart__img" width={400} height={300} />
       {credit && (
         <p class="acc-kaart__credit">
-          {credit.author && <>{credit.author}, </>}{credit.licenseUrl ? <a href={credit.licenseUrl} rel="license noopener" target="_blank">{licenseLabelFor(credit.licenseLabel, locale)}</a> : licenseLabelFor(credit.licenseLabel, locale)}
+          {credit.author && <>{creditAuthorFor(credit, locale)}, </>}{credit.licenseUrl ? <a href={credit.licenseUrl} rel="license noopener" target="_blank">{licenseLabelFor(credit.licenseLabel, locale)}</a> : licenseLabelFor(credit.licenseLabel, locale)}
           {credit.sourceUrl && <>, <a href={credit.sourceUrl} rel="noopener" target="_blank">{credit.sourceLabel ? `via ${credit.sourceLabel}` : 'via bron'}</a></>}
           {credit.adapted && <> ({adaptationNoteFor(locale)})</>}
         </p>
