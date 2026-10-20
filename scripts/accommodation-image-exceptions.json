@@ -1,0 +1,42 @@
+[
+  {
+    "region": "champagne",
+    "card": "acc-hostellerie-la-montagne",
+    "reason": "Geen bewezen hotelfoto met toestemming beschikbaar.",
+    "issue": "LAT-14310",
+    "sourceIssue": "LAT-14019",
+    "reviewedAt": "2026-10-20"
+  },
+  {
+    "region": "friuli-italie",
+    "card": "acc-cruna-di-subida-wine-country-house",
+    "reason": "DAM 1540: identiteit Cruna niet bewezen en geen vastgelegde gebruiksrechten.",
+    "issue": "LAT-14310",
+    "sourceIssue": "LAT-14019",
+    "reviewedAt": "2026-10-20"
+  },
+  {
+    "region": "loire",
+    "card": "acc-domaine-de-chassy",
+    "reason": "Nabijgelegen eigen beelden tonen de accommodatie niet; hotelfoto en toestemming ontbreken.",
+    "issue": "LAT-14310",
+    "sourceIssue": "LAT-14019",
+    "reviewedAt": "2026-10-20"
+  },
+  {
+    "region": "loire",
+    "card": "acc-h-tel-famille-bourgeois",
+    "reason": "Nabijgelegen beelden tonen proeverij of landschap; hotelfoto en toestemming ontbreken.",
+    "issue": "LAT-14310",
+    "sourceIssue": "LAT-14019",
+    "reviewedAt": "2026-10-20"
+  },
+  {
+    "region": "rhone",
+    "card": "acc-logis-h-tel-la-sommellerie",
+    "reason": "DAM 1768 is een synthetisch landschap, geen hotelbeeld; hotelfoto en toestemming ontbreken.",
+    "issue": "LAT-14310",
+    "sourceIssue": "LAT-14019",
+    "reviewedAt": "2026-10-20"
+  }
+]

@@ -150,7 +150,7 @@ test('LAT-13914: CC-credit toont "Foto: <maker>" (EN "Photo:") zonder ©; Castig
     assert.equal(creditAuthorFor(c, 'nl'), 'Foto: Christoph Strässler');
     assert.equal(creditAuthorFor(c, 'en'), 'Photo: Christoph Strässler');
     const perm = creditFromFileMeta('pers', 'Foto: Pio Cesare. Bron: https://www.piocesare.it');
-    assert.equal(creditAuthorFor(perm, 'nl'), '© Pio Cesare', 'toestemming-credit houdt ©');
+    assert.equal(creditAuthorFor(perm, 'nl'), 'Foto: Pio Cesare', 'REGEL 64: ook toestemming-credit noemt Foto');
 });
 
 test('LAT-12364: cc-by-2.5 en cc-by-nd-2.0 krijgen een credit (art. 82 en 89 renderden zonder)', async () => {
@@ -166,4 +166,13 @@ test('LAT-12364: cc-by-2.5 en cc-by-nd-2.0 krijgen een credit (art. 82 en 89 ren
     assert.equal(nd.sourceUrl, 'https://www.flickr.com/photos/riberadelduero/8073819483', 'bron is Flickr, niet de licentie-URL');
     assert.equal(nd.sourceLabel, 'Flickr');
     for (const v of ['2.0', '2.5', '3.0', '4.0']) assert.ok(creditFromFileMeta(`cc-by-nd-${v}`, null), `cc-by-nd-${v}`);
+});
+
+// LAT-14310: the supplied resort image needs the agreed visible house credit in both languages.
+test('permission image: Foto/Photo credit and source link derive from DAM metadata', async () => {
+    const { creditFromFileMeta, creditAuthorFor } = await loadModule('credits', 'src/lib/image-credits.ts');
+    const credit = creditFromFileMeta('pers', 'Foto: Marchesi Mazzei. Bron: https://www.mazzei.it');
+    assert.equal(creditAuthorFor(credit, 'nl'), 'Foto: Marchesi Mazzei');
+    assert.equal(creditAuthorFor(credit, 'en'), 'Photo: Marchesi Mazzei');
+    assert.equal(credit.sourceUrl, 'https://www.mazzei.it');
 });
