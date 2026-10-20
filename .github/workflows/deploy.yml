@@ -483,7 +483,7 @@ jobs:
               | tail -n 30
             cp -f "$STAGE/dist/build-info.json" "$DIST/build-info.json"
             echo "DIST inhoud na rsync:"
-            ls -la "$DIST/" | head -20
+            ls -la "$DIST/" | sed -n '1,20p'
             if [ -f "$DIST/build-info.json" ]; then
               echo "DIST/build-info.json:"
               cat "$DIST/build-info.json"

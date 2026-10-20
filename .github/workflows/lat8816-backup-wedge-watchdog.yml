@@ -144,6 +144,14 @@ jobs:
           ssh -o ConnectTimeout=20 "$VPS" \
             "docker exec paperclip-paperclip-1 python3 /paperclip/ops/lat8862-wedge-watchdog-fixtures-test.py"
 
+      - name: Snapshot current application logs (preserve producer timestamps)
+        if: ${{ (github.event_name == 'schedule' || inputs.mode == 'detect') && !vars.LAT8816_LOG_PATH }}
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          ssh "$VPS" "python3 - '$RUN_ID'" < scripts/backup-watchdog-log.py
+
       # Runs on both a manual dispatch (mode=detect) and every scheduled fire.
       # On a `schedule` event `inputs.*` is not populated, so the condition
       # must check event_name too -- same reasoning as lat4998's `verify` step.
@@ -156,7 +164,7 @@ jobs:
           # deze prod-defaults zonder dit bestand te wijzigen.
           FD_DIR: ${{ vars.LAT8816_FD_DIR || '/proc/1/fd' }}
           BACKUP_DIR: ${{ vars.LAT8816_BACKUP_DIR || '/paperclip/instances/default/data/backups' }}
-          LOG_PATH: ${{ vars.LAT8816_LOG_PATH || '/paperclip/instances/default/logs/server.log' }}
+          LOG_PATH: ${{ vars.LAT8816_LOG_PATH || format('/tmp/backup-watchdog-{0}.log', github.run_id) }}
           WEDGE_THRESHOLD_MIN: ${{ vars.LAT8816_WEDGE_THRESHOLD_MINUTES || '75' }}
           COVERAGE_RED_HOURS: ${{ vars.LAT8816_COVERAGE_RED_THRESHOLD_HOURS || '12' }}
           REMOTE_SCRIPT: |
@@ -264,3 +272,11 @@ jobs:
             echo "GUARD_FAIL: scheduled run sloeg de detect-stap over (outcome=skipped) -- dit had nooit mogen gebeuren"
             exit 1
           fi
+
+      - name: Remove temporary log snapshot
+        if: ${{ always() && !vars.LAT8816_LOG_PATH }}
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          ssh "$VPS" "docker exec paperclip-paperclip-1 rm -f '/tmp/backup-watchdog-$RUN_ID.log'"
