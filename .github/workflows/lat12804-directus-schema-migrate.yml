@@ -57,6 +57,7 @@ on:
           - lat14038-file-credit-batch2.mjs
           - lat14254-file-credit-aimasso.mjs
           - lat14343-file-credit-hero19.mjs
+          - lat14343-file-credit-pruem.mjs
           - add-accommodation-outreach-fields.mjs
 
 concurrency:
