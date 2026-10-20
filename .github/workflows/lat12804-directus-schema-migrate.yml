@@ -58,6 +58,7 @@ on:
           - lat14254-file-credit-aimasso.mjs
           - lat14343-file-credit-hero19.mjs
           - lat14343-file-credit-pruem.mjs
+          - lat14380-constantia-files-meta.mjs
           - add-accommodation-outreach-fields.mjs
 
 concurrency:
