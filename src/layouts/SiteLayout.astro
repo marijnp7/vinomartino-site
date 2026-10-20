@@ -41,9 +41,11 @@ interface Props {
   alternates?: Partial<Record<Locale, string>>;
   // LAT-12558: Stay22 LaatMeGaan + booking-guard alleen laden op pagina's met accommodatie-blokken.
   loadStay22?: boolean;
+  // Preload only where the above-the-fold heading uses Cormorant italic.
+  preloadCormorantItalic?: boolean;
 }
 
-const { title, description, canonicalUrl, ogImage, ogImageWidth, ogImageHeight, ogType, article, noindex, schema, activeNav, locale, alternates, loadStay22 = false } = Astro.props;
+const { title, description, canonicalUrl, ogImage, ogImageWidth, ogImageHeight, ogType, article, noindex, schema, activeNav, locale, alternates, loadStay22 = false, preloadCormorantItalic = false } = Astro.props;
 
 const currentLocale: Locale = locale ?? DEFAULT_LOCALE;
 
@@ -167,10 +169,11 @@ const articleTags = article?.tags?.filter((tag): tag is string => Boolean(tag &&
     {schema && (
       <script type="application/ld+json" set:html={JSON.stringify(Array.isArray(schema) ? schema : [schema])} />
     )}
-    {/* LAT-12594: alleen de kopletter (Cormorant normal, 37 KB) preloaden. De andere vier
-        preloads (~280 KB) concurreerden met de hero-afbeelding om bandbreedte vóór LCP;
-        die fonts komen via fonts.css met font-display: swap. */}
+    {/* LAT-12594: globally preload only Cormorant normal (37 KB); other fonts competed
+        with the LCP image. LAT-13390: the wijnhuizen index hero also needs italic
+        before paint; only that page preloads it. */}
     <link rel="preload" href="/fonts/cormorant-garamond-latin-abcaa8b4.woff2" as="font" type="font/woff2" crossorigin />
+    {preloadCormorantItalic && <link rel="preload" href="/fonts/cormorant-garamond-latin-4db21dbf.woff2" as="font" type="font/woff2" crossorigin />}
     {/* LAT-12594 variant (A/B, niet mergen zonder meting): body-fonts pas na window.load,
         zodat ze niet met de LCP-hero om bandbreedte concurreren. Fallback-fonts tot dan. */}
     <script is:inline>addEventListener('load',function(){var l=document.createElement('link');l.rel='stylesheet';l.href='/fonts/body-fonts.css?v=14062';document.head.appendChild(l)})</script>
