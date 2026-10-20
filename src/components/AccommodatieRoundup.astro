@@ -7,6 +7,7 @@ import { plaatsKort } from '../lib/plaats-kort';
 
 import type { AccommodatieRoundup } from '../lib/accommodaties';
 import AccommodatieKaart from './AccommodatieKaart.astro';
+import { STAY_TIER_ORDER } from '../lib/stay-tier';
 import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
 import { loadUiStrings } from '../lib/ui-strings';
 
@@ -29,7 +30,7 @@ interface Props {
   /**
    * LAT-13771: 'index' = platte resultatengrid voor /accommodaties/<streek>/ met
    * compacte kaarten en data-plaats/data-klasse voor de keuzehulp; zonder
-   * sprong-nav en groepskoppen. 'default' (standaard) blijft ongewijzigd.
+   * sprong-nav en groepskoppen. 'default' groepeert de kaarten per CMS-categorie binnen elk cluster.
    */
   variant?: 'default' | 'index';
 }
@@ -44,6 +45,18 @@ const sectionId = `acc-roundup-${(context || roundup.regio).toLowerCase().replac
 const isIndex = variant === 'index';
 // LAT-13771 — platte lijst in dezelfde volgorde als de groepen; de klasse is de CMS-tier.
 const platteKaarten = isIndex ? groepen.flatMap((g) => g.kaarten) : [];
+const categorieGroepen = groepen.map((groep) => ({
+  ...groep,
+  categorieen: STAY_TIER_ORDER.map((tier) => ({
+    tier,
+    kaarten: groep.kaarten.filter((kaart) => kaart.tier === tier),
+    id: `${sectionId}-${groep.slug}-${tier}`,
+    label: ui.t(`stay.tier.${tier}`),
+    description: ui.t(`stay.tier.${tier}.description`),
+  })).filter((categorie) => categorie.kaarten.length > 0),
+  // Unclassified records remain visible without inventing a category.
+  overig: groep.kaarten.filter((kaart) => !STAY_TIER_ORDER.includes(kaart.tier!)),
+}));
 ---
 
 {groepen.length > 0 && (
@@ -83,19 +96,46 @@ const platteKaarten = isIndex ? groepen.flatMap((g) => g.kaarten) : [];
       </nav>
     )}
 
-    {groepen.map((g) => (
+    {categorieGroepen.map((g) => (
       <div class="acc-roundup__groep" id={`${sectionId}-${g.slug}`}>
-        <h3 class="acc-roundup__groep-title">
+        <p class="acc-roundup__groep-title">
           {g.plaatsen.length > 1 ? `${ui.t('acc.hotelsRondPrefix')} ${g.titel}` : `${ui.t('acc.hotelsInPrefix')} ${g.titel}`}
-        </h3>
+        </p>
         {g.plaatsen.length > 1 && (
           <p class="acc-roundup__groep-note">{ui.t('acc.groepNote')}</p>
         )}
-        <div class="acc-roundup__grid">
-          {g.kaarten.map((kaart) => (
-            <AccommodatieKaart kaart={kaart} context={context || roundup.regio} bronValuta={bronValuta} displayValuta={displayValuta} locale={locale} />
-          ))}
-        </div>
+        {g.categorieen.length > 1 && (
+          <nav class="acc-roundup__categories" aria-label={ui.t('acc.categoryNavAria')}>
+            <ul>
+              {g.categorieen.map((categorie) => (
+                <li><a href={`#${categorie.id}`}>
+                  <span class="acc-roundup__category-label">{categorie.label}<span aria-hidden="true">↘</span></span>
+                  <span class="acc-roundup__category-description">{categorie.description}</span>
+                </a></li>
+              ))}
+            </ul>
+          </nav>
+        )}
+        {g.categorieen.map((categorie) => (
+          <section class="acc-roundup__category" id={categorie.id} aria-labelledby={`${categorie.id}-title`}>
+            <header class="acc-roundup__category-head">
+              <h3 id={`${categorie.id}-title`}>{categorie.label}</h3>
+              <p>{categorie.description}</p>
+            </header>
+            <div class="acc-roundup__grid acc-roundup__grid--editorial">
+              {categorie.kaarten.map((kaart) => (
+                <AccommodatieKaart kaart={kaart} context={context || roundup.regio} bronValuta={bronValuta} displayValuta={displayValuta} locale={locale} />
+              ))}
+            </div>
+          </section>
+        ))}
+        {g.overig.length > 0 && (
+          <div class="acc-roundup__grid acc-roundup__grid--editorial">
+            {g.overig.map((kaart) => (
+              <AccommodatieKaart kaart={kaart} context={context || roundup.regio} bronValuta={bronValuta} displayValuta={displayValuta} locale={locale} />
+            ))}
+          </div>
+        )}
       </div>
     ))}
     </>)}
@@ -188,9 +228,8 @@ const platteKaarten = isIndex ? groepen.flatMap((g) => g.kaarten) : [];
   .acc-roundup__groep-title {
     font-family: var(--font-ui, sans-serif);
     font-size: 0.9375rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
+    font-weight: 500;
+    line-height: 1.5;
     color: var(--ink, #1F1A16);
     margin: 0 0 0.4rem;
     padding-bottom: 0.55rem;
@@ -207,6 +246,51 @@ const platteKaarten = isIndex ? groepen.flatMap((g) => g.kaarten) : [];
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
     gap: 1.5rem;
+  }
+
+
+  .acc-roundup__categories { margin: 1.5rem 0 2.5rem; }
+  .acc-roundup__categories ul {
+    display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0; list-style: none; padding: 0; margin: 0;
+    border: 1px solid var(--rule, #C9B98F); border-radius: 4px; overflow: hidden;
+  }
+  .acc-roundup__categories li { margin: 0; padding: 0; min-width: 0; }
+  .acc-roundup__categories li + li { border-left: 1px solid var(--rule, #C9B98F); }
+  .acc-roundup__categories a {
+    display: flex; flex-direction: column; gap: 0.5rem; height: 100%;
+    padding: 1rem; color: var(--ink, #1F1A16); text-decoration: none;
+    background: var(--paper, #FAF5E9); box-sizing: border-box;
+  }
+  .acc-roundup__categories a:hover { background: var(--paperDeep, #F0E6D0); }
+  .acc-roundup__categories a:focus-visible { outline: 3px solid var(--burgundyInk, #5A1A1F); outline-offset: -4px; }
+  .acc-roundup__category-label {
+    display: flex; justify-content: space-between; gap: 0.5rem;
+    font-family: var(--font-ui, sans-serif); font-weight: 600; font-size: 0.9375rem;
+    color: var(--burgundyInk, #5A1A1F);
+  }
+  .acc-roundup__category-description { font-family: var(--font-body, Georgia, serif); font-size: 0.875rem; line-height: 1.5; }
+  .acc-roundup__category { scroll-margin-top: 7rem; margin: 0 0 2.75rem; }
+  .acc-roundup__category-head { border-top: 1px solid var(--rule, #C9B98F); padding: 1rem 0 1.25rem; }
+  .acc-roundup__category-head h3 {
+    font-family: var(--font-display, Georgia, serif); font-size: clamp(1.8rem, 3vw, 2.25rem);
+    font-weight: 400; line-height: 1.15; color: var(--burgundyInk, #5A1A1F); margin: 0 0 0.4rem;
+  }
+  .acc-roundup__category-head p { font-family: var(--font-body, Georgia, serif); font-size: 1rem; line-height: 1.5; color: var(--inkSoft, #5A4F45); margin: 0; }
+  .acc-roundup__grid--editorial { grid-template-columns: repeat(auto-fit, minmax(min(270px, 100%), 1fr)); align-items: start; }
+  .acc-roundup__grid--editorial :global(.poi-card) { box-shadow: none; transform: none; }
+  .acc-roundup__grid--editorial :global(.poi-card__head) { display: flex; flex-direction: column; align-items: flex-start; gap: 0.65rem; }
+  .acc-roundup__grid--editorial :global(.poi-card__name) { font-size: 1.5rem; font-weight: 400; line-height: 1.2; }
+  .acc-roundup__grid--editorial :global(.poi-card__badge) { font-size: 0.75rem; letter-spacing: 0.04em; }
+  /* The full CMS text remains readable; no inaccessible line clamping. */
+  .acc-roundup__grid--editorial :global(.poi-card__why),
+  .acc-roundup__grid--editorial :global(.poi-card__desc) { display: block; -webkit-line-clamp: unset; overflow: visible; font-style: normal; }
+  .acc-roundup__grid--editorial :global(.poi-card__foot) { padding-top: 0.75rem; }
+  .acc-roundup__grid--editorial :global(.poi-card__cta) { display: inline-flex; align-items: center; min-height: 44px; box-sizing: border-box; }
+  @media (max-width: 640px) {
+    .acc-roundup__categories ul { grid-template-columns: 1fr; }
+    .acc-roundup__categories li + li { border-left: 0; border-top: 1px solid var(--rule, #C9B98F); }
+    .acc-roundup__categories a { padding: 0.9rem 1rem; gap: 0.25rem; }
   }
 
   /* LAT-13771 — platte resultatengrid (variant index). */

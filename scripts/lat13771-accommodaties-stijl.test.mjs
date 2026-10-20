@@ -65,12 +65,12 @@ test('accommodaties-pagina\'s importeren dezelfde keuzehulp.css en de gedeelde c
   assert.match(PAGE, /class="accom-planning"/);
 });
 
-test('AccommodatieRoundup: default-variant houdt sprong-nav en groepskoppen', () => {
+test('AccommodatieRoundup: default-variant behoudt geografische navigatie en toont categorie-koppen', () => {
   assert.match(ROUNDUP, /variant = 'default'/);
   const [, defaultTak] = ROUNDUP.split(/\) : \(<>/);
   assert.ok(defaultTak, 'default-tak niet gevonden');
   assert.match(defaultTak, /class="acc-roundup__nav"/);
-  assert.match(defaultTak, /<h3 class="acc-roundup__groep-title">/);
+  assert.match(defaultTak, /<p class="acc-roundup__groep-title">/);
   assert.match(defaultTak, /<AccommodatieKaart kaart=\{kaart\} context=\{context \|\| roundup\.regio\} bronValuta=\{bronValuta\} displayValuta=\{displayValuta\} locale=\{locale\} \/>/);
   assert.match(ROUNDUP, /data-plaats=\{plaatsKort\(kaart\.plaats\)\} data-klasse=\{kaart\.tier \|\| ''\}/);
   assert.match(ROUNDUP, /variant="compact"/);
