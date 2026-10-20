@@ -1,3 +1,5 @@
+import { PILOT_STAY_REGIONS, canonicalRegionStays, toRegionStay } from './canonical-stays';
+import { loadCanonicalStays } from './canonical-stays-loader';
 import type { RelatedRef } from './articles';
 import { getCtaStructure, type CtaStructure } from './cta-blocks';
 import { isGyGTourUrl } from './affiliate-regio';
@@ -837,6 +839,9 @@ async function loadFromDirectus(url: string, token: string, locale: Locale): Pro
             const ogImagePath = r.og_image
                 ? await downloadAsset(String(r.og_image), url, token, 'og-')
                 : null;
+            if (PILOT_STAY_REGIONS.has(String(r.slug))) {
+                r.accommodaties = canonicalRegionStays(await loadCanonicalStays(locale), String(r.slug)).map(toRegionStay);
+            }
             const streek = mapStreek(r, heroImagePath, ogImagePath, bodyHtml, waarSlapenIntroHtml);
             // LAT-2427 — fail-closed CC-credit guard. Draagt de hero-asset een
             // attributie-plichtige licentie (CC BY/BY-SA) maar ontbreekt de
