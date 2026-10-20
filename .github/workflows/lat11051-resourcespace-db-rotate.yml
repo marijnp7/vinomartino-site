@@ -302,7 +302,12 @@ jobs:
             [ -n "$U" ] || continue
             run_sql "$ROOTCRED" "ALTER USER '$U'@'$H' IDENTIFIED BY '$NEW_ROOT_PW';" || rollback_db "ALTER USER op $U@$H (root) faalde"
           done <<< "$ROOT_HOSTS"
-          run_sql "$ROOTCRED" "FLUSH PRIVILEGES;" || rollback_db "FLUSH PRIVILEGES faalde"
+          # Geen FLUSH PRIVILEGES: ALTER USER werkt direct. Root heeft hier al het
+          # NIEUWE wachtwoord, dus FLUSH met $ROOTCRED (oud) gaf 'Access denied' en
+          # trok een geslaagde rotatie terug (run 39378332719, LAT-11054).
+          ROOTCRED_NEW=$(mkcred root "$NEW_ROOT_PW")
+          run_sql "$ROOTCRED_NEW" "SELECT 1;" >/dev/null || { shred -u "$ROOTCRED_NEW" 2>/dev/null; rollback_db "nieuw root-wachtwoord werkt niet na ALTER USER"; }
+          shred -u "$ROOTCRED_NEW" 2>/dev/null || rm -f "$ROOTCRED_NEW"
           shred -u "$ROOTCRED" "$APPCRED_OLD" 2>/dev/null || rm -f "$ROOTCRED" "$APPCRED_OLD"
 
           # --- 4. terugtoets: nieuw werkt, oud faalt (negatieve controle) ------
@@ -385,6 +390,15 @@ jobs:
           printf '[client]\nuser=%s\npassword=%s\n' "$APPUSER" "$PW" > "$CRED"
           if docker exec -i "$CTR_DB" mariadb --defaults-extra-file=/dev/stdin -e "SELECT 1;" < "$CRED" >/dev/null 2>&1; then
             echo "DB_AUTH_OK — config.php-credential werkt tegen de live DB"
+            ROOTPW=$(grep '^MYSQL_ROOT_PASSWORD=' "$DIR/db.env" | cut -d= -f2-)
+            RCRED=$(mktemp); chmod 600 "$RCRED"
+            printf '[client]\nuser=root\npassword=%s\n' "$ROOTPW" > "$RCRED"
+            if docker exec -i "$CTR_DB" mariadb --defaults-extra-file=/dev/stdin -e "SELECT 1;" < "$RCRED" >/dev/null 2>&1; then
+              echo "ROOT_AUTH_OK — db.env-root-credential werkt (sha256 $(printf '%s' "$ROOTPW" | sha256sum | cut -c1-16)...)"
+            else
+              echo "::error::db.env-root-credential werkt NIET tegen de live DB"; shred -u "$RCRED" 2>/dev/null; exit 1
+            fi
+            shred -u "$RCRED" 2>/dev/null || rm -f "$RCRED"
           else
             echo "::error::config.php-credential werkt NIET tegen de live DB"
             shred -u "$CRED" 2>/dev/null || rm -f "$CRED"
