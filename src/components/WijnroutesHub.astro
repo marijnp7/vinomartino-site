@@ -721,6 +721,9 @@ const schema = [
     .wk-body[data-mode="kaart"] .wk-map { order: -1; }
   }
   @media (max-width: 1023px) {
+    /* Keep a page-scroll area above/below the touch-draggable map, also in landscape.
+       svh respects browser chrome; drop the desktop minimum on short screens. */
+    .wk-map__c { height: min(55vh, 560px); height: min(55svh, 560px); min-height: 0; }
     .wk-body[data-mode="kaart"] .wk-list { display: none; }
   }
   @media (max-width: 860px) {
@@ -740,7 +743,6 @@ const schema = [
     .wk-card { grid-template-columns: minmax(0, 1fr); }
     .wk-ph { min-height: 0; aspect-ratio: 16 / 9; }
     .wk-btn { align-self: stretch; justify-content: center; }
-    .wk-map__c { height: 70vh; }
   }
   @media (prefers-reduced-motion: reduce) { .wk-card { transition: none; } }
   .wk-sketch { display: block; width: 100%; height: 100%; background: #14100E; }
