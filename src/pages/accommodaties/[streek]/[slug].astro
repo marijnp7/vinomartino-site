@@ -1,0 +1,9 @@
+---
+import AccommodationPortraitPage from '../../../components/AccommodationPortraitPage.astro';
+import { loadAccommodationPortraits } from '../../../lib/accommodation-portraits';
+export async function getStaticPaths() {
+  return (await loadAccommodationPortraits()).map((portrait) => ({ params: { streek: portrait.streekSlug, slug: portrait.slug }, props: { portrait } }));
+}
+const { portrait } = Astro.props;
+---
+<AccommodationPortraitPage portrait={portrait} locale="nl" />

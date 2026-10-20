@@ -68,7 +68,7 @@ const assetFailures = new Set<string>();
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-async function downloadAsset(assetId: string, directusUrl: string, token: string): Promise<string | null> {
+export async function downloadAsset(assetId: string, directusUrl: string, token: string): Promise<string | null> {
     const { writeFileSync, mkdirSync, existsSync } = await import('node:fs');
     const { join } = await import('node:path');
     const outDir = join(process.cwd(), 'public', 'images', 'accommodaties');

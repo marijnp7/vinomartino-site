@@ -18,6 +18,8 @@ export interface AccommodatieKaart {
   naam: string;
   /** Stabiele slug — gebruikt voor de CJ-SID en als anker-id. */
   slug: string;
+  /** Detailroute alleen voor volledig gevalideerde NL/EN-portretten. */
+  portretHref?: string | null;
   /** Plaats voor de "Locatie: [plaats]"-regel, bv. "La Morra". */
   plaats: string;
   /**
