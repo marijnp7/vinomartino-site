@@ -1,0 +1,34 @@
+---
+import type { PaginaSlaap } from '../lib/route-pagina';
+import OverviewIcon from './OverviewIcon.astro';
+import PoiCard from './PoiCard.astro';
+import { accommodatieBookingDeeplink } from '../lib/affiliates';
+import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
+interface Props { stay: PaginaSlaap; context: string; locale?: Locale; id?: string; placement: string; }
+const { stay, context, locale = DEFAULT_LOCALE, id, placement } = Astro.props;
+const ui = await loadUiStrings(locale);
+const href = accommodatieBookingDeeplink(stay.naam, stay.plaats ?? '', stay.bookingUrl, `route-${context}`, locale);
+const search = /searchresults/i.test(href);
+---
+<div class="route-stay" id={id}>
+  {stay.label && <p class="route-stay__role">{stay.icon && <OverviewIcon name={stay.icon} />}{stay.label}</p>}
+  <PoiCard locale={locale} poi={{
+    naam: stay.naam, foto: stay.foto, fotoId: stay.fotoId, hideMediaWhenEmpty: true,
+    beschrijving: [stay.plaats, stay.type].filter(Boolean).join(' · '), whyRegel: stay.why,
+    boeklink: href, cta: ui.t(search ? 'route.cta.zoekBooking' : 'route.stay.cta'),
+    ctaKey: search ? 'zoek-booking' : 'bekijk-boek', partner: 'booking', placement, context: `route-${context}`,
+  }} />
+</div>
+<style>
+  .route-stay { display: flex; flex-direction: column; min-width: 0; scroll-margin-top: 2rem; }
+  .route-stay__role { display: flex; align-items: center; gap: 0.6rem; margin: 0 0 0.75rem; color: var(--burgundyInk); font-family: var(--font-ui); font-size: 0.875rem; font-weight: 600; line-height: 1.4; }
+  .route-stay__role :global(svg) { flex-shrink: 0; }
+  .route-stay > :global(.poi-card) { flex: 1; }
+  .route-stay :global(.poi-card__head) { display: block; }
+  .route-stay :global(.poi-card__name) { font-size: 1.5rem; line-height: 1.2; }
+  .route-stay :global(.poi-card__why), .route-stay :global(.poi-card__desc) { display: block; -webkit-line-clamp: unset; overflow: visible; }
+  .route-stay :global(.poi-card__why) { font-style: normal; font-size: 1rem; line-height: 1.65; }
+  .route-stay :global(.poi-card__desc) { flex: initial; font-size: 0.875rem; }
+  .route-stay :global(.poi-card__foot) { padding-top: 0.5rem; }
+</style>

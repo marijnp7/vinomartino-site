@@ -1,10 +1,9 @@
 ---
 // LAT-12710 — één samengevoegde dag-sectie: foto, hook + verhaal, wijnhuis-kaartjes
 // (optioneel label "Zelf geweest") en één slaap-kaart met boek-knop.
-import PoiCard from './PoiCard.astro';
+import RouteStayCard from './RouteStayCard.astro';
 import { type PaginaDag } from '../lib/route-pagina';
 import { loadWijnhuizen } from '../lib/wijnhuizen';
-import { accommodatieBookingDeeplink } from '../lib/affiliates';
 import { getImageCredit, licenseLabelFor } from '../lib/image-credits';
 import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
 import { loadUiStrings } from '../lib/ui-strings';
@@ -68,32 +67,8 @@ const heeftChips = hasDagen(stops.filter((s) => s && Number.isFinite(s.lat) && N
     </div>
   )}
 
-  {slaap && (() => {
-    const slaapHref = accommodatieBookingDeeplink(slaap.naam, slaap.plaats ?? '', slaap.bookingUrl, `route-${context}`, locale);
-    const slaapZoek = /searchresults/i.test(slaapHref);
-    return (
-    <div class="rdag__slaap">
-      <PoiCard
-        locale={locale}
-        poi={{
-          naam: slaap.naam,
-          foto: slaap.foto,
-          fotoId: slaap.fotoId,
-          badge: slaap.label ?? slaap.type ?? ui.t('route.stop.overnachting'),
-          whyRegel: slaap.why,
-          boeklink: slaapHref,
-          // LAT-13527: een Booking-zoekopdracht (searchresults) is geen hotelpagina; de knop zegt dat eerlijk.
-          cta: ui.t(slaapZoek ? 'route.cta.zoekBooking' : 'route.stay.cta'),
-          ctaKey: slaapZoek ? 'zoek-booking' : 'bekijk-boek',
-          partner: 'booking',
-          placement: 'route-dag-slaap',
-          context: `route-${context}`,
-          hideMediaWhenEmpty: true,
-        }}
-      />
-    </div>
-    );
-  })()}
+  {slaap && <div class="rdag__slaap"><RouteStayCard stay={slaap} context={context} locale={locale} placement="route-dag-slaap" /></div>}
+
 </section>
 
 <style>
@@ -180,7 +155,7 @@ const heeftChips = hasDagen(stops.filter((s) => s && Number.isFinite(s.lat) && N
   }
   .rdag__wh-naam { font-family: var(--font-display); font-size: 1.25rem; font-weight: 500; color: var(--ink); }
   .rdag__wh-regel { font-family: var(--font-body); font-size: 0.9375rem; line-height: 1.5; color: var(--inkSoft); }
-  .rdag__slaap { margin-top: var(--space-6); max-width: 26rem; }
+  .rdag__slaap { margin-top: var(--space-6); max-width: 34rem; }
   @media (max-width: 640px) {
     .rdag__slaap { max-width: none; }
     .rdag__prose { font-size: 1rem; line-height: 1.7; }
