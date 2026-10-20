@@ -1,10 +1,10 @@
 {
-  "measuredAt": "2026-10-20T19:37:20Z",
+  "measuredAt": "2026-10-20T19:45:53Z",
   "base": "https://vinomartino.com",
   "lighthouse": "13.5.0",
   "formFactor": "mobile",
   "throttling": "simulate",
-  "runsPerTemplate": 1,
+  "runsPerTemplate": 3,
   "thresholds": {
     "performance": 85,
     "lcpMs": 2500,
@@ -15,17 +15,21 @@
     {
       "template": "home",
       "url": "https://vinomartino.com/",
-      "runs": 1,
-      "performance": 55,
-      "lcpMs": 3238,
-      "fcpMs": 3238,
-      "tbtMs": 1822,
+      "runs": 3,
+      "performance": 88,
+      "lcpMs": 2487,
+      "fcpMs": 2396,
+      "tbtMs": 0,
       "cls": 0,
       "perRunPerformance": [
-        55
+        88,
+        75,
+        97
       ],
       "perRunLcpMs": [
-        3238
+        2396,
+        4735,
+        2487
       ],
       "perRunAttribution": [
         {
@@ -35,10 +39,38 @@
             "snippet": "<img class=\"home-feature__img\" src=\"https://vinomartino.com/images/routes/bbeaa81e-530d-4f7f-8aa5-c18f5c7dae3b…\" alt=\"Vier dagen Langhe: Barolo, Barbaresco en de dorpen ertussen\" width=\"1600\" height=\"900\" fetchpriority=\"high\" decoding=\"async\" data-astro-cid-bobyx3ht=\"\" srcset=\"/images/routes/bbeaa81"
           },
           "lcpPhases": {
-            "timeToFirstByte": 911,
-            "resourceLoadDelay": 268,
-            "resourceLoadDuration": 819,
-            "elementRenderDelay": 298
+            "timeToFirstByte": 316,
+            "resourceLoadDelay": 88,
+            "resourceLoadDuration": 474,
+            "elementRenderDelay": 226
+          },
+          "layoutShifts": []
+        },
+        {
+          "lcpElement": {
+            "selector": "main > section.home-feature > picture > img.home-feature__img",
+            "nodeLabel": "Vier dagen Langhe: Barolo, Barbaresco en de dorpen ertussen",
+            "snippet": "<img class=\"home-feature__img\" src=\"https://vinomartino.com/images/routes/bbeaa81e-530d-4f7f-8aa5-c18f5c7dae3b…\" alt=\"Vier dagen Langhe: Barolo, Barbaresco en de dorpen ertussen\" width=\"1600\" height=\"900\" fetchpriority=\"high\" decoding=\"async\" data-astro-cid-bobyx3ht=\"\" srcset=\"/images/routes/bbeaa81"
+          },
+          "lcpPhases": {
+            "timeToFirstByte": 260,
+            "resourceLoadDelay": 89,
+            "resourceLoadDuration": 72,
+            "elementRenderDelay": 2012
+          },
+          "layoutShifts": []
+        },
+        {
+          "lcpElement": {
+            "selector": "main > section.home-feature > picture > img.home-feature__img",
+            "nodeLabel": "Vier dagen Langhe: Barolo, Barbaresco en de dorpen ertussen",
+            "snippet": "<img class=\"home-feature__img\" src=\"https://vinomartino.com/images/routes/bbeaa81e-530d-4f7f-8aa5-c18f5c7dae3b…\" alt=\"Vier dagen Langhe: Barolo, Barbaresco en de dorpen ertussen\" width=\"1600\" height=\"900\" fetchpriority=\"high\" decoding=\"async\" data-astro-cid-bobyx3ht=\"\" srcset=\"/images/routes/bbeaa81"
+          },
+          "lcpPhases": {
+            "timeToFirstByte": 263,
+            "resourceLoadDelay": 90,
+            "resourceLoadDuration": 48,
+            "elementRenderDelay": 27
           },
           "layoutShifts": []
         }
@@ -47,17 +79,21 @@
     {
       "template": "streek",
       "url": "https://vinomartino.com/streken/langhe-piemonte/",
-      "runs": 1,
-      "performance": 82,
-      "lcpMs": 4019,
-      "fcpMs": 2127,
-      "tbtMs": 72,
+      "runs": 3,
+      "performance": 97,
+      "lcpMs": 2432,
+      "fcpMs": 1550,
+      "tbtMs": 9,
       "cls": 0,
       "perRunPerformance": [
-        82
+        78,
+        97,
+        97
       ],
       "perRunLcpMs": [
-        4019
+        3964,
+        2427,
+        2432
       ],
       "perRunAttribution": [
         {
@@ -67,29 +103,80 @@
             "snippet": "<img src=\"https://vinomartino.com/images/streken/09458d5b-6c2c-4704-a521-df9facda732…\" alt=\"Langhe\" class=\"streek-hero-img\" loading=\"eager\" fetchpriority=\"high\" data-astro-cid-t4mxo7xy=\"\" width=\"1600\" height=\"900\" srcset=\"/images/streken/09458d5b-6c2c-4704-a521-df9facda7329.w640.jpg 640w, /image…\" s"
           },
           "lcpPhases": {
-            "timeToFirstByte": 368,
-            "resourceLoadDelay": 422,
-            "resourceLoadDuration": 1042,
-            "elementRenderDelay": 770
+            "timeToFirstByte": 269,
+            "resourceLoadDelay": 89,
+            "resourceLoadDuration": 555,
+            "elementRenderDelay": 1527
           },
           "layoutShifts": []
+        },
+        {
+          "lcpElement": {
+            "selector": "section.streek-hero > figure.streek-hero-img-wrap > picture > img.streek-hero-img",
+            "nodeLabel": "Langhe",
+            "snippet": "<img src=\"https://vinomartino.com/images/streken/09458d5b-6c2c-4704-a521-df9facda732…\" alt=\"Langhe\" class=\"streek-hero-img\" loading=\"eager\" fetchpriority=\"high\" data-astro-cid-t4mxo7xy=\"\" width=\"1600\" height=\"900\" srcset=\"/images/streken/09458d5b-6c2c-4704-a521-df9facda7329.w640.jpg 640w, /image…\" s"
+          },
+          "lcpPhases": {
+            "timeToFirstByte": 282,
+            "resourceLoadDelay": 91,
+            "resourceLoadDuration": 68,
+            "elementRenderDelay": 19
+          },
+          "layoutShifts": []
+        },
+        {
+          "lcpElement": {
+            "selector": "section.streek-hero > figure.streek-hero-img-wrap > picture > img.streek-hero-img",
+            "nodeLabel": "Langhe",
+            "snippet": "<img src=\"https://vinomartino.com/images/streken/09458d5b-6c2c-4704-a521-df9facda732…\" alt=\"Langhe\" class=\"streek-hero-img\" loading=\"eager\" fetchpriority=\"high\" data-astro-cid-t4mxo7xy=\"\" width=\"1600\" height=\"900\" srcset=\"/images/streken/09458d5b-6c2c-4704-a521-df9facda7329.w640.jpg 640w, /image…\" s"
+          },
+          "lcpPhases": {
+            "timeToFirstByte": 270,
+            "resourceLoadDelay": 90,
+            "resourceLoadDuration": 68,
+            "elementRenderDelay": 21
+          },
+          "layoutShifts": [
+            {
+              "score": 0.0002,
+              "causes": []
+            },
+            {
+              "score": 0.0002,
+              "selector": "header.site-header > div.header-main > div.header-inner > a.header-logo",
+              "nodeLabel": "Vino·Martino",
+              "snippet": "<a href=\"/\" class=\"header-logo\" aria-label=\"VinoMartino\" data-astro-cid-ctg3m53h=\"\">",
+              "causes": []
+            },
+            {
+              "score": 0.0002,
+              "selector": "header.site-header > div.header-main > div.header-inner > a.header-logo",
+              "nodeLabel": "Vino·Martino",
+              "snippet": "<a href=\"/\" class=\"header-logo\" aria-label=\"VinoMartino\" data-astro-cid-ctg3m53h=\"\">",
+              "causes": []
+            }
+          ]
         }
       ]
     },
     {
       "template": "artikel",
       "url": "https://vinomartino.com/artikelen/waar-slapen-langhe-piemonte/",
-      "runs": 1,
-      "performance": 96,
-      "lcpMs": 2238,
-      "fcpMs": 1859,
+      "runs": 3,
+      "performance": 97,
+      "lcpMs": 2488,
+      "fcpMs": 1584,
       "tbtMs": 0,
       "cls": 0,
       "perRunPerformance": [
-        96
+        81,
+        97,
+        98
       ],
       "perRunLcpMs": [
-        2238
+        3588,
+        2488,
+        2390
       ],
       "perRunAttribution": [
         {
@@ -99,29 +186,99 @@
             "snippet": "<img src=\"https://vinomartino.com/images/articles/97bc9bcb-1af3-4f16-9d69-2ccf90661b…\" alt=\"Waar slapen in de Langhe: van agriturismo tot wine estate\" class=\"article-hero-img\" loading=\"eager\" fetchpriority=\"high\" data-astro-cid-tooj2qcn=\"\" width=\"1600\" height=\"900\" srcset=\"/images/articles/97bc9bcb-"
           },
           "lcpPhases": {
-            "timeToFirstByte": 931,
-            "resourceLoadDelay": 167,
-            "resourceLoadDuration": 876,
-            "elementRenderDelay": 14
+            "timeToFirstByte": 265,
+            "resourceLoadDelay": 87,
+            "resourceLoadDuration": 485,
+            "elementRenderDelay": 1588
           },
           "layoutShifts": []
+        },
+        {
+          "lcpElement": {
+            "selector": "div.container > figure.article-hero > picture > img.article-hero-img",
+            "nodeLabel": "Waar slapen in de Langhe: van agriturismo tot wine estate",
+            "snippet": "<img src=\"https://vinomartino.com/images/articles/97bc9bcb-1af3-4f16-9d69-2ccf90661b…\" alt=\"Waar slapen in de Langhe: van agriturismo tot wine estate\" class=\"article-hero-img\" loading=\"eager\" fetchpriority=\"high\" data-astro-cid-tooj2qcn=\"\" width=\"1600\" height=\"900\" srcset=\"/images/articles/97bc9bcb-"
+          },
+          "lcpPhases": {
+            "timeToFirstByte": 276,
+            "resourceLoadDelay": 105,
+            "resourceLoadDuration": 50,
+            "elementRenderDelay": 31
+          },
+          "layoutShifts": [
+            {
+              "score": 0.0002,
+              "causes": []
+            },
+            {
+              "score": 0.0002,
+              "selector": "header.site-header > div.header-main > div.header-inner > a.header-logo",
+              "nodeLabel": "Vino·Martino",
+              "snippet": "<a href=\"/\" class=\"header-logo\" aria-label=\"VinoMartino\" data-astro-cid-ctg3m53h=\"\">",
+              "causes": []
+            },
+            {
+              "score": 0.0002,
+              "selector": "header.site-header > div.header-main > div.header-inner > a.header-logo",
+              "nodeLabel": "Vino·Martino",
+              "snippet": "<a href=\"/\" class=\"header-logo\" aria-label=\"VinoMartino\" data-astro-cid-ctg3m53h=\"\">",
+              "causes": []
+            }
+          ]
+        },
+        {
+          "lcpElement": {
+            "selector": "div.container > figure.article-hero > picture > img.article-hero-img",
+            "nodeLabel": "Waar slapen in de Langhe: van agriturismo tot wine estate",
+            "snippet": "<img src=\"https://vinomartino.com/images/articles/97bc9bcb-1af3-4f16-9d69-2ccf90661b…\" alt=\"Waar slapen in de Langhe: van agriturismo tot wine estate\" class=\"article-hero-img\" loading=\"eager\" fetchpriority=\"high\" data-astro-cid-tooj2qcn=\"\" width=\"1600\" height=\"900\" srcset=\"/images/articles/97bc9bcb-"
+          },
+          "lcpPhases": {
+            "timeToFirstByte": 269,
+            "resourceLoadDelay": 94,
+            "resourceLoadDuration": 66,
+            "elementRenderDelay": 21
+          },
+          "layoutShifts": [
+            {
+              "score": 0.0002,
+              "causes": []
+            },
+            {
+              "score": 0.0002,
+              "selector": "header.site-header > div.header-main > div.header-inner > a.header-logo",
+              "nodeLabel": "Vino·Martino",
+              "snippet": "<a href=\"/\" class=\"header-logo\" aria-label=\"VinoMartino\" data-astro-cid-ctg3m53h=\"\">",
+              "causes": []
+            },
+            {
+              "score": 0.0002,
+              "selector": "header.site-header > div.header-main > div.header-inner > a.header-logo",
+              "nodeLabel": "Vino·Martino",
+              "snippet": "<a href=\"/\" class=\"header-logo\" aria-label=\"VinoMartino\" data-astro-cid-ctg3m53h=\"\">",
+              "causes": []
+            }
+          ]
         }
       ]
     },
     {
       "template": "artikel-grower",
       "url": "https://vinomartino.com/artikelen/grower-champagne-waarom-marijn-gestopt-is-met-grandes-marques/",
-      "runs": 1,
+      "runs": 3,
       "performance": 95,
-      "lcpMs": 2799,
-      "fcpMs": 1412,
+      "lcpMs": 2814,
+      "fcpMs": 1563,
       "tbtMs": 0,
-      "cls": 0,
+      "cls": 0.001,
       "perRunPerformance": [
-        95
+        95,
+        97,
+        79
       ],
       "perRunLcpMs": [
-        2799
+        2814,
+        2581,
+        4008
       ],
       "perRunAttribution": [
         {
@@ -131,15 +288,97 @@
             "snippet": "<img src=\"https://vinomartino.com/images/articles/f0a145b6-4d05-4c40-a2d9-7c9b3f361b…\" alt=\"Grower Champagne: waarom Marijn gestopt is met grandes marques\" class=\"article-hero-img\" loading=\"eager\" fetchpriority=\"high\" data-astro-cid-tooj2qcn=\"\" width=\"1600\" height=\"1200\" srcset=\"/images/articles/f0a"
           },
           "lcpPhases": {
-            "timeToFirstByte": 1054,
-            "resourceLoadDelay": 171,
-            "resourceLoadDuration": 534,
-            "elementRenderDelay": 33
+            "timeToFirstByte": 261,
+            "resourceLoadDelay": 88,
+            "resourceLoadDuration": 570,
+            "elementRenderDelay": 32
           },
           "layoutShifts": [
             {
-              "score": 0,
+              "score": 0.0008,
               "causes": []
+            },
+            {
+              "score": 0.0008,
+              "selector": "main > article.article-page > div.article-intro-b > div.container",
+              "nodeLabel": "Zelf gereisd\nChampagne\n5 min lezen\nRedactie VinoMartino\n5 februari 2026",
+              "snippet": "<div class=\"container article-b-meta\" data-astro-cid-tooj2qcn=\"\">",
+              "causes": [
+                "Unsized image element",
+                "Web font"
+              ]
+            },
+            {
+              "score": 0,
+              "selector": "div.article-intro-b > div.container > ul.article-facts > li.article-fact",
+              "nodeLabel": "5 min lezen",
+              "snippet": "<li class=\"article-fact article-reading\" data-astro-cid-tooj2qcn=\"\">",
+              "causes": [
+                "Unsized image element",
+                "Web font",
+                "Web font",
+                "Web font"
+              ]
+            },
+            {
+              "score": 0.0008,
+              "selector": "main > article.article-page > div.article-intro-b > div.container",
+              "nodeLabel": "Zelf gereisd\nChampagne\n5 min lezen\nRedactie VinoMartino\n5 februari 2026",
+              "snippet": "<div class=\"container article-b-meta\" data-astro-cid-tooj2qcn=\"\">",
+              "causes": [
+                "Media element lacking an explicit size",
+                "Web font loaded"
+              ]
+            },
+            {
+              "score": 0,
+              "selector": "div.article-intro-b > div.container > ul.article-facts > li.article-fact",
+              "nodeLabel": "5 min lezen",
+              "snippet": "<li class=\"article-fact article-reading\" data-astro-cid-tooj2qcn=\"\">",
+              "causes": [
+                "Media element lacking an explicit size",
+                "Web font loaded",
+                "Web font loaded",
+                "Web font loaded"
+              ]
+            }
+          ]
+        },
+        {
+          "lcpElement": {
+            "selector": "div.container > figure.article-hero > picture > img.article-hero-img",
+            "nodeLabel": "Grower Champagne: waarom Marijn gestopt is met grandes marques",
+            "snippet": "<img src=\"https://vinomartino.com/images/articles/f0a145b6-4d05-4c40-a2d9-7c9b3f361b…\" alt=\"Grower Champagne: waarom Marijn gestopt is met grandes marques\" class=\"article-hero-img\" loading=\"eager\" fetchpriority=\"high\" data-astro-cid-tooj2qcn=\"\" width=\"1600\" height=\"1200\" srcset=\"/images/articles/f0a"
+          },
+          "lcpPhases": {
+            "timeToFirstByte": 277,
+            "resourceLoadDelay": 93,
+            "resourceLoadDuration": 92,
+            "elementRenderDelay": 37
+          },
+          "layoutShifts": [
+            {
+              "score": 0.001,
+              "causes": []
+            },
+            {
+              "score": 0.0008,
+              "selector": "main > article.article-page > div.article-intro-b > div.container",
+              "nodeLabel": "Zelf gereisd\nChampagne\n5 min lezen\nRedactie VinoMartino\n5 februari 2026",
+              "snippet": "<div class=\"container article-b-meta\" data-astro-cid-tooj2qcn=\"\">",
+              "causes": [
+                "Unsized image element",
+                "Web font"
+              ]
+            },
+            {
+              "score": 0.0002,
+              "selector": "header.site-header > div.header-main > div.header-inner > a.header-logo",
+              "nodeLabel": "Vino·Martino",
+              "snippet": "<a href=\"/\" class=\"header-logo\" aria-label=\"VinoMartino\" data-astro-cid-ctg3m53h=\"\">",
+              "causes": [
+                "Unsized image element"
+              ]
             },
             {
               "score": 0,
@@ -153,9 +392,26 @@
                 "Web font",
                 "Web font",
                 "Web font",
-                "Web font",
-                "Web font",
                 "Web font"
+              ]
+            },
+            {
+              "score": 0.0008,
+              "selector": "main > article.article-page > div.article-intro-b > div.container",
+              "nodeLabel": "Zelf gereisd\nChampagne\n5 min lezen\nRedactie VinoMartino\n5 februari 2026",
+              "snippet": "<div class=\"container article-b-meta\" data-astro-cid-tooj2qcn=\"\">",
+              "causes": [
+                "Media element lacking an explicit size",
+                "Web font loaded"
+              ]
+            },
+            {
+              "score": 0.0002,
+              "selector": "header.site-header > div.header-main > div.header-inner > a.header-logo",
+              "nodeLabel": "Vino·Martino",
+              "snippet": "<a href=\"/\" class=\"header-logo\" aria-label=\"VinoMartino\" data-astro-cid-ctg3m53h=\"\">",
+              "causes": [
+                "Media element lacking an explicit size"
               ]
             },
             {
@@ -170,9 +426,44 @@
                 "Web font loaded",
                 "Web font loaded",
                 "Web font loaded",
-                "Web font loaded",
-                "Web font loaded",
                 "Web font loaded"
+              ]
+            }
+          ]
+        },
+        {
+          "lcpElement": {
+            "selector": "div.container > figure.article-hero > picture > img.article-hero-img",
+            "nodeLabel": "Grower Champagne: waarom Marijn gestopt is met grandes marques",
+            "snippet": "<img src=\"https://vinomartino.com/images/articles/f0a145b6-4d05-4c40-a2d9-7c9b3f361b…\" alt=\"Grower Champagne: waarom Marijn gestopt is met grandes marques\" class=\"article-hero-img\" loading=\"eager\" fetchpriority=\"high\" data-astro-cid-tooj2qcn=\"\" width=\"1600\" height=\"1200\" srcset=\"/images/articles/f0a"
+          },
+          "lcpPhases": {
+            "timeToFirstByte": 269,
+            "resourceLoadDelay": 90,
+            "resourceLoadDuration": 68,
+            "elementRenderDelay": 2016
+          },
+          "layoutShifts": [
+            {
+              "score": 0,
+              "causes": []
+            },
+            {
+              "score": 0,
+              "selector": "div.article-intro-b > div.container > ul.article-facts > li.article-fact",
+              "nodeLabel": "5 min lezen",
+              "snippet": "<li class=\"article-fact article-reading\" data-astro-cid-tooj2qcn=\"\">",
+              "causes": [
+                "Unsized image element"
+              ]
+            },
+            {
+              "score": 0,
+              "selector": "div.article-intro-b > div.container > ul.article-facts > li.article-fact",
+              "nodeLabel": "5 min lezen",
+              "snippet": "<li class=\"article-fact article-reading\" data-astro-cid-tooj2qcn=\"\">",
+              "causes": [
+                "Media element lacking an explicit size"
               ]
             }
           ]
@@ -182,17 +473,21 @@
     {
       "template": "route",
       "url": "https://vinomartino.com/wijnroutes/mosel-bernkastel-traben-trarbach/",
-      "runs": 1,
-      "performance": 80,
-      "lcpMs": 3838,
-      "fcpMs": 3172,
+      "runs": 3,
+      "performance": 97,
+      "lcpMs": 2486,
+      "fcpMs": 1558,
       "tbtMs": 0,
-      "cls": 0,
+      "cls": 0.024,
       "perRunPerformance": [
-        80
+        77,
+        98,
+        97
       ],
       "perRunLcpMs": [
-        3838
+        4094,
+        2367,
+        2486
       ],
       "perRunAttribution": [
         {
@@ -202,10 +497,10 @@
             "snippet": "<img class=\"rhero__img\" src=\"https://vinomartino.com/images/routes/pg-49e933ef-aaee-4a5b-94a3-a04b178c1…\" alt=\"Wijngaardterras aan de Mittelmosel op leisteen van ongeveer 400 miljoen ja…\" loading=\"eager\" fetchpriority=\"high\" data-astro-cid-iy22jwkp=\"\" width=\"1600\" height=\"1089\" srcset=\"/images/route"
           },
           "lcpPhases": {
-            "timeToFirstByte": 359,
-            "resourceLoadDelay": 160,
-            "resourceLoadDuration": 868,
-            "elementRenderDelay": 1136
+            "timeToFirstByte": 265,
+            "resourceLoadDelay": 84,
+            "resourceLoadDuration": 319,
+            "elementRenderDelay": 1767
           },
           "layoutShifts": [
             {
@@ -231,23 +526,151 @@
               ]
             }
           ]
+        },
+        {
+          "lcpElement": {
+            "selector": "article.route-page > header.rhero > picture > img.rhero__img",
+            "nodeLabel": "Wijngaardterras aan de Mittelmosel op leisteen van ongeveer 400 miljoen jaar ou…",
+            "snippet": "<img class=\"rhero__img\" src=\"https://vinomartino.com/images/routes/pg-49e933ef-aaee-4a5b-94a3-a04b178c1…\" alt=\"Wijngaardterras aan de Mittelmosel op leisteen van ongeveer 400 miljoen ja…\" loading=\"eager\" fetchpriority=\"high\" data-astro-cid-iy22jwkp=\"\" width=\"1600\" height=\"1089\" srcset=\"/images/route"
+          },
+          "lcpPhases": {
+            "timeToFirstByte": 269,
+            "resourceLoadDelay": 90,
+            "resourceLoadDuration": 66,
+            "elementRenderDelay": 23
+          },
+          "layoutShifts": [
+            {
+              "score": 0.0242,
+              "causes": []
+            },
+            {
+              "score": 0.0237,
+              "selector": "main > article.route-page > header.rhero > div.container",
+              "nodeLabel": "ZELF GEREISD\nMoezel in drie dagen: de duurste wijngaard van Duitsland, de steil…",
+              "snippet": "<div class=\"container rhero__inner\" data-astro-cid-iy22jwkp=\"\">",
+              "causes": [
+                "Web font"
+              ]
+            },
+            {
+              "score": 0.0005,
+              "selector": "header.rhero > div.container > div.rhero__cta > a.rhero__btn",
+              "nodeLabel": "Waar slapen",
+              "snippet": "<a class=\"rhero__btn rhero__btn--primary\" href=\"#slapen\" data-astro-cid-iy22jwkp=\"\">",
+              "causes": [
+                "Unsized image element",
+                "Web font",
+                "Web font",
+                "Web font"
+              ]
+            },
+            {
+              "score": 0.0237,
+              "selector": "main > article.route-page > header.rhero > div.container",
+              "nodeLabel": "ZELF GEREISD\nMoezel in drie dagen: de duurste wijngaard van Duitsland, de steil…",
+              "snippet": "<div class=\"container rhero__inner\" data-astro-cid-iy22jwkp=\"\">",
+              "causes": [
+                "Web font loaded"
+              ]
+            },
+            {
+              "score": 0.0005,
+              "selector": "header.rhero > div.container > div.rhero__cta > a.rhero__btn",
+              "nodeLabel": "Waar slapen",
+              "snippet": "<a class=\"rhero__btn rhero__btn--primary\" href=\"#slapen\" data-astro-cid-iy22jwkp=\"\">",
+              "causes": [
+                "Media element lacking an explicit size",
+                "Web font loaded",
+                "Web font loaded",
+                "Web font loaded"
+              ]
+            }
+          ]
+        },
+        {
+          "lcpElement": {
+            "selector": "article.route-page > header.rhero > picture > img.rhero__img",
+            "nodeLabel": "Wijngaardterras aan de Mittelmosel op leisteen van ongeveer 400 miljoen jaar ou…",
+            "snippet": "<img class=\"rhero__img\" src=\"https://vinomartino.com/images/routes/pg-49e933ef-aaee-4a5b-94a3-a04b178c1…\" alt=\"Wijngaardterras aan de Mittelmosel op leisteen van ongeveer 400 miljoen ja…\" loading=\"eager\" fetchpriority=\"high\" data-astro-cid-iy22jwkp=\"\" width=\"1600\" height=\"1089\" srcset=\"/images/route"
+          },
+          "lcpPhases": {
+            "timeToFirstByte": 271,
+            "resourceLoadDelay": 91,
+            "resourceLoadDuration": 84,
+            "elementRenderDelay": 27
+          },
+          "layoutShifts": [
+            {
+              "score": 0.0242,
+              "causes": []
+            },
+            {
+              "score": 0.0237,
+              "selector": "main > article.route-page > header.rhero > div.container",
+              "nodeLabel": "ZELF GEREISD\nMoezel in drie dagen: de duurste wijngaard van Duitsland, de steil…",
+              "snippet": "<div class=\"container rhero__inner\" data-astro-cid-iy22jwkp=\"\">",
+              "causes": [
+                "Web font"
+              ]
+            },
+            {
+              "score": 0.0005,
+              "selector": "header.rhero > div.container > div.rhero__cta > a.rhero__btn",
+              "nodeLabel": "Waar slapen",
+              "snippet": "<a class=\"rhero__btn rhero__btn--primary\" href=\"#slapen\" data-astro-cid-iy22jwkp=\"\">",
+              "causes": [
+                "Unsized image element",
+                "Web font",
+                "Web font",
+                "Web font",
+                "Web font"
+              ]
+            },
+            {
+              "score": 0.0237,
+              "selector": "main > article.route-page > header.rhero > div.container",
+              "nodeLabel": "ZELF GEREISD\nMoezel in drie dagen: de duurste wijngaard van Duitsland, de steil…",
+              "snippet": "<div class=\"container rhero__inner\" data-astro-cid-iy22jwkp=\"\">",
+              "causes": [
+                "Web font loaded"
+              ]
+            },
+            {
+              "score": 0.0005,
+              "selector": "header.rhero > div.container > div.rhero__cta > a.rhero__btn",
+              "nodeLabel": "Waar slapen",
+              "snippet": "<a class=\"rhero__btn rhero__btn--primary\" href=\"#slapen\" data-astro-cid-iy22jwkp=\"\">",
+              "causes": [
+                "Media element lacking an explicit size",
+                "Web font loaded",
+                "Web font loaded",
+                "Web font loaded",
+                "Web font loaded"
+              ]
+            }
+          ]
         }
       ]
     },
     {
       "template": "artikel-en",
       "url": "https://vinomartino.com/en/artikelen/waar-slapen-langhe-piemonte/",
-      "runs": 1,
-      "performance": 98,
-      "lcpMs": 2352,
-      "fcpMs": 1411,
+      "runs": 3,
+      "performance": 97,
+      "lcpMs": 2481,
+      "fcpMs": 1573,
       "tbtMs": 0,
-      "cls": 0,
+      "cls": 0.004,
       "perRunPerformance": [
-        98
+        97,
+        80,
+        97
       ],
       "perRunLcpMs": [
-        2352
+        2481,
+        3855,
+        2425
       ],
       "perRunAttribution": [
         {
@@ -257,15 +680,24 @@
             "snippet": "<img src=\"https://vinomartino.com/images/articles/97bc9bcb-1af3-4f16-9d69-2ccf90661b…\" alt=\"Barolo DOCG vineyard on the hillside at La Morra, Langhe, Piemonte, with M…\" class=\"article-hero-img\" loading=\"eager\" fetchpriority=\"high\" data-astro-cid-tooj2qcn=\"\" width=\"1600\" height=\"900\" srcset=\"/images/"
           },
           "lcpPhases": {
-            "timeToFirstByte": 868,
-            "resourceLoadDelay": 158,
-            "resourceLoadDuration": 15,
-            "elementRenderDelay": 42
+            "timeToFirstByte": 267,
+            "resourceLoadDelay": 89,
+            "resourceLoadDuration": 62,
+            "elementRenderDelay": 21
           },
           "layoutShifts": [
             {
-              "score": 0.0002,
+              "score": 0.0037,
               "causes": []
+            },
+            {
+              "score": 0.0035,
+              "selector": "main > article.article-page > div.article-intro-b > div.container",
+              "nodeLabel": "DE ROUTE\nTravelled there\nLanghe\n14 min read\nRedactie VinoMartino\n8 July 2026",
+              "snippet": "<div class=\"container article-b-meta\" data-astro-cid-tooj2qcn=\"\">",
+              "causes": [
+                "Web font"
+              ]
             },
             {
               "score": 0.0002,
@@ -273,6 +705,80 @@
               "nodeLabel": "Vino·Martino",
               "snippet": "<a href=\"/en/\" class=\"header-logo\" aria-label=\"VinoMartino\" data-astro-cid-ctg3m53h=\"\">",
               "causes": []
+            },
+            {
+              "score": 0.0035,
+              "selector": "main > article.article-page > div.article-intro-b > div.container",
+              "nodeLabel": "DE ROUTE\nTravelled there\nLanghe\n14 min read\nRedactie VinoMartino\n8 July 2026",
+              "snippet": "<div class=\"container article-b-meta\" data-astro-cid-tooj2qcn=\"\">",
+              "causes": [
+                "Web font loaded"
+              ]
+            },
+            {
+              "score": 0.0002,
+              "selector": "header.site-header > div.header-main > div.header-inner > a.header-logo",
+              "nodeLabel": "Vino·Martino",
+              "snippet": "<a href=\"/en/\" class=\"header-logo\" aria-label=\"VinoMartino\" data-astro-cid-ctg3m53h=\"\">",
+              "causes": []
+            }
+          ]
+        },
+        {
+          "lcpElement": {
+            "selector": "div.container > figure.article-hero > picture > img.article-hero-img",
+            "nodeLabel": "Barolo DOCG vineyard on the hillside at La Morra, Langhe, Piemonte, with Monvis…",
+            "snippet": "<img src=\"https://vinomartino.com/images/articles/97bc9bcb-1af3-4f16-9d69-2ccf90661b…\" alt=\"Barolo DOCG vineyard on the hillside at La Morra, Langhe, Piemonte, with M…\" class=\"article-hero-img\" loading=\"eager\" fetchpriority=\"high\" data-astro-cid-tooj2qcn=\"\" width=\"1600\" height=\"900\" srcset=\"/images/"
+          },
+          "lcpPhases": {
+            "timeToFirstByte": 261,
+            "resourceLoadDelay": 94,
+            "resourceLoadDuration": 51,
+            "elementRenderDelay": 2030
+          },
+          "layoutShifts": []
+        },
+        {
+          "lcpElement": {
+            "selector": "div.container > figure.article-hero > picture > img.article-hero-img",
+            "nodeLabel": "Barolo DOCG vineyard on the hillside at La Morra, Langhe, Piemonte, with Monvis…",
+            "snippet": "<img src=\"https://vinomartino.com/images/articles/97bc9bcb-1af3-4f16-9d69-2ccf90661b…\" alt=\"Barolo DOCG vineyard on the hillside at La Morra, Langhe, Piemonte, with M…\" class=\"article-hero-img\" loading=\"eager\" fetchpriority=\"high\" data-astro-cid-tooj2qcn=\"\" width=\"1600\" height=\"900\" srcset=\"/images/"
+          },
+          "lcpPhases": {
+            "timeToFirstByte": 255,
+            "resourceLoadDelay": 101,
+            "resourceLoadDuration": 68,
+            "elementRenderDelay": 10
+          },
+          "layoutShifts": [
+            {
+              "score": 0.0037,
+              "causes": []
+            },
+            {
+              "score": 0.0035,
+              "selector": "main > article.article-page > div.article-intro-b > div.container",
+              "nodeLabel": "DE ROUTE\nTravelled there\nLanghe\n14 min read\nRedactie VinoMartino\n8 July 2026",
+              "snippet": "<div class=\"container article-b-meta\" data-astro-cid-tooj2qcn=\"\">",
+              "causes": [
+                "Web font"
+              ]
+            },
+            {
+              "score": 0.0002,
+              "selector": "header.site-header > div.header-main > div.header-inner > a.header-logo",
+              "nodeLabel": "Vino·Martino",
+              "snippet": "<a href=\"/en/\" class=\"header-logo\" aria-label=\"VinoMartino\" data-astro-cid-ctg3m53h=\"\">",
+              "causes": []
+            },
+            {
+              "score": 0.0035,
+              "selector": "main > article.article-page > div.article-intro-b > div.container",
+              "nodeLabel": "DE ROUTE\nTravelled there\nLanghe\n14 min read\nRedactie VinoMartino\n8 July 2026",
+              "snippet": "<div class=\"container article-b-meta\" data-astro-cid-tooj2qcn=\"\">",
+              "causes": [
+                "Web font loaded"
+              ]
             },
             {
               "score": 0.0002,
@@ -288,17 +794,21 @@
     {
       "template": "index-wijnhuizen",
       "url": "https://vinomartino.com/wijnhuizen/",
-      "runs": 1,
-      "performance": 79,
-      "lcpMs": 3918,
-      "fcpMs": 3300,
+      "runs": 3,
+      "performance": 77,
+      "lcpMs": 4111,
+      "fcpMs": 3495,
       "tbtMs": 0,
       "cls": 0,
       "perRunPerformance": [
-        79
+        76,
+        77,
+        96
       ],
       "perRunLcpMs": [
-        3918
+        4163,
+        4111,
+        2434
       ],
       "perRunAttribution": [
         {
@@ -308,29 +818,98 @@
             "snippet": "<img src=\"https://vinomartino.com/images/wijnhuizen/ea269d3b-d05d-44e9-9e7f-51cfe819…\" alt=\"Abrigo Fratelli\" class=\"card-img\" loading=\"lazy\" data-astro-cid-74baiqla=\"\" width=\"1600\" height=\"1067\" srcset=\"/images/wijnhuizen/ea269d3b-d05d-44e9-9e7f-51cfe819cc13.w640.jpg 640w, /im…\" sizes=\"(min-width: 1"
           },
           "lcpPhases": {
-            "timeToFirstByte": 364,
-            "resourceLoadDelay": 1177,
-            "resourceLoadDuration": 22,
-            "elementRenderDelay": 991
+            "timeToFirstByte": 264,
+            "resourceLoadDelay": 1183,
+            "resourceLoadDuration": 67,
+            "elementRenderDelay": 940
           },
           "layoutShifts": []
+        },
+        {
+          "lcpElement": {
+            "selector": "article.card > div.card-img-wrap > picture > img.card-img",
+            "nodeLabel": "Abrigo Fratelli",
+            "snippet": "<img src=\"https://vinomartino.com/images/wijnhuizen/ea269d3b-d05d-44e9-9e7f-51cfe819…\" alt=\"Abrigo Fratelli\" class=\"card-img\" loading=\"lazy\" data-astro-cid-74baiqla=\"\" width=\"1600\" height=\"1067\" srcset=\"/images/wijnhuizen/ea269d3b-d05d-44e9-9e7f-51cfe819cc13.w640.jpg 640w, /im…\" sizes=\"(min-width: 1"
+          },
+          "lcpPhases": {
+            "timeToFirstByte": 258,
+            "resourceLoadDelay": 1181,
+            "resourceLoadDuration": 63,
+            "elementRenderDelay": 942
+          },
+          "layoutShifts": []
+        },
+        {
+          "lcpElement": {
+            "selector": "article.card > div.card-img-wrap > picture > img.card-img",
+            "nodeLabel": "Abrigo Fratelli",
+            "snippet": "<img src=\"https://vinomartino.com/images/wijnhuizen/ea269d3b-d05d-44e9-9e7f-51cfe819…\" alt=\"Abrigo Fratelli\" class=\"card-img\" loading=\"lazy\" data-astro-cid-74baiqla=\"\" width=\"1600\" height=\"1067\" srcset=\"/images/wijnhuizen/ea269d3b-d05d-44e9-9e7f-51cfe819cc13.w640.jpg 640w, /im…\" sizes=\"(min-width: 1"
+          },
+          "lcpPhases": {
+            "timeToFirstByte": 271,
+            "resourceLoadDelay": 119,
+            "resourceLoadDuration": 102,
+            "elementRenderDelay": 14
+          },
+          "layoutShifts": [
+            {
+              "score": 0.0732,
+              "causes": []
+            },
+            {
+              "score": 0.0683,
+              "selector": "body > main > section.section",
+              "nodeLabel": "ZOEK OP NAAM, STREEK, PLAATS OF DRUIF\nBESTEMMING\nAlle bestemmingen\nHeel Duitsla…",
+              "snippet": "<section class=\"section container\" data-astro-cid-mffnpuu4=\"\">",
+              "causes": [
+                "Web font"
+              ]
+            },
+            {
+              "score": 0.0049,
+              "selector": "section.section > div.wh-keuzehulp > div.grid > article.card",
+              "nodeLabel": "LANGHE, ITALIË\nAbrigo Fratelli\n\nFamiliehuis in Diano d'Alba sinds 1935. Dolcett…",
+              "snippet": "<article class=\"card wh-card\" data-wh-card=\"\" data-zoek=\"abrigo fratelli langhe langhe italie italie langhe piemonte via moglia ger…\" data-streek=\"langhe-piemonte\" data-land=\"italie\" data-druiven=\"dolcetto barbera nebbiolo chardonnay arneis favorita\" data-astro-cid-mffnpuu4=\"\">",
+              "causes": []
+            },
+            {
+              "score": 0.0683,
+              "selector": "body > main > section.section",
+              "nodeLabel": "ZOEK OP NAAM, STREEK, PLAATS OF DRUIF\nBESTEMMING\nAlle bestemmingen\nHeel Duitsla…",
+              "snippet": "<section class=\"section container\" data-astro-cid-mffnpuu4=\"\">",
+              "causes": [
+                "Web font loaded"
+              ]
+            },
+            {
+              "score": 0.0049,
+              "selector": "section.section > div.wh-keuzehulp > div.grid > article.card",
+              "nodeLabel": "LANGHE, ITALIË\nAbrigo Fratelli\n\nFamiliehuis in Diano d'Alba sinds 1935. Dolcett…",
+              "snippet": "<article class=\"card wh-card\" data-wh-card=\"\" data-zoek=\"abrigo fratelli langhe langhe italie italie langhe piemonte via moglia ger…\" data-streek=\"langhe-piemonte\" data-land=\"italie\" data-druiven=\"dolcetto barbera nebbiolo chardonnay arneis favorita\" data-astro-cid-mffnpuu4=\"\">",
+              "causes": []
+            }
+          ]
         }
       ]
     },
     {
       "template": "index-wijnroutes",
       "url": "https://vinomartino.com/wijnroutes/",
-      "runs": 1,
-      "performance": 96,
-      "lcpMs": 2342,
-      "fcpMs": 1873,
+      "runs": 3,
+      "performance": 78,
+      "lcpMs": 4166,
+      "fcpMs": 3167,
       "tbtMs": 0,
       "cls": 0,
       "perRunPerformance": [
-        96
+        77,
+        78,
+        99
       ],
       "perRunLcpMs": [
-        2342
+        4178,
+        4166,
+        2069
       ],
       "perRunAttribution": [
         {
@@ -340,10 +919,76 @@
             "snippet": "<img src=\"https://vinomartino.com/images/routes/bbeaa81e-530d-4f7f-8aa5-c18f5c7dae3b…\" alt=\"\" loading=\"eager\" fetchpriority=\"high\" data-astro-cid-74baiqla=\"\" width=\"480\" height=\"270\" srcset=\"/images/routes/bbeaa81e-530d-4f7f-8aa5-c18f5c7dae3b.w640.jpg 640w, /images…\" sizes=\"(min-width: 768px) 480px,"
           },
           "lcpPhases": {
-            "timeToFirstByte": 390,
-            "resourceLoadDelay": 168,
-            "resourceLoadDuration": 32,
-            "elementRenderDelay": 964
+            "timeToFirstByte": 394,
+            "resourceLoadDelay": 86,
+            "resourceLoadDuration": 57,
+            "elementRenderDelay": 2035
+          },
+          "layoutShifts": [
+            {
+              "score": 0.0002,
+              "causes": []
+            },
+            {
+              "score": 0.0002,
+              "selector": "main > section#wijnroutes > div.wk-rh > div.wk-view",
+              "nodeLabel": "Bekijk op kaart",
+              "snippet": "<div class=\"wk-view\" role=\"group\" aria-label=\"Weergave\" data-wk-view=\"\" data-astro-cid-4zikvkya=\"\">",
+              "causes": []
+            },
+            {
+              "score": 0.0002,
+              "selector": "main > section#wijnroutes > div.wk-rh > div.wk-view",
+              "nodeLabel": "Bekijk op kaart",
+              "snippet": "<div class=\"wk-view\" role=\"group\" aria-label=\"Weergave\" data-wk-view=\"\" data-astro-cid-4zikvkya=\"\">",
+              "causes": []
+            }
+          ]
+        },
+        {
+          "lcpElement": {
+            "selector": "li.wk-card > div.wk-ph > picture > img",
+            "nodeLabel": "li.wk-card > div.wk-ph > picture > img",
+            "snippet": "<img src=\"https://vinomartino.com/images/routes/bbeaa81e-530d-4f7f-8aa5-c18f5c7dae3b…\" alt=\"\" loading=\"eager\" fetchpriority=\"high\" data-astro-cid-74baiqla=\"\" width=\"480\" height=\"270\" srcset=\"/images/routes/bbeaa81e-530d-4f7f-8aa5-c18f5c7dae3b.w640.jpg 640w, /images…\" sizes=\"(min-width: 768px) 480px,"
+          },
+          "lcpPhases": {
+            "timeToFirstByte": 275,
+            "resourceLoadDelay": 88,
+            "resourceLoadDuration": 82,
+            "elementRenderDelay": 1994
+          },
+          "layoutShifts": [
+            {
+              "score": 0.0002,
+              "causes": []
+            },
+            {
+              "score": 0.0002,
+              "selector": "main > section#wijnroutes > div.wk-rh > div.wk-view",
+              "nodeLabel": "Bekijk op kaart",
+              "snippet": "<div class=\"wk-view\" role=\"group\" aria-label=\"Weergave\" data-wk-view=\"\" data-astro-cid-4zikvkya=\"\">",
+              "causes": []
+            },
+            {
+              "score": 0.0002,
+              "selector": "main > section#wijnroutes > div.wk-rh > div.wk-view",
+              "nodeLabel": "Bekijk op kaart",
+              "snippet": "<div class=\"wk-view\" role=\"group\" aria-label=\"Weergave\" data-wk-view=\"\" data-astro-cid-4zikvkya=\"\">",
+              "causes": []
+            }
+          ]
+        },
+        {
+          "lcpElement": {
+            "selector": "li.wk-card > div.wk-ph > picture > img",
+            "nodeLabel": "li.wk-card > div.wk-ph > picture > img",
+            "snippet": "<img src=\"https://vinomartino.com/images/routes/bbeaa81e-530d-4f7f-8aa5-c18f5c7dae3b…\" alt=\"\" loading=\"eager\" fetchpriority=\"high\" data-astro-cid-74baiqla=\"\" width=\"480\" height=\"270\" srcset=\"/images/routes/bbeaa81e-530d-4f7f-8aa5-c18f5c7dae3b.w640.jpg 640w, /images…\" sizes=\"(min-width: 768px) 480px,"
+          },
+          "lcpPhases": {
+            "timeToFirstByte": 350,
+            "resourceLoadDelay": 88,
+            "resourceLoadDuration": 49,
+            "elementRenderDelay": 7
           },
           "layoutShifts": [
             {
@@ -356,7 +1001,6 @@
               "nodeLabel": "Bekijk op kaart",
               "snippet": "<div class=\"wk-view\" role=\"group\" aria-label=\"Weergave\" data-wk-view=\"\" data-astro-cid-4zikvkya=\"\">",
               "causes": [
-                "Web font",
                 "Web font",
                 "Web font",
                 "Web font",
@@ -372,7 +1016,6 @@
                 "Web font loaded",
                 "Web font loaded",
                 "Web font loaded",
-                "Web font loaded",
                 "Web font loaded"
               ]
             }
@@ -383,17 +1026,21 @@
     {
       "template": "streek-bourgogne",
       "url": "https://vinomartino.com/streken/bourgogne/",
-      "runs": 1,
-      "performance": 77,
-      "lcpMs": 4234,
-      "fcpMs": 3152,
-      "tbtMs": 34,
+      "runs": 3,
+      "performance": 98,
+      "lcpMs": 2174,
+      "fcpMs": 1630,
+      "tbtMs": 11,
       "cls": 0,
       "perRunPerformance": [
-        77
+        95,
+        98,
+        99
       ],
       "perRunLcpMs": [
-        4234
+        2728,
+        2174,
+        2025
       ],
       "perRunAttribution": [
         {
@@ -403,40 +1050,20 @@
             "snippet": "<p class=\"streek-subtitle\" data-astro-cid-t4mxo7xy=\"\">"
           },
           "lcpPhases": {
-            "timeToFirstByte": 359,
-            "elementRenderDelay": 2162
+            "timeToFirstByte": 300,
+            "elementRenderDelay": 1159
           },
           "layoutShifts": []
-        }
-      ]
-    },
-    {
-      "template": "route-bourgogne",
-      "url": "https://vinomartino.com/wijnroutes/bourgogne-cote-dor-villages/",
-      "runs": 1,
-      "performance": 98,
-      "lcpMs": 2359,
-      "fcpMs": 1413,
-      "tbtMs": 27,
-      "cls": 0,
-      "perRunPerformance": [
-        98
-      ],
-      "perRunLcpMs": [
-        2359
-      ],
-      "perRunAttribution": [
+        },
         {
           "lcpElement": {
-            "selector": "article.route-page > div.page-hero > picture > img.page-hero-img",
-            "nodeLabel": "Wijnroute Côte d'Or: vijf dagen villages van Gevrey tot Puligny",
-            "snippet": "<img src=\"https://vinomartino.com/images/routes/299b0d77-8961-4f75-80ce-7740b97d403d…\" alt=\"Wijnroute Côte d'Or: vijf dagen villages van Gevrey tot Puligny\" class=\"page-hero-img\" loading=\"eager\" fetchpriority=\"high\" data-astro-cid-ygeqcxkd=\"\" width=\"1600\" height=\"1063\" srcset=\"/images/routes/299b0d7"
+            "selector": "div.container > div.streek-hero__grid > div > p.streek-subtitle",
+            "nodeLabel": "De Côte d'Or (een smalle helling van zo'n 60 km langs de oude N74, nu D974) is …",
+            "snippet": "<p class=\"streek-subtitle\" data-astro-cid-t4mxo7xy=\"\">"
           },
           "lcpPhases": {
-            "timeToFirstByte": 365,
-            "resourceLoadDelay": 157,
-            "resourceLoadDuration": 41,
-            "elementRenderDelay": 46
+            "timeToFirstByte": 260,
+            "elementRenderDelay": 126
           },
           "layoutShifts": [
             {
@@ -458,23 +1085,190 @@
               "causes": []
             }
           ]
+        },
+        {
+          "lcpElement": {
+            "selector": "div.container > div.streek-hero__grid > div > p.streek-subtitle",
+            "nodeLabel": "De Côte d'Or (een smalle helling van zo'n 60 km langs de oude N74, nu D974) is …",
+            "snippet": "<p class=\"streek-subtitle\" data-astro-cid-t4mxo7xy=\"\">"
+          },
+          "lcpPhases": {
+            "timeToFirstByte": 251,
+            "elementRenderDelay": 126
+          },
+          "layoutShifts": []
+        }
+      ]
+    },
+    {
+      "template": "route-bourgogne",
+      "url": "https://vinomartino.com/wijnroutes/bourgogne-cote-dor-villages/",
+      "runs": 3,
+      "performance": 98,
+      "lcpMs": 2284,
+      "fcpMs": 1507,
+      "tbtMs": 7,
+      "cls": 0.006,
+      "perRunPerformance": [
+        98,
+        98,
+        98
+      ],
+      "perRunLcpMs": [
+        2356,
+        2195,
+        2284
+      ],
+      "perRunAttribution": [
+        {
+          "lcpElement": {
+            "selector": "article.route-page > div.page-hero > picture > img.page-hero-img",
+            "nodeLabel": "Wijnroute Côte d'Or: vijf dagen villages van Gevrey tot Puligny",
+            "snippet": "<img src=\"https://vinomartino.com/images/routes/299b0d77-8961-4f75-80ce-7740b97d403d…\" alt=\"Wijnroute Côte d'Or: vijf dagen villages van Gevrey tot Puligny\" class=\"page-hero-img\" loading=\"eager\" fetchpriority=\"high\" data-astro-cid-ygeqcxkd=\"\" width=\"1600\" height=\"1063\" srcset=\"/images/routes/299b0d7"
+          },
+          "lcpPhases": {
+            "timeToFirstByte": 262,
+            "resourceLoadDelay": 94,
+            "resourceLoadDuration": 69,
+            "elementRenderDelay": 27
+          },
+          "layoutShifts": [
+            {
+              "score": 0.0064,
+              "causes": []
+            },
+            {
+              "score": 0.0062,
+              "selector": "article.route-page > div.container > div.page-main > p.routestrip",
+              "nodeLabel": "5 DAGEN · ± 115 KM · 4 STOPS · 4 WIJNHUIZEN",
+              "snippet": "<p class=\"routestrip\" aria-label=\"De route in cijfers\" data-astro-cid-j5r4rnuy=\"\">",
+              "causes": [
+                "Web font"
+              ]
+            },
+            {
+              "score": 0.0002,
+              "selector": "header.site-header > div.header-main > div.header-inner > a.header-logo",
+              "nodeLabel": "Vino·Martino",
+              "snippet": "<a href=\"/\" class=\"header-logo\" aria-label=\"VinoMartino\" data-astro-cid-ctg3m53h=\"\">",
+              "causes": []
+            },
+            {
+              "score": 0.0062,
+              "selector": "article.route-page > div.container > div.page-main > p.routestrip",
+              "nodeLabel": "5 DAGEN · ± 115 KM · 4 STOPS · 4 WIJNHUIZEN",
+              "snippet": "<p class=\"routestrip\" aria-label=\"De route in cijfers\" data-astro-cid-j5r4rnuy=\"\">",
+              "causes": [
+                "Web font loaded"
+              ]
+            },
+            {
+              "score": 0.0002,
+              "selector": "header.site-header > div.header-main > div.header-inner > a.header-logo",
+              "nodeLabel": "Vino·Martino",
+              "snippet": "<a href=\"/\" class=\"header-logo\" aria-label=\"VinoMartino\" data-astro-cid-ctg3m53h=\"\">",
+              "causes": []
+            }
+          ]
+        },
+        {
+          "lcpElement": {
+            "selector": "article.route-page > div.page-hero > picture > img.page-hero-img",
+            "nodeLabel": "Wijnroute Côte d'Or: vijf dagen villages van Gevrey tot Puligny",
+            "snippet": "<img src=\"https://vinomartino.com/images/routes/299b0d77-8961-4f75-80ce-7740b97d403d…\" alt=\"Wijnroute Côte d'Or: vijf dagen villages van Gevrey tot Puligny\" class=\"page-hero-img\" loading=\"eager\" fetchpriority=\"high\" data-astro-cid-ygeqcxkd=\"\" width=\"1600\" height=\"1063\" srcset=\"/images/routes/299b0d7"
+          },
+          "lcpPhases": {
+            "timeToFirstByte": 264,
+            "resourceLoadDelay": 85,
+            "resourceLoadDuration": 69,
+            "elementRenderDelay": 24
+          },
+          "layoutShifts": [
+            {
+              "score": 0.0062,
+              "causes": []
+            },
+            {
+              "score": 0.0062,
+              "selector": "article.route-page > div.container > div.page-main > p.routestrip",
+              "nodeLabel": "5 DAGEN · ± 115 KM · 4 STOPS · 4 WIJNHUIZEN",
+              "snippet": "<p class=\"routestrip\" aria-label=\"De route in cijfers\" data-astro-cid-j5r4rnuy=\"\">",
+              "causes": [
+                "Unsized image element",
+                "Web font"
+              ]
+            },
+            {
+              "score": 0.0062,
+              "selector": "article.route-page > div.container > div.page-main > p.routestrip",
+              "nodeLabel": "5 DAGEN · ± 115 KM · 4 STOPS · 4 WIJNHUIZEN",
+              "snippet": "<p class=\"routestrip\" aria-label=\"De route in cijfers\" data-astro-cid-j5r4rnuy=\"\">",
+              "causes": [
+                "Media element lacking an explicit size",
+                "Web font loaded"
+              ]
+            }
+          ]
+        },
+        {
+          "lcpElement": {
+            "selector": "article.route-page > div.page-hero > picture > img.page-hero-img",
+            "nodeLabel": "Wijnroute Côte d'Or: vijf dagen villages van Gevrey tot Puligny",
+            "snippet": "<img src=\"https://vinomartino.com/images/routes/299b0d77-8961-4f75-80ce-7740b97d403d…\" alt=\"Wijnroute Côte d'Or: vijf dagen villages van Gevrey tot Puligny\" class=\"page-hero-img\" loading=\"eager\" fetchpriority=\"high\" data-astro-cid-ygeqcxkd=\"\" width=\"1600\" height=\"1063\" srcset=\"/images/routes/299b0d7"
+          },
+          "lcpPhases": {
+            "timeToFirstByte": 261,
+            "resourceLoadDelay": 85,
+            "resourceLoadDuration": 63,
+            "elementRenderDelay": 29
+          },
+          "layoutShifts": [
+            {
+              "score": 0.0062,
+              "causes": []
+            },
+            {
+              "score": 0.0062,
+              "selector": "article.route-page > div.container > div.page-main > p.routestrip",
+              "nodeLabel": "5 DAGEN · ± 115 KM · 4 STOPS · 4 WIJNHUIZEN",
+              "snippet": "<p class=\"routestrip\" aria-label=\"De route in cijfers\" data-astro-cid-j5r4rnuy=\"\">",
+              "causes": [
+                "Unsized image element",
+                "Web font"
+              ]
+            },
+            {
+              "score": 0.0062,
+              "selector": "article.route-page > div.container > div.page-main > p.routestrip",
+              "nodeLabel": "5 DAGEN · ± 115 KM · 4 STOPS · 4 WIJNHUIZEN",
+              "snippet": "<p class=\"routestrip\" aria-label=\"De route in cijfers\" data-astro-cid-j5r4rnuy=\"\">",
+              "causes": [
+                "Media element lacking an explicit size",
+                "Web font loaded"
+              ]
+            }
+          ]
         }
       ]
     },
     {
       "template": "artikel-bourgogne",
       "url": "https://vinomartino.com/artikelen/bourgogne-villages-zonder-grand-cru/",
-      "runs": 1,
+      "runs": 3,
       "performance": 77,
-      "lcpMs": 4055,
-      "fcpMs": 3459,
+      "lcpMs": 4110,
+      "fcpMs": 3428,
       "tbtMs": 0,
       "cls": 0,
       "perRunPerformance": [
-        77
+        95,
+        77,
+        75
       ],
       "perRunLcpMs": [
-        4055
+        2799,
+        4110,
+        4332
       ],
       "perRunAttribution": [
         {
@@ -484,10 +1278,57 @@
             "snippet": "<img src=\"https://vinomartino.com/images/articles/299b0d77-8961-4f75-80ce-7740b97d40…\" alt=\"Bourgogne zonder grand cru: villages en premiers crus die hun prijs waard …\" class=\"article-hero-img\" loading=\"eager\" fetchpriority=\"high\" data-astro-cid-tooj2qcn=\"\" width=\"1600\" height=\"1063\" srcset=\"/images"
           },
           "lcpPhases": {
-            "timeToFirstByte": 342,
-            "resourceLoadDelay": 163,
-            "resourceLoadDuration": 927,
-            "elementRenderDelay": 1076
+            "timeToFirstByte": 270,
+            "resourceLoadDelay": 89,
+            "resourceLoadDuration": 307,
+            "elementRenderDelay": 22
+          },
+          "layoutShifts": [
+            {
+              "score": 0.0002,
+              "causes": []
+            },
+            {
+              "score": 0.0002,
+              "selector": "header.site-header > div.header-main > div.header-inner > a.header-logo",
+              "nodeLabel": "Vino·Martino",
+              "snippet": "<a href=\"/\" class=\"header-logo\" aria-label=\"VinoMartino\" data-astro-cid-ctg3m53h=\"\">",
+              "causes": []
+            },
+            {
+              "score": 0.0002,
+              "selector": "header.site-header > div.header-main > div.header-inner > a.header-logo",
+              "nodeLabel": "Vino·Martino",
+              "snippet": "<a href=\"/\" class=\"header-logo\" aria-label=\"VinoMartino\" data-astro-cid-ctg3m53h=\"\">",
+              "causes": []
+            }
+          ]
+        },
+        {
+          "lcpElement": {
+            "selector": "div.container > figure.article-hero > picture > img.article-hero-img",
+            "nodeLabel": "Bourgogne zonder grand cru: villages en premiers crus die hun prijs waard zijn",
+            "snippet": "<img src=\"https://vinomartino.com/images/articles/299b0d77-8961-4f75-80ce-7740b97d40…\" alt=\"Bourgogne zonder grand cru: villages en premiers crus die hun prijs waard …\" class=\"article-hero-img\" loading=\"eager\" fetchpriority=\"high\" data-astro-cid-tooj2qcn=\"\" width=\"1600\" height=\"1063\" srcset=\"/images"
+          },
+          "lcpPhases": {
+            "timeToFirstByte": 170,
+            "resourceLoadDelay": 170,
+            "resourceLoadDuration": 88,
+            "elementRenderDelay": 1906
+          },
+          "layoutShifts": []
+        },
+        {
+          "lcpElement": {
+            "selector": "div.container > figure.article-hero > picture > img.article-hero-img",
+            "nodeLabel": "Bourgogne zonder grand cru: villages en premiers crus die hun prijs waard zijn",
+            "snippet": "<img src=\"https://vinomartino.com/images/articles/299b0d77-8961-4f75-80ce-7740b97d40…\" alt=\"Bourgogne zonder grand cru: villages en premiers crus die hun prijs waard …\" class=\"article-hero-img\" loading=\"eager\" fetchpriority=\"high\" data-astro-cid-tooj2qcn=\"\" width=\"1600\" height=\"1063\" srcset=\"/images"
+          },
+          "lcpPhases": {
+            "timeToFirstByte": 293,
+            "resourceLoadDelay": 89,
+            "resourceLoadDuration": 81,
+            "elementRenderDelay": 1994
           },
           "layoutShifts": []
         }
@@ -496,17 +1337,21 @@
     {
       "template": "streek-bourgogne-en",
       "url": "https://vinomartino.com/en/streken/bourgogne/",
-      "runs": 1,
-      "performance": 75,
-      "lcpMs": 4515,
-      "fcpMs": 3224,
-      "tbtMs": 30,
+      "runs": 3,
+      "performance": 99,
+      "lcpMs": 2029,
+      "fcpMs": 1516,
+      "tbtMs": 14,
       "cls": 0,
       "perRunPerformance": [
-        75
+        99,
+        99,
+        99
       ],
       "perRunLcpMs": [
-        4515
+        2005,
+        2029,
+        2099
       ],
       "perRunAttribution": [
         {
@@ -516,10 +1361,72 @@
             "snippet": "<p class=\"streek-subtitle\" data-astro-cid-t4mxo7xy=\"\">"
           },
           "lcpPhases": {
-            "timeToFirstByte": 223,
-            "elementRenderDelay": 2163
+            "timeToFirstByte": 256,
+            "elementRenderDelay": 137
           },
           "layoutShifts": []
+        },
+        {
+          "lcpElement": {
+            "selector": "div.container > div.streek-hero__grid > div > p.streek-subtitle",
+            "nodeLabel": "The Côte d'Or (a narrow slope of some 60 km along the old N74, now the D974) is…",
+            "snippet": "<p class=\"streek-subtitle\" data-astro-cid-t4mxo7xy=\"\">"
+          },
+          "lcpPhases": {
+            "timeToFirstByte": 258,
+            "elementRenderDelay": 129
+          },
+          "layoutShifts": [
+            {
+              "score": 0.0002,
+              "causes": []
+            },
+            {
+              "score": 0.0002,
+              "selector": "header.site-header > div.header-main > div.header-inner > a.header-logo",
+              "nodeLabel": "Vino·Martino",
+              "snippet": "<a href=\"/en/\" class=\"header-logo\" aria-label=\"VinoMartino\" data-astro-cid-ctg3m53h=\"\">",
+              "causes": []
+            },
+            {
+              "score": 0.0002,
+              "selector": "header.site-header > div.header-main > div.header-inner > a.header-logo",
+              "nodeLabel": "Vino·Martino",
+              "snippet": "<a href=\"/en/\" class=\"header-logo\" aria-label=\"VinoMartino\" data-astro-cid-ctg3m53h=\"\">",
+              "causes": []
+            }
+          ]
+        },
+        {
+          "lcpElement": {
+            "selector": "div.container > div.streek-hero__grid > div > p.streek-subtitle",
+            "nodeLabel": "The Côte d'Or (a narrow slope of some 60 km along the old N74, now the D974) is…",
+            "snippet": "<p class=\"streek-subtitle\" data-astro-cid-t4mxo7xy=\"\">"
+          },
+          "lcpPhases": {
+            "timeToFirstByte": 268,
+            "elementRenderDelay": 126
+          },
+          "layoutShifts": [
+            {
+              "score": 0.0002,
+              "causes": []
+            },
+            {
+              "score": 0.0002,
+              "selector": "header.site-header > div.header-main > div.header-inner > a.header-logo",
+              "nodeLabel": "Vino·Martino",
+              "snippet": "<a href=\"/en/\" class=\"header-logo\" aria-label=\"VinoMartino\" data-astro-cid-ctg3m53h=\"\">",
+              "causes": []
+            },
+            {
+              "score": 0.0002,
+              "selector": "header.site-header > div.header-main > div.header-inner > a.header-logo",
+              "nodeLabel": "Vino·Martino",
+              "snippet": "<a href=\"/en/\" class=\"header-logo\" aria-label=\"VinoMartino\" data-astro-cid-ctg3m53h=\"\">",
+              "causes": []
+            }
+          ]
         }
       ]
     }
