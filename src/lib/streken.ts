@@ -190,6 +190,22 @@ function markdownToHtml(markdown: string, locale: Locale): Promise<string> {
     return renderMarkdown(markdown, { stripFirstH1: true, locale });
 }
 
+// Body images need the same local asset treatment as article and winery images.
+// The CMS is behind Cloudflare Access, so a public page cannot hotlink its assets.
+const STREEK_BODY_UUID = '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}';
+const STREEK_CMS_ASSET_RE = new RegExp(`https?://cms\\.vinomartino\\.com/assets/(${STREEK_BODY_UUID})(?:\\?[^\\s")']*)?`, 'g');
+const STREEK_LOCAL_ASSET_RE = new RegExp(`/images/streken/body-(${STREEK_BODY_UUID})\\.jpg`, 'g');
+
+export function localizeStreekBodyImages(markdown: string): { body: string; assetIds: string[] } {
+    const ids = new Set<string>();
+    const body = markdown.replace(STREEK_CMS_ASSET_RE, (_match, id: string) => {
+        ids.add(id.toLowerCase());
+        return `/images/streken/body-${id.toLowerCase()}.jpg`;
+    });
+    for (const match of body.matchAll(STREEK_LOCAL_ASSET_RE)) ids.add(match[1].toLowerCase());
+    return { body, assetIds: [...ids] };
+}
+
 import {
     readDirectusEnv,
     statusFilterQuery,
@@ -825,7 +841,9 @@ async function loadFromDirectus(url: string, token: string, locale: Locale): Pro
             const land = r.land_id as Record<string, unknown> | null;
             if (land && land.name) r.land_name = land.name;
             if (land && land.slug) r.land_slug = land.slug;
-            const bodyHtml = r.body ? await markdownToHtml(String(r.body), locale) : '';
+            const { body: localBody, assetIds: bodyAssetIds } = localizeStreekBodyImages(String(r.body || ''));
+            await Promise.all(bodyAssetIds.map((id) => downloadAsset(id, url, token, 'body-')));
+            const bodyHtml = localBody ? await markdownToHtml(localBody, locale) : '';
             // LAT-1898: intro is een los markdown-blok (eigen H2-kop, geen H1 om te
             // strippen) → render zonder stripFirstH1.
             const waarSlapenIntroHtml = r.waar_slapen_intro
