@@ -107,3 +107,12 @@ export function isRedirectedArticleSlug(slug: string, locale: string, publishedS
   const target = canonicalContentKey(key, locale);
   return target !== key && publishedSlugs.has(target.slice('artikelen/'.length));
 }
+
+/**
+ * LAT-14369: krijgt het NL-artikel `slug` een hreflang-en? Alleen als de EN-slug
+ * gepubliceerd is én geen productie-301 is naar een ander EN-artikel — anders
+ * wijst hreflang naar een redirect en is de koppeling niet wederkerig.
+ */
+export function hasEnArticleAlternate(slug: string, enPublishedSlugs: Set<string>): boolean {
+  return enPublishedSlugs.has(slug) && !isRedirectedArticleSlug(slug, 'en', enPublishedSlugs);
+}

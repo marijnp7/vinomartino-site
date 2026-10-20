@@ -10,6 +10,7 @@ import { loadRoutes } from '../../lib/routes';
 import { loadAccommodatieRoundupsByStreek } from '../../lib/accommodaties-loader';
 import { filterRoundupOpFotos, roundupKaartAantal } from '../../lib/accommodaties';
 import { DEFAULT_LOCALE } from '../../lib/i18n';
+import { hasEnArticleAlternate } from '../../lib/content-links';
 
 export async function getStaticPaths() {
   const [articles, accRoundupsByStreek, routes, enArticles] = await Promise.all([
@@ -61,7 +62,7 @@ export async function getStaticPaths() {
         article: a,
         accRoundups,
         voetblok,
-        alternates: enSlugs.has(a.slug)
+        alternates: hasEnArticleAlternate(a.slug, enSlugs)
           ? { nl: `/artikelen/${a.slug}/`, en: `/en/artikelen/${a.slug}/` }
           : undefined,
       },
