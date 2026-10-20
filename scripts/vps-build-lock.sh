@@ -35,13 +35,12 @@
 # achter een deploy staat willekeurig rood/gecanceld maken. Een host-lock heeft
 # dat probleem niet: de run blijft gewoon draaien en wacht.
 #
-# Best-effort, nooit een rode check
-# ---------------------------------
-# Loopt LOCK_WAIT_S af, dan bouwen we alsnog — gedegradeerd naar precies het
-# gedrag van vandaag (gelijktijdig, langzamer, maar het haalde de cap). Deze lock
-# mag nooit de oorzaak zijn van een gefaalde build; hij is een optimalisatie, geen
-# poortwachter. Zelfde reden voor de `command -v flock` en de writability-test:
-# ontbreekt een van beide, dan waarschuwen we en gaan door.
+# Geen build zonder lock
+# ---------------------
+# Een verlopen wachttijd of onbruikbare lock stopt de build met exit 75. Zo kan
+# de lock de oorspronkelijke gelijktijdige VPS-builds niet alsnog toelaten.
+# De betreffende GitHub-run is dan rood en kan na de lopende build opnieuw
+# worden gedraaid. Een reeds lopende build wordt niet afgebroken.
 #
 # Verhouding tot de reaper (LAT-4968)
 # -----------------------------------
@@ -71,8 +70,8 @@
 #   deploy     (LOCK_ROLE=deploy, of TARGET gezet — alleen deploy.yml geeft
 #              TARGET mee aan deze shell). Wacht tot LOCK_WAIT_DEPLOY_S (2100 s
 #              = gate-cap 30 min + marge) en zet zolang een wachtmarker. Krijgt
-#              hij de lock niet, dan bouwt hij gedegradeerd verder: een deploy
-#              wijkt nooit.
+#              hij de lock niet, dan stopt de run met exit 75. De lopende build
+#              blijft ongemoeid en de deploy kan daarna opnieuw worden gedraaid.
 #   secundair  (gate, publish-preview). Wijkt voor een deploy: staat er een
 #              verse wachtmarker, of krijgt hij de lock niet binnen LOCK_WAIT_S,
 #              dan stopt hij met exit 75 in plaats van gelijktijdig te bouwen.
@@ -99,8 +98,8 @@ __lock_marker_fresh() {
 
 # Pas `exec 9>` uitvoeren als aantoonbaar is dat dat kan. Een mislukte
 # exec-redirect is voor een non-interactieve shell fataal (special builtin), en
-# dat zou deze optimalisatie de build laten slopen. De touch bewijst vooraf dat
-# het pad schrijfbaar is.
+# dat zou de foutmelding hieronder overslaan. De touch bewijst vooraf dat het
+# pad schrijfbaar is; zonder lock wordt de build begrensd gestopt.
 if command -v flock >/dev/null 2>&1 &&
     mkdir -p "$(dirname "$LOCK_FILE")" 2>/dev/null &&
     touch "$LOCK_FILE" 2>/dev/null; then
@@ -115,7 +114,9 @@ if command -v flock >/dev/null 2>&1 &&
             if flock -w "$LOCK_WAIT_DEPLOY_S" 9; then
                 echo "[build-lock] deploy: lock verkregen na $((SECONDS - __lock_t0))s"
             else
-                echo "::warning::[build-lock] deploy: na ${LOCK_WAIT_DEPLOY_S}s geen lock — ik bouw gedegradeerd verder (LAT-13549)"
+                rm -f "$LOCK_MARKER" 2>/dev/null || true
+                echo "::error::[build-lock] deploy: na ${LOCK_WAIT_DEPLOY_S}s geen lock — geen build gestart (exit 75). Draai opnieuw na de lopende VPS-build (LAT-13549)"
+                exit 75
             fi
             rm -f "$LOCK_MARKER" 2>/dev/null || true
         fi
@@ -142,5 +143,6 @@ if command -v flock >/dev/null 2>&1 &&
     fi
     unset __lock_t0
 else
-    echo "::warning::[build-lock] geen lock beschikbaar (flock ontbreekt of $LOCK_FILE niet schrijfbaar) — builds serialiseren niet (LAT-4966)"
+    echo "::error::[build-lock] geen lock beschikbaar (flock ontbreekt of $LOCK_FILE niet schrijfbaar) — geen build gestart (exit 75, LAT-13549)"
+    exit 75
 fi
