@@ -7,6 +7,7 @@ import { plaatsKort } from '../lib/plaats-kort';
 
 import type { AccommodatieRoundup } from '../lib/accommodaties';
 import AccommodatieKaart from './AccommodatieKaart.astro';
+import StayTierIcon from './StayTierIcon.astro';
 import { STAY_TIER_ORDER } from '../lib/stay-tier';
 import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
 import { loadUiStrings } from '../lib/ui-strings';
@@ -109,7 +110,7 @@ const categorieGroepen = groepen.map((groep) => ({
             <ul>
               {g.categorieen.map((categorie) => (
                 <li><a href={`#${categorie.id}`}>
-                  <span class="acc-roundup__category-label">{categorie.label}<span aria-hidden="true">↘</span></span>
+                  <span class="acc-roundup__category-label"><span class="acc-roundup__category-name"><StayTierIcon tier={categorie.tier} />{categorie.label}</span><span aria-hidden="true">↘</span></span>
                   <span class="acc-roundup__category-description">{categorie.description}</span>
                 </a></li>
               ))}
@@ -119,7 +120,7 @@ const categorieGroepen = groepen.map((groep) => ({
         {g.categorieen.map((categorie) => (
           <section class="acc-roundup__category" id={categorie.id} aria-labelledby={`${categorie.id}-title`}>
             <header class="acc-roundup__category-head">
-              <h3 id={`${categorie.id}-title`}>{categorie.label}</h3>
+              <h3 id={`${categorie.id}-title`}><StayTierIcon tier={categorie.tier} size={32} />{categorie.label}</h3>
               <p>{categorie.description}</p>
             </header>
             <div class="acc-roundup__grid acc-roundup__grid--editorial">
@@ -269,6 +270,10 @@ const categorieGroepen = groepen.map((groep) => ({
     font-family: var(--font-ui, sans-serif); font-weight: 600; font-size: 0.9375rem;
     color: var(--burgundyInk, #5A1A1F);
   }
+  .acc-roundup__category-name { display: flex; align-items: center; gap: 0.55rem; min-width: 0; }
+  .acc-roundup__category-name :global(svg),
+  .acc-roundup__category-head :global(svg) { flex: 0 0 auto; }
+  .acc-roundup__category-head h3 { display: flex; align-items: center; gap: 0.7rem; }
   .acc-roundup__category-description { font-family: var(--font-body, Georgia, serif); font-size: 0.875rem; line-height: 1.5; }
   .acc-roundup__category { scroll-margin-top: 7rem; margin: 0 0 2.75rem; }
   .acc-roundup__category-head { border-top: 1px solid var(--rule, #C9B98F); padding: 1rem 0 1.25rem; }

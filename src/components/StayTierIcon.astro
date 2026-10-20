@@ -1,0 +1,12 @@
+---
+import type { StayTier } from '../lib/stay-tier';
+interface Props { tier: StayTier; size?: number; }
+const { tier, size = 24 } = Astro.props;
+// Decorative line icons in the same style as OverviewIcon. CMS labels carry meaning.
+const paths: Record<StayTier, string> = {
+  slim_geboekt: 'M20 8V5H5a2 2 0 0 0 0 4h16v11H5a2 2 0 0 1-2-2V7 M21 12h-6v5h6 M17 14.5h.01',
+  prijs_kwaliteit: 'M12 3v18 M8 21h8 M4 7h16 M6 7l-4 8h8L6 7 M18 7l-4 8h8l-4-8 M2 15a4 4 0 0 0 8 0 M14 15a4 4 0 0 0 8 0',
+  pure_luxe: 'M3 9l4-5h10l4 5-9 12L3 9z M3 9h18 M7 4l5 17 5-17 M7 4l5 5 5-5',
+};
+---
+<svg class="stay-tier-icon" data-stay-tier={tier} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d={paths[tier]} /></svg>
