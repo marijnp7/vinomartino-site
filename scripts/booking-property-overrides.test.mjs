@@ -18,7 +18,16 @@ registerHooks({
 });
 
 const { buildCjBookingLink, applyBookingOverride } = await import('../src/lib/affiliates.ts');
-const target = (cj) => decodeURIComponent(new URL(cj).searchParams.get('url'));
+// LAT-14258: CJ is gestopt; de Booking-link is een Stay22 Allez-wrap met de
+// Booking-URL in `link=`. De override moet in die doel-URL landen.
+const target = (wrapped) => {
+  const u = new URL(wrapped);
+  assert.equal(u.hostname, 'www.stay22.com');
+  assert.equal(u.pathname, '/allez/booking');
+  const link = u.searchParams.get('link');
+  assert.ok(link, `geen link= in ${wrapped}`);
+  return link;
+};
 
 test('Burg Schwarzenstein krijgt de nieuwe property-slug', () => {
   const t = target(buildCjBookingLink('https://www.booking.com/hotel/de/burg-schwarzenstein.nl.html', 'x'));

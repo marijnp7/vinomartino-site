@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {articleContentNode, buildContentLinks, bodyContentRefs, canonicalContentKey, contentKey, isRedirectedArticleSlug} from '../src/lib/content-links.ts';
+import {articleContentNode, buildContentLinks, bodyContentRefs, canonicalContentKey, contentKey, hasEnArticleAlternate, isRedirectedArticleSlug} from '../src/lib/content-links.ts';
 import {readFileSync} from 'node:fs';
 import {localizeHref} from '../src/lib/i18n.ts';
 const node = (kind, slug, props = {}) => ({kind, slug, name: slug, regions: [], refs: [], ...props});
@@ -79,4 +79,13 @@ test('LAT-13350: artikel-index slaat slugs over die op productie 301en', () => {
   assert.equal(isRedirectedArticleSlug('een-week-in-piemonte', 'nl', pub), false);
   // bestemming niet gepubliceerd: kaart blijft staan i.p.v. content te verliezen
   assert.equal(isRedirectedArticleSlug('overnachten-langhe-barolo-agriturismi', 'en', new Set()), false);
+});
+
+test('LAT-14369: geen hreflang-en naar een EN-slug die op productie 301t', () => {
+  const en = new Set(['overnachten-langhe-barolo-agriturismi', 'waar-slapen-langhe-piemonte']);
+  assert.equal(hasEnArticleAlternate('overnachten-langhe-barolo-agriturismi', en), false);
+  assert.equal(hasEnArticleAlternate('waar-slapen-langhe-piemonte', en), true);
+  assert.equal(hasEnArticleAlternate('de-stille-wijnkeuze', en), false);
+  const route = readFileSync(new URL('../src/pages/artikelen/[slug].astro', import.meta.url), 'utf8');
+  assert.match(route, /alternates: hasEnArticleAlternate\(a\.slug, enSlugs\)/);
 });

@@ -1,3 +1,4 @@
+import { isRouteOnly } from './canonical-stays';
 /**
  * Directus-loader voor de reisjunk-stijl accommodatie-roundup (LAT-1331,
  * EPIC LAT-1330). Vult het datacontract uit accommodaties.ts (LAT-1332) vanuit
@@ -156,8 +157,8 @@ function toFloatOrNull(val: unknown): number | null {
 // zodat de query nog vóór de Directus-migratie netjes degradeert: ontbreken
 // die velden, dan vallen we terug op KERN (streek + status blijven behouden).
 const BASE_FIELDS_CORE =
-    'id,slug,name,location,description,price_low,price_high,booking_url,hero_image,dam_image_ref,streek_id.name,streek_id.slug';
-const CURATIE_FIELDS = 'tier,lat,lng,why_regel';
+    'id,slug,name,tags,location,description,price_low,price_high,booking_url,hero_image,dam_image_ref,streek_id.name,streek_id.slug';
+const CURATIE_FIELDS = 'tier,lat,lng,why_regel,why_this_one';
 const BASE_FIELDS = `${BASE_FIELDS_CORE},${CURATIE_FIELDS}`;
 
 interface RawAcc {
@@ -188,9 +189,9 @@ async function fetchAccommodations(url: string, token: string, locale: Locale): 
     }
     if (!res.ok && (res.status === 400 || res.status === 403)) {
         console.warn(`[loadAccommodaties] voorkeursquery geweigerd (HTTP ${res.status}) — retry zonder status/streek-velden.`);
-        res = await tryFetch('id,slug,name,location,description,price_low,price_high,booking_url,hero_image,dam_image_ref', false);
+        res = await tryFetch('id,slug,name,tags,location,description,price_low,price_high,booking_url,hero_image,dam_image_ref', false);
         if (!res.ok && (res.status === 400 || res.status === 403)) {
-            res = await tryFetch('id,slug,name,description,booking_url,hero_image', false);
+            res = await tryFetch('id,slug,name,tags,description,booking_url,hero_image', false);
         }
     }
     if (!res.ok) {
@@ -205,6 +206,9 @@ async function fetchAccommodations(url: string, token: string, locale: Locale): 
         throw new Error(`[loadAccommodaties] Directus gaf ${res.status}: ${body.slice(0, 300)}`);
     }
     const rawRows = ((await res.json()).data || []) as Record<string, unknown>[];
+    // LAT-14317: why_this_one is alleen een kaart-fallback; zonder EN-vertaling
+    // mag de NL-tekst niet op /en/ landen (i18n-nl gate), dus onthoud de NL-waarde.
+    const nlWhyThisOne = new Map(rawRows.map((r) => [String(r.id), r.why_this_one]));
     const rows = await localizeRecords(rawRows, {
         env,
         junction: 'accommodations_translations',
@@ -226,7 +230,12 @@ async function fetchAccommodations(url: string, token: string, locale: Locale): 
             locale,
         },
     );
-    return rows.map((row) => {
+    if (locale === 'en') {
+        for (const row of rows) {
+            if (row.why_this_one && row.why_this_one === nlWhyThisOne.get(String(row.id))) row.why_this_one = null;
+        }
+    }
+    return rows.filter(row => !isRouteOnly(row)).map((row) => {
         const streek = (row.streek_id && typeof row.streek_id === 'object' ? row.streek_id : {}) as Record<string, unknown>;
         return { row, streekSlug: String(streek.slug || ''), streekName: String(streek.name || '') };
     });
@@ -257,7 +266,9 @@ async function fetchAccommodatieRoundupsByStreek(locale: Locale): Promise<Map<st
                 lat: toFloatOrNull(row.lat),
                 lng: toFloatOrNull(row.lng),
                 beschrijving: normalizeEmDashes(String(row.description || '')),
-                whyRegel: row.why_regel ? normalizeEmDashes(String(row.why_regel)) : null,
+                // LAT-14317: zonder why_regel valt de kaart terug op why_this_one (zelfde
+                // motivatie die de streekpagina toont), anders staat de CTA zonder 'waarom'.
+                whyRegel: (row.why_regel || row.why_this_one) ? normalizeEmDashes(String(row.why_regel || row.why_this_one)) : null,
                 foto,
                 fotoAlt: null,
                 prijsLaag: toIntOrNull(row.price_low),

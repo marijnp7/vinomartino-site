@@ -15,7 +15,7 @@
 import SmartImg from './SmartImg.astro';
 import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
 import { loadUiStrings } from '../lib/ui-strings';
-import { adaptationNoteFor, fileIdFromAccommodatiePath, getImageCredit, licenseLabelFor } from '../lib/image-credits';
+import { creditAuthorFor, adaptationNoteFor, fileIdFromAccommodatiePath, getImageCredit, licenseLabelFor } from '../lib/image-credits';
 
 export type PoiCardTheme = 'winery' | 'vineyard' | 'cellar' | 'region' | 'bottle';
 
@@ -125,6 +125,8 @@ const altText = fotoAlt || naam;
 const hasNumber = n != null;
 const showMedia = Boolean(foto) || !hideMediaWhenEmpty;
 const credit = foto ? await getImageCredit(fotoId ?? fileIdFromAccommodatiePath(foto), { adapted: true }) : null;
+// LAT-13822: een Booking-zoekresultaat is geen hotelpagina; de naam linkt er dan niet heen (CTA blijft).
+const boeklinkIsZoek = typeof boeklink === 'string' && /searchresults|[?&]ss=/i.test(boeklink);
 ---
 
 <article
@@ -141,7 +143,7 @@ const credit = foto ? await getImageCredit(fotoId ?? fileIdFromAccommodatiePath(
       )}
       {credit && (
         <p class="poi-card__credit">
-          {credit.author && <>{credit.author}, </>}{credit.licenseUrl ? <a href={credit.licenseUrl} rel="license noopener" target="_blank">{licenseLabelFor(credit.licenseLabel, locale)}</a> : licenseLabelFor(credit.licenseLabel, locale)}
+          {credit.author && <>{creditAuthorFor(credit, locale)}, </>}{credit.licenseUrl ? <a href={credit.licenseUrl} rel="license noopener" target="_blank">{licenseLabelFor(credit.licenseLabel, locale)}</a> : licenseLabelFor(credit.licenseLabel, locale)}
           {credit.sourceUrl && <>, <a href={credit.sourceUrl} rel="noopener" target="_blank">{credit.sourceLabel ? `via ${credit.sourceLabel}` : 'via bron'}</a></>}
           {credit.adapted && <> ({adaptationNoteFor(locale)})</>}
         </p>
@@ -152,7 +154,7 @@ const credit = foto ? await getImageCredit(fotoId ?? fileIdFromAccommodatiePath(
   <div class="poi-card__body">
     <div class="poi-card__head">
       <h4 class="poi-card__name">
-        {detailUrl ? <a href={lh(detailUrl)}>{naam}</a> : boeklink ? <a href={boeklink} target="_blank" rel="sponsored noopener" data-affiliate-track data-affiliate-partner={partner} data-affiliate-placement={placement} data-affiliate-context={context}>{naam}</a> : externeUrl ? <a href={externeUrl} target="_blank" rel="noopener">{naam}</a> : naam}
+        {detailUrl ? <a href={lh(detailUrl)}>{naam}</a> : boeklink && !boeklinkIsZoek ? <a href={boeklink} target="_blank" rel="sponsored nofollow noopener" data-affiliate-track data-affiliate-partner={partner} data-affiliate-placement={placement} data-affiliate-context={context}>{naam}</a> : externeUrl ? <a href={externeUrl} target="_blank" rel="noopener">{naam}</a> : naam}
       </h4>
       {badge && (
         <span class="poi-card__badge" style={`color:${badgeColor};border-color:${badgeColor}`}>{badge}</span>
@@ -169,7 +171,7 @@ const credit = foto ? await getImageCredit(fotoId ?? fileIdFromAccommodatiePath(
           class="poi-card__cta"
           href={boeklink}
           target="_blank"
-          rel="sponsored noopener"
+          rel="sponsored nofollow noopener"
           data-affiliate-track
           data-affiliate-partner={partner}
           data-affiliate-placement={placement}

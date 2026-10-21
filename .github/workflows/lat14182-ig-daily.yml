@@ -1,0 +1,226 @@
+# LAT-14182 — IG-plaatsroute hoststap (LAT-14181).
+#
+# Goedgekeurd: besluit Marijn 19-10, kaart 90739454 (IG-plaatsroute + dagelijkse plaatsing;
+# expliciet ook de goedkeuring voor deze hoststap).
+#
+# Geen push-trigger. `mode` kiest alleen tussen vaste scripts; er wordt niets uit de input
+# geinterpoleerd. Tokenwaarden komen nooit in het log: alleen sha256-prefix.
+# Pushen met "[skip ci]" (zie lat4750-recreate-publish-dispatcher.yml).
+
+name: LAT-14182 IG daily
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'diagnose = alleen lezen (interface ig_publish.py + tokencheck); diagnose-hosting = alleen lezen; install = ig_daily.sh + systemd-timer 09:30 Europe/Amsterdam + dry-run; run-now = ig_daily.sh eenmalig echt'
+        required: true
+        default: diagnose
+        type: choice
+        options:
+          - diagnose
+          - diagnose-hosting
+          - install
+          - run-now
+
+concurrency:
+  group: lat14182-ig-daily
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          # LAT-3437: transport via de Cloudflare Tunnel (ssh.vinomartino.com),
+          # niet via inbound poort 22.
+          [ -n "$CF_ACCESS_CLIENT_ID" ] && [ -n "$CF_ACCESS_CLIENT_SECRET" ] \
+            || { echo "::error::CF_ACCESS_CLIENT_ID/SECRET ontbreken (LAT-3437)"; exit 1; }
+          umask 077
+          printf 'CF_ACCESS_CLIENT_ID=%s\nCF_ACCESS_CLIENT_SECRET=%s\n' \
+            "$CF_ACCESS_CLIENT_ID" "$CF_ACCESS_CLIENT_SECRET" > ~/.ssh/cf-access.env
+          umask 022
+          cat >> ~/.ssh/config <<EOF
+          Host $VPS_HOST
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+            ProxyCommand bash $GITHUB_WORKSPACE/ops/cf-ssh-proxy.sh
+          EOF
+          cat "$GITHUB_WORKSPACE/ops/ssh-config-snippet" >> ~/.ssh/config
+
+      # ---------------------------------------------------------------- diagnose
+      - name: Diagnose (read-only)
+        if: inputs.mode == 'diagnose'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          DIAG: |
+            set -uo pipefail
+            red() { sed -E -e 's/(EAA|IGQ|IGAA)[A-Za-z0-9_-]{20,}/<redacted>/g' -e 's/(access_token=)[^&" ]+/\1<redacted>/g'; }
+            echo "=== host / tijd ==="
+            hostname; date -Is; timedatectl 2>/dev/null | grep -i 'time zone' || cat /etc/timezone
+            echo "=== /opt/paperclip-social ==="
+            ls -la /opt/paperclip-social /opt/paperclip-social/bin 2>&1
+            find /opt/paperclip-social -maxdepth 2 \( -name '*.env' -o -name '.env*' -o -name '*.json' -o -name '*.sh' -o -name '*.py' \) -printf '%M %u:%g %s %TY-%Tm-%Td %p\n' 2>&1 | head -50
+            P=/opt/paperclip-social/bin/ig_publish.py
+            echo "=== ig_publish.py kop (geredigeerd) ==="
+            head -70 "$P" 2>&1 | red
+            echo "=== ig_publish.py argparse/env/graph-regels ==="
+            grep -nE 'argparse|add_argument|sys\.argv|environ|getenv|graph\.(facebook|instagram)\.com|collaborat|def |media_publish|CAROUSEL|is_carousel|children|image_url|ig_queue|load_dotenv|open\(' "$P" 2>&1 | red | head -120
+            echo "=== --help ==="
+            cd /opt/paperclip-social/bin && timeout 20 python3 "$P" --help 2>&1 | red | head -60
+            echo "=== env-bestanden: alleen keys ==="
+            for f in $(find /opt/paperclip-social /root/.agent-secrets -maxdepth 2 -type f \( -name '*.env' -o -name '.env*' \) 2>/dev/null | grep -iE 'social|ig|insta|meta|fb|\.env$' ); do
+              echo "$(stat -c '%A %U:%G' "$f") $f keys: $(sed -n 's/^\(export \)\{0,1\}\([A-Za-z_][A-Za-z0-9_]*\)=.*/\2/p' "$f" | paste -sd, -)"
+            done
+            echo "=== cron/timers rond IG ==="
+            crontab -l 2>/dev/null | grep -nE 'ig_|insta|social' ; ls /etc/cron.d 2>/dev/null; grep -lE 'ig_|insta|social' /etc/cron.d/* 2>/dev/null
+            systemctl list-timers --all 2>/dev/null | grep -iE 'ig|insta|social'
+            echo "=== ig_next.py + queue op host ==="
+            R=/var/lib/docker/volumes/paperclip_home/_data/design/vinomartino/social
+            ls -la $R/ig_next.py $R/ig_queue.json 2>&1; python3 --version
+            echo "=== tokencheck ==="
+            # Zoek het IG-token in de env-bestanden; toon alleen keynaam, bron en hash.
+            python3 - <<'PY'
+            import glob, hashlib, json, os, re, urllib.request, urllib.parse, datetime
+            files = [f for f in glob.glob('/opt/paperclip-social/**/*', recursive=True) + glob.glob('/root/.agent-secrets/*')
+                     if os.path.isfile(f) and (f.endswith('.env') or os.path.basename(f).startswith('.env'))]
+            cands = []
+            for f in files:
+                for line in open(f, errors='ignore'):
+                    m = re.match(r'\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)', line)
+                    if not m: continue
+                    k, v = m.group(1), m.group(2).strip().strip('"').strip("'")
+                    if re.search(r'(IG|INSTA|META|FB|GRAPH|PAGE).*TOKEN|ACCESS_TOKEN', k) and v:
+                        cands.append((f, k, v))
+                    if re.search(r'(IG|INSTA).*(USER|ACCOUNT|BUSINESS).*ID', k) and v:
+                        print(f"id-key {k} in {f} = {v}")
+            def get(url):
+                try:
+                    with urllib.request.urlopen(url, timeout=20) as r: return r.status, json.load(r)
+                except urllib.error.HTTPError as e:
+                    try: return e.code, json.load(e)
+                    except Exception: return e.code, {}
+                except Exception as e: return 0, {"exc": type(e).__name__}
+            for f, k, v in cands:
+                print(f"--- {k} in {f}: len={len(v)} sha256={hashlib.sha256(v.encode()).hexdigest()[:16]} prefix={v[:4]}")
+                for host in ("graph.facebook.com/v21.0", "graph.instagram.com"):
+                    s, j = get(f"https://{host}/me?fields=id,username,name&access_token={urllib.parse.quote(v)}")
+                    print(f"  GET {host}/me -> {s} {json.dumps(j.get('error', {k2: j.get(k2) for k2 in ('id','username','name')}))[:300]}")
+                s, j = get(f"https://graph.facebook.com/v21.0/debug_token?input_token={urllib.parse.quote(v)}&access_token={urllib.parse.quote(v)}")
+                d = j.get('data', {})
+                exp = d.get('expires_at'); dax = d.get('data_access_expires_at')
+                fmt = lambda t: (datetime.datetime.utcfromtimestamp(t).isoformat()+'Z') if t else str(t)
+                print(f"  debug_token -> {s} valid={d.get('is_valid')} type={d.get('type')} app={d.get('application')} expires_at={fmt(exp)} data_access_expires_at={fmt(dax)} scopes={d.get('scopes')} err={j.get('error',{}).get('message') if j.get('error') else None}")
+                gs = d.get('granular_scopes') or []
+                for g in gs:
+                    if g.get('scope') in ('instagram_content_publish','instagram_basic','pages_show_list','pages_read_engagement'):
+                        print(f"    granular {g.get('scope')} targets={g.get('target_ids')}")
+                s, j = get(f"https://graph.facebook.com/v21.0/me/accounts?fields=id,name,instagram_business_account{{id,username}}&access_token={urllib.parse.quote(v)}")
+                print(f"  /me/accounts -> {s} " + json.dumps([{x: a.get(x) for x in ('id','name','instagram_business_account')} for a in j.get('data', [])] or j.get('error', {}))[:400])
+            if not cands: print("GEEN token-kandidaat gevonden in", files)
+            PY
+        run: |
+          printf '%s\n' "$DIAG" | ssh "$VPS" "bash -s"
+
+      # ---------------------------------------------------------- diagnose-hosting
+      - name: Diagnose hosting (read-only)
+        if: inputs.mode == 'diagnose-hosting'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          DIAG: |
+            set -uo pipefail
+            echo "=== ig_published.json: keys + image-urls van de laatste 3 ==="
+            python3 - <<'PY'
+            import json
+            s = json.load(open('/var/lib/paperclip/ig_published.json'))
+            items = list(s.items())[-3:]
+            for k, v in items:
+                print(k, json.dumps({x: v.get(x) for x in v if x not in ('caption',)}, ensure_ascii=False)[:900])
+            PY
+            echo "=== cron.d/paperclip-ig-insights ==="
+            cat /etc/cron.d/paperclip-ig-insights
+            echo "=== wie serveert vinomartino.com/images/social ==="
+            docker ps --format '{{.Names}}\t{{.Image}}' | grep -iE 'nginx|vino|caddy|web' 
+            for c in $(docker ps --format '{{.Names}}' | grep -iE 'nginx|vino.*(web|site)|caddy'); do
+              echo "-- $c"; docker inspect "$c" --format '{{range .Mounts}}{{.Source}} -> {{.Destination}} ({{.Mode}}){{"\n"}}{{end}}'
+            done
+            ls -la /root/vinomartino-site/dist/images/social 2>&1 | head -15
+            grep -rnE 'images/social|location .*/images|root |alias ' /etc/nginx/sites-enabled /opt/*/nginx* 2>/dev/null | head -20
+            curl -s -o /dev/null -w 'images/social/ probe %{http_code}\n' https://vinomartino.com/images/social/
+            history_dir=$(ls -d /root/vinomartino-site/public/images/social/post-3* 2>/dev/null | tail -3); echo "$history_dir"
+        run: |
+          printf '%s\n' "$DIAG" | ssh "$VPS" "bash -s"
+
+      # ---------------------------------------------------------------- install
+      - name: Install ig_daily.sh + timer
+        if: inputs.mode == 'install'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          INSTALL: |
+            set -euo pipefail
+            SRC=$(docker inspect paperclip-vinomartino-prod-1 --format '{{range .Mounts}}{{if eq .Destination "/usr/share/nginx/html"}}{{.Source}}{{end}}{{end}}')
+            echo "prod web root: ${SRC:-<geen>}"
+            WEB="$SRC/images/social"
+            [ -n "$SRC" ] && [ -f "$SRC/index.html" ] || { echo "FOUT: geen prod web root met index.html"; docker inspect paperclip-vinomartino-prod-1 --format '{{range .Mounts}}{{.Source}} -> {{.Destination}}{{"\n"}}{{end}}'; exit 1; }
+            mkdir -p "$WEB"; chmod 755 "$WEB" "$SRC/images" 2>/dev/null; ls -ld "$WEB"  # tijdelijk: dist wordt bij elke deploy herbouwd; Instagram kopieert bij publish
+            T=/opt/paperclip-social/bin/ig_daily.sh
+            [ -e "$T" ] && cp -p "$T" "$T.bak.$(date +%Y%m%d%H%M%S)"
+            sed "s#__WEB_DIR__#$WEB#" /tmp/lat14182-ig_daily.sh > "$T"; chmod 700 "$T"; rm -f /tmp/lat14182-ig_daily.sh
+            bash -n "$T" && echo "geinstalleerd: $(sha256sum "$T" | cut -c1-16) $T"
+            cat > /etc/systemd/system/paperclip-ig-daily.service <<'UNIT'
+            [Unit]
+            Description=LAT-14182 dagelijkse IG-plaatsing (ig_daily.sh)
+            After=network-online.target docker.service
+            [Service]
+            Type=oneshot
+            ExecStart=/opt/paperclip-social/bin/ig_daily.sh
+            StandardOutput=append:/var/log/paperclip-ig-daily.log
+            StandardError=append:/var/log/paperclip-ig-daily.log
+            UNIT
+            cat > /etc/systemd/system/paperclip-ig-daily.timer <<'UNIT'
+            [Unit]
+            Description=LAT-14182 IG daily 09:30 Europe/Amsterdam
+            [Timer]
+            OnCalendar=*-*-* 09:30:00 Europe/Amsterdam
+            Persistent=false
+            [Install]
+            WantedBy=timers.target
+            UNIT
+            sed -i 's/^            //' /etc/systemd/system/paperclip-ig-daily.service /etc/systemd/system/paperclip-ig-daily.timer
+            systemctl daemon-reload
+            systemctl enable --now paperclip-ig-daily.timer
+            systemctl cat paperclip-ig-daily.timer | grep -E 'OnCalendar'
+            systemctl list-timers paperclip-ig-daily.timer --no-pager
+            echo "=== dry-run ==="
+            "$T" --dry-run 2>&1 | sed -E 's/(EAA)[A-Za-z0-9_-]{20,}/<redacted>/g' || echo "dry-run exit $?"
+        run: |
+          { printf '%s\n' "cat > /tmp/lat14182-ig_daily.sh <<'IGDAILY_EOF'"; cat ops/lat14182/ig_daily.sh; printf '%s\n' "IGDAILY_EOF"; printf '%s\n' "$INSTALL"; } | ssh "$VPS" "bash -s"
+
+      # ---------------------------------------------------------------- run-now
+      - name: Run ig_daily.sh once
+        if: inputs.mode == 'run-now'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          RUN: |
+            set -uo pipefail
+            /opt/paperclip-social/bin/ig_daily.sh 2>&1 | tee -a /var/log/paperclip-ig-daily.log | sed -E 's/(EAA)[A-Za-z0-9_-]{20,}/<redacted>/g'
+            echo "exit ${PIPESTATUS[0]}"
+        run: |
+          printf '%s\n' "$RUN" | ssh "$VPS" "bash -s"

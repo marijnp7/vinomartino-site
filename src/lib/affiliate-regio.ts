@@ -24,7 +24,7 @@
 
 import type { Locale } from './i18n';
 import { GYG_LOCALE_PATH, applyBookingLocale } from './affiliate-locale';
-import { buildCjBookingLink } from './affiliates';
+import { buildCjBookingLink, stay22Wrap } from './affiliates';
 
 export type AffiliateType =
   | 'hotels'
@@ -108,7 +108,8 @@ function buildGetYourGuideLink(label: string, query?: string, locale: Locale = '
   u.searchParams.set('utm_medium', 'online_publisher');
   u.searchParams.set('cmp', label);
   if (query && query.trim()) u.searchParams.set('q', query.trim());
-  return u.toString();
+  // LAT-14258: GYG loopt via Stay22 (aid=vinomartino), campaign = ons label.
+  return stay22Wrap('getyourguide', u.toString(), label);
 }
 
 function buildBookingAwinLink(label: string, query?: string, bookingUrl?: string, locale: Locale = 'nl'): string {
@@ -185,5 +186,5 @@ export function decorateGyGTourUrl(tourUrl: string, cmpLabel: string, locale: Lo
   u.searchParams.set('partner_id', GETYOURGUIDE_PARTNER_ID);
   u.searchParams.set('utm_medium', 'online_publisher');
   u.searchParams.set('cmp', cmpLabel);
-  return u.toString();
+  return stay22Wrap('getyourguide', u.toString(), cmpLabel);
 }

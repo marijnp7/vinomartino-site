@@ -102,7 +102,9 @@ function sizesFor(tag, hero) {
     const w = Number(attr(tag, 'width'));
     // Een expliciete width (kaart-thumbnail) wint van de hero-heuristiek: een eager
     // kaart boven de vouw hoeft niet de 1200px-variant te halen.
-    if (hero && !(w > 0 && w <= 800)) return '(min-width: 1200px) 1200px, 100vw';
+    // LAT-14062: op telefoons met DPR >= 2,5 vraagt 100vw ~1170 px en haalt de browser het
+    // origineel (w1500/w1600). 65vw begrenst de LCP-hero daar op ~2x dichtheid (w768/w1024).
+    if (hero && !(w > 0 && w <= 800)) return '(min-width: 1200px) 1200px, (max-width: 767px) and (min-resolution: 2.5dppx) 65vw, 100vw';
     if (w > 0 && w <= 800) return `(min-width: 768px) ${w}px, 100vw`;
     return '(min-width: 1024px) 800px, 100vw';
 }

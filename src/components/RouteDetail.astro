@@ -18,6 +18,9 @@ import CtaStructure from './CtaStructure.astro';
 import RouteHero from './RouteHero.astro';
 import RouteGlance from './RouteGlance.astro';
 import RouteDagSectie from './RouteDagSectie.astro';
+import RouteDataStrip from './RouteDataStrip.astro';
+import { loadRouteLine } from '../lib/route-lines-loader';
+import { hasDagen } from '../lib/route-lines';
 import RouteSlaapOverzicht from './RouteSlaapOverzicht.astro';
 import RouteWijnhuizenGrid from './RouteWijnhuizenGrid.astro';
 import { accommodatieBookingDeeplink } from '../lib/affiliates';
@@ -114,6 +117,11 @@ const paginaHeroCredit = pagina?.hero.foto ? heroCredit : null;
 // LAT-12768 — "Etappes" telt dagen, geen losse stops. Onbekend = cel weglaten (nooit de stops-telling).
 const durationDays = Number(/(\d+)\s*(?:dagen|dag|days|day)\b/i.exec(entry.duration ?? '')?.[1]) || undefined;
 const etappeCount = pagina?.dagen.length ?? entry.itinerary?.days.length ?? (routeBody.hasDays ? routeBody.days.length : durationDays);
+// LAT-13816 — met een vooraf berekende wegroute en een dagindeling vervangt de
+// datastrip (dagen · km · stops · wijnhuizen · slapen) de losse statcellen.
+// De datastrip telt dagen uit routes.duration ("3 dagen") zodat een optionele extra dag
+// (Moezel: "Dag 4 · optioneel") de titel niet tegenspreekt; anders het aantal dagblokken.
+const heeftRouteLijn = loadRouteLine(entry.slug) != null && hasDagen(entry.stopsGeo);
 const wijnhuisLabels = Object.fromEntries((pagina?.wijnhuizen ?? []).map((w) => [w.slug, w.label]));
 const slotItems = pagina?.slapen?.items.slice(0, 3) ?? [];
 const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.streekSlug}/` : null;
@@ -144,6 +152,7 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
         />
 
         <div class="container route-one">
+          <RouteDataStrip slug={entry.slug} stops={entry.stopsGeo} dagen={durationDays ?? pagina.dagen.length} slaapPlaatsen={pagina.dagen.map((d) => d.slaap?.plaats ?? null)} locale={locale} />
           <nav class="breadcrumb" aria-label="Breadcrumb">
             {crumbs.slice(0, -1).map(c => (
               <><a href={lh(c.url)}>{c.name}</a> / </>
@@ -168,10 +177,19 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
             )}
           </RouteGlance>
 
+          {pagina.kaart?.foto && (
+            <figure class="route-one__kaart">
+              <a href={pagina.kaart.foto} target="_blank" rel="noopener">
+                <img src={pagina.kaart.foto} alt={pagina.kaart.fotoAlt || entry.title} loading="lazy" decoding="async" />
+              </a>
+              {pagina.kaart.bijschrift && <figcaption>{pagina.kaart.bijschrift}</figcaption>}
+            </figure>
+          )}
+
           <div id="route" class="route-one__dagen">
             <span id="zo-reisden-wij" aria-hidden="true"></span>
             {pagina.dagen.map((dag) => (
-              <RouteDagSectie dag={dag} context={entry.slug} locale={locale} />
+              <RouteDagSectie dag={dag} context={entry.slug} locale={locale} stops={entry.stopsGeo} />
             ))}
           </div>
 
@@ -220,7 +238,7 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
                   <a
                     class:list={['route-one__slot-btn', i === 0 && 'route-one__slot-btn--primary']}
                     href={href}
-                    rel="sponsored noopener"
+                    rel="sponsored nofollow noopener"
                     target="_blank"
                     data-affiliate-partner="booking"
                     data-affiliate-placement="route-slot-cta"
@@ -263,6 +281,9 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
           <h1>{entry.title}</h1>
         </header>
 
+        {heeftRouteLijn ? (
+          <RouteDataStrip slug={entry.slug} stops={entry.stopsGeo} dagen={durationDays ?? etappeCount ?? 0} locale={locale} />
+        ) : (
         <RouteStatStrip
           locale={locale}
           duration={entry.duration}
@@ -271,6 +292,7 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
           stopsCount={etappeCount}
           wijnhuisCount={wijnhuizen.length}
         />
+        )}
 
         <div class="page-routemap">
           {entry.stopsGeo.length >= 2 ? (
@@ -338,6 +360,8 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
             streekSlug={entry.streekSlug}
             boekbaar={Boolean(staysRoundup)}
             context={`route-${entry.slug}`}
+            stops={entry.stopsGeo}
+            slug={entry.slug}
           />
         )}
 
@@ -402,6 +426,10 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
 <style>
   .route-one { padding-top: var(--space-6); padding-bottom: var(--space-12); }
   .route-one > * { min-width: 0; }
+  /* LAT-13928: eigen streekkaart (DAM) onder de routekaart; bijschrift draagt de OSM-naamsvermelding. */
+  .route-one__kaart { margin: var(--space-6) 0; }
+  .route-one__kaart img { display: block; width: 100%; height: auto; border: 1px solid var(--color-border-light); }
+  .route-one__kaart figcaption { margin-top: var(--space-2); font-size: var(--text-sm, 0.875rem); color: var(--color-text-muted); }
   .route-one__intro { margin: var(--space-6) 0; }
   .route-one__praktisch { margin: var(--space-12) 0; }
   .route-one__praktisch h2, .route-one__slot h2 { font-family: var(--font-display); font-size: 1.75rem; font-weight: 500; margin: 0 0 var(--space-4); }

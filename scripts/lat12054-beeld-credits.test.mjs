@@ -137,3 +137,42 @@ test('LAT-13760: wijnhuisbeeld met toestemming krijgt "© <huis>" met link naar 
     assert.equal(creditFromFileMeta('pers', null), null, 'zonder maker geen credit');
     assert.equal(creditFromFileMeta('eigen', h), null, 'overige licenties ongewijzigd');
 });
+
+test('LAT-13914: CC-credit toont "Foto: <maker>" (EN "Photo:") zonder ©; Castiglione-herkomst geeft Christoph Strässler', async () => {
+    const { creditFromFileMeta, creditAuthorFor } = await loadModule('lat13914', 'src/lib/image-credits.ts');
+    const herkomst = 'Slug: langhe-vier-dagen-route\nArtikel-id: 54\nLicentie: CC BY-SA 2.0\nFoto: Christoph Strässler, CC BY-SA 2.0, via Wikimedia Commons. Bron: https://commons.wikimedia.org/wiki/File:Castiglione_Falletto,_Piemonte,_Italy.jpg\nKeywords: vinomartino, editorial, CC-license, Piemonte, Langhe, Castiglione Falletto,';
+    const c = creditFromFileMeta('cc-by-sa-2.0', herkomst);
+    assert.equal(c.author, '© Christoph Strässler');
+    assert.equal(c.licenseLabel, 'CC BY-SA 2.0');
+    assert.equal(c.licenseUrl, 'https://creativecommons.org/licenses/by-sa/2.0/');
+    assert.equal(c.sourceUrl, 'https://commons.wikimedia.org/wiki/File:Castiglione_Falletto,_Piemonte,_Italy.jpg');
+    assert.equal(c.sourceLabel, 'Wikimedia Commons');
+    assert.equal(creditAuthorFor(c, 'nl'), 'Foto: Christoph Strässler');
+    assert.equal(creditAuthorFor(c, 'en'), 'Photo: Christoph Strässler');
+    const perm = creditFromFileMeta('pers', 'Foto: Pio Cesare. Bron: https://www.piocesare.it');
+    assert.equal(creditAuthorFor(perm, 'nl'), 'Foto: Pio Cesare', 'REGEL 64: ook toestemming-credit noemt Foto');
+});
+
+test('LAT-12364: cc-by-2.5 en cc-by-nd-2.0 krijgen een credit (art. 82 en 89 renderden zonder)', async () => {
+    const { creditFromFileMeta, creditAuthorFor } = await loadModule('lat12364', 'src/lib/image-credits.ts');
+    const by25 = creditFromFileMeta('cc-by-2.5', 'Foto: onbekende maker, CC BY 2.5, via Wikimedia Commons. Bron: https://commons.wikimedia.org/wiki/File%3APened%C3%A8s_montserrat01.jpg. Teruggevonden via SHA1 op 29-09-2026.');
+    assert.equal(by25.licenseLabel, 'CC BY 2.5');
+    assert.equal(by25.licenseUrl, 'https://creativecommons.org/licenses/by/2.5/');
+    assert.equal(by25.sourceUrl, 'https://commons.wikimedia.org/wiki/File%3APened%C3%A8s_montserrat01.jpg');
+    const nd = creditFromFileMeta('cc-by-nd-2.0', 'Wijngaardrijen op de meseta bij Gumiel de Mercado (Burgos), DO Ribera del Duero — zandpad, solitaire steeneik, avondlicht. Foto: CRDO Ribera del Duero, CC BY-ND 2.0 (https://creativecommons.org/licenses/by-nd/2.0/). Bron: officiele beeldbank van het DO-consortium via Flickr, https://www.flickr.com/photos/riberadelduero/8073819483 — origineel 5120x2039, opname 2009-09-09, camera Canon EOS 400D (EXIF bewaard). DAM ref 2079. Echte fotografie, niet gegenereerd; ND-clausule: uitsluitend mechanisch geschaald, niet bewerkt. Geplaatst via LAT-4804.');
+    assert.equal(nd.licenseLabel, 'CC BY-ND 2.0');
+    assert.equal(nd.licenseUrl, 'https://creativecommons.org/licenses/by-nd/2.0/');
+    assert.equal(creditAuthorFor(nd, 'nl'), 'Foto: CRDO Ribera del Duero');
+    assert.equal(nd.sourceUrl, 'https://www.flickr.com/photos/riberadelduero/8073819483', 'bron is Flickr, niet de licentie-URL');
+    assert.equal(nd.sourceLabel, 'Flickr');
+    for (const v of ['2.0', '2.5', '3.0', '4.0']) assert.ok(creditFromFileMeta(`cc-by-nd-${v}`, null), `cc-by-nd-${v}`);
+});
+
+// LAT-14310: the supplied resort image needs the agreed visible house credit in both languages.
+test('permission image: Foto/Photo credit and source link derive from DAM metadata', async () => {
+    const { creditFromFileMeta, creditAuthorFor } = await loadModule('credits', 'src/lib/image-credits.ts');
+    const credit = creditFromFileMeta('pers', 'Foto: Marchesi Mazzei. Bron: https://www.mazzei.it');
+    assert.equal(creditAuthorFor(credit, 'nl'), 'Foto: Marchesi Mazzei');
+    assert.equal(creditAuthorFor(credit, 'en'), 'Photo: Marchesi Mazzei');
+    assert.equal(credit.sourceUrl, 'https://www.mazzei.it');
+});

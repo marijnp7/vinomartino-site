@@ -11,6 +11,7 @@
 // parseItinerary null terug en valt de route-pagina terug op de proza-fallback —
 // nul regressie, graceful degrade.
 
+import { schoneStopNaam } from './route-lines';
 import type { RouteStopGeo, RouteStopKind } from './routes';
 import { normalizeEmDashes } from './markdown';
 import { stripEdgeSeparators } from './route-days';
@@ -46,6 +47,8 @@ export interface ItineraryOvernachting {
     foto: string | null;
     /** Directus file-UUID van `foto` (na build-resolve), sleutel voor de beeldcredit. */
     fotoId?: string | null;
+    /** Eén waarom-regel uit de CMS (PoiCard whyRegel), LAT-14317. */
+    why?: string | null;
     /** booking.com-property- of zoek-URL; leeg = zoeken op de naam. */
     bookingUrl: string | null;
     /** Boekbaar → CTA op het nacht-blok. */
@@ -89,7 +92,9 @@ function normalizeStopKind(val: unknown): ItineraryStopKind {
 function parseStop(row: unknown): ItineraryStop | null {
     if (!row || typeof row !== 'object') return null;
     const rec = row as Record<string, unknown>;
-    const naam = asString(rec.naam ?? rec.name);
+    const ruwNaam = asString(rec.naam ?? rec.name);
+    // LAT-13816 — interne zoekmarker weg uit de toonnaam.
+    const naam = ruwNaam ? schoneStopNaam(ruwNaam) || null : null;
     const slug = asString(rec.slug);
     // Een stop zonder naam én zonder slug is niet renderbaar.
     if (!naam && !slug) return null;
@@ -114,7 +119,9 @@ function asHttpUrl(v: unknown): string | null {
 function parseOvernachting(row: unknown): ItineraryOvernachting | null {
     if (!row || typeof row !== 'object') return null;
     const rec = row as Record<string, unknown>;
-    const naam = asString(rec.naam ?? rec.name);
+    const ruwNaam = asString(rec.naam ?? rec.name);
+    // LAT-13816 — interne zoekmarker weg uit de toonnaam.
+    const naam = ruwNaam ? schoneStopNaam(ruwNaam) || null : null;
     const slug = asString(rec.slug);
     if (!naam && !slug) return null;
     return {
@@ -123,6 +130,7 @@ function parseOvernachting(row: unknown): ItineraryOvernachting | null {
         lat: asFiniteNumber(rec.lat),
         lng: asFiniteNumber(rec.lng),
         foto: asString(rec.foto ?? rec.image ?? rec.dam_image_ref),
+        why: asString(rec.why ?? rec.why_regel ?? rec.whyRegel),
         bookingUrl: asHttpUrl(rec.booking_url ?? rec.bookingUrl),
         boekbaar: rec.boekbaar === true || rec.boekbaar === 'true' || rec.bookable === true,
     };
@@ -197,12 +205,15 @@ export function deriveStopsGeoFromItinerary(itinerary: RouteItinerary): RouteSto
                 lng: stop.lng,
                 kind: STOP_KIND_TO_GEO[stop.kind],
             };
+            // LAT-13816 — de dag van de itinerary draagt de dagkleur op de kaart.
+            if (Number.isInteger(day.n) && day.n > 0) geo.dag = day.n;
             if (stop.slug) geo.slug = stop.slug;
             out.push(geo);
         }
         const ov = day.overnachting;
         if (ov && ov.lat != null && ov.lng != null) {
             const geo: RouteStopGeo = { naam: ov.naam, lat: ov.lat, lng: ov.lng, kind: 'slaap' };
+            if (Number.isInteger(day.n) && day.n > 0) geo.dag = day.n;
             if (ov.slug) geo.slug = ov.slug;
             out.push(geo);
         }

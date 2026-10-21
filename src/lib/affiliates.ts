@@ -18,8 +18,10 @@ export type AffiliateLinkBron = 'Booking.com' | 'GetYourGuide' | 'directe link';
 export interface AffiliateBlockConfig {
   location: AffiliateLocation;
   producent: string;
-  bezoekMaand: string;
-  bezoekJaar: number;
+  /** LAT-13076: alleen invullen met bewijs (REGEL 57: [bron: RS-id] of [bron: marijn …]).
+   *  Leeg = geen bezoekzin in de disclosure, de reserveringszin blijft. */
+  bezoekMaand?: string;
+  bezoekJaar?: number;
   linkBron: AffiliateLinkBron;
   href?: string;           // voor directe-link entries
   accommodationId?: number; // voor Booking.com entries — resolved from Directus at build time
@@ -60,16 +62,27 @@ export const CJ_CONFIG = {
   cjLinkId: '15734897',
 } as const;
 
-/** CJ-klikdomein voor de redirect-hop (kqzyfj.com = dpbolvw.net = anrdoezrs.net). */
-const CJ_CLICK_BASE = 'https://www.kqzyfj.com';
+// LAT-14258 (besluit Marijn 19-10-2026): CJ stopt, alle boekingen lopen via Stay22.
+// CJ_CONFIG blijft alleen staan zodat oude Directus-data herkend en afgepeld kan worden;
+// er wordt geen enkele kqzyfj-/dpbolvw-link meer gerenderd.
+//
+// Stay22 Allez link-wrapping, hetzelfde formaat dat LinkSwap (letmeallez.js) zelf
+// client-side maakt (gemeten in de LAT-13406-captures):
+//   https://www.stay22.com/allez/{booking|getyourguide}?aid=vinomartino&campaign=<sid>&link=<url>
+// Server-side gerenderd, dus ook attributie bij Do Not Track/GPC (dan laadt LinkSwap niet).
+export const STAY22_ALLEZ_BASE = 'https://www.stay22.com/allez';
+export const STAY22_AFFILIATE_AID = 'vinomartino';
 
-// Wrap een schone booking.com-deeplink door de evergreen CJ-klik-URL. De property-URL
-// gaat correct ge-encodeURIComponent als `url`-param mee; `sid` draagt de per-pagina SubID.
-function cjClickWrap(finalBookingUrl: string, sid: string): string {
-  const u = new URL(`${CJ_CLICK_BASE}/click-${CJ_CONFIG.cjWebsiteId}-${CJ_CONFIG.cjLinkId}`);
-  u.searchParams.set('url', finalBookingUrl);
-  u.searchParams.set('sid', sid);
+export function stay22Wrap(product: 'booking' | 'getyourguide', destination: string, campaign: string): string {
+  const u = new URL(`${STAY22_ALLEZ_BASE}/${product}`);
+  u.searchParams.set('aid', STAY22_AFFILIATE_AID);
+  u.searchParams.set('campaign', campaign);
+  u.searchParams.set('link', destination);
   return u.toString();
+}
+
+function cjClickWrap(finalBookingUrl: string, sid: string): string {
+  return stay22Wrap('booking', finalBookingUrl, sid);
 }
 
 // CJ-redirectdomeinen (de blokkeerbare tussenhops). Een legacy boeklink kan nog
@@ -85,6 +98,9 @@ export function unwrapCjRedirect(raw: string): string {
   try {
     const u = new URL(raw);
     const host = u.hostname.toLowerCase().replace(/^www\./, '');
+    if (host === 'stay22.com' && u.pathname.startsWith('/allez/') && u.searchParams.get('link')) {
+      return u.searchParams.get('link') as string;
+    }
     const isCjHop = CJ_REDIRECT_HOSTS.some((h) => host === h || host.endsWith(`.${h}`));
     if (!isCjHop) return raw;
     const target = u.searchParams.get('url');
@@ -185,7 +201,7 @@ export function buildBookingSearchLink(query: string, sid: string, locale: Local
     u.searchParams.set('ss', query);
     return cjClickWrap(applyBookingLocale(u.toString(), locale), sid);
   } catch {
-    return `${CJ_CLICK_BASE}/click-${CJ_CONFIG.cjWebsiteId}-${CJ_CONFIG.cjLinkId}`;
+    return stay22Wrap('booking', 'https://www.booking.com/', sid);
   }
 }
 
@@ -261,16 +277,8 @@ export const AFFILIATE_BLOCKS: Record<string, AffiliateBlockConfig[]> = {
   // Locanda del Pilone (accommodationId=11) + Palazzo Finati (accommodationId=12):
   // booking_url in Directus, CJ-wrapper at render time (LAT-923).
   'een-week-in-piemonte-barolo-barbaresco-en-alles-daartussenin': [
-    {
-      location: 'activity',
-      producent: 'Produttori del Barbaresco',
-      bezoekMaand: 'Oktober',
-      bezoekJaar: 2024,
-      linkBron: 'directe link',
-      href: 'https://www.produttoridelbarbaresco.com',
-      ctaLabel: 'Plan je bezoek',
-      ctaLabelEn: 'Plan your visit',
-    },
+    // LAT-13076: Produttori-activity-blok verwijderd. Het eigen portret zegt
+    // "niet persoonlijk bezocht"; de bezoekclaim "Oktober 2024" was onbewezen.
     {
       location: 'accommodation',
       producent: 'Locanda del Pilone',
@@ -307,8 +315,7 @@ export const AFFILIATE_BLOCKS: Record<string, AffiliateBlockConfig[]> = {
     {
       location: 'activity',
       producent: 'Tenuta di Capezzana',
-      bezoekMaand: 'Oktober',
-      bezoekJaar: 2024,
+      // LAT-13076: bezoek okt 2024 niet bewezen, bezoekzin weg tot [bron: marijn …].
       linkBron: 'directe link',
       href: 'https://www.capezzana.it/visita-e-degustazioni/',
       ctaLabel: 'Reserveer proeverij',
@@ -317,8 +324,7 @@ export const AFFILIATE_BLOCKS: Record<string, AffiliateBlockConfig[]> = {
     {
       location: 'accommodation',
       producent: 'Brolio Agriroom (Castello di Brolio)',
-      bezoekMaand: 'Mei',
-      bezoekJaar: 2024,
+      // LAT-13076: overnachting mei 2024 niet bewezen, bezoekzin weg tot [bron: marijn …].
       linkBron: 'Booking.com',
       accommodationId: 1,
       ctaLabel: 'Bekijk beschikbaarheid',
@@ -329,19 +335,10 @@ export const AFFILIATE_BLOCKS: Record<string, AffiliateBlockConfig[]> = {
     },
   ],
 
-  // Langhe 4-daagse route — Produttori del Barbaresco activity (LAT-1030)
-  'langhe-piemonte-4-dagen-route': [
-    {
-      location: 'activity',
-      producent: 'Produttori del Barbaresco',
-      bezoekMaand: 'Februari',
-      bezoekJaar: 2026,
-      linkBron: 'directe link',
-      href: 'https://www.produttoridelbarbaresco.com',
-      ctaLabel: 'Plan je bezoek',
-      ctaLabelEn: 'Plan your visit',
-    },
-  ],
+  // LAT-13076: 'langhe-piemonte-4-dagen-route' had een Produttori-blok met
+  // "Wij bezochten … februari 2026" en een commissieclaim op een directe link.
+  // Het portret zegt "niet persoonlijk bezocht" en een directe link levert geen
+  // commissie op. Blok verwijderd; terug alleen met [bron: marijn YYYY-MM-DD].
 };
 
 export function getAffiliateBlocks(slug: string): AffiliateBlockConfig[] {

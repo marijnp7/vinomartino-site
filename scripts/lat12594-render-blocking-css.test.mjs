@@ -32,7 +32,11 @@ test('latin-ext-faces staan op font-display: optional', () => {
   const ext = faces.filter((b) => b.includes('latin-ext'));
   assert.ok(ext.length > 0);
   for (const b of ext) assert.match(b, /font-display: optional;/);
-  for (const b of faces.filter((b) => !b.includes('latin-ext'))) assert.match(b, /font-display: swap;/);
+  // LAT-14062: Source Serif 4 laadt pas na window.load; swap liet de lopende tekst dan
+  // herbreken (CLS 0,102 op /accommodaties/ NL). optional = geen late wissel.
+  const late = (b) => b.includes("'Source Serif 4'");
+  for (const b of faces.filter((b) => !b.includes('latin-ext') && !late(b))) assert.match(b, /font-display: swap;/);
+  for (const b of faces.filter(late)) assert.match(b, /font-display: optional;/);
 });
 
 test('Source Serif 4-bestanden bestaan en zijn geïnstancet (< 60 KB, opsz vastgezet)', async () => {

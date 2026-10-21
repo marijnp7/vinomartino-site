@@ -13,11 +13,7 @@
 # een merge-subject met "[skip ci]" (zie memory: skip-ci-lost-on-gh-pr-merge).
 #
 # measure : alleen lezen. docker system df + grootste mappen, om de structurele oorzaak te vinden.
-# apply   : (1) rmi paperclip-paperclip:v2026.618.0 als geen container hem gebruikt,
-#           (2) dangling anonieme volumes: per volume inhoud tonen; verwijderen ALLEEN als er
-#               geen PG_VERSION / *.sql / directus / upload / backup in zit, anders laten staan,
-#           (3) image prune (alleen dangling). Daarna df.
-# Verwijdert geen build-cache, geen containers, geen benoemde volumes.
+# apply   : UITGESCHAKELD (LAT-13687, 2026-10-16). Faalt met exit 1; verwijdert niets.
 
 name: LAT-12798 disk cleanup (VPS host)
 
@@ -25,7 +21,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'measure = alleen lezen; apply = goedgekeurde stappen 1-3'
+        description: 'measure = alleen lezen; apply = uitgeschakeld (LAT-13687)'
         required: true
         default: measure
         type: choice
@@ -80,46 +76,27 @@ jobs:
           echo "=== containers json-log (top 8) ==="; du -sh /var/lib/docker/containers/*/*-json.log 2>/dev/null | sort -h | tail -8
           echo "=== / depth 1 (top 10) ==="; du -xh --max-depth=1 / 2>/dev/null | sort -h | tail -10
           echo "=== /var/log + journal ==="; du -sh /var/log /var/log/journal 2>/dev/null
+          # LAT-13687: uitbreiding na schijf 98 % (16-10). /root groeide 2,4G -> 7,8G sinds aug.
+          echo "=== HOME (\$HOME) depth 3 (top 25) ==="; du -xh --max-depth=3 "$HOME" 2>/dev/null | sort -h | tail -25
+          echo "=== /docker depth 2 (top 10) ==="; du -xh --max-depth=2 /docker 2>/dev/null | sort -h | tail -10
+          echo "=== /srv depth 2 (top 15) ==="; du -xh --max-depth=2 /srv 2>/dev/null | sort -h | tail -15
+          echo "=== /srv/vino-builds ==="; ls -la /srv/vino-builds 2>&1 | head -30
+          echo "=== dist.old-* ==="; ls -1d /srv/*/dist.old-* 2>/dev/null | while read -r d; do du -sh "$d"; done
+          echo "=== images (id, naam, grootte, containers) ==="
+          docker images --format '{{.ID}} {{.Repository}}:{{.Tag}} {{.Size}}' | while read -r i n z; do
+            echo "$i $n $z containers=$(docker ps -a --filter "ancestor=$i" -q | wc -l)"
+          done
           echo "=== housekeeping log (tail) ==="; tail -n 20 /var/log/paperclip-housekeeping-emergency.log 2>&1
           echo "LAT12798_MEASURE_OK"
           REMOTE
 
-      - name: Apply (approved steps 1-3)
+      - name: Apply (UITGESCHAKELD, LAT-13687)
         if: inputs.mode == 'apply'
-        env:
-          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
         run: |
-          ssh "$VPS" "bash -s" <<'REMOTE'
-          set -uo pipefail
-          echo "BEFORE: $(df -h / | tail -1)"
-
-          echo "=== 1. rmi oude paperclip-paperclip image ==="
-          OLD=paperclip-paperclip:v2026.618.0
-          ID=$(docker image inspect "$OLD" --format '{{.Id}}' 2>/dev/null || true)
-          if [ -z "$ID" ]; then
-            echo "(image bestaat niet meer; niets te doen)"
-          else
-            N=$(docker ps -a --filter "ancestor=$ID" -q | wc -l)
-            echo "containers op $OLD: $N"
-            if [ "$N" = "0" ]; then docker rmi "$OLD"; else echo "::error::containers gebruiken $OLD; overgeslagen"; fi
-          fi
-
-          echo "=== 2. dangling anonieme volumes ==="
-          for v in $(docker volume ls -f dangling=true -q); do
-            d=$(docker volume inspect "$v" --format '{{.Mountpoint}}')
-            echo "-- ${v:0:12} size=$(du -sh "$d" 2>/dev/null | cut -f1)"
-            ls -A "$d" 2>/dev/null | head -8 | tr '\n' ' '; echo
-            HITS=$(find "$d" -maxdepth 3 \( -name PG_VERSION -o -name '*.sql' -o -name '*.sql.gz' -o -iname '*directus*' -o -iname '*upload*' -o -iname '*backup*' \) 2>/dev/null | head -3)
-            if [ -n "$HITS" ]; then
-              echo "KEEP ${v:0:12} (match: $HITS)"
-            else
-              docker volume rm "$v" >/dev/null && echo "removed ${v:0:12}" || echo "rm failed ${v:0:12}"
-            fi
-          done
-
-          echo "=== 3. image prune (dangling only) ==="
-          docker image prune -f
-
-          echo "AFTER: $(df -h / | tail -1)"
-          echo "LAT12798_APPLY_OK"
-          REMOTE
+          # LAT-13687 (2026-10-16): de vorige apply ging uit van twee onjuiste aannames.
+          # (1) ghcr.io/hostinger/hvps-openclaw:latest is NIET ongebruikt: openclaw-mrms-openclaw-1
+          #     draait erop (hostmeting 12:15/12:28 NL). (2) de dangling-volume-heuristiek bewijst
+          #     niet dat de inhoud herstelbaar is. Elke verwijdering vraagt een nieuw, per object
+          #     benoemd besluit op basis van de measure-output. Tot dan doet apply niets.
+          echo "::error::apply uitgeschakeld (LAT-13687); gebruik mode=measure"
+          exit 1

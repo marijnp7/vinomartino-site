@@ -1,0 +1,73 @@
+/* LAT-13771 — gedeelde keuzehulp (filterpaneel, telregel, chips, wis-knop, lege staat).
+   Verplaatst uit WijnhuizenIndex.astro (LAT-13075/13062/12594) zodat /wijnhuizen/ en
+   /accommodaties/ hetzelfde paneel delen. Selectors en regels zijn ongewijzigd; alleen
+   de Astro-scope is weg, dus alles blijft onder het .wh--voorvoegsel om lekken te voorkomen.
+   Importeer via de frontmatter: `import '../styles/keuzehulp.css'`. */
+
+/* Witte vlakken (filterpaneel) houden vaste kleuren, ook in kelder-modus. */
+.wh-filters .wh-field input, .wh-filters .wh-field select { color: #1F1A16; }
+.wh-filters .wh-field label, .wh-filters .wh-telling, .wh-filters .wh-wis { color: #5A1A1F; }
+.wh-filters .wh-meer > summary { color: #1F1A16; }
+.wh-filters :focus-visible, .wh-leeg button:focus-visible { outline: 3px solid var(--accent-apricot); outline-offset: 2px; box-shadow: var(--focus-ring); }
+
+/* Filterpaneel in Variant B: wit vlak op papier, bordeaux kop-lijn, zelfde radius als kaarten. */
+.wh-filters {
+  display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-4); align-items: end; margin-bottom: var(--space-8);
+  padding: var(--space-5, 1.25rem) var(--space-6, 1.5rem);
+  background: #fff; color: var(--fixed-ink);
+  border-top: 3px solid var(--burgundy); border-radius: var(--radius-card);
+  box-shadow: var(--shadow-sm);
+}
+.wh-filters[hidden] { display: none; }
+.wh-field { display: flex; flex-direction: column; gap: 0.375rem; min-width: 0; }
+.wh-field label { font-family: var(--font-ui); font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--burgundyInk); }
+.wh-field input, .wh-field select {
+  width: 100%; min-width: 0; min-height: 44px; padding: 0.5rem 0.75rem; font: inherit; font-size: 1rem;
+  color: var(--fixed-ink); background: var(--fixed-cream); border: 1px solid var(--inkFaint, #6B6054); border-radius: 8px;
+}
+/* LAT-13062 #4: veldrand ≥ 3:1 op crème (WCAG 1.4.11). */
+.wh-field input:hover, .wh-field select:hover, .wh-field input:focus, .wh-field select:focus { border-color: var(--inkSoft); }
+.wh-meer > summary { display: none; }
+.wh-meer-n { display: inline-block; min-width: 1.5em; padding: 0 0.4em; border-radius: 1em; background: var(--rust); color: #fff; font-size: 0.75rem; text-align: center; }
+.wh-meer-n[hidden] { display: none; }
+.wh-status { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; padding-top: var(--space-3); border-top: 1px solid var(--ruleSoft); }
+.wh-telling { margin: 0 0.5rem 0 0; font-family: var(--font-display); font-weight: 400; font-size: 1.5rem; line-height: 1.1; color: var(--burgundyInk); }
+.wh-chips { list-style: none; display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0; padding: 0; }
+/* Chips worden door het script gemaakt; deze regels zijn globaal en raken ze dus direct. */
+.wh-chips li { display: flex; min-width: 0; }
+.wh-chips button, .wh-wis, .wh-leeg button {
+  display: inline-flex; align-items: center; gap: 0.4rem; min-height: 36px; max-width: 100%;
+  padding: 0.35rem 0.85rem; font-family: var(--font-ui); font-size: 0.8125rem; font-weight: 600;
+  cursor: pointer; border: 1px solid var(--burgundy); background: transparent; color: var(--burgundyInk); border-radius: 999px;
+}
+.wh-chips button {
+  background: var(--burgundy); color: var(--fixed-cream);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 18rem;
+}
+.wh-chips .wh-chip-x { font-size: 1rem; line-height: 1; opacity: 0.85; }
+.wh-chips button:hover { background: var(--burgundyDeep); }
+.wh-chips button:focus-visible { outline: 3px solid var(--accent-apricot); outline-offset: 2px; box-shadow: var(--focus-ring); }
+.wh-wis { border-color: transparent; padding-inline: 0.25rem; text-decoration: underline; text-underline-offset: 3px; }
+.wh-leeg button:not([data-wh-wis-leeg]) { background: var(--burgundy); color: var(--fixed-cream); }
+.wh-wis[hidden], .wh-leeg[hidden], .wh-leeg button[hidden] { display: none; }
+.wh-leeg { text-align: center; padding: var(--space-8) var(--space-4); margin-bottom: var(--space-8); background: var(--paperDeep); border-radius: var(--radius-card); }
+.wh-leeg h2 { font-family: var(--font-display); font-weight: 400; font-size: 1.5rem; color: var(--ink); margin-bottom: var(--space-3); }
+.wh-leeg p { color: var(--inkSoft); max-width: 36rem; margin: 0 auto var(--space-4); }
+.wh-leeg-acties { display: flex; flex-wrap: wrap; gap: 0.75rem; justify-content: center; }
+@media (max-width: 720px) {
+  .wh-filters { grid-template-columns: minmax(0, 1fr); gap: var(--space-3); padding: var(--space-4); }
+  .wh-meer > summary {
+    display: flex; align-items: center; gap: 0.5rem; min-height: 44px; cursor: pointer;
+    font-family: var(--font-mono); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink);
+  }
+  .wh-meer[open] > summary { margin-bottom: var(--space-2); }
+}
+
+/* LAT-13771 — varianten voor /accommodaties/ (raken /wijnhuizen/ niet: alleen met de modifier). */
+.wh-filters.kh-filters--2 { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+.wh-filters.kh-filters--selects { grid-template-columns: repeat(auto-fit, minmax(10rem, 16rem)); }
+@media (max-width: 720px) {
+  .wh-filters.kh-filters--2 { grid-template-columns: minmax(0, 1fr); }
+  .wh-filters.kh-filters--selects { grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr)); }
+}

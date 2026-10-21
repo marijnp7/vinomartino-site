@@ -10,6 +10,8 @@ import type { RouteStopGeo } from '../lib/routes';
 import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
 import { loadWijnhuizen } from '../lib/wijnhuizen';
 import { loadUiStrings } from '../lib/ui-strings';
+import { planRouteMap, stopNummers, dagKleur, formatKm, DAG_RAND } from '../lib/route-lines';
+import { loadRouteLine } from '../lib/route-lines-loader';
 
 export interface Props {
   /** LAT-2704 — locale van de renderende pagina; stuurt de interne hrefs. */
@@ -36,22 +38,34 @@ const hasGeo = geo.length >= 2;
 // genummerde dag-pins; wijnhuis-/slaap-stops zijn extra POI's op de kaart.
 const waypoints = geo.filter((s: RouteStopGeo) => (s.kind ?? 'stop') === 'stop');
 const line = (waypoints.length >= 2 ? waypoints : geo);
+// LAT-13816 — dagkleuren + vooraf berekende wegroute. Zonder `dag` of zonder
+// route-JSON blijft het gedrag van vóór LAT-13816 (rechte lijn, bordeaux pins).
+const segments = planRouteMap(geo, loadRouteLine(slug));
+// LAT-13816 — met een dagindeling staan dagen, km en stops al in de datastrip en de
+// legenda; de losse tags hieronder telden alle punten (ook wijnhuizen en slaapplekken)
+// en spraken de datastrip tegen ("10 stops" naast "4 stops").
+const toonMeta = !segments.some((s) => s.dag != null);
+const perDag = segments.some((sg) => sg.dag != null);
+const nummers = stopNummers(geo);
 const hasWijnhuis = geo.some((s: RouteStopGeo) => s.kind === 'wijnhuis');
 const hasSlaap = geo.some((s: RouteStopGeo) => s.kind === 'slaap');
 
 const mapId = `routemap-${slug}`.replace(/[^a-z0-9-]/gi, '');
 
-let dayNo = 0;
 const publishedWineries = new Set((await loadWijnhuizen(locale)).map(w => w.slug));
 const mapData = {
   slug,
   // LAT-2704 — basispad voor de wijnhuis-links in de popups, server-side gelokaliseerd.
   wijnhuisBase: lh('/wijnhuizen/'),
   portraitLabel: ui.t('route.leesPortret'),
-  stops: geo.map((s: RouteStopGeo) => {
+  rand: DAG_RAND,
+  segments,
+  stops: geo.map((s: RouteStopGeo, i: number) => {
     const kind = s.kind ?? 'stop';
     return {
-      n: kind === 'stop' ? ++dayNo : null,
+      n: nummers[i],
+      dag: perDag && s.dag ? s.dag : null,
+      kleur: perDag && s.dag ? dagKleur(s.dag) : null,
       kind,
       naam: s.naam,
       slug: s.slug && publishedWineries.has(s.slug) ? s.slug : null,
@@ -64,21 +78,24 @@ const mapData = {
 ---
 
 {hasGeo && (
-  <figure class="routegeo" data-routegeo id={mapId} aria-labelledby={`${mapId}-cap`}>
+  <figure class="routegeo" data-routegeo data-routegeo-slug={slug} id={mapId} aria-labelledby={`${mapId}-cap`}>
     <figcaption class="routegeo__cap" id={`${mapId}-cap`}>
       <span class="routegeo__label">{ui.t('routegeo.label')}</span>
       <span class="routegeo__from-to">{line[0].naam} <span class="routegeo__arrow">&rarr;</span> {line[line.length - 1].naam}</span>
     </figcaption>
     <div class="routegeo__canvas" data-routegeo-canvas role="application" aria-label={`${ui.t('routegeo.aria.mapPre')} ${title}`}></div>
-    {(hasWijnhuis || hasSlaap) && (
+    {(perDag || hasWijnhuis || hasSlaap) && (
       <ul class="routegeo__legend" aria-label={ui.t('routegeo.legend.aria')}>
-        <li class="routegeo__legend-item"><span class="routegeo__swatch routegeo__swatch--dag" aria-hidden="true">1</span>{ui.t('routegeo.legend.dagetappe')}</li>
+        {perDag ? segments.map((sg) => {
+          const km = formatKm(sg.meters, 1);
+          return <li class="routegeo__legend-item"><span class="routegeo__daglijn" style={`--dagkleur:${sg.kleur}`} aria-hidden="true"></span>{ui.t('routegeo.legend.dag')} {sg.dag}{km && <> &middot; {km}</>}</li>;
+        }) : <li class="routegeo__legend-item"><span class="routegeo__swatch routegeo__swatch--dag" aria-hidden="true">1</span>{ui.t('routegeo.legend.dagetappe')}</li>}
         {hasWijnhuis && <li class="routegeo__legend-item"><span class="routegeo__swatch routegeo__swatch--wijnhuis" aria-hidden="true"></span>{ui.t('routegeo.legend.wijnhuis')}</li>}
         {hasSlaap && <li class="routegeo__legend-item"><span class="routegeo__swatch routegeo__swatch--slaap" aria-hidden="true"></span>{ui.t('routegeo.legend.overnachten')}</li>}
       </ul>
     )}
     <script type="application/json" data-routegeo-data set:html={JSON.stringify(mapData)} />
-    {(duration || transport) && (
+    {toonMeta && (duration || transport) && (
       <div class="routegeo__meta">
         {duration && <span class="routegeo__tag">{duration}</span>}
         {transport && <span class="routegeo__tag">{transport}</span>}
@@ -92,8 +109,15 @@ const mapData = {
   import { addBaseLayer, whenUserIntent, loadLeaflet } from '../lib/map-base';
 
   type StopKind = 'stop' | 'wijnhuis' | 'slaap';
-  type Stop = { n: number | null; kind: StopKind; naam: string; slug: string | null; lat: number; lng: number };
-  type MapData = { slug: string; wijnhuisBase?: string; portraitLabel: string; stops: Stop[]; line: [number, number][] };
+  type Stop = { n: number | null; dag: number | null; kleur: string | null; kind: StopKind; naam: string; slug: string | null; lat: number; lng: number };
+  type Segment = { dag: number | null; kleur: string | null; coords: [number, number][]; road: boolean; meters: number | null };
+  type MapData = { slug: string; wijnhuisBase?: string; portraitLabel: string; rand: string; segments: Segment[]; stops: Stop[]; line: [number, number][] };
+  type MapApi = { focusStop: (i: number) => void; highlightDag: (dag: number | null) => void };
+
+  // LAT-13816 — per kaart (slug) een belofte op de API, zodat chips in de dagsecties
+  // de kaart ook kunnen initialiseren als die nog niet in beeld is geweest.
+  const apis = new Map<string, Promise<MapApi | null>>();
+  const DIM = 0.35;
 
   function esc(s: string): string {
     return s.replace(/[&<>"]/g, (c) => (
@@ -101,21 +125,31 @@ const mapData = {
     ));
   }
 
-  async function initSection(section: HTMLElement): Promise<void> {
+  function initSection(section: HTMLElement, viaChip = false): Promise<MapApi | null> {
+    const slug = section.dataset.routegeoSlug || section.id;
+    let p = apis.get(slug);
+    if (!p) {
+      p = buildMap(section, viaChip);
+      apis.set(slug, p);
+    }
+    return p;
+  }
+
+  async function buildMap(section: HTMLElement, viaChip: boolean): Promise<MapApi | null> {
     const canvas = section.querySelector<HTMLElement>('[data-routegeo-canvas]');
     const dataEl = section.querySelector<HTMLElement>('[data-routegeo-data]');
-    if (!canvas || !dataEl || canvas.dataset.ready === '1') return;
-    canvas.dataset.ready = '1';
+    if (!canvas || !dataEl) return null;
 
     let data: MapData;
     try {
       data = JSON.parse(dataEl.textContent || '{}');
     } catch {
-      return;
+      return null;
     }
-    if (!data.stops || data.stops.length < 2) return;
+    if (!data.stops || data.stops.length < 2) return null;
 
-    await whenUserIntent();
+    // Een klik op een chip ís de gebruikersintentie; anders wachten zoals voorheen.
+    if (!viaChip) await whenUserIntent();
     const L = await loadLeaflet();
 
     const map = L.map(canvas, {
@@ -127,21 +161,42 @@ const mapData = {
     await addBaseLayer(map);
 
     const boundsPts: [number, number][] = data.stops.map((s) => [s.lat, s.lng]);
-    const linePts: [number, number][] = (data.line && data.line.length >= 2) ? data.line : boundsPts;
+    const perDag = (data.segments || []).some((sg) => sg.dag != null);
+    // dag -> lagen die meedimmen bij de dag-highlight.
+    const dagLagen = new Map<number, { lines: any[]; markers: any[] }>();
+    const lagenVoor = (dag: number) => {
+      let l = dagLagen.get(dag);
+      if (!l) { l = { lines: [], markers: [] }; dagLagen.set(dag, l); }
+      return l;
+    };
 
-    // LAT-2000 — getekende route-as (bordeaux) door de dag-waypoints in volgorde.
-    L.polyline(linePts, {
-      color: '#5A1A1F',
-      weight: 3,
-      opacity: 0.8,
-      dashArray: '1 8',
-      lineCap: 'round',
-    }).addTo(map);
+    if (perDag) {
+      // LAT-13816 — per dag een lijn in de dagkleur op een donkere rand, zodat geel
+      // leesbaar blijft op de lichte kaart. Rechte (ongemeten) dagen gestippeld.
+      for (const sg of data.segments) {
+        if (sg.dag == null || !sg.kleur) continue;
+        const rand = L.polyline(sg.coords, { color: data.rand, weight: 7, opacity: 0.9, lineCap: 'round', lineJoin: 'round', interactive: false }).addTo(map);
+        const kleur = L.polyline(sg.coords, { color: sg.kleur, weight: 4, opacity: 1, lineCap: 'round', lineJoin: 'round', dashArray: sg.road ? undefined : '1 8', interactive: false }).addTo(map);
+        lagenVoor(sg.dag).lines.push(rand, kleur);
+        sg.coords.forEach((c) => boundsPts.push(c));
+      }
+    } else {
+      const linePts: [number, number][] = (data.line && data.line.length >= 2) ? data.line : boundsPts;
+      // LAT-2000 — getekende route-as (bordeaux) door de dag-waypoints in volgorde.
+      L.polyline(linePts, {
+        color: '#5A1A1F',
+        weight: 3,
+        opacity: 0.8,
+        dashArray: '1 8',
+        lineCap: 'round',
+      }).addTo(map);
+    }
 
     const lastDay = data.stops.reduce((m, s) => (s.n && s.n > m ? s.n : m), 0);
     // LAT-2125 — genummerde pins bewaren zodat de itinerary-cards (PoiCard,
     // data-skz-card=n) er tweerichtings mee synchroniseren.
     const markersByN = new Map<number, any>();
+    const markersByIdx: any[] = [];
     for (const s of data.stops) {
       // LAT-2000 — merkgekleurde pins: dag-etappe = genummerde bordeaux middendot
       // (vorm uit het wordmark), wijnhuis = bordeaux, overnachten = olijfgroen.
@@ -153,6 +208,10 @@ const mapData = {
       } else if (s.kind === 'slaap') {
         html = `<span class="rgm-pin rgm-pin--slaap" aria-hidden="true"></span>`;
         role = 'Overnachten';
+      } else if (s.kleur) {
+        // LAT-13816 — pin in de dagkleur, zwart nummer, donkere rand.
+        html = `<span class="rgm-pin rgm-pin--dag rgm-pin--gekleurd" style="background:${s.kleur}">${s.n ?? ''}</span>`;
+        role = `Dag ${s.dag} · stop ${s.n}`;
       } else {
         const isEnd = s.n === 1 || s.n === lastDay;
         html = `<span class="rgm-pin rgm-pin--dag${isEnd ? ' rgm-pin--end' : ''}">${s.n ?? ''}</span>`;
@@ -168,6 +227,8 @@ const mapData = {
           `<div class="rgm-popup"><span class="rgm-popup__role">${esc(role)}</span><h4 class="rgm-popup__name">${esc(s.naam)}</h4>${link}</div>`,
           { minWidth: 140, autoPanPadding: [24, 24] },
         );
+      markersByIdx.push(marker);
+      if (s.dag != null) lagenVoor(s.dag).markers.push(marker);
       if (s.n != null) {
         markersByN.set(s.n, marker);
         marker.on('click', () => highlightCard(s.n as number));
@@ -197,6 +258,58 @@ const mapData = {
         }
       });
     });
+
+    return {
+      focusStop(i: number) {
+        const marker = markersByIdx[i];
+        if (!marker) return;
+        map.setView(marker.getLatLng(), Math.max(map.getZoom(), 13), { animate: true });
+        marker.openPopup();
+      },
+      highlightDag(dag: number | null) {
+        dagLagen.forEach((l, d) => {
+          const op = dag == null || d === dag ? 1 : DIM;
+          l.lines.forEach((pl, j) => pl.setStyle({ opacity: j % 2 === 0 ? 0.9 * op : op }));
+          l.markers.forEach((m) => m.setOpacity(op));
+        });
+      },
+    };
+  }
+
+  // LAT-13816 — chips "Stops vandaag": kaart in beeld, zoom naar de pin, popup open.
+  function wireChips(): void {
+    document.querySelectorAll<HTMLButtonElement>('[data-routechip]').forEach((chip) => {
+      chip.addEventListener('click', async () => {
+        const section = document.querySelector<HTMLElement>(`figure.routegeo[data-routegeo-slug="${chip.dataset.routechipSlug}"]`);
+        if (!section) return;
+        section.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        const api = await initSection(section, true);
+        api?.focusStop(Number(chip.dataset.routechip));
+      });
+    });
+  }
+
+  // LAT-13816 — komt een dagsectie in beeld, dan licht die dag op de kaart op.
+  // Alleen waarnemen, nooit scrollen (geen scroll-jacking).
+  function wireDagHighlight(): void {
+    const dagen = Array.from(document.querySelectorAll<HTMLElement>('[data-routedag]'));
+    if (!dagen.length || !('IntersectionObserver' in window)) return;
+    const zichtbaar = new Set<HTMLElement>();
+    const apply = async () => {
+      const top = dagen.find((d) => zichtbaar.has(d));
+      const slug = top?.dataset.routedagSlug ?? dagen[0].dataset.routedagSlug;
+      const p = slug ? apis.get(slug) : undefined;
+      const api = p ? await p : null;
+      api?.highlightDag(top ? Number(top.dataset.routedag) : null);
+    };
+    const io = new IntersectionObserver((entries) => {
+      for (const e of entries) {
+        if (e.isIntersecting) zichtbaar.add(e.target as HTMLElement);
+        else zichtbaar.delete(e.target as HTMLElement);
+      }
+      apply();
+    }, { rootMargin: '-35% 0px -45% 0px' });
+    dagen.forEach((d) => io.observe(d));
   }
 
   // Klik-pin → scroll naar de bijbehorende card + korte highlight.
@@ -209,6 +322,8 @@ const mapData = {
   }
 
   function ready(): void {
+    wireChips();
+    wireDagHighlight();
     const sections = Array.from(document.querySelectorAll<HTMLElement>('figure.routegeo[data-routegeo]'))
       .filter((s) => s.querySelector('[data-routegeo-canvas]'));
     if (!sections.length) return;
@@ -312,6 +427,15 @@ const mapData = {
     font-weight: 600;
     line-height: 1;
   }
+  /* LAT-13816 — legenda per dag: een lijnstukje in de dagkleur op de donkere rand. */
+  .routegeo__daglijn {
+    display: inline-block;
+    width: 22px;
+    height: 7px;
+    border-radius: 4px;
+    background: var(--dagkleur);
+    box-shadow: inset 0 0 0 1.5px #14100E;
+  }
   .routegeo__swatch--wijnhuis { background: #5A1A1F; }
   .routegeo__swatch--slaap { background: #5C6B3F; }
   .routegeo__meta {
@@ -353,6 +477,11 @@ const mapData = {
     width: 28px;
     height: 28px;
     background: #5A1A1F;
+  }
+  .rgm-pin--gekleurd {
+    color: #14100E;
+    border-color: #14100E;
+    font-weight: 700;
   }
   .rgm-pin--end { box-shadow: 0 0 0 2px #C9A24B, 0 1px 3px rgba(0, 0, 0, 0.35); }
   /* Wijnhuis-stop: bordeaux POI-dot. Overnachten: olijfgroene POI-dot. */

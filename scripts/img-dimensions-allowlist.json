@@ -1,6 +1,6 @@
 {
   "artikelen/epernay-comptoir-vignerons-kleine-boeren-champagne/index.html": "bare UUID als img-src in Directus-body, zie follow-up issue",
   "en/artikelen/epernay-comptoir-vignerons-kleine-boeren-champagne/index.html": "bare UUID als img-src in Directus-body, zie follow-up issue",
-  "artikelen/sjabloon-accommodatieportret/index.html": "redactioneel Directus-sjabloon met {{asset}}-placeholders zonder afbeeldingsbron; LAT-13897",
-  "en/artikelen/sjabloon-accommodatieportret/index.html": "redactioneel Directus-sjabloon met {{asset}}-placeholders zonder afbeeldingsbron; LAT-13897"
+  "artikelen/sjabloon-accommodatieportret/index.html": "concept-sjabloon met {{placeholder}}-beelden; komt alleen in preview-builds met concepten (akkoord Marijn 17-10, LAT-13816)",
+  "en/artikelen/sjabloon-accommodatieportret/index.html": "concept-sjabloon met {{placeholder}}-beelden; komt alleen in preview-builds met concepten (akkoord Marijn 17-10, LAT-13816)"
 }

@@ -55,6 +55,9 @@ function short(url, n = 220) {
 
 async function measure(browser, site, path, cta) {
   const context = await browser.newContext({ locale: path.startsWith('/en/') ? 'en-GB' : 'nl-NL' });
+  // LAT-14258: nooit een echte affiliate-klik. Navigaties buiten de site worden na het
+  // vastleggen (request-event hierboven) afgebroken, dus geen hit bij Stay22/Booking/GYG.
+  await context.route('**/*', (r) => (r.request().isNavigationRequest() && !r.request().url().startsWith(site) ? r.abort() : r.continue()));
   const docs = [];
   const beacons = [];
   const partnerHits = new Set();

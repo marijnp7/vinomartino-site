@@ -1,6 +1,6 @@
 // LAT-12054: beeldcredits zijn datagedreven. `getImageCredit()` leest `licentie`
 // en `herkomst` van het DAM-bestand (`directus_files`); er staat geen id-lijst
-// meer in de code. Voor `cc-by-*` en `cc-by-sa-*` is naamsvermelding verplicht:
+// meer in de code. Voor `cc-by-*`, `cc-by-sa-*` en `cc-by-nd-*` is naamsvermelding verplicht:
 // maker, licentie met link en bronpagina. Alle andere licentiewaarden (cc0,
 // publiek-domein, eigen, pexels, unsplash, booking-/pers-onbevestigd, onbekend,
 // synthetisch) vragen geen attributie en geven `null`.
@@ -44,6 +44,19 @@ export function licenseLabelFor(label: string, locale: string): string {
     return LICENSE_LABEL_EN[label.trim()] ?? label;
 }
 
+// LAT-13914: bij een CC-licentie is "©" misleidend (de maker geeft juist rechten weg);
+// CC vraagt naam, bron en licentie. Toon de maker als "Foto: <maker>" / "Photo: <maker>".
+// LAT-14310: ook aangeleverd persbeeld krijgt Foto/Photo volgens REGEL 64.
+// `author` blijft de ruwe makerwaarde voor callers die zelf een credit samenstellen.
+const PHOTO_PREFIX: Record<string, string> = { nl: 'Foto', en: 'Photo' };
+
+/** Maker-deel: Foto/Photo bij CC en aangeleverd persbeeld (REGEL 64). */
+export function creditAuthorFor(credit: ImageCredit, locale: string): string {
+    if (!credit.author || (!/creativecommons\.org/i.test(credit.licenseUrl) && credit.licenseLabel !== 'met toestemming')) return credit.author;
+    const maker = credit.author.replace(/^\s*©\s*/, '');
+    return `${PHOTO_PREFIX[locale] ?? PHOTO_PREFIX.en}: ${maker}`;
+}
+
 const ADAPTATION_NOTE: Record<string, string> = {
     nl: 'kleur en uitsnede bewerkt',
     en: 'colour-graded and cropped',
@@ -64,9 +77,12 @@ export function fileIdFromAccommodatiePath(src: string | null | undefined): stri
 }
 
 const LICENSES: Record<string, { label: string; url: string }> = {};
-for (const v of ['2.0', '3.0', '4.0']) {
+// LAT-12364: 2.5 en BY-ND staan ook in de DAM (art. 82 cc-by-2.5, art. 89 cc-by-nd-2.0);
+// zonder sleutel hier gaf `getImageCredit()` null en rendeerde de hero zonder credit.
+for (const v of ['2.0', '2.5', '3.0', '4.0']) {
     LICENSES[`cc-by-${v}`] = { label: `CC BY ${v}`, url: `https://creativecommons.org/licenses/by/${v}/` };
     LICENSES[`cc-by-sa-${v}`] = { label: `CC BY-SA ${v}`, url: `https://creativecommons.org/licenses/by-sa/${v}/` };
+    LICENSES[`cc-by-nd-${v}`] = { label: `CC BY-ND ${v}`, url: `https://creativecommons.org/licenses/by-nd/${v}/` };
 }
 
 // Canonieke vorm: "(?:Foto: )<maker>, CC BY-*, via <bron>. Bron: <url>"
@@ -136,12 +152,15 @@ export function parseHerkomst(herkomst: string): { maker: string; sourceLabel: s
         return { maker, sourceLabel: m[2].trim().replace(/\.$/, ''), sourceUrl: m[3] };
     }
 
-    // Bron-URL: Bron:-prefix heeft voorrang, anders eerste https-link.
+    // Bron-URL: Bron:-prefix heeft voorrang, anders de eerste https-link die geen
+    // licentie-URL is (LAT-12364: "CC BY-ND 2.0 (https://creativecommons.org/…). Bron: …, https://www.flickr.com/…").
     const bronM = /\bBron:\s*(https?:\/\/[^\s|]+)/i.exec(text);
-    const sourceUrl = trimUrl(bronM?.[1] ?? /(https?:\/\/[^\s|]+)/.exec(text)?.[1]);
+    const firstUrl = [...text.matchAll(/(https?:\/\/[^\s|]+)/g)].map((x) => x[1]).find((u) => !/creativecommons\.org/i.test(u));
+    const sourceUrl = trimUrl(bronM?.[1] ?? firstUrl);
 
-    // Bronnaam: uit "via <Bron>" patroon.
-    const viaM = /\bvia\s+([A-Z][^\n,.;|(]+?)(?=\s*[|.(]|\s*$)/i.exec(text);
+    // Bronnaam: uit "via <Bron>, https://…" (LAT-12364), anders het "via <Bron>" patroon.
+    const viaM = /\bvia\s+([A-Z][^\n,.;|(]+?),\s*https?:\/\//i.exec(text)
+        ?? /\bvia\s+([A-Z][^\n,.;|(]+?)(?=\s*[|.(]|\s*$)/i.exec(text);
     // LAT-13254: of uit de slash-vorm "<maker> / <bron> / CC BY-*"; anders herleid uit de bron-URL.
     const slashM = viaM ? null : /\s\/\s*([^/\n]+?)\s*\/\s*CC\s*BY/i.exec(text);
     const sourceLabel = viaM ? viaM[1].trim()
@@ -182,6 +201,22 @@ export async function getImageCredit(
 // maar de toestemming eist wél "Foto: <huis>" met een link naar de site van het huis.
 // Alleen als `herkomst` een maker noemt; zonder maker valt er niets te crediteren.
 const PERMISSION_LICENSES = new Set(['pers', 'toestemming-wijnhuis', 'toestemming wijnhuis']);
+
+/**
+ * LAT-14220: mag een beeld zonder eigen credit de fallback "Foto: <huis>" krijgen?
+ * Alleen als het huis het beeld zelf aanleverde (`pers`/`toestemming-wijnhuis`).
+ * Eigen beeld van Marijn, CC0, onbekend of null: nooit het huis crediteren.
+ */
+export function isHouseSuppliedLicense(licentie: string | null | undefined): boolean {
+    return PERMISSION_LICENSES.has(String(licentie ?? '').trim().toLowerCase());
+}
+
+/** Async variant op het Directus file-UUID; leest dezelfde DAM-meta als `getImageCredit`. */
+export async function isHouseSuppliedImage(fileId: string | null | undefined): Promise<boolean> {
+    if (!fileId) return false;
+    const file = (await loadDamFileMeta()).get(String(fileId).toLowerCase());
+    return isHouseSuppliedLicense(file?.licentie);
+}
 
 export function creditFromFileMeta(
     licentie: string | null | undefined,

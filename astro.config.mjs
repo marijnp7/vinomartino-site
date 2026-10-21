@@ -62,6 +62,9 @@ export default defineConfig({
         // LAT-13749: Giuseppe Mascarello van de site (LAT-13748), nginx 301t NL en EN naar /streken/langhe-piemonte/.
         page !== 'https://vinomartino.com/wijnhuizen/giuseppe-mascarello-figlio-piemonte/' &&
         page !== 'https://vinomartino.com/en/wijnhuizen/giuseppe-mascarello-figlio-piemonte/' &&
+        // LAT-14253: Frank Cornelissen van de site (LAT-14246), nginx 301t NL en EN naar /streken/etna-sicilie/.
+        page !== 'https://vinomartino.com/wijnhuizen/cornelissen-etna-sicilie/' &&
+        page !== 'https://vinomartino.com/en/wijnhuizen/cornelissen-etna-sicilie/' &&
         // LAT-11952: EN-verblijfspagina samengevoegd, nginx 301t; alleen de EN-URL, NL blijft canoniek.
         page !== 'https://vinomartino.com/en/artikelen/overnachten-langhe-barolo-agriturismi/' &&
         // LAT-2769, herstel via LAT-3071: de 7 persona-auteurspagina's (NL + EN)

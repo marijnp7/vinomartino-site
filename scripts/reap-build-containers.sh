@@ -47,7 +47,7 @@
 #
 # MAX_AGE_MIN is geen natte-vinger-drempel maar afgeleid van de job-cap: de hoogste
 # `timeout-minutes` van de drie workflows is 30 (deploy.yml, i18n-nl-gate.yml;
-# publish.yml build-preview staat op 20). De container start pas ná checkout en
+# publish.yml build-preview staat op 30). De container start pas ná checkout en
 # rsync, dus een container van een LEVENDE run is altijd jonger dan die 30 min.
 # Alles daarboven kan niet bij een lopende run horen. Default 40 = 30 + 10 marge.
 # Verhoog je ergens `timeout-minutes`, verhoog dan hier mee.

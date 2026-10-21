@@ -73,3 +73,21 @@ test("classifier-fout: heuristiek verliest een opdracht niet stil", () => {
   assert.equal(parseClassifierJson("geen json"), null);
   assert.deepEqual(parseClassifierJson('{"intent":"write"}'), { intent: "task" });
 });
+
+test("antwoord 'devops' op rol-verduidelijking → vorige opdracht alsnog doorgezet", () => {
+  const first = decideRoute({ text: "Fix die runs", intent: "task" });
+  assert.equal(first.action, "clarify");
+  const history = [{ role: "user", content: "Fix die runs" }, { role: "assistant", content: first.text }];
+  const r = decideRoute({ text: "Devops", intent: "unclear", history });
+  assert.equal(r.action, "dispatch");
+  assert.equal(r.agent.key, "devops");
+  assert.match(r.body, /Fix die runs/);
+  const r2 = decideRoute({ text: "bij de editor graag", intent: "unclear", history });
+  assert.equal(r2.agent.key, "editor");
+});
+
+test("los rolwoord zonder voorafgaande verduidelijking → geen dispatch", () => {
+  const history = [{ role: "user", content: "Hoe gaat het?" }, { role: "assistant", content: "Goed." }];
+  const r = decideRoute({ text: "devops", intent: "unclear", history });
+  assert.notEqual(r.action, "dispatch");
+});

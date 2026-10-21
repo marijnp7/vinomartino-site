@@ -1,0 +1,68 @@
+---
+// LAT-13816 — datastrip onder de hero, één regel mono-hoofdletters:
+// "2 DAGEN · ± 85 KM · 6 STOPS · 2 WIJNHUIZEN · SLAPEN IN ÉPERNAY".
+// Km komt alleen uit de vooraf berekende wegroute (afgerond op 5, met ±); ontbreekt
+// die, dan valt de km-cel weg. Elke cel zonder bron valt weg; niets verzonnen.
+import type { RouteStopGeo } from '../lib/routes';
+import { formatKm, planRouteMap, stopNummers, totaalMeters } from '../lib/route-lines';
+import { loadRouteLine } from '../lib/route-lines-loader';
+import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
+
+interface Props {
+  slug: string;
+  stops: RouteStopGeo[];
+  dagen: number;
+  /** slaap.plaats per dag uit de pagina-opbouw (null = onbekend). */
+  slaapPlaatsen?: (string | null)[];
+  locale?: Locale;
+}
+const { slug, stops, dagen, slaapPlaatsen = [], locale = DEFAULT_LOCALE } = Astro.props;
+const ui = await loadUiStrings(locale);
+
+const geo = stops.filter((s) => s && Number.isFinite(s.lat) && Number.isFinite(s.lng));
+const km = formatKm(totaalMeters(planRouteMap(geo, loadRouteLine(slug))));
+const nStops = stopNummers(geo).filter((n) => n != null).length;
+const nWijnhuis = geo.filter((s) => s.kind === 'wijnhuis').length;
+
+// Slaapplaats: eerst het CMS-veld slaap.plaats; anders de plaats na de laatste komma
+// van de slaap-stop ("Hôtel Jean Moët, Épernay"). Alleen tonen als het één plaats is.
+const uit = (naam: string) => {
+  const m = naam.replace(/\s*\([^)]*\)\s*$/, '').split(',');
+  return m.length > 1 ? m[m.length - 1].trim() : null;
+};
+const kandidaten = slaapPlaatsen.some(Boolean)
+  ? slaapPlaatsen.filter(Boolean) as string[]
+  : geo.filter((s) => s.kind === 'slaap').map((s) => uit(s.naam));
+const plaatsen = [...new Set(kandidaten)];
+const slaapIn = plaatsen.length === 1 && plaatsen[0] ? plaatsen[0] : null;
+
+const cellen = [
+  dagen > 0 ? `${dagen} ${ui.t(dagen === 1 ? 'routestrip.dag' : 'routestrip.dagen')}` : null,
+  km,
+  nStops > 0 ? `${nStops} ${ui.t(nStops === 1 ? 'routestrip.stop' : 'routestrip.stops')}` : null,
+  nWijnhuis > 0 ? `${nWijnhuis} ${ui.t(nWijnhuis === 1 ? 'routestrip.wijnhuis' : 'routestrip.wijnhuizen')}` : null,
+  slaapIn ? `${ui.t('routestrip.slapenIn')} ${slaapIn}` : null,
+].filter(Boolean) as string[];
+---
+{cellen.length >= 2 && (
+  <p class="routestrip" aria-label={ui.t('routestrip.aria')}>
+    {cellen.map((c, i) => <>{i > 0 && <span class="routestrip__sep" aria-hidden="true"> · </span>}<span>{c}</span></>)}
+  </p>
+)}
+<style>
+  .routestrip {
+    margin: 0 0 var(--space-6, 1.5rem);
+    padding: 0.7rem 0;
+    border-top: 1px solid var(--rule, #C9B98F);
+    border-bottom: 1px solid var(--rule, #C9B98F);
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-weight: 500;
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink, #1F1A16);
+    line-height: 1.7;
+  }
+  .routestrip__sep { color: var(--inkFaint, #8A7D6E); }
+</style>

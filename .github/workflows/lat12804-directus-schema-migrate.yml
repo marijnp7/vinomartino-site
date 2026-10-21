@@ -47,6 +47,20 @@ on:
           - lat13674-wijnhuis-hero-alt.mjs
           - lat13135-spotlight-build-perms.mjs
           - lat13760-file-credit-wijnhuis.mjs
+          - lat14281-clos-mogador-files-meta.mjs
+          - lat13747-file-licentie-valdespino.mjs
+          - lat13766-file-licentie-spinetta.mjs
+          - lat13809-brief-nulmeting.mjs
+          - lat13812-newsletter-kind.mjs
+          - lat13876-file-credit-lieser.mjs
+          - lat13914-file-credit-castiglione.mjs
+          - lat14038-file-credit-batch2.mjs
+          - lat14254-file-credit-aimasso.mjs
+          - lat14145-file-credit-urzig.mjs
+          - lat14343-file-credit-hero19.mjs
+          - lat14343-file-credit-pruem.mjs
+          - lat14380-constantia-files-meta.mjs
+          - add-accommodation-outreach-fields.mjs
 
 concurrency:
   group: lat12804-directus-schema-migrate

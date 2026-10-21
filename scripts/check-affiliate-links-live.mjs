@@ -58,6 +58,14 @@ const THROTTLE_MS = Number(process.env.AFFILIATE_LIVE_THROTTLE_MS || 600);
 const CHALLENGE_WAIT_MS = Number(process.env.AFFILIATE_LIVE_CHALLENGE_WAIT_MS || 20000);
 // Aparte, gecapte issue-body (de volledige lijst kan >65536 tekens worden en
 // laat `gh issue create` omvallen). De volledige lijst blijft in REPORT_PATH.
+// LAT-14304: de geplande run (949 URL's × throttle + challenge-wacht) liep elke
+// nacht tegen de job-timeout van 60 min en werd `cancelled` — dan controleert hij
+// niets. Daarom een hard tijdbudget: wat er na BUDGET_MIN nog niet bezocht is,
+// telt als `niet beoordeeld` (waarschuwing), en de run eindigt met een oordeel.
+const BUDGET_MIN = Number(process.env.AFFILIATE_LIVE_BUDGET_MIN || 40);
+// Na zoveel onopgeloste Booking-challenges op rij zijn de overige Booking-URL's
+// in deze run vrijwel zeker ook geblokkeerd: niet meer 20 s per stuk wachten.
+const CHALLENGE_GIVEUP = Number(process.env.AFFILIATE_LIVE_CHALLENGE_GIVEUP || 5);
 const ISSUE_BODY_PATH = process.env.AFFILIATE_LIVE_ISSUE_BODY || 'affiliate-live-issue.md';
 const ISSUE_BODY_MAX_REDS = Number(process.env.AFFILIATE_LIVE_ISSUE_MAX_REDS || 30);
 
@@ -150,7 +158,7 @@ export function bookingSourceIntent(sourceUrl) {
     return 'unknown';
   }
   // CJ-wrapper (kqzyfj/anrdoezrs/dpbolvw): de echte bestemming zit in ?url=.
-  const inner = u.searchParams.get('url');
+  const inner = u.searchParams.get('link') || u.searchParams.get('url');
   if (inner) {
     try {
       u = new URL(inner);
@@ -203,12 +211,39 @@ export function judgeBooking(fu, status, sourceUrl) {
   return null;
 }
 
+// Stay22-wrap: oordeel op de bestemming (we bezoeken alleen de kale bestemming).
+function judgeStay22Destination(fu, status, sourceUrl) {
+  const h = normHost(fu.hostname);
+  if (/(^|\.)getyourguide\./.test(h)) return judgeGetYourGuide(fu, status);
+  return judgeBooking(fu, status, sourceUrl);
+}
+
 const JUDGES = {
   getyourguide: judgeGetYourGuide,
   'booking-cj': judgeBooking,
+  stay22: judgeStay22Destination,
   'booking-direct': judgeBooking,
   awin: judgeBooking,
 };
+
+/**
+ * LAT-14258: de nightly opent NOOIT een productie-affiliate-URL (dat is een echte klik
+ * per link per nacht, ongeldig verkeer bij CJ/Booking/Stay22). We pellen de wrapper af
+ * (Stay22 `link=`, CJ `url=`, Awin `ued=`) en strippen de affiliate-params, zodat alleen
+ * de kale bestemming (booking.com/getyourguide) wordt geladen.
+ */
+export function inertDestination(raw) {
+  let u;
+  try { u = new URL(raw); } catch { return raw; }
+  for (const k of ['link', 'url', 'ued']) {
+    const inner = u.searchParams.get(k);
+    if (inner && /^https?:\/\//i.test(inner)) {
+      try { u = new URL(inner); break; } catch { /* wrapper laten staan */ }
+    }
+  }
+  for (const k of ['aid', 'label', 'sid', 'partner_id', 'cmp', 'utm_medium', 'campaign', 'a_aid']) u.searchParams.delete(k);
+  return u.toString();
+}
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
@@ -218,8 +253,55 @@ function sleep(ms) {
  * Open één URL in de browser en beoordeel de eindbestemming.
  * @returns {{status:'ok'|'red'|'unreachable', httpStatus:number|null, finalUrl:string|null, reason:string|null}}
  */
+const runState = { deadline: Infinity, challengeStreak: 0 };
+
+/**
+ * LAT-14304: roteer de startpositie per ISO-week, zodat het tijdbudget niet elke
+ * week dezelfde staart overslaat. Pure functie (getest).
+ */
+export function rotateForWeek(items, now = Date.now()) {
+  if (items.length === 0) return items;
+  const week = Math.floor(now / (7 * 86400000));
+  const off = (week * 397) % items.length;
+  return [...items.slice(off), ...items.slice(0, off)];
+}
+
+/** Komt deze link (direct of via een wrap als Stay22/CJ/Awin) uit op Booking? */
+export function isBookingEntry(entry) {
+  if (/booking/i.test(entry.partner)) return true;
+  try {
+    return /(^|\.)booking\.com\b/i.test(decodeURIComponent(entry.url));
+  } catch {
+    return false;
+  }
+}
+
+/** Waarom deze entry niet bezocht wordt (budget/challenge-cap), of null. */
+export function skipReason(entry, state, now = Date.now()) {
+  if (now >= state.deadline) return `tijdbudget van ${BUDGET_MIN} min op; niet bezocht in deze run`;
+  if (isBookingEntry(entry) && state.challengeStreak >= CHALLENGE_GIVEUP) {
+    return `${state.challengeStreak} Booking-challenges op rij onopgelost; overige Booking-URL's niet bezocht`;
+  }
+  return null;
+}
+
 async function visit(browser, entry) {
+  const skip = skipReason(entry, runState);
+  if (skip) return { status: 'unreachable', httpStatus: null, finalUrl: null, reason: skip, skipped: true };
+  const r = await visitOnce(browser, entry);
+  if (isBookingEntry(entry)) {
+    runState.challengeStreak = r.challengeUnsolved ? runState.challengeStreak + 1 : 0;
+  }
+  return r;
+}
+
+async function visitOnce(browser, entry) {
   const judge = JUDGES[entry.partner];
+  // Stay22-zoeklink zonder link= (allez/roam): geen bestemming om offline te toetsen;
+  // bezoeken zou een klik bij Stay22 zijn. Vorm is al door de statische check getoetst.
+  if (/(^|\.)stay22\.com$/i.test(new URL(inertDestination(entry.url)).hostname)) {
+    return { status: 'ok', httpStatus: null, finalUrl: null, reason: 'Stay22-zoeklink: niet bezocht (LAT-14258, geen klikken)' };
+  }
   // Jitter-throttle vóór de navigatie om rate-limits (Booking 429) te dempen.
   if (THROTTLE_MS > 0) await sleep(Math.round(THROTTLE_MS * (0.5 + Math.random())));
   let lastErr = null;
@@ -229,7 +311,7 @@ async function visit(browser, entry) {
     const context = await browser.newContext({ locale: 'nl-NL' });
     const page = await context.newPage();
     try {
-      const resp = await page.goto(entry.url, {
+      const resp = await page.goto(inertDestination(entry.url), {
         waitUntil: 'domcontentloaded',
         timeout: NAV_TIMEOUT_MS,
       });
@@ -282,6 +364,7 @@ async function visit(browser, entry) {
       if (normHost(finalUrl.hostname) === 'booking.com' && isBookingChallenge(finalUrl)) {
         return {
           status: 'unreachable',
+          challengeUnsolved: true,
           httpStatus,
           finalUrl: finalUrl.toString(),
           reason:
@@ -377,7 +460,7 @@ async function fetchText(url, timeoutMs = 20000) {
 
 // Astro levert een sitemap-index (sitemap-index.xml → sub-sitemaps) of één
 // sitemap.xml. Haal beide plat naar een lijst pagina-URL's.
-async function resolveSitemapUrls(base) {
+export async function resolveSitemapUrls(base) {
   const candidates = [`${base}/sitemap-index.xml`, `${base}/sitemap.xml`];
   const pages = new Set();
   for (const smUrl of candidates) {
@@ -450,9 +533,10 @@ async function main() {
   }
   const source = LIVE_SITE ? `live: ${LIVE_SITE}` : `dist: ${DIST_DIR}`;
   console.log(`[affiliate-live] bron = ${source}`);
-  const { scanned, entries } = LIVE_SITE
+  const { scanned, entries: collected } = LIVE_SITE
     ? await collectFromLive(LIVE_SITE)
     : await collectFromDist(DIST_DIR);
+  const entries = rotateForWeek(collected);
   if (scanned === 0) {
     console.error(
       LIVE_SITE
@@ -490,6 +574,7 @@ async function main() {
   const browser = await playwright.chromium.launch({ channel: 'chromium', headless, args: ['--no-sandbox'] });
   let results;
   try {
+    runState.deadline = Date.now() + BUDGET_MIN * 60000;
     results = await runPool(entries, (entry) => visit(browser, entry), CONCURRENCY);
   } finally {
     await browser.close();
@@ -504,11 +589,12 @@ async function main() {
   });
 
   const okCount = results.length - reds.length - unreachable.length;
+  const skippedCount = results.filter((r) => r.skipped).length;
   console.log(
     `[affiliate-live] resultaat: ${okCount} ok, ${reds.length} kapot, ${unreachable.length} onbereikbaar.`,
   );
 
-  for (const u of unreachable) {
+  for (const u of unreachable.filter((x) => !x.skipped)) {
     console.warn(`  ⚠ onbereikbaar (${u.partner}): ${u.url} — ${u.reason}`);
   }
 
@@ -528,6 +614,11 @@ async function main() {
     l.push(
       `- Resultaat: **${reds.length} kapot**, ${unreachable.length} niet beoordeeld ` +
         `(block/throttle/anti-bot-challenge/timeout — geen rood, maar ook geen groen), ${okCount} ok`,
+    );
+    l.push(
+      `- Bezocht: ${results.length - skippedCount} van ${entries.length} ` +
+        `(${skippedCount} overgeslagen door tijdbudget ${BUDGET_MIN} min / challenge-cap ${CHALLENGE_GIVEUP}; ` +
+        `startpunt roteert per week, LAT-14304)`,
     );
     l.push('');
     if (breakdown.length > 0) {

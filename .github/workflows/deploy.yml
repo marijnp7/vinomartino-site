@@ -153,7 +153,7 @@ jobs:
   deploy:
     needs: tests
     runs-on: ubuntu-latest
-    timeout-minutes: 45 # LAT-12060: vangnet voor de eerste koude cache-build, niet de fix
+    timeout-minutes: 90 # LAT-13549: deploy wacht tot 35 min op een lopende gate (scripts/vps-build-lock.sh) + ~42 min solo-build. Was 45 (LAT-12060).
     environment:
       name: ${{ github.ref == 'refs/heads/main' && 'production' || 'preview' }}
       url: ${{ github.ref == 'refs/heads/main' && 'https://vinomartino.com' || 'https://preview.vinomartino.com' }}
@@ -483,7 +483,7 @@ jobs:
               | tail -n 30
             cp -f "$STAGE/dist/build-info.json" "$DIST/build-info.json"
             echo "DIST inhoud na rsync:"
-            ls -la "$DIST/" | head -20
+            ls -la "$DIST/" | sed -n '1,20p'
             if [ -f "$DIST/build-info.json" ]; then
               echo "DIST/build-info.json:"
               cat "$DIST/build-info.json"

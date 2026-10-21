@@ -23,7 +23,7 @@
 //   ::boek{zoek="<zoekterm>" label="<knoptekst>"}
 //     Boek-CTA. `acc` = numeriek accommodations-id → directe booking.com-deeplink
 //     (aid=818285 via CJ, resolveBoekHref-closure). `zoek` = fallback-zoekdeeplink.
-//     Rendert een `rel="sponsored noopener"`-knop + vaste disclosure-microcopy.
+//     Rendert een `rel="sponsored nofollow noopener"`-knop + vaste disclosure-microcopy.
 //     Zonder resolvebare href valt de CTA weg (deploy-safe).
 //
 //   :::infographic{...}
@@ -168,7 +168,7 @@ function fotoHtml(attrs: Record<string, string>, foto: FotoResolved): string {
 function boekHtml(href: string, label: string): string {
   return [
     `<div class="route-boek">`,
-    `<a class="route-boek__cta" href="${escapeHtml(href)}" target="_blank" rel="sponsored noopener">${escapeHtml(label)}</a>`,
+    `<a class="route-boek__cta" href="${escapeHtml(href)}" target="_blank" rel="sponsored nofollow noopener">${escapeHtml(label)}</a>`,
     `</div>`,
   ].join('');
 }

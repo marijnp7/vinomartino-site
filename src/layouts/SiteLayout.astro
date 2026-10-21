@@ -173,8 +173,8 @@ const articleTags = article?.tags?.filter((tag): tag is string => Boolean(tag &&
     <link rel="preload" href="/fonts/cormorant-garamond-latin-abcaa8b4.woff2" as="font" type="font/woff2" crossorigin />
     {/* LAT-12594 variant (A/B, niet mergen zonder meting): body-fonts pas na window.load,
         zodat ze niet met de LCP-hero om bandbreedte concurreren. Fallback-fonts tot dan. */}
-    <script is:inline>addEventListener('load',function(){var l=document.createElement('link');l.rel='stylesheet';l.href='/fonts/body-fonts.css';document.head.appendChild(l)})</script>
-    <noscript><link rel="stylesheet" href="/fonts/body-fonts.css" /></noscript>
+    <script is:inline>addEventListener('load',function(){var l=document.createElement('link');l.rel='stylesheet';l.href='/fonts/body-fonts.css?v=14062';document.head.appendChild(l)})</script>
+    <noscript><link rel="stylesheet" href="/fonts/body-fonts.css?v=14062" /></noscript>
     <script is:inline>
       (function () {
         try {

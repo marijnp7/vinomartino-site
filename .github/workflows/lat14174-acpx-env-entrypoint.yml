@@ -1,0 +1,221 @@
+# LAT-14174 — LAT-12882-patch (geen agent-env in ACPX-sessierecords) laten overleven bij een
+# recreate van paperclip-paperclip-1: entrypoint-wrapper die ops/lat14174/reapply.sh draait
+# vóór docker-entrypoint.sh. Script staat ro op de host (/opt/paperclip/lat14174), niet op het
+# agent-schrijfbare paperclip_home-volume.
+#
+# Gate: R2 punt 1 + 3. Goedgekeurd door Marijn, kaart 04a3a71c (2026-10-19), issue LAT-14174.
+# Modes (vaste scripts, geen input-interpolatie):
+#   diagnose = alleen lezen: labels, Entrypoint/Cmd, serviceblok zonder environment,
+#              docker diff onder /app (wat een recreate weggooit), lopende runs.
+#   apply    = scripts naar /opt/paperclip/lat14174, compose patchen (backup, idempotent,
+#              `compose config` valideren), up -d --no-deps (= recreate control plane),
+#              health + grep LAT-12882 = 1. Faalt health: backup terug + up -d.
+#   verify   = alleen lezen: grep, PID1, docker diff.
+# Mergen met "[skip ci]" in de subject (.github/ op main triggert anders deploy.yml).
+
+name: LAT-14174 paperclip ACPX env-patch entrypoint
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'diagnose / apply / verify'
+        required: true
+        default: diagnose
+        type: choice
+        options: [diagnose, apply, verify]
+
+concurrency:
+  group: lat14174-acpx-env-entrypoint
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          [ -n "$CF_ACCESS_CLIENT_ID" ] && [ -n "$CF_ACCESS_CLIENT_SECRET" ] \
+            || { echo "::error::CF_ACCESS_CLIENT_ID/SECRET ontbreken (LAT-3437)"; exit 1; }
+          umask 077
+          printf 'CF_ACCESS_CLIENT_ID=%s\nCF_ACCESS_CLIENT_SECRET=%s\n' \
+            "$CF_ACCESS_CLIENT_ID" "$CF_ACCESS_CLIENT_SECRET" > ~/.ssh/cf-access.env
+          umask 022
+          cat >> ~/.ssh/config <<EOF
+          Host $VPS_HOST
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+            ProxyCommand bash $GITHUB_WORKSPACE/ops/cf-ssh-proxy.sh
+          EOF
+          cat "$GITHUB_WORKSPACE/ops/ssh-config-snippet" >> ~/.ssh/config
+
+      - name: Diagnose / verify (read-only)
+        if: inputs.mode != 'apply'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          DIAG: |
+            set -uo pipefail
+            CTR=paperclip-paperclip-1
+            F=/app/packages/adapter-utils/src/acpx-engine/execute.ts
+            echo "=== labels / state (smalle --format) ==="
+            docker inspect -f 'files={{index .Config.Labels "com.docker.compose.project.config_files"}}
+            project={{index .Config.Labels "com.docker.compose.project"}}
+            workdir={{index .Config.Labels "com.docker.compose.project.working_dir"}}
+            service={{index .Config.Labels "com.docker.compose.service"}}
+            image={{.Config.Image}} user={{.Config.User}}
+            status={{.State.Status}} started={{.State.StartedAt}}
+            entrypoint={{json .Config.Entrypoint}}
+            cmd={{json .Config.Cmd}}' "$CTR"
+            IMG=$(docker inspect -f '{{.Config.Image}}' "$CTR")
+            docker image inspect -f 'image-entrypoint={{json .Config.Entrypoint}} image-cmd={{json .Config.Cmd}} created={{.Created}}' "$IMG"
+            FILES=$(docker inspect -f '{{index .Config.Labels "com.docker.compose.project.config_files"}}' "$CTR")
+            SVC=$(docker inspect -f '{{index .Config.Labels "com.docker.compose.service"}}' "$CTR")
+            IFS=',' read -ra FA <<< "$FILES"
+            for f in "${FA[@]}"; do
+              echo "--- $f ($(stat -c '%U:%G %a %s bytes' "$f" 2>/dev/null || echo 'niet leesbaar'))"
+              awk -v svc="$SVC" '
+                $0 ~ "^  "svc":[[:space:]]*$" {inb=1; print; next}
+                inb && /^  [^ #]/ {inb=0}
+                inb && /^    (environment|env_file):/ {skip=1; print "    <" $1 " weggelaten>"; next}
+                inb && skip && /^      / {next}
+                inb {skip=0; print}
+              ' "$f" | sed -E 's/(PASSWORD|SECRET|TOKEN|KEY)([^:=]*)[:=].*/\1\2=<redacted>/I'
+            done
+            echo "=== skelet per compose-bestand (alleen sleutels, waarden weg) ==="
+            for f in "${FA[@]}"; do
+              echo "--- $f"
+              sed -nE 's/^([[:space:]]*-?[[:space:]]*)([A-Za-z0-9_.-]+):.*/\1\2:/p; s/^([[:space:]]*)-[[:space:]]+([^:]+)$/\1- <item>/p' "$f" | cat -A | sed 's/\$$//' | head -80
+            done
+            echo "=== /opt/paperclip/lat14174 ==="
+            ls -la /opt/paperclip/lat14174 2>&1 | head
+            echo "=== grep LAT-12882 in /app ==="
+            docker exec "$CTR" grep -c LAT-12882 "$F"
+            echo "=== PID1 ==="
+            docker exec "$CTR" sh -c 'tr "\0" " " </proc/1/cmdline; echo'
+            echo "=== docker diff onder /app (wat een recreate weggooit) ==="
+            docker diff "$CTR" | grep -E '^[ACD] /app' | grep -vE '/node_modules/\.(cache|vite)|\.tsbuildinfo$' | head -60
+            echo "=== lopende heartbeat-runs ==="
+            docker exec paperclip-db-1 psql -U paperclip -d paperclip -X -At -c "select status, count(*) from heartbeat_runs where status in ('running','queued') group by 1"
+            echo "=== laatste lat14174-regels in containerlog ==="
+            docker logs --tail 400 "$CTR" 2>&1 | grep -E 'lat14174|present|applied' | tail -5 || true
+        run: |
+          printf '%s\n' "$DIAG" | ssh "$VPS" "bash -s"
+
+      - name: Upload scripts
+        if: inputs.mode == 'apply'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+        run: |
+          ssh "$VPS" "mkdir -p /opt/paperclip/lat14174.new"
+          scp ops/lat14174/reapply.sh ops/lat14174/wrap.sh ops/lat14174/compose_patch.py "$VPS:/opt/paperclip/lat14174.new/"
+          ssh "$VPS" "chmod 755 /opt/paperclip/lat14174.new/*; rm -rf /opt/paperclip/lat14174; mv /opt/paperclip/lat14174.new /opt/paperclip/lat14174; sha256sum /opt/paperclip/lat14174/*"
+
+      - name: Patch compose + recreate
+        if: inputs.mode == 'apply'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          APPLY: |
+            set -euo pipefail
+            CTR=paperclip-paperclip-1
+            F=/app/packages/adapter-utils/src/acpx-engine/execute.ts
+            MOUNT=/opt/paperclip/lat14174:/opt/lat14174:ro
+            FILES=$(docker inspect -f '{{index .Config.Labels "com.docker.compose.project.config_files"}}' "$CTR")
+            PROJ=$(docker inspect -f '{{index .Config.Labels "com.docker.compose.project"}}' "$CTR")
+            WD=$(docker inspect -f '{{index .Config.Labels "com.docker.compose.project.working_dir"}}' "$CTR")
+            SVC=$(docker inspect -f '{{index .Config.Labels "com.docker.compose.service"}}' "$CTR")
+            IFS=',' read -ra FA <<< "$FILES"
+            FARGS=(); for f in "${FA[@]}"; do FARGS+=(-f "$f"); done
+            echo "project=$PROJ service=$SVC files=$FILES"
+
+            if [ -z "${PAPERCLIP_VOLUME_NAME:-}" ]; then
+              DEST=$(grep -hoE '^[[:space:]]*-[[:space:]]*"?paperclip_vol:[^:"[:space:]]+' "${FA[@]}" | head -1 | sed -E 's/.*paperclip_vol://')
+              [ -n "$DEST" ] || { echo "::error::paperclip_vol-mount niet gevonden in compose"; exit 1; }
+              for c in $(docker ps --filter "label=com.docker.compose.project=$PROJ" --format '{{.Names}}'); do
+                V=$(docker inspect -f "{{range .Mounts}}{{if and (eq .Type \"volume\") (eq .Destination \"$DEST\")}}{{.Name}}{{end}}{{end}}" "$c")
+                [ -n "$V" ] && { PAPERCLIP_VOLUME_NAME="$V"; echo "PAPERCLIP_VOLUME_NAME=$V (uit $c:$DEST)"; break; }
+              done
+              [ -n "${PAPERCLIP_VOLUME_NAME:-}" ] || { echo "::error::PAPERCLIP_VOLUME_NAME niet af te leiden"; exit 1; }
+              export PAPERCLIP_VOLUME_NAME
+            fi
+            CC() { docker compose -p "$PROJ" --project-directory "$WD" "${FARGS[@]}" "$@"; }
+            CC config --services >/dev/null || { echo "::error::compose config faalt al vóór de patch"; exit 1; }
+
+            # Huidige (effectieve) entrypoint/cmd van de draaiende container; wrapper ervoor zetten.
+            CUR_EP=$(docker inspect -f '{{json .Config.Entrypoint}}' "$CTR")
+            CUR_CMD=$(docker inspect -f '{{json .Config.Cmd}}' "$CTR")
+            read -r NEW_EP NEW_CMD < <(python3 - "$CUR_EP" "$CUR_CMD" <<'PY'
+            import json, sys
+            ep = json.loads(sys.argv[1]) or []; cmd = json.loads(sys.argv[2]) or []
+            w = ["/bin/sh", "/opt/lat14174/wrap.sh"]
+            if ep[:2] == w: ep = ep[2:]
+            if not ep: sys.exit("lege entrypoint")
+            print(json.dumps(w + ep, separators=(",", ":")), json.dumps(cmd, separators=(",", ":")))
+            PY
+            )
+            echo "entrypoint: $CUR_EP -> $NEW_EP"
+            echo "command:    $CUR_CMD (expliciet gezet: compose wist de image-CMD bij een entrypoint-override)"
+
+            TARGET=""
+            for f in "${FA[@]}"; do grep -qE "^  ${SVC}:[[:space:]]*$" "$f" && TARGET="$f"; done
+            [ -n "$TARGET" ] || { echo "::error::service $SVC niet gevonden"; exit 1; }
+            BAK="$TARGET.bak-lat14174-$(date -u +%Y%m%dT%H%M%SZ)"
+            cp -p "$TARGET" "$BAK"
+            echo "backup: $BAK"
+            python3 /opt/paperclip/lat14174/compose_patch.py "$BAK" "$SVC" "$NEW_EP" "$NEW_CMD" "$MOUNT" > "$TARGET.tmp-lat14174"
+            cat "$TARGET.tmp-lat14174" > "$TARGET"; rm -f "$TARGET.tmp-lat14174"
+            diff -u "$BAK" "$TARGET" | sed -E 's/(PASSWORD|SECRET|TOKEN|KEY)([^:=]*)[:=].*/\1\2=<redacted>/I' || true
+            if ! CC config --services >/dev/null; then
+              cat "$BAK" > "$TARGET"; echo "::error::compose config ongeldig na patch — backup teruggezet"; exit 1
+            fi
+            CC config --format json | python3 -c '
+            import json,sys
+            s=json.load(sys.stdin)["services"][sys.argv[1]]
+            print("resolved entrypoint:", json.dumps(s.get("entrypoint")))
+            print("resolved command:   ", json.dumps(s.get("command")))
+            vols=[v for v in s.get("volumes",[]) if v.get("target")=="/opt/lat14174"]
+            print("resolved mount:     ", vols)
+            assert s["entrypoint"][:2]==["/bin/sh","/opt/lat14174/wrap.sh"] and vols and vols[0].get("read_only")
+            ' "$SVC"
+
+            echo "=== lopende runs vlak vóór recreate ==="
+            docker exec paperclip-db-1 psql -U paperclip -d paperclip -X -At -c "select status, count(*) from heartbeat_runs where status in ('running','queued') group by 1" || true
+            T0=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+            echo "=== up -d --no-deps $SVC (recreate) @ $T0 ==="
+            CC up -d --no-deps "$SVC"
+            ok=0
+            for i in $(seq 1 60); do
+              sleep 3
+              if docker logs --since "$T0" "$CTR" 2>&1 | grep 'Server listening' >/dev/null; then ok=1; break; fi
+              code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 http://localhost:3100/ || true)
+              case "$code" in 2*|3*|401|403) ok=1; break;; esac
+            done
+            if [ "$ok" != "1" ]; then
+              echo "::error::server niet up binnen 180s — rollback"
+              docker logs --since "$T0" --tail 60 "$CTR" 2>&1 | sed -E 's/(PASSWORD|SECRET|TOKEN|KEY)([^:=]*)[:=].*/\1\2=<redacted>/I'
+              cat "$BAK" > "$TARGET"; CC up -d --no-deps "$SVC"; exit 1
+            fi
+            echo "=== verificatie ==="
+            docker inspect -f 'status={{.State.Status}} started={{.State.StartedAt}} ep={{json .Config.Entrypoint}}' "$CTR"
+            docker exec "$CTR" sh -c 'tr "\0" " " </proc/1/cmdline; echo'
+            docker logs --since "$T0" "$CTR" 2>&1 | grep -E 'lat14174|^present|^applied' | head -5 || true
+            N=$(docker exec "$CTR" grep -c LAT-12882 "$F" || true)
+            echo "grep -c LAT-12882 = $N"
+            [ "$N" = "1" ] || { echo "::error::patch niet aanwezig na recreate"; exit 1; }
+            echo "LAT14174_APPLY_OK"
+        run: |
+          printf '%s\n' "$APPLY" | ssh "$VPS" "bash -s"

@@ -61,7 +61,7 @@ const label = {
 };
 
 // No href → no affiliate config → render nothing. M1-Optie B: geen "binnenkort"-placeholders.
-const hasAffiliate = Boolean(href && producent && bezoekMaand && bezoekJaar && linkBron);
+const hasAffiliate = Boolean(href && producent && linkBron);
 const ctaText = ctaLabel ?? label.cta;
 const descText = description ?? label.description;
 ---
@@ -77,8 +77,8 @@ const descText = description ?? label.description;
   >
     <AffiliateBlockDisclosure
       producent={producent!}
-      bezoekMaand={bezoekMaand!}
-      bezoekJaar={bezoekJaar!}
+      bezoekMaand={bezoekMaand}
+      bezoekJaar={bezoekJaar}
       linkBron={linkBron!}
       locale={locale}
     />

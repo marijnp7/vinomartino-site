@@ -19,8 +19,11 @@
 name: Affiliate links nightly (live)
 
 on:
+  # LAT-14304 (C5): wekelijks i.p.v. nightly. C5 vraagt een weekcontrole; 949 URL's
+  # passen niet in één run (tijdbudget + startpunt dat per week roteert), en minder
+  # vaak = minder bot-verkeer op partnersites. Bestandsnaam blijft (historie/links).
   schedule:
-    - cron: "15 3 * * *" # elke nacht 03:15 UTC
+    - cron: "15 3 * * 1" # maandag 03:15 UTC
   workflow_dispatch:
     inputs:
       site:
@@ -39,11 +42,13 @@ concurrency:
 jobs:
   live-check:
     runs-on: ubuntu-latest
-    # 60: Booking-URL's wachten nu tot hun challenge is opgelost (LAT-12620).
+    # 60: Booking-URL's wachten tot hun challenge is opgelost (LAT-12620). Het script
+    # stopt zelf na AFFILIATE_LIVE_BUDGET_MIN (LAT-14304), ruim binnen deze timeout.
     timeout-minutes: 60
     env:
       AFFILIATE_LIVE_SITE: ${{ github.event.inputs.site || 'https://vinomartino.com' }}
       AFFILIATE_LIVE_REPORT: affiliate-live-report.md
+      AFFILIATE_LIVE_BUDGET_MIN: "40"
       # Aparte, gecapte issue-body — GitHub weigert een issue-body >65536 tekens.
       AFFILIATE_LIVE_ISSUE_BODY: affiliate-live-issue.md
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -118,4 +123,61 @@ jobs:
         if: steps.check.outputs.exit_code == '1'
         run: |
           echo "::error::Live affiliate-check faalde met een scriptfout (exit 1) — geen betrouwbaar oordeel."
+          exit 1
+
+  # LAT-14304 (C5): accommodatiebeelden. Eigen job: geen browser nodig, en een
+  # rood beeld mag de affiliate-uitkomst niet maskeren (of andersom).
+  accommodation-images:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      ACC_IMAGES_SITE: ${{ github.event.inputs.site || 'https://vinomartino.com' }}
+      ACC_IMAGES_REPORT: accommodation-images-report.md
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # Canary: een check die altijd groen geeft is niet te onderscheiden van een
+      # schone site. Fixture met 404, 0-byte en kaart-zonder-beeld moet rood geven.
+      - name: Canary (rood op kapot, groen op gezond)
+        run: |
+          node scripts/check-accommodation-images-live.mjs --self-test | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Run live accommodatiebeelden-check
+        id: check
+        run: |
+          set +e
+          node scripts/check-accommodation-images-live.mjs
+          code=$?
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          set -e
+          [ -f "$ACC_IMAGES_REPORT" ] && cat "$ACC_IMAGES_REPORT" >> "$GITHUB_STEP_SUMMARY"
+          exit 0
+
+      # Alleen bij afwijking een issue (HARDE REGEL 28 punt 3); dedup op label.
+      - name: Open/update issue bij kapot beeld
+        if: steps.check.outputs.exit_code == '2'
+        run: |
+          set -euo pipefail
+          label="acc-images-weekly"
+          gh label create "$label" --color b60205 \
+            --description "Kapot of ontbrekend accommodatiebeeld (LAT-14304)" 2>/dev/null || true
+          existing=$(gh issue list --state open --label "$label" --json number --jq '.[0].number' || echo "")
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body-file "$ACC_IMAGES_REPORT"
+          else
+            gh issue create --title "Weekcheck: kapotte/ontbrekende accommodatiebeelden op $ACC_IMAGES_SITE" \
+              --label "$label" --body-file "$ACC_IMAGES_REPORT"
+          fi
+
+      - name: Markeer rood bij afwijking of scriptfout
+        if: steps.check.outputs.exit_code != '0'
+        run: |
+          echo "::error::Accommodatiebeelden-check exit ${{ steps.check.outputs.exit_code }} (2 = rood beeld, 1 = scriptfout/niets gecontroleerd)."
           exit 1

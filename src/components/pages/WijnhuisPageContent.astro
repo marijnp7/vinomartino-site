@@ -3,7 +3,7 @@ import SmartImg from '../SmartImg.astro';
 import BeeldHerkomst from '../BeeldHerkomst.astro';  // LAT-4776: §7-disclosure bij AI-beeld
 import AffiliatePlaceholder from '../AffiliatePlaceholder.astro';
 import AffiliateDisclosure from '../AffiliateDisclosure.astro';
-import { adaptationNoteFor, getImageCredit, licenseLabelFor } from '../../lib/image-credits';
+import { adaptationNoteFor, getImageCredit, isHouseSuppliedImage, licenseLabelFor } from '../../lib/image-credits';
 import { DEFAULT_LOCALE, type Locale, localizeHref } from '../../lib/i18n';
 import { loadUiStrings } from '../../lib/ui-strings';
 
@@ -96,6 +96,9 @@ const drieluikBeelden = drieluik.filter((b) => b && b.src);
 // LAT-2478: verplichte beeldcredit (bv. Wikimedia Commons CC BY-SA) bij de hero,
 // gesleuteld op het Directus file-UUID. Null → geen figcaption (bv. AI-eigen werk).
 const heroCredit = await getImageCredit(heroImageId, { adapted: true });
+// LAT-14220: "Foto: <huis>" alleen bij beeld dat het huis zelf aanleverde; nooit onder
+// eigen beeld (licentie `eigen`) of beeld zonder bevestigde herkomst.
+const heroIsHouseSupplied = await isHouseSuppliedImage(heroImageId);
 
 // LAT-13057: met foto wordt de hero een beeld-hero; zonder foto blijft de tekst-hero
 // (geen leeg kleurvlak). De chip is het bronlabel van het *portret*, nooit een beeldclaim.
@@ -157,7 +160,7 @@ const chipStreek = region.split(' · ')[0];
           {heroCredit.author && <>{heroCredit.author}, </>}{heroCredit.licenseUrl ? <a href={heroCredit.licenseUrl} rel="license noopener" target="_blank">{licenseLabelFor(heroCredit.licenseLabel, locale)}</a> : licenseLabelFor(heroCredit.licenseLabel, locale)}{heroCredit.sourceUrl && <>, <a href={heroCredit.sourceUrl} rel="noopener" target="_blank">{heroCredit.sourceLabel ? `via ${heroCredit.sourceLabel}` : 'via bron'}</a></>}{heroCredit.adapted && <> ({adaptationNoteFor(locale)})</>}
         </figcaption>
       )}
-      {!heroCredit && !zelfGeweest && (
+      {!heroCredit && !zelfGeweest && heroIsHouseSupplied && (
         <figcaption class="wh-hero__credit">{ui.t('wijnhuis.reeks.foto')}: {name}</figcaption>
       )}
     </figure>
