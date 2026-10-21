@@ -126,3 +126,10 @@ test('/de-brief copy en editielijst komen uit ui_strings, niet uit de template (
   const markup = page.slice(page.indexOf('<SiteLayout'), page.indexOf('<style>'));
   assert.doesNotMatch(markup, /substack\.com\/p\/|Eens per maand|Once a month|Tot nu toe|Published so far|Schrijf je in|Subscribe/);
 });
+
+test('geen generieke bezoekclaim of "Overnachten bij <huis>" in de UI-copy (LAT-14489)', () => {
+  const src = read('src/lib/ui-strings.ts');
+  assert.doesNotMatch(src, /net bezochten|we just visited/);
+  assert.match(src, /'wijnhuis\.staynear\.labelPrefix': 'Overnachten in de buurt van'/);
+  assert.doesNotMatch(src, /'Overnachten bij'/);
+});
