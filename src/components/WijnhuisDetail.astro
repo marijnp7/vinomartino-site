@@ -15,6 +15,7 @@ import WijnhuisPortretBlokken from './WijnhuisPortretBlokken.astro';
 import { eurLabel, heeftBezoek } from '../lib/wijnhuis-portret';
 import { type Wijnhuis } from '../lib/wijnhuizen';
 import { loadStreken } from '../lib/streken';
+import { loadAccommodatieRoundupPaths } from '../lib/accommodatie-roundup-paths';
 import { wijnhuisSchema, wijnhuisMetaTitle, wijnhuisMetaDescription, faqPageSchema } from '../lib/seo';
 import { getPublicImageDimensions } from '../lib/og-image-dimensions';
 import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
@@ -42,6 +43,13 @@ const wineRetailAllowed = entry.streekSlug
   ? (await loadStreken(locale)).some((s) => s.slug === entry.streekSlug && s.zelfGereisd === true)
   : false;
 const localePrefix = locale === DEFAULT_LOCALE ? '' : `/${locale}`;
+// LAT-14482 — "Slaap in de buurt" wijst naar onze eigen selectie (/accommodaties/<streek>/)
+// als die voor deze taal bestaat, niet naar een generieke Stay22-zoekkaart met
+// willekeurige adressen. Alleen zonder roundup blijft de Stay22-zoeklink staan.
+const curatedStayHref = entry.streekSlug
+  && (await loadAccommodatieRoundupPaths(locale)).some((p) => p.params.streek === entry.streekSlug)
+  ? `${localePrefix}/accommodaties/${entry.streekSlug}/`
+  : undefined;
 const pageUrl = new URL(`${localePrefix}/wijnhuizen/${entry.slug}/`, Astro.site ?? 'https://vinomartino.com').href;
 
 // LAT-1199: verticale kruimel Land → Streek → Wijnhuis, met graceful fallback
@@ -138,7 +146,7 @@ const schema = [
   <WijnhuisPortretBlokken blok="galerij" portret={entry.portret} galerij={entry.galerij} name={entry.name} locale={locale} />
   <WijnhuisPortretBlokken blok="drinken" portret={entry.portret} name={entry.name} locale={locale} />
   <WijnhuisPortretBlokken blok="bezoek" portret={entry.portret} name={entry.name} address={entry.address} website={entry.website} locale={locale} />
-  <WijnhuisStayNear naam={entry.name} region={entry.region} country={entry.country} slug={entry.slug} locale={locale} wineRetailAllowed={wineRetailAllowed} />
+  <WijnhuisStayNear curatedHref={curatedStayHref} naam={entry.name} region={entry.region} country={entry.country} slug={entry.slug} locale={locale} wineRetailAllowed={wineRetailAllowed} />
   <WijnhuisPortretBlokken blok="combineer" portret={entry.portret} name={entry.name} routeHref={routeHref ? lh(routeHref) : undefined} routeLabel={routeLabel || undefined} region={entry.region} streekSlug={entry.streekSlug} locale={locale} />
   <WijnhuisPortretBlokken blok="faq" portret={entry.portret} name={entry.name} locale={locale} />
   <CtaStructure data={entry.cta} sid={entry.slug} locale={locale} wineRetailAllowed={wineRetailAllowed} />
