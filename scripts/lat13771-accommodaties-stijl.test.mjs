@@ -138,3 +138,14 @@ test('hub.italie.backlinkLabel heeft een EN-waarde die afwijkt van NL', () => {
   assert.ok(en, 'EN ontbreekt');
   assert.notEqual(en, UI_STRING_DEFAULTS['hub.italie.backlinkLabel']);
 });
+
+// LAT-14496: de tierkop van een groep draagt het label al; geen tweede badge per kaart.
+test('kaarten in een tiergroep tonen geen eigen tierbadge; overig en index wel', () => {
+  const groepen = ROUNDUP.match(/\{categorie\.kaarten\.map\(\(kaart\) => \(\s*<AccommodatieKaart[^>]*\/>/);
+  assert.ok(groepen, 'tiergroep-kaart niet gevonden');
+  assert.match(groepen[0], /\bhideTier\b/);
+  const overig = ROUNDUP.match(/\{g\.overig\.map\(\(kaart\) => \(\s*<AccommodatieKaart[^>]*\/>/);
+  assert.ok(overig, 'overig-kaart niet gevonden');
+  assert.doesNotMatch(overig[0], /\bhideTier\b/);
+  assert.match(KAART, /const tierLabel = kaart\.tier && !hideTier \?/);
+});

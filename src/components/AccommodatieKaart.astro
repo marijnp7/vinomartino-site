@@ -37,16 +37,21 @@ interface Props {
    * /accommodaties/<streek>/. 'default' (standaard) blijft de gedeelde PoiCard.
    */
   variant?: 'default' | 'compact';
+  /**
+   * LAT-14496: true binnen een tiergroep van AccommodatieRoundup. De groepskop
+   * (icoon + tierlabel) zegt het al; dezelfde badge op elke kaart is dubbel.
+   */
+  hideTier?: boolean;
 }
 
-const { kaart, context, bronValuta, displayValuta = 'EUR', locale = DEFAULT_LOCALE, variant = 'default' } = Astro.props;
+const { kaart, context, bronValuta, displayValuta = 'EUR', locale = DEFAULT_LOCALE, variant = 'default', hideTier = false } = Astro.props;
 const ui = await loadUiStrings(locale);
 const href = accommodatieBookingHref(kaart);
 const altText = kaart.fotoAlt || `${kaart.naam}, ${kaart.plaats}`;
 // LAT-1406: tier-badge — alleen tonen als het verblijf gecureerd is.
 // LAT-2771: label via de dictionary (`stay.tier.<tier>`) i.p.v. STAY_TIER_META,
 // zodat /en/ het Engelse label krijgt. De NL-defaults zijn identiek.
-const tierLabel = kaart.tier ? ui.t(`stay.tier.${kaart.tier}`) : null;
+const tierLabel = kaart.tier && !hideTier ? ui.t(`stay.tier.${kaart.tier}`) : null;
 
 // LAT-1664/1775: converteer bron-valuta → display (EUR). De per-kaart bron-valuta
 // heeft voorrang op de pagina-brede waarde. formatNightlyPrice onderdrukt absurde
