@@ -52,6 +52,9 @@ const PHOTO_PREFIX: Record<string, string> = { nl: 'Foto', en: 'Photo' };
 
 /** Maker-deel: Foto/Photo bij CC en aangeleverd persbeeld (REGEL 64). */
 export function creditAuthorFor(credit: ImageCredit, locale: string): string {
+    // Sommige accommodatie-overeenkomsten schrijven de exacte tekst "Foto: <huis>"
+    // voor, ook op de EN-pagina. Een al ingevulde caption mag niet worden vertaald.
+    if (/^Foto:\s/i.test(credit.author)) return credit.author;
     if (!credit.author || (!/creativecommons\.org/i.test(credit.licenseUrl) && credit.licenseLabel !== 'met toestemming')) return credit.author;
     const maker = credit.author.replace(/^\s*©\s*/, '');
     return `${PHOTO_PREFIX[locale] ?? PHOTO_PREFIX.en}: ${maker}`;
@@ -200,7 +203,7 @@ export async function getImageCredit(
 // LAT-13760: beeld dat een wijnhuis zelf aanleverde (REGEL 64) heeft geen CC-licentie,
 // maar de toestemming eist wél "Foto: <huis>" met een link naar de site van het huis.
 // Alleen als `herkomst` een maker noemt; zonder maker valt er niets te crediteren.
-const PERMISSION_LICENSES = new Set(['pers', 'toestemming-wijnhuis', 'toestemming wijnhuis']);
+const PERMISSION_LICENSES = new Set(['pers', 'toestemming-wijnhuis', 'toestemming wijnhuis', 'toestemming accommodatie']);
 
 /**
  * LAT-14220: mag een beeld zonder eigen credit de fallback "Foto: <huis>" krijgen?
@@ -228,7 +231,7 @@ export function creditFromFileMeta(
         if (!parsed?.maker) return null;
         const host = parsed.sourceUrl ? parsed.sourceUrl.replace(/^https?:\/\/(?:www\.)?/i, '').replace(/\/.*$/, '') : null;
         return {
-            author: `© ${parsed.maker}`,
+            author: key === 'toestemming accommodatie' ? `Foto: ${parsed.maker}` : `© ${parsed.maker}`,
             licenseLabel: 'met toestemming',
             licenseUrl: '',
             sourceUrl: parsed.sourceUrl,
