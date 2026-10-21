@@ -183,14 +183,29 @@ function parseJsonField(val: unknown): string[] {
     return [];
 }
 
+// Geverifieerde, locale-specifieke externe doelen. Gedeelde Directus-velden
+// blijven de NL-bron; andere huizen krijgen geen automatisch vertaald pad.
+const EN_EXTERNAL_URLS: Record<string, { website: string; proeverij: string }> = {
+    'champagne-drappier': {
+        website: 'https://www.champagne-drappier.com/en/',
+        proeverij: 'https://www.champagne-drappier.com/en/contact-us/',
+    },
+};
+
 function mapWijnhuis(
     r: Record<string, unknown>,
+    locale: Locale,
     heroImagePath: string | null,
     ogImagePath: string | null,
     bodyHtml: string,
     drieluik: WijnhuisDrieluikBeeld[],
     galerij: WijnhuisGalerijBeeld[] = [],
 ): Wijnhuis {
+    const externalUrls = locale === 'en' ? EN_EXTERNAL_URLS[String(r.slug)] : undefined;
+    const portret = normalizePortret(r);
+    if (externalUrls && portret.proeverij) {
+        portret.proeverij = { ...portret.proeverij, url: externalUrls.proeverij };
+    }
     return {
         slug: String(r.slug),
         name: normalizeEmDashes(String(r.name)),
@@ -199,7 +214,7 @@ function mapWijnhuis(
         streekSlug: String(r.streek_slug || ''),
         country: String(r.country || ''),
         address: String(r.address || ''),
-        website: String(r.website || ''),
+        website: externalUrls?.website ?? String(r.website || ''),
         established: r.established ? Number(r.established) : null,
         geo: r.lat != null && r.lng != null && Number.isFinite(Number(r.lat)) && Number.isFinite(Number(r.lng))
             ? { lat: Number(r.lat), lng: Number(r.lng) }
@@ -219,7 +234,7 @@ function mapWijnhuis(
         bodyHtml,
         relatedArticles: mapRelatedArticles(r.related_articles),
         cta: getCtaStructure(r),
-        portret: normalizePortret(r),
+        portret,
         galerij,
     };
 }
@@ -413,7 +428,7 @@ async function loadFromDirectus(url: string, token: string, locale: Locale): Pro
                 // LAT-12991: beschrijvende bestandstitel als alt; huisnaam alleen als fallback.
                 return src ? { id: a.id, src, alt: a.alt ? normalizeEmDashes(a.alt) : naam, width: a.width, height: a.height } : null;
             }))).filter((g): g is WijnhuisGalerijBeeld => g !== null);
-            return mapWijnhuis(r, heroImagePath, ogImagePath, bodyHtml, drieluik, galerij);
+            return mapWijnhuis(r, locale, heroImagePath, ogImagePath, bodyHtml, drieluik, galerij);
         }),
     );
     console.log(`[loadWijnhuizen] fetched ${items.length} wijnhuizen from Directus`);
