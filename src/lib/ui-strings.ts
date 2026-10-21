@@ -29,11 +29,11 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     // LAT-13354: /de-brief/ (HARDE REGEL 3). Edities zijn genummerd (debrief.editie.N.meta/titel/url);
     // een nieuwe editie is een nieuwe N in Directus, geen code.
     'debrief.meta.title': 'De brief, de nieuwsbrief van VinoMartino',
-    'debrief.meta.description': 'Ongeveer eens per maand stopt Marijn een brief in je inbox: over een wijnmaker die we net bezochten, een regio die opnieuw onze aandacht trok, een fles die indruk maakte. Aanmelden gaat via Substack.',
+    'debrief.meta.description': 'Ongeveer eens per maand stopt Marijn een brief in je inbox: over een wijnhuis dat we uitlichten, een regio die opnieuw onze aandacht trok, een fles die indruk maakte. Aanmelden gaat via Substack.',
     'debrief.breadcrumb': 'De brief',
     'debrief.kicker': 'De brief · ongeveer eens per maand',
     'debrief.h1': 'De brief',
-    'debrief.lede': 'Ongeveer eens per maand stopt Marijn een brief in je inbox. Geen persberichten, geen uitnodigingen voor generieke wijnfestivals, een echte brief. Over een wijnmaker die we net bezochten, een regio die opnieuw onze aandacht trok, een fles die indruk maakte. De brief verschijnt sinds juli 2026 op Substack, in het Nederlands. Aanmelden gaat via Substack.',
+    'debrief.lede': 'Ongeveer eens per maand stopt Marijn een brief in je inbox. Geen persberichten, geen uitnodigingen voor generieke wijnfestivals, een echte brief. Over een wijnhuis dat we uitlichten, een regio die opnieuw onze aandacht trok, een fles die indruk maakte. De brief verschijnt sinds juli 2026 op Substack, in het Nederlands. Aanmelden gaat via Substack.',
     'debrief.cta.label': 'Schrijf je in voor De brief',
     'debrief.follow.lead': 'Al nieuwsgierig? Volg Marijn alvast op',
     'debrief.follow.instagram': 'Instagram',
@@ -533,7 +533,7 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'stay.map.priceNote': 'Prijzen variëren per seizoen',
     'stay22.disclosure': 'Affiliate-link · we kunnen een commissie ontvangen, jij betaalt niets extra.',
     'wijnhuis.staynear.aria': 'Overnachtingen in de buurt',
-    'wijnhuis.staynear.labelPrefix': 'Overnachten bij',
+    'wijnhuis.staynear.labelPrefix': 'Overnachten in de buurt van',
     'wijnhuis.staynear.disclosure': 'Affiliate-links · geen extra kosten',
     'wijnhuis.staynear.ctaNearPrefix': 'Slaap in de buurt van',
     'wijnhuis.staynear.ctaNear': 'Slaap in de buurt',
@@ -552,7 +552,7 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     // (LAT-12309). Merknaam "VinoMartino" blijft ongewijzigd.
     'newsletter.footer.kicker': 'De brief · ongeveer eens per maand',
     'newsletter.footer.heading': 'Wijnreisverhalen in je inbox',
-    'newsletter.footer.lede': 'Ongeveer eens per maand stuurt Marijn een echte brief: over een wijnmaker die we net bezochten, een regio die opnieuw onze aandacht trok, een fles die indruk maakte.',
+    'newsletter.footer.lede': 'Ongeveer eens per maand stuurt Marijn een echte brief: over een wijnhuis dat we uitlichten, een regio die opnieuw onze aandacht trok, een fles die indruk maakte.',
     'newsletter.footer.submit': 'Schrijf je in voor De brief',
     'newsletter.footer.fineprint': 'Aanmelden gaat via Substack: je ontvangt een e-mail om je aanmelding te bevestigen. Afmelden kan altijd, met één klik.',
 
@@ -1172,11 +1172,11 @@ export const UI_STRING_EN: Record<string, string> = {
     // LAT-13354: /de-brief/ (HARDE REGEL 3). Edities zijn genummerd (debrief.editie.N.meta/titel/url);
     // een nieuwe editie is een nieuwe N in Directus, geen code.
     'debrief.meta.title': 'The letter, the VinoMartino newsletter',
-    'debrief.meta.description': 'Roughly once a month Marijn puts a letter in your inbox: about a winemaker we just visited, a region that caught our attention again, a bottle that made an impression. Sign up through Substack.',
+    'debrief.meta.description': 'Roughly once a month Marijn puts a letter in your inbox: about a winery we are featuring, a region that caught our attention again, a bottle that made an impression. Sign up through Substack.',
     'debrief.breadcrumb': 'The letter',
     'debrief.kicker': 'The letter · roughly once a month',
     'debrief.h1': 'The letter',
-    'debrief.lede': 'Roughly once a month Marijn puts a letter in your inbox. No press releases, no invitations to generic wine festivals, a real letter. About a winemaker we just visited, a region that caught our attention again, a bottle that made an impression. The letter is written in Dutch: there is no English edition, and subscribers receive the Dutch letter. It has appeared on Substack since July 2026. Sign up through Substack.',
+    'debrief.lede': 'Roughly once a month Marijn puts a letter in your inbox. No press releases, no invitations to generic wine festivals, a real letter. About a winery we are featuring, a region that caught our attention again, a bottle that made an impression. The letter is written in Dutch: there is no English edition, and subscribers receive the Dutch letter. It has appeared on Substack since July 2026. Sign up through Substack.',
     'debrief.cta.label': 'Subscribe to The Letter',
     'debrief.follow.lead': 'Already curious? Follow Marijn on',
     'debrief.follow.instagram': 'Instagram',
@@ -1388,7 +1388,7 @@ export const UI_STRING_EN: Record<string, string> = {
     // NewsletterFooter.astro / NewsletterInline.astro (LAT-12560): EN had no keys and fell back to Dutch.
     'newsletter.footer.kicker': 'The letter · roughly once a month',
     'newsletter.footer.heading': 'Wine travel stories in your inbox',
-    'newsletter.footer.lede': 'Roughly once a month Marijn sends a real letter: about a winemaker we just visited, a region that caught our attention again, a bottle that made an impression.',
+    'newsletter.footer.lede': 'Roughly once a month Marijn sends a real letter: about a winery we are featuring, a region that caught our attention again, a bottle that made an impression.',
     'newsletter.footer.submit': 'Subscribe to The Letter',
     'newsletter.footer.fineprint': 'Signing up goes through Substack: you get an email to confirm your subscription. You can unsubscribe at any time with one click.',
     'newsletter.inline.heading': 'Stories like this, roughly once a month in your inbox',
