@@ -221,6 +221,34 @@ export async function isHouseSuppliedImage(fileId: string | null | undefined): P
     return isHouseSuppliedLicense(file?.licentie);
 }
 
+// LAT-14490: CC0 en publiek domein eisen geen naamsvermelding (getImageCredit → null),
+// maar een wijnhuis-hero zonder enige credit leest als ongecrediteerd beeld. Noem de
+// maker vrijwillig als `herkomst` er een geeft; zonder maker blijft het null.
+const PUBLIC_DOMAIN_LABELS: Record<string, Record<string, string>> = {
+    cc0: { nl: 'CC0', en: 'CC0' },
+    'publiek-domein': { nl: 'publiek domein', en: 'public domain' },
+};
+
+/** Vrijwillige credit "<maker>, CC0" bij CC0/publiek-domein-beeld, of null. */
+export async function getVoluntaryCredit(
+    fileId: string | null | undefined,
+    locale: string,
+): Promise<{ author: string; licenseLabel: string; sourceUrl: string | null; sourceLabel: string | null } | null> {
+    if (!fileId) return null;
+    const file = (await loadDamFileMeta()).get(String(fileId).toLowerCase());
+    const labels = PUBLIC_DOMAIN_LABELS[String(file?.licentie ?? '').trim().toLowerCase()];
+    const parsed = labels && file?.herkomst?.trim() ? parseHerkomst(file.herkomst) : null;
+    // parseHerkomst kent CC0 niet als licentielabel: "Bruno Sulis, CC0," → "Bruno Sulis".
+    const maker = (parsed?.maker ?? '').replace(/,?\s*(CC0|publiek domein|public domain)\b.*$/i, '').replace(/[,\s]+$/, '');
+    if (!labels || !maker) return null;
+    return {
+        author: `${PHOTO_PREFIX[locale] ?? PHOTO_PREFIX.en}: ${maker}`,
+        licenseLabel: labels[locale] ?? labels.en,
+        sourceUrl: parsed.sourceUrl,
+        sourceLabel: parsed.sourceLabel,
+    };
+}
+
 export function creditFromFileMeta(
     licentie: string | null | undefined,
     herkomst: string | null | undefined,
