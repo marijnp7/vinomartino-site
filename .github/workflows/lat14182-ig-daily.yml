@@ -13,7 +13,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'diagnose = alleen lezen (interface ig_publish.py + tokencheck); diagnose-hosting = alleen lezen; install = ig_daily.sh + systemd-timer 09:30 Europe/Amsterdam + dry-run; run-now = ig_daily.sh eenmalig echt'
+        description: 'diagnose = alleen lezen (interface ig_publish.py + tokencheck); diagnose-hosting = alleen lezen; install = ig_daily.sh + ig_validate.py + systemd-timer 09:30 Europe/Amsterdam + dry-run; run-now = ig_daily.sh eenmalig echt; validate = dry-run van queue-post <post> (containers, niet publiceren); probe-collab-max = meet collaborators-maximum (containers, niet publiceren)'
         required: true
         default: diagnose
         type: choice
@@ -22,6 +22,13 @@ on:
           - diagnose-hosting
           - install
           - run-now
+          - validate
+          - probe-collab-max
+      post:
+        description: 'alleen bij validate: postnummer n uit ig_queue.json (cijfers)'
+        required: false
+        default: ''
+        type: string
 
 concurrency:
   group: lat14182-ig-daily
@@ -184,6 +191,10 @@ jobs:
             [ -e "$T" ] && cp -p "$T" "$T.bak.$(date +%Y%m%d%H%M%S)"
             sed "s#__WEB_DIR__#$WEB#" /tmp/lat14182-ig_daily.sh > "$T"; chmod 700 "$T"; rm -f /tmp/lat14182-ig_daily.sh
             bash -n "$T" && echo "geinstalleerd: $(sha256sum "$T" | cut -c1-16) $T"
+            V=/opt/paperclip-social/bin/ig_validate.py   # LAT-14288
+            [ -e "$V" ] && cp -p "$V" "$V.bak.$(date +%Y%m%d%H%M%S)"
+            cp /tmp/lat14288-ig_validate.py "$V"; chmod 700 "$V"; rm -f /tmp/lat14288-ig_validate.py
+            python3 -m py_compile "$V" && echo "geinstalleerd: $(sha256sum "$V" | cut -c1-16) $V"
             cat > /etc/systemd/system/paperclip-ig-daily.service <<'UNIT'
             [Unit]
             Description=LAT-14182 dagelijkse IG-plaatsing (ig_daily.sh)
@@ -211,7 +222,9 @@ jobs:
             echo "=== dry-run ==="
             "$T" --dry-run 2>&1 | sed -E 's/(EAA)[A-Za-z0-9_-]{20,}/<redacted>/g' || echo "dry-run exit $?"
         run: |
-          { printf '%s\n' "cat > /tmp/lat14182-ig_daily.sh <<'IGDAILY_EOF'"; cat ops/lat14182/ig_daily.sh; printf '%s\n' "IGDAILY_EOF"; printf '%s\n' "$INSTALL"; } | ssh "$VPS" "bash -s"
+          { printf '%s\n' "cat > /tmp/lat14182-ig_daily.sh <<'IGDAILY_EOF'"; cat ops/lat14182/ig_daily.sh; printf '%s\n' "IGDAILY_EOF";
+            printf '%s\n' "cat > /tmp/lat14288-ig_validate.py <<'IGVAL_EOF'"; cat ops/lat14182/ig_validate.py; printf '%s\n' "IGVAL_EOF";
+            printf '%s\n' "$INSTALL"; } | ssh "$VPS" "bash -s"
 
       # ---------------------------------------------------------------- run-now
       - name: Run ig_daily.sh once
@@ -224,3 +237,45 @@ jobs:
             echo "exit ${PIPESTATUS[0]}"
         run: |
           printf '%s\n' "$RUN" | ssh "$VPS" "bash -s"
+
+      # --------------------------------------------------------------- validate (LAT-14288)
+      - name: Validate queue post (dry-run, niets publiceren)
+        if: inputs.mode == 'validate'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          POST: ${{ inputs.post }}
+        run: |
+          [[ "$POST" =~ ^[0-9]{1,4}$ ]] || { echo "::error::input post moet een getal zijn"; exit 1; }
+          printf '%s\n' "set -uo pipefail" \
+            "/opt/paperclip-social/bin/ig_daily.sh --dry-run --post $POST 2>&1 | tee -a /var/log/paperclip-ig-daily.log | sed -E 's/(EAA)[A-Za-z0-9_-]{20,}/<redacted>/g'" \
+            'echo "exit ${PIPESTATUS[0]}"' | ssh "$VPS" "bash -s"
+
+      # ------------------------------------------------------- probe-collab-max (LAT-14288)
+      - name: Probe collaborators maximum (containers, niets publiceren)
+        if: inputs.mode == 'probe-collab-max'
+        env:
+          VPS: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          PROBE: |
+            set -euo pipefail
+            SRC=$(docker inspect paperclip-vinomartino-prod-1 --format '{{range .Mounts}}{{if eq .Destination "/usr/share/nginx/html"}}{{.Source}}{{end}}{{end}}')
+            [ -n "$SRC" ] && [ -f "$SRC/index.html" ] || { echo "FOUT: geen prod web root"; exit 1; }
+            Q=/var/lib/docker/volumes/paperclip_home/_data/design/vinomartino/social/ig_queue.json
+            # Handles: alleen collaborators met een collab_akkoord van Marijn; een container zonder publish stuurt geen uitnodiging.
+            read -r IMG HANDLES < <(python3 - "$Q" <<'PY'
+            import json, os, re, sys
+            ps = json.load(open(sys.argv[1]))["posts"]; hs = []
+            for p in ps:
+                if str(p.get("collab_akkoord") or "").startswith("Marijn"):
+                    hs += [h for h in p.get("collaborators") or [] if h not in hs]
+            img = next(i for p in ps for i in [re.sub(r"^/paperclip/", "/var/lib/docker/volumes/paperclip_home/_data/", x) for x in (p.get("images") or [])] if i.lower().endswith((".jpg", ".jpeg")) and os.path.exists(i))
+            print(img, " ".join(hs[:5]))
+            PY
+            )
+            install -m 644 "$IMG" "$SRC/images/social/lat14288-probe.jpg"
+            URL=https://vinomartino.com/images/social/lat14288-probe.jpg
+            curl -s -o /dev/null -w "probe-beeld %{http_code} %{content_type}\n" "$URL"
+            set -a; . /root/.agent-secrets/instagram.env; set +a
+            python3 /opt/paperclip-social/bin/ig_validate.py --probe-collab-max "$URL" $HANDLES 2>&1 | sed -E 's/(EAA)[A-Za-z0-9_-]{20,}/<redacted>/g'
+            rm -f "$SRC/images/social/lat14288-probe.jpg"
+        run: |
+          printf '%s\n' "$PROBE" | ssh "$VPS" "bash -s"
