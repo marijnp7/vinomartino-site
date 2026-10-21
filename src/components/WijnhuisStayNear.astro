@@ -26,9 +26,11 @@ interface Props {
   locale?: Locale;
   /** LAT-12912 — alleen `true` in een Tier 1-streek; default geen wijnretail-link. */
   wineRetailAllowed?: boolean;
+  /** LAT-14482 — interne link naar onze accommodatieselectie; vervangt de Stay22-zoeklink. */
+  curatedHref?: string;
 }
 
-const { naam, region = '', country = '', slug, locale = DEFAULT_LOCALE, wineRetailAllowed = false } = Astro.props;
+const { naam, region = '', country = '', slug, locale = DEFAULT_LOCALE, wineRetailAllowed = false, curatedHref } = Astro.props;
 const ui = await loadUiStrings(locale);
 
 // Bestemming: streek (+ land) als anker; val terug op de wijnhuis-naam.
@@ -64,18 +66,24 @@ const retail = !wineRetailAllowed ? null : await wineRetailLink(naam, locale, wi
           {retail.label} &rarr;
         </a>
       )}
-      <a
-        class="wh-staynear__cta"
-        href={stayHref}
-        target="_blank"
-        rel="sponsored nofollow noopener"
-        data-affiliate-track
-        data-affiliate-partner="stay22"
-        data-affiliate-placement="wijnhuis-staynear"
-        data-affiliate-context={`wijnhuis-${slug}`}
-      >
-        {stayLabel} &rarr;
-      </a>
+      {curatedHref ? (
+        <a class="wh-staynear__cta" href={curatedHref}>
+          {stayLabel} &rarr;
+        </a>
+      ) : (
+        <a
+          class="wh-staynear__cta"
+          href={stayHref}
+          target="_blank"
+          rel="sponsored nofollow noopener"
+          data-affiliate-track
+          data-affiliate-partner="stay22"
+          data-affiliate-placement="wijnhuis-staynear"
+          data-affiliate-context={`wijnhuis-${slug}`}
+        >
+          {stayLabel} &rarr;
+        </a>
+      )}
     </div>
   </div>
 </aside>
