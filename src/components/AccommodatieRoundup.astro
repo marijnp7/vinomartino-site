@@ -125,7 +125,7 @@ const categorieGroepen = groepen.map((groep) => ({
             </header>
             <div class="acc-roundup__grid acc-roundup__grid--editorial">
               {categorie.kaarten.map((kaart) => (
-                <AccommodatieKaart kaart={kaart} context={context || roundup.regio} bronValuta={bronValuta} displayValuta={displayValuta} locale={locale} />
+                <AccommodatieKaart kaart={kaart} context={context || roundup.regio} bronValuta={bronValuta} displayValuta={displayValuta} locale={locale} hideTier />
               ))}
             </div>
           </section>
