@@ -19,8 +19,10 @@
 //   slot      { kop, tekst, knop }   // CTA onderaan, gebruikt slapen.items[0..2]
 //   kaart     { foto, foto_alt, bijschrift, pin }   // LAT-13928: eigen streekkaart (DAM-UUID), onder de routekaart
 import { normalizeEmDashes } from './markdown';
+import type { OverviewIcon } from './overview';
 
 export interface PaginaSlaap {
+    icon?: OverviewIcon | null;
     naam: string;
     plaats: string | null;
     type: string | null;
@@ -105,6 +107,7 @@ function parseSlaap(v: unknown): PaginaSlaap | null {
     if (!naam) return null;
     return {
         naam,
+        icon: ['home', 'wine', 'calendar'].includes(String(v.icon)) ? v.icon as OverviewIcon : null,
         plaats: str(v.plaats),
         type: str(v.type),
         why: str(v.why ?? v.waarom),
