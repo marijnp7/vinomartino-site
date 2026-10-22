@@ -22,7 +22,7 @@ import RouteDataStrip from './RouteDataStrip.astro';
 import { loadRouteLine } from '../lib/route-lines-loader';
 import { hasDagen } from '../lib/route-lines';
 import RouteSlaapOverzicht from './RouteSlaapOverzicht.astro';
-import { stayTierMap } from '../lib/stay-tier';
+import { stayNaamKey, stayRecordMap } from '../lib/stay-tier';
 import RouteWijnhuizenGrid from './RouteWijnhuizenGrid.astro';
 import { accommodatieBookingDeeplink } from '../lib/affiliates';
 import { type WijnRoute } from '../lib/routes';
@@ -125,8 +125,14 @@ const etappeCount = pagina?.dagen.length ?? entry.itinerary?.days.length ?? (rou
 const heeftRouteLijn = loadRouteLine(entry.slug) != null && hasDagen(entry.stopsGeo);
 const wijnhuisLabels = Object.fromEntries((pagina?.wijnhuizen ?? []).map((w) => [w.slug, w.label]));
 const slotItems = pagina?.slapen?.items.slice(0, 3) ?? [];
-// LAT-14550 — tier per verblijfsnaam uit de gecureerde selectie (voor het tierlabel op routekaarten).
-const stayTiers = stayTierMap((staysRoundup?.clusters ?? []).flatMap((c) => c.kaarten));
+// LAT-14550/14556 — accommodations-record per verblijfsnaam (tier én beeld) uit de gecureerde selectie.
+const stayRecords = stayRecordMap((staysRoundup?.clusters ?? []).flatMap((c) => c.kaarten));
+// LAT-14556 — eerste nacht per adres: alleen daar een volle slaapkaart, daarna een verwijzing.
+const eersteNacht: Record<string, number> = {};
+for (const d of pagina?.dagen ?? []) {
+  const k = d.slaap?.naam ? stayNaamKey(d.slaap.naam) : '';
+  if (k && !(k in eersteNacht)) eersteNacht[k] = d.n;
+}
 const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.streekSlug}/` : null;
 ---
 
@@ -192,7 +198,7 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
           <div id="route" class="route-one__dagen">
             <span id="zo-reisden-wij" aria-hidden="true"></span>
             {pagina.dagen.map((dag) => (
-              <RouteDagSectie dag={dag} context={entry.slug} locale={locale} stops={entry.stopsGeo} stayTiers={stayTiers} />
+              <RouteDagSectie dag={dag} context={entry.slug} locale={locale} stops={entry.stopsGeo} stayRecords={stayRecords} eersteNacht={eersteNacht} />
             ))}
           </div>
 
@@ -204,7 +210,8 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
               disclosureHtml={pagina.slapen.disclosureHtml}
               context={entry.slug}
               locale={locale}
-              stayTiers={stayTiers}
+              stayRecords={stayRecords}
+              eersteNacht={eersteNacht}
             />
           )}
 
@@ -360,6 +367,7 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
           <RouteItineraryDays
             locale={locale}
             itinerary={entry.itinerary}
+            stayRecords={stayRecords}
             bodyDays={bodyDays}
             streekSlug={entry.streekSlug}
             boekbaar={Boolean(staysRoundup)}
