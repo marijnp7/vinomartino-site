@@ -3,7 +3,8 @@
 // Rood als op een /wijnroutes/-pagina (NL of EN):
 //  - een slaapkaart met gekoppeld accommodations-record (data-acc-record) geen <img> toont;
 //  - een volle slaapkaart zonder media rendert (geen beeld en geen placeholder);
-//  - hetzelfde adres meer dan één keer als volle kaart staat (herhaling = compacte verwijzing).
+//  - hetzelfde adres meer dan één keer als volle kaart staat (herhaling = compacte verwijzing);
+//  - een verwijzing in het kaartraster van het slaapoverzicht staat (rekt op tot een lege tegel).
 // Draait als blokkerende stap na `npm run build` in .github/workflows/deploy.yml.
 import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
@@ -30,6 +31,12 @@ export function scanHtml(html) {
     const img = /<img\b[^>]*class="[^"]*poi-card__img/.test(inner);
     if (attr(attrs, 'data-acc-record') != null && !img) findings.push({ kind: 'record-zonder-beeld', key });
     else if (!media) findings.push({ kind: 'geen-media', key });
+  }
+  for (const g of html.matchAll(/class="rslaap__grid[^"]*"/g)) {
+    const rest = html.slice(g.index);
+    const eind = rest.search(/class="rslaap__(?:refs|disclosure)[^"]*"|<\/section>/);
+    const raster = eind < 0 ? rest : rest.slice(0, eind);
+    for (const r of raster.matchAll(/data-route-stay="([^"]*)"[^>]*data-route-stay-ref/g)) findings.push({ kind: 'verwijzing-in-raster', key: r[1] });
   }
   for (const [key, n] of vol) if (n > 1) findings.push({ kind: 'dubbele-kaart', key, n });
   return { kaarten, findings };

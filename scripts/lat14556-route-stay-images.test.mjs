@@ -32,6 +32,12 @@ test('ROOD: hetzelfde adres twee keer als volle kaart (Palazzo Finati 3x)', () =
   assert.deepEqual(kinds(kaart('palazzo finati', ph) + kaart('palazzo finati', ph)), ['dubbele-kaart:palazzo finati']);
 });
 
+test('ROOD: verwijzing in het kaartraster van het slaapoverzicht (Mosel, herkeuring 23-10)', () => {
+  const sectie = (rasterInner, refsInner) => `<section class="rslaap"><div class="rslaap__grid" data-astro-cid-x>${rasterInner}</div>${refsInner ? `<div class="rslaap__refs">${refsInner}</div>` : ''}<div class="rslaap__disclosure"></div></section>`;
+  assert.deepEqual(kinds(sectie(kaart('dr. loosen', img, ' data-acc-record') + ref('schloss lieser'))), ['verwijzing-in-raster:schloss lieser']);
+  assert.deepEqual(kinds(sectie(kaart('dr. loosen', img, ' data-acc-record'), ref('schloss lieser'))), []);
+});
+
 test('andere poi-cards (wijnhuizen) tellen niet mee', () => {
   assert.equal(scanHtml(`<article class="poi-card"><h4>Vietti</h4></article>`).kaarten, 0);
 });
