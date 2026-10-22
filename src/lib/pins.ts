@@ -49,12 +49,22 @@ export interface PinDamPin {
     slug: string;
     lang: PinLang;
     fileId: string;
+    /**
+     * LAT-14637: tweede beeld voor dezelfde (taal, slug), bv. de weekendplanner. Krijgt een
+     * eigen beeldpad (`/pins/<taal>/<slug>-<variant>.png`) en guid, zodat het eerdere beeld
+     * onder de kale URL niet wordt overschreven.
+     */
+    variant?: string;
+    /** LAT-14637: pin blijft uit de feed tot deze NL-artikelslug gepubliceerd is (hub eerst). */
+    requiresLiveSlug?: string;
 }
 
 export interface PinDamBatch {
     day: string;
     pins: readonly PinDamPin[];
 }
+
+const BOURGOGNE_HUB_177 = 'bourgogne-wijnstreek-welk-deel-past-bij-je-reis';
 
 export const PIN_DAM_BATCHES: readonly PinDamBatch[] = [
     {
@@ -96,7 +106,36 @@ export const PIN_DAM_BATCHES: readonly PinDamBatch[] = [
             { articleId: 144, slug: 'champagne-reims-epernay-of-de-aube-waar-begin-je', lang: 'nl', fileId: '18072c6d-c3ab-4398-ac14-c5b9fa9a3bad' },
         ],
     },
+    // LAT-14637: week 43. Toscane, artikelen live sinds 22-10.
+    {
+        day: '2026-10-23',
+        pins: [
+            { articleId: 170, slug: 'toscane-wijnroute-met-de-auto-vier-dagen', lang: 'nl', fileId: 'ebe39ca4-5843-46f5-b53d-e596def05385' },
+            { articleId: 171, slug: 'overnachten-chianti-dorpen-agriturismi-wijnhuizen', lang: 'nl', fileId: 'a2c7bb41-ea6d-4f69-a6dc-5d0c1d0500aa' },
+            { articleId: 172, slug: 'wijnhuizen-bezoeken-montalcino-chianti', lang: 'nl', fileId: 'c4d54381-74b2-4c97-8ff2-6241ca835607' },
+        ],
+    },
+    // LAT-14637: Bourgogne pas na livegang van hub 177.
+    {
+        day: '2026-10-26',
+        pins: [
+            { articleId: 173, slug: 'bourgogne-overnachten-beaune-nuits-of-mercurey', lang: 'nl', fileId: 'f6e7e5c6-4cb8-41e1-b450-eefc8a177cde', requiresLiveSlug: BOURGOGNE_HUB_177 },
+            { articleId: 174, slug: 'wijnproeverij-bourgogne-beaune-met-gids-of-zelf', lang: 'nl', fileId: '2a1b8192-5341-4a86-bae3-44eacc05b8a5', requiresLiveSlug: BOURGOGNE_HUB_177 },
+        ],
+    },
+    // LAT-14637: weekendplanner Toscane. (nl, slug 169) staat al op 2026-10-15; variant geeft eigen beeldpad en guid.
+    {
+        day: '2026-10-27',
+        pins: [
+            { articleId: 169, slug: 'toscane-chianti-montalcino-waar-begin-je', lang: 'nl', fileId: '49323531-10ed-46cb-b445-25eedec89948', variant: 'planner' },
+        ],
+    },
 ];
+
+/** Slug in het beeldpad: de artikelslug, met `-<variant>` erachter voor een tweede beeld. */
+export function pinImageSlug(slug: string, variant?: string): string {
+    return variant ? `${slug}-${variant}` : slug;
+}
 
 export const PIN_DAM_SLUGS: ReadonlySet<string> = new Set(PIN_DAM_BATCHES.flatMap((b) => b.pins.map((p) => p.slug)));
 
@@ -255,6 +294,8 @@ export interface PinItem {
     imageBytes: number;
     /** Standaard image/jpeg; DAM-pins zijn PNG en gaan ongewijzigd de feed in. */
     imageMime?: string;
+    /** LAT-14637: zie PinDamPin.variant; loopt mee in guid en beeldpad. */
+    variant?: string;
     date: Date;
 }
 
@@ -280,7 +321,7 @@ export function renderFeed(items: PinItem[], builtAt: Date): string {
                 '    <item>',
                 `      <title>${xmlEscape(it.title)}</title>`,
                 `      <link>${xmlEscape(it.link)}</link>`,
-                `      <guid isPermaLink="false">pin-${ymd(it.date)}-${it.lang}-${xmlEscape(it.slug)}</guid>`,
+                `      <guid isPermaLink="false">pin-${ymd(it.date)}-${it.lang}-${xmlEscape(pinImageSlug(it.slug, it.variant))}</guid>`,
                 `      <pubDate>${pub.toUTCString()}</pubDate>`,
                 `      <description>${xmlEscape(it.description)}</description>`,
                 `      <enclosure url="${xmlEscape(it.image)}" length="${it.imageBytes}" type="${it.imageMime ?? 'image/jpeg'}" />`,

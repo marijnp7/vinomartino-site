@@ -10,7 +10,7 @@ import sharp from 'sharp';
 import {
   clusterOf, interleaveByCluster, lastWeekdays, lintText, pinUrl, renderFeed,
   selectForWeekday, feedTexts, truncateAtWord, weekdayNumber, PIN_CLUSTERS,
-  composeDay, pinImageUrl, PIN_DAM_BATCHES, PIN_DAM_SLUGS,
+  composeDay, pinImageUrl, pinImageSlug, PIN_DAM_BATCHES, PIN_DAM_SLUGS,
 } from '../src/lib/pins.ts';
 
 const src = (slug, streek, extra = {}) => ({
@@ -143,7 +143,7 @@ test('LAT-12765: batch 2026-10-08 (week 41) heeft vijf unieke EN-pins, valt uit 
   assert.ok(b.pins.every((p) => PIN_DAM_SLUGS.has(p.slug)));
   const all = PIN_DAM_BATCHES.flatMap((x) => x.pins);
   assert.equal(new Set(all.map((p) => p.fileId)).size, all.length, 'fileId in twee batches');
-  assert.equal(new Set(all.map((p) => `${p.lang}/${p.slug}`)).size, all.length, 'taal/slug in twee batches');
+  assert.equal(new Set(all.map((p) => `${p.lang}/${pinImageSlug(p.slug, p.variant)}`)).size, all.length, 'taal/beeldpad in twee batches');
 });
 
 test('LAT-13440: batch 2026-10-15 (week 42) vijf NL-pins en planner 2026-10-16, geen v1-bestanden of covers', () => {
@@ -162,6 +162,41 @@ test('LAT-13440: batch 2026-10-15 (week 42) vijf NL-pins en planner 2026-10-16, 
   // Slug 144 in nl en en: twee verschillende beeldpaden.
   const s144 = 'champagne-reims-epernay-of-de-aube-waar-begin-je';
   assert.notEqual(pinImageUrl('nl', s144, 'png'), pinImageUrl('en', s144, 'png'));
+});
+
+test('LAT-14637: week 43 Toscane 23-10, Bourgogne 26-10 achter hub 177, planner 169 met eigen beeldpad', () => {
+  const t = PIN_DAM_BATCHES.find((x) => x.day === '2026-10-23');
+  const b = PIN_DAM_BATCHES.find((x) => x.day === '2026-10-26');
+  const w = PIN_DAM_BATCHES.find((x) => x.day === '2026-10-27');
+  assert.ok(t && b && w, 'batch week 43 ontbreekt');
+  assert.deepEqual(t.pins.map((p) => [p.articleId, p.fileId]), [
+    [170, 'ebe39ca4-5843-46f5-b53d-e596def05385'], [171, 'a2c7bb41-ea6d-4f69-a6dc-5d0c1d0500aa'], [172, 'c4d54381-74b2-4c97-8ff2-6241ca835607'],
+  ]);
+  assert.deepEqual(b.pins.map((p) => [p.articleId, p.fileId]), [
+    [173, 'f6e7e5c6-4cb8-41e1-b450-eefc8a177cde'], [174, '2a1b8192-5341-4a86-bae3-44eacc05b8a5'],
+  ]);
+  assert.ok(b.pins.every((p) => p.requiresLiveSlug === 'bourgogne-wijnstreek-welk-deel-past-bij-je-reis'));
+  assert.ok(t.pins.every((p) => !p.requiresLiveSlug && !p.variant));
+  assert.deepEqual(w.pins.map((p) => [p.articleId, p.fileId, p.variant]), [[169, '49323531-10ed-46cb-b445-25eedec89948', 'planner']]);
+  const week = [...t.pins, ...b.pins, ...w.pins];
+  assert.ok(week.every((p) => p.lang === 'nl'));
+  const verboden = ['f4bd38fb', '40438a13', '1e21406f', '4597c853', 'e95e3d57', '8d6a6ab7', 'ab9afc36'];
+  assert.ok(!week.some((p) => verboden.some((v) => p.fileId.startsWith(v))));
+  // De planner mag het beeld van de 15-10-pin voor 169 niet overschrijven.
+  const s169 = 'toscane-chianti-montalcino-waar-begin-je';
+  const oud = PIN_DAM_BATCHES.find((x) => x.day === '2026-10-15').pins.find((p) => p.articleId === 169);
+  assert.equal(oud.variant, undefined);
+  assert.equal(pinImageUrl('nl', pinImageSlug(oud.slug, oud.variant), 'png'), `https://vinomartino.com/pins/nl/${s169}.png`);
+  assert.equal(pinImageUrl('nl', pinImageSlug(s169, 'planner'), 'png'), `https://vinomartino.com/pins/nl/${s169}-planner.png`);
+  const xml = renderFeed([{
+    lang: 'nl', slug: s169, clusterId: 'dam', title: 'Toscane', description: 'Chianti of Montalcino?', variant: 'planner',
+    link: pinUrl('nl', s169), image: pinImageUrl('nl', pinImageSlug(s169, 'planner'), 'png'), imageBytes: 1, imageMime: 'image/png',
+    date: new Date(Date.UTC(2026, 9, 27)),
+  }], new Date(Date.UTC(2026, 9, 27, 12)));
+  assert.match(xml, new RegExp(`<guid isPermaLink="false">pin-20261027-nl-${s169}-planner</guid>`));
+  assert.match(xml, new RegExp(`<enclosure url="https://vinomartino.com/pins/nl/${s169}-planner.png"`));
+  // Link wijst gewoon naar het artikel, zonder variant.
+  assert.match(xml, new RegExp(`<link>https://vinomartino.com/artikelen/${s169}/`));
 });
 
 test('LAT-12109: DAM-item in de feed: PNG-enclosure, media:content 1000x1500, lint-schoon', () => {

@@ -23,6 +23,7 @@ import {
     interleaveByCluster,
     lastWeekdays,
     lintText,
+    pinImageSlug,
     pinImageUrl,
     pinUrl,
     selectForWeekday,
@@ -40,6 +41,7 @@ interface Candidate {
     description: string;
     heroPath: string;
     dam?: { file: string; bytes: number };
+    variant?: string;
 }
 
 export interface PinPlan {
@@ -109,7 +111,7 @@ async function buildPlan(): Promise<PinPlan> {
     const files = new Map<string, string>();
     const sizes = renderAll(chosen.filter((x) => !x.c.dam).map((x) => x.c));
     for (const [k, v] of sizes) files.set(k, v.file);
-    for (const { c } of chosen) if (c.dam) files.set(key(c.lang, c.slug), c.dam.file);
+    for (const { c } of chosen) if (c.dam) files.set(key(c.lang, pinImageSlug(c.slug, c.variant)), c.dam.file);
 
     const items: PinItem[] = chosen.map(({ c, d }) => ({
         lang: c.lang,
@@ -118,9 +120,10 @@ async function buildPlan(): Promise<PinPlan> {
         title: c.title,
         description: c.description,
         link: pinUrl(c.lang, c.slug),
-        image: pinImageUrl(c.lang, c.slug, c.dam ? 'png' : 'jpg'),
+        image: pinImageUrl(c.lang, pinImageSlug(c.slug, c.variant), c.dam ? 'png' : 'jpg'),
         imageBytes: c.dam ? c.dam.bytes : (sizes.get(key(c.lang, c.slug))?.bytes ?? 0),
         ...(c.dam ? { imageMime: 'image/png' } : {}),
+        ...(c.variant ? { variant: c.variant } : {}),
         date: d,
     }));
     console.log(`[pins] ${candidates.length} kandidaten, ${items.length} items over ${days.length} werkdagen`, skipped);
@@ -168,6 +171,11 @@ async function buildDamPins(
         for (const p of batch.pins) {
             const tag = `[pins] DAM ${p.articleId} ${p.lang}/${p.slug}`;
             const a = articles[p.lang].find((x) => x.slug === p.slug);
+            if (p.requiresLiveSlug && !articles.nl.some((x) => x.slug === p.requiresLiveSlug)) {
+                skip('dam: hub nog niet gepubliceerd');
+                console.warn(`${tag} uit de feed: wacht op hub ${p.requiresLiveSlug}`);
+                continue;
+            }
             if (!a) { skip('dam: pagina niet gepubliceerd'); console.warn(`${tag} uit de feed: geen gepubliceerde ${p.lang}-pagina`); continue; }
             const description = truncateAtWord(a.description || a.metaDescription || '', 480);
             const title = truncateAtWord(a.title, 95);
@@ -193,11 +201,11 @@ async function buildDamPins(
                     console.warn(`${tag} uit de feed: ${meta.format} ${meta.width}x${meta.height}, verwacht png 1000x1500`);
                     continue;
                 }
-                const file = join(dir, `${p.lang}-${p.slug}.png`);
+                const file = join(dir, `${p.lang}-${pinImageSlug(p.slug, p.variant)}.png`);
                 writeFileSync(file, buf);
                 out.push({
                     day: batch.day,
-                    pin: { lang: p.lang, slug: p.slug, clusterId: 'dam', title, description, heroPath: '', dam: { file, bytes: buf.length } },
+                    pin: { lang: p.lang, slug: p.slug, clusterId: 'dam', title, description, heroPath: '', dam: { file, bytes: buf.length }, ...(p.variant ? { variant: p.variant } : {}) },
                 });
             } catch (err) {
                 skip('dam: download mislukt');
