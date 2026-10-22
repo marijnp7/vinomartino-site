@@ -256,7 +256,9 @@ for await (const file of walk(DIST)) {
 
   // e: Martin / WSET 4
   for (const [rx, label] of [
-    [/\bMartin\b/g, '"Martin" (moet "Marijn" zijn)'],
+    // Echte namen met "Martin" zijn geen persona-fout (LAT-14308): Jean-Claude/Carolyn Martin
+    // (Creation Wines), St./Saint-Martin, Clos Saint-Martin, Svätý Martin.
+    [/(?<!(?:Jean-Claude|Carolyn|St\.|Saint-|Svätý)\s?)\bMartin\b/g, '"Martin" (moet "Marijn" zijn)'],
     [/\bWSET\s*4\b/gi, '"WSET 4" (nooit vermelden)'],
   ]) {
     const m = text.match(rx);
