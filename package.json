@@ -13,6 +13,7 @@
     "check:dom-affiliate": "node scripts/check-dom-affiliate.mjs dist --lenient",
     "test:bezoek-anker": "node --test scripts/lat13075-bezoek-anker.test.mjs",
     "test:de-brief-ledger": "node --test scripts/de-brief-ledger.test.mjs",
+    "test:lat14551-stay-tier-labels": "node --test scripts/lat14551-stay-tier-labels.test.mjs",
     "test:lat14317-why-voor-cta": "node --test scripts/lat14317-why-voor-cta.test.mjs",
     "test:dom-affiliate": "node --test scripts/check-dom-affiliate.test.mjs",
     "test:lat13406-body-affiliate-track": "node --test scripts/lat13406-body-affiliate-track.test.mjs",
