@@ -20,10 +20,13 @@ export function enhanceArticleTables(parent: Node): void {
    [...headers, ...rows.flatMap(r => elements(r))].every(c => !c.properties?.colSpan && !c.properties?.rowSpan && !elements(c, 'table').length);
   const labels = headers.map(text).map(s => s.trim());
   const comparison = simple && cols === 3 && !labels[0] && labels.slice(1).every(Boolean);
-  const cards = simple && labels.every(Boolean);
+  // Twee kolommen = feitenlijst (wat/details): blijft op mobiel een tabel, geen kaarten.
+  const facts = simple && cols === 2 && labels.every(Boolean);
+  const cards = simple && cols >= 3 && labels.every(Boolean);
   addClass(node, 'editorial-table');
   if (comparison) addClass(node, 'editorial-table--comparison');
   if (cards) addClass(node, 'editorial-table--cards');
+  if (facts) addClass(node, 'editorial-table--facts');
   node.properties = {...node.properties, role:'table'};
   for (const group of [...heads, ...bodies]) group.properties = {...group.properties,role:'rowgroup'};
   for (const row of [...headerRows, ...rows]) row.properties = {...row.properties,role:'row'};

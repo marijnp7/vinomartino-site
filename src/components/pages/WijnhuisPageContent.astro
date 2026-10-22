@@ -1,4 +1,5 @@
 ---
+import '../../styles/article-tables.css';  // tabellen in CMS-body: zelfde editorial-table als artikelen
 import SmartImg from '../SmartImg.astro';
 import BeeldHerkomst from '../BeeldHerkomst.astro';  // LAT-4776: §7-disclosure bij AI-beeld
 import AffiliatePlaceholder from '../AffiliatePlaceholder.astro';
@@ -265,7 +266,7 @@ const chipStreek = region.split(' · ')[0];
       <div class="wh-section-label">{ui.t('wijnhuis.story.label')}</div>
       {storyTitle && <h2 class="wh-story__title">{storyTitle}</h2>}
       {Astro.slots.has('story') ? (
-        <div class="wh-story__prose"><slot name="story" /></div>
+        <div class="wh-story__prose cms-prose"><slot name="story" /></div>
       ) : (
         storyBody.map((para, i) => (
           <p class:list={['wh-story__para', i === 0 && 'wh-story__para--dropcap']}

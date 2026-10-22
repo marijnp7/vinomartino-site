@@ -189,7 +189,7 @@ import { heroImageAllowed } from './hero-credit-guard';
 // LAT-2819: locale erdoorheen zodat interne links in de redactionele body
 // locale-aware worden (no-op op NL).
 function markdownToHtml(markdown: string, locale: Locale): Promise<string> {
-    return renderMarkdown(markdown, { stripFirstH1: true, locale });
+    return renderMarkdown(markdown, { stripFirstH1: true, locale, editorialTables: true });
 }
 
 // Body images need the same local asset treatment as article and winery images.

@@ -25,6 +25,7 @@ import NewsletterInline from './NewsletterInline.astro';
 import { splitAfterFirstSection } from '../lib/newsletter-inline';
 import { accommodatieBookingDeeplink, isAffiliateHref } from '../lib/affiliates';
 import { type Streek, type Accommodation } from '../lib/streken';
+import '../styles/article-tables.css';  // tabellen in CMS-body: zelfde editorial-table als artikelen
 import { clustersFromCuratedStays, staySlug } from '../lib/curated-stays';
 import { matchWijnhuisByName, type Wijnhuis } from '../lib/wijnhuizen';
 import type { AccommodatieRoundup as AccommodatieRoundupData } from '../lib/accommodaties';
@@ -474,10 +475,10 @@ const hasFactBox = Boolean(
     {entry.bodyHtml && (
       <section class="streek-body">
         <div class="streek-body__inner">
-          <div class="streek-prose" set:html={streekBody.head} />
+          <div class="streek-prose cms-prose" set:html={streekBody.head} />
           {/* LAT-12572: alleen na een echte eerste sectie (tweede h2); anders dekt de footer-CTA. */}
           {streekBody.found && <NewsletterInline placement="streek-inline" locale={locale} />}
-          {streekBody.tail && <div class="streek-prose" set:html={streekBody.tail} />}
+          {streekBody.tail && <div class="streek-prose cms-prose" set:html={streekBody.tail} />}
           {entry.activiteiten.length === 0 && (
             <AffiliatePlaceholder type="activity" partner="getyourguide" region={entry.name} placement="inline-end" context="streek-activity" locale={locale} />
           )}

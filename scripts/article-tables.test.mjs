@@ -26,6 +26,12 @@ test('practical tables take mobile labels from CMS headers; no injection',async(
  assert.match(html,/role="table"/);
  assert.doesNotMatch(html,/<script|alert\(1\)/);
 });
+test('two-column fact tables stay tables on mobile (no cards)',async()=>{
+ const {html}=await render('| Wat | Details |\n|---|---|\n| Adres | Strada 12 |');
+ assert.match(html,/editorial-table--facts/);
+ assert.doesNotMatch(html,/editorial-table--cards/);
+ assert.match(html,/scope="row"/);
+});
 test('spanned tables retain relationships and avoid card conversion',async()=>{
  const {html}=await render('<table><thead><tr><th>A</th><th>B</th></tr></thead><tbody><tr><td colspan="2">Both</td></tr></tbody></table>');
  assert.match(html,/colspan="2"/);
