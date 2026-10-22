@@ -41,6 +41,8 @@ export interface PoiCardData {
   hideMediaWhenEmpty?: boolean;
   /** Korte badge, bv. tier-label voor overnachten. */
   badge?: string | null;
+  /** LAT-14500: plaatsregel onder de naam; alleen gezet waar geen plaatskop boven de kaart staat. */
+  plaats?: string | null;
   /**
    * LAT-2003 (VIS-BL-04) — één cursieve waarom-regel voor boekbare kaarten
    * (bv. 'Op een kwartier rijden van drie Barolo-kelders'). Vervangt de
@@ -100,6 +102,7 @@ const {
   fotoAlt = null,
   fotoTheme = 'region',
   badge = null,
+  plaats = null,
   whyRegel = null,
   beschrijving = null,
   prijs = null,
@@ -160,6 +163,7 @@ const boeklinkIsZoek = typeof boeklink === 'string' && /searchresults|[?&]ss=/i.
         <span class="poi-card__badge" style={`color:${badgeColor};border-color:${badgeColor}`}>{badge}</span>
       )}
     </div>
+    {plaats && <p class="poi-card__plaats">{plaats}</p>}
 
     {whyRegel && <p class="poi-card__why">{whyRegel}</p>}
     {beschrijving && <p class="poi-card__desc">{beschrijving}</p>}
@@ -279,6 +283,7 @@ const boeklinkIsZoek = typeof boeklink === 'string' && /searchresults|[?&]ss=/i.
   }
   .poi-card__name a { color: inherit; text-decoration: none; }
   .poi-card__name a:hover { text-decoration: underline; }
+  .poi-card__plaats { font-family: var(--font-ui, sans-serif); font-size: 0.8125rem; color: var(--inkSoft, #5A4F45); margin: 0.25rem 0 0; }
   .poi-card__badge {
     font-family: var(--font-mono, monospace);
     font-size: 0.5625rem;

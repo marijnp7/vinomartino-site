@@ -149,3 +149,15 @@ test('kaarten in een tiergroep tonen geen eigen tierbadge; overig en index wel',
   assert.doesNotMatch(overig[0], /\bhideTier\b/);
   assert.match(KAART, /const tierLabel = kaart\.tier && !hideTier \?/);
 });
+
+// LAT-14500: in een artikel staat elke tierkop één keer, niet één keer per plaatscluster.
+test('artikelroundup groepeert per tier over alle plaatsen; streek blijft per plaats', () => {
+  assert.match(src('../src/components/ArtikelDetail.astro'), /<AccommodatieRoundup [^>]*groupBy="tier"/);
+  assert.doesNotMatch(src('../src/components/StreekDetail.astro'), /groupBy=/);
+  assert.match(ROUNDUP, /const alleKaarten = groepen\.flatMap\(\(g\) => g\.kaarten\);/);
+  assert.match(ROUNDUP, /kaarten: alleKaarten\.filter\(\(kaart\) => kaart\.tier === tier\)/);
+  assert.match(ROUNDUP, /const heeftNav = groepen\.length > 1 && !perTier;/);
+  const tierKaart = ROUNDUP.match(/\{categorie\.kaarten\.map\(\(kaart\) => \(\s*<AccommodatieKaart[^>]*toonPlaats[^>]*\/>/);
+  assert.ok(tierKaart, 'tierkaart zonder plaats');
+  assert.match(tierKaart[0], /\bhideTier\b/);
+});
