@@ -64,6 +64,7 @@ on:
           - lat14380-constantia-files-meta.mjs
           - add-accommodation-outreach-fields.mjs
           - lat14412-atelier-testupload-meta.mjs
+          - extend-accommodations-portraits.mjs
 
 concurrency:
   group: lat12804-directus-schema-migrate
