@@ -923,7 +923,7 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'auteurs.index.meta.description': 'Marijn is de stem achter VinoMartino: wijnreiziger, schrijver en de auteur van (vrijwel) elk artikel op deze site.',
     'auteurs.index.kicker': 'Auteur',
     'auteurs.index.lead': 'Eén notitieboekje per reis, één stem achter VinoMartino.',
-    'auteurs.index.sophieCameo': 'Sophie reist regelmatig mee en duikt af en toe op in een verhaal — met haar eigen blik op wat er in het glas zit, maar niet als aparte auteur.',
+    'auteurs.index.sophieCameo': 'Sophie reist regelmatig mee en duikt af en toe op in een verhaal, met haar eigen blik op wat er in het glas zit, maar niet als aparte auteur.',
     'auteurs.detail.kicker': 'Auteur',
     'auteurs.detail.metaTitleSuffix': ', auteur | VinoMartino',
     'auteurs.detail.regionsHeading': 'Bereisde streken',
