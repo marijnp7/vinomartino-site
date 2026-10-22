@@ -147,7 +147,7 @@ test('kaarten in een tiergroep tonen geen eigen tierbadge; overig en index wel',
   const overig = ROUNDUP.match(/\{g\.overig\.map\(\(kaart\) => \(\s*<AccommodatieKaart[^>]*\/>/);
   assert.ok(overig, 'overig-kaart niet gevonden');
   assert.doesNotMatch(overig[0], /\bhideTier\b/);
-  assert.match(KAART, /const tierLabel = kaart\.tier && !hideTier \?/);
+  assert.match(KAART, /const tierBadge = kaart\.tier && !hideTier \?/);
 });
 
 // LAT-14500: in een artikel staat elke tierkop één keer, niet één keer per plaatscluster.

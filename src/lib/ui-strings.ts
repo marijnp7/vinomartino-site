@@ -1655,6 +1655,10 @@ export const UI_STRING_EN: Record<string, string> = {
     'wijnhuis.staynear.disclosure': 'Affiliate links · no extra cost to you',
     'wijnhuis.staynear.ctaNearPrefix': 'Stay near',
     'wijnhuis.staynear.ctaNear': 'Stay nearby',
+    // LAT-14550 — tiernamen naast het icoon (StayTierLabel). Directus kan dit overschrijven.
+    'stay.tier.slim_geboekt': 'Smart booking',
+    'stay.tier.prijs_kwaliteit': 'Great value',
+    'stay.tier.pure_luxe': 'Pure luxury',
 
     // Rubriek-labels voor /en/artikelen/ — LAT-3319.
     'artikelen.rubriek.regio-gidsen': 'Region guides',

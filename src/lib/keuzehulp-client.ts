@@ -36,6 +36,9 @@ export function initKeuzehulp(root: HTMLElement): void {
   const leeg = root.querySelector<HTMLElement>('[data-kh-leeg]');
   const cards = [...root.querySelectorAll<HTMLElement>('[data-kh-card]')];
   const meerN = [...form.querySelectorAll<HTMLElement>('[data-kh-meer-n]')];
+  // LAT-14550 — segmented control: knoppen [data-kh-seg=<select-naam>][data-value] sturen een
+  // verborgen select[data-kh-select] aan, zodat filterlogica, chips en URL-fragment gelijk blijven.
+  const segs = [...form.querySelectorAll<HTMLButtonElement>('button[data-kh-seg]')];
   // "Meer filters" is alleen op mobiel inklapbaar; op desktop is de summary verborgen
   // (keuzehulp.css), dus de <details> moet daar open staan, anders verdwijnt het veld.
   const meer = [...form.querySelectorAll<HTMLDetailsElement>('details')];
@@ -89,7 +92,17 @@ export function initKeuzehulp(root: HTMLElement): void {
         if (!o.value) continue;
         const k = cards.filter((c) => matches(c, q, sel, o.value)).length;
         o.textContent = `${o.dataset.base ?? o.dataset.label} (${k})`;
+        o.dataset.n = String(k);
       }
+    }
+    for (const b of segs) {
+      const sel = selects.find((s) => s.name === b.dataset.khSeg);
+      if (!sel) continue;
+      const v = b.dataset.value || '';
+      b.setAttribute('aria-pressed', String(sel.value === v));
+      const nEl = b.querySelector<HTMLElement>('[data-kh-seg-n]');
+      const opt = [...sel.options].find((o) => o.value === v);
+      if (nEl && v && opt?.dataset.n != null) nEl.textContent = `(${opt.dataset.n})`;
     }
     const actief = (q.length ? 1 : 0) + selects.filter((s) => s.value).length;
     telling.textContent = actief === 0
@@ -135,6 +148,14 @@ export function initKeuzehulp(root: HTMLElement): void {
   });
   for (const s of selects) {
     s.addEventListener('change', () => { apply(); if (s.value) trackEvent('cta_click', { cta_id: `${track}_${s.name}:${s.value}` }); });
+  }
+  for (const b of segs) {
+    b.addEventListener('click', () => {
+      const sel = selects.find((s) => s.name === b.dataset.khSeg);
+      if (!sel) return;
+      sel.value = b.dataset.value || '';
+      sel.dispatchEvent(new Event('change'));
+    });
   }
   form.addEventListener('submit', (ev) => { ev.preventDefault(); zoek?.blur(); });
   const wisAlles = () => {

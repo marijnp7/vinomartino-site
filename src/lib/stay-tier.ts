@@ -38,3 +38,21 @@ export function normalizeStayTier(value: unknown): StayTier | null {
   if (v === 'slim_geboekt' || v === 'prijs_kwaliteit' || v === 'pure_luxe') return v;
   return null;
 }
+
+/** LAT-14550 — vergelijkingssleutel voor een verblijfsnaam (accenten, hoofdletters, leestekens weg). */
+export function stayNaamKey(naam: string): string {
+  return naam.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+/**
+ * LAT-14550 — tier per verblijfsnaam uit de gecureerde selectie van een streek, zodat een
+ * route een adres dat in die selectie staat met hetzelfde tierlabel toont.
+ */
+export function stayTierMap(kaarten: Iterable<{ naam: string; tier?: unknown }>): Record<string, StayTier> {
+  const out: Record<string, StayTier> = {};
+  for (const k of kaarten) {
+    const t = normalizeStayTier(k.tier);
+    if (t && k.naam) out[stayNaamKey(k.naam)] = t;
+  }
+  return out;
+}

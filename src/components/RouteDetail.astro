@@ -22,6 +22,7 @@ import RouteDataStrip from './RouteDataStrip.astro';
 import { loadRouteLine } from '../lib/route-lines-loader';
 import { hasDagen } from '../lib/route-lines';
 import RouteSlaapOverzicht from './RouteSlaapOverzicht.astro';
+import { stayTierMap } from '../lib/stay-tier';
 import RouteWijnhuizenGrid from './RouteWijnhuizenGrid.astro';
 import { accommodatieBookingDeeplink } from '../lib/affiliates';
 import { type WijnRoute } from '../lib/routes';
@@ -124,6 +125,8 @@ const etappeCount = pagina?.dagen.length ?? entry.itinerary?.days.length ?? (rou
 const heeftRouteLijn = loadRouteLine(entry.slug) != null && hasDagen(entry.stopsGeo);
 const wijnhuisLabels = Object.fromEntries((pagina?.wijnhuizen ?? []).map((w) => [w.slug, w.label]));
 const slotItems = pagina?.slapen?.items.slice(0, 3) ?? [];
+// LAT-14550 — tier per verblijfsnaam uit de gecureerde selectie (voor het tierlabel op routekaarten).
+const stayTiers = stayTierMap((staysRoundup?.clusters ?? []).flatMap((c) => c.kaarten));
 const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.streekSlug}/` : null;
 ---
 
@@ -189,7 +192,7 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
           <div id="route" class="route-one__dagen">
             <span id="zo-reisden-wij" aria-hidden="true"></span>
             {pagina.dagen.map((dag) => (
-              <RouteDagSectie dag={dag} context={entry.slug} locale={locale} stops={entry.stopsGeo} />
+              <RouteDagSectie dag={dag} context={entry.slug} locale={locale} stops={entry.stopsGeo} stayTiers={stayTiers} />
             ))}
           </div>
 
@@ -201,6 +204,7 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
               disclosureHtml={pagina.slapen.disclosureHtml}
               context={entry.slug}
               locale={locale}
+              stayTiers={stayTiers}
             />
           )}
 
