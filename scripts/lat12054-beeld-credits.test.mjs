@@ -177,7 +177,7 @@ test('permission image: Foto/Photo credit and source link derive from DAM metada
     assert.equal(credit.sourceUrl, 'https://www.mazzei.it');
 });
 
-test('LAT-14452: hoteltoestemming toont de afgesproken credit op de NL- en EN-kaart', async () => {
+test('LAT-14452: hoteltoestemming toont de afgesproken credit op de NL- en EN-kaart (EN: Photo:, LAT-14520)', async () => {
     const { creditFromFileMeta, creditAuthorFor, isHouseSuppliedLicense } = await loadModule('lat14452', 'src/lib/image-credits.ts');
     const credit = creditFromFileMeta(
         'toestemming accommodatie',
@@ -185,7 +185,8 @@ test('LAT-14452: hoteltoestemming toont de afgesproken credit op de NL- en EN-ka
     );
     assert.equal(isHouseSuppliedLicense('toestemming accommodatie'), true);
     assert.equal(creditAuthorFor(credit, 'nl'), 'Foto: Hotel Altes Winzerhaus');
-    assert.equal(creditAuthorFor(credit, 'en'), 'Foto: Hotel Altes Winzerhaus');
+    // LAT-14520: EN krijgt het Engelse voorvoegsel; naam en bronlink blijven.
+    assert.equal(creditAuthorFor(credit, 'en'), 'Photo: Hotel Altes Winzerhaus');
     assert.equal(credit.sourceUrl, 'https://alteswinzerhaus-cochem.de/');
     assert.equal(credit.licenseLabel, 'met toestemming');
 });

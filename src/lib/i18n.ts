@@ -91,6 +91,9 @@ const EN_MISSING_EXACT_PATHS: readonly string[] = [
     '/artikelen/ik-weet-het-ik-drink-toch-wijn/',
     '/artikelen/de-stille-wijnkeuze/',
     '/artikelen/overnachten-langhe-barolo-agriturismi/',
+    // LAT-14520: bewust NL-only, experiment 3b (B-test, publiek Nederlandse en Belgische
+    // autovakantiegangers), redactiebesluit Lead Editor LAT-12569. Artikel 175 heeft geen EN-rij.
+    '/artikelen/camping-vakantiehuis-bourgogne-wijnstop/',
 ];
 
 // Padvergelijking die zowel `/x/` als `/x` accepteert; sitemap-URLs dragen een

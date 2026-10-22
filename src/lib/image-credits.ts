@@ -52,9 +52,12 @@ const PHOTO_PREFIX: Record<string, string> = { nl: 'Foto', en: 'Photo' };
 
 /** Maker-deel: Foto/Photo bij CC en aangeleverd persbeeld (REGEL 64). */
 export function creditAuthorFor(credit: ImageCredit, locale: string): string {
-    // Sommige accommodatie-overeenkomsten schrijven de exacte tekst "Foto: <huis>"
-    // voor, ook op de EN-pagina. Een al ingevulde caption mag niet worden vertaald.
-    if (/^Foto:\s/i.test(credit.author)) return credit.author;
+    // LAT-14520: een al ingevulde "Foto: <huis>" (ons REGEL 64-format, bv. hoteltoestemming
+    // LAT-14452) krijgt alleen het voorvoegsel van de locale; naam blijft. Geen overeenkomst
+    // schrijft de NL-tekst op EN voor; komt die ooit, dan als expliciete DAM-vlag, niet via de prefix.
+    if (/^Foto:\s/i.test(credit.author)) {
+        return credit.author.replace(/^Foto:/i, `${PHOTO_PREFIX[locale] ?? PHOTO_PREFIX.en}:`);
+    }
     if (!credit.author || (!/creativecommons\.org/i.test(credit.licenseUrl) && credit.licenseLabel !== 'met toestemming')) return credit.author;
     const maker = credit.author.replace(/^\s*©\s*/, '');
     return `${PHOTO_PREFIX[locale] ?? PHOTO_PREFIX.en}: ${maker}`;
