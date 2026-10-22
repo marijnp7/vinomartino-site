@@ -25,6 +25,10 @@ const { kop, intro, items, disclosureHtml = '', context, id = 'slapen', locale =
 // LAT-14556: hetzelfde adres twee keer in het overzicht → één kaart.
 const gezien = new Set<string>();
 const uniek = items.filter((it) => { const k = stayNaamKey(it.naam); if (gezien.has(k)) return false; gezien.add(k); return true; });
+// LAT-14556 (herkeuring 23-10): een verwijzing ("Zelfde adres als nacht N") is geen kaart. In het
+// kaartraster rekte hij op tot een lege tegel op rijhoogte; daarom een compacte lijst ónder het raster.
+const vol = uniek.filter((it) => eersteNacht[stayNaamKey(it.naam)] == null);
+const refs = uniek.filter((it) => eersteNacht[stayNaamKey(it.naam)] != null);
 const ui = await loadUiStrings(locale);
 const disclosure = disclosureHtml || `<p>${ui.t('stay.disclosure.microcopy')}</p>`;
 ---
@@ -33,8 +37,9 @@ const disclosure = disclosureHtml || `<p>${ui.t('stay.disclosure.microcopy')}</p
   <section class="rslaap" id={id}>
     {kop && <h2 class="rslaap__kop">{kop}</h2>}
     {intro && <p class="rslaap__intro">{intro}</p>}
+    {vol.length > 0 && (
     <div class="rslaap__grid">
-      {uniek.map((it) => {
+      {vol.map((it) => {
         const href = accommodatieBookingDeeplink(it.naam, '', it.bookingUrl, `route-${context}`, locale);
         // LAT-13527: een Booking-zoekopdracht (searchresults) is geen hotelpagina; de knop zegt dat eerlijk.
         const zoek = /searchresults/i.test(href);
@@ -74,6 +79,24 @@ const disclosure = disclosureHtml || `<p>${ui.t('stay.disclosure.microcopy')}</p
         );
       })}
     </div>
+    )}
+    {refs.length > 0 && (
+    <div class="rslaap__refs">
+      {refs.map((it) => {
+        const key = stayNaamKey(it.naam);
+        return (
+        <PoiCard
+          locale={locale}
+          poi={{
+            naam: it.naam,
+            routeStay: key,
+            verwijzing: { tekst: ui.t('route.stay.zelfdeAdres').replace('{n}', String(eersteNacht[key])), href: `#${routeStayAnchor(key)}` },
+          }}
+        />
+        );
+      })}
+    </div>
+    )}
     <div class="rslaap__disclosure" set:html={disclosure} />
   </section>
 )}
@@ -89,6 +112,14 @@ const disclosure = disclosureHtml || `<p>${ui.t('stay.disclosure.microcopy')}</p
     align-items: stretch;
   }
   .rslaap__grid > :global(*) { min-width: 0; }
+  .rslaap__refs {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+    gap: var(--space-2) var(--space-4);
+    align-items: start;
+    margin-top: var(--space-4);
+  }
+  .rslaap__refs > :global(*) { min-width: 0; }
   .rslaap__disclosure { margin-top: var(--space-4); }
   .rslaap__disclosure :global(p) {
     font-family: var(--font-mono);
