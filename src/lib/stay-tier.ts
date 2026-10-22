@@ -56,3 +56,30 @@ export function stayTierMap(kaarten: Iterable<{ naam: string; tier?: unknown }>)
   }
   return out;
 }
+
+/** LAT-14556 — wat een routeslaapkaart uit het gekoppelde accommodations-record overneemt. */
+export interface StayRecord {
+  tier: StayTier | null;
+  foto: string | null;
+  fotoAlt: string | null;
+}
+
+/**
+ * LAT-14556 — accommodations-record per verblijfsnaam (stayNaamKey), zodat een routeslaapkaart
+ * hetzelfde beeld (en dus dezelfde credit) toont als de kaart op /accommodaties/<streek>/.
+ */
+export function stayRecordMap(
+  kaarten: Iterable<{ naam: string; tier?: unknown; foto?: string | null; fotoAlt?: string | null }>,
+): Record<string, StayRecord> {
+  const out: Record<string, StayRecord> = {};
+  for (const k of kaarten) {
+    if (!k.naam) continue;
+    out[stayNaamKey(k.naam)] = { tier: normalizeStayTier(k.tier), foto: k.foto || null, fotoAlt: k.fotoAlt || null };
+  }
+  return out;
+}
+
+/** LAT-14556 — DOM-id van de volle routeslaapkaart van een adres (doel van de compacte verwijzing). */
+export function routeStayAnchor(key: string): string {
+  return `slaap-${key.replace(/ /g, '-')}`;
+}

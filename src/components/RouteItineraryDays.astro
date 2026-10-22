@@ -17,6 +17,7 @@ import RouteDagChips from './RouteDagChips.astro';
 import { loadUiStrings } from '../lib/ui-strings';
 import { loadWijnhuizen } from '../lib/wijnhuizen';
 import { accommodatieBookingDeeplink, isAffiliateHref } from '../lib/affiliates';
+import { routeStayAnchor, stayNaamKey, type StayRecord } from '../lib/stay-tier';
 
 interface Props {
   /** LAT-2704 — locale doorgeven zodat interne links in PoiCard locale-aware zijn. */
@@ -32,9 +33,17 @@ interface Props {
   /** LAT-13816 — stops van de kaart (entry.stopsGeo) en de route-slug: chips per dag en dag-highlight. */
   stops?: RouteStopGeo[];
   slug?: string;
+  /** LAT-14556 — accommodations-record (tier, beeld) per verblijfsnaam (stayNaamKey). */
+  stayRecords?: Record<string, StayRecord>;
 }
 
-const { itinerary, bodyDays = [], streekSlug = '', boekbaar = false, context = '', locale = DEFAULT_LOCALE, stops: kaartStops = [], slug: routeSlug = '' } = Astro.props;
+const { itinerary, bodyDays = [], streekSlug = '', boekbaar = false, context = '', locale = DEFAULT_LOCALE, stops: kaartStops = [], slug: routeSlug = '', stayRecords = {} } = Astro.props;
+// LAT-14556 — eerste nacht per adres: alleen daar een volle slaapkaart, daarna een verwijzing.
+const eersteNacht: Record<string, number> = {};
+for (const d of itinerary.days) {
+  const k = d.overnachting?.naam ? stayNaamKey(d.overnachting.naam) : '';
+  if (k && !(k in eersteNacht)) eersteNacht[k] = d.n;
+}
 // LAT-13816 — dag-highlight op de kaart alleen als de kaartstops een dagindeling hebben.
 const kaartGeo = kaartStops.filter((s) => s && Number.isFinite(s.lat) && Number.isFinite(s.lng));
 const dagAttrs = (n: number) => routeSlug && hasDagen(kaartGeo) && kaartGeo.some((s) => s.dag === n) ? { 'data-routedag': n, 'data-routedag-slug': routeSlug } : {};
@@ -187,17 +196,27 @@ function stopToPoi(stop: ItineraryStop, pin: CardPin, hasProse = false): PoiCard
           const affiliate = isAffiliateHref(stayHref);
           // LAT-13518: een Booking-zoekopdracht (searchresults) is geen hotelpagina; de knop zegt dat eerlijk.
           const isZoek = /searchresults/i.test(stayHref);
+          const stayKey = stayNaamKey(d.overnachting.naam);
+          const rec = stayRecords[stayKey] ?? null;
+          const recFoto = rec?.foto ?? null;
+          const herhaling = eersteNacht[stayKey] != null && eersteNacht[stayKey] < d.n;
           return (
           <div class="route-day__stay">
             <PoiCard
               locale={locale}
               poi={{
                 naam: d.overnachting.naam,
-                foto: d.overnachting.foto,
-                fotoId: d.overnachting.fotoId ?? null,
-                hideMediaWhenEmpty: true,
+                routeStay: stayKey,
+                accRecord: Boolean(rec),
+                verwijzing: herhaling ? { tekst: ui.t('route.stay.zelfdeAdres').replace('{n}', String(eersteNacht[stayKey])), href: `#${routeStayAnchor(stayKey)}` } : null,
+                // LAT-14556: beeld (en credit) uit het accommodations-record, zoals op /accommodaties/.
+                foto: recFoto ?? d.overnachting.foto,
+                fotoId: recFoto ? null : d.overnachting.fotoId ?? null,
+                fotoAlt: recFoto ? rec?.fotoAlt ?? null : null,
+                hideMediaWhenEmpty: false,
                 fotoTheme: 'region',
-                badge: ui.t('route.stop.overnachting'),
+                tier: rec?.tier ?? null,
+                badge: rec?.tier ? null : ui.t('route.stop.overnachting'),
                 // LAT-14317: motivatie vóór de boek-CTA, alleen als de CMS hem levert.
                 whyRegel: d.overnachting.why ?? null,
                 // Elke overnachting is klikbaar: property- of zoeklink op booking.com (CJ-affiliate).
@@ -210,6 +229,7 @@ function stopToPoi(stop: ItineraryStop, pin: CardPin, hasProse = false): PoiCard
                 disclosure: affiliate ? ui.t('stay.disclosure.microcopy') : null,
                 n: overnachtingPin?.n ?? null,
                 plotted: overnachtingPin?.plotted ?? false,
+                cardId: herhaling ? undefined : routeStayAnchor(stayKey),
               }}
             />
           </div>

@@ -2,7 +2,7 @@
 // LAT-12710 — één samengevoegde dag-sectie: foto, hook + verhaal, wijnhuis-kaartjes
 // (optioneel label "Zelf geweest") en één slaap-kaart met boek-knop.
 import PoiCard from './PoiCard.astro';
-import { stayNaamKey, type StayTier } from '../lib/stay-tier';
+import { routeStayAnchor, stayNaamKey, type StayRecord } from '../lib/stay-tier';
 import { type PaginaDag } from '../lib/route-pagina';
 import { loadWijnhuizen } from '../lib/wijnhuizen';
 import { accommodatieBookingDeeplink } from '../lib/affiliates';
@@ -19,10 +19,12 @@ interface Props {
   locale?: Locale;
   /** LAT-13816 — stops van de kaart; met `dag` krijgt deze sectie chips "Stops vandaag". */
   stops?: RouteStopGeo[];
-  /** LAT-14550: tier per verblijfsnaam (stayNaamKey) uit de gecureerde selectie. */
-  stayTiers?: Record<string, StayTier>;
+  /** LAT-14550/14556: accommodations-record (tier, beeld) per verblijfsnaam (stayNaamKey). */
+  stayRecords?: Record<string, StayRecord>;
+  /** LAT-14556: eerste dag(nacht) per adres; een latere nacht krijgt een compacte verwijzing. */
+  eersteNacht?: Record<string, number>;
 }
-const { dag, context, locale = DEFAULT_LOCALE, stops = [], stayTiers = {} } = Astro.props;
+const { dag, context, locale = DEFAULT_LOCALE, stops = [], stayRecords = {}, eersteNacht = {} } = Astro.props;
 const ui = await loadUiStrings(locale);
 const bestaand = new Map((await loadWijnhuizen(locale)).map((w) => [w.slug, w]));
 const credit = dag.foto ? await getImageCredit(dag.fotoId) : null;
@@ -75,15 +77,26 @@ const heeftChips = hasDagen(stops.filter((s) => s && Number.isFinite(s.lat) && N
     const slaapHref = accommodatieBookingDeeplink(slaap.naam, slaap.plaats ?? '', slaap.bookingUrl, `route-${context}`, locale);
     const slaapZoek = /searchresults/i.test(slaapHref);
     // LAT-14550: adres in de gecureerde selectie → tierlabel; redactielabel naar de meta-regel.
-    const slaapTier = stayTiers[stayNaamKey(slaap.naam)] ?? null;
+    const slaapKey = stayNaamKey(slaap.naam);
+    const rec = stayRecords[slaapKey] ?? null;
+    const slaapTier = rec?.tier ?? null;
+    // LAT-14556: beeld (en credit) uit het accommodations-record, zoals op /accommodaties/.
+    const recFoto = rec?.foto ?? null;
+    const eerste = eersteNacht[slaapKey];
+    const herhaling = eerste != null && eerste < dag.n;
     return (
     <div class="rdag__slaap">
       <PoiCard
         locale={locale}
         poi={{
           naam: slaap.naam,
-          foto: slaap.foto,
-          fotoId: slaap.fotoId,
+          routeStay: slaapKey,
+          accRecord: Boolean(rec),
+          cardId: herhaling ? undefined : routeStayAnchor(slaapKey),
+          verwijzing: herhaling ? { tekst: ui.t('route.stay.zelfdeAdres').replace('{n}', String(eerste)), href: `#${routeStayAnchor(slaapKey)}` } : null,
+          foto: recFoto ?? slaap.foto,
+          fotoId: recFoto ? null : slaap.fotoId,
+          fotoAlt: recFoto ? rec?.fotoAlt ?? null : null,
           tier: slaapTier,
           badge: slaapTier ? null : slaap.label ?? slaap.type ?? ui.t('route.stop.overnachting'),
           plaats: slaapTier ? slaap.label ?? null : null,
@@ -95,7 +108,8 @@ const heeftChips = hasDagen(stops.filter((s) => s && Number.isFinite(s.lat) && N
           partner: 'booking',
           placement: 'route-dag-slaap',
           context: `route-${context}`,
-          hideMediaWhenEmpty: true,
+          // LAT-14556: geen beeld → placeholder in huisstijl, geen kaart zonder media.
+          hideMediaWhenEmpty: false,
         }}
       />
     </div>

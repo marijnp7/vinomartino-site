@@ -80,6 +80,15 @@ export interface PoiCardData {
    * zodat de affiliate-voetregel overal identiek is (STAY_DISCLOSURE_MICROCOPY).
    */
   disclosure?: string | null;
+  /**
+   * LAT-14556 — routeslaapkaart: stayNaamKey van het adres. Zet `data-route-stay` zodat
+   * scripts/check-route-stay-images.mjs de kaart in de gebouwde HTML vindt.
+   */
+  routeStay?: string | null;
+  /** LAT-14556 — beeld en tier komen uit het gekoppelde accommodations-record. */
+  accRecord?: boolean;
+  /** LAT-14556 — adres kwam al eerder als volle kaart: alleen een compacte verwijzing. */
+  verwijzing?: { tekst: string; href: string } | null;
   /** DOM-id voor de kaart-sync (klik op pin scrollt naar deze kaart). */
   cardId?: string;
   /** Of de kaart-sync bedraad moet worden (POI staat op de kaart). */
@@ -124,6 +133,9 @@ const {
   cardId,
   plotted = false,
   hideMediaWhenEmpty = false,
+  routeStay = null,
+  accRecord = false,
+  verwijzing = null,
 } = poi;
 // LAT-13488: `color` vult het nummer (crème erop); de badge is tekst en krijgt bij de
 // standaardkleur de tekstvariant, die in de kelder lichter is (7,0:1 i.p.v. 2,27:1).
@@ -138,9 +150,16 @@ const credit = foto ? await getImageCredit(fotoId ?? fileIdFromAccommodatiePath(
 const boeklinkIsZoek = typeof boeklink === 'string' && /searchresults|[?&]ss=/i.test(boeklink);
 ---
 
+{verwijzing ? (
+<article class="poi-card poi-card--ref" data-route-stay={routeStay ?? ''} data-route-stay-ref>
+  <p class="poi-card__ref"><span class="poi-card__ref-naam">{naam}</span> <a href={verwijzing.href}>{verwijzing.tekst}</a></p>
+</article>
+) : (
 <article
   class="poi-card"
   id={cardId}
+  data-route-stay={routeStay ?? undefined}
+  data-acc-record={routeStay && accRecord ? '' : undefined}
   data-skz-card={plotted && hasNumber ? n : undefined}
   tabindex={plotted && hasNumber ? 0 : undefined}
 >
@@ -208,6 +227,7 @@ const boeklinkIsZoek = typeof boeklink === 'string' && /searchresults|[?&]ss=/i.
     {disclosure && <p class="poi-card__disclosure">{disclosure}</p>}
   </div>
 </article>
+)}
 
 <style>
   .poi-card {
@@ -229,6 +249,13 @@ const boeklinkIsZoek = typeof boeklink === 'string' && /searchresults|[?&]ss=/i.
   .poi-card[data-skz-card]:hover,
   .poi-card[data-skz-card]:focus-visible { border-color: var(--burgundy, #5A1A1F); outline: none; }
   .poi-card--active { border-color: var(--burgundy, #5A1A1F); box-shadow: 0 0 0 2px var(--burgundy, #5A1A1F); }
+
+  /* LAT-14556 — tweede nacht op hetzelfde adres: één regel i.p.v. een tweede volle kaart. */
+  .poi-card--ref { padding: 0.75rem 1.2rem; }
+  .poi-card--ref:hover { transform: none; box-shadow: none; }
+  .poi-card__ref { margin: 0; font-family: var(--font-body, Georgia, serif); font-size: 0.9375rem; color: var(--inkSoft, #5A4F45); }
+  .poi-card__ref-naam { font-family: var(--font-display, Georgia, serif); font-size: 1.125rem; color: var(--ink, #1F1A16); margin-right: 0.4rem; }
+  .poi-card__ref a { color: var(--burgundyInk, #5A1A1F); }
 
   .poi-card__media {
     position: relative;
