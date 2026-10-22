@@ -13,6 +13,8 @@
 // LAT-1019/1029): partner, placement en context voor het KPI-dashboard.
 
 import SmartImg from './SmartImg.astro';
+import StayTierLabel from './StayTierLabel.astro';
+import { normalizeStayTier, type StayTier } from '../lib/stay-tier';
 import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
 import { loadUiStrings } from '../lib/ui-strings';
 import { creditAuthorFor, adaptationNoteFor, fileIdFromAccommodatiePath, getImageCredit, licenseLabelFor } from '../lib/image-credits';
@@ -41,6 +43,8 @@ export interface PoiCardData {
   hideMediaWhenEmpty?: boolean;
   /** Korte badge, bv. tier-label voor overnachten. */
   badge?: string | null;
+  /** LAT-14550: accommodatie-tier; gezet → StayTierLabel (icoon + naam) i.p.v. de tekstbadge. */
+  tier?: StayTier | string | null;
   /** LAT-14500: plaatsregel onder de naam; alleen gezet waar geen plaatskop boven de kaart staat. */
   plaats?: string | null;
   /**
@@ -102,6 +106,7 @@ const {
   fotoAlt = null,
   fotoTheme = 'region',
   badge = null,
+  tier: tierRaw = null,
   plaats = null,
   whyRegel = null,
   beschrijving = null,
@@ -124,6 +129,7 @@ const {
 // standaardkleur de tekstvariant, die in de kelder lichter is (7,0:1 i.p.v. 2,27:1).
 const badgeColor = color === 'var(--burgundy, #5A1A1F)' ? 'var(--burgundyInk, #5A1A1F)' : color;
 
+const tier = normalizeStayTier(tierRaw);
 const altText = fotoAlt || naam;
 const hasNumber = n != null;
 const showMedia = Boolean(foto) || !hideMediaWhenEmpty;
@@ -159,7 +165,9 @@ const boeklinkIsZoek = typeof boeklink === 'string' && /searchresults|[?&]ss=/i.
       <h4 class="poi-card__name">
         {detailUrl ? <a href={lh(detailUrl)}>{naam}</a> : boeklink && !boeklinkIsZoek ? <a href={boeklink} target="_blank" rel="sponsored nofollow noopener" data-affiliate-track data-affiliate-partner={partner} data-affiliate-placement={placement} data-affiliate-context={context}>{naam}</a> : externeUrl ? <a href={externeUrl} target="_blank" rel="noopener">{naam}</a> : naam}
       </h4>
-      {badge && (
+      {tier ? (
+        <StayTierLabel tier={tier} variant="badge" locale={locale} />
+      ) : badge && (
         <span class="poi-card__badge" style={`color:${badgeColor};border-color:${badgeColor}`}>{badge}</span>
       )}
     </div>

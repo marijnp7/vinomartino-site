@@ -285,6 +285,7 @@ const usedCats = sections.map((s) => s.key);
                     fotoTheme: it.fotoTheme ?? CATEGORY_META[it.category].theme,
                     hideMediaWhenEmpty: it.category === 'wijnhuizen' || it.category === 'overnachten',
                     badge: it.badge ?? null,
+                    tier: it.category === 'overnachten' ? it.tier ?? null : null,
                     whyRegel: it.whyRegel ?? null,
                     beschrijving: it.beschrijving ?? null,
                     prijs: it.prijs ?? null,

@@ -1,0 +1,45 @@
+---
+// LAT-14550 (ontwerp LAT-14549) — tierlabel met icoon + naam. Kleur nooit als enige
+// drager: altijd het icoon (aria-hidden) plus de tiernaam als zichtbare tekst.
+// badge = losse kaart, inline = in een meta-regel of filteroptie. De groepskop
+// (head) blijft de bestaande roundup-kop met StayTierIcon 24/32 px.
+import StayTierIcon from './StayTierIcon.astro';
+import { STAY_TIER_META, type StayTier } from '../lib/stay-tier';
+import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
+
+interface Props {
+  tier: StayTier;
+  variant?: 'badge' | 'inline' | 'head';
+  locale?: Locale;
+}
+const { tier, variant = 'badge', locale = DEFAULT_LOCALE } = Astro.props;
+const ui = await loadUiStrings(locale);
+const size = variant === 'head' ? 24 : variant === 'inline' ? 14 : 16;
+---
+<span class={`stay-tier-label stay-tier-label--${variant}`} data-stay-tier={tier} style={`color:${STAY_TIER_META[tier].color}`}><StayTierIcon tier={tier} size={size} />{ui.t(`stay.tier.${tier}`)}</span>
+
+<style>
+  .stay-tier-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    white-space: nowrap;
+  }
+  .stay-tier-label :global(.stay-tier-icon) { flex: none; }
+  .stay-tier-label--badge {
+    font: 600 0.75rem/1 var(--font-ui, sans-serif);
+    letter-spacing: 0.04em;
+    padding: 0.3rem 0.55rem;
+    border: 1px solid currentColor;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.92);
+  }
+  .stay-tier-label--inline {
+    gap: 0.3rem;
+    font-weight: 600;
+  }
+  .stay-tier-label--head {
+    gap: 0.5rem;
+  }
+</style>

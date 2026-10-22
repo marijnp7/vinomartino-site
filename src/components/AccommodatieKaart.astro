@@ -16,6 +16,8 @@ import { formatNightlyPrice } from '../lib/currency';
 import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
 import { loadUiStrings } from '../lib/ui-strings';
 import PoiCard from './PoiCard.astro';
+import StayTierLabel from './StayTierLabel.astro';
+import { normalizeStayTier } from '../lib/stay-tier';
 import SmartImg from './SmartImg.astro';
 import { creditAuthorFor, adaptationNoteFor, fileIdFromAccommodatiePath, getImageCredit, licenseLabelFor } from '../lib/image-credits';
 
@@ -53,7 +55,6 @@ const altText = kaart.fotoAlt || `${kaart.naam}, ${kaart.plaats}`;
 // LAT-1406: tier-badge — alleen tonen als het verblijf gecureerd is.
 // LAT-2771: label via de dictionary (`stay.tier.<tier>`) i.p.v. STAY_TIER_META,
 // zodat /en/ het Engelse label krijgt. De NL-defaults zijn identiek.
-const tierLabel = kaart.tier && !hideTier ? ui.t(`stay.tier.${kaart.tier}`) : null;
 
 // LAT-1664/1775: converteer bron-valuta → display (EUR). De per-kaart bron-valuta
 // heeft voorrang op de pagina-brede waarde. formatNightlyPrice onderdrukt absurde
@@ -79,7 +80,9 @@ const ctaDisclosure = isAffiliateHref(href) ? ui.t('stay.disclosure.microcopy') 
 const compactTekst = compact ? (kaart.beschrijving || kaart.whyRegel || '') : '';
 // Alleen een "Lees meer" als de tekst de twee regels waarschijnlijk overschrijdt.
 const compactLang = compactTekst.length > 110;
-const compactMeta = [plaatsKort(kaart.plaats), tierLabel].filter(Boolean).join(' · ');
+// LAT-14550: de tier staat als StayTierLabel (icoon + naam) op de kaart, niet nog eens in de meta-regel.
+const tierBadge = kaart.tier && !hideTier ? normalizeStayTier(kaart.tier) : null;
+const compactMeta = plaatsKort(kaart.plaats);
 const credit = compact && kaart.foto ? await getImageCredit(fileIdFromAccommodatiePath(kaart.foto), { adapted: true }) : null;
 ---
 
@@ -98,6 +101,7 @@ const credit = compact && kaart.foto ? await getImageCredit(fileIdFromAccommodat
     </div>
   )}
   <div class="acc-kaart__body">
+    {tierBadge && <div class="acc-kaart__tier"><StayTierLabel tier={tierBadge} variant="badge" locale={locale} /></div>}
     <h3 class="acc-kaart__name">{kaart.naam}</h3>
     {compactMeta && <p class="acc-kaart__meta">{compactMeta}</p>}
     {compactTekst && <p class="acc-kaart__desc">{compactTekst}</p>}
@@ -133,7 +137,7 @@ const credit = compact && kaart.foto ? await getImageCredit(fileIdFromAccommodat
     fotoAlt: altText,
     fotoTheme: 'winery',
     hideMediaWhenEmpty: true,
-    badge: tierLabel,
+    tier: tierBadge,
     plaats: toonPlaats ? plaatsKort(kaart.plaats) || null : null,
     whyRegel: kaart.whyRegel ?? kaart.beschrijving,
     prijs,
@@ -153,6 +157,7 @@ const credit = compact && kaart.foto ? await getImageCredit(fileIdFromAccommodat
 <style>
   /* LAT-13771 — compacte verblijfkaart in wijnhuizenstijl (wh-card). Wit vlak met vaste
      kleuren, ook in kelder-modus, net als .wh-card op /wijnhuizen/. */
+  .acc-kaart__tier { margin: 0 0 0.5rem; }
   .acc-kaart {
     position: relative; display: flex; flex-direction: column; height: 100%;
     background: #fff; color: #1F1A16; border-radius: var(--radius-card); overflow: hidden;

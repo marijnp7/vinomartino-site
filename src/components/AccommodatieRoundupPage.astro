@@ -20,6 +20,8 @@ import { currencyForLand } from '../lib/currency';
 import { organizationSchema, breadcrumbSchema } from '../lib/seo';
 import { loadUiStrings } from '../lib/ui-strings';
 import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
+import StayTierLabel from './StayTierLabel.astro';
+import { type StayTier } from '../lib/stay-tier';
 
 interface Props {
   roundup: Roundup;
@@ -122,9 +124,19 @@ const schema = [
           </select>
         </div>
         {toonKlasse && (
-          <div class="wh-field">
-            <label for="acc-klasse">{ui.t('accommodaties.filter.klasse.label')}</label>
-            <select id="acc-klasse" name="klasse" data-kh-select>
+          <div class="wh-field acc-klasse">
+            {/* LAT-14550: native <select> kan geen icoon tonen. Knoppen met icoon + naam
+                sturen de verborgen select aan; filterlogica blijft in keuzehulp-client. */}
+            <span class="acc-klasse__label" id="acc-klasse-label">{ui.t('accommodaties.filter.klasse.label')}</span>
+            <div class="acc-klasse__seg" role="group" aria-labelledby="acc-klasse-label">
+              <button type="button" class="acc-klasse__btn" data-kh-seg="klasse" data-value="" aria-pressed="true">{ui.t('accommodaties.filter.klasse.alle')}</button>
+              {klasseOpties.map(([tier, n]) => (
+                <button type="button" class="acc-klasse__btn" data-kh-seg="klasse" data-value={tier} aria-pressed="false">
+                  <StayTierLabel tier={tier as StayTier} variant="inline" locale={locale} /> <span class="acc-klasse__n" data-kh-seg-n>({n})</span>
+                </button>
+              ))}
+            </div>
+            <select id="acc-klasse" name="klasse" data-kh-select hidden aria-hidden="true" tabindex="-1">
               <option value="">{ui.t('accommodaties.filter.klasse.alle')}</option>
               {klasseOpties.map(([tier, n]) => (
                 <option value={tier} data-label={ui.t(`stay.tier.${tier}`)}>{ui.t(`stay.tier.${tier}`)} ({n})</option>
@@ -192,6 +204,18 @@ const schema = [
 </script>
 
 <style>
+  /* LAT-14550 — klasse als segmented control: icoon + naam per knop, aria-pressed. */
+  .acc-klasse { grid-column: 1 / -1; }
+  .acc-klasse__label { font-family: var(--font-ui); font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #5A1A1F; }
+  .acc-klasse__seg { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .acc-klasse__btn {
+    display: inline-flex; align-items: center; gap: 0.25rem; min-height: 44px; padding: 0.4rem 0.8rem;
+    font: 600 0.875rem/1 var(--font-ui, sans-serif); color: #1F1A16; background: var(--fixed-cream, #F5EFE3);
+    border: 1px solid var(--inkFaint, #6B6054); border-radius: 999px; cursor: pointer;
+  }
+  .acc-klasse__btn:hover { border-color: var(--inkSoft, #5A4F45); }
+  .acc-klasse__btn[aria-pressed='true'] { background: #fff; border-color: #1F1A16; box-shadow: inset 0 0 0 1px #1F1A16; }
+  .acc-klasse__n { font-weight: 400; color: #5A4F45; }
   /* LAT-13771 — compacte hero: de resultaten moeten boven de vouw beginnen. */
   .hero-sm {
     background: var(--paperDeep);
@@ -258,6 +282,7 @@ const schema = [
     .acc-resultaten { padding-top: var(--space-4); }
     .acc-keuzehulp :global(.wh-filters.kh-filters--selects) { display: flex; flex-wrap: wrap; align-items: flex-end; padding-block: var(--space-4); }
     .acc-keuzehulp :global(.kh-filters--selects .wh-field) { flex: 0 1 16rem; min-width: 10rem; }
+    .acc-keuzehulp :global(.kh-filters--selects .wh-field.acc-klasse) { flex: 0 1 auto; }
     .acc-keuzehulp :global(.kh-filters--selects .wh-status) { flex: 1 1 14rem; border-top: 0; padding-top: 0; min-height: 44px; }
   }
   @media (max-width: 420px) {

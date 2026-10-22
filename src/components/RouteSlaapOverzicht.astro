@@ -2,6 +2,7 @@
 // LAT-12710 — slaapoverzicht: vergelijkingskaarten (naam, dorp, type, waarom in één zin,
 // boek-knop) met optioneel label "Hier sliepen wij" en één disclosure-regel onder het blok.
 import PoiCard from './PoiCard.astro';
+import { stayNaamKey, type StayTier } from '../lib/stay-tier';
 import { type PaginaSlaap } from '../lib/route-pagina';
 import { accommodatieBookingDeeplink } from '../lib/affiliates';
 import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
@@ -15,8 +16,10 @@ interface Props {
   context: string;
   id?: string;
   locale?: Locale;
+  /** LAT-14550: tier per verblijfsnaam (stayNaamKey) uit de gecureerde selectie. */
+  stayTiers?: Record<string, StayTier>;
 }
-const { kop, intro, items, disclosureHtml = '', context, id = 'slapen', locale = DEFAULT_LOCALE } = Astro.props;
+const { kop, intro, items, disclosureHtml = '', context, id = 'slapen', locale = DEFAULT_LOCALE, stayTiers = {} } = Astro.props;
 const ui = await loadUiStrings(locale);
 const disclosure = disclosureHtml || `<p>${ui.t('stay.disclosure.microcopy')}</p>`;
 ---
@@ -30,6 +33,10 @@ const disclosure = disclosureHtml || `<p>${ui.t('stay.disclosure.microcopy')}</p
         const href = accommodatieBookingDeeplink(it.naam, '', it.bookingUrl, `route-${context}`, locale);
         // LAT-13527: een Booking-zoekopdracht (searchresults) is geen hotelpagina; de knop zegt dat eerlijk.
         const zoek = /searchresults/i.test(href);
+        // LAT-14550: staat het adres in de gecureerde selectie, dan het tierlabel als badge;
+        // het redactielabel (bv. "Goede basis") schuift naar de meta-regel.
+        const tier = stayTiers[stayNaamKey(it.naam)] ?? null;
+        const meta = [it.plaats, it.type].filter(Boolean).join(' · ');
         return (
         <PoiCard
           locale={locale}
@@ -38,8 +45,9 @@ const disclosure = disclosureHtml || `<p>${ui.t('stay.disclosure.microcopy')}</p
             foto: it.foto,
             fotoId: it.fotoId,
             hideMediaWhenEmpty: true,
-            badge: it.label ?? [it.plaats, it.type].filter(Boolean).join(' · '),
-            beschrijving: it.label ? [it.plaats, it.type].filter(Boolean).join(' · ') : null,
+            tier,
+            badge: tier ? null : it.label ?? meta,
+            beschrijving: tier ? [it.label, meta].filter(Boolean).join(' · ') || null : it.label ? meta : null,
             whyRegel: it.why,
             boeklink: href,
             cta: ui.t(zoek ? 'route.cta.zoekBooking' : 'streekkaart.cta.overnachten'),
