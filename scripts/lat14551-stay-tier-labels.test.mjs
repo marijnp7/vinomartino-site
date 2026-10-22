@@ -31,6 +31,17 @@ test('ROOD: tekstbadge zonder icoon (poi-card__badge, build 1580)', () => {
   assert.deepEqual(kinds(`<span class="poi-card__badge">Value for money</span>`), ['los-label:Value for money']);
 });
 
+test('verborgen <select hidden aria-hidden> achter de segmented control is groen (build 1581)', () => {
+  const html = `<div class="acc-klasse__seg"><button aria-pressed="false">${label('pure_luxe', 'Pure luxe', 'inline')} (3)</button></div><select id="acc-klasse" name="klasse" data-kh-select hidden aria-hidden="true" tabindex="-1"><option value="pure_luxe" data-label="Pure luxe">Pure luxe (3)</option></select>`;
+  assert.deepEqual(kinds(html), []);
+});
+
+test('ROOD: alleen hidden of alleen aria-hidden is niet genoeg', () => {
+  const opt = `<option value="pure_luxe">Pure luxe (3)</option>`;
+  assert.deepEqual(kinds(`<select hidden>${opt}</select>`), ['los-label:Pure luxe']);
+  assert.deepEqual(kinds(`<select aria-hidden="true">${opt}</select>`), ['los-label:Pure luxe']);
+});
+
 test('ROOD: tierfilter als native <option> (kan geen icoon tonen)', () => {
   const html = `<select><option value="">Alle klassen</option><option value="pure_luxe" data-label="Pure luxe">Pure luxe (3)</option></select>`;
   assert.deepEqual(kinds(html), ['los-label:Pure luxe']);

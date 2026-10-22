@@ -63,6 +63,9 @@ export function scanHtml(html) {
   const tokenRe = /<!--[\s\S]*?-->|<\/?([a-zA-Z][\w:-]*)([^>]*)>|[^<]+/g;
   let m;
   const inGroup = () => stack.some((e) => e.group);
+  // Onzichtbaar voor iedereen (hidden + aria-hidden): de verborgen <select> achter
+  // de segmented control op /accommodaties/<streek>/ is statusopslag, geen label.
+  const inHidden = () => stack.some((e) => e.hidden);
   const inGroupHead = () => {
     for (let i = stack.length - 1; i >= 0; i--) {
       if (stack[i].group) return false;
@@ -103,6 +106,7 @@ export function scanHtml(html) {
         tag,
         icon: false,
         group: classes.includes('acc-roundup__category') || /\bdata-stay-tier-group\b/i.test(attrs),
+        hidden: /(^|\s)hidden(\s|=|$)/i.test(attrs) && /aria-hidden\s*=\s*["']?true/i.test(attrs),
         head: tag === 'header' || /^h[1-6]$/.test(tag) || classes.some((c) => c.endsWith('-head')),
       });
       continue;
@@ -110,7 +114,7 @@ export function scanHtml(html) {
     const label = tierNameOf(tok);
     if (!label || !stack.length) continue;
     const parent = stack[stack.length - 1];
-    if (parent.tag === 'title' || PROSE_EMPHASIS.has(parent.tag)) continue;
+    if (parent.tag === 'title' || PROSE_EMPHASIS.has(parent.tag) || inHidden()) continue;
     if (inGroup() && !inGroupHead()) {
       findings.push({ kind: 'dubbel-label', label, context: ctx(m.index) });
     } else if (!parent.icon) {
