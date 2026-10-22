@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { readFileSync } from 'node:fs';
 import { getPinPlan } from '../../../lib/pin-plan';
+import { pinImageSlug } from '../../../lib/pins';
 
 // LAT-12109: goedgekeurde DAM-pins (PNG, 1000x1500) ongewijzigd uitgeleverd.
 export async function getStaticPaths() {
@@ -9,10 +10,11 @@ export async function getStaticPaths() {
     const paths: { params: { lang: string; slug: string } }[] = [];
     for (const it of plan.items) {
         if (it.imageMime !== 'image/png') continue;
-        const k = `${it.lang}/${it.slug}`;
+        const slug = pinImageSlug(it.slug, it.variant);
+        const k = `${it.lang}/${slug}`;
         if (seen.has(k)) continue;
         seen.add(k);
-        paths.push({ params: { lang: it.lang, slug: it.slug } });
+        paths.push({ params: { lang: it.lang, slug } });
     }
     return paths;
 }
