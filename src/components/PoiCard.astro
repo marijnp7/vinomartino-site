@@ -161,15 +161,21 @@ const boeklinkIsZoek = typeof boeklink === 'string' && /searchresults|[?&]ss=/i.
   )}
 
   <div class="poi-card__body">
+    {/* LAT-14555: tier/badge altijd op een eigen regel bóven de naam (zoals AccommodatieKaart),
+        zodat kaarten met korte en lange namen gelijk uitlijnen. */}
+    {(tier || badge) && (
+      <div class="poi-card__tier">
+        {tier ? (
+          <StayTierLabel tier={tier} variant="badge" locale={locale} />
+        ) : (
+          <span class="poi-card__badge" style={`color:${badgeColor};border-color:${badgeColor}`}>{badge}</span>
+        )}
+      </div>
+    )}
     <div class="poi-card__head">
       <h4 class="poi-card__name">
         {detailUrl ? <a href={lh(detailUrl)}>{naam}</a> : boeklink && !boeklinkIsZoek ? <a href={boeklink} target="_blank" rel="sponsored nofollow noopener" data-affiliate-track data-affiliate-partner={partner} data-affiliate-placement={placement} data-affiliate-context={context}>{naam}</a> : externeUrl ? <a href={externeUrl} target="_blank" rel="noopener">{naam}</a> : naam}
       </h4>
-      {tier ? (
-        <StayTierLabel tier={tier} variant="badge" locale={locale} />
-      ) : badge && (
-        <span class="poi-card__badge" style={`color:${badgeColor};border-color:${badgeColor}`}>{badge}</span>
-      )}
     </div>
     {plaats && <p class="poi-card__plaats">{plaats}</p>}
 
@@ -280,7 +286,8 @@ const boeklinkIsZoek = typeof boeklink === 'string' && /searchresults|[?&]ss=/i.
     min-width: 0;
     padding: 1.1rem 1.2rem 1rem;
   }
-  .poi-card__head { display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap; }
+  .poi-card__tier { display: flex; align-self: flex-start; margin: 0 0 0.6rem; }
+  .poi-card__head { display: block; }
   .poi-card__name {
     font-family: var(--font-display, Georgia, serif);
     font-size: 1.25rem;
@@ -308,7 +315,7 @@ const boeklinkIsZoek = typeof boeklink === 'string' && /searchresults|[?&]ss=/i.
     line-height: 1.5;
     color: var(--inkSoft, #5A4F45);
     margin: 0.5rem 0 0.85rem;
-    flex: 1;
+    flex: 0 0 auto;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
@@ -320,14 +327,14 @@ const boeklinkIsZoek = typeof boeklink === 'string' && /searchresults|[?&]ss=/i.
     line-height: 1.55;
     color: var(--inkSoft, #5A4F45);
     margin: 0.5rem 0 0.85rem;
-    flex: 1;
+    flex: 0 0 auto;
     display: -webkit-box;
     -webkit-line-clamp: 4;
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
-  /* Als why + desc samen voorkomen, mag alleen de why de flex-ruimte opeisen. */
-  .poi-card__why + .poi-card__desc { flex: initial; }
+  /* LAT-14555: why/desc krimpen of rekken nooit (een gekrompen line-clamp kapte de laatste regel
+     half af boven de knop); de voet zakt via margin-top:auto naar de onderkant. */
   .poi-card__foot {
     display: flex;
     align-items: center;
