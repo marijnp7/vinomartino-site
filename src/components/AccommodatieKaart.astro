@@ -42,9 +42,11 @@ interface Props {
    * (icoon + tierlabel) zegt het al; dezelfde badge op elke kaart is dubbel.
    */
   hideTier?: boolean;
+  /** LAT-14500: toon de plaats op de kaart wanneer er geen plaatskop boven staat (tiergroepering). */
+  toonPlaats?: boolean;
 }
 
-const { kaart, context, bronValuta, displayValuta = 'EUR', locale = DEFAULT_LOCALE, variant = 'default', hideTier = false } = Astro.props;
+const { kaart, context, bronValuta, displayValuta = 'EUR', locale = DEFAULT_LOCALE, variant = 'default', hideTier = false, toonPlaats = false } = Astro.props;
 const ui = await loadUiStrings(locale);
 const href = accommodatieBookingHref(kaart);
 const altText = kaart.fotoAlt || `${kaart.naam}, ${kaart.plaats}`;
@@ -132,6 +134,7 @@ const credit = compact && kaart.foto ? await getImageCredit(fileIdFromAccommodat
     fotoTheme: 'winery',
     hideMediaWhenEmpty: true,
     badge: tierLabel,
+    plaats: toonPlaats ? plaatsKort(kaart.plaats) || null : null,
     whyRegel: kaart.whyRegel ?? kaart.beschrijving,
     prijs,
     boeklink: href,

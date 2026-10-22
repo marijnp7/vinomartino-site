@@ -34,14 +34,21 @@ interface Props {
    * sprong-nav en groepskoppen. 'default' groepeert de kaarten per CMS-categorie binnen elk cluster.
    */
   variant?: 'default' | 'index';
+  /**
+   * LAT-14500: 'tier' = één tierkop per tier voor de hele roundup, met de kaarten van
+   * alle plaatsen eronder (volgorde binnen een tier blijft clustervolgorde) en de plaats
+   * op de kaart. 'cluster' (default) groepeert eerst per plaats, dan per tier.
+   */
+  groupBy?: 'cluster' | 'tier';
 }
 
-const { roundup, context, hideHead = false, bronValuta, displayValuta = 'EUR', locale = DEFAULT_LOCALE, variant = 'default' } = Astro.props;
+const { roundup, context, hideHead = false, bronValuta, displayValuta = 'EUR', locale = DEFAULT_LOCALE, variant = 'default', groupBy = 'cluster' } = Astro.props;
 const ui = await loadUiStrings(locale);
 
 // Alleen clusters met daadwerkelijke kaarten tonen (LAT-1406).
 const groepen = roundup.clusters.filter((c) => c.kaarten.length > 0);
-const heeftNav = groepen.length > 1;
+const perTier = groupBy === 'tier';
+const heeftNav = groepen.length > 1 && !perTier;
 const sectionId = `acc-roundup-${(context || roundup.regio).toLowerCase().replace(/[^a-z0-9-]/gi, '-')}`;
 const isIndex = variant === 'index';
 // LAT-13771 — platte lijst in dezelfde volgorde als de groepen; de klasse is de CMS-tier.
@@ -58,6 +65,18 @@ const categorieGroepen = groepen.map((groep) => ({
   // Unclassified records remain visible without inventing a category.
   overig: groep.kaarten.filter((kaart) => !STAY_TIER_ORDER.includes(kaart.tier!)),
 }));
+// LAT-14500 — één groep voor de hele roundup; geen plaatskop, dus de plaats staat op de kaart.
+const alleKaarten = groepen.flatMap((g) => g.kaarten);
+const tierGroep = {
+  categorieen: STAY_TIER_ORDER.map((tier) => ({
+    tier,
+    kaarten: alleKaarten.filter((kaart) => kaart.tier === tier),
+    id: `${sectionId}-${tier}`,
+    label: ui.t(`stay.tier.${tier}`),
+    description: ui.t(`stay.tier.${tier}.description`),
+  })).filter((categorie) => categorie.kaarten.length > 0),
+  overig: alleKaarten.filter((kaart) => !STAY_TIER_ORDER.includes(kaart.tier!)),
+};
 ---
 
 {groepen.length > 0 && (
@@ -82,6 +101,41 @@ const categorieGroepen = groepen.map((groep) => ({
             <AccommodatieKaart kaart={kaart} context={context || roundup.regio} bronValuta={bronValuta} displayValuta={displayValuta} locale={locale} variant="compact" />
           </div>
         ))}
+      </div>
+    ) : perTier ? (
+      <div class="acc-roundup__groep">
+        {tierGroep.categorieen.length > 1 && (
+          <nav class="acc-roundup__categories" aria-label={ui.t('acc.categoryNavAria')}>
+            <ul>
+              {tierGroep.categorieen.map((categorie) => (
+                <li><a href={`#${categorie.id}`}>
+                  <span class="acc-roundup__category-label"><span class="acc-roundup__category-name"><StayTierIcon tier={categorie.tier} />{categorie.label}</span><span aria-hidden="true">↘</span></span>
+                  <span class="acc-roundup__category-description">{categorie.description}</span>
+                </a></li>
+              ))}
+            </ul>
+          </nav>
+        )}
+        {tierGroep.categorieen.map((categorie) => (
+          <section class="acc-roundup__category" id={categorie.id} aria-labelledby={`${categorie.id}-title`}>
+            <header class="acc-roundup__category-head">
+              <h3 id={`${categorie.id}-title`}><StayTierIcon tier={categorie.tier} size={32} />{categorie.label}</h3>
+              <p>{categorie.description}</p>
+            </header>
+            <div class="acc-roundup__grid acc-roundup__grid--editorial">
+              {categorie.kaarten.map((kaart) => (
+                <AccommodatieKaart kaart={kaart} context={context || roundup.regio} bronValuta={bronValuta} displayValuta={displayValuta} locale={locale} hideTier toonPlaats />
+              ))}
+            </div>
+          </section>
+        ))}
+        {tierGroep.overig.length > 0 && (
+          <div class="acc-roundup__grid acc-roundup__grid--editorial">
+            {tierGroep.overig.map((kaart) => (
+              <AccommodatieKaart kaart={kaart} context={context || roundup.regio} bronValuta={bronValuta} displayValuta={displayValuta} locale={locale} toonPlaats />
+            ))}
+          </div>
+        )}
       </div>
     ) : (<>
     {heeftNav && (
