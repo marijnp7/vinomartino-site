@@ -98,7 +98,8 @@ import { DEFAULT_LOCALE, type Locale } from './i18n';
 import { localizeRecords, localizeJoinedRefs, localizeNestedRefs } from './directus-i18n';
 
 // LAT-2575 — vertaalbare wijnhuis-velden (native Directus translations, LAT-2574).
-const WIJNHUIZEN_TRANSLATABLE = ['description', 'body', 'meta_title', 'meta_description', 'hero_alt'];
+// LAT-14740: `address` is een scalar overlay; leeg EN-veld = NL-adres (meestal taalneutraal).
+const WIJNHUIZEN_TRANSLATABLE = ['description', 'body', 'meta_title', 'meta_description', 'hero_alt', 'address'];
 // LAT-12924 — portret-2.0-leestekst. Strikt vervangen, geen NL-fallback: is het EN-veld
 // leeg, dan is het blok op /en/ verborgen (HARDE REGEL 20). mergeTranslatedValue zou
 // een kortere EN-array aanvullen met de NL-staart, dus de NL-basis gaat eerst leeg.

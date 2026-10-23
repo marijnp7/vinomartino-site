@@ -33,6 +33,7 @@
     "test:lat13771-accommodaties": "node --test scripts/lat13771-accommodaties-stijl.test.mjs",
     "test:lat14556-route-stay-images": "node --test scripts/lat14556-route-stay-images.test.mjs",
     "test:lat14550-tier-label": "node --test scripts/lat14550-tier-label.test.mjs",
+    "test:lat14740-en-wijnhuis-adres": "node --test scripts/lat14740-en-wijnhuis-adres.test.mjs",
     "test:lat13773-artikelen": "node --test scripts/lat13773-artikelen-keuzehulp.test.mjs",
     "test:search-index-locale": "node --test scripts/lat12594-search-index-locale.test.mjs",
     "test:lat13202-meta-description": "node --test scripts/lat13202-meta-description.test.mjs",
