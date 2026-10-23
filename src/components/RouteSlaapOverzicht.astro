@@ -58,6 +58,7 @@ const disclosure = disclosureHtml || `<p>${ui.t('stay.disclosure.microcopy')}</p
             naam: it.naam,
             routeStay: key,
             accRecord: Boolean(rec),
+            accRecordFoto: Boolean(rec?.foto),
             cardId: nacht != null ? undefined : routeStayAnchor(key),
             verwijzing: nacht != null ? { tekst: ui.t('route.stay.zelfdeAdres').replace('{n}', String(nacht)), href: `#${routeStayAnchor(key)}` } : null,
             foto: recFoto ?? it.foto,

@@ -50,3 +50,16 @@ test('spotlight en beeldreeks crediteren het huis ook alleen bij door het huis a
     assert.match(reeks, /const huisBeeld = !p\.zelfGeweest && \(await isHouseSuppliedImage\(b\.id\)\)/);
     assert.match(reeks, /: huisBeeld \? `\$\{ui\.t\('wijnhuis\.reeks\.foto'\)\}: \$\{name\}`/);
 });
+
+// LAT-14556: de "via" in de provenance-staart mocht de maker niet pas daar afknippen; de
+// pipe ervóór is het einde van de makernaam. Anders kwam "toestemming wijnhuis …" op /en/.
+test('pers-herkomst met pipe vóór "via": maker is alleen de huisnaam', async () => {
+    const { creditFromFileMeta, parseHerkomst } = await loadCredits();
+    const herkomst = 'Foto: Groot Constantia | Bron: https://grootconstantia.co.za/ (toestemming wijnhuis 21-10-2026 via FusionDesign, redactioneel gebruik, geen AI-bewerking).';
+    assert.equal(parseHerkomst(herkomst).maker, 'Groot Constantia');
+    const credit = creditFromFileMeta('pers', herkomst);
+    assert.equal(credit.author, '© Groot Constantia');
+    assert.equal(credit.licenseLabel, 'met toestemming');
+    assert.equal(credit.sourceUrl, 'https://grootconstantia.co.za/');
+    assert.doesNotMatch(JSON.stringify(credit), /toestemming wijnhuis|Bron:/);
+});

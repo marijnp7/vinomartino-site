@@ -92,6 +92,7 @@ const heeftChips = hasDagen(stops.filter((s) => s && Number.isFinite(s.lat) && N
           naam: slaap.naam,
           routeStay: slaapKey,
           accRecord: Boolean(rec),
+            accRecordFoto: Boolean(rec?.foto),
           cardId: herhaling ? undefined : routeStayAnchor(slaapKey),
           verwijzing: herhaling ? { tekst: ui.t('route.stay.zelfdeAdres').replace('{n}', String(eerste)), href: `#${routeStayAnchor(slaapKey)}` } : null,
           foto: recFoto ?? slaap.foto,

@@ -87,6 +87,12 @@ export interface PoiCardData {
   routeStay?: string | null;
   /** LAT-14556 — beeld en tier komen uit het gekoppelde accommodations-record. */
   accRecord?: boolean;
+  /**
+   * LAT-14556 (herkeuring 23-10) — false = het record heeft (nog) geen toegestane foto (bv.
+   * hero_image null zonder beeldtoestemming). Dan is de huisstijl-placeholder bedoeld en markeert
+   * de kaart dat expliciet (`data-acc-record="zonder-foto"`); een record mét foto blijft strikt.
+   */
+  accRecordFoto?: boolean;
   /** LAT-14556 — adres kwam al eerder als volle kaart: alleen een compacte verwijzing. */
   verwijzing?: { tekst: string; href: string } | null;
   /** DOM-id voor de kaart-sync (klik op pin scrollt naar deze kaart). */
@@ -135,6 +141,7 @@ const {
   hideMediaWhenEmpty = false,
   routeStay = null,
   accRecord = false,
+  accRecordFoto,
   verwijzing = null,
 } = poi;
 // LAT-13488: `color` vult het nummer (crème erop); de badge is tekst en krijgt bij de
@@ -159,12 +166,12 @@ const boeklinkIsZoek = typeof boeklink === 'string' && /searchresults|[?&]ss=/i.
   class="poi-card"
   id={cardId}
   data-route-stay={routeStay ?? undefined}
-  data-acc-record={routeStay && accRecord ? '' : undefined}
+  data-acc-record={routeStay && accRecord ? (accRecordFoto === false ? 'zonder-foto' : '') : undefined}
   data-skz-card={plotted && hasNumber ? n : undefined}
   tabindex={plotted && hasNumber ? 0 : undefined}
 >
   {showMedia && (
-    <div class:list={['poi-card__media', !foto && 'poi-card__media--empty']}>
+    <div class:list={['poi-card__media', !foto && !routeStay && 'poi-card__media--empty', !foto && routeStay && 'poi-card__media--placeholder']}>
       <SmartImg src={foto ?? undefined} alt={altText} theme={fotoTheme} class="poi-card__img" />
       {hasNumber && (
         <span class="poi-card__num" style={`background:${color}`}>{n}</span>
@@ -268,6 +275,9 @@ const boeklinkIsZoek = typeof boeklink === 'string' && /searchresults|[?&]ss=/i.
     aspect-ratio: auto;
     height: clamp(96px, 26vw, 140px);
   }
+  /* LAT-14556 (herkeuring 23-10): een routeslaapkaart zonder foto houdt de volle 4:3-hoogte,
+     anders springt de titelregel in een rij met echte foto's. */
+  .poi-card__media--placeholder :global(.smart-img-placeholder) { width: 100%; height: 100%; }
   .poi-card__img {
     width: 100%;
     height: 100%;

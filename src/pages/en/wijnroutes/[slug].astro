@@ -40,6 +40,9 @@ export async function getStaticPaths() {
         landName: streek?.country ?? '',
         wijnhuizen: routeWijnhuizen,
         staysRoundup,
+        // LAT-14556: records (tier, foto) uit álle published accommodations van de streek, ook
+        // zonder foto (bv. Palazzo Finati: hero_image null zonder beeldtoestemming).
+        stayRecordsRoundup: rawRoundup ?? null,
         // Deze route bestaat per definitie alleen voor EN-vertaalde routes.
         alternates: { nl: `/wijnroutes/${entry.slug}/`, en: `/en/wijnroutes/${entry.slug}/` },
       },
@@ -47,10 +50,10 @@ export async function getStaticPaths() {
   });
 }
 
-const { entry, streekName, landSlug, landName, wijnhuizen, staysRoundup, alternates } = Astro.props as {
+const { entry, streekName, landSlug, landName, wijnhuizen, staysRoundup, stayRecordsRoundup, alternates } = Astro.props as {
   entry: WijnRoute; streekName: string; landSlug: string; landName: string; wijnhuizen: Wijnhuis[];
-  staysRoundup: AccommodatieRoundupData | null; alternates: Record<string, string>;
+  staysRoundup: AccommodatieRoundupData | null; stayRecordsRoundup?: AccommodatieRoundupData | null; alternates: Record<string, string>;
 };
 ---
 
-<RouteDetail entry={entry} streekName={streekName} landSlug={landSlug} landName={landName} wijnhuizen={wijnhuizen} staysRoundup={staysRoundup} locale={EN} alternates={alternates} />
+<RouteDetail entry={entry} streekName={streekName} landSlug={landSlug} landName={landName} wijnhuizen={wijnhuizen} staysRoundup={staysRoundup} stayRecordsRoundup={stayRecordsRoundup} locale={EN} alternates={alternates} />
