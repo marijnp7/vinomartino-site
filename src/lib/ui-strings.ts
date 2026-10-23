@@ -349,6 +349,8 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     'header.cellar.exitLabel': 'Naar buiten',
     'header.cellar.tipText': 'Te fel voor je ogen? Lees in de donkere kelder-modus.',
     'header.mobile.menuAria': 'Menu openen',
+    // LAT-14701 — naam van de menuknop in open stand.
+    'header.mobile.menuCloseAria': 'Menu sluiten',
     'header.mobile.ontdekHeader': 'Kies je bestemming',
     'header.mobile.ontdekSubhead': 'Ontdek een wijnregio',
     'header.mobile.ontdekAll': 'Naar de Ontdek-atlas',
@@ -1334,6 +1336,9 @@ export const UI_STRING_EN: Record<string, string> = {
   // staten komen nu uit ui_strings, ook op /en/.
   'header.cellar.enterAria': 'Go to the cellar (dark mode)',
   'header.cellar.exitAria': 'Go outside (light mode)',
+  // LAT-14701 — mobiele menuknop: naam per stand, ook op /en/.
+  'header.mobile.menuAria': 'Open menu',
+  'header.mobile.menuCloseAria': 'Close menu',
 
   // LAT-11950 — het promoblok in "Ontdek" claimde eigen bezoek voor élke
   // landengids, ook op /en/. Deze keys stonden alleen in UI_STRING_DEFAULTS, dus

@@ -185,7 +185,15 @@ const ontdekPromo = {
           </span>
         </span>
 
-        <button class="mobile-toggle" aria-label={ui.t('header.mobile.menuAria')} aria-expanded="false" aria-controls="mobile-menu">
+        <button
+          class="mobile-toggle"
+          type="button"
+          aria-label={ui.t('header.mobile.menuAria')}
+          aria-expanded="false"
+          aria-controls="mobile-menu"
+          data-aria-open={ui.t('header.mobile.menuAria')}
+          data-aria-close={ui.t('header.mobile.menuCloseAria')}
+        >
           <span></span><span></span><span></span>
         </button>
       </div>
@@ -747,10 +755,30 @@ const ontdekPromo = {
 <script>
   const mobileToggle = document.querySelector('.mobile-toggle') as HTMLButtonElement;
   const mobileMenu = document.getElementById('mobile-menu') as HTMLElement;
-  mobileToggle?.addEventListener('click', () => {
-    const expanded = mobileToggle.getAttribute('aria-expanded') === 'true';
-    mobileToggle.setAttribute('aria-expanded', expanded ? 'false' : 'true');
-    mobileMenu.hidden = expanded;
+  // LAT-14701: Escape sluit het menu en zet de focus terug op de knop; gaat de
+  // focus het menu uit (Tab na het laatste item), dan sluit het menu. De naam
+  // van de knop volgt de stand (NL/EN uit ui_strings).
+  const setMobileMenu = (open: boolean, returnFocus = false) => {
+    if (!mobileToggle || !mobileMenu) return;
+    mobileToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    mobileToggle.setAttribute(
+      'aria-label',
+      (open ? mobileToggle.dataset.ariaClose : mobileToggle.dataset.ariaOpen) ?? '',
+    );
+    mobileMenu.hidden = !open;
+    if (returnFocus) mobileToggle.focus();
+  };
+  const mobileMenuOpen = () => mobileToggle?.getAttribute('aria-expanded') === 'true';
+  mobileToggle?.addEventListener('click', () => setMobileMenu(!mobileMenuOpen()));
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && mobileMenuOpen()) {
+      e.preventDefault();
+      setMobileMenu(false, true);
+    }
+  });
+  mobileMenu?.addEventListener('focusout', (e) => {
+    const next = (e as FocusEvent).relatedTarget as Node | null;
+    if (next && !mobileMenu.contains(next) && next !== mobileToggle) setMobileMenu(false);
   });
 
   // "Ontdek" desktop dropdown — de trigger is een link naar /ontdek/ (klik =
