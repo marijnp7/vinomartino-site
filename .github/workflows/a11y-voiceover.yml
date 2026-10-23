@@ -4,9 +4,6 @@
 name: A11y VoiceOver (L2)
 
 on:
-  # TIJDELIJK (LAT-14721 validatie vóór merge): verwijderen vóór approval.
-  push:
-    branches: [lat14721-a11y-voiceover]
   workflow_dispatch:
     inputs:
       base:
@@ -26,7 +23,7 @@ concurrency:
 
 jobs:
   voiceover:
-    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: macos-latest
     timeout-minutes: 45
     env:
