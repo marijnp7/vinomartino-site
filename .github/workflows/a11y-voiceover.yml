@@ -39,17 +39,19 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: VoiceOver vrijgeven voor automatisering
-        uses: guidepup/setup-action@0.21.0
-        with:
-          record: true
       - name: Afhankelijkheden (los van de site)
         working-directory: tests/a11y/vo
         run: |
           npm init -y >/dev/null
-          npm i --no-audit --no-fund @guidepup/guidepup@0.36.4 @guidepup/playwright@0.20.0 @playwright/test@1.64.1
+          npm i --no-audit --no-fund @guidepup/setup@0.29.3 @guidepup/guidepup@0.36.4 @guidepup/playwright@0.20.0 @playwright/test@1.64.1
           npx playwright install webkit
-          npx --yes @guidepup/setup install
+      # De setup-action bundelt @guidepup/setup ^0.23; guidepup 0.36 vraagt de lokale
+      # VoiceOver-plist die pas setup 0.29 aanmaakt. Daarom de CLI rechtstreeks.
+      - name: VoiceOver vrijgeven voor automatisering
+        working-directory: tests/a11y/vo
+        run: |
+          npx guidepup setup --ci --macos-record
+          npx guidepup install voiceover
       - name: Vijf stappen met VoiceOver
         working-directory: tests/a11y/vo
         run: npx playwright test -c playwright.config.mjs
@@ -64,5 +66,5 @@ jobs:
             voorleesverslag-voiceover/
             tests/a11y/vo/playwright-report/
             tests/a11y/vo/test-results/
-            recordings/
+            tests/a11y/vo/recordings/
           retention-days: 30
