@@ -9,6 +9,7 @@
 // gedownload uit DAM → Directus zoals bij de bestaande hero_image-loaders.
 
 import { buildBookingSearchLink, buildCjBookingLink, isDirectBoeklink, unwrapCjRedirect } from './affiliates';
+import type { Locale } from './i18n';
 import { herbouwClusterWeergave } from './accommodatie-cluster';
 import type { StayTier } from './stay-tier';
 
@@ -85,7 +86,7 @@ export interface AccommodatieRoundup {
  * Voorkeur: vooraf opgeloste cjHref. Anders: kale bookingUrl omwikkelen.
  * Geen geldige bron → null (component verbergt dan de CTA).
  */
-export function accommodatieBookingHref(kaart: AccommodatieKaart): string | null {
+export function accommodatieBookingHref(kaart: AccommodatieKaart, locale: Locale = 'nl'): string | null {
   const sid = `accommodation-${kaart.slug}`;
   if (kaart.cjHref && /^https?:\/\//.test(kaart.cjHref)) {
     // LAT-2251: een vooraf opgeloste cjHref kan een KALE booking.com-boeklink zijn
@@ -94,19 +95,19 @@ export function accommodatieBookingHref(kaart: AccommodatieKaart): string | null
     // affiliate-links (Stay22/GetYourGuide) blijven ongemoeid.
     const inner = unwrapCjRedirect(kaart.cjHref);
     if (/^https?:\/\/(www\.)?booking\.com\//i.test(inner)) {
-      return buildCjBookingLink(kaart.cjHref, sid);
+      return buildCjBookingLink(kaart.cjHref, sid, locale);
     }
     return kaart.cjHref;
   }
   if (kaart.bookingUrl && /^https?:\/\//.test(kaart.bookingUrl)) {
     // LAT-13078: directe link naar het huis zelf niet door de CJ-wrapper halen.
     if (isDirectBoeklink(kaart.bookingUrl)) return kaart.bookingUrl;
-    return buildCjBookingLink(kaart.bookingUrl, sid);
+    return buildCjBookingLink(kaart.bookingUrl, sid, locale);
   }
   // Geen property-URL in Directus → zoekdeeplink op naam + plaats, zodat de kaart
   // klikbaar blijft (en de klik via CJ geattribueerd wordt) i.p.v. een dode kaart.
   if (kaart.naam) {
-    return buildBookingSearchLink(kaart.plaats ? `${kaart.naam}, ${kaart.plaats}` : kaart.naam, sid);
+    return buildBookingSearchLink(kaart.plaats ? `${kaart.naam}, ${kaart.plaats}` : kaart.naam, sid, locale);
   }
   return null;
 }

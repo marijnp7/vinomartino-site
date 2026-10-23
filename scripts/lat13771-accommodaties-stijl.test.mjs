@@ -77,7 +77,7 @@ test('AccommodatieRoundup: default-variant behoudt geografische navigatie en too
 });
 
 test('compacte kaart: CTA via accommodatieBookingHref met dezelfde tracking als PoiCard', () => {
-  assert.match(KAART, /const href = accommodatieBookingHref\(kaart\);/);
+  assert.match(KAART, /const href = accommodatieBookingHref\(kaart, locale\);/);
   const cta = KAART.match(/<a\s+class="acc-kaart__cta"[\s\S]*?>/);
   assert.ok(cta, 'compacte CTA niet gevonden');
   for (const attr of ['href={href}', 'target="_blank"', 'rel="sponsored nofollow noopener"', 'data-affiliate-track',

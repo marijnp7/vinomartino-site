@@ -14,7 +14,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
-import { scanHtml } from './check-affiliate-links.mjs';
+import { scanHtml, scanEnRouteLocale } from './check-affiliate-links.mjs';
 
 const gyg = (path, params = 'partner_id=CRMZDZ6&utm_medium=online_publisher&cmp=streek-langhe') =>
   `<a href="https://www.getyourguide.com${path}?${params}">tour</a>`;
@@ -241,4 +241,27 @@ test('CLI: eenzelfde violation BUITEN preview laat de build wél rood vallen', a
       else reject(new Error(`verwacht exit 1, kreeg: ${err ? err.code : 0}`));
     });
   });
+});
+
+// LAT-14722 — EN-routepagina's: lang=en-gb op booking-doelen + EN-popuplabels.
+const S22 = (inner) => `https://www.stay22.com/allez/booking?aid=vinomartino&#x26;campaign=accommodation-le-cep-beaune&#x26;link=${encodeURIComponent(inner)}`;
+const geo = (roles) => `<script type="application/json" data-routegeo-data>${JSON.stringify({ slug: 'x', ...(roles ? { roles } : {}) })}</script>`;
+const EN_ROLES = { wijnhuis: 'Winery', slaap: 'Stay', dag: 'Day', stop: 'stop', van: 'From', naar: 'To' };
+
+test('ROOD LAT-14722: EN accommodation-link zonder lang=en-gb (QA b1616)', () => {
+  const v = scanEnRouteLocale(`<a href="${S22('https://www.booking.com/hotel/fr/le-cep.html?keep_landing=1')}">x</a>${geo(EN_ROLES)}`);
+  assert.equal(v.length, 1);
+  assert.match(v[0].reason, /lang=en-gb/);
+});
+
+test('GROEN LAT-14722: EN booking-doel mét lang=en-gb en EN-rollabels', () => {
+  const html = `<a href="${S22('https://www.booking.com/hotel/fr/le-cep.html?keep_landing=1&lang=en-gb')}">x</a>${geo(EN_ROLES)}`;
+  assert.deepEqual(scanEnRouteLocale(html), []);
+});
+
+test('ROOD LAT-14722: EN-kaartdata zonder roles of met NL-label "Overnachten"', () => {
+  assert.equal(scanEnRouteLocale(geo(null)).length, 1);
+  const v = scanEnRouteLocale(geo({ ...EN_ROLES, slaap: 'Overnachten' }));
+  assert.equal(v.length, 1);
+  assert.match(v[0].reason, /Overnachten/);
 });

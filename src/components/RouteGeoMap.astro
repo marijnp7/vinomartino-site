@@ -58,6 +58,15 @@ const mapData = {
   // LAT-2704 — basispad voor de wijnhuis-links in de popups, server-side gelokaliseerd.
   wijnhuisBase: lh('/wijnhuizen/'),
   portraitLabel: ui.t('route.leesPortret'),
+  // LAT-14722 — popup-rollabels uit de UI-dictionary, zodat EN niet 'Overnachten' toont.
+  roles: {
+    wijnhuis: ui.t('routegeo.legend.wijnhuis'),
+    slaap: ui.t('routegeo.legend.overnachten'),
+    dag: ui.t('routegeo.legend.dag'),
+    stop: ui.t('route.chips.stop'),
+    van: ui.t('routemap.endpointVan'),
+    naar: ui.t('routemap.endpointNaar'),
+  },
   rand: DAG_RAND,
   segments,
   stops: geo.map((s: RouteStopGeo, i: number) => {
@@ -111,7 +120,7 @@ const mapData = {
   type StopKind = 'stop' | 'wijnhuis' | 'slaap';
   type Stop = { n: number | null; dag: number | null; kleur: string | null; kind: StopKind; naam: string; slug: string | null; lat: number; lng: number };
   type Segment = { dag: number | null; kleur: string | null; coords: [number, number][]; road: boolean; meters: number | null };
-  type MapData = { slug: string; wijnhuisBase?: string; portraitLabel: string; rand: string; segments: Segment[]; stops: Stop[]; line: [number, number][] };
+  type MapData = { slug: string; wijnhuisBase?: string; portraitLabel: string; roles: Record<'wijnhuis' | 'slaap' | 'dag' | 'stop' | 'van' | 'naar', string>; rand: string; segments: Segment[]; stops: Stop[]; line: [number, number][] };
   type MapApi = { focusStop: (i: number) => void; highlightDag: (dag: number | null) => void };
 
   // LAT-13816 — per kaart (slug) een belofte op de API, zodat chips in de dagsecties
@@ -204,18 +213,18 @@ const mapData = {
       let role: string;
       if (s.kind === 'wijnhuis') {
         html = `<span class="rgm-pin rgm-pin--wijnhuis" aria-hidden="true"></span>`;
-        role = 'Wijnhuis';
+        role = data.roles.wijnhuis;
       } else if (s.kind === 'slaap') {
         html = `<span class="rgm-pin rgm-pin--slaap" aria-hidden="true"></span>`;
-        role = 'Overnachten';
+        role = data.roles.slaap;
       } else if (s.kleur) {
         // LAT-13816 — pin in de dagkleur, zwart nummer, donkere rand.
         html = `<span class="rgm-pin rgm-pin--dag rgm-pin--gekleurd" style="background:${s.kleur}">${s.n ?? ''}</span>`;
-        role = `Dag ${s.dag} · stop ${s.n}`;
+        role = `${data.roles.dag} ${s.dag} · ${data.roles.stop} ${s.n}`;
       } else {
         const isEnd = s.n === 1 || s.n === lastDay;
         html = `<span class="rgm-pin rgm-pin--dag${isEnd ? ' rgm-pin--end' : ''}">${s.n ?? ''}</span>`;
-        role = s.n === 1 ? 'Van' : s.n === lastDay ? 'Naar' : `Dag ${s.n}`;
+        role = s.n === 1 ? data.roles.van : s.n === lastDay ? data.roles.naar : `${data.roles.dag} ${s.n}`;
       }
       const icon = L.divIcon({ className: '', html, iconSize: [28, 28], iconAnchor: [14, 14] });
       const link = s.kind === 'wijnhuis' && s.slug

@@ -50,7 +50,7 @@ interface Props {
 
 const { kaart, context, bronValuta, displayValuta = 'EUR', locale = DEFAULT_LOCALE, variant = 'default', hideTier = false, toonPlaats = false } = Astro.props;
 const ui = await loadUiStrings(locale);
-const href = accommodatieBookingHref(kaart);
+const href = accommodatieBookingHref(kaart, locale);
 const altText = kaart.fotoAlt || `${kaart.naam}, ${kaart.plaats}`;
 // LAT-1406: tier-badge — alleen tonen als het verblijf gecureerd is.
 // LAT-2771: label via de dictionary (`stay.tier.<tier>`) i.p.v. STAY_TIER_META,

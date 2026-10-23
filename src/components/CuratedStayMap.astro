@@ -70,12 +70,12 @@ function bookingHref(acc: Accommodation): string {
     const direct = unwrapCjRedirect(raw);
     try {
       if (new URL(direct).hostname.toLowerCase().includes('booking.com')) {
-        return buildCjBookingLink(direct, sid);
+        return buildCjBookingLink(direct, sid, locale);
       }
     } catch { /* val terug op passthrough */ }
     return direct;
   }
-  return buildBookingSearchLink(acc.adres || `${acc.naam}, ${streek}`, sid);
+  return buildBookingSearchLink(acc.adres || `${acc.naam}, ${streek}`, sid, locale);
 }
 
 function affiliatePartner(href: string): string {
