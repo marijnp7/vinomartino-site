@@ -37,6 +37,8 @@ export interface ItineraryStop {
     fotoId?: string | null;
     /** Geverifieerde officiële website (extern). Leeg = kaartlink naar Google Maps. */
     website: string | null;
+    /** LAT-14732 — `false` in de CMS = geen Google Maps-terugval als `website` leeg is. */
+    kaartlink: boolean;
 }
 
 export interface ItineraryOvernachting {
@@ -108,6 +110,7 @@ function parseStop(row: unknown): ItineraryStop | null {
         duur: asString(rec.duur ?? rec.duration),
         foto: asString(rec.foto ?? rec.image ?? rec.dam_image_ref),
         website: asHttpUrl(rec.website ?? rec.url),
+        kaartlink: rec.kaartlink !== false,
     };
 }
 

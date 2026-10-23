@@ -120,8 +120,9 @@ const dayBlocks = itinerary.days.map((d) => ({
 
 function stopToPoi(stop: ItineraryStop, pin: CardPin, hasProse = false): PoiCardData {
   const detailUrl = stop.kind === 'wijnhuis' && stop.slug && wijnhuisSlugs.has(stop.slug) ? `/wijnhuizen/${stop.slug}/` : null;
-  // Geen eigen portret → officiële website (geverifieerd in de data), anders de plek op de kaart.
-  const externeUrl = detailUrl ? null : (stop.website ?? mapsHref(stop.naam));
+  // Geen eigen portret → officiële website (geverifieerd in de data), anders de plek op de kaart,
+  // tenzij de CMS `kaartlink: false` zet (LAT-14732): dan alleen de naam, zonder link.
+  const externeUrl = detailUrl ? null : (stop.website ?? (stop.kaartlink === false ? null : mapsHref(stop.naam)));
   const externeCta = stop.website ? ui.t('route.stop.website') : ui.t('route.stop.kaart');
   return {
     naam: stop.naam,
