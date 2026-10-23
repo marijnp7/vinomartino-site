@@ -10,15 +10,17 @@ const OUT = process.env.A11Y_OUT || 'voorleesverslag-voiceover';
 const MAX = Number(process.env.A11Y_MAX || 120);
 mkdirSync(OUT, { recursive: true });
 
-// Namen die zonder context niets zeggen (stap 3 uit LAT-14237). VoiceOver zegt "<naam>, link".
+// Namen die zonder context niets zeggen (stap 3 uit LAT-14237). VoiceOver op de runner zegt
+// "link Mosel 1 of 3", "visited link …", "menu pop up expanded link Ontdek", "button …".
 const VAGUE = /^(klik hier|hier|meer|lees meer|meer info|meer informatie|bekijk|click here|here|more|read more|more info)$/i;
-const ROLE = /(^|, )(link|visited link|bezochte link|koppeling|button|knop)(,|$)/i;
+const ROLE = /\b(visited link|bezochte link|link|koppeling|button|knop)\b/i;
+const NOISE = /\b(visited link|bezochte link|link|koppeling|button|knop|heading level \d|menu pop up|pop up|expanded|collapsed|current item|clickable|\d+ of \d+)\b/gi;
 
 function nameFindings(log) {
   const out = [];
   for (const ph of log) {
     if (!ROLE.test(ph)) continue;
-    const name = ph.replace(/,?\s*(visited link|bezochte link|link|koppeling|button|knop)\b.*$/i, '').trim();
+    const name = ph.replace(NOISE, ' ').replace(/[\s,]+/g, ' ').trim();
     if (!name) out.push({ phrase: ph, probleem: 'geen naam' });
     else if (VAGUE.test(name)) out.push({ phrase: ph, probleem: 'vage naam' });
   }
@@ -28,7 +30,10 @@ function nameFindings(log) {
 async function open(page, voiceOver, path) {
   await page.goto(BASE + path, { waitUntil: 'load', timeout: 60000 });
   await page.waitForTimeout(1500);
-  await voiceOver.navigateToWebContent();
+  // Na een tweede navigatie mist de Item Chooser soms "web content"; één nieuwe poging.
+  try { await voiceOver.navigateToWebContent(); } catch {
+    await page.reload({ waitUntil: 'load' }); await page.waitForTimeout(3000); await voiceOver.navigateToWebContent();
+  }
   await voiceOver.clearSpokenPhraseLog();
 }
 
@@ -57,8 +62,6 @@ function save(stap, data) {
   }, null, 2));
 }
 
-test.describe.configure({ mode: 'serial' });
-
 test('stap 1: home NL, koppen, taalwissel, menu', async ({ page, voiceOver }) => {
   await open(page, voiceOver, '/');
   const koppen = await headings(voiceOver);
@@ -81,8 +84,18 @@ test('stap 2: /wijnhuizen/ filters en live region', async ({ page, voiceOver }) 
   await page.evaluate(() => document.querySelectorAll('details').forEach((d) => { if (d.querySelector('#wh-druif')) d.open = true; }));
   const ev = [];
   const act = async (label, fn) => {
-    await voiceOver.clearSpokenPhraseLog(); await fn(); await page.waitForTimeout(2500);
-    ev.push({ actie: label, telling: (await page.textContent('[data-wh-telling]'))?.trim(), voorgelezen: await voiceOver.spokenPhraseLog() });
+    // De Guidepup-log bevat alleen frases na eigen commando's; spontane live-region-meldingen
+    // lezen we uit VoiceOvers eigen "last phrase" (AppleScript) door 4 s te pollen.
+    const voor = await voiceOver.lastSpokenPhrase();
+    await fn();
+    const gehoord = [];
+    for (let i = 0; i < 8; i++) {
+      await page.waitForTimeout(500);
+      const l = await voiceOver.lastSpokenPhrase();
+      if (l && l !== voor && !gehoord.includes(l)) gehoord.push(l);
+    }
+    const live = await page.evaluate(() => { const t = document.querySelector('[data-wh-telling]'); const r = t?.closest('[aria-live]') || t; return { ariaLive: r?.getAttribute('aria-live'), role: r?.getAttribute('role') }; });
+    ev.push({ actie: label, telling: (await page.textContent('[data-wh-telling]'))?.trim(), live, voorgelezen: gehoord });
   };
   const opt = await page.evaluate(() => [...document.querySelectorAll('#wh-bestemming option')].find((o) => o.value.startsWith('streek:'))?.value);
   await act(`regio ${opt}`, () => page.selectOption('#wh-bestemming', opt));
@@ -102,15 +115,13 @@ test('stap 3: wijnhuispagina, links en knoppen', async ({ page, voiceOver }) => 
   save(3, { pagina: path, linksEnKnoppen: all.filter((x) => ROLE.test(x)), naamProblemen: nameFindings(all), volledig: all });
 });
 
-test('stap 4: /wijnroutes/ en een route', async ({ page, voiceOver }) => {
-  const res = [];
-  for (const path of ['/wijnroutes/', process.env.A11Y_ROUTE || '/wijnroutes/bourgogne-cote-dor-villages/']) {
+for (const [i, path] of ['/wijnroutes/', process.env.A11Y_ROUTE || '/wijnroutes/bourgogne-cote-dor-villages/'].entries()) {
+  test(`stap 4${'ab'[i]}: ${path}`, async ({ page, voiceOver }) => {
     await open(page, voiceOver, path);
     const all = await readAll(voiceOver, MAX * 2);
-    res.push({ pagina: path, lijsten: all.filter((x) => /\blist\b|\blijst\b/i.test(x)), bezocht: all.filter((x) => /visited|bezocht/i.test(x)), naamProblemen: nameFindings(all), volledig: all });
-  }
-  save(4, { paginas: res });
-});
+    save(`4${'ab'[i]}`, { pagina: path, lijsten: all.filter((x) => /\blist\b|\blijst\b/i.test(x)), bezocht: all.filter((x) => /visited|bezocht/i.test(x)), naamProblemen: nameFindings(all), volledig: all });
+  });
+}
 
 test('stap 5: /en/ home in het Engels', async ({ page, voiceOver }) => {
   await open(page, voiceOver, '/en/');
