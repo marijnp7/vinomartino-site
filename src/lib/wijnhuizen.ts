@@ -82,7 +82,7 @@ import { isRelatedArticleLive } from './related-article-live';
 function markdownToHtml(markdown: string, locale: Locale): Promise<string> {
     // Sectie-ids uit WijnhuisPortretBlokken.astro; een body-kop "Bezoek" gaf anders
     // een tweede id="bezoek" (LAT-13075, o.a. Argiano).
-    return renderMarkdown(markdown, { stripFirstH1: true, locale, reservedIds: ['bezoek', 'wat-te-drinken', 'snel-antwoord'] });
+    return renderMarkdown(markdown, { stripFirstH1: true, locale, editorialTables: true, reservedIds: ['bezoek', 'wat-te-drinken', 'snel-antwoord'] });
 }
 
 import {

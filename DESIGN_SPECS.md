@@ -187,7 +187,31 @@ Regels:
 
 Voor referentie zodra Tier 3 wordt opgepakt: `BaseLayout.astro` heeft eigen system-fonts, eigen burgundy `#5E1A1D` (afwijkt van token `--burgundy #5A1A1F`), eigen achtergrond `#fafafa`. `/privacy/`, `/cookies/`, `/affiliate-verklaring/` migreren naar `SiteLayout` met `activeNav={null}`. Mogelijk simpeler: een `LegalLayout` die `SiteLayout` wraps en een smallere typografische container forceert (`--max-width-narrow`).
 
-## 9. Open vragen die deze specs niet beantwoorden
+## 9. Tabellen in CMS-content (vastgesteld 2026-10-22)
+
+Aanleiding: op wijnhuispagina's (o.a. Montaribaldi, "Bezoek en proeverijen") renderden markdown-tabellen als kale browsertabel: geen kopregel-stijl, geen ritme, op mobiel horizontaal scrollen. Artikelen hadden al de goede vorm. Regel: **er bestaat op de site maar één tabelvorm, de editorial-table**, en die geldt voor elke tabel uit een CMS-body.
+
+**Waar het zit**
+- Opmaak: `src/styles/article-tables.css`, gescoped op `:is(.article-prose, .cms-prose)`.
+- Verrijking: `src/lib/article-tables.ts` (`editorialTables: true` in de markdown-render). Aan voor artikelen, wijnhuizen en streken.
+- Nieuw template met een CMS-body? Zet `editorialTables: true` in de loader, geef de body-wrapper de class `cms-prose` en importeer `article-tables.css`. Geen eigen `table`-CSS per template schrijven.
+
+**De drie varianten (kiest de enhancer zelf op basis van de koppen)**
+| Variant | Wanneer | Desktop | Mobiel (< 530px) |
+| --- | --- | --- | --- |
+| `--cards` | 3+ kolommen, alle koppen gevuld (bv. proeverijen: Proeverij / Wat / Duur / Prijs) | mono-kopregel op `--paperDeep` met burgundy bovenlijn, eerste kolom als rijkop in `--burgundyInk`, zebra | elke rij wordt een kaart: naam in display-font, per waarde een mono-label |
+| `--facts` | precies 2 kolommen met koppen (Wat / Details, Lijn / Wijnen) | idem, rijkop 32% breed | blijft een tabel, compactere padding; geen kaarten |
+| `--comparison` | 3 kolommen met lege eerste kop (A tegenover B) | kolomkoppen in display-font, twee kleurvlakken | twee kolommen naast elkaar |
+
+**Schrijfregels voor redacteuren en agents**
+1. Elke kolom krijgt een korte kop (1 of 2 woorden): die kop wordt op mobiel het label. Lege koppen alleen voor een vergelijking.
+2. De eerste kolom is de naam van de rij (proeverij, wijnlijn, onderwerp). Kort houden, het wordt de kaarttitel.
+3. Geen samengevoegde cellen (colspan/rowspan) en geen geneste tabellen: dan vervalt de mobiele kaartweergave.
+4. Prijs en duur in een eigen kolom, niet verstopt in de omschrijving. Schrijf ze consistent (`€20`, `ca. 60 min`, `2,5 uur`).
+5. Geen tabel voor één rij of voor lopend verhaal; dan is een alinea beter.
+6. Geen inline HTML-styling of eigen tabel-CSS. Ziet een tabel er kaal uit, dan ontbreekt de opt-in in het template; dat is een bug, geen contentprobleem.
+
+## 10. Open vragen die deze specs niet beantwoorden
 
 - **#7 Over-ons:** wachten op CEO-board-antwoord of Martin/Sophie reële personen zijn (zie [LAT-856 comment dd125c06](/LAT/issues/LAT-856#comment-dd125c06-a15b-466e-a8ee-023c9196c317)). Tot dan: tijdelijke gestileerde portretillustratie als interim. Aparte ticket bij Tier 3.
 - **Contrast-audit:** `--inkFaint #8A7E70` op `--paper #FAF5E9` ligt vermoedelijk onder WCAG AA voor body-text. Audit met tooling (axe of WebAIM) als follow-up; dit doc geeft geen vervang-token.
