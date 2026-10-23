@@ -135,7 +135,7 @@ for (const d of pagina?.dagen ?? []) {
   const k = d.slaap?.naam ? stayNaamKey(d.slaap.naam) : '';
   if (k && !(k in eersteNacht)) eersteNacht[k] = d.n;
 }
-const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.streekSlug}/` : null;
+const bookHref = staysRoundup && entry.streekSlug ? lh(`/accommodaties/${entry.streekSlug}/`) : null;
 ---
 
 <SiteLayout
