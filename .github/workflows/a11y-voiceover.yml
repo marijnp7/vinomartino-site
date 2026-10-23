@@ -1,0 +1,67 @@
+# LAT-14721: schermlezertest L2 (LAT-14237) met echte VoiceOver via Guidepup.
+# Leest alleen de publieke site; geen secrets, geen VPS-toegang.
+# Triggers bewust smal: handmatig of na een geslaagde productie-deploy (site-release).
+name: A11y VoiceOver (L2)
+
+on:
+  workflow_dispatch:
+    inputs:
+      base:
+        description: "Basis-URL"
+        default: "https://vinomartino.com"
+  workflow_run:
+    workflows: ["Deploy VinoMartino"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: a11y-voiceover
+  cancel-in-progress: true
+
+jobs:
+  voiceover:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: macos-latest
+    timeout-minutes: 45
+    env:
+      A11Y_BASE: ${{ inputs.base || 'https://vinomartino.com' }}
+      A11Y_OUT: ${{ github.workspace }}/voorleesverslag-voiceover
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: tests/a11y
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Afhankelijkheden (los van de site)
+        working-directory: tests/a11y/vo
+        run: |
+          npm init -y >/dev/null
+          npm i --no-audit --no-fund @guidepup/setup@0.29.3 @guidepup/guidepup@0.36.4 @guidepup/playwright@0.20.0 @playwright/test@1.64.1
+          npx playwright install webkit
+      # De setup-action bundelt @guidepup/setup ^0.23; guidepup 0.36 vraagt de lokale
+      # VoiceOver-plist die pas setup 0.29 aanmaakt. Daarom de CLI rechtstreeks.
+      - name: VoiceOver vrijgeven voor automatisering
+        working-directory: tests/a11y/vo
+        run: |
+          npx guidepup setup --ci --macos-record
+          npx guidepup install voiceover
+      - name: Vijf stappen met VoiceOver
+        working-directory: tests/a11y/vo
+        run: npx playwright test -c playwright.config.mjs
+      - name: Build-info vastleggen
+        if: always()
+        run: curl -s "$A11Y_BASE/build-info.json" -o "$A11Y_OUT/build-info.json" || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: voorleesverslag-voiceover
+          path: |
+            voorleesverslag-voiceover/
+            tests/a11y/vo/playwright-report/
+            tests/a11y/vo/test-results/
+            tests/a11y/vo/recordings/
+          retention-days: 30
