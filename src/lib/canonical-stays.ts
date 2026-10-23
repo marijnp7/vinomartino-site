@@ -45,6 +45,20 @@ export function canonicalRegionStays(rows: Row[], slug: string): Row[] {
     if (unknown) throw new Error(`Canonical stays ${slug}: unknown tier ${unknown.tier} on ${unknown.id}`);
     return selected;
 }
+/**
+ * EN keeps the whole approved set (the translation guard would drop untranslated records and
+ * shrink the set). A text field that still equals its NL value is cleared, so no Dutch lands on /en/.
+ */
+export function clearUntranslatedText<T extends Row>(localized: T[], nl: Row[], fields: string[]): T[] {
+    const byId = new Map(nl.map(r => [String(r.id), r]));
+    return localized.map(r => {
+        const base = byId.get(String(r.id));
+        if (!base) return r;
+        const out: Row = { ...r };
+        for (const f of fields) if (out[f] != null && out[f] === base[f]) out[f] = null;
+        return out as T;
+    });
+}
 export function toRegionStay(row: Row): Row {
     return { naam: row.name, tier: row.tier, why_this_one: row.why_this_one || row.description,
         prijs_laag: row.price_low, prijs_hoog: row.price_high, prijs_valuta: row.prijs_valuta,

@@ -1,4 +1,4 @@
-import { canonicalRegionStays, stayMemberships } from './canonical-stays';
+import { canonicalRegionStays, clearUntranslatedText, stayMemberships } from './canonical-stays';
 /**
  * Directus-loader voor de reisjunk-stijl accommodatie-roundup (LAT-1331,
  * EPIC LAT-1330). Vult het datacontract uit accommodaties.ts (LAT-1332) vanuit
@@ -37,7 +37,7 @@ import {
     describeFetchError,
 } from './directus-config';
 import { DEFAULT_LOCALE, type Locale } from './i18n';
-import { localizeRecords, localizeRefsBySlug } from './directus-i18n';
+import { localizeRecordsSoft, localizeRefsBySlug } from './directus-i18n';
 
 // LAT-2575 — vertaalbare accommodatie-velden (native Directus translations, LAT-2574).
 const ACCOMMODATIONS_TRANSLATABLE = ['description', 'why_this_one', 'why_regel', 'prijs_disclaimer', 'meta_title', 'meta_description', 'hero_alt'];
@@ -209,13 +209,16 @@ async function fetchAccommodations(url: string, token: string, locale: Locale): 
     // LAT-14317: why_this_one is alleen een kaart-fallback; zonder EN-vertaling
     // mag de NL-tekst niet op /en/ landen (i18n-nl gate), dus onthoud de NL-waarde.
     const nlWhyThisOne = new Map(rawRows.map((r) => [String(r.id), r.why_this_one]));
-    const rows = await localizeRecords(rawRows, {
+    // LAT-14700: soft overlay; dropping untranslated records would shrink the approved
+    // set on /en/. Text without an EN value is cleared instead of shown in Dutch.
+    const softRows = await localizeRecordsSoft(rawRows, {
         env,
         junction: 'accommodations_translations',
         parentIdField: 'accommodations_id',
         fields: ACCOMMODATIONS_TRANSLATABLE,
         locale,
     });
+    const rows = locale === 'en' ? clearUntranslatedText(softRows, rawRows, ACCOMMODATIONS_TRANSLATABLE) : softRows;
     // LAT-2829 — de gejoinde streeknaam komt van een vreemd record en vertaalt
     // niet mee met de guard hierboven; zonder overlay draagt elke EN-roundup de
     // NL-streeknaam als kop. Zacht: geen EN-naam → NL blijft staan.

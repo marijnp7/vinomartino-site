@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {canonicalRegionStays,hydrateRouteStays,toRegionStay,stayMemberships} from '../src/lib/canonical-stays.ts';
+import {canonicalRegionStays,hydrateRouteStays,toRegionStay,stayMemberships,clearUntranslatedText} from '../src/lib/canonical-stays.ts';
 const rows=Array.from({length:9},(_,i)=>({id:i+1,name:`Hotel ${i}`,tier:['slim_geboekt','prijs_kwaliteit','pure_luxe'][Math.floor(i/3)],streek_id:{slug:'champagne'},booking_url:`https://www.booking.com/hotel/fr/hotel-${i}.html`,description:'Existing copy',price_low:null}));
 test('recommendations exclude route-only and buiten_selectie, allow 3 to 9 with at most 3 per tier',()=>{
  assert.equal(canonicalRegionStays([...rows,{...rows[0],id:10,tags:['route_only']},{...rows[0],id:11,tags:['buiten_selectie']}],'champagne').length,9);
@@ -33,4 +33,10 @@ test('missing, archived/unavailable and search destinations fail closed',()=>{
 });
 test('region mapping preserves missing prices and existing copy',()=>{
  const mapped=toRegionStay(rows[0]);assert.equal(mapped.prijs_laag,null);assert.equal(mapped.why_this_one,'Existing copy');assert.equal(mapped.boeklink,rows[0].booking_url);
+});
+test('EN keeps every record and clears text that is still Dutch',()=>{
+ const nl=[{id:1,description:'NL tekst',why_this_one:'NL waarom'},{id:2,description:'NL twee',why_this_one:null}];
+ const en=[{id:1,description:'EN text',why_this_one:'NL waarom'},{id:2,description:'NL twee',why_this_one:null}];
+ const out=clearUntranslatedText(en,nl,['description','why_this_one']);
+ assert.equal(out.length,2);assert.equal(out[0].description,'EN text');assert.equal(out[0].why_this_one,null);assert.equal(out[1].description,null);
 });
