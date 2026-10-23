@@ -121,6 +121,26 @@
   --radius-card: 14px;
   --shadow-card-lift: 0 14px 34px rgba(31, 26, 22, 0.16);
   --focus-ring: 0 0 0 2px var(--fixed-ink);
+
+  /* LAT-14690 — keuzehulp-filterpaneel (/artikelen/, /wijnhuizen/, /accommodaties/, NL+EN).
+     Licht = de waarden van vóór LAT-14690; de kelder-variant staat onder [data-theme='cellar']. */
+  --kh-surface: #fff;
+  --kh-text: var(--fixed-ink);
+  --kh-edge: 0 solid transparent;
+  --kh-edge-top: 3px solid var(--burgundy);
+  --kh-shadow: var(--shadow-sm);
+  --kh-label: #5A1A1F;
+  --kh-field-bg: var(--fixed-cream);
+  --kh-field-text: #1F1A16;
+  --kh-field-border: #6B6054;
+  --kh-field-border-hover: #5A4F45;
+  --kh-placeholder: #6B6054;
+  --kh-rule: #E0D2B0;
+  --kh-telling: #5A4F45;
+  --kh-focus: var(--accent-apricot);
+  --kh-scheme: light;
+  /* Smalle hero-band boven overzichtspagina's (.hero-sm). */
+  --hero-band-bg: var(--paperDeep);
 }
 
 /* LAT-13056 — visible focus ring: apricot outline plus an ink halo. */
@@ -166,6 +186,25 @@ summary:focus-visible,
   --color-accent: var(--rust);
   --color-border: var(--rule);
   --color-border-light: var(--ruleSoft);
+
+  /* LAT-14690 — filterpaneel als warm donker vlak net boven de body, gouden haarlijn. */
+  --kh-surface: #221A16;
+  --kh-text: var(--ink);
+  --kh-edge: 1px solid rgba(229, 201, 155, 0.18);
+  --kh-edge-top: var(--kh-edge);
+  --kh-shadow: none;
+  --kh-label: #C9AE80;            /* 8,0:1 op #221A16 */
+  --kh-field-bg: #2E241F;
+  --kh-field-text: #F0E6D0;       /* 12,2:1 */
+  --kh-field-border: #847262;     /* ≥ 3:1 op veld én paneel (WCAG 1.4.11) */
+  --kh-field-border-hover: #A89E91;
+  --kh-placeholder: #A89E91;      /* 5,7:1 */
+  --kh-rule: #3D2F26;
+  --kh-telling: #A89E91;
+  --kh-focus: var(--gold);        /* 10,7:1 op paneel */
+  --kh-scheme: dark;
+  /* Zachte overgang van de hero-band naar de body i.p.v. een harde kleurrand. */
+  --hero-band-bg: linear-gradient(180deg, var(--paperDeep) 0%, var(--paper) 100%);
 }
 
 [data-theme='cellar'] img {
