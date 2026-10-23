@@ -688,6 +688,9 @@ const bookHref = staysRoundup && entry.streekSlug ? `/accommodaties/${entry.stre
     margin-top: 0.6rem;
     line-height: 1.5;
   }
+  /* LAT-13199: CC-naamsvermelding onder het bijschrift, eigen regel. */
+  .route-page :global(.page-prose) :global(.route-foto__credit) { display: block; margin-top: 0.2rem; }
+  .route-page :global(.page-prose) :global(.route-foto__credit a) { color: inherit; text-decoration: underline; }
   .route-page :global(.page-prose) :global(.route-foto--breed) {
     margin-left: calc(-1 * var(--space-6));
     margin-right: calc(-1 * var(--space-6));

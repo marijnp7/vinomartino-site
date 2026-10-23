@@ -83,6 +83,7 @@ function mapRelatedArticles(val: unknown): RelatedRef[] {
 import { markdownToHtml as renderMarkdown, normalizeEmDashes } from './markdown';
 import { isRelatedArticleLive } from './related-article-live';
 import { hasRouteDirectives, renderEnrichedRouteBody } from './route-body';
+import { getImageCredit, creditAuthorFor, licenseLabelFor, adaptationNoteFor } from './image-credits';
 import { loadUiStrings } from './ui-strings';
 import { localizeRouteStyle, localizeRouteDuration } from './route-labels';
 import { buildBookingSearchLink, resolveAccommodationHref } from './affiliates';
@@ -114,6 +115,19 @@ async function renderRouteBody(
         locale,
         affiliateContext: slug,
         downloadFoto: (ref) => downloadAsset(ref, directusUrl, token, 'body-'),
+        // LAT-13199: body-foto's gaan door gradeBuffer (Warm preset), dus bewerkt.
+        creditFor: async (ref) => {
+            const c = await getImageCredit(ref, { adapted: true });
+            if (!c) return null;
+            return {
+                author: creditAuthorFor(c, locale),
+                licenseLabel: licenseLabelFor(c.licenseLabel, locale),
+                licenseUrl: c.licenseUrl,
+                sourceUrl: c.sourceUrl ?? null,
+                sourceLabel: c.sourceLabel ?? null,
+                note: c.adapted && /creativecommons\.org/i.test(c.licenseUrl) ? adaptationNoteFor(locale) : null,
+            };
+        },
         resolveBoekHref: async (attrs) => {
             const acc = attrs.acc ? Number(attrs.acc) : NaN;
             if (Number.isFinite(acc)) return (await resolveAccommodationHref(acc)) ?? null;

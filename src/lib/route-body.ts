@@ -53,6 +53,12 @@ interface MdastNode {
 export interface RouteBodyContext {
   /** Downloadt/commit een foto-asset en geeft het publieke pad terug (of null). */
   downloadFoto: (ref: string) => Promise<string | null>;
+  /**
+   * LAT-13199: naamsvermelding voor een foto-asset uit de DAM (`licentie`/`herkomst`),
+   * al in de juiste taal, of null als de licentie er geen eist. CC BY(-SA) eist maker,
+   * licentie en bron; zonder deze closure renderde een `::foto` alleen het bijschrift.
+   */
+  creditFor?: (ref: string) => Promise<FotoCredit | null>;
   /** Lost de boek-attributen op naar een booking.com-deeplink (of null). */
   resolveBoekHref: (attrs: Record<string, string>) => Promise<string | null>;
   /**
@@ -114,8 +120,20 @@ function collect(nodes: MdastNode[], fotoRefs: Set<string>, boekSpecs: Map<strin
   }
 }
 
+export interface FotoCredit {
+  /** "Foto: <maker>" / "Photo: <maker>"; leeg als `herkomst` geen maker noemt. */
+  author: string;
+  licenseLabel: string;
+  licenseUrl: string;
+  sourceUrl?: string | null;
+  sourceLabel?: string | null;
+  /** Bewerkingsaanduiding (CC BY-SA 4.0 §3(a)(1)(B)), bv. "kleur bewerkt". */
+  note?: string | null;
+}
+
 interface FotoResolved {
   src: string;
+  credit?: FotoCredit | null;
   width?: number;
   height?: number;
 }
@@ -159,10 +177,25 @@ function fotoHtml(attrs: Record<string, string>, foto: FotoResolved): string {
   const fig = [
     `<figure class="route-foto${fmt}">`,
     `<img src="${escapeHtml(foto.src)}" alt="${escapeHtml(caption)}"${dims}${loadAttrs} />`,
-    caption ? `<figcaption>${escapeHtml(caption)}</figcaption>` : '',
+    caption || foto.credit
+      ? `<figcaption>${escapeHtml(caption)}${foto.credit ? creditHtml(foto.credit, !!caption) : ''}</figcaption>`
+      : '',
     `</figure>`,
   ].join('');
   return fig;
+}
+
+// LAT-13199: zelfde opbouw als de poi-card-credit — "Foto: maker, <licentie>, <via bron> (bewerking)".
+function creditHtml(c: FotoCredit, afterCaption: boolean): string {
+  const lic = c.licenseUrl
+    ? `<a href="${escapeHtml(c.licenseUrl)}" rel="license noopener" target="_blank">${escapeHtml(c.licenseLabel)}</a>`
+    : escapeHtml(c.licenseLabel);
+  const src = c.sourceUrl
+    ? `, <a href="${escapeHtml(c.sourceUrl)}" rel="noopener" target="_blank">via ${escapeHtml(c.sourceLabel || 'bron')}</a>`
+    : '';
+  const note = c.note ? ` (${escapeHtml(c.note)})` : '';
+  const author = c.author ? `${escapeHtml(c.author)}, ` : '';
+  return `${afterCaption ? ' ' : ''}<span class="route-foto__credit">${author}${lic}${src}${note}</span>`;
 }
 
 function boekHtml(href: string, label: string): string {
@@ -261,8 +294,11 @@ export async function renderEnrichedRouteBody(
       if (!src) { fotoMap.set(ref, null); return; }
       // LAT-2432: dims meelezen in dezelfde async-golf; het bestand staat na de
       // download op schijf (public/images/routes/body-<id>.jpg).
-      const dims = await probeImageDimensions(src);
-      fotoMap.set(ref, dims ? { src, width: dims.width, height: dims.height } : { src });
+      const [dims, credit] = await Promise.all([
+        probeImageDimensions(src),
+        ctx.creditFor ? ctx.creditFor(ref).catch(() => null) : Promise.resolve(null),
+      ]);
+      fotoMap.set(ref, dims ? { src, credit, width: dims.width, height: dims.height } : { src, credit });
     }),
     ...[...boekSpecs].map(async ([key, attrs]) => { boekMap.set(key, await ctx.resolveBoekHref(attrs)); }),
   ]);
