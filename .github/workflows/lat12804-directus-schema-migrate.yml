@@ -65,6 +65,7 @@ on:
           - add-accommodation-outreach-fields.mjs
           - lat14412-atelier-testupload-meta.mjs
           - extend-accommodations-portraits.mjs
+          - lat14740-wijnhuis-address-en.mjs
 
 concurrency:
   group: lat12804-directus-schema-migrate
