@@ -49,6 +49,7 @@ jobs:
           npm init -y >/dev/null
           npm i --no-audit --no-fund @guidepup/guidepup@0.36.4 @guidepup/playwright@0.20.0 @playwright/test@1.64.1
           npx playwright install webkit
+          npx --yes @guidepup/setup install
       - name: Vijf stappen met VoiceOver
         working-directory: tests/a11y/vo
         run: npx playwright test -c playwright.config.mjs
