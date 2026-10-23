@@ -218,6 +218,52 @@ export function scanHtml(html) {
 }
 
 /**
+ * LAT-14722 — taalgate voor EN-routepagina's (`/en/wijnroutes/**`).
+ *   1. Elke Stay22 /allez/booking-link naar een booking.com-property of -zoekpagina
+ *      draagt `lang=en-gb` op de doel-URL (QA b1616: de 4 `campaign=accommodation-*`
+ *      links in 'At a glance'/'Start here' misten hem).
+ *   2. De kaartpopup-rollabels in `data-routegeo-data` zijn niet de NL-teksten
+ *      (QA b1616: EN-popups toonden 'OVERNACHTEN').
+ * Bewust alleen route-pagina's: andere EN-templates zijn niet op dit contract getoetst.
+ * @returns {{url:string, partner:string, reason:string}[]}
+ */
+const NL_POPUP_ROLES = new Set(['Overnachten', 'Wijnhuis', 'Dag', 'Van', 'Naar']);
+export function scanEnRouteLocale(html) {
+  const out = [];
+  const seen = new Set();
+  let m;
+  HREF_RE.lastIndex = 0;
+  while ((m = HREF_RE.exec(html)) !== null) {
+    const raw = decodeEntities((m[2] ?? m[3] ?? '').trim());
+    let u;
+    try { u = new URL(raw); } catch { continue; }
+    if (normHost(u.hostname) !== 'stay22.com' || !u.pathname.startsWith('/allez/booking')) continue;
+    let inner;
+    try { inner = new URL(u.searchParams.get('link') || ''); } catch { continue; }
+    if (normHost(inner.hostname) !== 'booking.com' || !/^\/(hotel|searchresults)/.test(inner.pathname)) continue;
+    if (inner.searchParams.get('lang') === 'en-gb' || seen.has(raw)) continue;
+    seen.add(raw);
+    out.push({ url: raw, partner: 'stay22', reason: 'EN-routepagina: booking.com-doel mist lang=en-gb (LAT-14722)' });
+  }
+  const dm = html.match(/<script[^>]*data-routegeo-data[^>]*>([\s\S]*?)<\/script>/);
+  if (dm) {
+    let data = null;
+    try { data = JSON.parse(dm[1]); } catch { /* geen JSON: niets te toetsen */ }
+    if (data) {
+      const roles = data.roles;
+      if (!roles || typeof roles !== 'object') {
+        out.push({ url: 'data-routegeo-data', partner: 'routegeo', reason: 'kaartdata mist roles → popups vallen terug op NL-labels (LAT-14722)' });
+      } else {
+        for (const [k, v] of Object.entries(roles)) {
+          if (NL_POPUP_ROLES.has(v)) out.push({ url: 'data-routegeo-data', partner: 'routegeo', reason: `EN-kaartpopup-label ${k}="${v}" is NL (LAT-14722)` });
+        }
+      }
+    }
+  }
+  return out;
+}
+
+/**
  * Verzamel ALLE affiliate-hrefs uit één HTML-string (geldig én ongeldig),
  * gededupliceerd op URL. Gebruikt door de live nightly-check
  * (`check-affiliate-links-live.mjs`, LAT-2532): die opent elke unieke
@@ -273,6 +319,9 @@ async function main() {
     const html = await readFile(file, 'utf8');
     for (const v of scanHtml(html)) {
       hits.push({ file, ...v });
+    }
+    if (/[\\/]en[\\/]wijnroutes[\\/]/.test(file.slice(DIST_DIR.length))) {
+      for (const v of scanEnRouteLocale(html)) hits.push({ file, ...v });
     }
   }
 

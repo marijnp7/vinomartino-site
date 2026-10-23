@@ -1566,6 +1566,8 @@ export const UI_STRING_EN: Record<string, string> = {
     'routegeo.legend.wijnhuis': 'Winery',
     'routegeo.legend.overnachten': 'Stay',
     'routegeo.legend.dag': 'Day',
+    'routemap.endpointVan': 'From',
+    'routemap.endpointNaar': 'To',
     'route.chips.kop': 'Stops today',
     'route.chips.toon': 'Show',
     'route.chips.stop': 'stop',
