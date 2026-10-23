@@ -1,17 +1,63 @@
-// Pilot scope is explicit; hotel content and selection remain in Directus.
-export const PILOT_STAY_REGIONS = new Set(['champagne', 'toscane-italie', 'bourgogne']);
+// LAT-14700: every published streek renders its approved set from `accommodations`;
+// `streken.accommodaties` is only read for a streek without any record. Selection lives in Directus.
 export const PILOT_STAY_ROUTES = new Set(['bourgogne-cote-dor-villages', 'toscane-bolgheri-montalcino-carmignano', 'champagne-reims-epernay-montagne-de-reims', 'toscane-chianti-montalcino-bolgheri-vier-dagen']);
+export const STAY_TIERS = ['slim_geboekt', 'prijs_kwaliteit', 'pure_luxe'] as const;
 type Row = Record<string, any>;
+const tagsOf = (row: Row): string[] => Array.isArray(row.tags) ? row.tags.map(String) : [];
 export function isRouteOnly(row: Row): boolean {
-    return Array.isArray(row.tags) && row.tags.includes('route_only');
+    return tagsOf(row).includes('route_only');
 }
-export function canonicalRegionStays(rows: Row[], slug: string): Row[] {
-    const selected = rows.filter(r => r.streek_id?.slug === slug && !isRouteOnly(r));
-    if (selected.length !== 9) throw new Error(`Canonical stays ${slug}: expected 9, got ${selected.length}`);
-    for (const tier of ['slim_geboekt', 'prijs_kwaliteit', 'pure_luxe']) {
-        if (selected.filter(r => r.tier === tier).length !== 3) throw new Error(`Canonical stays ${slug}: expected 3 in ${tier}`);
+// Record stays, but the approved selection for its own streek leaves it out (Palazzo Finati, Langhe).
+export function isOutsideSelection(row: Row): boolean {
+    return tagsOf(row).includes('buiten_selectie');
+}
+/**
+ * Region memberships of one record: its own streek_id with its own tier, plus
+ * `extra_streek:<slug>:<tier>` tags for a hotel that is approved in a second streek
+ * (Arte Hotel Krems and Loisium are Kamptal records and also part of the Wachau nine).
+ * One record, no duplicate; the tier can differ per streek.
+ */
+export function stayMemberships(row: Row): { slug: string; tier: string }[] {
+    if (isRouteOnly(row)) return [];
+    const out: { slug: string; tier: string }[] = [];
+    if (row.streek_id?.slug && !isOutsideSelection(row)) out.push({ slug: String(row.streek_id.slug), tier: String(row.tier) });
+    for (const tag of tagsOf(row)) {
+        const m = /^extra_streek:([a-z0-9-]+):([a-z_]+)$/.exec(tag);
+        if (m) out.push({ slug: m[1], tier: m[2] });
     }
+    return out;
+}
+/** Approved set for one streek, with the tier valid in that streek. Empty = no records (JSON fallback). */
+export function canonicalRegionStays(rows: Row[], slug: string): Row[] {
+    const selected: Row[] = [];
+    for (const row of rows) {
+        const m = stayMemberships(row).find(x => x.slug === slug);
+        if (m) selected.push(m.tier === row.tier ? row : { ...row, tier: m.tier });
+    }
+    if (selected.length === 0) return selected;
+    // Besluit 0a43aace: minimum 3, maximum 9, at most 3 per tier (Alentejo, Slowakije keep 8).
+    if (selected.length < 3 || selected.length > 9) throw new Error(`Canonical stays ${slug}: expected 3 to 9, got ${selected.length}`);
+    for (const tier of STAY_TIERS) {
+        const n = selected.filter(r => r.tier === tier).length;
+        if (n > 3) throw new Error(`Canonical stays ${slug}: expected at most 3 in ${tier}, got ${n}`);
+    }
+    const unknown = selected.find(r => !(STAY_TIERS as readonly string[]).includes(r.tier));
+    if (unknown) throw new Error(`Canonical stays ${slug}: unknown tier ${unknown.tier} on ${unknown.id}`);
     return selected;
+}
+/**
+ * EN keeps the whole approved set (the translation guard would drop untranslated records and
+ * shrink the set). A text field that still equals its NL value is cleared, so no Dutch lands on /en/.
+ */
+export function clearUntranslatedText<T extends Row>(localized: T[], nl: Row[], fields: string[]): T[] {
+    const byId = new Map(nl.map(r => [String(r.id), r]));
+    return localized.map(r => {
+        const base = byId.get(String(r.id));
+        if (!base) return r;
+        const out: Row = { ...r };
+        for (const f of fields) if (out[f] != null && out[f] === base[f]) out[f] = null;
+        return out as T;
+    });
 }
 export function toRegionStay(row: Row): Row {
     return { naam: row.name, tier: row.tier, why_this_one: row.why_this_one || row.description,
