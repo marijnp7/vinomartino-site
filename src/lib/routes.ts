@@ -130,9 +130,10 @@ async function renderRouteBody(
         },
         resolveBoekHref: async (attrs) => {
             const acc = attrs.acc ? Number(attrs.acc) : NaN;
-            if (Number.isFinite(acc)) return (await resolveAccommodationHref(acc)) ?? null;
+            // LAT-14722: locale mee, anders mist de EN-routepagina lang=en-gb.
+            if (Number.isFinite(acc)) return (await resolveAccommodationHref(acc, locale)) ?? null;
             const zoek = (attrs.zoek || '').trim();
-            if (zoek) return buildBookingSearchLink(zoek, `route-${slug}`);
+            if (zoek) return buildBookingSearchLink(zoek, `route-${slug}`, locale);
             return null;
         },
     });
