@@ -1,4 +1,4 @@
-import { isRouteOnly } from './canonical-stays';
+import { canonicalRegionStays, stayMemberships } from './canonical-stays';
 /**
  * Directus-loader voor de reisjunk-stijl accommodatie-roundup (LAT-1331,
  * EPIC LAT-1330). Vult het datacontract uit accommodaties.ts (LAT-1332) vanuit
@@ -235,10 +235,16 @@ async function fetchAccommodations(url: string, token: string, locale: Locale): 
             if (row.why_this_one && row.why_this_one === nlWhyThisOne.get(String(row.id))) row.why_this_one = null;
         }
     }
-    return rows.filter(row => !isRouteOnly(row)).map((row) => {
+    // LAT-14700: same selection as the streek page (canonicalRegionStays), so a shared
+    // hotel appears in both streken and `buiten_selectie`/`route_only` stay off the roundup.
+    const names = new Map<string, string>();
+    for (const row of rows) {
         const streek = (row.streek_id && typeof row.streek_id === 'object' ? row.streek_id : {}) as Record<string, unknown>;
-        return { row, streekSlug: String(streek.slug || ''), streekName: String(streek.name || '') };
-    });
+        if (streek.slug) names.set(String(streek.slug), String(streek.name || ''));
+    }
+    const slugs = [...new Set(rows.flatMap(row => stayMemberships(row).map(m => m.slug)))];
+    return slugs.flatMap(slug => canonicalRegionStays(rows, slug)
+        .map(row => ({ row, streekSlug: slug, streekName: names.get(slug) || '' })));
 }
 
 /**
