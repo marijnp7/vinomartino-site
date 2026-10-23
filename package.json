@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "scripts": {
     "dev": "astro dev --host 0.0.0.0",
-    "build": "astro build && node --env-file-if-exists=.env scripts/check-c2pa.mjs && node scripts/lint-pins.mjs && node scripts/write-build-info.mjs && node scripts/check-dom-affiliate.mjs dist --lenient && node scripts/lint-authenticiteit.mjs dist --lenient && { for d in wijnhuizen streken routes articles landen accommodaties reispakketten verhaal; do if [ -d public/images/$d ]; then mkdir -p dist/images/$d && cp -r public/images/$d/. dist/images/$d/; fi; done; for f in public/build-debug-*.json; do [ -f \"$f\" ] && cp \"$f\" dist/; done; true; } && node scripts/optimize-images.mjs && node scripts/check-img-dimensions.mjs dist",
+    "build": "astro build && node --env-file-if-exists=.env scripts/check-c2pa.mjs && node scripts/lint-pins.mjs && node scripts/write-build-info.mjs && node scripts/check-dom-affiliate.mjs dist --lenient && node scripts/lint-authenticiteit.mjs dist && { for d in wijnhuizen streken routes articles landen accommodaties reispakketten verhaal; do if [ -d public/images/$d ]; then mkdir -p dist/images/$d && cp -r public/images/$d/. dist/images/$d/; fi; done; for f in public/build-debug-*.json; do [ -f \"$f\" ] && cp \"$f\" dist/; done; true; } && node scripts/optimize-images.mjs && node scripts/check-img-dimensions.mjs dist",
     "build:vinomartino": "astro build",
     "preview": "astro preview --host 0.0.0.0",
     "lighthouse": "node scripts/lighthouse-templates.mjs",
@@ -18,7 +18,7 @@
     "test:dom-affiliate": "node --test scripts/check-dom-affiliate.test.mjs",
     "test:lat13406-body-affiliate-track": "node --test scripts/lat13406-body-affiliate-track.test.mjs",
     "test:lat12562-click-test-placements": "node --test scripts/lat12562-click-test-placements.test.mjs",
-    "check:authenticiteit": "node scripts/lint-authenticiteit.mjs dist --lenient",
+    "check:authenticiteit": "node scripts/lint-authenticiteit.mjs dist",
     "test:authenticiteit": "node --test scripts/lint-authenticiteit.test.mjs",
     "check:affiliate-links:live": "node scripts/check-affiliate-links-live.mjs",
     "test:affiliate-links": "node --test scripts/check-affiliate-links.test.mjs scripts/check-affiliate-links-live.test.mjs scripts/check-accommodation-images-live.test.mjs",

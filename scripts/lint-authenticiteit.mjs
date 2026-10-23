@@ -193,10 +193,15 @@ function report(rel, rule, detail) {
   }
 }
 
-const stats = { pages: 0, zelfGereisd: 0, redactiegids: 0, zonderTier: 0 };
+const stats = { pages: 0, zelfGereisd: 0, redactiegids: 0, zonderTier: 0, noindex: 0 };
+
+// Pagina's met robots-noindex (interne dashboards, infographic-previews) zijn geen gepubliceerde
+// content; de merkpoort gaat over wat een lezer of zoekmachine te zien krijgt (LAT-12964).
+const NOINDEX = /<meta\s+name=["']robots["'][^>]*content=["'][^"']*noindex/i;
 
 for await (const file of walk(DIST)) {
   const html = await readFile(file, 'utf8');
+  if (NOINDEX.test(html)) { stats.noindex++; continue; }
   const rel = '/' + relative(DIST, file).replace(/index\.html$/, '').replace(/\\/g, '/');
   const text = innerText(html);
   const title = extractTitle(html);
@@ -321,6 +326,7 @@ console.log(JSON.stringify({
   zelfGereisd: stats.zelfGereisd,
   redactiegids: stats.redactiegids,
   zonderTier: stats.zonderTier,
+  noindex: stats.noindex,
   violations: violations.length,
   byRule: violations.reduce((acc, v) => { acc[v.rule] = (acc[v.rule] || 0) + 1; return acc; }, {}),
   lenient: LENIENT,

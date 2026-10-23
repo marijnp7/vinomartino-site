@@ -277,3 +277,17 @@ test('regel d: accommodatienaam met spatie-koppelteken is geen overtreding, tite
     assert.match(out, /Langhe - van/);
   });
 });
+
+// LAT-12964: noindex-pagina's (intern dashboard, infographic-preview) vallen buiten de lint,
+// een indexeerbare pagina met dezelfde fout niet.
+test('noindex-pagina wordt overgeslagen, indexeerbare niet', () => {
+  const noindex = '<!doctype html><html><head><meta name="robots" content="noindex, nofollow"><title>T</title></head><body>Preview LAT-1108 — test</body></html>';
+  withDir({ 'a.html': noindex }, (dir) => {
+    const { exit, out } = runLint(dir);
+    assert.equal(exit, 0, out);
+    assert.match(out, /"noindex": 1/);
+  });
+  withDir({ 'a.html': noindex.replace(/<meta name="robots"[^>]*>/, '') }, (dir) => {
+    assert.equal(runLint(dir).exit, 1);
+  });
+});
