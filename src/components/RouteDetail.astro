@@ -660,6 +660,12 @@ const bookHref = staysRoundup && entry.streekSlug ? lh(`/accommodaties/${entry.s
     max-width: 100%;
     overflow-x: auto;
   }
+  /* LAT-14724 (WCAG 1.4.1, axe link-in-text-block): links in lopende CMS-tekst en
+     tabellen niet alleen op kleur. Klasseloze links; knoppen/kaarten houden hun eigen stijl. */
+  .route-page :global(.page-prose) :global(:is(p, li, td, th, blockquote) a:not([class])) {
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
 
   /* LAT-2270: verrijkte body-directives (`:::foto`/`:::boek`/`:::infographic`),
      als set:html in de proza gerenderd → :global. Token-styling, geen inline hex/px. */
