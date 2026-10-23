@@ -83,26 +83,55 @@ test('stap 2: /wijnhuizen/ filters en live region', async ({ page, voiceOver }) 
   await open(page, voiceOver, '/wijnhuizen/');
   await page.evaluate(() => document.querySelectorAll('details').forEach((d) => { if (d.querySelector('#wh-druif')) d.open = true; }));
   const ev = [];
+  // LAT-14237 (besluit Marijn 23-10, kaart 8c836887): de eerste macOS-run zette het filter via
+  // page.selectOption en VoiceOver zei niets. Nu bedient VoiceOver het veld zelf: focus erop
+  // (de VO-cursor volgt de toetsenbordfocus), VO+spatie opent het keuzemenu, pijltjes kiezen,
+  // Enter bevestigt. Lukt dat niet, dan valt de stap terug op de pagina en staat dat in
+  // `bediening`, zodat een stil resultaat nooit voor een VoiceOver-meting doorgaat.
+  const viaVoiceOver = async (sel, value) => {
+    const idx = await page.evaluate(([s, v]) => [...document.querySelector(s).options].findIndex((o) => o.value === v), [sel, value]);
+    const huidig = await page.evaluate((s) => document.querySelector(s).selectedIndex, sel);
+    await page.focus(sel); await page.waitForTimeout(400);
+    await voiceOver.act(); await page.waitForTimeout(600);
+    const stappen = idx - huidig;
+    for (let i = 0; i < Math.abs(stappen); i++) await voiceOver.press(stappen > 0 ? 'ArrowDown' : 'ArrowUp');
+    await voiceOver.press('Enter');
+    await page.waitForTimeout(300);
+    if ((await page.inputValue(sel)) === value) return 'voiceover';
+    await voiceOver.press('Escape').catch(() => {});
+    await page.selectOption(sel, value);
+    return 'pagina (VoiceOver-bediening mislukte)';
+  };
+  const knopViaVoiceOver = async (sel) => {
+    await page.focus(sel); await page.waitForTimeout(400);
+    await voiceOver.act();
+    return 'voiceover';
+  };
   const act = async (label, fn) => {
     // De Guidepup-log bevat alleen frases na eigen commando's; spontane live-region-meldingen
-    // lezen we uit VoiceOvers eigen "last phrase" (AppleScript) door 4 s te pollen.
+    // lezen we uit VoiceOvers eigen "last phrase" (AppleScript). Polite meldingen wachten tot
+    // VoiceOver uitgesproken is, dus 8 s in plaats van 4 s.
     const voor = await voiceOver.lastSpokenPhrase();
-    await fn();
+    await voiceOver.clearSpokenPhraseLog();
+    const bediening = await fn();
     const gehoord = [];
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 16; i++) {
       await page.waitForTimeout(500);
       const l = await voiceOver.lastSpokenPhrase();
       if (l && l !== voor && !gehoord.includes(l)) gehoord.push(l);
     }
+    const telling = (await page.textContent('[data-wh-telling]'))?.trim();
     const live = await page.evaluate(() => { const t = document.querySelector('[data-wh-telling]'); const r = t?.closest('[aria-live]') || t; return { ariaLive: r?.getAttribute('aria-live'), role: r?.getAttribute('role') }; });
-    ev.push({ actie: label, telling: (await page.textContent('[data-wh-telling]'))?.trim(), live, voorgelezen: gehoord });
+    // Pijltjes in een WebKit-select wijzigen de waarde al onderweg, dus VoiceOver kan een
+    // tussenstand voorlezen ("17 van 128 wijnhuizen"); elke gehoorde telling telt.
+    ev.push({ actie: label, bediening, telling, live, voorgelezen: gehoord, log: await voiceOver.spokenPhraseLog(), tellingGehoord: gehoord.filter((g) => /\d+( van \d+)? wijnhuizen|\d+( of \d+)? wineries/i.test(g)) });
   };
   const opt = await page.evaluate(() => [...document.querySelectorAll('#wh-bestemming option')].find((o) => o.value.startsWith('streek:'))?.value);
-  await act(`regio ${opt}`, () => page.selectOption('#wh-bestemming', opt));
+  await act(`regio ${opt}`, () => viaVoiceOver('#wh-bestemming', opt));
   const druif = await page.evaluate(() => [...document.querySelectorAll('#wh-druif option')].map((o) => o.value).filter(Boolean));
-  if (druif[0]) await act(`druif ${druif[0]}`, () => page.selectOption('#wh-druif', druif[0]));
+  if (druif[0]) await act(`druif ${druif[0]}`, () => viaVoiceOver('#wh-druif', druif[0]));
   const wis = await page.isVisible('[data-wh-wis]');
-  await act('reset (Wis filters)', () => (wis ? page.click('[data-wh-wis]') : page.selectOption('#wh-bestemming', '')));
+  await act('reset (Wis filters)', () => (wis ? knopViaVoiceOver('[data-wh-wis]') : viaVoiceOver('#wh-bestemming', '')));
   save(2, { pagina: '/wijnhuizen/', events: ev });
 });
 
