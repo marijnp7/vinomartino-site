@@ -107,14 +107,11 @@ function makerFromSegment(s: string): string {
     s = s.replace(/^[\s,;:]+/, '');
     const ccComma = s.search(/,\s*CC\s+BY/i);
     if (ccComma >= 0) return s.slice(0, ccComma).trim();
-    const slash = s.indexOf(' / ');
-    if (slash >= 0) return s.slice(0, slash).trim();
-    const via = s.search(/\s+via\s+/i);
-    if (via >= 0) return s.slice(0, via).trim();
-    const ccParen = s.search(/\s+\(CC\s+BY/i);
-    if (ccParen >= 0) return s.slice(0, ccParen).trim();
-    const pipe = s.indexOf(' | ');
-    if (pipe >= 0) return s.slice(0, pipe).trim();
+    // LAT-14556: knip op het vróégste scheidingsteken. "Groot Constantia | Bron: … (toestemming
+    // wijnhuis 21-10-2026 via FusionDesign, …)" knipte eerst op de latere "via" en zette zo de
+    // hele NL-provenance als maker in de credit (ook op /en/).
+    const cuts = [s.indexOf(' / '), s.search(/\s+via\s+/i), s.search(/\s+\(CC\s+BY/i), s.indexOf(' | ')].filter((i) => i >= 0);
+    if (cuts.length) return s.slice(0, Math.min(...cuts)).trim();
     const sent = /[.]\s/.exec(s);
     if (sent) return s.slice(0, sent.index).trim();
     return s.trim();

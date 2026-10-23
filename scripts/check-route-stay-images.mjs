@@ -29,7 +29,10 @@ export function scanHtml(html) {
     vol.set(key, (vol.get(key) ?? 0) + 1);
     const media = /class="poi-card__media[^"]*"/.test(inner);
     const img = /<img\b[^>]*class="[^"]*poi-card__img/.test(inner);
-    if (attr(attrs, 'data-acc-record') != null && !img) findings.push({ kind: 'record-zonder-beeld', key });
+    // LAT-14556: een record mét foto moet die foto tonen; alleen een record dat expliciet
+    // "zonder-foto" is (geen toegestane foto) mag de huisstijl-placeholder hebben.
+    const rec = attr(attrs, 'data-acc-record');
+    if (rec != null && rec !== 'zonder-foto' && !img) findings.push({ kind: 'record-zonder-beeld', key });
     else if (!media) findings.push({ kind: 'geen-media', key });
   }
   for (const g of html.matchAll(/class="rslaap__grid[^"]*"/g)) {

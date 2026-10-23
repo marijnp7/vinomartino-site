@@ -42,13 +42,15 @@ interface Props {
   landName: string;
   wijnhuizen: Wijnhuis[];
   staysRoundup: AccommodatieRoundupData | null;
+  /** LAT-14556: ongefilterde roundup (ook records zonder foto) voor tier/beeld per slaapkaart. */
+  stayRecordsRoundup?: AccommodatieRoundupData | null;
   /** LAT-2638: NL byte-identiek op DEFAULT_LOCALE; /en/ geeft "en" mee. */
   locale?: Locale;
   /** LAT-2638: pad-URLs van de tegenhanger per taal voor hreflang. */
   alternates?: Partial<Record<Locale, string>>;
 }
 
-const { entry, streekName, landSlug, landName, wijnhuizen, staysRoundup, locale = DEFAULT_LOCALE, alternates } = Astro.props;
+const { entry, streekName, landSlug, landName, wijnhuizen, staysRoundup, stayRecordsRoundup, locale = DEFAULT_LOCALE, alternates } = Astro.props;
 
 // LAT-12054: naamsvermelding uit de DAM (`licentie` + `herkomst`) bij CC BY(-SA)-hero's.
 const heroCredit = await getImageCredit(assetIdFromSrc(entry.heroImage));
@@ -126,7 +128,7 @@ const heeftRouteLijn = loadRouteLine(entry.slug) != null && hasDagen(entry.stops
 const wijnhuisLabels = Object.fromEntries((pagina?.wijnhuizen ?? []).map((w) => [w.slug, w.label]));
 const slotItems = pagina?.slapen?.items.slice(0, 3) ?? [];
 // LAT-14550/14556 — accommodations-record per verblijfsnaam (tier én beeld) uit de gecureerde selectie.
-const stayRecords = stayRecordMap((staysRoundup?.clusters ?? []).flatMap((c) => c.kaarten));
+const stayRecords = stayRecordMap(((stayRecordsRoundup ?? staysRoundup)?.clusters ?? []).flatMap((c) => c.kaarten));
 // LAT-14556 — eerste nacht per adres: alleen daar een volle slaapkaart, daarna een verwijzing.
 const eersteNacht: Record<string, number> = {};
 for (const d of pagina?.dagen ?? []) {

@@ -24,6 +24,15 @@ test('ROOD: gekoppeld accommodatie-record zonder beeld (live 22-10)', () => {
   assert.deepEqual(kinds(kaart('hotel barolo', '', ' data-acc-record')), ['record-zonder-beeld:hotel barolo']);
 });
 
+test('record zonder toegestane foto (Palazzo Finati, record 12) mag de placeholder; zonder media blijft rood', () => {
+  const php = `<div class="poi-card__media poi-card__media--placeholder"><div class="smart-img-placeholder poi-card__img" role="img"></div></div>`;
+  assert.deepEqual(kinds(kaart('palazzo finati', php, ' data-acc-record="zonder-foto"')), []);
+  assert.deepEqual(kinds(kaart('palazzo finati', '', ' data-acc-record="zonder-foto"')), ['geen-media:palazzo finati']);
+  // Alleen de exacte waarde "zonder-foto" ontslaat; een record mét foto (lege of andere waarde) blijft strikt.
+  assert.deepEqual(kinds(kaart('hotel barolo', php, ' data-acc-record=""')), ['record-zonder-beeld:hotel barolo']);
+  assert.deepEqual(kinds(kaart('hotel barolo', php, ' data-acc-record="foto"')), ['record-zonder-beeld:hotel barolo']);
+});
+
 test('ROOD: volle kaart zonder media (lege ruimte)', () => {
   assert.deepEqual(kinds(kaart('locanda del pilone', '')), ['geen-media:locanda del pilone']);
 });

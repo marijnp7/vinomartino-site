@@ -208,6 +208,7 @@ function stopToPoi(stop: ItineraryStop, pin: CardPin, hasProse = false): PoiCard
                 naam: d.overnachting.naam,
                 routeStay: stayKey,
                 accRecord: Boolean(rec),
+            accRecordFoto: Boolean(rec?.foto),
                 verwijzing: herhaling ? { tekst: ui.t('route.stay.zelfdeAdres').replace('{n}', String(eersteNacht[stayKey])), href: `#${routeStayAnchor(stayKey)}` } : null,
                 // LAT-14556: beeld (en credit) uit het accommodations-record, zoals op /accommodaties/.
                 foto: recFoto ?? d.overnachting.foto,
