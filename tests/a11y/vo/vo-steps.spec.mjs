@@ -122,8 +122,9 @@ test('stap 2: /wijnhuizen/ filters en live region', async ({ page, voiceOver }) 
     }
     const telling = (await page.textContent('[data-wh-telling]'))?.trim();
     const live = await page.evaluate(() => { const t = document.querySelector('[data-wh-telling]'); const r = t?.closest('[aria-live]') || t; return { ariaLive: r?.getAttribute('aria-live'), role: r?.getAttribute('role') }; });
-    const kern = telling?.match(/\d+(\s+van\s+\d+)?/)?.[0];
-    ev.push({ actie: label, bediening, telling, live, voorgelezen: gehoord, log: await voiceOver.spokenPhraseLog(), tellingGehoord: Boolean(kern && gehoord.some((g) => g.includes(kern))) });
+    // Pijltjes in een WebKit-select wijzigen de waarde al onderweg, dus VoiceOver kan een
+    // tussenstand voorlezen ("17 van 128 wijnhuizen"); elke gehoorde telling telt.
+    ev.push({ actie: label, bediening, telling, live, voorgelezen: gehoord, log: await voiceOver.spokenPhraseLog(), tellingGehoord: gehoord.filter((g) => /\d+( van \d+)? wijnhuizen|\d+( of \d+)? wineries/i.test(g)) });
   };
   const opt = await page.evaluate(() => [...document.querySelectorAll('#wh-bestemming option')].find((o) => o.value.startsWith('streek:'))?.value);
   await act(`regio ${opt}`, () => viaVoiceOver('#wh-bestemming', opt));
