@@ -61,4 +61,6 @@ const chipNaam = (s: RouteStopGeo, n: number | null) =>
     font-family: 'JetBrains Mono', ui-monospace, monospace; font-weight: 700; font-size: 0.8125rem;
   }
   .rdag__chip--wijnhuis .rdag__chip-nr, .rdag__chip--slaap .rdag__chip-nr { background: var(--paper, #FAF5E9); border-color: var(--dagkleur); box-shadow: inset 0 0 0 1px #14100E; }
+  /* LAT-13199: wijnhuis/slaap-chip heeft een papieren vlak (kelder: #0F0B09); het vaste #14100E-symbool gaf daar 1,04:1. */
+  .rdag__chip--wijnhuis .rdag__chip-nr, .rdag__chip--slaap .rdag__chip-nr { color: var(--ink, #14100E); }
 </style>
