@@ -267,6 +267,9 @@ const boeklinkIsZoek = typeof boeklink === 'string' && /searchresults|[?&]ss=/i.
   .poi-card__media {
     position: relative;
     aspect-ratio: 4 / 3;
+    /* LAT-14556 (herkeuring 1602): de kaart is een flex-kolom. Een <img> heeft een intrinsieke
+       min-hoogte, de SVG-placeholder niet; zonder dit krimpt alleen de placeholder in een rij. */
+    flex-shrink: 0;
     background: var(--paperDeep, #F0E6D0);
     overflow: hidden;
   }
