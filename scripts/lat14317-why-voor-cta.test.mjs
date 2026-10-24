@@ -15,7 +15,9 @@ test('roundup-kaart vraagt why_this_one op en valt daarop terug', () => {
 
 test('EN valt niet terug op een onvertaalde NL why_this_one', () => {
   assert.match(loader, /nlWhyThisOne = new Map\(rawRows\.map/);
-  assert.match(loader, /locale === 'en'[\s\S]{0,200}row\.why_this_one === nlWhyThisOne\.get\(String\(row\.id\)\)\) row\.why_this_one = null/);
+  // LAT-14811: gegeneraliseerd van `locale === 'en'` naar `locale !== DEFAULT_LOCALE`
+  // zodat dezelfde guard ook voor DE/FR/ES/IT geldt.
+  assert.match(loader, /locale !== DEFAULT_LOCALE[\s\S]{0,200}row\.why_this_one === nlWhyThisOne\.get\(String\(row\.id\)\)\) row\.why_this_one = null/);
 });
 
 test('route-overnachting parseert why en geeft hem door aan PoiCard', () => {
