@@ -14,7 +14,7 @@ import { organizationSchema } from '../lib/seo';
 import { getAuthorByByline } from '../lib/authors';
 import { loadUiStrings } from '../lib/ui-strings';
 import { rubriekLabel } from '../lib/rubriek-labels';
-import { type Locale, DEFAULT_LOCALE, localizeHref } from '../lib/i18n';
+import { type Locale, DATE_LOCALE, DEFAULT_LOCALE, localizeHref } from '../lib/i18n';
 // LAT-5467 — de homepage rendert haar kaarten met een rauwe <img> i.p.v.
 // SmartImg, dus de beeld-niveau §7-marker moet hier apart worden meegegeven.
 import { loadSyntheticImageIds, syntheticImageAttrs, assetIdFromSrc } from '../lib/synthetic-images';
@@ -34,7 +34,7 @@ const ui = await loadUiStrings(locale);
 // data-beeldherkomst-attribuut terug voor AI-beeld en niets voor de rest.
 const syntheticIds = await loadSyntheticImageIds();
 const herkomst = (src: string | null | undefined) => syntheticImageAttrs(syntheticIds, null, src);
-const dateLocale = locale === 'en' ? 'en-GB' : 'nl-NL';
+const dateLocale = DATE_LOCALE[locale];
 
 // LAT-1848: render altijd de gecanoniseerde auteursnaam uit het auteur-record
 // (bv. "Marijn") i.p.v. het ruwe Directus author-veld (dat nog "Martin" kan zijn).

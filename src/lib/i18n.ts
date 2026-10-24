@@ -10,12 +10,12 @@
 // zonder dat er een pagina verschijnt.
 
 export const LOCALE_REGISTRY = {
-  nl: { prefix: '', hreflang: 'nl', htmlLang: 'nl', ogLocale: 'nl_NL', dateLocale: 'nl-NL' },
-  en: { prefix: '/en', hreflang: 'en', htmlLang: 'en', ogLocale: 'en_US', dateLocale: 'en-GB' },
-  de: { prefix: '/de', hreflang: 'de', htmlLang: 'de', ogLocale: 'de_DE', dateLocale: 'de-DE' },
-  fr: { prefix: '/fr', hreflang: 'fr', htmlLang: 'fr', ogLocale: 'fr_FR', dateLocale: 'fr-FR' },
-  es: { prefix: '/es', hreflang: 'es', htmlLang: 'es', ogLocale: 'es_ES', dateLocale: 'es-ES' },
-  it: { prefix: '/it', hreflang: 'it', htmlLang: 'it', ogLocale: 'it_IT', dateLocale: 'it-IT' },
+  nl: { prefix: '', hreflang: 'nl', htmlLang: 'nl', ogLocale: 'nl_NL', dateLocale: 'nl-NL', collation: 'nl' },
+  en: { prefix: '/en', hreflang: 'en', htmlLang: 'en', ogLocale: 'en_US', dateLocale: 'en-GB', collation: 'en' },
+  de: { prefix: '/de', hreflang: 'de', htmlLang: 'de', ogLocale: 'de_DE', dateLocale: 'de-DE', collation: 'de' },
+  fr: { prefix: '/fr', hreflang: 'fr', htmlLang: 'fr', ogLocale: 'fr_FR', dateLocale: 'fr-FR', collation: 'fr' },
+  es: { prefix: '/es', hreflang: 'es', htmlLang: 'es', ogLocale: 'es_ES', dateLocale: 'es-ES', collation: 'es' },
+  it: { prefix: '/it', hreflang: 'it', htmlLang: 'it', ogLocale: 'it_IT', dateLocale: 'it-IT', collation: 'it' },
 } as const;
 
 export type KnownLocale = keyof typeof LOCALE_REGISTRY;
@@ -36,7 +36,7 @@ export const LOCALES: readonly Locale[] = ENABLED_LOCALES;
 
 export const DEFAULT_LOCALE: Locale = 'nl';
 
-function perLocale<K extends 'hreflang' | 'htmlLang' | 'ogLocale' | 'dateLocale'>(key: K) {
+function perLocale<K extends 'hreflang' | 'htmlLang' | 'ogLocale' | 'dateLocale' | 'collation'>(key: K) {
   return Object.fromEntries(LOCALES.map((l) => [l, LOCALE_REGISTRY[l][key]])) as Record<Locale, string>;
 }
 
@@ -51,6 +51,9 @@ export const OG_LOCALE: Record<Locale, string> = perLocale('ogLocale');
 
 // Datumnotatie (Intl) per locale.
 export const DATE_LOCALE: Record<Locale, string> = perLocale('dateLocale');
+
+// Sorteervolgorde (localeCompare) per locale.
+export const COLLATION: Record<Locale, string> = perLocale('collation');
 
 // Talen met een voorvoegsel (alles behalve NL), langste eerst.
 const PREFIXED: readonly { locale: Locale; prefix: string }[] = LOCALES
@@ -77,6 +80,12 @@ export function stripLocale(pathname: string): string {
   if (!m) return pathname;
   if (pathname === m.prefix) return '/';
   return pathname.slice(m.prefix.length);
+}
+
+// LAT-14810: alleen het taalvoorvoegsel ('' voor NL, '/en' voor EN), voor
+// plekken die een pad uit losse stukken opbouwen.
+export function localePrefix(locale: Locale): string {
+  return LOCALE_REGISTRY[locale].prefix;
 }
 
 // Voeg het juiste voorvoegsel toe voor een gegeven locale. NL blijft prefixloos.

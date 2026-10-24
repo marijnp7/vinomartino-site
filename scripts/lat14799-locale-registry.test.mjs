@@ -42,3 +42,36 @@ test('uitgeschakelde talen hebben geen effect', () => {
     assert.equal(stripLocale(`/${l}/streken/x/`), `/${l}/streken/x/`);
   }
 });
+
+// LAT-14810 — fase 1 stap 2a: datumnotatie, valuta, sortering en /en-voorvoegsels
+// komen uit het register, niet uit een vaste `locale === 'en'`-keuze.
+import { COLLATION, localePrefix } from '../src/lib/i18n.ts';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { join } from 'node:path';
+
+test('COLLATION en localePrefix NL/EN ongewijzigd', () => {
+  assert.deepEqual(COLLATION, { nl: 'nl', en: 'en' });
+  assert.equal(localePrefix('nl'), '');
+  assert.equal(localePrefix('en'), '/en');
+});
+
+function walk(dir) {
+  return readdirSync(dir).flatMap((n) => {
+    const p = join(dir, n);
+    return statSync(p).isDirectory() ? walk(p) : /\.(astro|ts)$/.test(n) ? [p] : [];
+  });
+}
+
+test('geen vaste en/nl-keuze meer voor datum, valuta, sortering of /en-voorvoegsel', () => {
+  const banned = [
+    /locale === 'en' \? 'en-GB' : 'nl-NL'/,
+    /locale === 'en' \? 'en' : 'nl'/,
+    /locale === 'en' \? '\/en' : ''/,
+  ];
+  const hits = [];
+  for (const f of walk('src')) {
+    const lines = readFileSync(f, 'utf8').split('\n');
+    lines.forEach((line, i) => { if (banned.some((re) => re.test(line))) hits.push(`${f}:${i + 1}`); });
+  }
+  assert.deepEqual(hits, [], 'gebruik DATE_LOCALE / COLLATION / localePrefix / localizePath uit src/lib/i18n.ts');
+});

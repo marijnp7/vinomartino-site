@@ -9,13 +9,13 @@ import SubstackCta from './SubstackCta.astro';
 import { organizationSchema, breadcrumbSchema } from '../lib/seo';
 import { SUBSTACK_URL } from '../lib/social';
 import { loadUiStrings } from '../lib/ui-strings';
-import type { Locale } from '../lib/i18n';
+import { localePrefix, type Locale } from '../lib/i18n';
 
 interface Props { locale: Locale }
 const { locale } = Astro.props;
 const ui = await loadUiStrings(locale);
 const t = (k: string) => ui.t(k);
-const prefix = locale === 'en' ? '/en' : '';
+const prefix = localePrefix(locale);
 
 // Kanaal-URLs komen uit src/lib/social.ts (een bron, geen drift). Substack is
 // het enige nieuwsbriefkanaal (LAT-12309).
