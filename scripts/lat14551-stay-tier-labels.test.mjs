@@ -85,3 +85,14 @@ test('gate is geregistreerd: package.json én deploy-build na astro build', () =
   const deploy = readFileSync('.github/workflows/deploy.yml', 'utf8');
   assert.match(deploy, /npm run build && [^\n]*node scripts\/check-stay-tier-labels\.mjs/);
 });
+
+test('tussenkop in artikelbody en inhoudsopgave zijn geen label (LAT-14830)', () => {
+  const toc = `<nav class="toc"><ol class="toc-list"><li class="toc-item"><a href="#pure-luxe">Pure luxe</a></li><li><a href="#value-for-money">Value for money</a></li></ol></nav>`;
+  const body = `<div class="article-prose"><h2 id="slim-geboekt">Slim geboekt</h2><p>Twee adressen.</p><h2 id="pure-luxury">Pure luxury</h2></div>`;
+  assert.deepEqual(kinds(toc + body), []);
+});
+
+test('ROOD: losse badge buiten proza blijft rood naast een proza-kop (LAT-14830)', () => {
+  const html = `<div class="article-prose"><h2>Pure luxe</h2></div><span class="poi-card__badge">Pure luxe</span>`;
+  assert.deepEqual(kinds(html), ['los-label:Pure luxe']);
+});
