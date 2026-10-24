@@ -55,6 +55,7 @@ export function validateSpotlights(
         if (!nl || !en) { no('NL of EN teaser ontbreekt'); continue; }
         if (sentenceCount(nl) > 2 || sentenceCount(en) > 2) { no('teaser langer dan twee zinnen'); continue; }
         if (!huis.heroImage || !hasCredit(huis)) { no('geen hero met bekende DAM-licentie'); continue; }
+        // LAT-14811: bewust EN-specifiek, de spotlight kent alleen een NL- en een EN-teaserveld.
         entries.push({ id: r.id, start, end, campagneId: r.campagneId || `spotlight-${r.id}`, teaser: locale === 'en' ? en : nl, huis });
     }
     return { entries: sortByPriority(entries), rejected };

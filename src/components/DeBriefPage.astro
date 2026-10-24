@@ -9,7 +9,7 @@ import SubstackCta from './SubstackCta.astro';
 import { organizationSchema, breadcrumbSchema } from '../lib/seo';
 import { SUBSTACK_URL } from '../lib/social';
 import { loadUiStrings } from '../lib/ui-strings';
-import { localePrefix, type Locale } from '../lib/i18n';
+import { DEFAULT_LOCALE, HREFLANG, localePrefix, type Locale } from '../lib/i18n';
 
 interface Props { locale: Locale }
 const { locale } = Astro.props;
@@ -50,7 +50,7 @@ const schema = [
 
       {archiveUrl && (
         <p class="archief">
-          <a href={archiveUrl} target="_blank" rel="noopener" data-cta-id="substack_archive" hreflang={locale === 'en' ? 'nl' : undefined}>{t('debrief.archief.label')}</a>
+          <a href={archiveUrl} target="_blank" rel="noopener" data-cta-id="substack_archive" hreflang={locale && locale !== DEFAULT_LOCALE ? HREFLANG[DEFAULT_LOCALE] : undefined}>{t('debrief.archief.label')}</a>
         </p>
       )}
     </div>

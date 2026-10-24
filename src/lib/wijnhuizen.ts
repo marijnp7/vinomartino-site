@@ -202,6 +202,7 @@ function mapWijnhuis(
     drieluik: WijnhuisDrieluikBeeld[],
     galerij: WijnhuisGalerijBeeld[] = [],
 ): Wijnhuis {
+    // LAT-14811: bewust EN-specifiek, EN_EXTERNAL_URLS is een EN-datamap; een nieuwe taal krijgt een eigen map.
     const externalUrls = locale === 'en' ? EN_EXTERNAL_URLS[String(r.slug)] : undefined;
     const portret = normalizePortret(r);
     if (externalUrls && portret.proeverij) {

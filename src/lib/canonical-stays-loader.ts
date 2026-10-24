@@ -1,7 +1,7 @@
 import { readDirectusEnv, assertDirectusConfigured, fetchDirectusCollection, statusFilterQuery } from './directus-config';
 import { localizeRecordsSoft } from './directus-i18n';
 import { clearUntranslatedText } from './canonical-stays';
-import type { Locale } from './i18n';
+import { DEFAULT_LOCALE, type Locale } from './i18n';
 const cache = new Map<Locale, Promise<Record<string, any>[]>>();
 export function loadCanonicalStays(locale: Locale): Promise<Record<string, any>[]> {
     const old = cache.get(locale);
@@ -16,7 +16,7 @@ export function loadCanonicalStays(locale: Locale): Promise<Record<string, any>[
         const textFields = ['description', 'why_this_one', 'why_regel', 'prijs_disclaimer'];
         // LAT-14700: soft overlay, the approved set must stay complete on /en/.
         const localized = await localizeRecordsSoft(raw, { env, locale, junction: 'accommodations_translations', parentIdField: 'accommodations_id', fields: textFields });
-        return locale === 'en' ? clearUntranslatedText(localized, raw, textFields) : localized;
+        return locale !== DEFAULT_LOCALE ? clearUntranslatedText(localized, raw, textFields) : localized;
     })().catch(error => { cache.delete(locale); throw error; });
     cache.set(locale, pending);
     return pending;

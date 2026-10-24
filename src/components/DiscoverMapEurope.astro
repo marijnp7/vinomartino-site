@@ -26,6 +26,7 @@
 import europeGeo from '../data/atlas/europe-countries.json';
 import overseasGeo from '../data/atlas/overseas-countries.json';
 import { DEFAULT_LOCALE, localizePath, type Locale } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
 
 export interface MapCountry {
   slug: string;
@@ -48,13 +49,14 @@ export interface Props {
 const { countries, class: className, locale = DEFAULT_LOCALE } = Astro.props;
 
 // LAT-2582 — chrome-labels locale-aware; NL-default byte-identiek aan de oude tekst.
-const isEn = locale === 'en';
-const mapTitle = isEn ? 'Wine map of Europe' : 'Wijnkaart van Europa';
-const mapTitleClickable = isEn ? 'Clickable wine map of Europe' : 'Klikbare wijnkaart van Europa';
-const railHead = isEn ? 'Wine countries overseas' : 'Wijnlanden overzee';
-const railAria = isEn ? 'Wine countries outside Europe' : 'Wijnlanden buiten Europa';
+const ui = await loadUiStrings(locale);
+const t = (k: string) => ui.t(k);
+const mapTitle = t('map.europe.title');
+const mapTitleClickable = t('map.europe.titleClickable');
+const railHead = t('map.europe.railHead');
+const railAria = t('map.europe.railAria');
 const regionCountLabel = (n: number) =>
-  isEn ? `${n} ${n === 1 ? 'region' : 'regions'}` : `${n} ${n === 1 ? 'streek' : 'streken'}`;
+  t(n === 1 ? 'map.europe.regionCount.one' : 'map.europe.regionCount.other').replace('{n}', String(n));
 
 interface GeoEntry { name: string; d: string; labelOffset?: { x: number; y: number } }
 const viewBox = (europeGeo._meta?.viewBox as string) || '0 0 800 700';

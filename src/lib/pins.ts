@@ -10,6 +10,8 @@ export const SITE = 'https://vinomartino.com';
 export const PINS_PER_WEEKDAY = 5;
 export const FEED_WEEKDAYS = 5;
 
+import { localePrefix } from './i18n.ts';
+
 export type PinLang = 'en' | 'nl';
 
 export interface PinCluster {
@@ -267,7 +269,7 @@ export function truncateAtWord(text: string, max: number): string {
 }
 
 export function pageUrl(lang: PinLang, slug: string): string {
-    return `${SITE}${lang === 'en' ? '/en' : ''}/artikelen/${slug}/`;
+    return `${SITE}${localePrefix(lang)}/artikelen/${slug}/`;
 }
 
 export function pinUrl(lang: PinLang, slug: string): string {
