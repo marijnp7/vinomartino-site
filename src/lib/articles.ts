@@ -1,4 +1,5 @@
 import type { TocItem } from './markdown';
+import { slugsWithoutPubDate, sortByPubDateNullsLast } from './article-order';
 import { getCtaStructure, type CtaStructure } from './cta-blocks';
 import { assertAssetAllowed } from './image-guard';
 
@@ -401,24 +402,9 @@ function mapEerstDitBoeken(val: unknown): EerstDitBoekenItem[] {
         .filter((i) => i.naam || i.handeling);
 }
 
-// LAT-2358: when an article has no pub_date, do NOT fall back to the build's
-// `new Date()` — that stamps every dateless article with today and shifts it on
-// each rebuild, which is exactly the "machine-generated" smell we are removing.
-// Derive a stable date from the slug inside the historic window instead, so
-// builds are reproducible until the real pub_date is backfilled in Directus.
-function stableFallbackPubDate(slug: string): string {
-    const START = Date.UTC(2026, 0, 13); // 2026-01-13
-    const END = Date.UTC(2026, 6, 12); // 2026-07-12
-    let h = 2166136261;
-    for (let i = 0; i < slug.length; i++) {
-        h ^= slug.charCodeAt(i);
-        h = Math.imul(h, 16777619);
-    }
-    const span = (END - START) / 86400000;
-    const offsetDays = (h >>> 0) % (span + 1);
-    return new Date(START + offsetDays * 86400000).toISOString().slice(0, 10);
-}
-
+// LAT-14828: geen verzonnen datum meer (de oude stableFallbackPubDate uit LAT-2358
+// zette dateless artikelen bovenaan homepage en feed). Ontbreekt pub_date, dan is
+// pubDate '' en zakt het artikel onderaan (sortByPubDateNullsLast); de build waarschuwt.
 function mapArticle(
     a: Record<string, unknown>,
     heroImagePath: string | null,
@@ -433,7 +419,7 @@ function mapArticle(
           title: normalizeEmDashes(String(a.title)),
           description: normalizeEmDashes(String(a.description || '')),
           author: String(a.author || 'VinoMartino'),
-          pubDate: String(a.pub_date || stableFallbackPubDate(String(a.slug))),
+          pubDate: a.pub_date ? String(a.pub_date) : '',
           // LAT-13350: redactionele `updated_date` gaat voor de systeemtijd `updated_at`.
           updatedAt: a.updated_date ? String(a.updated_date) : a.updated_at ? String(a.updated_at) : null,
           category: String(a.category || ''),
@@ -702,7 +688,13 @@ async function loadFromDirectus(url: string, token: string, locale: Locale): Pro
           }),
         );
     console.log(`[loadArticles] fetched ${items.length} articles from Directus`);
-    return items;
+    // LAT-14828: Directus' sort=-pub_date zet NULL bovenaan. Sorteer hier opnieuw met
+    // ontbrekende pub_date onderaan, en maak dat luid zichtbaar in de buildlog.
+    const missing = slugsWithoutPubDate(items);
+    if (missing.length > 0) {
+        console.warn(`[loadArticles] WAARSCHUWING LAT-14828 (${locale}): ${missing.length} gepubliceerd(e) artikel(en) zonder pub_date, onderaan gezet en uit homepage-spotlight/feed gehouden: ${missing.join(', ')}. Vul pub_date in Directus.`);
+    }
+    return sortByPubDateNullsLast(items);
 }
 
 async function fetchArticles(locale: Locale = DEFAULT_LOCALE): Promise<Article[]> {

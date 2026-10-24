@@ -113,9 +113,11 @@ const metaDescription = (paragraphs[0] ?? bio).slice(0, 155);
                 {article.category && <span class="article-cat">{rubriekLabel(ui, article.category)}</span>}
                 <h3 class="article-title">{article.title}</h3>
                 {article.description && <p class="article-desc">{article.description}</p>}
-                <span class="article-date">
-                  {new Date(article.pubDate).toLocaleDateString(dateLocale, { day: 'numeric', month: 'long', year: 'numeric' })}
-                </span>
+                {article.pubDate && (
+                  <span class="article-date">
+                    {new Date(article.pubDate).toLocaleDateString(dateLocale, { day: 'numeric', month: 'long', year: 'numeric' })}
+                  </span>
+                )}
               </a>
             </li>
           ))}

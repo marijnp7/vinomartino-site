@@ -102,7 +102,10 @@ const authorCardBio = authorProfile
   ? localizedField(authorProfile, 'bio', locale)
   : '';
 
-const modifiedTime = article.updatedAt || article.pubDate;
+const modifiedTime = article.updatedAt || article.pubDate || undefined;
+// LAT-14828: een ontbrekende pub_date is een fout, geen fallback: geen verzonnen
+// datum in byline of meta, wel een luide regel in de buildlog.
+if (!article.pubDate) console.error(`[ArtikelDetail] LAT-14828: ${article.slug} (${locale}) heeft geen pub_date; byline en datePublished blijven leeg.`);
 
 // LAT-1719: de twee Rhône-artikelen krijgen een interactieve Leaflet-kaart inline
 // in de body. splitBodyForRhoneMap() knipt de bodyHtml op een vast anker; null
@@ -128,7 +131,7 @@ const schema = [
     title: article.title,
     description: article.description,
     author: authorDisplayName,
-    datePublished: article.pubDate,
+    datePublished: article.pubDate || undefined,
     dateModified: modifiedTime,
     image: article.heroImage,
     url: pageUrl,
@@ -159,7 +162,7 @@ if (article.faqSchema) {
   ogImage={article.ogImage || article.heroImage || undefined}
   ogType="article"
   article={{
-    publishedTime: article.pubDate,
+    publishedTime: article.pubDate || undefined,
     modifiedTime,
     author: authorDisplayName,
     section: rubriekLabel(ui, article.category),
@@ -218,7 +221,7 @@ if (article.faqSchema) {
         ) : (
           <span class="article-author">{article.author}</span>
         )}
-        <span class="article-date">{new Date(article.pubDate).toLocaleDateString(dateLocale, { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+        {article.pubDate && <span class="article-date">{new Date(article.pubDate).toLocaleDateString(dateLocale, { day: 'numeric', month: 'long', year: 'numeric' })}</span>}
       </div>
       {/* LAT-4911 — tags alleen NL; zie originele comment */}
       {locale === DEFAULT_LOCALE && article.tags && article.tags.length > 0 && (
