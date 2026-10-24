@@ -75,3 +75,29 @@ test('geen vaste en/nl-keuze meer voor datum, valuta, sortering of /en-voorvoegs
   }
   assert.deepEqual(hits, [], 'gebruik DATE_LOCALE / COLLATION / localePrefix / localizePath uit src/lib/i18n.ts');
 });
+
+// LAT-14810 — fase 1 stap 2b (deel 1): auteursvelden via localizedField, vaste
+// Dag/Day- en portret-copy via ui_strings, ui-strings zonder locale-tak.
+import { localizedField } from '../src/lib/i18n.ts';
+
+test('localizedField: NL kaal veld, EN variant met terugval', () => {
+  const a = { bio: 'nl', bioEn: 'en', role: 'rol' };
+  assert.equal(localizedField(a, 'bio', 'nl'), 'nl');
+  assert.equal(localizedField(a, 'bio', 'en'), 'en');
+  assert.equal(localizedField(a, 'role', 'en'), 'rol');
+  assert.equal(localizedField({ bio: 'nl', bioEn: '' }, 'bio', 'en'), '');
+});
+
+test('geen vaste EN-copy of En-veldkeuze meer in templates en ui-strings', () => {
+  const banned = [
+    /locale === 'en' \? '[A-Z][^']*' : '/,
+    /locale === 'en' \? \w+\.\w+En \?\?/,
+  ];
+  const hits = [];
+  for (const f of walk('src')) {
+    const lines = readFileSync(f, 'utf8').split('\n');
+    lines.forEach((line, i) => { if (banned.some((re) => re.test(line))) hits.push(`${f}:${i + 1}`); });
+  }
+  assert.deepEqual(hits, [], 'gebruik ui_strings (ui.t) of localizedField uit src/lib/i18n.ts');
+  assert.doesNotMatch(readFileSync('src/lib/ui-strings.ts', 'utf8'), /locale === 'en'/);
+});

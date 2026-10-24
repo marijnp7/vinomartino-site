@@ -8,7 +8,7 @@ import { loadArticles, type Article } from '../lib/articles';
 import { breadcrumbSchema } from '../lib/seo';
 import { loadUiStrings } from '../lib/ui-strings';
 import { rubriekLabel } from '../lib/rubriek-labels';
-import { DATE_LOCALE, DEFAULT_LOCALE, localizePath, type Locale } from '../lib/i18n';
+import { DATE_LOCALE, DEFAULT_LOCALE, localizePath, type Locale, localizedField } from '../lib/i18n';
 
 interface Props {
   author: Author;
@@ -19,7 +19,7 @@ interface Props {
 const { author, locale = DEFAULT_LOCALE, alternates } = Astro.props;
 const ui = await loadUiStrings(locale);
 const dateLocale = DATE_LOCALE[locale];
-const bio = locale === 'en' ? author.bioEn ?? author.bio : author.bio;
+const bio = localizedField(author, 'bio', locale);
 
 const SITE_URL = 'https://vinomartino.com';
 const pageUrl = new URL(localizePath(`/auteurs/${author.slug}/`, locale), Astro.site ?? SITE_URL).href;
@@ -82,8 +82,8 @@ const metaDescription = (paragraphs[0] ?? bio).slice(0, 155);
       <div class="author-intro">
         <span class="kicker">{ui.t('auteurs.detail.kicker')}</span>
         <h1>{author.name}</h1>
-        {(locale === 'en' ? author.taglineEn ?? author.tagline : author.tagline) && <p class="author-tagline">{locale === 'en' ? author.taglineEn ?? author.tagline : author.tagline}</p>}
-        {(locale === 'en' ? author.roleEn ?? author.role : author.role) && <p class="author-role">{locale === 'en' ? author.roleEn ?? author.role : author.role}</p>}
+        {localizedField(author, 'tagline', locale) && <p class="author-tagline">{localizedField(author, 'tagline', locale)}</p>}
+        {localizedField(author, 'role', locale) && <p class="author-role">{localizedField(author, 'role', locale)}</p>}
         <div class="author-bio">
           {paragraphs.map((p) => <p>{p}</p>)}
         </div>

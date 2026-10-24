@@ -205,3 +205,12 @@ export function localizeHref(href: string, locale: Locale): string {
   const suffix = href.slice(pathname.length);
   return `${localizePath(pathname, locale)}${suffix}`;
 }
+
+// LAT-14810: veld in de taal van de pagina, met terugval op het NL-veld.
+// Vertaalde varianten heten `<veld><Taal>` (bioEn, taglineEn, ...); NL is het
+// kale veld. Een nieuwe taal volgt hetzelfde patroon (bioDe) zonder extra tak.
+export function localizedField<T extends object, K extends keyof T & string>(obj: T, key: K, locale: Locale): T[K] {
+  if (locale === DEFAULT_LOCALE) return obj[key];
+  const variant = (obj as Record<string, unknown>)[`${key}${locale.charAt(0).toUpperCase()}${locale.slice(1)}`] as T[K] | null | undefined;
+  return variant ?? obj[key];
+}

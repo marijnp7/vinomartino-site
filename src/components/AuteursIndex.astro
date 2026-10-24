@@ -11,7 +11,7 @@ import SiteLayout from '../layouts/SiteLayout.astro';
 import { getAuthorBySlug, bioParagraphs } from '../lib/authors';
 import { breadcrumbSchema } from '../lib/seo';
 import { loadUiStrings } from '../lib/ui-strings';
-import { DEFAULT_LOCALE, localizePath, type Locale } from '../lib/i18n';
+import { DEFAULT_LOCALE, localizePath, type Locale, localizedField } from '../lib/i18n';
 
 interface Props {
   locale?: Locale;
@@ -24,10 +24,10 @@ const ui = await loadUiStrings(locale);
 const marijn = getAuthorBySlug('marijn');
 if (!marijn) throw new Error('AuteursIndex: author "marijn" not found in AUTHORS');
 
-const bio = locale === 'en' ? marijn.bioEn ?? marijn.bio : marijn.bio;
+const bio = localizedField(marijn, 'bio', locale);
 const paragraphs = bioParagraphs(bio);
-const tagline = locale === 'en' ? marijn.taglineEn ?? marijn.tagline : marijn.tagline;
-const role = locale === 'en' ? marijn.roleEn ?? marijn.role : marijn.role;
+const tagline = localizedField(marijn, 'tagline', locale);
+const role = localizedField(marijn, 'role', locale);
 const instagramUrl = marijn.instagramHandle
   ? `https://www.instagram.com/${marijn.instagramHandle.replace(/^@/, '')}/`
   : null;

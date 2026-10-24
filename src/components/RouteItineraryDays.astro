@@ -150,7 +150,7 @@ function stopToPoi(stop: ItineraryStop, pin: CardPin, hasProse = false): PoiCard
   <nav class="route-daystrip" aria-label={ui.t('route.daysAria')}>
     {itinerary.days.map((d) => (
       <a class="route-daychip" href={`#${dagAnchor(d.n)}`}>
-        <span class="route-daychip__label">{locale === 'en' ? 'Day' : 'Dag'} {d.n}</span>
+        <span class="route-daychip__label">{ui.t('route.dag')} {d.n}</span>
         {d.title && <span class="route-daychip__title">{d.title}</span>}
       </a>
     ))}
@@ -171,14 +171,14 @@ function stopToPoi(stop: ItineraryStop, pin: CardPin, hasProse = false): PoiCard
       <section class="route-day" id={dagAnchor(d.n)} {...dagAttrs(d.n)}>
         {prose?.day && prose.day.anchor !== dagAnchor(d.n) && <span id={prose.day.anchor} aria-hidden="true"></span>}
         <header class="route-day__head">
-          <span class="route-day__label">{locale === 'en' ? 'Day' : 'Dag'} {d.n}</span>
+          <span class="route-day__label">{ui.t('route.dag')} {d.n}</span>
           <h2 class="route-day__etappe">{prose?.day?.title || d.title}</h2>
           {(d.rijtijdMin != null && d.rijtijdMin > 0) && (
             <span class="route-day__rijtijd">{ui.t('route.drivingTime')}: {fmtRijtijd(d.rijtijdMin)}</span>
           )}
         </header>
 
-        {routeSlug && <RouteDagChips stops={kaartStops} dag={d.n} label={`${locale === 'en' ? 'Day' : 'Dag'} ${d.n}`} slug={routeSlug} locale={locale} />}
+        {routeSlug && <RouteDagChips stops={kaartStops} dag={d.n} label={`${ui.t('route.dag')} ${d.n}`} slug={routeSlug} locale={locale} />}
 
         {prose ? <div class="page-prose route-day__body" set:html={prose.html} /> : d.summary && <p class="route-day__summary">{d.summary}</p>}
 
