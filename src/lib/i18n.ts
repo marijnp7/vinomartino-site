@@ -2,45 +2,90 @@
 // Dit fundament is schema-onafhankelijk: het levert alleen locale-helpers, geen Directus-data.
 // De loader-koppeling (EN-records) en ui_strings volgen zodra het Directus-schema (LAT-2574) live is.
 
-export type Locale = 'nl' | 'en';
+// LAT-14799 — generiek taalregister. Eén plek waar elke taal die de site ooit
+// kan dragen beschreven staat (voorvoegsel, hreflang, html lang, og:locale,
+// datumnotatie). Een taal in het register is NIET automatisch live: alleen wat
+// in `ENABLED_LOCALES` staat krijgt routes, hreflang en een plek in de
+// taalkiezer. Vertalingen voor DE/FR/ES/IT kunnen dus al in Directus staan
+// zonder dat er een pagina verschijnt.
 
-export const LOCALES: readonly Locale[] = ['nl', 'en'] as const;
+export const LOCALE_REGISTRY = {
+  nl: { prefix: '', hreflang: 'nl', htmlLang: 'nl', ogLocale: 'nl_NL', dateLocale: 'nl-NL' },
+  en: { prefix: '/en', hreflang: 'en', htmlLang: 'en', ogLocale: 'en_US', dateLocale: 'en-GB' },
+  de: { prefix: '/de', hreflang: 'de', htmlLang: 'de', ogLocale: 'de_DE', dateLocale: 'de-DE' },
+  fr: { prefix: '/fr', hreflang: 'fr', htmlLang: 'fr', ogLocale: 'fr_FR', dateLocale: 'fr-FR' },
+  es: { prefix: '/es', hreflang: 'es', htmlLang: 'es', ogLocale: 'es_ES', dateLocale: 'es-ES' },
+  it: { prefix: '/it', hreflang: 'it', htmlLang: 'it', ogLocale: 'it_IT', dateLocale: 'it-IT' },
+} as const;
+
+export type KnownLocale = keyof typeof LOCALE_REGISTRY;
+
+// De configuratielijst die bepaalt wat live staat. Volgorde = volgorde in de
+// taalkiezer. Een taal aanzetten = hier toevoegen (plus de bouwstappen uit het
+// epic: routes, interfaceteksten, affiliate per taal).
+export const ENABLED_LOCALES = ['nl', 'en'] as const satisfies readonly KnownLocale[];
+
+export type EnabledLocale = (typeof ENABLED_LOCALES)[number];
+
+
+// LAT-14799: de taalgegevens hieronder komen uit het register hierboven.
+// `Locale` blijft de set talen die live staat; NL is prefixloos.
+export type Locale = EnabledLocale;
+
+export const LOCALES: readonly Locale[] = ENABLED_LOCALES;
 
 export const DEFAULT_LOCALE: Locale = 'nl';
 
+function perLocale<K extends 'hreflang' | 'htmlLang' | 'ogLocale' | 'dateLocale'>(key: K) {
+  return Object.fromEntries(LOCALES.map((l) => [l, LOCALE_REGISTRY[l][key]])) as Record<Locale, string>;
+}
+
 // hreflang-waarden per locale. x-default wijst naar de NL-basisversie.
-export const HREFLANG: Record<Locale, string> = { nl: 'nl', en: 'en' };
+export const HREFLANG: Record<Locale, string> = perLocale('hreflang');
 
 // <html lang>-waarden.
-export const HTML_LANG: Record<Locale, string> = { nl: 'nl', en: 'en' };
+export const HTML_LANG: Record<Locale, string> = perLocale('htmlLang');
 
 // Open Graph og:locale-waarden.
-export const OG_LOCALE: Record<Locale, string> = { nl: 'nl_NL', en: 'en_US' };
+export const OG_LOCALE: Record<Locale, string> = perLocale('ogLocale');
 
-const EN_PREFIX = '/en';
+// Datumnotatie (Intl) per locale.
+export const DATE_LOCALE: Record<Locale, string> = perLocale('dateLocale');
+
+// Talen met een voorvoegsel (alles behalve NL), langste eerst.
+const PREFIXED: readonly { locale: Locale; prefix: string }[] = LOCALES
+  .filter((l) => l !== DEFAULT_LOCALE)
+  .map((l) => ({ locale: l, prefix: LOCALE_REGISTRY[l].prefix as string }))
+  .sort((a, b) => b.prefix.length - a.prefix.length);
+
+function prefixMatch(pathname: string) {
+  return PREFIXED.find(({ prefix }) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+}
 
 export function isLocale(value: unknown): value is Locale {
-  return value === 'nl' || value === 'en';
+  return typeof value === 'string' && (LOCALES as readonly string[]).includes(value);
 }
 
-// Leid de locale af uit een pad. Alles onder /en/ is Engels; de rest is NL.
+// Leid de locale af uit een pad. Een pad onder een taalvoorvoegsel is die taal; de rest is NL.
 export function localeFromPath(pathname: string): Locale {
-  return pathname === EN_PREFIX || pathname.startsWith(`${EN_PREFIX}/`) ? 'en' : 'nl';
+  return prefixMatch(pathname)?.locale ?? DEFAULT_LOCALE;
 }
 
-// Verwijder het /en-voorvoegsel zodat het "kale" NL-pad overblijft (met leidende slash).
+// Verwijder het taalvoorvoegsel zodat het "kale" NL-pad overblijft (met leidende slash).
 export function stripLocale(pathname: string): string {
-  if (pathname === EN_PREFIX) return '/';
-  if (pathname.startsWith(`${EN_PREFIX}/`)) return pathname.slice(EN_PREFIX.length);
-  return pathname;
+  const m = prefixMatch(pathname);
+  if (!m) return pathname;
+  if (pathname === m.prefix) return '/';
+  return pathname.slice(m.prefix.length);
 }
 
 // Voeg het juiste voorvoegsel toe voor een gegeven locale. NL blijft prefixloos.
 export function localizePath(pathname: string, locale: Locale): string {
   const bare = stripLocale(pathname);
   if (locale === DEFAULT_LOCALE) return bare;
-  if (bare === '/') return `${EN_PREFIX}/`;
-  return `${EN_PREFIX}${bare}`;
+  const prefix = LOCALE_REGISTRY[locale].prefix;
+  if (bare === '/') return `${prefix}/`;
+  return `${prefix}${bare}`;
 }
 
 // LAT-2704 — route-families die (nog) GEEN /en/-tegenhanger hebben in src/pages/en/.
