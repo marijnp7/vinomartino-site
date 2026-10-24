@@ -7,6 +7,7 @@ import { loadArticles } from '../lib/articles';
 import { loadRoutes } from '../lib/routes';
 import { loadWijnhuizen } from '../lib/wijnhuizen';
 import { loadSpotlight, hasConfirmedLicense } from '../lib/wijnhuis-spotlight';
+import { hasPubDate, pickSpotlight } from '../lib/article-order';
 import { loadDamFileMeta } from '../lib/dam-file-meta';
 import WijnhuisSpotlight from './WijnhuisSpotlight.astro';
 import { loadStreken } from '../lib/streken';
@@ -42,13 +43,13 @@ const authorName = (byline: string | null | undefined): string =>
   getAuthorByByline(byline)?.name ?? byline ?? 'VinoMartino';
 
 const articles = await loadArticles(locale);
-// LAT-1611: het "verhaal van de week" is instelbaar via het `featured`-veld in
-// Directus. Board zet de toggle aan op het gewenste artikel; bij meerdere wint
-// het nieuwste. Geen featured-artikel → val terug op het nieuwste artikel.
-const spotlight = articles.find((a) => a.featured) ?? articles[0];
+// LAT-1611/LAT-14828: het "verhaal van de week" is het nieuwste artikel op pub_date,
+// tenzij een featured-artikel in de laatste 14 dagen is bijgewerkt (pickSpotlight).
+// Artikelen zonder pub_date doen niet mee in spotlight en feed.
+const spotlight = pickSpotlight(articles);
 // LAT-13075 — homepage v2: de hero draagt geen artikelbeelden meer, dus de
 // asymmetrische feed toont de vijf nieuwste artikelen na het spotlight-artikel.
-const moreArticles = articles.filter((a) => a.slug !== spotlight?.slug).slice(0, 5);
+const moreArticles = articles.filter((a) => hasPubDate(a) && a.slug !== spotlight?.slug).slice(0, 5);
 const FEED_TONES = ['bordeaux', 'vine', 'paper'] as const;
 const routes = await loadRoutes(locale);
 const wijnhuisSpotlight = await loadSpotlight(await loadWijnhuizen(locale).catch(() => []), locale);

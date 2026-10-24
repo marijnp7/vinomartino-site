@@ -72,7 +72,7 @@ export interface ArticleSchemaData {
   title: string;
   description?: string;
   author: string;
-  datePublished: string;
+  datePublished?: string;
   dateModified?: string;
   image?: string | null;
   url: string;

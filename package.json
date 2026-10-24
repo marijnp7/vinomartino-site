@@ -31,6 +31,7 @@
     "test:lat12716-moezel-template": "node --test scripts/lat12716-moezel-template.test.mjs",
     "test:lat12797-route-wijnhuizen": "node --test scripts/lat12797-route-wijnhuizen-geen-fallback.test.mjs",
     "test:wijnroutes-hub": "node --test scripts/wijnroutes-hub.test.mjs",
+    "test:lat14828-pubdate-order": "node --test scripts/lat14828-pubdate-order.test.mjs",
     "test:lat13771-accommodaties": "node --test scripts/lat13771-accommodaties-stijl.test.mjs",
     "test:lat14556-route-stay-images": "node --test scripts/lat14556-route-stay-images.test.mjs",
     "test:lat14550-tier-label": "node --test scripts/lat14550-tier-label.test.mjs",
