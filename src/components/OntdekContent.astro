@@ -12,7 +12,7 @@ import { loadLanden } from '../lib/landen';
 import { loadStreken } from '../lib/streken';
 import { organizationSchema, breadcrumbSchema } from '../lib/seo';
 import { loadUiStrings } from '../lib/ui-strings';
-import { DEFAULT_LOCALE, localizePath, type Locale } from '../lib/i18n';
+import { COLLATION, DEFAULT_LOCALE, localizePath, type Locale } from '../lib/i18n';
 
 interface Props {
   locale?: Locale;
@@ -21,7 +21,7 @@ interface Props {
 
 const { locale = DEFAULT_LOCALE, alternates } = Astro.props;
 const ui = await loadUiStrings(locale);
-const collation = locale === 'en' ? 'en' : 'nl';
+const collation = COLLATION[locale];
 
 const [landen, streken] = await Promise.all([loadLanden(locale), loadStreken(locale)]);
 

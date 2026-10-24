@@ -39,7 +39,7 @@ import { creditAuthorFor, getImageCredit, licenseLabelFor } from '../lib/image-c
 import { type AccommodatieRoundup as AccommodatieRoundupData } from '../lib/accommodaties';
 import { loadUiStrings } from '../lib/ui-strings';
 import { rubriekLabel } from '../lib/rubriek-labels';
-import { type Locale, DEFAULT_LOCALE, localizeHref } from '../lib/i18n';
+import { type Locale, DATE_LOCALE, DEFAULT_LOCALE, localizeHref } from '../lib/i18n';
 
 export type ArticleRoundup = { slug: string; roundup: AccommodatieRoundupData };
 // LAT-2010 [VIS-BL-11]: het "hoort bij"-voetblok. Primaire streek/route komen uit
@@ -61,7 +61,7 @@ const { article, accRoundups, voetblok, locale = DEFAULT_LOCALE, alternates } = 
 const lh = (href: string) => localizeHref(href, locale);
 
 const ui = await loadUiStrings(locale);
-const dateLocale = locale === 'en' ? 'en-GB' : 'nl-NL';
+const dateLocale = DATE_LOCALE[locale];
 
 const hasReisjunkRoundup = accRoundups.length > 0;
 // LAT-10472: de affiliate-copy (description + ctaLabel) leeft als literal in

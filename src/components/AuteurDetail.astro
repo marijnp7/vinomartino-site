@@ -8,7 +8,7 @@ import { loadArticles, type Article } from '../lib/articles';
 import { breadcrumbSchema } from '../lib/seo';
 import { loadUiStrings } from '../lib/ui-strings';
 import { rubriekLabel } from '../lib/rubriek-labels';
-import { DEFAULT_LOCALE, localizePath, type Locale } from '../lib/i18n';
+import { DATE_LOCALE, DEFAULT_LOCALE, localizePath, type Locale } from '../lib/i18n';
 
 interface Props {
   author: Author;
@@ -18,7 +18,7 @@ interface Props {
 
 const { author, locale = DEFAULT_LOCALE, alternates } = Astro.props;
 const ui = await loadUiStrings(locale);
-const dateLocale = locale === 'en' ? 'en-GB' : 'nl-NL';
+const dateLocale = DATE_LOCALE[locale];
 const bio = locale === 'en' ? author.bioEn ?? author.bio : author.bio;
 
 const SITE_URL = 'https://vinomartino.com';

@@ -2,13 +2,13 @@
 import SiteLayout from '../layouts/SiteLayout.astro';
 import type { Portrait } from '../lib/accommodation-portraits';
 import { isAffiliateHref } from '../lib/affiliates';
-import type { Locale } from '../lib/i18n';
+import { localizePath, type Locale } from '../lib/i18n';
 interface Props { portrait: Portrait; locale: Locale }
 const { portrait, locale } = Astro.props;
 const c = portrait.copy[locale];
 const base = `/accommodaties/${portrait.streekSlug}/${portrait.slug}/`;
-const streek = `${locale === 'en' ? '/en' : ''}/accommodaties/${portrait.streekSlug}/`;
-const guide = `${locale === 'en' ? '/en' : ''}/streken/${portrait.streekSlug}/`;
+const streek = localizePath(`/accommodaties/${portrait.streekSlug}/`, locale);
+const guide = localizePath(`/streken/${portrait.streekSlug}/`, locale);
 const booking = portrait.bookingHref[locale];
 const affiliate = isAffiliateHref(booking);
 // portrait_gallery credits are shared across locales and stored as "Foto: …".

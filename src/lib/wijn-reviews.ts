@@ -13,7 +13,7 @@
  */
 
 import { markdownToHtml, normalizeEmDashes } from './markdown';
-import { DEFAULT_LOCALE, type Locale } from './i18n';
+import { DATE_LOCALE, DEFAULT_LOCALE, type Locale } from './i18n';
 import { localizeRecords } from './directus-i18n';
 import { isAffiliateHref } from './affiliates';
 import {
@@ -144,7 +144,7 @@ export const REVIEW_TITLE_TEMPLATE_NL = '{categorie} bij {winkel} in {stad}: {wi
 
 export function formatEuro(n: number | null, locale: Locale = DEFAULT_LOCALE): string {
     if (n === null || !Number.isFinite(n)) return '';
-    return new Intl.NumberFormat(locale === 'en' ? 'en-GB' : 'nl-NL', { style: 'currency', currency: 'EUR' })
+    return new Intl.NumberFormat(DATE_LOCALE[locale], { style: 'currency', currency: 'EUR' })
         .format(n)
         .replace(/\u00a0/g, '');
 }

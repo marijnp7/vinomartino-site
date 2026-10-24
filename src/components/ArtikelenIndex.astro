@@ -11,7 +11,7 @@ import { isRedirectedArticleSlug } from '../lib/content-links';
 import { getAuthorByByline } from '../lib/authors';
 import { loadUiStrings } from '../lib/ui-strings';
 import { rubriekLabel, rubriekSlug } from '../lib/rubriek-labels';
-import { DEFAULT_LOCALE, localizePath, type Locale } from '../lib/i18n';
+import { COLLATION, DATE_LOCALE, DEFAULT_LOCALE, localizePath, type Locale } from '../lib/i18n';
 import { loadStrekenNav } from '../lib/streken';
 import { foldText } from '../lib/wijnhuis-filter';
 import '../styles/keuzehulp.css';
@@ -23,8 +23,8 @@ interface Props {
 
 const { locale = DEFAULT_LOCALE, alternates } = Astro.props;
 const ui = await loadUiStrings(locale);
-const collation = locale === 'en' ? 'en' : 'nl';
-const dateLocale = locale === 'en' ? 'en-GB' : 'nl-NL';
+const collation = COLLATION[locale];
+const dateLocale = DATE_LOCALE[locale];
 
 // LAT-1848: toon de gecanoniseerde auteursnaam uit het auteur-record (bv.
 // "Marijn") i.p.v. het ruwe Directus author-veld (dat nog "Martin" kan zijn).

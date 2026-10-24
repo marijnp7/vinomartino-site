@@ -8,7 +8,7 @@ import SmartImg from '../components/SmartImg.astro';
 import { loadAccommodatieRoundupPaths } from '../lib/accommodatie-roundup-paths';
 import { organizationSchema, breadcrumbSchema } from '../lib/seo';
 import { loadUiStrings } from '../lib/ui-strings';
-import { DEFAULT_LOCALE, localizePath, type Locale } from '../lib/i18n';
+import { COLLATION, DEFAULT_LOCALE, localizePath, type Locale } from '../lib/i18n';
 import { foldText } from '../lib/wijnhuis-filter';
 
 interface Props {
@@ -18,7 +18,7 @@ interface Props {
 
 const { locale = DEFAULT_LOCALE, alternates } = Astro.props;
 const ui = await loadUiStrings(locale);
-const collation = locale === 'en' ? 'en' : 'nl';
+const collation = COLLATION[locale];
 
 // LAT-13815 — zelfde bron als de streekpagina (gecureerde set eerst, daarna de
 // foto-gefilterde collectie), zodat het aantal hier gelijk is aan de kaarten daar.

@@ -5,7 +5,7 @@
 import SiteLayout from '../../layouts/SiteLayout.astro';
 import { loadWijnReviews, prijsband, PRIJSBANDEN, KLEUREN, VERDICTS } from '../../lib/wijn-reviews';
 import { loadUiStrings } from '../../lib/ui-strings';
-import { DEFAULT_LOCALE, localizePath, type Locale } from '../../lib/i18n';
+import { DATE_LOCALE, DEFAULT_LOCALE, localizePath, type Locale } from '../../lib/i18n';
 import { organizationSchema } from '../../lib/seo';
 
 interface Props {
@@ -22,7 +22,7 @@ const label = (prefix: string, value: string) => {
   return v === k ? value.replace(/-/g, ' ') : v;
 };
 const euro = (n: number | null) =>
-  n === null ? '' : new Intl.NumberFormat(locale === 'en' ? 'en-GB' : 'nl-NL', { style: 'currency', currency: 'EUR' }).format(n);
+  n === null ? '' : new Intl.NumberFormat(DATE_LOCALE[locale], { style: 'currency', currency: 'EUR' }).format(n);
 
 const kleuren = KLEUREN.filter((k) => reviews.some((r) => r.kleur === k));
 const verdicts = VERDICTS.filter((v) => reviews.some((r) => r.verdict === v));
