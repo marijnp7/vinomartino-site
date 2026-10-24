@@ -259,6 +259,23 @@ export const UI_STRING_DEFAULTS: Record<string, string> = {
     // Wijnroute-detailpagina chrome (LAT-2638, RouteDetail.astro).
     'route.breadcrumb.index': 'Wijnroutes',
     'route.daysAria': 'Dagen op deze route',
+    // LAT-14810: copy uit RouteItineraryDays en AccommodationPortraitPage.
+    'route.dag': 'Dag',
+    'portret.index': 'Accommodaties',
+    'portret.region': 'Streekgids',
+    'portret.why': 'Waarom juist hier',
+    'portret.considerations': 'Aandachtspunten',
+    'portret.rooms': 'Kamers',
+    'portret.wine': 'Wijn in de buurt',
+    'portret.gallery': 'Foto’s',
+    'portret.practical': 'Praktisch',
+    'portret.faq': 'Veelgestelde vragen',
+    'portret.book': 'Bekijk & boek',
+    'portret.source': 'Eigen website',
+    'portret.disclosure': 'Via boeklinks kunnen wij commissie ontvangen. Jij betaalt niets extra.',
+    'portret.openFoto': 'Open foto groot',
+    'portret.anchorsAria': 'Op deze pagina',
+    'portret.fotoLabel': 'Foto: ',
     'route.wijnhuizenOpRoute': 'Wijnhuizen op deze route',
     'route.leesPortret': 'Lees portret',
     'route.cta.zoekBooking': 'Zoek op Booking',
@@ -1537,6 +1554,23 @@ export const UI_STRING_EN: Record<string, string> = {
     'route.stop.website': 'Website',
     'route.stop.kaart': 'View on map',
     'route.daysAria': 'Days on this route',
+    // LAT-14810: copy uit RouteItineraryDays en AccommodationPortraitPage.
+    'route.dag': 'Day',
+    'portret.index': 'Places to stay',
+    'portret.region': 'Region guide',
+    'portret.why': 'Why stay here',
+    'portret.considerations': 'Good to know',
+    'portret.rooms': 'Rooms',
+    'portret.wine': 'Wine nearby',
+    'portret.gallery': 'Photos',
+    'portret.practical': 'Practical details',
+    'portret.faq': 'Questions',
+    'portret.book': 'View and book',
+    'portret.source': 'Property website',
+    'portret.disclosure': 'Booking links may earn us a commission at no extra cost to you.',
+    'portret.openFoto': 'Open full photo',
+    'portret.anchorsAria': 'On this page',
+    'portret.fotoLabel': 'Photo: ',
     'route.leesPortret': 'Read the portrait',
     'route.cta.zoekBooking': 'Search on Booking',
     'route.cta.zoekNaamBooking': 'Search {naam} on Booking',
@@ -1845,11 +1879,13 @@ export interface UiStrings {
     t(key: string): string;
 }
 
+// LAT-14810: hardcoded vertalingen per taal; NL staat in UI_STRING_DEFAULTS.
+// Een nieuwe taal krijgt hier een eigen dictionary, geen extra locale-tak.
+const UI_STRING_BY_LOCALE: Partial<Record<Locale, Record<string, string>>> = { en: UI_STRING_EN };
+
 function fromDefaults(locale: Locale): UiStrings {
-    if (locale === 'en') {
-        return { locale, t: (key) => UI_STRING_EN[key] ?? UI_STRING_DEFAULTS[key] ?? key };
-    }
-    return { locale, t: (key) => UI_STRING_DEFAULTS[key] ?? key };
+    const dict = UI_STRING_BY_LOCALE[locale];
+    return { locale, t: (key) => dict?.[key] ?? UI_STRING_DEFAULTS[key] ?? key };
 }
 
 /**
@@ -1947,9 +1983,7 @@ async function fetchUiStrings(locale: Locale = DEFAULT_LOCALE): Promise<UiString
     return {
         ui: {
             locale,
-            t: locale === 'en'
-                ? (key) => overlay.get(key) ?? UI_STRING_EN[key] ?? UI_STRING_DEFAULTS[key] ?? key
-                : (key) => overlay.get(key) ?? UI_STRING_DEFAULTS[key] ?? key,
+            t: (key) => overlay.get(key) ?? UI_STRING_BY_LOCALE[locale]?.[key] ?? UI_STRING_DEFAULTS[key] ?? key,
         },
         cacheable: true,
     };

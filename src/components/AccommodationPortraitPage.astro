@@ -2,7 +2,8 @@
 import SiteLayout from '../layouts/SiteLayout.astro';
 import type { Portrait } from '../lib/accommodation-portraits';
 import { isAffiliateHref } from '../lib/affiliates';
-import { localizePath, type Locale } from '../lib/i18n';
+import { DEFAULT_LOCALE, LOCALES, localizePath, type Locale } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
 interface Props { portrait: Portrait; locale: Locale }
 const { portrait, locale } = Astro.props;
 const c = portrait.copy[locale];
@@ -11,22 +12,22 @@ const streek = localizePath(`/accommodaties/${portrait.streekSlug}/`, locale);
 const guide = localizePath(`/streken/${portrait.streekSlug}/`, locale);
 const booking = portrait.bookingHref[locale];
 const affiliate = isAffiliateHref(booking);
+const ui = await loadUiStrings(locale);
 // portrait_gallery credits are shared across locales and stored as "Foto: …".
-const credit = (value: string) => locale === 'en' ? value.replace(/^Foto:\s*/i, 'Photo: ') : value;
-const t = locale === 'en'
-  ? { index:'Places to stay', region:'Region guide', why:'Why stay here', considerations:'Good to know', rooms:'Rooms', wine:'Wine nearby', gallery:'Photos', practical:'Practical details', faq:'Questions', book:'View and book', source:'Property website', disclosure:'Booking links may earn us a commission at no extra cost to you.' }
-  : { index:'Accommodaties', region:'Streekgids', why:'Waarom juist hier', considerations:'Aandachtspunten', rooms:'Kamers', wine:'Wijn in de buurt', gallery:'Foto’s', practical:'Praktisch', faq:'Veelgestelde vragen', book:'Bekijk & boek', source:'Eigen website', disclosure:'Via boeklinks kunnen wij commissie ontvangen. Jij betaalt niets extra.' };
+const credit = (value: string) => locale === DEFAULT_LOCALE ? value : value.replace(/^Foto:\s*/i, ui.t('portret.fotoLabel'));
+const t = Object.fromEntries(['index', 'region', 'why', 'considerations', 'rooms', 'wine', 'gallery', 'practical', 'faq', 'book', 'source', 'disclosure'].map((k) => [k, ui.t(`portret.${k}`)])) as Record<string, string>;
+const alternates = Object.fromEntries(LOCALES.map((l) => [l, localizePath(base, l)]));
 ---
-<SiteLayout title={c.meta_title} description={c.meta_description} ogImage={portrait.hero.src} ogType="place" activeNav="accommodaties" locale={locale} loadStay22={affiliate} alternates={{ nl:base, en:`/en${base}` }}>
+<SiteLayout title={c.meta_title} description={c.meta_description} ogImage={portrait.hero.src} ogType="place" activeNav="accommodaties" locale={locale} loadStay22={affiliate} alternates={alternates}>
   <main class="portrait">
     <nav class="portrait__crumbs" aria-label="Breadcrumb"><a href={streek}>{t.index}</a><span aria-hidden="true"> / </span><span>{portrait.name}</span></nav>
     <header class="portrait__intro"><p class="portrait__eyebrow">VinoMartino · {portrait.streekSlug}</p><h1>{c.title}</h1><p class="portrait__lead">{c.intro}</p><p class="portrait__reason">{c.booking_reason}</p><p class="portrait__disclosure">{c.disclosure}</p></header>
-    <figure class="portrait__hero"><a href={portrait.hero.src} target="_blank" aria-label={locale === 'en' ? 'Open full photo' : 'Open foto groot'}><img src={portrait.hero.src} alt={c.hero_alt} width="1400" height="900" loading="eager" /></a><figcaption>{c.hero_credit}</figcaption></figure>
-    <nav class="portrait__anchors" aria-label={locale === 'en' ? 'On this page' : 'Op deze pagina'}><a href="#waarom">{t.why}</a><a href="#kamers">{t.rooms}</a><a href="#wijn">{t.wine}</a><a href="#fotos">{t.gallery}</a><a href="#praktisch">{t.practical}</a><a href="#boeken">{t.book}</a></nav>
+    <figure class="portrait__hero"><a href={portrait.hero.src} target="_blank" aria-label={ui.t('portret.openFoto')}><img src={portrait.hero.src} alt={c.hero_alt} width="1400" height="900" loading="eager" /></a><figcaption>{c.hero_credit}</figcaption></figure>
+    <nav class="portrait__anchors" aria-label={ui.t('portret.anchorsAria')}><a href="#waarom">{t.why}</a><a href="#kamers">{t.rooms}</a><a href="#wijn">{t.wine}</a><a href="#fotos">{t.gallery}</a><a href="#praktisch">{t.practical}</a><a href="#boeken">{t.book}</a></nav>
     <section id="waarom"><h2>{t.why}</h2><p>{c.why}</p><h3>{t.considerations}</h3><p>{c.considerations}</p>{c.quote && <blockquote><p>{c.quote.text}</p><cite>{c.quote.attribution}</cite></blockquote>}</section>
     <section id="kamers"><h2>{t.rooms}</h2><p>{c.rooms}</p></section>
     <section id="wijn"><h2>{t.wine}</h2><p>{c.wine}</p>{c.wine_links?.length && <ul>{c.wine_links.map((w) => <li><a href={w.href}>{w.name}</a> · {w.travel_time} ({w.method})</li>)}</ul>}</section>
-    <section id="fotos"><h2>{t.gallery}</h2><div class="portrait__gallery">{portrait.gallery.map((image) => <figure><a href={image.src} target="_blank" aria-label={locale === 'en' ? 'Open full photo' : 'Open foto groot'}><img src={image.src} alt={c.gallery_alts[image.file_id]} width="720" height="540" loading="lazy" /></a><figcaption>{credit(image.credit)} · <a href={image.source_url} rel="noopener" target="_blank">{t.source}</a></figcaption></figure>)}</div></section>
+    <section id="fotos"><h2>{t.gallery}</h2><div class="portrait__gallery">{portrait.gallery.map((image) => <figure><a href={image.src} target="_blank" aria-label={ui.t('portret.openFoto')}><img src={image.src} alt={c.gallery_alts[image.file_id]} width="720" height="540" loading="lazy" /></a><figcaption>{credit(image.credit)} · <a href={image.source_url} rel="noopener" target="_blank">{t.source}</a></figcaption></figure>)}</div></section>
     <section id="praktisch"><h2>{t.practical}</h2><p>{c.practical}</p><p><a href={portrait.siteUrl} rel="noopener" target="_blank">{t.source}</a></p></section>
     {c.faq?.length && <section><h2>{t.faq}</h2>{c.faq.map((x) => <details><summary>{x.question}</summary><p>{x.answer}</p></details>)}</section>}
     <section id="boeken" class="portrait__booking"><h2>{t.book}</h2><p>{c.booking_cta}</p><a class="portrait__button" href={booking} target="_blank" rel={affiliate ? 'sponsored nofollow noopener' : 'noopener'} data-affiliate-track={affiliate ? true : undefined} data-affiliate-partner={affiliate ? 'booking.com' : undefined} data-affiliate-placement="accommodatie-portret" data-affiliate-context={`accommodatie-${portrait.slug}`} data-cta="bekijk-boek">{t.book}</a><p>{affiliate && t.disclosure}</p></section>

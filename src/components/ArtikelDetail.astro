@@ -39,7 +39,7 @@ import { creditAuthorFor, getImageCredit, licenseLabelFor } from '../lib/image-c
 import { type AccommodatieRoundup as AccommodatieRoundupData } from '../lib/accommodaties';
 import { loadUiStrings } from '../lib/ui-strings';
 import { rubriekLabel } from '../lib/rubriek-labels';
-import { type Locale, DATE_LOCALE, DEFAULT_LOCALE, localizeHref } from '../lib/i18n';
+import { type Locale, DATE_LOCALE, DEFAULT_LOCALE, localizeHref, localizedField } from '../lib/i18n';
 
 export type ArticleRoundup = { slug: string; roundup: AccommodatieRoundupData };
 // LAT-2010 [VIS-BL-11]: het "hoort bij"-voetblok. Primaire streek/route komen uit
@@ -99,7 +99,7 @@ const authorDisplayName = authorProfile?.name ?? article.author;
 // 72 van de 73 /en/artikelen/-pagina's een Nederlandse alinea droegen. Zelfde
 // `bioEn ?? bio`-patroon als AuteurDetail/AuteursIndex (LAT-2715/LAT-2771).
 const authorCardBio = authorProfile
-  ? (locale === 'en' ? authorProfile.bioEn ?? authorProfile.bio : authorProfile.bio)
+  ? localizedField(authorProfile, 'bio', locale)
   : '';
 
 const modifiedTime = article.updatedAt || article.pubDate;
