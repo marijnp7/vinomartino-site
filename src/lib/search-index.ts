@@ -1,4 +1,4 @@
-import { DEFAULT_LOCALE, type Locale } from './i18n';
+import { DEFAULT_LOCALE, localePrefix, type Locale } from './i18n';
 import { loadArticles } from './articles';
 import { loadStreken } from './streken';
 import { loadWijnhuizen } from './wijnhuizen';
@@ -53,7 +53,7 @@ function clean(list: (string | null | undefined)[]): string[] {
 
 export async function buildSearchIndex(locale: Locale = DEFAULT_LOCALE) {
     const isEn = locale === 'en';
-    const p = isEn ? '/en' : '';
+    const p = localePrefix(locale);
     const [articles, landen, streken, wijnhuizen, routes] = await Promise.all([
         loadArticles(locale),
         loadLanden(locale),

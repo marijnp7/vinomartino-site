@@ -67,6 +67,7 @@ test('geen vaste en/nl-keuze meer voor datum, valuta, sortering of /en-voorvoegs
     /locale === 'en' \? 'en-GB' : 'nl-NL'/,
     /locale === 'en' \? 'en' : 'nl'/,
     /locale === 'en' \? '\/en' : ''/,
+    /isEn \? '\/en[/']/,
   ];
   const hits = [];
   for (const f of walk('src')) {
