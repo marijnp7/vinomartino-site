@@ -26,7 +26,8 @@ test('bouwer laadt per locale en prefixt EN-URLs', () => {
 
 test('dialoog fetcht de locale-index en lekt geen NL-copy op EN', () => {
   const src = read('src/components/SearchDialog.astro');
-  assert.match(src, /isEn \? '\/en\/search-index\.json' : '\/search-index\.json'/);
+  // LAT-14810: voorvoegsel uit het taalregister ('' voor NL, '/en' voor EN).
+  assert.match(src, /indexUrl = `\$\{localePrefix\(locale\)\}\/search-index\.json`/);
   assert.match(src, /data-index-url=\{indexUrl\}/);
   const script = src.slice(src.indexOf('<script>'));
   assert.doesNotMatch(script, /fetch\('\/search-index\.json'\)/);

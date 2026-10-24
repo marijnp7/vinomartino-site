@@ -2,7 +2,7 @@
 // LAT-1202: site-wide search. Accessible command-palette (⌘K / Ctrl-K) overlay
 // that fetches the static /search-index.json once on first open and scores
 // results client-side. Trigger lives in SiteHeader; this renders the overlay.
-import { DEFAULT_LOCALE, type Locale } from '../lib/i18n';
+import { DEFAULT_LOCALE, localePrefix, type Locale } from '../lib/i18n';
 
 interface Props {
   locale?: Locale;
@@ -22,7 +22,7 @@ const c = {
   dismiss: isEn ? 'close' : 'sluiten',
 };
 // LAT-12594: index-URL en script-copy per locale; het script leest ze uit data-*.
-const indexUrl = isEn ? '/en/search-index.json' : '/search-index.json';
+const indexUrl = `${localePrefix(locale)}/search-index.json`;
 const scriptCopy = isEn
   ? {
       empty: 'Start typing, e.g. <span class="vm-search__ex">Barolo</span>, <span class="vm-search__ex">Mosel</span> or <span class="vm-search__ex">Priorat</span>.',
