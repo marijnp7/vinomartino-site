@@ -85,3 +85,22 @@ test('gate is geregistreerd: package.json én deploy-build na astro build', () =
   const deploy = readFileSync('.github/workflows/deploy.yml', 'utf8');
   assert.match(deploy, /npm run build && [^\n]*node scripts\/check-stay-tier-labels\.mjs/);
 });
+
+test('LAT-14828: tiernaam als CMS-kop of TOC-item is een waarschuwing, geen blokkade', () => {
+  const body = `<div class="article-prose"><h2 id="slim-geboekt">Slim geboekt</h2><p>…</p></div>`;
+  const toc = `<nav class="toc-desktop"><ol class="toc-list"><li class="toc-item toc-depth-2"><a href="#pure-luxe">Pure luxe</a></li></ol></nav>`;
+  assert.deepEqual(kinds(body + toc), ['cms-label:Slim geboekt', 'cms-label:Pure luxe']);
+  assert.deepEqual(kinds(`<div class="page-prose route-day__body"><h3>Great value</h3></div>`), ['cms-label:Great value']);
+  // Template-badge buiten CMS blijft rood.
+  assert.deepEqual(kinds(`<span class="poi-card__badge">Pure luxe</span>`), ['los-label:Pure luxe']);
+});
+
+test('LAT-14828: CLI exit 0 bij alleen CMS-labels, met pagina in de waarschuwing; exit 1 bij template-label', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'lat14828-tier-'));
+  mkdirSync(join(dir, 'artikelen', 'priorat'), { recursive: true });
+  writeFileSync(join(dir, 'artikelen', 'priorat', 'index.html'), `<div class="article-prose"><h2>Slim geboekt</h2></div>`);
+  const out = execFileSync('node', ['scripts/check-stay-tier-labels.mjs', dir], { encoding: 'utf8' });
+  assert.match(out, /::warning::LAT-14828.*\/artikelen\/priorat\//);
+  writeFileSync(join(dir, 'x.html'), `<span class="poi-card__badge">Pure luxe</span>`);
+  assert.throws(() => execFileSync('node', ['scripts/check-stay-tier-labels.mjs', dir], { stdio: 'pipe' }));
+});

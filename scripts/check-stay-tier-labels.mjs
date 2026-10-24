@@ -14,6 +14,12 @@
  *      een element met `data-stay-tier-group`) staat buiten de groepskop nog een
  *      tierlabel op een kaart (LAT-14496: groepskop met icoon, kaart zonder badge).
  *
+ * Uitzondering (LAT-14828, Marijn 24-10): staat het label in CMS-tekst (een
+ * set:html-container `*-prose` / `*__prose`, of de TOC die uit de CMS-koppen
+ * komt), dan is het een redactiefout in één artikel, geen template-regressie.
+ * Dat wordt kind `cms-label`: een waarschuwing met de pagina, geen exit 1.
+ * Run 1646-1648 bleef productie zo staan op drie koppen in één Priorat-stuk.
+ *
  * Aanleiding: Marijn 22-10, LAT-14549. De roundup had iconen, streek-, route-,
  * accommodatie- en wijnhuispagina's nog tekstbadges. Eén component
  * (StayTierLabel) + deze gate zorgen dat een losse badge niet terugkomt.
@@ -66,6 +72,7 @@ export function scanHtml(html) {
   // Onzichtbaar voor iedereen (hidden + aria-hidden): de verborgen <select> achter
   // de segmented control op /accommodaties/<streek>/ is statusopslag, geen label.
   const inHidden = () => stack.some((e) => e.hidden);
+  const inCms = () => stack.some((e) => e.cms);
   const inGroupHead = () => {
     for (let i = stack.length - 1; i >= 0; i--) {
       if (stack[i].group) return false;
@@ -107,6 +114,7 @@ export function scanHtml(html) {
         icon: false,
         group: classes.includes('acc-roundup__category') || /\bdata-stay-tier-group\b/i.test(attrs),
         hidden: /(^|\s)hidden(\s|=|$)/i.test(attrs) && /aria-hidden\s*=\s*["']?true/i.test(attrs),
+        cms: classes.some((c) => /(^|-|__)prose$/.test(c) || c === 'toc-list'),
         head: tag === 'header' || /^h[1-6]$/.test(tag) || classes.some((c) => c.endsWith('-head')),
       });
       continue;
@@ -115,7 +123,9 @@ export function scanHtml(html) {
     if (!label || !stack.length) continue;
     const parent = stack[stack.length - 1];
     if (parent.tag === 'title' || PROSE_EMPHASIS.has(parent.tag) || inHidden()) continue;
-    if (inGroup() && !inGroupHead()) {
+    if (inCms()) {
+      if (!parent.icon) findings.push({ kind: 'cms-label', label, context: ctx(m.index) });
+    } else if (inGroup() && !inGroupHead()) {
       findings.push({ kind: 'dubbel-label', label, context: ctx(m.index) });
     } else if (!parent.icon) {
       findings.push({ kind: 'los-label', label, context: ctx(m.index) });
@@ -155,12 +165,22 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
     console.error(`[check-stay-tier-labels] FAIL: geen HTML in ${distDir} (lege scan is geen groen)`);
     process.exit(1);
   }
-  if (findings.length) {
+  const pageOf = (file) => '/' + file.replace(/\\/g, '/').replace(/(^|\/)index\.html$/, '$1').replace(/\.html$/, '/');
+  const cms = findings.filter((f) => f.kind === 'cms-label');
+  const blocking = findings.filter((f) => f.kind !== 'cms-label');
+  if (cms.length) {
+    const pages = [...new Set(cms.map((f) => pageOf(f.file)))];
+    // GitHub-annotatie: zichtbaar op de run, blokkeert de deploy niet.
+    console.log(`::warning::LAT-14828 tiernaam als kop/TOC-tekst in CMS-content (${cms.length}x) op ${pages.join(' ')}. Maak de kop beschrijvend in Directus.`);
+    for (const f of cms.slice(0, 50)) console.log(`  WAARSCHUWING cms-label  ${pageOf(f.file)}  "${f.label}"`);
+  }
+  if (blocking.length) {
+    const findings = blocking;
     console.error(`[check-stay-tier-labels] FAIL: ${findings.length} tierlabel(s) zonder icoon of dubbel in een tiergroep (LAT-14551).`);
     console.error('Gebruik src/components/StayTierLabel.astro; binnen een tiergroep geen badge op de kaart.');
     for (const f of findings.slice(0, 50)) console.error(`  ${f.kind}  ${f.file}  "${f.label}"  …${f.context}…`);
     if (findings.length > 50) console.error(`  … en nog ${findings.length - 50}`);
     process.exit(1);
   }
-  console.log(`[check-stay-tier-labels] OK: ${files} HTML-bestanden, geen losse of dubbele tierlabels.`);
+  console.log(`[check-stay-tier-labels] OK: ${files} HTML-bestanden, geen losse of dubbele tierlabels in templates${cms.length ? ` (${cms.length} CMS-waarschuwing(en), zie boven)` : ''}.`);
 }
