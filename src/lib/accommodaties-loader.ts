@@ -218,7 +218,8 @@ async function fetchAccommodations(url: string, token: string, locale: Locale): 
         fields: ACCOMMODATIONS_TRANSLATABLE,
         locale,
     });
-    const rows = locale === 'en' ? clearUntranslatedText(softRows, rawRows, ACCOMMODATIONS_TRANSLATABLE) : softRows;
+    // LAT-14811: elke niet-NL-taal wist niet-vertaalde NL-tekst, niet alleen EN.
+    const rows = locale !== DEFAULT_LOCALE ? clearUntranslatedText(softRows, rawRows, ACCOMMODATIONS_TRANSLATABLE) : softRows;
     // LAT-2829 — de gejoinde streeknaam komt van een vreemd record en vertaalt
     // niet mee met de guard hierboven; zonder overlay draagt elke EN-roundup de
     // NL-streeknaam als kop. Zacht: geen EN-naam → NL blijft staan.
@@ -233,7 +234,7 @@ async function fetchAccommodations(url: string, token: string, locale: Locale): 
             locale,
         },
     );
-    if (locale === 'en') {
+    if (locale !== DEFAULT_LOCALE) {
         for (const row of rows) {
             if (row.why_this_one && row.why_this_one === nlWhyThisOne.get(String(row.id))) row.why_this_one = null;
         }

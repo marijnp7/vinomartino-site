@@ -23,6 +23,9 @@ export const BOOKING_EN_LANG = 'en-gb';
 // Stay22 Allez lang-waarde voor EN (best-effort; de roam-redirect kan hem negeren).
 export const STAY22_EN_LANG = 'en';
 
+/** LAT-14811 — Stay22 `lang` per locale; geen waarde = parameter weglaten (NL, huidig gedrag). */
+export const STAY22_LANG: Partial<Record<Locale, string>> = { en: STAY22_EN_LANG };
+
 /** Zet `lang=en-gb` op een booking.com-doel-URL voor EN; laat NL (en niet-parseerbaar) ongemoeid. */
 export function applyBookingLocale(bookingUrl: string, locale: Locale): string {
   if (locale !== 'en') return bookingUrl;

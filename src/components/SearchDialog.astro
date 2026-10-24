@@ -3,41 +3,37 @@
 // that fetches the static /search-index.json once on first open and scores
 // results client-side. Trigger lives in SiteHeader; this renders the overlay.
 import { DEFAULT_LOCALE, localePrefix, type Locale } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
 
 interface Props {
   locale?: Locale;
 }
 const { locale = DEFAULT_LOCALE } = Astro.props;
-const isEn = locale === 'en';
+const ui = await loadUiStrings(locale);
+const t = (k: string) => ui.t(k);
 const c = {
-  heading: isEn ? 'Search VinoMartino' : 'Zoeken op VinoMartino',
-  placeholder: isEn ? 'Search a region, winery or route…' : 'Zoek een streek, wijnhuis of route…',
-  term: isEn ? 'Search term' : 'Zoekterm',
-  close: isEn ? 'Close' : 'Sluiten',
-  results: isEn ? 'Search results' : 'Zoekresultaten',
+  heading: t('search.heading'),
+  placeholder: t('search.placeholder'),
+  term: t('search.term'),
+  close: t('search.close'),
+  results: t('search.results'),
   // LAT-2582 — de toetsenbord-hints in de footer bleven bij de SearchDialog-
   // lokalisatie (1a14f3c) staan en lekten daardoor NL op alle 293 EN-pagina's.
-  navigate: isEn ? 'navigate' : 'navigeren',
-  open: isEn ? 'open' : 'openen',
-  dismiss: isEn ? 'close' : 'sluiten',
+  navigate: t('search.hint.navigate'),
+  open: t('search.hint.open'),
+  dismiss: t('search.hint.dismiss'),
 };
 // LAT-12594: index-URL en script-copy per locale; het script leest ze uit data-*.
+// LAT-14811: copy uit ui_strings, de groep/type-sleutels blijven de NL-typenamen uit de index.
 const indexUrl = `${localePrefix(locale)}/search-index.json`;
-const scriptCopy = isEn
-  ? {
-      empty: 'Start typing, e.g. <span class="vm-search__ex">Barolo</span>, <span class="vm-search__ex">Mosel</span> or <span class="vm-search__ex">Priorat</span>.',
-      loading: 'Loading search index…',
-      none: "No results for '{q}'.<br/>Try a region, winery or country.",
-      groups: { Streek: 'Regions', Wijnroute: 'Routes', Wijnhuis: 'Wineries', Artikel: 'Articles', Land: 'Countries' },
-      types: { Streek: 'Region', Wijnroute: 'Route', Wijnhuis: 'Winery', Artikel: 'Article', Land: 'Country' },
-    }
-  : {
-      empty: 'Begin met typen, bijv. <span class="vm-search__ex">Barolo</span>, <span class="vm-search__ex">Mosel</span> of <span class="vm-search__ex">Priorat</span>.',
-      loading: 'Zoekindex laden…',
-      none: "Geen resultaten voor '{q}'.<br/>Probeer een streek, wijnhuis of land.",
-      groups: { Streek: 'Streken', Wijnroute: 'Routes', Wijnhuis: 'Wijnhuizen', Artikel: 'Artikelen', Land: 'Landen' },
-      types: { Streek: 'Streek', Wijnroute: 'Wijnroute', Wijnhuis: 'Wijnhuis', Artikel: 'Artikel', Land: 'Land' },
-    };
+const TYPES = ['Streek', 'Wijnroute', 'Wijnhuis', 'Artikel', 'Land'] as const;
+const scriptCopy = {
+  empty: t('search.empty'),
+  loading: t('search.loading'),
+  none: t('search.none'),
+  groups: Object.fromEntries(TYPES.map((k) => [k, t(`search.group.${k}`)])),
+  types: Object.fromEntries(TYPES.map((k) => [k, t(`search.type.${k}`)])),
+};
 ---
 
 <div class="vm-search" data-search data-index-url={indexUrl} data-copy={JSON.stringify(scriptCopy)} hidden>

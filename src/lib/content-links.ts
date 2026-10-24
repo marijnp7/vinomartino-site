@@ -93,6 +93,7 @@ export function canonicalContentKey(key: string, locale: string): string {
     'streken/douro': 'streken/douro-portugal',
     'streken/mosel': 'streken/mosel-duitsland',
   };
+  // LAT-14811: bewust EN-specifiek, deze slug-alias bestaat alleen in de EN-crawl.
   if (locale === 'en' && key === 'artikelen/overnachten-langhe-barolo-agriturismi') return 'artikelen/waar-slapen-langhe-piemonte';
   return aliases[key] ?? key;
 }

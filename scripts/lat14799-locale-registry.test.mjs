@@ -102,3 +102,40 @@ test('geen vaste EN-copy of En-veldkeuze meer in templates en ui-strings', () =>
   assert.deepEqual(hits, [], 'gebruik ui_strings (ui.t) of localizedField uit src/lib/i18n.ts');
   assert.doesNotMatch(readFileSync('src/lib/ui-strings.ts', 'utf8'), /locale === 'en'/);
 });
+
+// LAT-14811 — fase 1 stap 2c: geen locale === 'en'/isEn-tak meer in src/, behalve
+// regels die direct onder een commentaar "LAT-14811: bewust EN-specifiek" staan.
+// seo.ts (meta-templates) volgt in een eigen stap en is tot dan uitgezonderd.
+import { STAY22_LANG } from '../src/lib/affiliate-locale.ts';
+import { pageUrl } from '../src/lib/pins.ts';
+
+test('stay22-lang en pin-URL uit het register, NL/EN ongewijzigd', () => {
+  assert.deepEqual(STAY22_LANG, { en: 'en' });
+  assert.equal(pageUrl('nl', 'x'), 'https://vinomartino.com/artikelen/x/');
+  assert.equal(pageUrl('en', 'x'), 'https://vinomartino.com/en/artikelen/x/');
+});
+
+test('geen locale-tak buiten de bewuste EN-uitzonderingen', () => {
+  const PENDING = new Set(['src/lib/seo.ts']);
+  const branch = /locale === 'en'|\bisEn\b|lang === 'en'/;
+  const hits = [];
+  for (const f of walk('src')) {
+    if (PENDING.has(f.replaceAll('\\', '/'))) continue;
+    const lines = readFileSync(f, 'utf8').split('\n');
+    lines.forEach((line, i) => {
+      if (!branch.test(line)) return;
+      if (/LAT-14811: bewust EN-specifiek/.test(lines[i - 1] ?? '')) return;
+      hits.push(`${f}:${i + 1}`);
+    });
+  }
+  assert.deepEqual(hits, [], 'copy naar ui_strings, logica via LOCALE_REGISTRY, of markeer bewust EN-specifiek');
+});
+
+test('nieuwe ui_strings-keys staan in NL en EN', async () => {
+  const src = readFileSync('src/lib/ui-strings.ts', 'utf8');
+  const keys = [...src.matchAll(/"((?:search|map\.europe|home\.routesMap)\.[^"]+)":/g)].map((m) => m[1]);
+  const count = new Map();
+  for (const k of keys) count.set(k, (count.get(k) ?? 0) + 1);
+  assert.ok(count.size >= 34, `te weinig keys: ${count.size}`);
+  for (const [k, n] of count) assert.equal(n, 2, `${k} moet in NL én EN staan`);
+});

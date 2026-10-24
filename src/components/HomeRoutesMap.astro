@@ -19,6 +19,7 @@
 // de sectie met de kaartjes intact.
 import type { WijnRoute, RouteStopGeo } from '../lib/routes';
 import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
+import { loadUiStrings } from '../lib/ui-strings';
 
 export interface Props {
   routes: WijnRoute[];
@@ -27,12 +28,12 @@ export interface Props {
 }
 
 const { routes = [], title, locale = DEFAULT_LOCALE } = Astro.props;
-const isEn = locale === 'en';
+const ui = await loadUiStrings(locale);
 // LAT-2704 — interne hrefs locale-aware; NL blijft byte-identiek.
 const lh = (href: string) => localizeHref(href, locale);
-const resolvedTitle = title ?? (isEn ? 'Our wine routes on the map' : 'Onze wijnroutes op de kaart');
-const mapKicker = isEn ? 'On the map' : 'Op de kaart';
-const legendAria = isEn ? 'Routes on the map' : 'Routes op de kaart';
+const resolvedTitle = title ?? ui.t('home.routesMap.title');
+const mapKicker = ui.t('home.routesMap.kicker');
+const legendAria = ui.t('home.routesMap.legendAria');
 
 // Merk-palet: elke route een eigen, herkenbare lijnkleur (bordeaux/olijf/goud).
 const PALETTE = ['#5A1A1F', '#5C6B3F', '#B08228'] as const;

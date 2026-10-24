@@ -52,7 +52,6 @@ function clean(list: (string | null | undefined)[]): string[] {
 }
 
 export async function buildSearchIndex(locale: Locale = DEFAULT_LOCALE) {
-    const isEn = locale === 'en';
     const p = localePrefix(locale);
     const [articles, landen, streken, wijnhuizen, routes] = await Promise.all([
         loadArticles(locale),
@@ -66,7 +65,8 @@ export async function buildSearchIndex(locale: Locale = DEFAULT_LOCALE) {
     // Een tag die exact een NL-landnaam is, wordt in de EN-index de EN-landnaam (zelfde slug).
     // De bron blijft ongewijzigd; overige tags blijven letterlijk staan.
     const landTag = new Map<string, string>();
-    if (isEn) {
+    // LAT-14811: elke niet-NL-taal vertaalt NL-landtags; NL zelf niet.
+    if (locale !== DEFAULT_LOCALE) {
         const nlLanden = await loadLandenNav('nl');
         const enBySlug = new Map(landen.map((l) => [l.slug, l.name]));
         for (const l of nlLanden) {
@@ -86,7 +86,7 @@ export async function buildSearchIndex(locale: Locale = DEFAULT_LOCALE) {
         records.push({
             type: 'Artikel',
             title: a.title,
-            subtitle: rubriek || (isEn ? 'Article' : 'Artikel'),
+            subtitle: rubriek || ui.t('search.subtitle.Artikel'),
             url: `${p}/artikelen/${a.slug}/`,
             excerpt: a.description || excerpt(a.bodyHtml),
             keywords: clean([rubriek, a.author, ...(a.tags || []).map(localizeTag)]),
@@ -98,7 +98,7 @@ export async function buildSearchIndex(locale: Locale = DEFAULT_LOCALE) {
         records.push({
             type: 'Land',
             title: l.name,
-            subtitle: clean([localizeContinent(l.continent, locale, (k) => ui.t(k))]).join(' · ') || (isEn ? 'Wine country' : 'Wijnland'),
+            subtitle: clean([localizeContinent(l.continent, locale, (k) => ui.t(k))]).join(' · ') || ui.t('search.subtitle.Land'),
             url: `${p}/landen/${l.slug}/`,
             excerpt: l.description || excerpt(l.bodyHtml),
             keywords: clean([localizeContinent(l.continent, locale, (k) => ui.t(k)), l.capital, ...(l.mainGrapes || []), ...(l.wijnstreken || []).map((w) => w.name)]),
@@ -110,7 +110,7 @@ export async function buildSearchIndex(locale: Locale = DEFAULT_LOCALE) {
         records.push({
             type: 'Streek',
             title: s.name,
-            subtitle: clean([s.country]).join(' · ') || (isEn ? 'Wine region' : 'Wijnstreek'),
+            subtitle: clean([s.country]).join(' · ') || ui.t('search.subtitle.Streek'),
             url: `${p}/streken/${s.slug}/`,
             excerpt: s.description || excerpt(s.bodyHtml),
             keywords: clean([s.country, ...(s.mainGrapes || []), ...(s.appellations || []), ...(s.subRegions || [])]),
@@ -122,7 +122,7 @@ export async function buildSearchIndex(locale: Locale = DEFAULT_LOCALE) {
         records.push({
             type: 'Wijnhuis',
             title: w.name,
-            subtitle: clean([w.region, w.country]).join(' · ') || (isEn ? 'Winery' : 'Wijnhuis'),
+            subtitle: clean([w.region, w.country]).join(' · ') || ui.t('search.subtitle.Wijnhuis'),
             url: `${p}/wijnhuizen/${w.slug}/`,
             excerpt: w.description || excerpt(w.bodyHtml),
             keywords: clean([w.region, w.country, w.winemaker, ...(w.grapes || [])]),
@@ -134,7 +134,7 @@ export async function buildSearchIndex(locale: Locale = DEFAULT_LOCALE) {
         records.push({
             type: 'Wijnroute',
             title: r.title,
-            subtitle: clean([r.style, r.duration]).join(' · ') || (isEn ? 'Wine route' : 'Wijnroute'),
+            subtitle: clean([r.style, r.duration]).join(' · ') || ui.t('search.subtitle.Wijnroute'),
             url: `${p}/wijnroutes/${r.slug}/`,
             excerpt: r.description || excerpt(r.bodyHtml),
             keywords: clean([r.style, r.transport, ...(r.highlights || []), ...(r.stops || [])]),

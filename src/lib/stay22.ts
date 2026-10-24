@@ -14,7 +14,7 @@
 // intentie (schadeloos) — echte EN-bezoekers krijgen sowieso een Engelse OTA-pagina.
 
 import type { Locale } from './i18n';
-import { STAY22_EN_LANG } from './affiliate-locale';
+import { STAY22_LANG } from './affiliate-locale';
 
 export const STAY22_AID = 'vinomartino';
 
@@ -35,7 +35,8 @@ export function allezSearchUrl({ location, campaign, locale = 'nl' }: AllezLinkO
   params.set('aid', STAY22_AID);
   params.set('address', location);
   if (campaign) params.set('campaign', campaign);
-  if (locale === 'en') params.set('lang', STAY22_EN_LANG);
+  const lang = STAY22_LANG[locale];
+  if (lang) params.set('lang', lang);
   return `${ALLEZ_BASE}?${params.toString()}`;
 }
 
