@@ -1,13 +1,13 @@
 ---
 // LAT-13354: gedeelde /de-brief/-pagina voor NL en EN. Alle copy komt uit Directus
 // `ui_strings` (keys `debrief.*`, defaults in src/lib/ui-strings.ts), HARDE REGEL 3.
-// De editielijst is genummerd: debrief.editie.1.*, .2.*, ... Een nieuwe editie is
-// een nieuwe N met meta/titel/url in Directus (beide talen) plus een rebuild, geen code.
+// LAT-14779: doorverwijspagina. Substack is de enige plek voor brief en archief
+// (mandaat Marijn 24-10, LAT-12605); de site toont geen edities meer.
 import SiteLayout from '../layouts/SiteLayout.astro';
 import Briefkaart from './Briefkaart.astro';
 import SubstackCta from './SubstackCta.astro';
 import { organizationSchema, breadcrumbSchema } from '../lib/seo';
-import { INSTAGRAM_URL, SUBSTACK_URL } from '../lib/social';
+import { SUBSTACK_URL } from '../lib/social';
 import { loadUiStrings } from '../lib/ui-strings';
 import type { Locale } from '../lib/i18n';
 
@@ -19,16 +19,7 @@ const prefix = locale === 'en' ? '/en' : '';
 
 // Kanaal-URLs komen uit src/lib/social.ts (een bron, geen drift). Substack is
 // het enige nieuwsbriefkanaal (LAT-12309).
-const edities: { meta: string; titel: string; url: string }[] = [];
-for (let i = 1; i <= 100; i++) {
-  const key = `debrief.editie.${i}.url`;
-  const url = t(key);
-  if (!url || url === key) break;
-  edities.push({ meta: t(`debrief.editie.${i}.meta`), titel: t(`debrief.editie.${i}.titel`), url });
-}
-const suffix = t('debrief.edities.suffix');
-// De brief is Nederlandstalig (LAT-13196): op /en/ wijzen de editielinks naar NL-tekst.
-const hreflang = locale === 'en' ? 'nl' : undefined;
+const archiveUrl = SUBSTACK_URL ? new URL('archive', SUBSTACK_URL).toString() : '';
 
 const schema = [
   organizationSchema(),
@@ -57,25 +48,23 @@ const schema = [
         <SubstackCta placement="de-brief" ctaId="newsletter_signup" label={t('debrief.cta.label')} />
       </div>
 
-      <p class="follow">
-        {t('debrief.follow.lead')}{' '}
-        <a href={INSTAGRAM_URL} target="_blank" rel="noopener">{t('debrief.follow.instagram')}</a>{SUBSTACK_URL ? (
-          <>{t('debrief.follow.substack.lead')} <a href={SUBSTACK_URL} target="_blank" rel="noopener" data-cta-id="substack_link">{t('debrief.follow.substack')}</a></>
-        ) : null}{t('debrief.follow.tail')}
-      </p>
+      {archiveUrl && (
+        <p class="archief">
+          <a href={archiveUrl} target="_blank" rel="noopener" data-cta-id="substack_archive" hreflang={locale === 'en' ? 'nl' : undefined}>{t('debrief.archief.label')}</a>
+        </p>
+      )}
     </div>
   </section>
 
   <section class="voorbeeld">
     <div class="container container-narrow">
-      <Briefkaart dateline={t('debrief.edities.dateline')}>
-        <p>{t('debrief.edities.intro')}</p>
-        <ul class="edities">
-          {edities.map((e) => (
-            <li>{e.meta}: <a href={e.url} target="_blank" rel="noopener" hreflang={hreflang}>{e.titel}</a>{suffix ? ` ${suffix}` : ''}</li>
-          ))}
+      <Briefkaart dateline={t('debrief.waarde.dateline')}>
+        <ul class="waarde">
+          <li>{t('debrief.waarde.1')}</li>
+          <li>{t('debrief.waarde.2')}</li>
+          <li>{t('debrief.waarde.3')}</li>
         </ul>
-        <p>{t('debrief.edities.outro')}</p>
+        <p>{t('debrief.waarde.outro')}</p>
       </Briefkaart>
     </div>
   </section>
@@ -118,7 +107,7 @@ const schema = [
     margin: 2rem auto 0;
     max-width: 480px;
   }
-  .follow {
+  .archief {
     font-family: var(--font-serif, var(--font-body));
     font-size: 0.9375rem;
     line-height: 1.6;
@@ -126,17 +115,14 @@ const schema = [
     margin: 1.25rem auto 0;
     max-width: 480px;
   }
-  .follow a {
+  .archief a {
     color: var(--color-primary);
     text-decoration: underline;
     text-underline-offset: 2px;
   }
 
-  .edities { padding-left: 1.2rem; }
-  .edities li { margin-bottom: 0.5rem; }
-  /* Briefkaart blijft crème in kelder-modus; de globale linkkleur (goud) valt daar weg. */
-  .edities a { color: var(--fixed-ink); text-decoration: underline; text-underline-offset: 3px; }
-  .edities a:hover { color: #5A1A1F; }
+  .waarde { padding-left: 1.2rem; }
+  .waarde li { margin-bottom: 0.5rem; }
 
   .voorbeeld {
     padding: 0 0 clamp(56px, 10vw, 112px);

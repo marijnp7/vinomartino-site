@@ -1,0 +1,16 @@
+{
+  "_note": "LAT-14779 /de-brief/ Substack-doorverwijspagina; seed met seed-ui-strings-en.mjs --force",
+  "debrief.meta.title": "The letter, VinoMartino's newsletter on Substack",
+  "debrief.meta.description": "Roughly once a month, a letter from Marijn about one wine region, with one travel idea you can use straight away. Written in Dutch, on Substack.",
+  "debrief.breadcrumb": "The letter",
+  "debrief.kicker": "The letter · roughly once a month",
+  "debrief.h1": "The letter",
+  "debrief.lede": "Roughly once a month Marijn writes about one wine region: why its wine tastes the way it does, and one travel idea you can use as it stands, with addresses and opening hours checked at the source. The letter is written in Dutch and published on Substack; there is no English edition. You sign up there, and every published letter is there.",
+  "debrief.cta.label": "Sign up on Substack",
+  "debrief.archief.label": "Read first? Every published letter is in the archive on Substack (in Dutch).",
+  "debrief.waarde.dateline": "What a letter contains",
+  "debrief.waarde.1": "One region per letter, not a list of ten tips.",
+  "debrief.waarde.2": "One travel idea with checked addresses and opening hours: a weekend, a route or a winery that takes visitors.",
+  "debrief.waarde.3": "No press releases and no invitations to generic wine festivals.",
+  "debrief.waarde.outro": "You can unsubscribe at the bottom of every letter."
+}

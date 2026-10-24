@@ -45,7 +45,7 @@ export const SUBSTACK_URL = resolve(
 export function substackSubscribeUrl(placement: string): string {
   if (!SUBSTACK_URL) return '';
   const url = new URL('subscribe', SUBSTACK_URL);
-  url.searchParams.set('utm_source', 'vinomartino.travel');
+  url.searchParams.set('utm_source', 'vinomartino.com');
   url.searchParams.set('utm_medium', 'website');
   url.searchParams.set('utm_campaign', placement);
   return url.toString();

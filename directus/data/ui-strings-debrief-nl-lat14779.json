@@ -1,0 +1,16 @@
+{
+  "_note": "LAT-14779 /de-brief/ Substack-doorverwijspagina; seed met seed-ui-strings-en.mjs --locale=nl --force",
+  "debrief.meta.title": "De brief, de nieuwsbrief van VinoMartino op Substack",
+  "debrief.meta.description": "Ongeveer eens per maand een brief van Marijn over één wijnstreek, met één reisidee dat direct bruikbaar is. In het Nederlands, via Substack.",
+  "debrief.breadcrumb": "De brief",
+  "debrief.kicker": "De brief · ongeveer eens per maand",
+  "debrief.h1": "De brief",
+  "debrief.lede": "Ongeveer eens per maand schrijft Marijn over één wijnstreek: waarom de wijn daar smaakt zoals hij smaakt, en één reisidee dat je zo kunt gebruiken, met adressen en openingstijden die we bij de bron zelf hebben nagekeken. De brief verschijnt in het Nederlands op Substack. Daar meld je je aan en daar staat elke verschenen brief.",
+  "debrief.cta.label": "Aanmelden via Substack",
+  "debrief.archief.label": "Eerst lezen? Alle verschenen brieven staan in het archief op Substack.",
+  "debrief.waarde.dateline": "Wat er in een brief staat",
+  "debrief.waarde.1": "Eén streek per brief, geen lijst met tien tips.",
+  "debrief.waarde.2": "Eén reisidee met gecontroleerde adressen en openingstijden: een weekend, een route of een wijnhuis dat bezoek ontvangt.",
+  "debrief.waarde.3": "Geen persberichten en geen uitnodigingen voor generieke wijnfestivals.",
+  "debrief.waarde.outro": "Afmelden kan onder elke brief."
+}
