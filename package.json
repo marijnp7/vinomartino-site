@@ -15,6 +15,7 @@
     "test:de-brief-ledger": "node --test scripts/de-brief-ledger.test.mjs",
     "test:lat14551-stay-tier-labels": "node --test scripts/lat14551-stay-tier-labels.test.mjs",
     "test:lat14317-why-voor-cta": "node --test scripts/lat14317-why-voor-cta.test.mjs",
+    "test:lat13896-accommodation-portraits": "node --test scripts/lat13896-accommodation-portraits.test.mjs",
     "test:dom-affiliate": "node --test scripts/check-dom-affiliate.test.mjs",
     "test:lat13406-body-affiliate-track": "node --test scripts/lat13406-body-affiliate-track.test.mjs",
     "test:lat12562-click-test-placements": "node --test scripts/lat12562-click-test-placements.test.mjs",

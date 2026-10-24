@@ -102,7 +102,7 @@ const credit = compact && kaart.foto ? await getImageCredit(fileIdFromAccommodat
   )}
   <div class="acc-kaart__body">
     {tierBadge && <div class="acc-kaart__tier"><StayTierLabel tier={tierBadge} variant="badge" locale={locale} /></div>}
-    <h3 class="acc-kaart__name">{kaart.naam}</h3>
+    <h3 class="acc-kaart__name">{kaart.portretHref ? <a href={kaart.portretHref}>{kaart.naam}</a> : kaart.naam}</h3>
     {compactMeta && <p class="acc-kaart__meta">{compactMeta}</p>}
     {compactTekst && <p class="acc-kaart__desc">{compactTekst}</p>}
     {compactLang && (

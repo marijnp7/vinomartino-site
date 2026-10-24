@@ -22,6 +22,7 @@ import { loadUiStrings } from '../lib/ui-strings';
 import { DEFAULT_LOCALE, type Locale, localizeHref } from '../lib/i18n';
 import StayTierLabel from './StayTierLabel.astro';
 import { type StayTier } from '../lib/stay-tier';
+import { loadAccommodationPortraits } from '../lib/accommodation-portraits';
 
 interface Props {
   roundup: Roundup;
@@ -57,6 +58,8 @@ const accomPlanning = streek?.accomPlanning ?? [];
 // rendert (clusters met kaarten). Klasse = CMS-tier; die select verschijnt alleen als
 // élke kaart in deze streek een tier heeft.
 const kaarten = roundup.clusters.filter((c) => c.kaarten.length > 0).flatMap((c) => c.kaarten);
+const portraitSlugs = new Set((await loadAccommodationPortraits()).filter((p) => p.streekSlug === streekSlug).map((p) => p.slug));
+for (const kaart of kaarten) if (portraitSlugs.has(kaart.slug)) kaart.portretHref = lh(`/accommodaties/${streekSlug}/${kaart.slug}/`);
 const collator = new Intl.Collator(locale);
 const plaatsTelling = new Map<string, number>();
 for (const k of kaarten) { const pk = plaatsKort(k.plaats); if (pk) plaatsTelling.set(pk, (plaatsTelling.get(pk) ?? 0) + 1); }
