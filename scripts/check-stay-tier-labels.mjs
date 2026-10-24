@@ -36,6 +36,12 @@ export const TIER_NAMES = [
 // is geen UI-label; die tekst komt uit Directus en hoort niet in deze gate.
 const PROSE_EMPHASIS = new Set(['strong', 'b', 'em', 'i']);
 
+// Een tussenkop in de artikelbody ("## Pure luxe" in Directus) en de link daarnaar
+// in de inhoudsopgave zijn redactionele koppen, geen tierbadge (LAT-14830: het
+// Priorat-artikel "waar slapen" hield drie deploys rood). Alleen los-label wordt
+// hier overgeslagen; dubbel-label in een tiergroep blijft gelden.
+const PROSE_CONTAINERS = ['article-prose', 'toc-list'];
+
 const VOID = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr']);
 const RAW = new Set(['script', 'style', 'template', 'noscript', 'textarea']);
 
@@ -66,6 +72,7 @@ export function scanHtml(html) {
   // Onzichtbaar voor iedereen (hidden + aria-hidden): de verborgen <select> achter
   // de segmented control op /accommodaties/<streek>/ is statusopslag, geen label.
   const inHidden = () => stack.some((e) => e.hidden);
+  const inProse = () => stack.some((e) => e.prose);
   const inGroupHead = () => {
     for (let i = stack.length - 1; i >= 0; i--) {
       if (stack[i].group) return false;
@@ -106,6 +113,7 @@ export function scanHtml(html) {
         tag,
         icon: false,
         group: classes.includes('acc-roundup__category') || /\bdata-stay-tier-group\b/i.test(attrs),
+        prose: classes.some((c) => PROSE_CONTAINERS.includes(c)),
         hidden: /(^|\s)hidden(\s|=|$)/i.test(attrs) && /aria-hidden\s*=\s*["']?true/i.test(attrs),
         head: tag === 'header' || /^h[1-6]$/.test(tag) || classes.some((c) => c.endsWith('-head')),
       });
@@ -117,7 +125,7 @@ export function scanHtml(html) {
     if (parent.tag === 'title' || PROSE_EMPHASIS.has(parent.tag) || inHidden()) continue;
     if (inGroup() && !inGroupHead()) {
       findings.push({ kind: 'dubbel-label', label, context: ctx(m.index) });
-    } else if (!parent.icon) {
+    } else if (!parent.icon && !inProse()) {
       findings.push({ kind: 'los-label', label, context: ctx(m.index) });
     }
   }
