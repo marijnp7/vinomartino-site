@@ -58,8 +58,14 @@ const accomPlanning = streek?.accomPlanning ?? [];
 // rendert (clusters met kaarten). Klasse = CMS-tier; die select verschijnt alleen als
 // élke kaart in deze streek een tier heeft.
 const kaarten = roundup.clusters.filter((c) => c.kaarten.length > 0).flatMap((c) => c.kaarten);
-const portraitSlugs = new Set((await loadAccommodationPortraits()).filter((p) => p.streekSlug === streekSlug).map((p) => p.slug));
-for (const kaart of kaarten) if (portraitSlugs.has(kaart.slug)) kaart.portretHref = lh(`/accommodaties/${streekSlug}/${kaart.slug}/`);
+// LAT-13896: kaart.slug is niet altijd accommodations.slug (Constantia Vista: kaart
+// 'constantia-vista-guest-house', rij 'constantia-vista'); match ook op naam en link naar de portretslug.
+const naamSleutel = (s: string) => s.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+const portretten = (await loadAccommodationPortraits()).filter((p) => p.streekSlug === streekSlug);
+for (const kaart of kaarten) {
+  const portret = portretten.find((p) => p.slug === kaart.slug || naamSleutel(p.name) === naamSleutel(kaart.naam));
+  if (portret) kaart.portretHref = lh(`/accommodaties/${streekSlug}/${portret.slug}/`);
+}
 const collator = new Intl.Collator(locale);
 const plaatsTelling = new Map<string, number>();
 for (const k of kaarten) { const pk = plaatsKort(k.plaats); if (pk) plaatsTelling.set(pk, (plaatsTelling.get(pk) ?? 0) + 1); }
